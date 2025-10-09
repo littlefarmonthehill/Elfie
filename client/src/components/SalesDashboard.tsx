@@ -42,14 +42,14 @@ export default function SalesDashboard() {
   const average = Math.round(data.reduce((sum, d) => sum + d.sales, 0) / data.length);
 
   return (
-    <div className="p-3 space-y-2 bg-gradient-to-br from-lego-green/5 to-transparent rounded-lg border border-lego-green/10 shadow-[0_0_15px_rgba(34,197,94,0.1)]">
+    <div className="p-2 space-y-1.5 bg-gradient-to-br from-lego-green/5 to-transparent rounded-lg border border-lego-green/10 shadow-[0_0_15px_rgba(34,197,94,0.1)]">
       <h2 className="text-sm font-semibold text-gray-300">Sales Performance - {period.toUpperCase()}</h2>
       
-      <div className="bg-gray-900/50 border border-lego-green/20 rounded-lg p-4">
-        <div className="mb-2 text-xs text-gray-400">
+      <div className="bg-gray-900/50 border border-lego-green/20 rounded-lg p-2">
+        <div className="mb-1 text-xs text-gray-400">
           Average: <span className="text-lego-green font-mono font-semibold">${average.toLocaleString()}</span>
         </div>
-        <ResponsiveContainer width="100%" height={200}>
+        <ResponsiveContainer width="100%" height={120}>
           <LineChart data={data}>
             <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
             <XAxis dataKey="date" stroke="#9CA3AF" style={{ fontSize: '10px' }} />
