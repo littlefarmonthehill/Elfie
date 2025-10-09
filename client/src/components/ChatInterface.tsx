@@ -30,55 +30,17 @@ interface ChatInterfaceProps {
 }
 
 export default function ChatInterface({ dashboardContext, themeColor, prompts, onPromptAction, onItemClick, isExpanded = false, onToggleExpand }: ChatInterfaceProps) {
-  const colorClasses = {
-    red: {
-      gradient: 'from-lego-red/10',
-      glow: 'shadow-[0_0_20px_rgba(239,68,68,0.15)]',
-      border: 'border-lego-red/20',
-      icon: 'text-lego-red',
-      userBg: 'bg-lego-red',
-      button: 'bg-lego-red hover:bg-lego-red/90',
-      promptBg: 'bg-lego-red/20 hover:bg-lego-red/30 text-lego-red',
-    },
-    blue: {
-      gradient: 'from-lego-blue/10',
-      glow: 'shadow-[0_0_20px_rgba(59,130,246,0.15)]',
-      border: 'border-lego-blue/20',
-      icon: 'text-lego-blue',
-      userBg: 'bg-lego-blue',
-      button: 'bg-lego-blue hover:bg-lego-blue/90',
-      promptBg: 'bg-lego-blue/20 hover:bg-lego-blue/30 text-lego-blue',
-    },
-    yellow: {
-      gradient: 'from-lego-yellow/10',
-      glow: 'shadow-[0_0_20px_rgba(234,179,8,0.15)]',
-      border: 'border-lego-yellow/20',
-      icon: 'text-lego-yellow',
-      userBg: 'bg-lego-yellow text-black',
-      button: 'bg-lego-yellow text-black hover:bg-lego-yellow/90',
-      promptBg: 'bg-lego-yellow/20 hover:bg-lego-yellow/30 text-lego-yellow',
-    },
-    green: {
-      gradient: 'from-lego-green/10',
-      glow: 'shadow-[0_0_20px_rgba(34,197,94,0.15)]',
-      border: 'border-lego-green/20',
-      icon: 'text-lego-green',
-      userBg: 'bg-lego-green',
-      button: 'bg-lego-green hover:bg-lego-green/90',
-      promptBg: 'bg-lego-green/20 hover:bg-lego-green/30 text-lego-green',
-    },
-    orange: {
-      gradient: 'from-lego-orange/10',
-      glow: 'shadow-[0_0_20px_rgba(251,146,60,0.15)]',
-      border: 'border-lego-orange/20',
-      icon: 'text-lego-orange',
-      userBg: 'bg-lego-orange',
-      button: 'bg-lego-orange hover:bg-lego-orange/90',
-      promptBg: 'bg-lego-orange/20 hover:bg-lego-orange/30 text-lego-orange',
-    },
+  // Chat has its own distinct purple/violet color scheme
+  const colors = {
+    gradient: 'from-purple-500/20 via-violet-500/15 to-purple-600/10',
+    glow: 'shadow-[0_0_30px_rgba(168,85,247,0.25)]',
+    border: 'border-purple-500/30',
+    headerBg: 'bg-gray-900/95',
+    icon: 'text-purple-400',
+    userBg: 'bg-purple-600',
+    button: 'bg-purple-600 hover:bg-purple-700',
+    promptBg: 'bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30',
   };
-
-  const colors = colorClasses[themeColor];
   // TODO: remove mock functionality - replace with real OpenRouter integration
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
@@ -169,19 +131,21 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
   };
 
   return (
-    <div className={`flex flex-col h-full border-t ${colors.border} bg-gradient-to-br ${colors.gradient} to-transparent ${colors.glow}`}>
-      <div className={`flex items-center justify-between gap-2 p-3 border-b ${colors.border}`}>
+    <div className={`flex flex-col h-full border-t-4 ${colors.border} bg-gradient-to-br ${colors.gradient} to-transparent ${colors.glow}`}>
+      <div className={`flex items-center justify-between gap-2 p-3 border-b-2 ${colors.border} ${colors.headerBg} backdrop-blur-sm`}>
         <div className="flex items-center gap-2">
-          <Bot className={`h-4 w-4 ${colors.icon}`} />
-          <span className="text-xs font-semibold text-gray-300">E.L.F.I.E.</span>
-          <span className="text-xs text-gray-500">- {dashboardContext} Assistant</span>
+          <div className="flex items-center gap-2 px-2 py-1 rounded-full bg-purple-500/20 border border-purple-500/30">
+            <Bot className={`h-4 w-4 ${colors.icon}`} />
+            <span className="text-sm font-bold text-purple-300">E.L.F.I.E.</span>
+          </div>
+          <span className="text-xs text-gray-400">AI Assistant</span>
         </div>
         {onToggleExpand && (
           <Button
             size="icon"
             variant="ghost"
             onClick={onToggleExpand}
-            className="h-6 w-6"
+            className="h-7 w-7 hover:bg-purple-500/20"
             data-testid="button-toggle-chat"
           >
             {isExpanded ? (
@@ -205,7 +169,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
                 className={`max-w-[80%] rounded-lg p-3 text-xs ${
                   message.role === 'user'
                     ? colors.userBg + ' text-white'
-                    : 'bg-gray-800 text-gray-300'
+                    : 'bg-gray-800/80 text-gray-300 border border-purple-500/20'
                 }`}
               >
                 {message.content}
@@ -215,7 +179,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
                       <button
                         key={idx}
                         onClick={() => onItemClick?.(item.type, item.id)}
-                        className={`block w-full text-left px-2 py-1.5 rounded text-xs ${colors.promptBg} transition-colors`}
+                        className={`block w-full text-left px-3 py-1.5 rounded-md text-xs ${colors.promptBg} transition-colors`}
                         data-testid={`item-${item.type}-${item.id}`}
                       >
                         {item.type === 'order' && item.orderNumber ? (
@@ -246,14 +210,14 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
         </div>
       </ScrollArea>
       
-      <div className={`border-t-2 ${colors.border}`}>
+      <div className={`border-t-2 ${colors.border} bg-gray-900/50 backdrop-blur-sm`}>
         <div className="flex gap-2 p-3">
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSend()}
             placeholder="Ask E.L.F.I.E. for help..."
-            className="text-xs"
+            className="text-xs bg-gray-800/80 border-purple-500/30 focus-visible:ring-purple-500/50"
             data-testid="input-chat"
           />
           <Button size="icon" onClick={() => handleSend()} className={colors.button} data-testid="button-send">
@@ -261,12 +225,12 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
           </Button>
         </div>
         {prompts.length > 0 && (
-          <div className="flex gap-2 flex-wrap p-3 pt-0 pb-3">
+          <div className="flex gap-2 flex-wrap p-3 pt-0 pb-3 border-t border-purple-500/20">
             {prompts.map((prompt) => (
               <button
                 key={prompt}
                 onClick={() => handlePromptClick(prompt)}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${colors.promptBg}`}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${colors.promptBg}`}
                 data-testid={`prompt-${prompt.toLowerCase().replace(/\s/g, '-')}`}
               >
                 {prompt}
