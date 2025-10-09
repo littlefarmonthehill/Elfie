@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, Bot } from "lucide-react";
+import { Send, Bot, RefreshCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -11,6 +11,11 @@ interface ChatMessage {
     type: 'inventory' | 'order' | 'sales' | 'marketing';
     id: string;
     label: string;
+    orderNumber?: string;
+    customerName?: string;
+    date?: string;
+    total?: number;
+    isRepeatCustomer?: boolean;
   }>;
 }
 
@@ -115,9 +120,36 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
       } else if (dashboardContext.toLowerCase().includes('order') && (textToSend.toLowerCase().includes('open') || textToSend.toLowerCase().includes('awaiting'))) {
         assistantMessage.content = "Here are your open orders:";
         assistantMessage.items = [
-          { type: 'order', id: 'ord-1001', label: 'Order #1001 - $156.80 (BrickLink)' },
-          { type: 'order', id: 'ord-1002', label: 'Order #1002 - $89.50 (BrickOwl)' },
-          { type: 'order', id: 'ord-1003', label: 'Order #1003 - $245.00 (BrickLink)' },
+          { 
+            type: 'order', 
+            id: 'ord-1001', 
+            label: 'Order #1001',
+            orderNumber: '1001',
+            customerName: 'John Smith',
+            date: '2024-01-20',
+            total: 156.80,
+            isRepeatCustomer: true
+          },
+          { 
+            type: 'order', 
+            id: 'ord-1002', 
+            label: 'Order #1002',
+            orderNumber: '1002',
+            customerName: 'Sarah Johnson',
+            date: '2024-01-21',
+            total: 89.50,
+            isRepeatCustomer: false
+          },
+          { 
+            type: 'order', 
+            id: 'ord-1003', 
+            label: 'Order #1003',
+            orderNumber: '1003',
+            customerName: 'Michael Brown',
+            date: '2024-01-18',
+            total: 245.00,
+            isRepeatCustomer: true
+          },
         ];
       }
 
@@ -167,7 +199,23 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
                         className={`block w-full text-left px-2 py-1.5 rounded text-xs ${colors.promptBg} transition-colors`}
                         data-testid={`item-${item.type}-${item.id}`}
                       >
-                        {item.label}
+                        {item.type === 'order' && item.orderNumber ? (
+                          <div className="flex items-center gap-2">
+                            <div className="flex-shrink-0 w-4">
+                              {item.isRepeatCustomer && (
+                                <RefreshCcw className="h-3 w-3" />
+                              )}
+                            </div>
+                            <div className="flex-1 flex items-center justify-between gap-3">
+                              <span className="font-medium">#{item.orderNumber}</span>
+                              <span className="flex-1">{item.customerName}</span>
+                              <span className="text-gray-400">{item.date}</span>
+                              <span className="font-semibold">${item.total?.toFixed(2)}</span>
+                            </div>
+                          </div>
+                        ) : (
+                          item.label
+                        )}
                       </button>
                     ))}
                   </div>
