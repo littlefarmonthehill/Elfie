@@ -125,7 +125,10 @@ async function bricklinkRequest(endpoint: string): Promise<{ data: any; apiCalls
 
 export async function syncBricklinkCategories(): Promise<{ added: number; updated: number; apiCalls: number }> {
   try {
-    const { data: categories, apiCalls } = await bricklinkRequest('/categories');
+    const { data: responseData, apiCalls } = await bricklinkRequest('/categories');
+    
+    // BrickLink API returns data directly as an array
+    const categories = Array.isArray(responseData) ? responseData : [];
     
     let added = 0;
     let updated = 0;
@@ -156,7 +159,10 @@ export async function syncBricklinkCategories(): Promise<{ added: number; update
 
 export async function syncBricklinkColors(): Promise<{ added: number; updated: number; apiCalls: number }> {
   try {
-    const { data: colors, apiCalls } = await bricklinkRequest('/colors');
+    const { data: responseData, apiCalls } = await bricklinkRequest('/colors');
+    
+    // BrickLink API returns data directly as an array
+    const colors = Array.isArray(responseData) ? responseData : [];
     
     let added = 0;
     let updated = 0;
@@ -200,13 +206,13 @@ export async function syncBricklinkColors(): Promise<{ added: number; updated: n
 export async function syncBricklinkInventory(): Promise<{ added: number; updated: number; apiCalls: number }> {
   try {
     // Use the single /inventories endpoint to get all inventory in one call
-    const { data: inventories, apiCalls } = await bricklinkRequest('/inventories');
+    const { data: responseData, apiCalls } = await bricklinkRequest('/inventories');
     
     let added = 0;
     let updated = 0;
 
-    // Handle both single object and array responses
-    const items = Array.isArray(inventories) ? inventories : [inventories];
+    // BrickLink API returns data directly as an array
+    const items = Array.isArray(responseData) ? responseData : [];
 
     for (const item of items) {
       const existing = await db.select().from(blInventory).where(eq(blInventory.id, item.inventory_id));
