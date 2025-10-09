@@ -48,6 +48,9 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   // AI Settings
   const [aiEnabled, setAiEnabled] = useState(true);
   const [apiKey, setApiKey] = useState("");
+  const [selectedModel, setSelectedModel] = useState("openai/gpt-4o-mini");
+  const [availableModels, setAvailableModels] = useState<Array<{ id: string; name: string }>>([]);
+  const [loadingModels, setLoadingModels] = useState(false);
 
   const { data: settings } = useQuery<AppSettings>({
     queryKey: ['/api/settings'],
@@ -72,9 +75,30 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   useEffect(() => {
     if (settings) {
       setAiEnabled(settings.aiEnabled);
-      setApiKey(settings.openaiApiKey || "");
+      setApiKey(settings.openrouterApiKey || "");
+      setSelectedModel(settings.selectedModel || "openai/gpt-4o-mini");
     }
   }, [settings]);
+
+  const fetchModels = async (key: string) => {
+    if (!key) return;
+    setLoadingModels(true);
+    try {
+      const response = await fetch('/api/openrouter/models', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey: key }),
+      });
+      const data = await response.json();
+      if (data.models) {
+        setAvailableModels(data.models);
+      }
+    } catch (error) {
+      console.error('Failed to fetch models:', error);
+    } finally {
+      setLoadingModels(false);
+    }
+  };
 
   const handleExport = (type: 'inventory' | 'orders', format: 'csv' | 'xml') => {
     // TODO: Implement export functionality
@@ -453,7 +477,8 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                           setAiEnabled(checked);
                           updateSettingsMutation.mutate({ 
                             aiEnabled: checked,
-                            openaiApiKey: apiKey || null,
+                            openrouterApiKey: apiKey || null,
+                            selectedModel: selectedModel || null,
                           });
                         }}
                         data-testid="switch-ai-enabled"
@@ -463,38 +488,74 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                     <Separator className="bg-gray-700" />
 
                     <div className="space-y-2">
-                      <Label htmlFor="openai-api-key" className="text-xs text-gray-400">OpenAI API Key</Label>
+                      <Label htmlFor="openrouter-api-key" className="text-xs text-gray-400">OpenRouter API Key</Label>
                       <Input
-                        id="openai-api-key"
+                        id="openrouter-api-key"
                         type="password"
-                        placeholder="sk-..."
+                        placeholder="sk-or-v1-..."
                         value={apiKey}
                         onChange={(e) => setApiKey(e.target.value)}
                         onBlur={() => {
                           updateSettingsMutation.mutate({
                             aiEnabled,
-                            openaiApiKey: apiKey || null,
+                            openrouterApiKey: apiKey || null,
+                            selectedModel: selectedModel || null,
                           });
+                          if (apiKey) {
+                            fetchModels(apiKey);
+                          }
                         }}
                         className="text-xs font-mono"
-                        data-testid="input-openai-api-key"
+                        data-testid="input-openrouter-api-key"
                       />
                       <p className="text-xs text-gray-500">
                         Your API key is stored securely. Get one from{" "}
                         <a 
-                          href="https://platform.openai.com/api-keys" 
+                          href="https://openrouter.ai/keys" 
                           target="_blank" 
                           rel="noopener noreferrer"
                           className="text-purple-400 hover:text-purple-300"
                         >
-                          OpenAI Platform
+                          OpenRouter
                         </a>
                       </p>
                     </div>
 
+                    {apiKey && availableModels.length > 0 && (
+                      <div className="space-y-2">
+                        <Label htmlFor="ai-model" className="text-xs text-gray-400">Model</Label>
+                        <Select 
+                          value={selectedModel} 
+                          onValueChange={(value) => {
+                            setSelectedModel(value);
+                            updateSettingsMutation.mutate({
+                              aiEnabled,
+                              openrouterApiKey: apiKey || null,
+                              selectedModel: value,
+                            });
+                          }}
+                        >
+                          <SelectTrigger className="text-xs" data-testid="select-ai-model">
+                            <SelectValue placeholder="Select a model" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableModels.map((model) => (
+                              <SelectItem key={model.id} value={model.id}>
+                                {model.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    {loadingModels && (
+                      <p className="text-xs text-gray-400">Loading models...</p>
+                    )}
+
                     <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3">
                       <p className="text-xs text-purple-300">
-                        <strong>Using GPT-4o-mini:</strong> Fast and cost-effective model optimized for LEGO business operations
+                        <strong>Using OpenRouter:</strong> Access multiple AI models through a unified API
                       </p>
                     </div>
                   </div>

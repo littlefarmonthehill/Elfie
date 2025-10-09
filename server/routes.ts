@@ -100,9 +100,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const [newSettings] = await db
           .insert(appSettings)
           .values({
-            id: 'default',
             aiEnabled: true,
-            openaiApiKey: process.env.OPENAI_API_KEY || null,
+            openrouterApiKey: process.env.OPENROUTER_API_KEY || null,
+            selectedModel: 'openai/gpt-4o-mini',
           })
           .returning();
         
@@ -139,6 +139,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // OpenRouter Models Route
+  app.post("/api/openrouter/models", async (req, res) => {
+    try {
+      const { apiKey } = req.body;
+      
+      if (!apiKey) {
+        return res.status(400).json({ error: "API key required" });
+      }
+
+      const response = await fetch('https://openrouter.ai/api/v1/models', {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`OpenRouter API error: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      // Format models for the UI
+      const models = data.data.map((model: any) => ({
+        id: model.id,
+        name: model.name || model.id,
+      }));
+
+      res.json({ models });
+    } catch (error) {
+      console.error("Error fetching models:", error);
+      res.status(500).json({ error: "Failed to fetch models" });
+    }
+  });
+
   // E.L.F.I.E. Chat Route
   app.post("/api/chat", async (req, res) => {
     try {
@@ -157,12 +191,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const apiKey = settings?.openaiApiKey || process.env.OPENAI_API_KEY;
+      const apiKey = settings?.openrouterApiKey || process.env.OPENROUTER_API_KEY;
+      const model = settings?.selectedModel || 'openai/gpt-4o-mini';
       
       if (!apiKey) {
         return res.status(400).json({
-          error: "OpenAI API key not configured",
-          message: "Please configure your OpenAI API key in Settings.",
+          error: "OpenRouter API key not configured",
+          message: "Please configure your OpenRouter API key in Settings.",
         });
       }
 
@@ -179,14 +214,16 @@ Current context: ${context}
 
 Provide concise, actionable advice. When relevant, suggest specific actions the user can take in their PlanetBrick dashboard.`;
 
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${apiKey}`,
+          'HTTP-Referer': 'https://planetbrick.replit.app',
+          'X-Title': 'PlanetBrick',
         },
         body: JSON.stringify({
-          model: 'gpt-4o-mini',
+          model,
           messages: [
             { role: 'system', content: systemPrompt },
             ...messages
@@ -197,7 +234,7 @@ Provide concise, actionable advice. When relevant, suggest specific actions the 
       });
 
       if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.statusText}`);
+        throw new Error(`OpenRouter API error: ${response.statusText}`);
       }
 
       const data = await response.json();
