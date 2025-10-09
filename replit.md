@@ -1,0 +1,139 @@
+# PlanetBrick - LEGO Business Operations Dashboard
+
+## Overview
+
+PlanetBrick is a comprehensive business operations and analytics dashboard designed for LEGO reselling businesses. It integrates with BrickLink and ShipStation to provide real-time inventory management, order tracking, sales analytics, and marketing insights. The application features a dark-mode interface with LEGO-inspired color schemes and an AI chat assistant (E.L.F.I.E.) for operational guidance.
+
+## User Preferences
+
+Preferred communication style: Simple, everyday language.
+
+## System Architecture
+
+### Frontend Architecture
+
+**Technology Stack:**
+- **Framework:** React 18+ with TypeScript
+- **Build Tool:** Vite for fast development and optimized production builds
+- **Routing:** Wouter for lightweight client-side routing
+- **State Management:** TanStack Query (React Query) for server state management
+- **UI Framework:** Shadcn/ui components built on Radix UI primitives
+- **Styling:** Tailwind CSS with custom LEGO-themed color palette
+
+**Design System:**
+- Dark mode as primary theme with jet black backgrounds (#000000)
+- LEGO brand colors for dashboard sections:
+  - Dashboard: Red (0 85% 55%)
+  - Inventory: Blue (220 85% 55%)
+  - Orders: Orange (25 95% 55%)
+  - Marketing: Yellow (48 95% 55%)
+  - Sales: Green (140 70% 50%)
+- Typography: Inter/Roboto for UI, JetBrains Mono for metrics
+- Compact spacing using minimal size scale (text-xs to text-base)
+- Gradient backgrounds with LEGO colors at 10-20% opacity
+
+**Component Architecture:**
+- Modular dashboard system with tab-based navigation
+- Reusable metric cards for data visualization
+- Detail modals (drawer-based) for in-depth item views
+- Chat interface with purple/violet theme for AI assistant
+- Responsive design with mobile breakpoint at 768px
+
+### Backend Architecture
+
+**Server Framework:**
+- Express.js with TypeScript running on Node.js
+- ESM module system throughout the application
+
+**Database Layer:**
+- Drizzle ORM for type-safe database operations
+- Neon serverless PostgreSQL as the database provider
+- WebSocket support via ws library for real-time connections
+- Schema-driven design with separate tables for:
+  - User authentication
+  - BrickLink data (categories, colors, inventory)
+  - ShipStation orders and order details
+
+**API Design:**
+- RESTful endpoints under `/api` prefix
+- Sync endpoints for external service integration:
+  - `/api/sync/bricklink/inventory` - Syncs BrickLink inventory data
+  - `/api/sync/shipstation/orders` - Syncs ShipStation order data
+- In-memory storage implementation (MemStorage) for user management
+- Incremental sync strategy planned for external APIs
+
+**Development Features:**
+- Hot Module Replacement (HMR) via Vite in development
+- Request logging middleware with response time tracking
+- Error handling middleware for consistent error responses
+- Replit-specific plugins for development experience
+
+### Data Storage Solutions
+
+**Database Schema:**
+- `users` table: User authentication with UUID primary keys
+- `bl_categories` table: BrickLink product categories with sync timestamps
+- `bl_colors` table: BrickLink color definitions with RGB values
+- `bl_inventory` table: Inventory items with pricing, quantities, and metadata
+- `orders` table: Customer orders from multiple platforms
+- `order_details` table: Line items for orders
+
+**Data Synchronization:**
+- Incremental sync approach with timestamp tracking
+- Differential updates (added vs. updated records)
+- API call counting for rate limit management
+- Background sync capability via dedicated endpoints
+
+### Authentication & Authorization
+
+**Current Implementation:**
+- Basic user authentication structure in place
+- Username/password based authentication schema
+- UUID-based user identification
+- In-memory user storage (development phase)
+
+**Planned Enhancements:**
+- Session-based authentication with connect-pg-simple
+- Secure password hashing (schema prepared)
+- Protected API routes with user context
+
+### External Dependencies
+
+**Third-Party APIs:**
+- **BrickLink API:** Primary data source for LEGO inventory
+  - Categories and color definitions
+  - Inventory listings with pricing
+  - OAuth authentication required (not yet implemented)
+  
+- **ShipStation API:** Order management and fulfillment
+  - Order synchronization with customer details
+  - Shipping status tracking
+  - Basic authentication (API key + secret, not yet implemented)
+
+**AI Integration (Planned):**
+- OpenRouter API for E.L.F.I.E. chat assistant
+- Context-aware responses based on active dashboard
+- Action prompts for common operations
+
+**UI Libraries:**
+- Radix UI: Comprehensive component primitives (dialogs, dropdowns, tooltips, etc.)
+- Recharts: Data visualization for sales and order trends
+- Embla Carousel: Image carousels for product displays
+- date-fns: Date formatting and manipulation
+- Vaul: Drawer component for mobile-friendly modals
+
+**Development Tools:**
+- Drizzle Kit: Database migrations and schema management
+- tsx: TypeScript execution for development server
+- esbuild: Production server bundling
+- Replit plugins: Development banner, cartographer, runtime error overlay
+
+**Form Handling:**
+- React Hook Form with Zod validation
+- @hookform/resolvers for schema integration
+- drizzle-zod for database schema validation
+
+**Utility Libraries:**
+- clsx & tailwind-merge: Class name management
+- class-variance-authority: Component variant styling
+- nanoid: Unique ID generation
