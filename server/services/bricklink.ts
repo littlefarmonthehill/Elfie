@@ -240,9 +240,6 @@ export async function syncBricklinkColors(): Promise<{ added: number; updated: n
 
 export async function syncBricklinkInventory(): Promise<{ added: number; updated: number; apiCalls: number }> {
   try {
-    let added = 0;
-    let updated = 0;
-
     console.log('Starting BrickLink inventory sync (fetching ALL inventory without filters)...');
     
     // Fetch all inventory without status filters - BrickLink will return everything
@@ -251,38 +248,84 @@ export async function syncBricklinkInventory(): Promise<{ added: number; updated
     const items = Array.isArray(responseData) ? responseData : [];
     console.log(`Received ${items.length} total inventory items from BrickLink`);
     
-    if (items.length > 0) {
-      console.log(`First item sample:`, JSON.stringify(items[0]).substring(0, 200));
+    if (items.length === 0) {
+      console.log('No inventory items received from BrickLink');
+      return { added: 0, updated: 0, apiCalls };
+    }
+
+    console.log(`First item sample:`, JSON.stringify(items[0]).substring(0, 200));
     
-      for (const item of items) {
-        const existing = await db.select().from(blInventory).where(eq(blInventory.id, item.inventory_id));
+    // Get all existing inventory IDs in one query for comparison
+    const existingItems = await db.select({ id: blInventory.id }).from(blInventory);
+    const existingIds = new Set(existingItems.map(item => item.id));
+    
+    // Separate items into new and existing
+    const newItems = items.filter(item => !existingIds.has(item.inventory_id));
+    const existingItemsToCheck = items.filter(item => existingIds.has(item.inventory_id));
+    
+    console.log(`Processing: ${newItems.length} new items, ${existingItemsToCheck.length} existing items to check`);
+    
+    // Batch insert new items (PostgreSQL supports large batch inserts)
+    let added = 0;
+    if (newItems.length > 0) {
+      const BATCH_SIZE = 1000;
+      for (let i = 0; i < newItems.length; i += BATCH_SIZE) {
+        const batch = newItems.slice(i, i + BATCH_SIZE);
+        const values = batch.map(item => ({
+          id: item.inventory_id,
+          itemNo: item.item.no,
+          itemType: item.item.type,
+          colorId: item.color_id || 0,
+          quantity: item.quantity,
+          newOrUsed: item.new_or_used,
+          unitPrice: item.unit_price,
+          categoryId: item.item.category_id || 0,
+        }));
         
-        if (existing.length === 0) {
-          await db.insert(blInventory).values({
-            id: item.inventory_id,
-            itemNo: item.item.no,
-            itemType: item.item.type,
-            colorId: item.color_id || 0,
-            quantity: item.quantity,
-            newOrUsed: item.new_or_used,
-            unitPrice: item.unit_price,
-            categoryId: item.item.category_id || 0,
-          });
-          added++;
-        } else {
-          const needsUpdate = existing[0].quantity !== item.quantity || 
-                              existing[0].unitPrice !== item.unit_price;
-          if (needsUpdate) {
-            await db.update(blInventory)
-              .set({ 
-                quantity: item.quantity,
-                unitPrice: item.unit_price,
-                updatedAt: new Date() 
-              })
-              .where(eq(blInventory.id, item.inventory_id));
-            updated++;
-          }
+        await db.insert(blInventory).values(values);
+        added += batch.length;
+        console.log(`Inserted batch ${Math.floor(i / BATCH_SIZE) + 1}: ${added}/${newItems.length} new items`);
+      }
+    }
+    
+    // For existing items, check if they need updates (quantity or price changes)
+    let updated = 0;
+    if (existingItemsToCheck.length > 0) {
+      // Get full details of existing items that might need updates
+      const existingDetails = await db.select()
+        .from(blInventory)
+        .where(sql`${blInventory.id} = ANY(${existingItemsToCheck.map(i => i.inventory_id)})`);
+      
+      const existingMap = new Map(existingDetails.map(item => [item.id, item]));
+      
+      // Batch update items that have changed
+      const BATCH_SIZE = 500;
+      const itemsToUpdate = existingItemsToCheck.filter(item => {
+        const existing = existingMap.get(item.inventory_id);
+        return existing && (
+          existing.quantity !== item.quantity || 
+          existing.unitPrice !== item.unit_price
+        );
+      });
+      
+      console.log(`Found ${itemsToUpdate.length} items needing updates`);
+      
+      for (let i = 0; i < itemsToUpdate.length; i += BATCH_SIZE) {
+        const batch = itemsToUpdate.slice(i, i + BATCH_SIZE);
+        
+        // Update each item in the batch
+        for (const item of batch) {
+          await db.update(blInventory)
+            .set({ 
+              quantity: item.quantity,
+              unitPrice: item.unit_price,
+              updatedAt: new Date() 
+            })
+            .where(eq(blInventory.id, item.inventory_id));
+          updated++;
         }
+        
+        console.log(`Updated batch ${Math.floor(i / BATCH_SIZE) + 1}: ${updated}/${itemsToUpdate.length} items`);
       }
     }
 
