@@ -6,6 +6,8 @@ interface InventoryStats {
   totalParts: number;
   totalValue: number;
   totalCost: number;
+  totalColors: number;
+  totalCategories: number;
 }
 
 export default function InventoryDashboard() {
@@ -32,17 +34,25 @@ export default function InventoryDashboard() {
         <div>
           <h3 className="text-xs text-gray-500 mb-0.5">Quantities</h3>
           <div className="grid grid-cols-2 gap-1.5">
-            <MetricCard label="Lots" value={stats ? formatNumber(stats.totalLots) : '0'} color="blue" />
-            <MetricCard label="Parts" value={stats ? formatNumber(stats.totalParts) : '0'} color="blue" />
+            <MetricCard label="Lots" value={stats ? formatNumber(stats.totalLots) : '0'} color="blue" data-testid="metric-lots" />
+            <MetricCard label="Parts" value={stats ? formatNumber(stats.totalParts) : '0'} color="blue" data-testid="metric-parts" />
+          </div>
+        </div>
+
+        <div>
+          <h3 className="text-xs text-gray-500 mb-0.5">Inventory Info</h3>
+          <div className="grid grid-cols-2 gap-1.5">
+            <MetricCard label="Colors" value={stats ? formatNumber(stats.totalColors) : '0'} color="blue" data-testid="metric-colors" />
+            <MetricCard label="Categories" value={stats ? formatNumber(stats.totalCategories) : '0'} color="blue" data-testid="metric-categories" />
           </div>
         </div>
 
         <div>
           <h3 className="text-xs text-gray-500 mb-0.5">Values</h3>
           <div className="grid grid-cols-3 gap-1.5">
-            <MetricCard label="My Cost" value={stats ? formatCurrency(stats.totalCost) : '$0.00'} color="red" />
-            <MetricCard label="Listed" value={stats ? formatCurrency(stats.totalValue) : '$0.00'} color="blue" />
-            <MetricCard label="Profit Potential" value={formatCurrency(profitPotential)} color="green" />
+            <MetricCard label="My Cost" value={stats ? formatCurrency(stats.totalCost) : '$0.00'} color="red" data-testid="metric-cost" />
+            <MetricCard label="Listed" value={stats ? formatCurrency(stats.totalValue) : '$0.00'} color="blue" data-testid="metric-listed" />
+            <MetricCard label="Profit Potential" value={formatCurrency(profitPotential)} color="green" data-testid="metric-profit" />
           </div>
         </div>
       </div>

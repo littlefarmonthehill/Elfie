@@ -282,11 +282,21 @@ Provide concise, actionable advice. When relevant, suggest specific actions the 
         })
         .from(blInventory);
 
+      const colorCount = await db
+        .select({ count: sql<number>`COUNT(DISTINCT ${blInventory.colorId})` })
+        .from(blInventory);
+
+      const categoryCount = await db
+        .select({ count: sql<number>`COUNT(DISTINCT ${blInventory.categoryId})` })
+        .from(blInventory);
+
       res.json({
         totalLots: Number(stats[0]?.totalLots) || 0,
         totalParts: Number(stats[0]?.totalParts) || 0,
         totalValue: Number(stats[0]?.totalValue) || 0,
         totalCost: Number(stats[0]?.totalCost) || 0,
+        totalColors: Number(colorCount[0]?.count) || 0,
+        totalCategories: Number(categoryCount[0]?.count) || 0,
       });
     } catch (error) {
       console.error("Error fetching inventory stats:", error);
