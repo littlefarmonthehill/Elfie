@@ -292,6 +292,18 @@ Provide concise, actionable advice. When relevant, suggest specific actions the 
     }
   });
 
+  // Rate Limit Status
+  app.get("/api/bricklink/rate-limit", async (req, res) => {
+    try {
+      const { checkRateLimit } = await import("./services/bricklink");
+      const status = await checkRateLimit();
+      res.json(status);
+    } catch (error) {
+      console.error("Error checking rate limit:", error);
+      res.status(500).json({ error: "Failed to check rate limit" });
+    }
+  });
+
   // Sync Routes
   app.post("/api/sync/bricklink/inventory", async (req, res) => {
     try {

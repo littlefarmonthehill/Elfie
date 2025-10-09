@@ -100,6 +100,18 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
     }
   };
 
+  // Rate limit state
+  const { data: rateLimit } = useQuery<{
+    allowed: boolean;
+    callsLast24h: number;
+    warning?: string;
+    blocked?: boolean;
+  }>({
+    queryKey: ['/api/bricklink/rate-limit'],
+    enabled: open,
+    refetchInterval: 30000, // Refresh every 30 seconds when modal is open
+  });
+
   const handleExport = (type: 'inventory' | 'orders', format: 'csv' | 'xml') => {
     // TODO: Implement export functionality
     console.log(`Exporting ${type} as ${format}`);
@@ -112,6 +124,11 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   };
 
   const handleSyncInventory = async () => {
+    // Check rate limit before syncing
+    if (rateLimit?.blocked) {
+      return;
+    }
+    
     setSyncProgress({
       active: true,
       type: 'inventory',
@@ -150,16 +167,17 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
         setSyncProgress({
           active: true,
           type: 'inventory',
-          stage: 'Complete!',
+          stage: result.data.rateLimitWarning ? `Complete! ${result.data.rateLimitWarning}` : 'Complete!',
           progress: 100,
           apiCalls: result.data.totalApiCalls,
           recordsAdded: totalAdded,
           recordsUpdated: totalUpdated,
         });
 
-        // Invalidate inventory queries to refresh dashboard
+        // Invalidate inventory and rate limit queries to refresh dashboard and limits
         queryClient.invalidateQueries({ queryKey: ['/api/inventory'] });
         queryClient.invalidateQueries({ queryKey: ['/api/inventory/stats'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/bricklink/rate-limit'] });
       } else {
         throw new Error(result.error);
       }
@@ -403,13 +421,38 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
 
                 <div>
                   <h3 className="text-sm font-medium text-gray-300 mb-3">Manual Sync</h3>
+                  
+                  {/* Rate Limit Status */}
+                  {rateLimit && (
+                    <div className={`mb-3 p-2 rounded-lg border ${
+                      rateLimit.blocked 
+                        ? 'bg-red-500/10 border-red-500/30' 
+                        : rateLimit.warning 
+                        ? 'bg-yellow-500/10 border-yellow-500/30' 
+                        : 'bg-blue-500/10 border-blue-500/30'
+                    }`}>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-semibold text-gray-300">
+                          BrickLink API Usage: {rateLimit.callsLast24h.toLocaleString()}/5,000 (24h)
+                        </span>
+                      </div>
+                      {rateLimit.warning && (
+                        <p className={`text-xs ${
+                          rateLimit.blocked ? 'text-red-400' : 'text-yellow-400'
+                        }`}>
+                          {rateLimit.warning}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  
                   <div className="space-y-2">
                     <Button 
                       variant="outline" 
                       size="sm" 
                       className="w-full justify-start text-xs" 
                       onClick={handleSyncInventory}
-                      disabled={syncProgress.active}
+                      disabled={syncProgress.active || rateLimit?.blocked}
                       data-testid="button-sync-bricklink-inventory"
                     >
                       <RefreshCw className={`h-3 w-3 mr-2 ${syncProgress.active && syncProgress.type === 'inventory' ? 'animate-spin' : ''}`} />

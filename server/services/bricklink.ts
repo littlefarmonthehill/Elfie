@@ -1,6 +1,6 @@
 import { db } from "../db";
-import { blCategories, blColors, blInventory } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { blCategories, blColors, blInventory, blApiCalls } from "@shared/schema";
+import { eq, gte, sql } from "drizzle-orm";
 import OAuth from "oauth-1.0a";
 import crypto from "crypto";
 
@@ -12,6 +12,14 @@ export interface BricklinkSyncResult {
   inventoryAdded: number;
   inventoryUpdated: number;
   totalApiCalls: number;
+  rateLimitWarning?: string;
+}
+
+export interface RateLimitStatus {
+  allowed: boolean;
+  callsLast24h: number;
+  warning?: string;
+  blocked?: boolean;
 }
 
 // BrickLink OAuth setup
@@ -31,20 +39,69 @@ const token = {
   secret: process.env.BRICKLINK_TOKEN_SECRET || '',
 };
 
-async function bricklinkRequest(endpoint: string): Promise<{ data: any[], apiCalls: number }> {
+// Check rate limit status for the last 24 hours
+export async function checkRateLimit(): Promise<RateLimitStatus> {
+  const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  
+  const recentCalls = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(blApiCalls)
+    .where(gte(blApiCalls.timestamp, twentyFourHoursAgo));
+  
+  const callsLast24h = Number(recentCalls[0]?.count) || 0;
+  
+  // Block at 4750 calls
+  if (callsLast24h >= 4750) {
+    return {
+      allowed: false,
+      callsLast24h,
+      blocked: true,
+      warning: `API limit reached: ${callsLast24h}/5000 calls in 24 hours. Please wait before syncing again.`,
+    };
+  }
+  
+  // Warn at 2500 calls
+  if (callsLast24h >= 2500) {
+    return {
+      allowed: true,
+      callsLast24h,
+      warning: `API usage warning: ${callsLast24h}/5000 calls in 24 hours. Approaching rate limit.`,
+    };
+  }
+  
+  return {
+    allowed: true,
+    callsLast24h,
+  };
+}
+
+// Track an API call
+async function trackApiCall(endpoint: string, success: boolean = true): Promise<void> {
+  await db.insert(blApiCalls).values({
+    endpoint,
+    success,
+  });
+}
+
+// Make a BrickLink API request with rate limiting
+async function bricklinkRequest(endpoint: string): Promise<{ data: any; apiCalls: number }> {
   if (!process.env.BRICKLINK_CONSUMER_KEY || !process.env.BRICKLINK_CONSUMER_SECRET || 
       !process.env.BRICKLINK_TOKEN_VALUE || !process.env.BRICKLINK_TOKEN_SECRET) {
     throw new Error('BrickLink credentials not configured. Please add them in Settings.');
   }
 
-  let allResults: any[] = [];
-  let currentUrl = `https://api.bricklink.com/api/store/v1${endpoint}`;
-  let apiCalls = 0;
+  // Check rate limit before making request
+  const rateLimit = await checkRateLimit();
+  if (!rateLimit.allowed) {
+    throw new Error(rateLimit.warning || 'API rate limit exceeded');
+  }
+
+  const url = `https://api.bricklink.com/api/store/v1${endpoint}`;
+  const authHeader = oauth.toHeader(oauth.authorize({ url, method: 'GET' }, token));
   
-  while (currentUrl) {
-    const authHeader = oauth.toHeader(oauth.authorize({ url: currentUrl, method: 'GET' }, token));
-    
-    const response = await fetch(currentUrl, {
+  let success = false;
+  try {
+    const response = await fetch(url, {
       method: 'GET',
       headers: {
         ...authHeader,
@@ -52,28 +109,18 @@ async function bricklinkRequest(endpoint: string): Promise<{ data: any[], apiCal
       },
     });
 
-    apiCalls++;
+    success = response.ok;
 
     if (!response.ok) {
       throw new Error(`BrickLink API error: ${response.statusText}`);
     }
 
     const json = await response.json();
-    const data = json.data;
-    const meta = json.meta;
-    
-    // Accumulate results
-    if (Array.isArray(data)) {
-      allResults = allResults.concat(data);
-    } else {
-      allResults.push(data);
-    }
-    
-    // Check for next page
-    currentUrl = meta?.next ? `https://api.bricklink.com${meta.next}` : '';
+    return { data: json.data, apiCalls: 1 };
+  } finally {
+    // Track the API call exactly once, regardless of success or failure
+    await trackApiCall(endpoint, success);
   }
-  
-  return { data: allResults, apiCalls };
 }
 
 export async function syncBricklinkCategories(): Promise<{ added: number; updated: number; apiCalls: number }> {
@@ -152,12 +199,16 @@ export async function syncBricklinkColors(): Promise<{ added: number; updated: n
 
 export async function syncBricklinkInventory(): Promise<{ added: number; updated: number; apiCalls: number }> {
   try {
+    // Use the single /inventories endpoint to get all inventory in one call
     const { data: inventories, apiCalls } = await bricklinkRequest('/inventories');
     
     let added = 0;
     let updated = 0;
 
-    for (const item of inventories) {
+    // Handle both single object and array responses
+    const items = Array.isArray(inventories) ? inventories : [inventories];
+
+    for (const item of items) {
       const existing = await db.select().from(blInventory).where(eq(blInventory.id, item.inventory_id));
       
       if (existing.length === 0) {
@@ -196,10 +247,15 @@ export async function syncBricklinkInventory(): Promise<{ added: number; updated
 }
 
 export async function syncBricklinkData(): Promise<BricklinkSyncResult> {
+  // Check rate limit before starting sync
+  const rateLimit = await checkRateLimit();
+  
   // Sync in order: categories, colors, then inventory
   const categoriesResult = await syncBricklinkCategories();
   const colorsResult = await syncBricklinkColors();
   const inventoryResult = await syncBricklinkInventory();
+
+  const totalApiCalls = categoriesResult.apiCalls + colorsResult.apiCalls + inventoryResult.apiCalls;
 
   return {
     categoriesAdded: categoriesResult.added,
@@ -208,6 +264,7 @@ export async function syncBricklinkData(): Promise<BricklinkSyncResult> {
     colorsUpdated: colorsResult.updated,
     inventoryAdded: inventoryResult.added,
     inventoryUpdated: inventoryResult.updated,
-    totalApiCalls: categoriesResult.apiCalls + colorsResult.apiCalls + inventoryResult.apiCalls,
+    totalApiCalls,
+    rateLimitWarning: rateLimit.warning,
   };
 }

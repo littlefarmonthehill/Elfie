@@ -160,3 +160,19 @@ export const insertAppSettingsSchema = createInsertSchema(appSettings).omit({
 
 export type InsertAppSettings = z.infer<typeof insertAppSettingsSchema>;
 export type AppSettings = typeof appSettings.$inferSelect;
+
+// BrickLink API Call Tracking
+export const blApiCalls = pgTable("bl_api_calls", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  endpoint: text("endpoint").notNull(),
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+  success: boolean("success").default(true).notNull(),
+});
+
+export const insertBlApiCallSchema = createInsertSchema(blApiCalls).omit({
+  id: true,
+  timestamp: true,
+});
+
+export type InsertBlApiCall = z.infer<typeof insertBlApiCallSchema>;
+export type BlApiCall = typeof blApiCalls.$inferSelect;
