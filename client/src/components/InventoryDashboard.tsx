@@ -13,8 +13,6 @@ export default function InventoryDashboard() {
 
   return (
     <div className="p-2 space-y-1.5 bg-gradient-to-br from-lego-blue/5 to-transparent rounded-lg border border-lego-blue/10 shadow-[0_0_15px_rgba(59,130,246,0.1)]">
-      <h2 className="text-sm font-semibold text-gray-300">Inventory Overview</h2>
-      
       <div className="space-y-1.5">
         <div>
           <h3 className="text-xs text-gray-500 mb-0.5">Quantities</h3>

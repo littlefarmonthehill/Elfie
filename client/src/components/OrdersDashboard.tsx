@@ -18,8 +18,6 @@ export default function OrdersDashboard() {
 
   return (
     <div className="p-2 space-y-1.5 bg-gradient-to-br from-lego-orange/5 to-transparent rounded-lg border border-lego-orange/10 shadow-[0_0_15px_rgba(251,146,60,0.1)]">
-      <h2 className="text-sm font-semibold text-gray-300">Trending Orders by Platform</h2>
-      
       <div className="bg-gray-900/50 border border-lego-orange/20 rounded-lg p-2">
         <div className="mb-1 text-xs text-gray-400">
           Today's Total: <span className="text-lego-orange font-mono font-semibold">{total} orders</span>

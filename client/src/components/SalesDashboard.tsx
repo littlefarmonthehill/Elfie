@@ -43,8 +43,6 @@ export default function SalesDashboard({ period }: SalesDashboardProps) {
 
   return (
     <div className="p-2 space-y-1.5 bg-gradient-to-br from-lego-green/5 to-transparent rounded-lg border border-lego-green/10 shadow-[0_0_15px_rgba(34,197,94,0.1)]">
-      <h2 className="text-sm font-semibold text-gray-300">Sales Performance - {period.toUpperCase()}</h2>
-      
       <div className="bg-gray-900/50 border border-lego-green/20 rounded-lg p-2">
         <div className="mb-1 text-xs text-gray-400">
           Average: <span className="text-lego-green font-mono font-semibold">${average.toLocaleString()}</span>
