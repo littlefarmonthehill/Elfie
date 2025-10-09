@@ -44,7 +44,7 @@ export default function Home() {
       <DashboardNav active={activeDashboard} onSelect={setActiveDashboard} />
       
       <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="h-[40vh] overflow-y-auto">
+        <div className="h-1/2 overflow-y-auto">
           {renderDashboard()}
         </div>
         
