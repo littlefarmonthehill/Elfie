@@ -11,9 +11,46 @@ interface ChatMessage {
 
 interface ChatInterfaceProps {
   dashboardContext: string;
+  themeColor: 'red' | 'blue' | 'yellow' | 'green';
 }
 
-export default function ChatInterface({ dashboardContext }: ChatInterfaceProps) {
+export default function ChatInterface({ dashboardContext, themeColor }: ChatInterfaceProps) {
+  const colorClasses = {
+    red: {
+      gradient: 'from-lego-red/10',
+      glow: 'shadow-[0_0_20px_rgba(239,68,68,0.15)]',
+      border: 'border-lego-red/20',
+      icon: 'text-lego-red',
+      userBg: 'bg-lego-red',
+      button: 'bg-lego-red hover:bg-lego-red/90',
+    },
+    blue: {
+      gradient: 'from-lego-blue/10',
+      glow: 'shadow-[0_0_20px_rgba(59,130,246,0.15)]',
+      border: 'border-lego-blue/20',
+      icon: 'text-lego-blue',
+      userBg: 'bg-lego-blue',
+      button: 'bg-lego-blue hover:bg-lego-blue/90',
+    },
+    yellow: {
+      gradient: 'from-lego-yellow/10',
+      glow: 'shadow-[0_0_20px_rgba(234,179,8,0.15)]',
+      border: 'border-lego-yellow/20',
+      icon: 'text-lego-yellow',
+      userBg: 'bg-lego-yellow text-black',
+      button: 'bg-lego-yellow text-black hover:bg-lego-yellow/90',
+    },
+    green: {
+      gradient: 'from-lego-green/10',
+      glow: 'shadow-[0_0_20px_rgba(34,197,94,0.15)]',
+      border: 'border-lego-green/20',
+      icon: 'text-lego-green',
+      userBg: 'bg-lego-green',
+      button: 'bg-lego-green hover:bg-lego-green/90',
+    },
+  };
+
+  const colors = colorClasses[themeColor];
   // TODO: remove mock functionality - replace with real OpenRouter integration
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
@@ -42,9 +79,9 @@ export default function ChatInterface({ dashboardContext }: ChatInterfaceProps) 
   };
 
   return (
-    <div className="flex flex-col h-full border-t border-gray-800 bg-gradient-to-br from-gray-900/30 to-transparent">
-      <div className="flex items-center gap-2 p-3 border-b border-gray-800">
-        <Bot className="h-4 w-4 text-lego-blue" />
+    <div className={`flex flex-col h-full border-t ${colors.border} bg-gradient-to-br ${colors.gradient} to-transparent ${colors.glow}`}>
+      <div className={`flex items-center gap-2 p-3 border-b ${colors.border}`}>
+        <Bot className={`h-4 w-4 ${colors.icon}`} />
         <span className="text-xs font-semibold text-gray-300">E.L.F.I.E.</span>
         <span className="text-xs text-gray-500">- {dashboardContext} Assistant</span>
       </div>
@@ -60,7 +97,7 @@ export default function ChatInterface({ dashboardContext }: ChatInterfaceProps) 
               <div
                 className={`max-w-[80%] rounded-lg p-3 text-xs ${
                   message.role === 'user'
-                    ? 'bg-lego-blue text-white'
+                    ? colors.userBg + ' text-white'
                     : 'bg-gray-800 text-gray-300'
                 }`}
               >
@@ -71,17 +108,17 @@ export default function ChatInterface({ dashboardContext }: ChatInterfaceProps) 
         </div>
       </ScrollArea>
       
-      <div className="p-3 border-t border-gray-800">
+      <div className={`p-3 border-t ${colors.border}`}>
         <div className="flex gap-2">
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSend()}
             placeholder="Ask E.L.F.I.E. for help..."
-            className="text-xs"
+            className={`text-xs border-${themeColor === 'red' ? 'lego-red' : themeColor === 'blue' ? 'lego-blue' : themeColor === 'yellow' ? 'lego-yellow' : 'lego-green'}/30`}
             data-testid="input-chat"
           />
-          <Button size="icon" onClick={handleSend} data-testid="button-send">
+          <Button size="icon" onClick={handleSend} className={colors.button} data-testid="button-send">
             <Send className="h-4 w-4" />
           </Button>
         </div>

@@ -38,6 +38,19 @@ export default function Home() {
     }
   };
 
+  const getThemeColor = (): 'red' | 'blue' | 'yellow' | 'green' => {
+    switch (activeDashboard) {
+      case 'inventory':
+        return 'blue';
+      case 'sales':
+        return 'green';
+      case 'marketing':
+        return 'yellow';
+      default:
+        return 'red';
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen bg-background text-foreground">
       <Header onSettingsClick={() => setSettingsOpen(true)} />
@@ -49,7 +62,7 @@ export default function Home() {
         </div>
         
         <div className="flex-1 overflow-hidden">
-          <ChatInterface dashboardContext={getChatContext()} />
+          <ChatInterface dashboardContext={getChatContext()} themeColor={getThemeColor()} />
         </div>
       </div>
       
