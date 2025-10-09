@@ -143,3 +143,19 @@ export const insertOrderDetailSchema = createInsertSchema(orderDetails).omit({
 
 export type InsertOrderDetail = z.infer<typeof insertOrderDetailSchema>;
 export type OrderDetail = typeof orderDetails.$inferSelect;
+
+// App Settings
+export const appSettings = pgTable("app_settings", {
+  id: varchar("id").primaryKey().default('default'),
+  aiEnabled: boolean("ai_enabled").default(true).notNull(),
+  openaiApiKey: text("openai_api_key"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertAppSettingsSchema = createInsertSchema(appSettings).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export type InsertAppSettings = z.infer<typeof insertAppSettingsSchema>;
+export type AppSettings = typeof appSettings.$inferSelect;

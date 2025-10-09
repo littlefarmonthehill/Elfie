@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { syncBricklinkData } from "./services/bricklink";
 import { syncShipStationOrders } from "./services/shipstation";
 import { db } from "./db";
-import { orders, orderDetails, blInventory, blCategories, blColors } from "@shared/schema";
+import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema } from "@shared/schema";
 import { eq, desc, sql, inArray } from "drizzle-orm";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -87,13 +87,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Settings Routes
+  app.get("/api/settings", async (req, res) => {
+    try {
+      const [settings] = await db
+        .select()
+        .from(appSettings)
+        .limit(1);
+
+      if (!settings) {
+        // Initialize with environment variable if not exists
+        const [newSettings] = await db
+          .insert(appSettings)
+          .values({
+            id: 'default',
+            aiEnabled: true,
+            openaiApiKey: process.env.OPENAI_API_KEY || null,
+          })
+          .returning();
+        
+        return res.json(newSettings);
+      }
+
+      res.json(settings);
+    } catch (error) {
+      console.error("Error fetching settings:", error);
+      res.status(500).json({ error: "Failed to fetch settings" });
+    }
+  });
+
+  app.post("/api/settings", async (req, res) => {
+    try {
+      const data = insertAppSettingsSchema.parse(req.body);
+      
+      const [settings] = await db
+        .insert(appSettings)
+        .values({ ...data, id: 'default' })
+        .onConflictDoUpdate({
+          target: appSettings.id,
+          set: {
+            ...data,
+            updatedAt: sql`CURRENT_TIMESTAMP`,
+          },
+        })
+        .returning();
+
+      res.json(settings);
+    } catch (error) {
+      console.error("Error updating settings:", error);
+      res.status(500).json({ error: "Failed to update settings" });
+    }
+  });
+
   // E.L.F.I.E. Chat Route
   app.post("/api/chat", async (req, res) => {
     try {
       const { messages, context } = req.body;
       
-      if (!process.env.OPENAI_API_KEY) {
-        throw new Error('OpenAI API key not configured');
+      // Get API key from settings
+      const [settings] = await db
+        .select()
+        .from(appSettings)
+        .limit(1);
+
+      if (!settings?.aiEnabled) {
+        return res.status(400).json({
+          error: "AI assistant is disabled",
+          message: "The AI assistant is currently disabled. Please enable it in Settings.",
+        });
+      }
+
+      const apiKey = settings?.openaiApiKey || process.env.OPENAI_API_KEY;
+      
+      if (!apiKey) {
+        return res.status(400).json({
+          error: "OpenAI API key not configured",
+          message: "Please configure your OpenAI API key in Settings.",
+        });
       }
 
       const systemPrompt = `You are E.L.F.I.E. (Expert LEGO Fulfillment & Inventory Engine), an AI assistant specialized in LEGO reselling business operations. 
@@ -113,7 +183,7 @@ Provide concise, actionable advice. When relevant, suggest specific actions the 
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Authorization': `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
           model: 'gpt-4o-mini',
