@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 
-export type DashboardType = 'dashboard' | 'inventory' | 'marketing' | 'sales';
+export type DashboardType = 'dashboard' | 'inventory' | 'orders' | 'marketing' | 'sales';
 
 interface DashboardNavProps {
   active: DashboardType;
@@ -10,6 +10,7 @@ interface DashboardNavProps {
 const dashboards = [
   { id: 'dashboard' as const, label: 'Dashboard', color: 'lego-red' },
   { id: 'inventory' as const, label: 'Inventory', color: 'lego-blue' },
+  { id: 'orders' as const, label: 'Orders', color: 'lego-orange' },
   { id: 'marketing' as const, label: 'Marketing', color: 'lego-yellow' },
   { id: 'sales' as const, label: 'Sales', color: 'lego-green' },
 ];
@@ -37,6 +38,8 @@ export default function DashboardNav({ active, onSelect }: DashboardNavProps) {
               !isActive && dashboard.color === 'lego-yellow' && "text-lego-yellow/60 hover:bg-lego-yellow/30",
               isActive && dashboard.color === 'lego-green' && "bg-lego-green text-white",
               !isActive && dashboard.color === 'lego-green' && "text-lego-green/60 hover:bg-lego-green/30",
+              isActive && dashboard.color === 'lego-orange' && "bg-lego-orange text-white",
+              !isActive && dashboard.color === 'lego-orange' && "text-lego-orange/60 hover:bg-lego-orange/30",
             )}
           >
             {dashboard.label}

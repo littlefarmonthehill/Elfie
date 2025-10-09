@@ -11,10 +11,11 @@ interface ChatMessage {
 
 interface ChatInterfaceProps {
   dashboardContext: string;
-  themeColor: 'red' | 'blue' | 'yellow' | 'green';
+  themeColor: 'red' | 'blue' | 'yellow' | 'green' | 'orange';
+  prompts: string[];
 }
 
-export default function ChatInterface({ dashboardContext, themeColor }: ChatInterfaceProps) {
+export default function ChatInterface({ dashboardContext, themeColor, prompts }: ChatInterfaceProps) {
   const colorClasses = {
     red: {
       gradient: 'from-lego-red/10',
@@ -23,6 +24,7 @@ export default function ChatInterface({ dashboardContext, themeColor }: ChatInte
       icon: 'text-lego-red',
       userBg: 'bg-lego-red',
       button: 'bg-lego-red hover:bg-lego-red/90',
+      promptBg: 'bg-lego-red/20 hover:bg-lego-red/30 text-lego-red',
     },
     blue: {
       gradient: 'from-lego-blue/10',
@@ -31,6 +33,7 @@ export default function ChatInterface({ dashboardContext, themeColor }: ChatInte
       icon: 'text-lego-blue',
       userBg: 'bg-lego-blue',
       button: 'bg-lego-blue hover:bg-lego-blue/90',
+      promptBg: 'bg-lego-blue/20 hover:bg-lego-blue/30 text-lego-blue',
     },
     yellow: {
       gradient: 'from-lego-yellow/10',
@@ -39,6 +42,7 @@ export default function ChatInterface({ dashboardContext, themeColor }: ChatInte
       icon: 'text-lego-yellow',
       userBg: 'bg-lego-yellow text-black',
       button: 'bg-lego-yellow text-black hover:bg-lego-yellow/90',
+      promptBg: 'bg-lego-yellow/20 hover:bg-lego-yellow/30 text-lego-yellow',
     },
     green: {
       gradient: 'from-lego-green/10',
@@ -47,6 +51,16 @@ export default function ChatInterface({ dashboardContext, themeColor }: ChatInte
       icon: 'text-lego-green',
       userBg: 'bg-lego-green',
       button: 'bg-lego-green hover:bg-lego-green/90',
+      promptBg: 'bg-lego-green/20 hover:bg-lego-green/30 text-lego-green',
+    },
+    orange: {
+      gradient: 'from-lego-orange/10',
+      glow: 'shadow-[0_0_20px_rgba(251,146,60,0.15)]',
+      border: 'border-lego-orange/20',
+      icon: 'text-lego-orange',
+      userBg: 'bg-lego-orange',
+      button: 'bg-lego-orange hover:bg-lego-orange/90',
+      promptBg: 'bg-lego-orange/20 hover:bg-lego-orange/30 text-lego-orange',
     },
   };
 
@@ -60,17 +74,18 @@ export default function ChatInterface({ dashboardContext, themeColor }: ChatInte
   ]);
   const [input, setInput] = useState('');
 
-  const handleSend = () => {
-    if (!input.trim()) return;
+  const handleSend = (message?: string) => {
+    const textToSend = message || input;
+    if (!textToSend.trim()) return;
     
-    const userMessage: ChatMessage = { role: 'user', content: input };
+    const userMessage: ChatMessage = { role: 'user', content: textToSend };
     setMessages(prev => [...prev, userMessage]);
     
     // Mock response
     setTimeout(() => {
       const assistantMessage: ChatMessage = {
         role: 'assistant',
-        content: `I understand you're asking about "${input}". This is a demo response. In the full version, I'll provide detailed ${dashboardContext} insights and recommendations based on your data.`
+        content: `I understand you're asking about "${textToSend}". This is a demo response. In the full version, I'll provide detailed ${dashboardContext} insights and recommendations based on your data.`
       };
       setMessages(prev => [...prev, assistantMessage]);
     }, 500);
@@ -78,12 +93,32 @@ export default function ChatInterface({ dashboardContext, themeColor }: ChatInte
     setInput('');
   };
 
+  const handlePromptClick = (prompt: string) => {
+    handleSend(prompt);
+  };
+
   return (
     <div className={`flex flex-col h-full border-t ${colors.border} bg-gradient-to-br ${colors.gradient} to-transparent ${colors.glow}`}>
-      <div className={`flex items-center gap-2 p-3 border-b ${colors.border}`}>
-        <Bot className={`h-4 w-4 ${colors.icon}`} />
-        <span className="text-xs font-semibold text-gray-300">E.L.F.I.E.</span>
-        <span className="text-xs text-gray-500">- {dashboardContext} Assistant</span>
+      <div className={`p-3 border-b ${colors.border} space-y-2`}>
+        <div className="flex items-center gap-2">
+          <Bot className={`h-4 w-4 ${colors.icon}`} />
+          <span className="text-xs font-semibold text-gray-300">E.L.F.I.E.</span>
+          <span className="text-xs text-gray-500">- {dashboardContext} Assistant</span>
+        </div>
+        {prompts.length > 0 && (
+          <div className="flex gap-2 flex-wrap">
+            {prompts.map((prompt) => (
+              <button
+                key={prompt}
+                onClick={() => handlePromptClick(prompt)}
+                className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${colors.promptBg}`}
+                data-testid={`prompt-${prompt.toLowerCase().replace(/\s/g, '-')}`}
+              >
+                {prompt}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
       
       <ScrollArea className="flex-1 p-4">
@@ -118,7 +153,7 @@ export default function ChatInterface({ dashboardContext, themeColor }: ChatInte
             className={`text-xs border-${themeColor === 'red' ? 'lego-red' : themeColor === 'blue' ? 'lego-blue' : themeColor === 'yellow' ? 'lego-yellow' : 'lego-green'}/30`}
             data-testid="input-chat"
           />
-          <Button size="icon" onClick={handleSend} className={colors.button} data-testid="button-send">
+          <Button size="icon" onClick={() => handleSend()} className={colors.button} data-testid="button-send">
             <Send className="h-4 w-4" />
           </Button>
         </div>

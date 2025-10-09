@@ -42,27 +42,8 @@ export default function SalesDashboard() {
   const average = Math.round(data.reduce((sum, d) => sum + d.sales, 0) / data.length);
 
   return (
-    <div className="p-4 space-y-4 bg-gradient-to-br from-lego-green/5 to-transparent rounded-lg border border-lego-green/10 shadow-[0_0_15px_rgba(34,197,94,0.1)]">
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-gray-300">Sales Performance</h2>
-        <div className="flex gap-1">
-          {(['mtd', 'ytd', '1y', '5y'] as TimePeriod[]).map((p) => (
-            <button
-              key={p}
-              onClick={() => setPeriod(p)}
-              data-testid={`button-period-${p}`}
-              className={cn(
-                "px-3 py-1 rounded-full text-xs font-semibold transition-all",
-                period === p
-                  ? "bg-lego-green text-white"
-                  : "text-lego-green/60 hover:bg-lego-green/30"
-              )}
-            >
-              {p.toUpperCase()}
-            </button>
-          ))}
-        </div>
-      </div>
+    <div className="p-3 space-y-2 bg-gradient-to-br from-lego-green/5 to-transparent rounded-lg border border-lego-green/10 shadow-[0_0_15px_rgba(34,197,94,0.1)]">
+      <h2 className="text-sm font-semibold text-gray-300">Sales Performance - {period.toUpperCase()}</h2>
       
       <div className="bg-gray-900/50 border border-lego-green/20 rounded-lg p-4">
         <div className="mb-2 text-xs text-gray-400">
