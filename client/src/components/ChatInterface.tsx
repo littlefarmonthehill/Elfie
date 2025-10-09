@@ -42,7 +42,7 @@ export default function ChatInterface({ dashboardContext }: ChatInterfaceProps) 
   };
 
   return (
-    <div className="flex flex-col h-full border-t border-gray-800">
+    <div className="flex flex-col h-full border-t border-gray-800 bg-gradient-to-br from-gray-900/30 to-transparent">
       <div className="flex items-center gap-2 p-3 border-b border-gray-800">
         <Bot className="h-4 w-4 text-lego-blue" />
         <span className="text-xs font-semibold text-gray-300">E.L.F.I.E.</span>

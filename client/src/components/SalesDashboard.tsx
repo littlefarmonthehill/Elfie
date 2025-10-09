@@ -42,7 +42,7 @@ export default function SalesDashboard() {
   const average = Math.round(data.reduce((sum, d) => sum + d.sales, 0) / data.length);
 
   return (
-    <div className="p-4 space-y-4">
+    <div className="p-4 space-y-4 bg-gradient-to-br from-lego-green/5 to-transparent rounded-lg border border-lego-green/10 shadow-[0_0_15px_rgba(34,197,94,0.1)]">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-gray-300">Sales Performance</h2>
         <div className="flex gap-1">

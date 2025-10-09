@@ -13,7 +13,7 @@ export default function InventoryDashboard() {
   };
 
   return (
-    <div className="p-4 space-y-4">
+    <div className="p-4 space-y-4 bg-gradient-to-br from-lego-blue/5 to-transparent rounded-lg border border-lego-blue/10 shadow-[0_0_15px_rgba(59,130,246,0.1)]">
       <h2 className="text-sm font-semibold text-gray-300">Inventory Overview</h2>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <MetricCard label="Total Lots" value={metrics.lots} color="blue" />
