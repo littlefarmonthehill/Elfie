@@ -88,16 +88,18 @@ Preferred communication style: Simple, everyday language.
 
 **Settings Management:**
 - PostgreSQL table `app_settings` stores application configuration
-- Single-row design (id='default') for global settings
-- Fields: `aiEnabled` (boolean), `openaiApiKey` (text), `updatedAt` (timestamp)
+- Single-row design for global settings
+- Fields: `aiEnabled` (boolean), `openrouterApiKey` (text), `selectedModel` (text), `updatedAt` (timestamp)
 - API routes: GET/POST `/api/settings` for reading and updating configuration
-- Settings auto-initialize with environment variable OPENAI_API_KEY on first access
+- Settings auto-initialize with environment variable OPENROUTER_API_KEY on first access
 
 **AI Configuration:**
 - Toggle to enable/disable E.L.F.I.E. AI assistant
-- Custom OpenAI API key storage (password-protected input)
+- OpenRouter API integration for multi-model access
+- Custom OpenRouter API key storage (password-protected input)
+- Dynamic model selection from available OpenRouter models
 - Settings persist across sessions
-- Chat endpoint enforces enabled flag and uses stored API key
+- Chat endpoint enforces enabled flag and uses stored API key and selected model
 - Specific error messages when AI disabled or key missing
 
 ### Authentication & Authorization
@@ -127,12 +129,14 @@ Preferred communication style: Simple, everyday language.
   - Basic authentication (API key + secret, not yet implemented)
 
 **AI Integration:**
-- OpenAI API (GPT-4o-mini) for E.L.F.I.E. chat assistant
+- OpenRouter API for E.L.F.I.E. chat assistant (multi-model support)
+- Default model: GPT-4o-mini (openai/gpt-4o-mini)
 - Context-aware responses based on active dashboard
 - Action prompts for common operations
 - Full conversation history management
 - LEGO-focused system prompt for operational guidance
-- Requires valid OPENAI_API_KEY environment variable
+- Dynamic model selection from OpenRouter's model catalog
+- Requires valid OPENROUTER_API_KEY environment variable or user-provided key
 
 **UI Libraries:**
 - Radix UI: Comprehensive component primitives (dialogs, dropdowns, tooltips, etc.)
