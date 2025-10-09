@@ -1,4 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import type { AppSettings } from "@shared/schema";
 import { X, Download, Trash2, RefreshCw } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -41,6 +44,37 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
     recordsAdded: 0,
     recordsUpdated: 0,
   });
+
+  // AI Settings
+  const [aiEnabled, setAiEnabled] = useState(true);
+  const [apiKey, setApiKey] = useState("");
+
+  const { data: settings } = useQuery<AppSettings>({
+    queryKey: ['/api/settings'],
+    enabled: open,
+  });
+
+  const updateSettingsMutation = useMutation({
+    mutationFn: async (data: Partial<AppSettings>) => {
+      const response = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) throw new Error('Failed to update settings');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/settings'] });
+    },
+  });
+
+  useEffect(() => {
+    if (settings) {
+      setAiEnabled(settings.aiEnabled);
+      setApiKey(settings.openaiApiKey || "");
+    }
+  }, [settings]);
 
   const handleExport = (type: 'inventory' | 'orders', format: 'csv' | 'xml') => {
     // TODO: Implement export functionality
@@ -407,43 +441,61 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
               <div className="space-y-4">
                 <div>
                   <h3 className="text-sm font-medium text-gray-300 mb-3">E.L.F.I.E. Configuration</h3>
-                  <div className="space-y-3">
-                    <div className="space-y-2">
-                      <Label htmlFor="ai-model" className="text-xs text-gray-400">AI Model</Label>
-                      <Select defaultValue="gpt-4">
-                        <SelectTrigger className="text-xs" data-testid="select-ai-model">
-                          <SelectValue placeholder="Select AI model" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="gpt-4">GPT-4</SelectItem>
-                          <SelectItem value="gpt-4-turbo">GPT-4 Turbo</SelectItem>
-                          <SelectItem value="gpt-3.5-turbo">GPT-3.5 Turbo</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="ai-temperature" className="text-xs text-gray-400">Temperature (Creativity)</Label>
-                      <Select defaultValue="0.7">
-                        <SelectTrigger className="text-xs" data-testid="select-ai-temperature">
-                          <SelectValue placeholder="Select temperature" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="0.3">Low (0.3) - Precise</SelectItem>
-                          <SelectItem value="0.7">Medium (0.7) - Balanced</SelectItem>
-                          <SelectItem value="1.0">High (1.0) - Creative</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="ai-context" className="text-xs text-gray-400">Business Context</Label>
-                      <textarea
-                        id="ai-context"
-                        placeholder="Add business context to help E.L.F.I.E. provide better insights..."
-                        className="w-full min-h-[100px] rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-xs text-gray-100 placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-600"
-                        data-testid="textarea-ai-context"
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label className="text-xs text-gray-300">Enable AI Assistant</Label>
+                        <p className="text-xs text-gray-500">Turn E.L.F.I.E. on or off</p>
+                      </div>
+                      <Switch
+                        checked={aiEnabled}
+                        onCheckedChange={(checked) => {
+                          setAiEnabled(checked);
+                          updateSettingsMutation.mutate({ 
+                            aiEnabled: checked,
+                            openaiApiKey: apiKey || null,
+                          });
+                        }}
+                        data-testid="switch-ai-enabled"
                       />
+                    </div>
+
+                    <Separator className="bg-gray-700" />
+
+                    <div className="space-y-2">
+                      <Label htmlFor="openai-api-key" className="text-xs text-gray-400">OpenAI API Key</Label>
+                      <Input
+                        id="openai-api-key"
+                        type="password"
+                        placeholder="sk-..."
+                        value={apiKey}
+                        onChange={(e) => setApiKey(e.target.value)}
+                        onBlur={() => {
+                          updateSettingsMutation.mutate({
+                            aiEnabled,
+                            openaiApiKey: apiKey || null,
+                          });
+                        }}
+                        className="text-xs font-mono"
+                        data-testid="input-openai-api-key"
+                      />
+                      <p className="text-xs text-gray-500">
+                        Your API key is stored securely. Get one from{" "}
+                        <a 
+                          href="https://platform.openai.com/api-keys" 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-purple-400 hover:text-purple-300"
+                        >
+                          OpenAI Platform
+                        </a>
+                      </p>
+                    </div>
+
+                    <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3">
+                      <p className="text-xs text-purple-300">
+                        <strong>Using GPT-4o-mini:</strong> Fast and cost-effective model optimized for LEGO business operations
+                      </p>
                     </div>
                   </div>
                 </div>
