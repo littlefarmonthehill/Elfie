@@ -173,12 +173,12 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
         </div>
       )}
 
-      {/* Previous Orders */}
+      {/* Other Customer Orders */}
       {data.isRepeatCustomer && data.previousOrders && data.previousOrders.length > 0 && (
         <div className="bg-gray-800 border border-lego-orange/20 rounded-lg p-3">
           <div className="flex items-center gap-2 mb-3">
             <RefreshCcw className="h-4 w-4 text-lego-orange" />
-            <h4 className="text-sm font-semibold text-gray-300">Previous Orders ({data.previousOrders.length})</h4>
+            <h4 className="text-sm font-semibold text-gray-300">Customer Order History ({data.previousOrders.length})</h4>
           </div>
           <div className="space-y-2">
             {data.previousOrders.map((order) => (
