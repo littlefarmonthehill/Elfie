@@ -53,6 +53,10 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
   const inputRef = useRef<HTMLInputElement>(null);
 
   const scrollToBottom = () => {
+    // Don't scroll if the input is currently focused (prevents keyboard from closing on mobile)
+    if (document.activeElement === inputRef.current) {
+      return;
+    }
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 

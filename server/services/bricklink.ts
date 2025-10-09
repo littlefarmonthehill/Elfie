@@ -84,7 +84,7 @@ async function trackApiCall(endpoint: string, success: boolean = true): Promise<
 }
 
 // Make a BrickLink API request with rate limiting
-async function bricklinkRequest(endpoint: string): Promise<{ data: any; apiCalls: number }> {
+async function bricklinkRequest(endpoint: string, queryParams?: Record<string, string>): Promise<{ data: any; apiCalls: number }> {
   if (!process.env.BRICKLINK_CONSUMER_KEY || !process.env.BRICKLINK_CONSUMER_SECRET || 
       !process.env.BRICKLINK_TOKEN_VALUE || !process.env.BRICKLINK_TOKEN_SECRET) {
     throw new Error('BrickLink credentials not configured. Please add them in Settings.');
@@ -96,8 +96,21 @@ async function bricklinkRequest(endpoint: string): Promise<{ data: any; apiCalls
     throw new Error(rateLimit.warning || 'API rate limit exceeded');
   }
 
-  const url = `https://api.bricklink.com/api/store/v1${endpoint}`;
-  const authHeader = oauth.toHeader(oauth.authorize({ url, method: 'GET' }, token));
+  // Build URL with query params - OAuth needs the full URL for GET request signatures
+  let url = `https://api.bricklink.com/api/store/v1${endpoint}`;
+  if (queryParams) {
+    const params = new URLSearchParams(queryParams);
+    url = `${url}?${params.toString()}`;
+  }
+  
+  // For GET requests, query params must be in the URL, not the data field
+  const requestData = { url, method: 'GET' };
+  const authHeader = oauth.toHeader(oauth.authorize(requestData, token));
+  
+  console.log(`[OAuth Debug] Request URL: ${url}`);
+  console.log(`[OAuth Debug] Auth Header:`, authHeader);
+  console.log(`[OAuth Debug] Consumer Key: ${process.env.BRICKLINK_CONSUMER_KEY?.substring(0, 10)}...`);
+  console.log(`[OAuth Debug] Token Value: ${process.env.BRICKLINK_TOKEN_VALUE?.substring(0, 10)}...`);
   
   let success = false;
   try {
@@ -109,8 +122,6 @@ async function bricklinkRequest(endpoint: string): Promise<{ data: any; apiCalls
       },
     });
 
-    success = response.ok;
-
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`BrickLink API error (${response.status}):`, errorText);
@@ -118,6 +129,25 @@ async function bricklinkRequest(endpoint: string): Promise<{ data: any; apiCalls
     }
 
     const json = await response.json();
+    
+    // BrickLink returns 200 OK even for auth errors - check meta.code in response
+    if (json.meta && json.meta.code !== 200) {
+      console.error(`BrickLink API error (meta.code ${json.meta.code}):`, json.meta.description || json.meta.message);
+      throw new Error(`BrickLink API error: ${json.meta.description || json.meta.message}`);
+    }
+    
+    success = true; // Only mark as success if both HTTP and meta.code are OK
+    
+    // Log API response for debugging
+    if (endpoint.includes('/inventories')) {
+      console.log(`BrickLink inventory response meta:`, json.meta);
+      console.log(`BrickLink inventory data type:`, Array.isArray(json.data) ? 'array' : typeof json.data);
+      console.log(`BrickLink inventory items count:`, Array.isArray(json.data) ? json.data.length : 'not an array');
+      if (Array.isArray(json.data) && json.data.length > 0) {
+        console.log(`First inventory item:`, JSON.stringify(json.data[0]));
+      }
+    }
+    
     return { data: json.data, apiCalls: 1 };
   } finally {
     // Track the API call exactly once, regardless of success or failure
@@ -209,6 +239,63 @@ export async function syncBricklinkInventory(): Promise<{ added: number; updated
   try {
     let added = 0;
     let updated = 0;
+
+    console.log('Starting BrickLink inventory sync (fetching ALL inventory without filters)...');
+    
+    // Fetch all inventory without status filters - BrickLink will return everything
+    const { data: responseData, apiCalls } = await bricklinkRequest('/inventories');
+    
+    const items = Array.isArray(responseData) ? responseData : [];
+    console.log(`Received ${items.length} total inventory items from BrickLink`);
+    
+    if (items.length > 0) {
+      console.log(`First item sample:`, JSON.stringify(items[0]).substring(0, 200));
+    
+      for (const item of items) {
+        const existing = await db.select().from(blInventory).where(eq(blInventory.id, item.inventory_id));
+        
+        if (existing.length === 0) {
+          await db.insert(blInventory).values({
+            id: item.inventory_id,
+            itemNo: item.item.no,
+            itemType: item.item.type,
+            colorId: item.color_id || 0,
+            quantity: item.quantity,
+            newOrUsed: item.new_or_used,
+            unitPrice: item.unit_price,
+            categoryId: item.item.category_id || 0,
+          });
+          added++;
+        } else {
+          const needsUpdate = existing[0].quantity !== item.quantity || 
+                              existing[0].unitPrice !== item.unit_price;
+          if (needsUpdate) {
+            await db.update(blInventory)
+              .set({ 
+                quantity: item.quantity,
+                unitPrice: item.unit_price,
+                updatedAt: new Date() 
+              })
+              .where(eq(blInventory.id, item.inventory_id));
+            updated++;
+          }
+        }
+      }
+    }
+
+    console.log(`BrickLink inventory sync complete: ${added} added, ${updated} updated`);
+    return { added, updated, apiCalls };
+  } catch (error) {
+    console.error('Error syncing BrickLink inventory:', error);
+    throw error;
+  }
+}
+
+// OLD VERSION WITH STATUS FILTERS - KEPT FOR REFERENCE
+async function syncBricklinkInventoryByStatus(): Promise<{ added: number; updated: number; apiCalls: number }> {
+  try {
+    let added = 0;
+    let updated = 0;
     let totalApiCalls = 0;
 
     console.log('Starting BrickLink inventory sync...');
@@ -221,7 +308,7 @@ export async function syncBricklinkInventory(): Promise<{ added: number; updated
       console.log(`Fetching inventory with status: ${status}`);
       
       try {
-        const { data: responseData, apiCalls } = await bricklinkRequest(`/inventories?status=${status}`);
+        const { data: responseData, apiCalls } = await bricklinkRequest('/inventories', { status });
         totalApiCalls += apiCalls;
         
         const items = Array.isArray(responseData) ? responseData : [];
