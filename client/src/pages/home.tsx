@@ -421,7 +421,8 @@ export default function Home() {
       <Header onSettingsClick={() => setSettingsOpen(true)} />
       <DashboardNav active={activeDashboard} onSelect={setActiveDashboard} />
       
-      <div className="flex-1 flex flex-col overflow-hidden relative">
+      {/* Portrait mode: vertical layout (default) */}
+      <div className="flex-1 flex flex-col landscape:hidden overflow-hidden relative">
         <div className={`transition-all duration-300 overflow-y-auto border-b-2 ${
           chatExpanded ? 'h-0' : 'h-[35%]'
         } ${
@@ -446,14 +447,44 @@ export default function Home() {
           />
         </div>
       </div>
+
+      {/* Landscape mode: horizontal split layout */}
+      <div className="hidden landscape:flex flex-1 overflow-hidden relative">
+        {/* Left side: Dashboard info */}
+        <div className={`w-1/2 overflow-y-auto border-r-2 ${
+          activeDashboard === 'dashboard' ? 'bg-gradient-to-br from-lego-red/20 to-lego-red/5 border-lego-red/30' :
+          activeDashboard === 'inventory' ? 'bg-gradient-to-br from-lego-blue/20 to-lego-blue/5 border-lego-blue/30' :
+          activeDashboard === 'orders' ? 'bg-gradient-to-br from-lego-orange/20 to-lego-orange/5 border-lego-orange/30' :
+          activeDashboard === 'sales' ? 'bg-gradient-to-br from-lego-green/20 to-lego-green/5 border-lego-green/30' :
+          'bg-gradient-to-br from-lego-yellow/20 to-lego-yellow/5 border-lego-yellow/30'
+        }`}>
+          {renderDashboard()}
+        </div>
+        
+        {/* Right side: Chat */}
+        <div className="w-1/2 overflow-hidden">
+          <ChatInterface 
+            dashboardContext={getChatContext()} 
+            themeColor={getThemeColor()} 
+            prompts={getPrompts()} 
+            onPromptAction={handlePromptAction}
+            onItemClick={handleItemClick}
+            isExpanded={false}
+          />
+        </div>
+      </div>
       
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
-      <DetailModal 
-        open={detailModal.open} 
-        onClose={() => setDetailModal({ open: false, data: null })} 
-        detail={detailModal.data}
-        onOrderSelect={handleOrderSelect}
-      />
+      
+      {/* Detail modal - positioned lower-left in landscape mode */}
+      <div className={detailModal.open ? 'landscape:fixed landscape:bottom-4 landscape:left-4 landscape:w-[45%] landscape:max-h-[60vh]' : ''}>
+        <DetailModal 
+          open={detailModal.open} 
+          onClose={() => setDetailModal({ open: false, data: null })} 
+          detail={detailModal.data}
+          onOrderSelect={handleOrderSelect}
+        />
+      </div>
     </div>
   );
 }
