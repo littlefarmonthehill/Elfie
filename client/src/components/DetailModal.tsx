@@ -16,9 +16,10 @@ interface DetailModalProps {
   open: boolean;
   onClose: () => void;
   detail: DetailData | null;
+  onOrderSelect?: (orderId: string) => void;
 }
 
-export default function DetailModal({ open, onClose, detail }: DetailModalProps) {
+export default function DetailModal({ open, onClose, detail, onOrderSelect }: DetailModalProps) {
   if (!detail) return null;
 
   const renderDetail = () => {
@@ -26,7 +27,7 @@ export default function DetailModal({ open, onClose, detail }: DetailModalProps)
       case 'inventory':
         return <InventoryDetail data={detail.data} />;
       case 'order':
-        return <OrderDetail data={detail.data} />;
+        return <OrderDetail data={detail.data} onOrderSelect={onOrderSelect} />;
       case 'sales':
         return <SalesDetail data={detail.data} />;
       case 'marketing':

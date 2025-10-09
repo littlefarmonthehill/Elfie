@@ -93,6 +93,234 @@ export default function Home() {
     }
   };
 
+  // Mock order database with previous orders for repeat customers
+  const mockOrderDatabase: { [key: string]: any } = {
+    'ord-1001': {
+      orderId: 'ord-1001',
+      orderNumber: '1001',
+      platform: 'BrickLink' as const,
+      status: 'Paid' as const,
+      customer: {
+        name: 'John Smith',
+        email: 'john.smith@example.com',
+        address: '123 Main St',
+        city: 'Springfield',
+        state: 'IL',
+        zip: '62701',
+        country: 'United States',
+      },
+      items: [
+        { partNumber: '3001', name: 'Brick 2 x 4', quantity: 10, price: 0.35 },
+        { partNumber: '3003', name: 'Brick 2 x 2', quantity: 25, price: 0.25 },
+      ],
+      shipping: 8.50,
+      tax: 12.30,
+      total: 156.80,
+      orderDate: '2024-01-20T10:30:00',
+      isRepeatCustomer: true,
+      previousOrders: [
+        { orderId: 'ord-900', orderNumber: '900', orderDate: '2023-12-15T08:00:00', total: 89.50, status: 'Shipped' as const },
+        { orderId: 'ord-750', orderNumber: '750', orderDate: '2023-10-22T14:30:00', total: 134.20, status: 'Shipped' as const },
+      ],
+    },
+    'ord-1002': {
+      orderId: 'ord-1002',
+      orderNumber: '1002',
+      platform: 'BrickOwl' as const,
+      status: 'Pending' as const,
+      customer: {
+        name: 'Sarah Johnson',
+        email: 'sarah.j@example.com',
+        address: '456 Oak Ave',
+        city: 'Portland',
+        state: 'OR',
+        zip: '97201',
+        country: 'United States',
+      },
+      items: [
+        { partNumber: '6141', name: 'Plate 1 x 1 Round', quantity: 50, price: 0.10 },
+        { partNumber: '3069', name: 'Tile 1 x 2', quantity: 30, price: 0.15 },
+      ],
+      shipping: 6.00,
+      tax: 7.50,
+      total: 89.50,
+      orderDate: '2024-01-21T14:15:00',
+      isRepeatCustomer: false,
+    },
+    'ord-1003': {
+      orderId: 'ord-1003',
+      orderNumber: '1003',
+      platform: 'BrickLink' as const,
+      status: 'Shipped' as const,
+      customer: {
+        name: 'Michael Brown',
+        email: 'mbrown@example.com',
+        address: '789 Pine Rd',
+        city: 'Austin',
+        state: 'TX',
+        zip: '78701',
+        country: 'United States',
+      },
+      items: [
+        { partNumber: '3023', name: 'Plate 1 x 2', quantity: 100, price: 0.12 },
+        { partNumber: '3024', name: 'Plate 1 x 1', quantity: 200, price: 0.08 },
+      ],
+      shipping: 12.00,
+      tax: 21.00,
+      total: 245.00,
+      orderDate: '2024-01-18T09:00:00',
+      shippedDate: '2024-01-19T15:30:00',
+      trackingNumber: 'TRK123456789',
+      isRepeatCustomer: true,
+      previousOrders: [
+        { orderId: 'ord-850', orderNumber: '850', orderDate: '2023-11-10T12:00:00', total: 198.75, status: 'Shipped' as const },
+        { orderId: 'ord-620', orderNumber: '620', orderDate: '2023-08-05T09:30:00', total: 276.40, status: 'Shipped' as const },
+        { orderId: 'ord-430', orderNumber: '430', orderDate: '2023-05-18T16:45:00', total: 156.00, status: 'Shipped' as const },
+      ],
+    },
+    // Previous orders data
+    'ord-900': {
+      orderId: 'ord-900',
+      orderNumber: '900',
+      platform: 'BrickLink' as const,
+      status: 'Shipped' as const,
+      customer: {
+        name: 'John Smith',
+        email: 'john.smith@example.com',
+        address: '123 Main St',
+        city: 'Springfield',
+        state: 'IL',
+        zip: '62701',
+        country: 'United States',
+      },
+      items: [
+        { partNumber: '3002', name: 'Brick 2 x 3', quantity: 15, price: 0.28 },
+        { partNumber: '3004', name: 'Brick 1 x 2', quantity: 40, price: 0.15 },
+      ],
+      shipping: 7.50,
+      tax: 9.80,
+      total: 89.50,
+      orderDate: '2023-12-15T08:00:00',
+      shippedDate: '2023-12-16T10:00:00',
+      trackingNumber: 'TRK987654321',
+      isRepeatCustomer: true,
+      previousOrders: [
+        { orderId: 'ord-750', orderNumber: '750', orderDate: '2023-10-22T14:30:00', total: 134.20, status: 'Shipped' as const },
+      ],
+    },
+    'ord-750': {
+      orderId: 'ord-750',
+      orderNumber: '750',
+      platform: 'BrickLink' as const,
+      status: 'Shipped' as const,
+      customer: {
+        name: 'John Smith',
+        email: 'john.smith@example.com',
+        address: '123 Main St',
+        city: 'Springfield',
+        state: 'IL',
+        zip: '62701',
+        country: 'United States',
+      },
+      items: [
+        { partNumber: '3010', name: 'Brick 1 x 4', quantity: 50, price: 0.22 },
+        { partNumber: '3020', name: 'Plate 2 x 4', quantity: 30, price: 0.18 },
+      ],
+      shipping: 8.00,
+      tax: 11.20,
+      total: 134.20,
+      orderDate: '2023-10-22T14:30:00',
+      shippedDate: '2023-10-23T11:00:00',
+      trackingNumber: 'TRK555666777',
+      isRepeatCustomer: false,
+    },
+    'ord-850': {
+      orderId: 'ord-850',
+      orderNumber: '850',
+      platform: 'BrickLink' as const,
+      status: 'Shipped' as const,
+      customer: {
+        name: 'Michael Brown',
+        email: 'mbrown@example.com',
+        address: '789 Pine Rd',
+        city: 'Austin',
+        state: 'TX',
+        zip: '78701',
+        country: 'United States',
+      },
+      items: [
+        { partNumber: '3062', name: 'Brick 1 x 1 Round', quantity: 80, price: 0.12 },
+        { partNumber: '3068', name: 'Tile 2 x 2', quantity: 60, price: 0.20 },
+      ],
+      shipping: 10.00,
+      tax: 16.75,
+      total: 198.75,
+      orderDate: '2023-11-10T12:00:00',
+      shippedDate: '2023-11-11T14:00:00',
+      trackingNumber: 'TRK111222333',
+      isRepeatCustomer: true,
+      previousOrders: [
+        { orderId: 'ord-620', orderNumber: '620', orderDate: '2023-08-05T09:30:00', total: 276.40, status: 'Shipped' as const },
+        { orderId: 'ord-430', orderNumber: '430', orderDate: '2023-05-18T16:45:00', total: 156.00, status: 'Shipped' as const },
+      ],
+    },
+    'ord-620': {
+      orderId: 'ord-620',
+      orderNumber: '620',
+      platform: 'BrickLink' as const,
+      status: 'Shipped' as const,
+      customer: {
+        name: 'Michael Brown',
+        email: 'mbrown@example.com',
+        address: '789 Pine Rd',
+        city: 'Austin',
+        state: 'TX',
+        zip: '78701',
+        country: 'United States',
+      },
+      items: [
+        { partNumber: '3070', name: 'Tile 1 x 1', quantity: 150, price: 0.08 },
+        { partNumber: '3040', name: 'Slope 45° 2 x 1', quantity: 100, price: 0.18 },
+      ],
+      shipping: 15.00,
+      tax: 23.40,
+      total: 276.40,
+      orderDate: '2023-08-05T09:30:00',
+      shippedDate: '2023-08-06T13:00:00',
+      trackingNumber: 'TRK444555666',
+      isRepeatCustomer: true,
+      previousOrders: [
+        { orderId: 'ord-430', orderNumber: '430', orderDate: '2023-05-18T16:45:00', total: 156.00, status: 'Shipped' as const },
+      ],
+    },
+    'ord-430': {
+      orderId: 'ord-430',
+      orderNumber: '430',
+      platform: 'BrickLink' as const,
+      status: 'Shipped' as const,
+      customer: {
+        name: 'Michael Brown',
+        email: 'mbrown@example.com',
+        address: '789 Pine Rd',
+        city: 'Austin',
+        state: 'TX',
+        zip: '78701',
+        country: 'United States',
+      },
+      items: [
+        { partNumber: '3005', name: 'Brick 1 x 1', quantity: 200, price: 0.06 },
+        { partNumber: '3022', name: 'Plate 2 x 2', quantity: 80, price: 0.15 },
+      ],
+      shipping: 9.00,
+      tax: 13.00,
+      total: 156.00,
+      orderDate: '2023-05-18T16:45:00',
+      shippedDate: '2023-05-19T10:00:00',
+      trackingNumber: 'TRK777888999',
+      isRepeatCustomer: false,
+    },
+  };
+
   const handleItemClick = (type: 'inventory' | 'order' | 'sales' | 'marketing', id: string) => {
     // Generate mock detail data based on type and id
     let detailData: any = {};
@@ -115,81 +343,8 @@ export default function Home() {
         bricklinkUrl: 'https://www.bricklink.com/v2/catalog/catalogitem.page?P=3201',
       };
     } else if (type === 'order') {
-      // Mock order detail data
-      const orderMap: { [key: string]: any } = {
-        'ord-1001': {
-          orderId: 'ord-1001',
-          orderNumber: '1001',
-          platform: 'BrickLink' as const,
-          status: 'Paid' as const,
-          customer: {
-            name: 'John Smith',
-            email: 'john.smith@example.com',
-            address: '123 Main St',
-            city: 'Springfield',
-            state: 'IL',
-            zip: '62701',
-            country: 'United States',
-          },
-          items: [
-            { partNumber: '3001', name: 'Brick 2 x 4', quantity: 10, price: 0.35 },
-            { partNumber: '3003', name: 'Brick 2 x 2', quantity: 25, price: 0.25 },
-          ],
-          shipping: 8.50,
-          tax: 12.30,
-          total: 156.80,
-          orderDate: '2024-01-20T10:30:00',
-        },
-        'ord-1002': {
-          orderId: 'ord-1002',
-          orderNumber: '1002',
-          platform: 'BrickOwl' as const,
-          status: 'Pending' as const,
-          customer: {
-            name: 'Sarah Johnson',
-            email: 'sarah.j@example.com',
-            address: '456 Oak Ave',
-            city: 'Portland',
-            state: 'OR',
-            zip: '97201',
-            country: 'United States',
-          },
-          items: [
-            { partNumber: '6141', name: 'Plate 1 x 1 Round', quantity: 50, price: 0.10 },
-            { partNumber: '3069', name: 'Tile 1 x 2', quantity: 30, price: 0.15 },
-          ],
-          shipping: 6.00,
-          tax: 7.50,
-          total: 89.50,
-          orderDate: '2024-01-21T14:15:00',
-        },
-        'ord-1003': {
-          orderId: 'ord-1003',
-          orderNumber: '1003',
-          platform: 'BrickLink' as const,
-          status: 'Shipped' as const,
-          customer: {
-            name: 'Michael Brown',
-            email: 'mbrown@example.com',
-            address: '789 Pine Rd',
-            city: 'Austin',
-            state: 'TX',
-            zip: '78701',
-            country: 'United States',
-          },
-          items: [
-            { partNumber: '3023', name: 'Plate 1 x 2', quantity: 100, price: 0.12 },
-            { partNumber: '3024', name: 'Plate 1 x 1', quantity: 200, price: 0.08 },
-          ],
-          shipping: 12.00,
-          tax: 21.00,
-          total: 245.00,
-          orderDate: '2024-01-18T09:00:00',
-          shippedDate: '2024-01-19T15:30:00',
-          trackingNumber: 'TRK123456789',
-        },
-      };
-      detailData = orderMap[id];
+      // Get order from mock database
+      detailData = mockOrderDatabase[id];
     } else if (type === 'sales') {
       detailData = {
         period: 'Year to Date',
@@ -228,6 +383,16 @@ export default function Home() {
     });
   };
 
+  const handleOrderSelect = (orderId: string) => {
+    const orderData = mockOrderDatabase[orderId];
+    if (orderData) {
+      setDetailModal({
+        open: true,
+        data: { type: 'order', data: orderData },
+      });
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen bg-background text-foreground">
       <Header onSettingsClick={() => setSettingsOpen(true)} />
@@ -259,7 +424,8 @@ export default function Home() {
       <DetailModal 
         open={detailModal.open} 
         onClose={() => setDetailModal({ open: false, data: null })} 
-        detail={detailModal.data} 
+        detail={detailModal.data}
+        onOrderSelect={handleOrderSelect}
       />
     </div>
   );

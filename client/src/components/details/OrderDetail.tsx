@@ -1,4 +1,4 @@
-import { Package, DollarSign, User, MapPin, Calendar, ExternalLink, Truck } from "lucide-react";
+import { Package, DollarSign, User, MapPin, Calendar, ExternalLink, Truck, RefreshCcw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 
@@ -29,10 +29,19 @@ interface OrderDetailProps {
     orderDate: string;
     shippedDate?: string;
     trackingNumber?: string;
+    isRepeatCustomer?: boolean;
+    previousOrders?: Array<{
+      orderId: string;
+      orderNumber: string;
+      orderDate: string;
+      total: number;
+      status: 'Pending' | 'Paid' | 'Shipped' | 'Cancelled';
+    }>;
   };
+  onOrderSelect?: (orderId: string) => void;
 }
 
-export default function OrderDetail({ data }: OrderDetailProps) {
+export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'Pending': return 'bg-lego-yellow/20 text-lego-yellow border-lego-yellow/30';
@@ -160,6 +169,37 @@ export default function OrderDetail({ data }: OrderDetailProps) {
                 <ExternalLink className="h-3 w-3 text-lego-blue" />
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Previous Orders */}
+      {data.isRepeatCustomer && data.previousOrders && data.previousOrders.length > 0 && (
+        <div className="bg-gray-800 border border-lego-orange/20 rounded-lg p-3">
+          <div className="flex items-center gap-2 mb-3">
+            <RefreshCcw className="h-4 w-4 text-lego-orange" />
+            <h4 className="text-sm font-semibold text-gray-300">Previous Orders ({data.previousOrders.length})</h4>
+          </div>
+          <div className="space-y-2">
+            {data.previousOrders.map((order) => (
+              <button
+                key={order.orderId}
+                onClick={() => onOrderSelect?.(order.orderId)}
+                className="w-full bg-gray-900 hover:bg-gray-700 border border-gray-700 hover:border-lego-orange/30 rounded-lg p-2 transition-colors text-left"
+                data-testid={`previous-order-${order.orderId}`}
+              >
+                <div className="flex items-center justify-between gap-2 text-sm">
+                  <div className="flex items-center gap-2 flex-1">
+                    <span className="font-medium text-gray-100">#{order.orderNumber}</span>
+                    <Badge className={getStatusColor(order.status) + ' text-xs'}>{order.status}</Badge>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-gray-400">{new Date(order.orderDate).toLocaleDateString()}</span>
+                    <span className="font-mono text-lego-green font-semibold">${order.total.toFixed(2)}</span>
+                  </div>
+                </div>
+              </button>
+            ))}
           </div>
         </div>
       )}
