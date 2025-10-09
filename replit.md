@@ -84,6 +84,22 @@ Preferred communication style: Simple, everyday language.
 - API call counting for rate limit management
 - Background sync capability via dedicated endpoints
 
+### App Settings & Configuration
+
+**Settings Management:**
+- PostgreSQL table `app_settings` stores application configuration
+- Single-row design (id='default') for global settings
+- Fields: `aiEnabled` (boolean), `openaiApiKey` (text), `updatedAt` (timestamp)
+- API routes: GET/POST `/api/settings` for reading and updating configuration
+- Settings auto-initialize with environment variable OPENAI_API_KEY on first access
+
+**AI Configuration:**
+- Toggle to enable/disable E.L.F.I.E. AI assistant
+- Custom OpenAI API key storage (password-protected input)
+- Settings persist across sessions
+- Chat endpoint enforces enabled flag and uses stored API key
+- Specific error messages when AI disabled or key missing
+
 ### Authentication & Authorization
 
 **Current Implementation:**
