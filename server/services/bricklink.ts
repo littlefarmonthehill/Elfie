@@ -279,6 +279,7 @@ export async function syncBricklinkInventory(): Promise<{ added: number; updated
           quantity: item.quantity,
           newOrUsed: item.new_or_used,
           unitPrice: item.unit_price,
+          myCost: item.my_cost || "0",
           categoryId: item.item.category_id || 0,
         }));
         
@@ -302,9 +303,15 @@ export async function syncBricklinkInventory(): Promise<{ added: number; updated
       const BATCH_SIZE = 500;
       const itemsToUpdate = existingItemsToCheck.filter(item => {
         const existing = existingMap.get(item.inventory_id);
+        const apiMyCost = parseFloat(item.my_cost || "0");
+        const existingMyCost = parseFloat(existing.myCost || "0");
+        const apiUnitPrice = parseFloat(item.unit_price || "0");
+        const existingUnitPrice = parseFloat(existing.unitPrice || "0");
+        
         return existing && (
           existing.quantity !== item.quantity || 
-          existing.unitPrice !== item.unit_price
+          Math.abs(existingUnitPrice - apiUnitPrice) > 0.001 ||
+          Math.abs(existingMyCost - apiMyCost) > 0.0001
         );
       });
       
@@ -319,6 +326,7 @@ export async function syncBricklinkInventory(): Promise<{ added: number; updated
             .set({ 
               quantity: item.quantity,
               unitPrice: item.unit_price,
+              myCost: item.my_cost || "0",
               updatedAt: new Date() 
             })
             .where(eq(blInventory.id, item.inventory_id));

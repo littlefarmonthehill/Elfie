@@ -5,6 +5,7 @@ interface InventoryStats {
   totalLots: number;
   totalParts: number;
   totalValue: number;
+  totalCost: number;
 }
 
 export default function InventoryDashboard() {
@@ -23,24 +24,25 @@ export default function InventoryDashboard() {
     return new Intl.NumberFormat('en-US').format(value);
   };
 
+  const profitPotential = stats ? stats.totalValue - stats.totalCost : 0;
+
   return (
     <div className="p-2 space-y-1.5 bg-gradient-to-br from-lego-blue/5 to-transparent rounded-lg border border-lego-blue/10 shadow-[0_0_15px_rgba(59,130,246,0.1)]">
       <div className="space-y-1.5">
         <div>
           <h3 className="text-xs text-gray-500 mb-0.5">Quantities</h3>
-          <div className="grid grid-cols-3 gap-1.5">
+          <div className="grid grid-cols-2 gap-1.5">
             <MetricCard label="Lots" value={stats ? formatNumber(stats.totalLots) : '0'} color="blue" />
             <MetricCard label="Parts" value={stats ? formatNumber(stats.totalParts) : '0'} color="blue" />
-            <MetricCard label="Weight" value="TBD" color="blue" />
           </div>
         </div>
 
         <div>
           <h3 className="text-xs text-gray-500 mb-0.5">Values</h3>
           <div className="grid grid-cols-3 gap-1.5">
-            <MetricCard label="My Cost" value="TBD" color="red" />
+            <MetricCard label="My Cost" value={stats ? formatCurrency(stats.totalCost) : '$0.00'} color="red" />
             <MetricCard label="Listed" value={stats ? formatCurrency(stats.totalValue) : '$0.00'} color="blue" />
-            <MetricCard label="Profit Potential" value="TBD" color="green" />
+            <MetricCard label="Profit Potential" value={formatCurrency(profitPotential)} color="green" />
           </div>
         </div>
       </div>

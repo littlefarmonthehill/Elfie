@@ -60,6 +60,7 @@ export const blInventory = pgTable("bl_inventory", {
   quantity: integer("quantity").notNull(),
   newOrUsed: text("new_or_used").notNull(),
   unitPrice: decimal("unit_price", { precision: 10, scale: 2 }),
+  myCost: decimal("my_cost", { precision: 10, scale: 4 }),
   description: text("description"),
   remarks: text("remarks"),
   bulk: integer("bulk"),

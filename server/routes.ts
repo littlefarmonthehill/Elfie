@@ -278,6 +278,7 @@ Provide concise, actionable advice. When relevant, suggest specific actions the 
           totalLots: sql<number>`COUNT(*)`,
           totalParts: sql<number>`SUM(${blInventory.quantity})`,
           totalValue: sql<number>`SUM(${blInventory.quantity} * CAST(${blInventory.unitPrice} AS DECIMAL))`,
+          totalCost: sql<number>`SUM(${blInventory.quantity} * CAST(${blInventory.myCost} AS DECIMAL))`,
         })
         .from(blInventory);
 
@@ -285,6 +286,7 @@ Provide concise, actionable advice. When relevant, suggest specific actions the 
         totalLots: Number(stats[0]?.totalLots) || 0,
         totalParts: Number(stats[0]?.totalParts) || 0,
         totalValue: Number(stats[0]?.totalValue) || 0,
+        totalCost: Number(stats[0]?.totalCost) || 0,
       });
     } catch (error) {
       console.error("Error fetching inventory stats:", error);
