@@ -11,7 +11,7 @@ interface InventoryStats {
 }
 
 export default function InventoryDashboard() {
-  const { data: stats } = useQuery<InventoryStats>({
+  const { data: stats, isLoading } = useQuery<InventoryStats>({
     queryKey: ['/api/inventory/stats'],
   });
 
@@ -27,6 +27,19 @@ export default function InventoryDashboard() {
   };
 
   const profitPotential = stats ? stats.totalValue - stats.totalCost : 0;
+
+  if (isLoading) {
+    return (
+      <div className="p-2 space-y-1.5 bg-gradient-to-br from-lego-blue/5 to-transparent rounded-lg border border-lego-blue/10 shadow-[0_0_15px_rgba(59,130,246,0.1)]">
+        <div className="flex items-center justify-center py-8">
+          <div className="flex flex-col items-center gap-2">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-lego-blue border-t-transparent" data-testid="loading-spinner"></div>
+            <p className="text-xs text-gray-500">Loading inventory stats...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-2 space-y-1.5 bg-gradient-to-br from-lego-blue/5 to-transparent rounded-lg border border-lego-blue/10 shadow-[0_0_15px_rgba(59,130,246,0.1)]">
