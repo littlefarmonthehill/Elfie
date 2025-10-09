@@ -14,6 +14,7 @@ export default function Home() {
   const [activeDashboard, setActiveDashboard] = useState<DashboardType>('dashboard');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [salesPeriod, setSalesPeriod] = useState<'mtd' | 'ytd' | '1y' | '5y'>('ytd');
+  const [chatExpanded, setChatExpanded] = useState(false);
   const [detailModal, setDetailModal] = useState<{ open: boolean; data: DetailData | null }>({
     open: false,
     data: null,
@@ -420,8 +421,10 @@ export default function Home() {
       <Header onSettingsClick={() => setSettingsOpen(true)} />
       <DashboardNav active={activeDashboard} onSelect={setActiveDashboard} />
       
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <div className={`h-[35%] overflow-y-auto border-b-2 ${
+      <div className="flex-1 flex flex-col overflow-hidden relative">
+        <div className={`transition-all duration-300 overflow-y-auto border-b-2 ${
+          chatExpanded ? 'h-0' : 'h-[35%]'
+        } ${
           activeDashboard === 'dashboard' ? 'bg-gradient-to-b from-lego-red/20 to-lego-red/5 border-lego-red/30' :
           activeDashboard === 'inventory' ? 'bg-gradient-to-b from-lego-blue/20 to-lego-blue/5 border-lego-blue/30' :
           activeDashboard === 'orders' ? 'bg-gradient-to-b from-lego-orange/20 to-lego-orange/5 border-lego-orange/30' :
@@ -431,13 +434,15 @@ export default function Home() {
           {renderDashboard()}
         </div>
         
-        <div className="flex-1 overflow-hidden">
+        <div className={`transition-all duration-300 overflow-hidden ${chatExpanded ? 'flex-1' : 'flex-1'}`}>
           <ChatInterface 
             dashboardContext={getChatContext()} 
             themeColor={getThemeColor()} 
             prompts={getPrompts()} 
             onPromptAction={handlePromptAction}
             onItemClick={handleItemClick}
+            isExpanded={chatExpanded}
+            onToggleExpand={() => setChatExpanded(!chatExpanded)}
           />
         </div>
       </div>

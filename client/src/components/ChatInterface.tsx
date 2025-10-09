@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, Bot, RefreshCcw } from "lucide-react";
+import { Send, Bot, RefreshCcw, ChevronUp, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -25,9 +25,11 @@ interface ChatInterfaceProps {
   prompts: string[];
   onPromptAction?: (prompt: string) => void;
   onItemClick?: (type: 'inventory' | 'order' | 'sales' | 'marketing', id: string) => void;
+  isExpanded?: boolean;
+  onToggleExpand?: () => void;
 }
 
-export default function ChatInterface({ dashboardContext, themeColor, prompts, onPromptAction, onItemClick }: ChatInterfaceProps) {
+export default function ChatInterface({ dashboardContext, themeColor, prompts, onPromptAction, onItemClick, isExpanded = false, onToggleExpand }: ChatInterfaceProps) {
   const colorClasses = {
     red: {
       gradient: 'from-lego-red/10',
@@ -168,10 +170,27 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
 
   return (
     <div className={`flex flex-col h-full border-t ${colors.border} bg-gradient-to-br ${colors.gradient} to-transparent ${colors.glow}`}>
-      <div className={`flex items-center gap-2 p-3 border-b ${colors.border}`}>
-        <Bot className={`h-4 w-4 ${colors.icon}`} />
-        <span className="text-xs font-semibold text-gray-300">E.L.F.I.E.</span>
-        <span className="text-xs text-gray-500">- {dashboardContext} Assistant</span>
+      <div className={`flex items-center justify-between gap-2 p-3 border-b ${colors.border}`}>
+        <div className="flex items-center gap-2">
+          <Bot className={`h-4 w-4 ${colors.icon}`} />
+          <span className="text-xs font-semibold text-gray-300">E.L.F.I.E.</span>
+          <span className="text-xs text-gray-500">- {dashboardContext} Assistant</span>
+        </div>
+        {onToggleExpand && (
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={onToggleExpand}
+            className="h-6 w-6"
+            data-testid="button-toggle-chat"
+          >
+            {isExpanded ? (
+              <ChevronDown className={`h-4 w-4 ${colors.icon}`} />
+            ) : (
+              <ChevronUp className={`h-4 w-4 ${colors.icon}`} />
+            )}
+          </Button>
+        )}
       </div>
       
       <ScrollArea className="flex-1 p-4">
