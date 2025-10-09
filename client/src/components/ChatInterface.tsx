@@ -99,26 +99,10 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts }:
 
   return (
     <div className={`flex flex-col h-full border-t ${colors.border} bg-gradient-to-br ${colors.gradient} to-transparent ${colors.glow}`}>
-      <div className={`p-3 border-b ${colors.border} space-y-2`}>
-        <div className="flex items-center gap-2">
-          <Bot className={`h-4 w-4 ${colors.icon}`} />
-          <span className="text-xs font-semibold text-gray-300">E.L.F.I.E.</span>
-          <span className="text-xs text-gray-500">- {dashboardContext} Assistant</span>
-        </div>
-        {prompts.length > 0 && (
-          <div className="flex gap-2 flex-wrap">
-            {prompts.map((prompt) => (
-              <button
-                key={prompt}
-                onClick={() => handlePromptClick(prompt)}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${colors.promptBg}`}
-                data-testid={`prompt-${prompt.toLowerCase().replace(/\s/g, '-')}`}
-              >
-                {prompt}
-              </button>
-            ))}
-          </div>
-        )}
+      <div className={`flex items-center gap-2 p-3 border-b ${colors.border}`}>
+        <Bot className={`h-4 w-4 ${colors.icon}`} />
+        <span className="text-xs font-semibold text-gray-300">E.L.F.I.E.</span>
+        <span className="text-xs text-gray-500">- {dashboardContext} Assistant</span>
       </div>
       
       <ScrollArea className="flex-1 p-4">
@@ -143,8 +127,22 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts }:
         </div>
       </ScrollArea>
       
-      <div className={`p-3 border-t ${colors.border}`}>
-        <div className="flex gap-2">
+      <div className={`border-t ${colors.border} space-y-2`}>
+        {prompts.length > 0 && (
+          <div className="flex gap-2 flex-wrap p-3 pb-0">
+            {prompts.map((prompt) => (
+              <button
+                key={prompt}
+                onClick={() => handlePromptClick(prompt)}
+                className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${colors.promptBg}`}
+                data-testid={`prompt-${prompt.toLowerCase().replace(/\s/g, '-')}`}
+              >
+                {prompt}
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="flex gap-2 p-3">
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
