@@ -285,8 +285,8 @@ export async function syncBricklinkInventory(): Promise<{ added: number; updated
           description: item.description || null,
           remarks: item.remarks || null,
           bulk: item.bulk || null,
-          isRetain: item.is_retain || false,
-          isStockRoom: item.is_stock_room || false,
+          isRetain: !!item.is_retain,
+          isStockRoom: !!item.is_stock_room,
           categoryId: item.item.category_id || 0,
           dateCreated: item.date_created ? new Date(item.date_created) : null,
         }));
@@ -313,15 +313,32 @@ export async function syncBricklinkInventory(): Promise<{ added: number; updated
         const existing = existingMap.get(item.inventory_id);
         if (!existing) return false;
         
+        // Normalize numeric values
         const apiMyCost = parseFloat(item.my_cost || "0");
         const existingMyCost = parseFloat(existing.myCost || "0");
         const apiUnitPrice = parseFloat(item.unit_price || "0");
         const existingUnitPrice = parseFloat(existing.unitPrice || "0");
         
+        // Normalize boolean values from BrickLink (true/false or possibly undefined)
+        const apiIsRetain = !!item.is_retain;
+        const apiIsStockRoom = !!item.is_stock_room;
+        
         return (
           existing.quantity !== item.quantity || 
           Math.abs(existingUnitPrice - apiUnitPrice) > 0.001 ||
-          Math.abs(existingMyCost - apiMyCost) > 0.0001
+          Math.abs(existingMyCost - apiMyCost) > 0.0001 ||
+          existing.itemNo !== item.item.no ||
+          existing.itemName !== (item.item.name || null) ||
+          existing.itemType !== item.item.type ||
+          existing.colorId !== (item.color_id || 0) ||
+          existing.newOrUsed !== item.new_or_used ||
+          existing.categoryId !== (item.item.category_id || 0) ||
+          existing.description !== (item.description || null) ||
+          existing.remarks !== (item.remarks || null) ||
+          existing.bulk !== (item.bulk || null) ||
+          existing.isRetain !== apiIsRetain ||
+          existing.isStockRoom !== apiIsStockRoom ||
+          existing.bindId !== (item.bind_id || null)
         );
       });
       
@@ -334,9 +351,22 @@ export async function syncBricklinkInventory(): Promise<{ added: number; updated
         for (const item of batch) {
           await db.update(blInventory)
             .set({ 
+              itemNo: item.item.no,
+              itemName: item.item.name || null,
+              itemType: item.item.type,
+              colorId: item.color_id || 0,
               quantity: item.quantity,
+              newOrUsed: item.new_or_used,
               unitPrice: item.unit_price,
               myCost: item.my_cost || "0",
+              bindId: item.bind_id || null,
+              description: item.description || null,
+              remarks: item.remarks || null,
+              bulk: item.bulk || null,
+              isRetain: !!item.is_retain,
+              isStockRoom: !!item.is_stock_room,
+              categoryId: item.item.category_id || 0,
+              dateCreated: item.date_created ? new Date(item.date_created) : null,
               updatedAt: new Date() 
             })
             .where(eq(blInventory.id, item.inventory_id));
