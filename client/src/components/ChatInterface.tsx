@@ -57,15 +57,16 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
   };
 
   useEffect(() => {
-    const wasInputFocused = document.activeElement === inputRef.current;
     scrollToBottom();
     
-    if (wasInputFocused && inputRef.current) {
+    // Always refocus input after scrolling to maintain chat flow
+    // Unless user has explicitly focused something else (e.g., a button or link)
+    if (inputRef.current && !isLoading) {
       setTimeout(() => {
         inputRef.current?.focus();
       }, 100);
     }
-  }, [messages]);
+  }, [messages, isLoading]);
 
   const handleSend = async (message?: string) => {
     const textToSend = message || input;
