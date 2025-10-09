@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, Download, Trash2 } from "lucide-react";
+import { X, Download, Trash2, RefreshCw } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
+import { Progress } from "@/components/ui/progress";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 interface SettingsModalProps {
@@ -15,13 +16,30 @@ interface SettingsModalProps {
   onClose: () => void;
 }
 
+interface SyncProgress {
+  active: boolean;
+  type: 'inventory' | 'orders' | null;
+  stage: string;
+  progress: number;
+  apiCalls: number;
+  recordsAdded: number;
+  recordsUpdated: number;
+}
+
 export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   const [clearDataDialog, setClearDataDialog] = useState<'inventory' | 'orders' | null>(null);
   const [syncEnabled, setSyncEnabled] = useState({
     bricklinkInventory: false,
-    bricklinkOrders: false,
-    brickowlOrders: false,
     shipstationOrders: false,
+  });
+  const [syncProgress, setSyncProgress] = useState<SyncProgress>({
+    active: false,
+    type: null,
+    stage: '',
+    progress: 0,
+    apiCalls: 0,
+    recordsAdded: 0,
+    recordsUpdated: 0,
   });
 
   const handleExport = (type: 'inventory' | 'orders', format: 'csv' | 'xml') => {
@@ -33,6 +51,98 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
     // TODO: Implement clear data functionality
     console.log(`Clearing ${type} data`);
     setClearDataDialog(null);
+  };
+
+  const handleSyncInventory = async () => {
+    setSyncProgress({
+      active: true,
+      type: 'inventory',
+      stage: 'Syncing Categories...',
+      progress: 10,
+      apiCalls: 1,
+      recordsAdded: 0,
+      recordsUpdated: 0,
+    });
+
+    // Simulate syncing categories
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    setSyncProgress(prev => ({
+      ...prev,
+      stage: 'Syncing Colors...',
+      progress: 40,
+      apiCalls: 2,
+      recordsAdded: 45,
+      recordsUpdated: 0,
+    }));
+
+    // Simulate syncing colors
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    setSyncProgress(prev => ({
+      ...prev,
+      stage: 'Syncing Inventory...',
+      progress: 70,
+      apiCalls: 3,
+      recordsAdded: 45,
+      recordsUpdated: 120,
+    }));
+
+    // Simulate syncing inventory
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    setSyncProgress(prev => ({
+      ...prev,
+      stage: 'Complete!',
+      progress: 100,
+      apiCalls: 3,
+      recordsAdded: 287,
+      recordsUpdated: 423,
+    }));
+
+    // Reset after showing summary
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    setSyncProgress({
+      active: false,
+      type: null,
+      stage: '',
+      progress: 0,
+      apiCalls: 0,
+      recordsAdded: 0,
+      recordsUpdated: 0,
+    });
+  };
+
+  const handleSyncOrders = async () => {
+    setSyncProgress({
+      active: true,
+      type: 'orders',
+      stage: 'Syncing ShipStation Orders...',
+      progress: 50,
+      apiCalls: 1,
+      recordsAdded: 0,
+      recordsUpdated: 0,
+    });
+
+    // Simulate syncing orders
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    setSyncProgress(prev => ({
+      ...prev,
+      stage: 'Complete!',
+      progress: 100,
+      apiCalls: 1,
+      recordsAdded: 23,
+      recordsUpdated: 15,
+    }));
+
+    // Reset after showing summary
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    setSyncProgress({
+      active: false,
+      type: null,
+      stage: '',
+      progress: 0,
+      apiCalls: 0,
+      recordsAdded: 0,
+      recordsUpdated: 0,
+    });
   };
 
   return (
@@ -173,19 +283,54 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
             {/* Data & Sync */}
             <TabsContent value="sync" className="space-y-4 mt-4">
               <div className="space-y-4">
+                {/* Sync Progress */}
+                {syncProgress.active && (
+                  <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-sm font-medium text-purple-300">{syncProgress.stage}</h3>
+                      <RefreshCw className="h-4 w-4 text-purple-400 animate-spin" />
+                    </div>
+                    <Progress value={syncProgress.progress} className="mb-3" />
+                    <div className="grid grid-cols-3 gap-2 text-xs">
+                      <div className="bg-gray-800 rounded px-2 py-1">
+                        <span className="text-gray-400">API Calls:</span>
+                        <span className="text-purple-300 font-semibold ml-1">{syncProgress.apiCalls}</span>
+                      </div>
+                      <div className="bg-gray-800 rounded px-2 py-1">
+                        <span className="text-gray-400">Added:</span>
+                        <span className="text-green-400 font-semibold ml-1">{syncProgress.recordsAdded}</span>
+                      </div>
+                      <div className="bg-gray-800 rounded px-2 py-1">
+                        <span className="text-gray-400">Updated:</span>
+                        <span className="text-blue-400 font-semibold ml-1">{syncProgress.recordsUpdated}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div>
                   <h3 className="text-sm font-medium text-gray-300 mb-3">Manual Sync</h3>
                   <div className="space-y-2">
-                    <Button variant="outline" size="sm" className="w-full justify-start text-xs" data-testid="button-sync-bricklink-inventory">
-                      Sync BrickLink Inventory
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full justify-start text-xs" 
+                      onClick={handleSyncInventory}
+                      disabled={syncProgress.active}
+                      data-testid="button-sync-bricklink-inventory"
+                    >
+                      <RefreshCw className={`h-3 w-3 mr-2 ${syncProgress.active && syncProgress.type === 'inventory' ? 'animate-spin' : ''}`} />
+                      Sync BrickLink Inventory (Categories, Colors, Items)
                     </Button>
-                    <Button variant="outline" size="sm" className="w-full justify-start text-xs" data-testid="button-sync-bricklink-orders">
-                      Sync BrickLink Orders
-                    </Button>
-                    <Button variant="outline" size="sm" className="w-full justify-start text-xs" data-testid="button-sync-brickowl-orders">
-                      Sync BrickOwl Orders
-                    </Button>
-                    <Button variant="outline" size="sm" className="w-full justify-start text-xs" data-testid="button-sync-shipstation-orders">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full justify-start text-xs" 
+                      onClick={handleSyncOrders}
+                      disabled={syncProgress.active}
+                      data-testid="button-sync-shipstation-orders"
+                    >
+                      <RefreshCw className={`h-3 w-3 mr-2 ${syncProgress.active && syncProgress.type === 'orders' ? 'animate-spin' : ''}`} />
                       Sync ShipStation Orders
                     </Button>
                   </div>
@@ -201,36 +346,12 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                     <div className="flex items-center justify-between">
                       <div className="space-y-0.5">
                         <Label className="text-xs text-gray-300">BrickLink Inventory</Label>
-                        <p className="text-xs text-gray-500">Sync every 6 hours</p>
+                        <p className="text-xs text-gray-500">Sync every 6 hours (Categories, Colors, Items)</p>
                       </div>
                       <Switch
                         checked={syncEnabled.bricklinkInventory}
                         onCheckedChange={(checked) => setSyncEnabled({ ...syncEnabled, bricklinkInventory: checked })}
                         data-testid="switch-sync-bricklink-inventory"
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label className="text-xs text-gray-300">BrickLink Orders</Label>
-                        <p className="text-xs text-gray-500">Sync every hour</p>
-                      </div>
-                      <Switch
-                        checked={syncEnabled.bricklinkOrders}
-                        onCheckedChange={(checked) => setSyncEnabled({ ...syncEnabled, bricklinkOrders: checked })}
-                        data-testid="switch-sync-bricklink-orders"
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label className="text-xs text-gray-300">BrickOwl Orders</Label>
-                        <p className="text-xs text-gray-500">Sync every hour</p>
-                      </div>
-                      <Switch
-                        checked={syncEnabled.brickowlOrders}
-                        onCheckedChange={(checked) => setSyncEnabled({ ...syncEnabled, brickowlOrders: checked })}
-                        data-testid="switch-sync-brickowl-orders"
                       />
                     </div>
 
