@@ -59,43 +59,56 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
       type: 'inventory',
       stage: 'Syncing Categories...',
       progress: 10,
-      apiCalls: 1,
+      apiCalls: 0,
       recordsAdded: 0,
       recordsUpdated: 0,
     });
 
-    // Simulate syncing categories
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, 500));
     setSyncProgress(prev => ({
       ...prev,
       stage: 'Syncing Colors...',
       progress: 40,
-      apiCalls: 2,
-      recordsAdded: 45,
-      recordsUpdated: 0,
     }));
 
-    // Simulate syncing colors
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, 500));
     setSyncProgress(prev => ({
       ...prev,
       stage: 'Syncing Inventory...',
       progress: 70,
-      apiCalls: 3,
-      recordsAdded: 45,
-      recordsUpdated: 120,
     }));
 
-    // Simulate syncing inventory
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setSyncProgress(prev => ({
-      ...prev,
-      stage: 'Complete!',
-      progress: 100,
-      apiCalls: 3,
-      recordsAdded: 287,
-      recordsUpdated: 423,
-    }));
+    try {
+      const response = await fetch('/api/sync/bricklink/inventory', {
+        method: 'POST',
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        const totalAdded = result.data.categoriesAdded + result.data.colorsAdded + result.data.inventoryAdded;
+        const totalUpdated = result.data.categoriesUpdated + result.data.colorsUpdated + result.data.inventoryUpdated;
+        
+        setSyncProgress({
+          active: true,
+          type: 'inventory',
+          stage: 'Complete!',
+          progress: 100,
+          apiCalls: result.data.totalApiCalls,
+          recordsAdded: totalAdded,
+          recordsUpdated: totalUpdated,
+        });
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error('Sync failed:', error);
+      setSyncProgress(prev => ({
+        ...prev,
+        stage: 'Failed - Check console',
+        progress: 0,
+      }));
+    }
 
     // Reset after showing summary
     await new Promise(resolve => setTimeout(resolve, 2000));
@@ -116,21 +129,39 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
       type: 'orders',
       stage: 'Syncing ShipStation Orders...',
       progress: 50,
-      apiCalls: 1,
+      apiCalls: 0,
       recordsAdded: 0,
       recordsUpdated: 0,
     });
 
-    // Simulate syncing orders
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setSyncProgress(prev => ({
-      ...prev,
-      stage: 'Complete!',
-      progress: 100,
-      apiCalls: 1,
-      recordsAdded: 23,
-      recordsUpdated: 15,
-    }));
+    try {
+      const response = await fetch('/api/sync/shipstation/orders', {
+        method: 'POST',
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setSyncProgress({
+          active: true,
+          type: 'orders',
+          stage: 'Complete!',
+          progress: 100,
+          apiCalls: result.data.totalApiCalls,
+          recordsAdded: result.data.ordersAdded + result.data.orderDetailsAdded,
+          recordsUpdated: result.data.ordersUpdated,
+        });
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error('Sync failed:', error);
+      setSyncProgress(prev => ({
+        ...prev,
+        stage: 'Failed - Check console',
+        progress: 0,
+      }));
+    }
 
     // Reset after showing summary
     await new Promise(resolve => setTimeout(resolve, 2000));

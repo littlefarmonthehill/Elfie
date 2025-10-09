@@ -123,6 +123,7 @@ export type Order = typeof orders.$inferSelect;
 export const orderDetails = pgTable("order_details", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   orderId: varchar("order_id").notNull(),
+  lineItemKey: text("line_item_key"), // Unique identifier from ShipStation for deduplication
   sku: text("sku"),
   name: text("name").notNull(),
   quantity: integer("quantity").notNull(),
