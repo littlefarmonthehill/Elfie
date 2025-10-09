@@ -13,9 +13,10 @@ interface ChatInterfaceProps {
   dashboardContext: string;
   themeColor: 'red' | 'blue' | 'yellow' | 'green' | 'orange';
   prompts: string[];
+  onPromptAction?: (prompt: string) => void;
 }
 
-export default function ChatInterface({ dashboardContext, themeColor, prompts }: ChatInterfaceProps) {
+export default function ChatInterface({ dashboardContext, themeColor, prompts, onPromptAction }: ChatInterfaceProps) {
   const colorClasses = {
     red: {
       gradient: 'from-lego-red/10',
@@ -103,6 +104,9 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts }:
   };
 
   const handlePromptClick = (prompt: string) => {
+    if (onPromptAction) {
+      onPromptAction(prompt);
+    }
     handleSend(prompt);
   };
 
@@ -137,9 +141,9 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts }:
         </div>
       </ScrollArea>
       
-      <div className={`border-t ${colors.border} space-y-2`}>
+      <div className={`border-t-2 ${colors.border}`}>
         {prompts.length > 0 && (
-          <div className="flex gap-2 flex-wrap p-3 pb-0">
+          <div className="flex gap-2 flex-wrap p-3 pb-3 border-b border-gray-800">
             {prompts.map((prompt) => (
               <button
                 key={prompt}
@@ -158,7 +162,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts }:
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSend()}
             placeholder="Ask E.L.F.I.E. for help..."
-            className={`text-xs border-${themeColor === 'red' ? 'lego-red' : themeColor === 'blue' ? 'lego-blue' : themeColor === 'yellow' ? 'lego-yellow' : 'lego-green'}/30`}
+            className="text-xs"
             data-testid="input-chat"
           />
           <Button size="icon" onClick={() => handleSend()} className={colors.button} data-testid="button-send">

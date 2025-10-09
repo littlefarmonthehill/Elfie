@@ -12,6 +12,7 @@ import ChatInterface from "@/components/ChatInterface";
 export default function Home() {
   const [activeDashboard, setActiveDashboard] = useState<DashboardType>('dashboard');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [salesPeriod, setSalesPeriod] = useState<'mtd' | 'ytd' | '1y' | '5y'>('ytd');
 
   const renderDashboard = () => {
     switch (activeDashboard) {
@@ -20,7 +21,7 @@ export default function Home() {
       case 'orders':
         return <OrdersDashboard />;
       case 'sales':
-        return <SalesDashboard />;
+        return <SalesDashboard period={salesPeriod} />;
       case 'marketing':
         return <MarketingDashboard />;
       default:
@@ -73,6 +74,20 @@ export default function Home() {
     }
   };
 
+  const handlePromptAction = (prompt: string) => {
+    if (activeDashboard === 'sales') {
+      const periodMap: { [key: string]: 'mtd' | 'ytd' | '1y' | '5y' } = {
+        'MTD': 'mtd',
+        'YTD': 'ytd',
+        '1 Year': '1y',
+        '5 Years': '5y',
+      };
+      if (periodMap[prompt]) {
+        setSalesPeriod(periodMap[prompt]);
+      }
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen bg-background text-foreground">
       <Header onSettingsClick={() => setSettingsOpen(true)} />
@@ -90,7 +105,12 @@ export default function Home() {
         </div>
         
         <div className="flex-1 overflow-hidden">
-          <ChatInterface dashboardContext={getChatContext()} themeColor={getThemeColor()} prompts={getPrompts()} />
+          <ChatInterface 
+            dashboardContext={getChatContext()} 
+            themeColor={getThemeColor()} 
+            prompts={getPrompts()} 
+            onPromptAction={handlePromptAction}
+          />
         </div>
       </div>
       

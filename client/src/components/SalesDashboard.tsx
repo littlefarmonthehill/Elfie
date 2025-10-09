@@ -1,8 +1,10 @@
-import { useState } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { cn } from "@/lib/utils";
 
 type TimePeriod = 'mtd' | 'ytd' | '1y' | '5y';
+
+interface SalesDashboardProps {
+  period: TimePeriod;
+}
 
 // TODO: remove mock functionality - replace with real ShipStation data
 const mockData = {
@@ -35,9 +37,7 @@ const mockData = {
   ],
 };
 
-export default function SalesDashboard() {
-  const [period, setPeriod] = useState<TimePeriod>('ytd');
-  
+export default function SalesDashboard({ period }: SalesDashboardProps) {
   const data = mockData[period];
   const average = Math.round(data.reduce((sum, d) => sum + d.sales, 0) / data.length);
 
