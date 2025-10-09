@@ -1,6 +1,7 @@
 import { Package, DollarSign, User, MapPin, Calendar, ExternalLink, Truck, RefreshCcw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
 interface OrderDetailProps {
   data: {
@@ -62,8 +63,53 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
 
   const subtotal = data.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
+  // Combine current order with other orders for the pills
+  const allCustomerOrders = data.previousOrders ? [
+    {
+      orderId: data.orderId,
+      orderNumber: data.orderNumber,
+      orderDate: data.orderDate,
+      total: data.total,
+      status: data.status,
+      isCurrent: true,
+    },
+    ...data.previousOrders.map(order => ({ ...order, isCurrent: false })),
+  ].sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime()) : [];
+
   return (
     <div className="space-y-4">
+      {/* Order Pills Navigation */}
+      {data.isRepeatCustomer && allCustomerOrders.length > 1 && (
+        <div className="bg-gray-800 border border-lego-orange/20 rounded-lg p-3">
+          <div className="flex items-center gap-2 mb-2">
+            <RefreshCcw className="h-3 w-3 text-lego-orange" />
+            <span className="text-xs font-semibold text-gray-300">Customer Orders ({allCustomerOrders.length})</span>
+          </div>
+          <ScrollArea className="w-full whitespace-nowrap">
+            <div className="flex gap-2 pb-2">
+              {allCustomerOrders.map((order) => (
+                <button
+                  key={order.orderId}
+                  onClick={() => !order.isCurrent && onOrderSelect?.(order.orderId)}
+                  disabled={order.isCurrent}
+                  className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${
+                    order.isCurrent
+                      ? 'bg-lego-orange text-white border-lego-orange cursor-default'
+                      : 'bg-gray-900 text-gray-300 border-gray-700 hover:bg-gray-700 hover:border-lego-orange/30'
+                  }`}
+                  data-testid={`order-pill-${order.orderId}`}
+                >
+                  <span className="font-semibold">#{order.orderNumber}</span>
+                  <Badge className={getStatusColor(order.status) + ' text-xs h-4 px-1'}>{order.status}</Badge>
+                  <span className="text-lego-green font-mono">${order.total.toFixed(2)}</span>
+                </button>
+              ))}
+            </div>
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
+        </div>
+      )}
+
       {/* Header */}
       <div>
         <div className="flex items-center justify-between mb-2">
@@ -173,36 +219,6 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
         </div>
       )}
 
-      {/* Other Customer Orders */}
-      {data.isRepeatCustomer && data.previousOrders && data.previousOrders.length > 0 && (
-        <div className="bg-gray-800 border border-lego-orange/20 rounded-lg p-3">
-          <div className="flex items-center gap-2 mb-3">
-            <RefreshCcw className="h-4 w-4 text-lego-orange" />
-            <h4 className="text-sm font-semibold text-gray-300">Customer Order History ({data.previousOrders.length})</h4>
-          </div>
-          <div className="space-y-2">
-            {data.previousOrders.map((order) => (
-              <button
-                key={order.orderId}
-                onClick={() => onOrderSelect?.(order.orderId)}
-                className="w-full bg-gray-900 hover:bg-gray-700 border border-gray-700 hover:border-lego-orange/30 rounded-lg p-2 transition-colors text-left"
-                data-testid={`previous-order-${order.orderId}`}
-              >
-                <div className="flex items-center justify-between gap-2 text-sm">
-                  <div className="flex items-center gap-2 flex-1">
-                    <span className="font-medium text-gray-100">#{order.orderNumber}</span>
-                    <Badge className={getStatusColor(order.status) + ' text-xs'}>{order.status}</Badge>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs text-gray-400">{new Date(order.orderDate).toLocaleDateString()}</span>
-                    <span className="font-mono text-lego-green font-semibold">${order.total.toFixed(2)}</span>
-                  </div>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
