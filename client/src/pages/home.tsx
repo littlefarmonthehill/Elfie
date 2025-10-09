@@ -20,10 +20,33 @@ export default function Home() {
     data: null,
   });
 
+  const handleInventoryItemClick = (item: any) => {
+    // Map database fields to InventoryDetail expected format
+    setDetailModal({
+      open: true,
+      data: {
+        type: 'inventory',
+        data: {
+          partNumber: item.itemNo,
+          name: `${item.itemType} - ${item.itemNo}`,
+          category: item.categoryName || 'Unknown',
+          color: item.colorName || 'Unknown',
+          quantity: item.quantity,
+          condition: item.newOrUsed === 'N' ? 'New' : 'Used',
+          costPerUnit: 0, // Not available in current schema
+          pricePerUnit: parseFloat(item.unitPrice || '0'),
+          weight: 0, // Not available in current schema
+          dateAdded: new Date(item.updatedAt).toISOString(),
+          bricklinkUrl: `https://www.bricklink.com/v2/catalog/catalogitem.page?P=${item.itemNo}`,
+        },
+      },
+    });
+  };
+
   const renderDashboard = () => {
     switch (activeDashboard) {
       case 'inventory':
-        return <InventoryDashboard />;
+        return <InventoryDashboard onItemClick={handleInventoryItemClick} />;
       case 'orders':
         return <OrdersDashboard />;
       case 'sales':

@@ -47,16 +47,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/inventory", async (req, res) => {
-    try {
-      const inventory = await db.select().from(blInventory);
-      res.json(inventory);
-    } catch (error) {
-      console.error("Error fetching inventory:", error);
-      res.status(500).json({ error: "Failed to fetch inventory" });
-    }
-  });
-
   app.get("/api/dashboard/stats", async (req, res) => {
     try {
       // Get total orders count
@@ -247,6 +237,58 @@ Provide concise, actionable advice. When relevant, suggest specific actions the 
         error: "Failed to generate response",
         message: "I'm having trouble connecting right now. Please try again.",
       });
+    }
+  });
+
+  // Get Inventory Items
+  app.get("/api/inventory", async (req, res) => {
+    try {
+      const inventoryItems = await db
+        .select({
+          id: blInventory.id,
+          itemNo: blInventory.itemNo,
+          itemType: blInventory.itemType,
+          colorId: blInventory.colorId,
+          colorName: blColors.name,
+          colorRgb: blColors.rgb,
+          categoryId: blInventory.categoryId,
+          categoryName: blCategories.name,
+          quantity: blInventory.quantity,
+          newOrUsed: blInventory.newOrUsed,
+          unitPrice: blInventory.unitPrice,
+          updatedAt: blInventory.updatedAt,
+        })
+        .from(blInventory)
+        .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+        .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
+        .limit(100);
+
+      res.json(inventoryItems);
+    } catch (error) {
+      console.error("Error fetching inventory:", error);
+      res.status(500).json({ error: "Failed to fetch inventory" });
+    }
+  });
+
+  // Get Inventory Stats
+  app.get("/api/inventory/stats", async (req, res) => {
+    try {
+      const stats = await db
+        .select({
+          totalLots: sql<number>`COUNT(*)`,
+          totalParts: sql<number>`SUM(${blInventory.quantity})`,
+          totalValue: sql<number>`SUM(${blInventory.quantity} * CAST(${blInventory.unitPrice} AS DECIMAL))`,
+        })
+        .from(blInventory);
+
+      res.json({
+        totalLots: Number(stats[0]?.totalLots) || 0,
+        totalParts: Number(stats[0]?.totalParts) || 0,
+        totalValue: Number(stats[0]?.totalValue) || 0,
+      });
+    } catch (error) {
+      console.error("Error fetching inventory stats:", error);
+      res.status(500).json({ error: "Failed to fetch inventory stats" });
     }
   });
 

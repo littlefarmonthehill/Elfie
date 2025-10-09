@@ -156,6 +156,10 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
           recordsAdded: totalAdded,
           recordsUpdated: totalUpdated,
         });
+
+        // Invalidate inventory queries to refresh dashboard
+        queryClient.invalidateQueries({ queryKey: ['/api/inventory'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/inventory/stats'] });
       } else {
         throw new Error(result.error);
       }
