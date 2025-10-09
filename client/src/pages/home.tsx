@@ -79,12 +79,12 @@ export default function Home() {
       <DashboardNav active={activeDashboard} onSelect={setActiveDashboard} />
       
       <div className="flex-1 flex flex-col overflow-hidden">
-        <div className={`h-[35%] overflow-y-auto ${
-          activeDashboard === 'dashboard' ? 'bg-gradient-to-b from-lego-red/10 to-transparent' :
-          activeDashboard === 'inventory' ? 'bg-gradient-to-b from-lego-blue/10 to-transparent' :
-          activeDashboard === 'orders' ? 'bg-gradient-to-b from-lego-orange/10 to-transparent' :
-          activeDashboard === 'sales' ? 'bg-gradient-to-b from-lego-green/10 to-transparent' :
-          'bg-gradient-to-b from-lego-yellow/10 to-transparent'
+        <div className={`h-[35%] overflow-y-auto border-b-2 ${
+          activeDashboard === 'dashboard' ? 'bg-gradient-to-b from-lego-red/20 to-lego-red/5 border-lego-red/30' :
+          activeDashboard === 'inventory' ? 'bg-gradient-to-b from-lego-blue/20 to-lego-blue/5 border-lego-blue/30' :
+          activeDashboard === 'orders' ? 'bg-gradient-to-b from-lego-orange/20 to-lego-orange/5 border-lego-orange/30' :
+          activeDashboard === 'sales' ? 'bg-gradient-to-b from-lego-green/20 to-lego-green/5 border-lego-green/30' :
+          'bg-gradient-to-b from-lego-yellow/20 to-lego-yellow/5 border-lego-yellow/30'
         }`}>
           {renderDashboard()}
         </div>
