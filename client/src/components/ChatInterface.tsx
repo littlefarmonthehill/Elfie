@@ -228,20 +228,6 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
       </ScrollArea>
       
       <div className={`border-t-2 ${colors.border}`}>
-        {prompts.length > 0 && (
-          <div className="flex gap-2 flex-wrap p-3 pb-3 border-b border-gray-800">
-            {prompts.map((prompt) => (
-              <button
-                key={prompt}
-                onClick={() => handlePromptClick(prompt)}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${colors.promptBg}`}
-                data-testid={`prompt-${prompt.toLowerCase().replace(/\s/g, '-')}`}
-              >
-                {prompt}
-              </button>
-            ))}
-          </div>
-        )}
         <div className="flex gap-2 p-3">
           <Input
             value={input}
@@ -255,6 +241,20 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
             <Send className="h-4 w-4" />
           </Button>
         </div>
+        {prompts.length > 0 && (
+          <div className="flex gap-2 flex-wrap p-3 pt-0 pb-3">
+            {prompts.map((prompt) => (
+              <button
+                key={prompt}
+                onClick={() => handlePromptClick(prompt)}
+                className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${colors.promptBg}`}
+                data-testid={`prompt-${prompt.toLowerCase().replace(/\s/g, '-')}`}
+              >
+                {prompt}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
