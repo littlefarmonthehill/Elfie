@@ -274,13 +274,21 @@ export async function syncBricklinkInventory(): Promise<{ added: number; updated
         const values = batch.map(item => ({
           id: item.inventory_id,
           itemNo: item.item.no,
+          itemName: item.item.name || null,
           itemType: item.item.type,
           colorId: item.color_id || 0,
           quantity: item.quantity,
           newOrUsed: item.new_or_used,
           unitPrice: item.unit_price,
           myCost: item.my_cost || "0",
+          bindId: item.bind_id || null,
+          description: item.description || null,
+          remarks: item.remarks || null,
+          bulk: item.bulk || null,
+          isRetain: item.is_retain || false,
+          isStockRoom: item.is_stock_room || false,
           categoryId: item.item.category_id || 0,
+          dateCreated: item.date_created ? new Date(item.date_created) : null,
         }));
         
         await db.insert(blInventory).values(values);
@@ -303,12 +311,14 @@ export async function syncBricklinkInventory(): Promise<{ added: number; updated
       const BATCH_SIZE = 500;
       const itemsToUpdate = existingItemsToCheck.filter(item => {
         const existing = existingMap.get(item.inventory_id);
+        if (!existing) return false;
+        
         const apiMyCost = parseFloat(item.my_cost || "0");
         const existingMyCost = parseFloat(existing.myCost || "0");
         const apiUnitPrice = parseFloat(item.unit_price || "0");
         const existingUnitPrice = parseFloat(existing.unitPrice || "0");
         
-        return existing && (
+        return (
           existing.quantity !== item.quantity || 
           Math.abs(existingUnitPrice - apiUnitPrice) > 0.001 ||
           Math.abs(existingMyCost - apiMyCost) > 0.0001
