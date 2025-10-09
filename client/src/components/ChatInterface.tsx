@@ -92,7 +92,14 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
       const data = await response.json();
       
       if (data.error) {
-        throw new Error(data.error);
+        // Use the specific error message from the server if provided
+        const errorMessage: ChatMessage = {
+          role: 'assistant',
+          content: data.message || "I'm having trouble connecting right now. Please try again in a moment.",
+        };
+        setMessages(prev => [...prev, errorMessage]);
+        setIsLoading(false);
+        return;
       }
 
       const assistantMessage: ChatMessage = {
