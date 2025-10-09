@@ -34,9 +34,12 @@ const oauth = new OAuth({
   },
 });
 
+// Clean token values - remove any non-alphanumeric characters that may have been added
+const cleanToken = (value: string) => value.replace(/[^A-Z0-9]/gi, '');
+
 const token = {
-  key: process.env.BRICKLINK_TOKEN_VALUE || '',
-  secret: process.env.BRICKLINK_TOKEN_SECRET || '',
+  key: cleanToken(process.env.BRICKLINK_TOKEN_VALUE || ''),
+  secret: cleanToken(process.env.BRICKLINK_TOKEN_SECRET || ''),
 };
 
 // Check rate limit status for the last 24 hours
