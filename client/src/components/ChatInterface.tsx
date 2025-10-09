@@ -50,13 +50,21 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   useEffect(() => {
+    const wasInputFocused = document.activeElement === inputRef.current;
     scrollToBottom();
+    
+    if (wasInputFocused && inputRef.current) {
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
+    }
   }, [messages]);
 
   const handleSend = async (message?: string) => {
@@ -210,6 +218,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
       <div className={`border-t-2 ${colors.border} bg-gray-900/50 backdrop-blur-sm`}>
         <div className="flex gap-2 p-3">
           <Input
+            ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSend()}

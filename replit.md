@@ -127,8 +127,11 @@ Preferred communication style: Simple, everyday language.
     - Block threshold: 4,750 calls per 24 hours (red alert, sync disabled)
     - Real-time usage display in Settings modal
     - Rolling 24-hour window for call counting
-  - **Optimized Sync:** Uses single `/inventories` endpoint instead of pagination
-    - Reduces API calls from hundreds to just 3 (categories, colors, inventories)
+  - **Pagination Support:** BrickLink inventory sync uses paginated requests
+    - Fetches 1,000 items per page to handle large inventories (20,000+ lots, 775,000+ parts)
+    - Automatically continues fetching until all inventory is synced
+    - Respects rate limits between pages (checks before each API call)
+    - Console logging for sync progress tracking
     - GET /api/bricklink/rate-limit endpoint provides current usage status
   
 - **ShipStation API:** Order management and fulfillment

@@ -84,7 +84,7 @@ async function trackApiCall(endpoint: string, success: boolean = true): Promise<
 }
 
 // Make a BrickLink API request with rate limiting
-async function bricklinkRequest(endpoint: string): Promise<{ data: any; apiCalls: number }> {
+async function bricklinkRequest(endpoint: string, queryParams?: Record<string, string | number>): Promise<{ data: any; apiCalls: number }> {
   if (!process.env.BRICKLINK_CONSUMER_KEY || !process.env.BRICKLINK_CONSUMER_SECRET || 
       !process.env.BRICKLINK_TOKEN_VALUE || !process.env.BRICKLINK_TOKEN_SECRET) {
     throw new Error('BrickLink credentials not configured. Please add them in Settings.');
@@ -96,7 +96,17 @@ async function bricklinkRequest(endpoint: string): Promise<{ data: any; apiCalls
     throw new Error(rateLimit.warning || 'API rate limit exceeded');
   }
 
-  const url = `https://api.bricklink.com/api/store/v1${endpoint}`;
+  let url = `https://api.bricklink.com/api/store/v1${endpoint}`;
+  
+  // Add query parameters if provided
+  if (queryParams && Object.keys(queryParams).length > 0) {
+    const params = new URLSearchParams();
+    Object.entries(queryParams).forEach(([key, value]) => {
+      params.append(key, String(value));
+    });
+    url = `${url}?${params.toString()}`;
+  }
+  
   const authHeader = oauth.toHeader(oauth.authorize({ url, method: 'GET' }, token));
   
   let success = false;
@@ -205,47 +215,84 @@ export async function syncBricklinkColors(): Promise<{ added: number; updated: n
 
 export async function syncBricklinkInventory(): Promise<{ added: number; updated: number; apiCalls: number }> {
   try {
-    // Use the single /inventories endpoint to get all inventory in one call
-    const { data: responseData, apiCalls } = await bricklinkRequest('/inventories');
-    
     let added = 0;
     let updated = 0;
+    let totalApiCalls = 0;
+    let offset = 0;
+    const limit = 1000; // Fetch 1000 items per page
+    let hasMoreData = true;
 
-    // BrickLink API returns data directly as an array
-    const items = Array.isArray(responseData) ? responseData : [];
+    console.log('Starting BrickLink inventory sync with pagination...');
 
-    for (const item of items) {
-      const existing = await db.select().from(blInventory).where(eq(blInventory.id, item.inventory_id));
+    while (hasMoreData) {
+      // Check rate limit before each page
+      const rateLimit = await checkRateLimit();
+      if (!rateLimit.allowed) {
+        console.log(`Rate limit reached. Synced ${added + updated} items so far.`);
+        break;
+      }
+
+      console.log(`Fetching inventory page: offset=${offset}, limit=${limit}`);
       
-      if (existing.length === 0) {
-        await db.insert(blInventory).values({
-          id: item.inventory_id,
-          itemNo: item.item.no,
-          itemType: item.item.type,
-          colorId: item.color_id || 0,
-          quantity: item.quantity,
-          newOrUsed: item.new_or_used,
-          unitPrice: item.unit_price,
-          categoryId: item.item.category_id || 0,
-        });
-        added++;
-      } else {
-        const needsUpdate = existing[0].quantity !== item.quantity || 
-                            existing[0].unitPrice !== item.unit_price;
-        if (needsUpdate) {
-          await db.update(blInventory)
-            .set({ 
-              quantity: item.quantity,
-              unitPrice: item.unit_price,
-              updatedAt: new Date() 
-            })
-            .where(eq(blInventory.id, item.inventory_id));
-          updated++;
+      const { data: responseData, apiCalls } = await bricklinkRequest('/inventories', { 
+        offset, 
+        limit 
+      });
+      
+      totalApiCalls += apiCalls;
+
+      // BrickLink API returns data directly as an array
+      const items = Array.isArray(responseData) ? responseData : [];
+      
+      console.log(`Received ${items.length} items from BrickLink API`);
+
+      if (items.length === 0) {
+        hasMoreData = false;
+        break;
+      }
+
+      for (const item of items) {
+        const existing = await db.select().from(blInventory).where(eq(blInventory.id, item.inventory_id));
+        
+        if (existing.length === 0) {
+          await db.insert(blInventory).values({
+            id: item.inventory_id,
+            itemNo: item.item.no,
+            itemType: item.item.type,
+            colorId: item.color_id || 0,
+            quantity: item.quantity,
+            newOrUsed: item.new_or_used,
+            unitPrice: item.unit_price,
+            categoryId: item.item.category_id || 0,
+          });
+          added++;
+        } else {
+          const needsUpdate = existing[0].quantity !== item.quantity || 
+                              existing[0].unitPrice !== item.unit_price;
+          if (needsUpdate) {
+            await db.update(blInventory)
+              .set({ 
+                quantity: item.quantity,
+                unitPrice: item.unit_price,
+                updatedAt: new Date() 
+              })
+              .where(eq(blInventory.id, item.inventory_id));
+            updated++;
+          }
         }
+      }
+
+      // If we received fewer items than the limit, we've reached the end
+      if (items.length < limit) {
+        hasMoreData = false;
+      } else {
+        offset += limit;
       }
     }
 
-    return { added, updated, apiCalls };
+    console.log(`BrickLink inventory sync complete: ${added} added, ${updated} updated, ${totalApiCalls} API calls`);
+
+    return { added, updated, apiCalls: totalApiCalls };
   } catch (error) {
     console.error('Error syncing BrickLink inventory:', error);
     throw error;
