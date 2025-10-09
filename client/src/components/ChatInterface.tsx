@@ -41,7 +41,6 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
     button: 'bg-purple-600 hover:bg-purple-700',
     promptBg: 'bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30',
   };
-  // TODO: remove mock functionality - replace with real OpenRouter integration
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: 'assistant',
@@ -49,6 +48,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
     }
   ]);
   const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -59,68 +59,58 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
     scrollToBottom();
   }, [messages]);
 
-  const handleSend = (message?: string) => {
+  const handleSend = async (message?: string) => {
     const textToSend = message || input;
-    if (!textToSend.trim()) return;
+    if (!textToSend.trim() || isLoading) return;
     
     const userMessage: ChatMessage = { role: 'user', content: textToSend };
-    setMessages(prev => [...prev, userMessage]);
+    setInput('');
+    setIsLoading(true);
     
-    // Mock response with clickable items
-    setTimeout(() => {
-      let assistantMessage: ChatMessage = {
-        role: 'assistant',
-        content: `I understand you're asking about "${textToSend}". This is a demo response.`
-      };
+    // Build conversation history with the new user message
+    let conversationHistory: ChatMessage[] = [];
+    setMessages(prev => {
+      conversationHistory = [...prev, userMessage];
+      return conversationHistory;
+    });
+    
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messages: conversationHistory.map(m => ({
+            role: m.role,
+            content: m.content,
+          })),
+          context: dashboardContext,
+        }),
+      });
 
-      // Generate mock items based on context and query
-      if (dashboardContext.toLowerCase().includes('inventory') && textToSend.toLowerCase().includes('3201')) {
-        assistantMessage.content = "I found your inventory for part 3201. Here's what you have:";
-        assistantMessage.items = [
-          { type: 'inventory', id: '3201-black', label: 'Part 3201 - Black (45 units)' },
-          { type: 'inventory', id: '3201-red', label: 'Part 3201 - Red (23 units)' },
-          { type: 'inventory', id: '3201-blue', label: 'Part 3201 - Blue (12 units)' },
-        ];
-      } else if (dashboardContext.toLowerCase().includes('order') && (textToSend.toLowerCase().includes('open') || textToSend.toLowerCase().includes('awaiting'))) {
-        assistantMessage.content = "Here are your open orders:";
-        assistantMessage.items = [
-          { 
-            type: 'order', 
-            id: 'ord-1001', 
-            label: 'Order #1001',
-            orderNumber: '1001',
-            customerName: 'John Smith',
-            date: '2024-01-20',
-            total: 156.80,
-            isRepeatCustomer: true
-          },
-          { 
-            type: 'order', 
-            id: 'ord-1002', 
-            label: 'Order #1002',
-            orderNumber: '1002',
-            customerName: 'Sarah Johnson',
-            date: '2024-01-21',
-            total: 89.50,
-            isRepeatCustomer: false
-          },
-          { 
-            type: 'order', 
-            id: 'ord-1003', 
-            label: 'Order #1003',
-            orderNumber: '1003',
-            customerName: 'Michael Brown',
-            date: '2024-01-18',
-            total: 245.00,
-            isRepeatCustomer: true
-          },
-        ];
+      const data = await response.json();
+      
+      if (data.error) {
+        throw new Error(data.error);
       }
 
+      const assistantMessage: ChatMessage = {
+        role: 'assistant',
+        content: data.message || "I'm sorry, I couldn't generate a response.",
+      };
+
       setMessages(prev => [...prev, assistantMessage]);
-    }, 500);
-    
-    setInput('');
+    } catch (error) {
+      console.error('Chat error:', error);
+      const errorMessage: ChatMessage = {
+        role: 'assistant',
+        content: "I'm having trouble connecting right now. Please try again in a moment.",
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handlePromptClick = (prompt: string) => {
@@ -220,8 +210,18 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
             className="text-xs bg-gray-800/80 border-purple-500/30 focus-visible:ring-purple-500/50"
             data-testid="input-chat"
           />
-          <Button size="icon" onClick={() => handleSend()} className={colors.button} data-testid="button-send">
-            <Send className="h-4 w-4" />
+          <Button 
+            size="icon" 
+            onClick={() => handleSend()} 
+            className={colors.button} 
+            data-testid="button-send"
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <RefreshCcw className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
           </Button>
         </div>
         {prompts.length > 0 && (

@@ -87,6 +87,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // E.L.F.I.E. Chat Route
+  app.post("/api/chat", async (req, res) => {
+    try {
+      const { messages, context } = req.body;
+      
+      if (!process.env.OPENAI_API_KEY) {
+        throw new Error('OpenAI API key not configured');
+      }
+
+      const systemPrompt = `You are E.L.F.I.E. (Expert LEGO Fulfillment & Inventory Engine), an AI assistant specialized in LEGO reselling business operations. 
+      
+You help with:
+- Inventory management and optimization
+- Order processing and fulfillment
+- Sales analysis and forecasting
+- Marketing strategies for LEGO products
+- BrickLink and ShipStation platform guidance
+
+Current context: ${context}
+
+Provide concise, actionable advice. When relevant, suggest specific actions the user can take in their PlanetBrick dashboard.`;
+
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            ...messages
+          ],
+          temperature: 0.7,
+          max_tokens: 500,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`OpenAI API error: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      res.json({
+        message: data.choices[0].message.content,
+      });
+    } catch (error) {
+      console.error("Chat error:", error);
+      res.status(500).json({
+        error: "Failed to generate response",
+        message: "I'm having trouble connecting right now. Please try again.",
+      });
+    }
+  });
+
   // Sync Routes
   app.post("/api/sync/bricklink/inventory", async (req, res) => {
     try {
