@@ -121,7 +121,15 @@ Preferred communication style: Simple, everyday language.
 - **BrickLink API:** Primary data source for LEGO inventory
   - Categories and color definitions
   - Inventory listings with pricing
-  - OAuth authentication required (not yet implemented)
+  - OAuth 1.0a authentication implemented with consumer key/secret and token
+  - **Rate Limiting:** Tracks all API calls in `bl_api_calls` table
+    - Warning threshold: 2,500 calls per 24 hours (yellow UI alert)
+    - Block threshold: 4,750 calls per 24 hours (red alert, sync disabled)
+    - Real-time usage display in Settings modal
+    - Rolling 24-hour window for call counting
+  - **Optimized Sync:** Uses single `/inventories` endpoint instead of pagination
+    - Reduces API calls from hundreds to just 3 (categories, colors, inventories)
+    - GET /api/bricklink/rate-limit endpoint provides current usage status
   
 - **ShipStation API:** Order management and fulfillment
   - Order synchronization with customer details
