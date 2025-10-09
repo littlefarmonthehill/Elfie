@@ -209,56 +209,63 @@ export async function syncBricklinkInventory(): Promise<{ added: number; updated
   try {
     let added = 0;
     let updated = 0;
+    let totalApiCalls = 0;
 
-    console.log('Starting BrickLink inventory sync (fetching all items in single call)...');
+    console.log('Starting BrickLink inventory sync...');
     
-    // BrickLink API returns ALL inventory in a single call - no pagination support
-    const { data: responseData, apiCalls } = await bricklinkRequest('/inventories');
+    // Fetch inventory from all statuses (Y=available, S/B/C=stockrooms, N=unavailable, R=reserved)
+    // We'll make separate calls for each status to ensure we get everything
+    const statuses = ['Y', 'S', 'B', 'C', 'N', 'R'];
     
-    // BrickLink API returns data directly as an array
-    const items = Array.isArray(responseData) ? responseData : [];
-    
-    console.log(`Received ${items.length} inventory items from BrickLink API`);
-
-    if (items.length === 0) {
-      console.log('No inventory items returned from BrickLink API');
-      return { added: 0, updated: 0, apiCalls };
-    }
-
-    for (const item of items) {
-      const existing = await db.select().from(blInventory).where(eq(blInventory.id, item.inventory_id));
+    for (const status of statuses) {
+      console.log(`Fetching inventory with status: ${status}`);
       
-      if (existing.length === 0) {
-        await db.insert(blInventory).values({
-          id: item.inventory_id,
-          itemNo: item.item.no,
-          itemType: item.item.type,
-          colorId: item.color_id || 0,
-          quantity: item.quantity,
-          newOrUsed: item.new_or_used,
-          unitPrice: item.unit_price,
-          categoryId: item.item.category_id || 0,
-        });
-        added++;
-      } else {
-        const needsUpdate = existing[0].quantity !== item.quantity || 
-                            existing[0].unitPrice !== item.unit_price;
-        if (needsUpdate) {
-          await db.update(blInventory)
-            .set({ 
+      try {
+        const { data: responseData, apiCalls } = await bricklinkRequest(`/inventories?status=${status}`);
+        totalApiCalls += apiCalls;
+        
+        const items = Array.isArray(responseData) ? responseData : [];
+        console.log(`Received ${items.length} items with status ${status}`);
+        
+        for (const item of items) {
+          const existing = await db.select().from(blInventory).where(eq(blInventory.id, item.inventory_id));
+          
+          if (existing.length === 0) {
+            await db.insert(blInventory).values({
+              id: item.inventory_id,
+              itemNo: item.item.no,
+              itemType: item.item.type,
+              colorId: item.color_id || 0,
               quantity: item.quantity,
+              newOrUsed: item.new_or_used,
               unitPrice: item.unit_price,
-              updatedAt: new Date() 
-            })
-            .where(eq(blInventory.id, item.inventory_id));
-          updated++;
+              categoryId: item.item.category_id || 0,
+            });
+            added++;
+          } else {
+            const needsUpdate = existing[0].quantity !== item.quantity || 
+                                existing[0].unitPrice !== item.unit_price;
+            if (needsUpdate) {
+              await db.update(blInventory)
+                .set({ 
+                  quantity: item.quantity,
+                  unitPrice: item.unit_price,
+                  updatedAt: new Date() 
+                })
+                .where(eq(blInventory.id, item.inventory_id));
+              updated++;
+            }
+          }
         }
+      } catch (statusError) {
+        console.error(`Error fetching status ${status}:`, statusError);
+        // Continue with other statuses even if one fails
       }
     }
 
-    console.log(`BrickLink inventory sync complete: ${added} added, ${updated} updated, ${apiCalls} API call`);
+    console.log(`BrickLink inventory sync complete: ${added} added, ${updated} updated, ${totalApiCalls} API calls`);
 
-    return { added, updated, apiCalls };
+    return { added, updated, apiCalls: totalApiCalls };
   } catch (error) {
     console.error('Error syncing BrickLink inventory:', error);
     throw error;
