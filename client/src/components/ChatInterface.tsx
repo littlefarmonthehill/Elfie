@@ -7,6 +7,11 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
+  items?: Array<{
+    type: 'inventory' | 'order' | 'sales' | 'marketing';
+    id: string;
+    label: string;
+  }>;
 }
 
 interface ChatInterfaceProps {
@@ -14,9 +19,10 @@ interface ChatInterfaceProps {
   themeColor: 'red' | 'blue' | 'yellow' | 'green' | 'orange';
   prompts: string[];
   onPromptAction?: (prompt: string) => void;
+  onItemClick?: (type: 'inventory' | 'order' | 'sales' | 'marketing', id: string) => void;
 }
 
-export default function ChatInterface({ dashboardContext, themeColor, prompts, onPromptAction }: ChatInterfaceProps) {
+export default function ChatInterface({ dashboardContext, themeColor, prompts, onPromptAction, onItemClick }: ChatInterfaceProps) {
   const colorClasses = {
     red: {
       gradient: 'from-lego-red/10',
@@ -91,12 +97,30 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
     const userMessage: ChatMessage = { role: 'user', content: textToSend };
     setMessages(prev => [...prev, userMessage]);
     
-    // Mock response
+    // Mock response with clickable items
     setTimeout(() => {
-      const assistantMessage: ChatMessage = {
+      let assistantMessage: ChatMessage = {
         role: 'assistant',
-        content: `I understand you're asking about "${textToSend}". This is a demo response. In the full version, I'll provide detailed ${dashboardContext} insights and recommendations based on your data.`
+        content: `I understand you're asking about "${textToSend}". This is a demo response.`
       };
+
+      // Generate mock items based on context and query
+      if (dashboardContext.toLowerCase().includes('inventory') && textToSend.toLowerCase().includes('3201')) {
+        assistantMessage.content = "I found your inventory for part 3201. Here's what you have:";
+        assistantMessage.items = [
+          { type: 'inventory', id: '3201-black', label: 'Part 3201 - Black (45 units)' },
+          { type: 'inventory', id: '3201-red', label: 'Part 3201 - Red (23 units)' },
+          { type: 'inventory', id: '3201-blue', label: 'Part 3201 - Blue (12 units)' },
+        ];
+      } else if (dashboardContext.toLowerCase().includes('order') && (textToSend.toLowerCase().includes('open') || textToSend.toLowerCase().includes('awaiting'))) {
+        assistantMessage.content = "Here are your open orders:";
+        assistantMessage.items = [
+          { type: 'order', id: 'ord-1001', label: 'Order #1001 - $156.80 (BrickLink)' },
+          { type: 'order', id: 'ord-1002', label: 'Order #1002 - $89.50 (BrickOwl)' },
+          { type: 'order', id: 'ord-1003', label: 'Order #1003 - $245.00 (BrickLink)' },
+        ];
+      }
+
       setMessages(prev => [...prev, assistantMessage]);
     }, 500);
     
@@ -134,6 +158,20 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
                 }`}
               >
                 {message.content}
+                {message.items && message.items.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    {message.items.map((item, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => onItemClick?.(item.type, item.id)}
+                        className={`block w-full text-left px-2 py-1.5 rounded text-xs ${colors.promptBg} transition-colors`}
+                        data-testid={`item-${item.type}-${item.id}`}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           ))}

@@ -6,7 +6,8 @@ export default function ChatInterfaceExample() {
       <ChatInterface 
         dashboardContext="Inventory" 
         themeColor="blue" 
-        prompts={['Just Listed', 'Price-O-Matic']} 
+        prompts={['Just Listed', 'Price-O-Matic']}
+        onItemClick={(type, id) => console.log('Item clicked:', type, id)}
       />
     </div>
   );
