@@ -110,10 +110,13 @@ Preferred communication style: Simple, everyday language.
   - Shipping status tracking
   - Basic authentication (API key + secret, not yet implemented)
 
-**AI Integration (Planned):**
-- OpenRouter API for E.L.F.I.E. chat assistant
+**AI Integration:**
+- OpenAI API (GPT-4o-mini) for E.L.F.I.E. chat assistant
 - Context-aware responses based on active dashboard
 - Action prompts for common operations
+- Full conversation history management
+- LEGO-focused system prompt for operational guidance
+- Requires valid OPENAI_API_KEY environment variable
 
 **UI Libraries:**
 - Radix UI: Comprehensive component primitives (dialogs, dropdowns, tooltips, etc.)
