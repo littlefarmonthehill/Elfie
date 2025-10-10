@@ -51,47 +51,6 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
   const [isInputFocused, setIsInputFocused] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  
-  // Handle iOS keyboard issue by temporarily removing overflow-hidden from parent containers
-  const handleInputFocus = () => {
-    setIsInputFocused(true);
-    
-    // Find parent containers with overflow-hidden and temporarily change them
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
-                  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    
-    if (isIOS && inputRef.current) {
-      let element = inputRef.current.parentElement;
-      while (element) {
-        const overflow = window.getComputedStyle(element).overflow;
-        if (overflow === 'hidden') {
-          element.setAttribute('data-original-overflow', overflow);
-          element.style.overflow = 'visible';
-        }
-        element = element.parentElement;
-      }
-    }
-  };
-  
-  const handleInputBlur = () => {
-    setIsInputFocused(false);
-    
-    // Restore original overflow properties
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
-                  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    
-    if (isIOS && inputRef.current) {
-      let element = inputRef.current.parentElement;
-      while (element) {
-        const originalOverflow = element.getAttribute('data-original-overflow');
-        if (originalOverflow) {
-          element.style.overflow = originalOverflow;
-          element.removeAttribute('data-original-overflow');
-        }
-        element = element.parentElement;
-      }
-    }
-  };
 
   const scrollToBottom = () => {
     // Never scroll if input is focused (critical for iOS keyboard)
@@ -180,7 +139,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
   };
 
   return (
-    <div className={`flex flex-col h-full border-t-4 ${colors.border} bg-gradient-to-br ${colors.gradient} to-transparent ${colors.glow} relative`}>
+    <div className={`flex flex-col h-full border-t-4 ${colors.border} bg-gradient-to-br ${colors.gradient} to-transparent ${colors.glow}`}>
       <div className={`flex items-center justify-between gap-2 p-3 border-b-2 ${colors.border} ${colors.headerBg} backdrop-blur-sm`}>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-2 px-2 py-1 rounded-full bg-purple-500/20 border border-purple-500/30">
@@ -263,19 +222,18 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
         </div>
       </div>
       
-      <div className={`border-t-2 ${colors.border} bg-gray-900/50 backdrop-blur-sm`} style={{ touchAction: 'manipulation' }}>
+      <div className={`border-t-2 ${colors.border} bg-gray-900/50 backdrop-blur-sm`}>
         <div className="flex gap-2 p-3">
           <Input
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-            onFocus={handleInputFocus}
-            onBlur={handleInputBlur}
+            onFocus={() => setIsInputFocused(true)}
+            onBlur={() => setIsInputFocused(false)}
             placeholder="Ask E.L.F.I.E. for help..."
             className="text-xs bg-gray-800/80 border-purple-500/30 focus-visible:ring-purple-500/50"
             data-testid="input-chat"
-            style={{ touchAction: 'manipulation' }}
           />
           <Button 
             size="icon" 
