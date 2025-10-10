@@ -644,6 +644,45 @@ Keep responses helpful, accurate, and based on the actual data provided.`;
     }
   });
 
+  // Get Inventory Item by ID
+  app.get("/api/inventory/:id", async (req, res) => {
+    try {
+      const itemId = parseInt(req.params.id);
+      if (isNaN(itemId)) {
+        return res.status(400).json({ error: "Invalid item ID" });
+      }
+
+      const items = await db
+        .select({
+          id: blInventory.id,
+          itemNo: blInventory.itemNo,
+          itemType: blInventory.itemType,
+          colorId: blInventory.colorId,
+          colorName: blColors.name,
+          colorRgb: blColors.rgb,
+          categoryId: blInventory.categoryId,
+          categoryName: blCategories.name,
+          quantity: blInventory.quantity,
+          newOrUsed: blInventory.newOrUsed,
+          unitPrice: blInventory.unitPrice,
+          updatedAt: blInventory.updatedAt,
+        })
+        .from(blInventory)
+        .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+        .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
+        .where(eq(blInventory.id, itemId));
+
+      if (items.length === 0) {
+        return res.status(404).json({ error: "Item not found" });
+      }
+
+      res.json(items[0]);
+    } catch (error) {
+      console.error("Error fetching item by ID:", error);
+      res.status(500).json({ error: "Failed to fetch item" });
+    }
+  });
+
   // Get Inventory Stats
   app.get("/api/inventory/stats", async (req, res) => {
     try {

@@ -329,30 +329,28 @@ export default function Home() {
     if (type === 'inventory') {
       // Check if this is a real database ID (numeric) or mock ID (contains dash)
       if (!id.includes('-') && !isNaN(Number(id))) {
-        // Real database ID - fetch from API
+        // Real database ID - fetch from dedicated endpoint
         try {
-          const response = await fetch(`/api/inventory`);
-          const items = await response.json();
-          const item = items.find((i: any) => i.id === Number(id));
-          
-          if (item) {
-            detailData = {
-              partNumber: item.itemNo,
-              name: `${item.itemType} ${item.itemNo}`,
-              category: item.categoryName || 'Unknown',
-              color: item.colorName || 'No Color',
-              quantity: item.quantity,
-              condition: item.newOrUsed as 'New' | 'Used',
-              costPerUnit: 0, // BrickLink API doesn't provide cost
-              pricePerUnit: parseFloat(item.unitPrice) || 0,
-              weight: 0, // Not available in current data
-              dateAdded: new Date(item.updatedAt).toISOString().split('T')[0],
-              bricklinkUrl: `https://www.bricklink.com/v2/catalog/catalogitem.page?P=${item.itemNo}`,
-            };
-          } else {
+          const response = await fetch(`/api/inventory/${id}`);
+          if (!response.ok) {
             console.error('Item not found:', id);
             return;
           }
+          
+          const item = await response.json();
+          detailData = {
+            partNumber: item.itemNo,
+            name: `${item.itemType} ${item.itemNo}`,
+            category: item.categoryName || 'Unknown',
+            color: item.colorName || 'No Color',
+            quantity: item.quantity,
+            condition: item.newOrUsed === 'N' ? 'New' : 'Used',
+            costPerUnit: 0, // BrickLink API doesn't provide cost
+            pricePerUnit: parseFloat(item.unitPrice) || 0,
+            weight: 0, // Not available in current data
+            dateAdded: new Date(item.updatedAt).toISOString().split('T')[0],
+            bricklinkUrl: `https://www.bricklink.com/v2/catalog/catalogitem.page?P=${item.itemNo}`,
+          };
         } catch (error) {
           console.error('Error fetching inventory item:', error);
           return;
