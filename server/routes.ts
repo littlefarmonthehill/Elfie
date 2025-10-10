@@ -381,6 +381,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Always include inventory stats for analytical questions
+      const statsQuery = await db
+        .select({
+          totalLots: sql<number>`COUNT(*)`,
+          totalParts: sql<number>`SUM(${blInventory.quantity})`,
+          totalValue: sql<number>`SUM(${blInventory.quantity} * CAST(${blInventory.unitPrice} AS DECIMAL))`,
+        })
+        .from(blInventory);
+
+      const colorCount = await db
+        .select({ count: sql<number>`COUNT(DISTINCT ${blInventory.colorId})` })
+        .from(blInventory);
+
+      const categoryCount = await db
+        .select({ count: sql<number>`COUNT(DISTINCT ${blInventory.categoryId})` })
+        .from(blInventory);
+
+      const statsData = {
+        totalLots: Number(statsQuery[0]?.totalLots) || 0,
+        totalParts: Number(statsQuery[0]?.totalParts) || 0,
+        totalValue: Number(statsQuery[0]?.totalValue) || 0,
+        totalColors: Number(colorCount[0]?.count) || 0,
+        totalCategories: Number(categoryCount[0]?.count) || 0,
+      };
+
+      // Add stats to context for analytical questions
+      databaseContext += `\n\nINVENTORY STATISTICS:
+- Total lots (unique listings): ${statsData.totalLots}
+- Total parts (sum of quantities): ${statsData.totalParts}
+- Total inventory value: $${statsData.totalValue.toFixed(2)}
+- Number of different colors: ${statsData.totalColors}
+- Number of different categories: ${statsData.totalCategories}\n`;
+
       // Search orders
       if (lastUserMessage.includes('order')) {
         const ordersResults = await db
