@@ -97,19 +97,19 @@ export function InventoryGroup({ itemNo, items, onItemClick }: InventoryGroupPro
 
       {/* Expanded content */}
       {isExpanded && (
-        <div className="px-3 pb-2">
+        <div className="px-3 pb-3">
           {/* Column headers */}
-          <div className="grid grid-cols-[16px_80px_1fr] gap-2 items-center pb-1 mb-1 border-b border-purple-500/20">
+          <div className="grid grid-cols-[16px_90px_1fr] gap-3 items-center pb-2 mb-2 border-b border-purple-500/20">
             <div></div> {/* Empty space for color dot column */}
             <div></div> {/* Empty space for color name column */}
-            <div className="grid grid-cols-2 gap-2 text-[10px] font-semibold uppercase tracking-wider">
+            <div className="grid grid-cols-2 gap-4 text-[10px] font-semibold uppercase tracking-wider">
               <span className="text-green-400/70">New</span>
               <span className="text-orange-400/70">Used</span>
             </div>
           </div>
           
           {/* Color rows */}
-          <div className="space-y-1">
+          <div className="space-y-2">
             {colorGroups.map((group, idx) => {
               const colorHex = rgbToHex(group.colorRgb);
               // Use the first available item ID for this color group (item-level details)
@@ -119,7 +119,7 @@ export function InventoryGroup({ itemNo, items, onItemClick }: InventoryGroupPro
                 <button
                   key={idx}
                   onClick={() => itemId && onItemClick?.(itemId)}
-                  className="w-full grid grid-cols-[16px_80px_1fr] gap-2 items-center p-2 -mx-2 rounded text-left hover:bg-gray-800/20 active:bg-gray-800/30 transition-colors"
+                  className="w-full grid grid-cols-[16px_90px_1fr] gap-3 items-center py-2 px-2 -mx-2 rounded text-left hover:bg-gray-800/20 active:bg-gray-800/30 transition-colors"
                   data-testid={`inventory-row-${itemNo}-${idx}`}
                 >
                   {/* Color dot */}
@@ -133,7 +133,7 @@ export function InventoryGroup({ itemNo, items, onItemClick }: InventoryGroupPro
                   <span className="text-gray-400 text-xs truncate">{group.colorName || 'Unknown'}</span>
                   
                   {/* Conditions aligned in columns - using grid for vertical alignment */}
-                  <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="grid grid-cols-2 gap-4 text-xs">
                     {/* New condition - always in first column, no "N:" prefix */}
                     <div className="flex items-center gap-1">
                       {group.new && (
