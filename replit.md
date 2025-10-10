@@ -38,11 +38,12 @@ Preferred communication style: Simple, everyday language.
 - Detail modals (drawer-based) for in-depth item views
 - Chat interface with purple/violet theme for AI assistant
 - Responsive design with mobile breakpoint at 768px
-- **iOS Keyboard Fix:** Native scrollable div used on iOS/iPadOS devices instead of Radix ScrollArea to prevent keyboard dismissal issue
-  - Detects iOS/iPadOS (including iPadOS 13+ via `maxTouchPoints > 1`)
-  - Uses visualViewport API to adjust padding when keyboard appears
-  - Preserves scroll position without forced layout jumps
-  - Only affects iOS devices; desktop/Android use standard ScrollArea
+- **iOS Keyboard Fix (Simplified):** Chat interface uses native scrollable div for all devices to prevent keyboard dismissal
+  - Replaced Radix ScrollArea (overflow-hidden) with `<div className="overflow-y-auto">`
+  - Uses `-webkit-overflow-scrolling: touch` for smooth iOS scrolling
+  - No device-specific detection or complex event handlers
+  - Same behavior across all platforms (desktop, iOS, Android)
+  - **Important:** Avoid reintroducing overflow-hidden patterns in chat scroll containers
 
 ### Backend Architecture
 
