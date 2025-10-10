@@ -144,6 +144,50 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
     handleSend(prompt);
   };
 
+  // Detect if running on iOS (including iPadOS 13+ which identifies as Mac)
+  const isIOS = typeof window !== 'undefined' && (
+    /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+    (navigator.userAgent.includes('Mac') && navigator.maxTouchPoints > 1)
+  );
+  
+  // iOS keyboard fix using visualViewport
+  useEffect(() => {
+    if (!isIOS || !window.visualViewport) {
+      return;
+    }
+
+    const chatContainer = document.querySelector('[data-chat-container="true"]') as HTMLElement;
+    if (!chatContainer) return;
+
+    const handleViewportChange = () => {
+      if (!window.visualViewport) return;
+      
+      const viewport = window.visualViewport;
+      const offsetTop = viewport.offsetTop;
+      const viewportHeight = viewport.height;
+      
+      // Adjust padding to keep input above keyboard
+      if (offsetTop > 0) {
+        // Keyboard is visible
+        const keyboardHeight = window.innerHeight - viewportHeight - offsetTop;
+        chatContainer.style.paddingBottom = `${Math.max(0, keyboardHeight)}px`;
+      } else {
+        // Keyboard is hidden
+        chatContainer.style.paddingBottom = '0px';
+      }
+    };
+
+    window.visualViewport.addEventListener('resize', handleViewportChange);
+    window.visualViewport.addEventListener('scroll', handleViewportChange);
+
+    return () => {
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', handleViewportChange);
+        window.visualViewport.removeEventListener('scroll', handleViewportChange);
+      }
+    };
+  }, [isIOS]);
+
   return (
     <div className={`flex flex-col h-full border-t-4 ${colors.border} bg-gradient-to-br ${colors.gradient} to-transparent ${colors.glow}`}>
       <div className={`flex items-center justify-between gap-2 p-3 border-b-2 ${colors.border} ${colors.headerBg} backdrop-blur-sm`}>
@@ -171,60 +215,120 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
         )}
       </div>
       
-      <ScrollArea className="flex-1 p-4">
-        <div className="space-y-4">
-          {messages.map((message, i) => (
-            <div
-              key={i}
-              className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-              data-testid={`message-${message.role}-${i}`}
-            >
+      {/* Use native scroll on iOS to avoid overflow-hidden keyboard issues */}
+      {isIOS ? (
+        <div 
+          className="flex-1 p-4 overflow-y-auto" 
+          style={{ WebkitOverflowScrolling: 'touch' }}
+          data-chat-container="true"
+        >
+          <div className="space-y-4">
+            {messages.map((message, i) => (
               <div
-                className={`max-w-[80%] rounded-lg p-3 text-xs ${
-                  message.role === 'user'
-                    ? colors.userBg + ' text-white'
-                    : 'bg-gray-800/80 text-gray-300 border border-purple-500/20'
-                }`}
+                key={i}
+                className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                data-testid={`message-${message.role}-${i}`}
               >
-                {message.content}
-                {message.items && message.items.length > 0 && (
-                  <div className="mt-2 space-y-1">
-                    {message.items.map((item, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => onItemClick?.(item.type, item.id)}
-                        className={`block w-full text-left px-3 py-1.5 rounded-md text-xs ${colors.promptBg} transition-colors`}
-                        data-testid={`item-${item.type}-${item.id}`}
-                      >
-                        {item.type === 'order' && item.orderNumber ? (
-                          <div className="flex items-center gap-2">
-                            <div className="flex-shrink-0 w-4">
-                              {item.isRepeatCustomer && (
-                                <RefreshCcw className="h-3 w-3" />
-                              )}
+                <div
+                  className={`max-w-[80%] rounded-lg p-3 text-xs ${
+                    message.role === 'user'
+                      ? colors.userBg + ' text-white'
+                      : 'bg-gray-800/80 text-gray-300 border border-purple-500/20'
+                  }`}
+                >
+                  {message.content}
+                  {message.items && message.items.length > 0 && (
+                    <div className="mt-2 space-y-1">
+                      {message.items.map((item, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => onItemClick?.(item.type, item.id)}
+                          className={`block w-full text-left px-3 py-1.5 rounded-md text-xs ${colors.promptBg} transition-colors`}
+                          data-testid={`item-${item.type}-${item.id}`}
+                        >
+                          {item.type === 'order' && item.orderNumber ? (
+                            <div className="flex items-center gap-2">
+                              <div className="flex-shrink-0 w-4">
+                                {item.isRepeatCustomer && (
+                                  <RefreshCcw className="h-3 w-3" />
+                                )}
+                              </div>
+                              <div className="flex-1 flex items-center justify-between gap-3">
+                                <span className="font-medium">#{item.orderNumber}</span>
+                                <span className="flex-1">{item.customerName}</span>
+                                <span className="text-gray-400">{item.date}</span>
+                                <span className="font-semibold">${item.total?.toFixed(2)}</span>
+                              </div>
                             </div>
-                            <div className="flex-1 flex items-center justify-between gap-3">
-                              <span className="font-medium">#{item.orderNumber}</span>
-                              <span className="flex-1">{item.customerName}</span>
-                              <span className="text-gray-400">{item.date}</span>
-                              <span className="font-semibold">${item.total?.toFixed(2)}</span>
-                            </div>
-                          </div>
-                        ) : (
-                          item.label
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                )}
+                          ) : (
+                            item.label
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
-          <div ref={messagesEndRef} />
+            ))}
+            <div ref={messagesEndRef} />
+          </div>
         </div>
-      </ScrollArea>
+      ) : (
+        <ScrollArea className="flex-1 p-4">
+          <div className="space-y-4">
+            {messages.map((message, i) => (
+              <div
+                key={i}
+                className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                data-testid={`message-${message.role}-${i}`}
+              >
+                <div
+                  className={`max-w-[80%] rounded-lg p-3 text-xs ${
+                    message.role === 'user'
+                      ? colors.userBg + ' text-white'
+                      : 'bg-gray-800/80 text-gray-300 border border-purple-500/20'
+                  }`}
+                >
+                  {message.content}
+                  {message.items && message.items.length > 0 && (
+                    <div className="mt-2 space-y-1">
+                      {message.items.map((item, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => onItemClick?.(item.type, item.id)}
+                          className={`block w-full text-left px-3 py-1.5 rounded-md text-xs ${colors.promptBg} transition-colors`}
+                          data-testid={`item-${item.type}-${item.id}`}
+                        >
+                          {item.type === 'order' && item.orderNumber ? (
+                            <div className="flex items-center gap-2">
+                              <div className="flex-shrink-0 w-4">
+                                {item.isRepeatCustomer && (
+                                  <RefreshCcw className="h-3 w-3" />
+                                )}
+                              </div>
+                              <div className="flex-1 flex items-center justify-between gap-3">
+                                <span className="font-medium">#{item.orderNumber}</span>
+                                <span className="flex-1">{item.customerName}</span>
+                                <span className="text-gray-400">{item.date}</span>
+                                <span className="font-semibold">${item.total?.toFixed(2)}</span>
+                              </div>
+                            </div>
+                          ) : (
+                            item.label
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+            <div ref={messagesEndRef} />
+          </div>
+        </ScrollArea>
+      )}
       
-      <div className={`border-t-2 ${colors.border} bg-gray-900/50 backdrop-blur-sm`}>
+      <div className={`border-t-2 ${colors.border} bg-gray-900/50 backdrop-blur-sm sticky bottom-0 z-10`}>
         <div className="flex gap-2 p-3">
           <Input
             ref={inputRef}
@@ -241,6 +345,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
             className="text-xs bg-gray-800/80 border-purple-500/30 focus-visible:ring-purple-500/50"
             data-testid="input-chat"
             autoComplete="off"
+            inputMode="text"
           />
           <Button 
             size="icon" 
