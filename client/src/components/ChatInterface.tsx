@@ -48,32 +48,27 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isInputFocused, setIsInputFocused] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const scrollToBottom = () => {
-    // Use requestAnimationFrame to ensure DOM updates are complete
-    requestAnimationFrame(() => {
-      // Don't scroll if the input is currently focused (prevents keyboard from closing on mobile)
-      if (document.activeElement === inputRef.current) {
-        return;
-      }
-      // Additional check: if input has value being typed, don't scroll
-      if (inputRef.current && inputRef.current === document.activeElement) {
-        return;
-      }
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    });
+    // Never scroll if input is focused (critical for iOS keyboard)
+    if (isInputFocused) {
+      return;
+    }
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   useEffect(() => {
-    // Add a small delay to allow input focus to complete on mobile devices
-    const timeoutId = setTimeout(() => {
-      scrollToBottom();
-    }, 100);
-    
-    return () => clearTimeout(timeoutId);
-  }, [messages]);
+    // Only scroll when messages change AND input is not focused
+    if (!isInputFocused) {
+      const timeoutId = setTimeout(() => {
+        scrollToBottom();
+      }, 100);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [messages, isInputFocused]);
 
   const handleSend = async (message?: string) => {
     const textToSend = message || input;
@@ -234,6 +229,8 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+            onFocus={() => setIsInputFocused(true)}
+            onBlur={() => setIsInputFocused(false)}
             placeholder="Ask E.L.F.I.E. for help..."
             className="text-xs bg-gray-800/80 border-purple-500/30 focus-visible:ring-purple-500/50"
             data-testid="input-chat"
