@@ -2,7 +2,7 @@
 
 ## Overview
 
-PlanetBrick is a comprehensive business operations and analytics dashboard designed for LEGO reselling businesses. It integrates with BrickLink and ShipStation to provide real-time inventory management, order tracking, sales analytics, and marketing insights. The application features a dark-mode interface with LEGO-inspired color schemes and an AI chat assistant (E.L.F.I.E.) for operational guidance.
+PlanetBrick is a comprehensive business operations and analytics dashboard designed for LEGO reselling businesses. It integrates with BrickLink and ShipStation to provide real-time inventory management, order tracking, sales analytics, and marketing insights. The application features a dark-mode interface with LEGO-inspired color schemes and an AI chat assistant (BrickBot Pro) for operational guidance.
 
 ## User Preferences
 
@@ -106,7 +106,7 @@ Preferred communication style: Simple, everyday language.
 - Settings auto-initialize with environment variable OPENROUTER_API_KEY on first access
 
 **AI Configuration:**
-- Toggle to enable/disable E.L.F.I.E. AI assistant
+- Toggle to enable/disable BrickBot Pro AI assistant
 - OpenRouter API integration for multi-model access
 - Custom OpenRouter API key storage (password-protected input)
 - Dynamic model selection from available OpenRouter models
@@ -155,12 +155,15 @@ Preferred communication style: Simple, everyday language.
   - Basic authentication (API key + secret, not yet implemented)
 
 **AI Integration:**
-- OpenRouter API for E.L.F.I.E. chat assistant (multi-model support)
+- OpenRouter API for BrickBot Pro chat assistant (multi-model support)
 - Default model: GPT-4o-mini (openai/gpt-4o-mini)
 - Context-aware responses based on active dashboard
 - Action prompts for common operations
 - Full conversation history management
-- LEGO-focused system prompt for operational guidance
+- **Operations-first approach:** BrickBot prioritizes concise, factual answers for daily operations (inventory, orders, fulfillment)
+- **Strategy mode:** Only activates when user explicitly asks to analyze/optimize/strategize
+- **Response format:** Answers kept under 5 sentences unless detail requested; always includes BrickLink links for items
+- **Mode switching:** Detects keywords (analyze, optimize, improve, market, strategy, growth) to switch from operations to strategy mode
 - Dynamic model selection from OpenRouter's model catalog
 - Requires valid OPENROUTER_API_KEY environment variable or user-provided key
 
