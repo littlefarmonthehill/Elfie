@@ -43,7 +43,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: 'assistant',
-      content: `Hello! I'm BrickBot Pro, your ${dashboardContext} operations assistant. How can I help manage your BrickLink store today?`
+      content: `Hello! I'm E.L.F.I.E., your ${dashboardContext} operations assistant. How can I help you optimize your LEGO business today?`
     }
   ]);
   const [input, setInput] = useState('');
@@ -184,9 +184,9 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-2 px-2 py-1 rounded-full bg-purple-500/20 border border-purple-500/30">
             <Bot className={`h-4 w-4 ${colors.icon}`} />
-            <span className="text-sm font-bold text-purple-300">BrickBot Pro</span>
+            <span className="text-sm font-bold text-purple-300">E.L.F.I.E.</span>
           </div>
-          <span className="text-xs text-gray-400">Operations Assistant</span>
+          <span className="text-xs text-gray-400">AI Assistant</span>
         </div>
         {onToggleMinimize && (
           <Button
@@ -274,7 +274,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
                 onKeyPress={(e) => e.key === 'Enter' && handleSend()}
                 onFocus={() => setIsInputFocused(true)}
                 onBlur={() => setIsInputFocused(false)}
-                placeholder="Ask BrickBot Pro for help..."
+                placeholder="Ask E.L.F.I.E. for help..."
                 className="text-xs bg-gray-800/80 border-purple-500/30 focus-visible:ring-purple-500/50"
                 data-testid="input-chat"
               />
