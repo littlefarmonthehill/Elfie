@@ -168,6 +168,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { messages, context } = req.body;
       
+      console.log('📨 Received request body:', JSON.stringify({ 
+        messagesCount: messages?.length, 
+        context,
+        firstMessage: messages?.[0]
+      }));
+      
+      // Validate messages array
+      if (!messages || !Array.isArray(messages) || messages.length === 0) {
+        return res.status(400).json({
+          error: "Invalid request",
+          message: "Messages array is required and must not be empty.",
+        });
+      }
+      
       // Get API key from settings
       const [settings] = await db
         .select()

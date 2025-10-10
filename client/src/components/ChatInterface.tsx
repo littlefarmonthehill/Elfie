@@ -92,11 +92,8 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
     setIsLoading(true);
     
     // Build conversation history with the new user message
-    let conversationHistory: ChatMessage[] = [];
-    setMessages(prev => {
-      conversationHistory = [...prev, userMessage];
-      return conversationHistory;
-    });
+    const conversationHistory = [...messages, userMessage];
+    setMessages(conversationHistory);
     
     console.log('🚀 Frontend sending to /api/chat:');
     console.log('  - User message:', textToSend);
