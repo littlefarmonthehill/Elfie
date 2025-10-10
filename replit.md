@@ -38,14 +38,16 @@ Preferred communication style: Simple, everyday language.
 - Detail modals (drawer-based) for in-depth item views
 - Chat interface with purple/violet theme for AI assistant
 - Responsive design with mobile breakpoint at 768px
-- **iOS Keyboard Fix (Focus-Based):** Chat interface prevents scroll events during input interaction to avoid keyboard dismissal
-  - Replaced Radix ScrollArea (overflow-hidden) with `<div className="overflow-y-auto">`
+- **iOS Keyboard Fix (Multi-Layer):** Chat interface fixed at multiple levels to prevent keyboard dismissal
+  - **ChatInterface Component:** Replaced Radix ScrollArea (overflow-hidden) with `<div className="overflow-y-auto">`
+  - **Parent Containers:** Removed `overflow-hidden` from portrait/landscape mode parent containers in home.tsx
   - Uses `-webkit-overflow-scrolling: touch` for smooth iOS scrolling
   - Tracks input focus state (`isInputFocused`) to prevent scroll-triggered keyboard dismissal
   - `scrollToBottom()` completely disabled when input has focus
   - `onFocus`/`onBlur` handlers reliably track input interaction state
   - Auto-scroll only occurs when input is not focused (after sending message)
-  - **Important:** Never trigger scroll events (scrollIntoView, etc.) while input is focused on mobile
+  - **Critical:** Never add `overflow-hidden` to any container wrapping ChatInterface or input fields on mobile
+  - **Critical:** Never trigger scroll events (scrollIntoView, etc.) while input is focused on mobile
 
 ### Backend Architecture
 
