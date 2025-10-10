@@ -200,26 +200,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (partNumberMatch || lastUserMessage.includes('part') || lastUserMessage.includes('inventory')) {
         const partNumber = partNumberMatch ? partNumberMatch[1] : null;
         
-        let baseQuery = db.select({
-          itemNo: blInventory.itemNo,
-          itemType: blInventory.itemType,
-          colorId: blInventory.colorId,
-          colorName: blColors.name,
-          colorRgb: blColors.rgb,
-          categoryName: blCategories.name,
-          quantity: blInventory.quantity,
-          newOrUsed: blInventory.newOrUsed,
-          unitPrice: blInventory.unitPrice,
-        }).from(blInventory);
-        
+        // Build query - apply where before joins
+        let inventoryResults;
         if (partNumber) {
-          baseQuery = baseQuery.where(like(blInventory.itemNo, `%${partNumber}%`));
+          inventoryResults = await db
+            .select({
+              itemNo: blInventory.itemNo,
+              itemType: blInventory.itemType,
+              colorId: blInventory.colorId,
+              colorName: blColors.name,
+              colorRgb: blColors.rgb,
+              categoryName: blCategories.name,
+              quantity: blInventory.quantity,
+              newOrUsed: blInventory.newOrUsed,
+              unitPrice: blInventory.unitPrice,
+            })
+            .from(blInventory)
+            .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+            .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
+            .where(like(blInventory.itemNo, `%${partNumber}%`))
+            .limit(50);
+        } else {
+          inventoryResults = await db
+            .select({
+              itemNo: blInventory.itemNo,
+              itemType: blInventory.itemType,
+              colorId: blInventory.colorId,
+              colorName: blColors.name,
+              colorRgb: blColors.rgb,
+              categoryName: blCategories.name,
+              quantity: blInventory.quantity,
+              newOrUsed: blInventory.newOrUsed,
+              unitPrice: blInventory.unitPrice,
+            })
+            .from(blInventory)
+            .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+            .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
+            .limit(50);
         }
-        
-        const inventoryResults = await baseQuery
-          .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
-          .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
-          .limit(50);
         
         if (inventoryResults.length > 0) {
           databaseContext += `\n\nINVENTORY DATA FROM DATABASE:\n`;
