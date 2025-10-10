@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
@@ -111,6 +111,29 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
     } finally {
       setLoadingModels(false);
     }
+  };
+
+  // Group models by provider
+  const groupedModels = availableModels.reduce((acc, model) => {
+    const provider = model.id.split('/')[0] || 'other';
+    if (!acc[provider]) {
+      acc[provider] = [];
+    }
+    acc[provider].push(model);
+    return acc;
+  }, {} as Record<string, Array<{ id: string; name: string }>>);
+
+  const providerNames: Record<string, string> = {
+    'openai': 'OpenAI (ChatGPT)',
+    'anthropic': 'Anthropic (Claude)',
+    'google': 'Google (Gemini)',
+    'meta': 'Meta (Llama)',
+    'mistralai': 'Mistral AI',
+    'cohere': 'Cohere',
+    'perplexity': 'Perplexity',
+    'deepseek': 'DeepSeek',
+    'x-ai': 'xAI (Grok)',
+    'other': 'Other Models',
   };
 
   // Rate limit state
@@ -642,10 +665,17 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                             <SelectValue placeholder="Select a model" />
                           </SelectTrigger>
                           <SelectContent>
-                            {availableModels.map((model) => (
-                              <SelectItem key={model.id} value={model.id}>
-                                {model.name}
-                              </SelectItem>
+                            {Object.entries(groupedModels).map(([provider, models]) => (
+                              <SelectGroup key={provider}>
+                                <SelectLabel className="text-xs">
+                                  {providerNames[provider] || provider}
+                                </SelectLabel>
+                                {models.map((model) => (
+                                  <SelectItem key={model.id} value={model.id}>
+                                    {model.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectGroup>
                             ))}
                           </SelectContent>
                         </Select>
