@@ -53,15 +53,27 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
   const inputRef = useRef<HTMLInputElement>(null);
 
   const scrollToBottom = () => {
-    // Don't scroll if the input is currently focused (prevents keyboard from closing on mobile)
-    if (document.activeElement === inputRef.current) {
-      return;
-    }
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    // Use requestAnimationFrame to ensure DOM updates are complete
+    requestAnimationFrame(() => {
+      // Don't scroll if the input is currently focused (prevents keyboard from closing on mobile)
+      if (document.activeElement === inputRef.current) {
+        return;
+      }
+      // Additional check: if input has value being typed, don't scroll
+      if (inputRef.current && inputRef.current === document.activeElement) {
+        return;
+      }
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    });
   };
 
   useEffect(() => {
-    scrollToBottom();
+    // Add a small delay to allow input focus to complete on mobile devices
+    const timeoutId = setTimeout(() => {
+      scrollToBottom();
+    }, 100);
+    
+    return () => clearTimeout(timeoutId);
   }, [messages]);
 
   const handleSend = async (message?: string) => {
@@ -216,12 +228,19 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
         <div className="flex gap-2 p-3">
           <Input
             ref={inputRef}
+            type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+              }
+            }}
             placeholder="Ask E.L.F.I.E. for help..."
             className="text-xs bg-gray-800/80 border-purple-500/30 focus-visible:ring-purple-500/50"
             data-testid="input-chat"
+            autoComplete="off"
           />
           <Button 
             size="icon" 
