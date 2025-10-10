@@ -422,7 +422,7 @@ export default function Home() {
       <DashboardNav active={activeDashboard} onSelect={setActiveDashboard} />
       
       {/* Portrait mode: vertical layout (default) */}
-      <div className="flex-1 flex flex-col landscape:hidden relative">
+      <div className="flex-1 flex flex-col landscape:hidden overflow-hidden relative">
         <div className={`transition-all duration-300 overflow-y-auto border-b-2 ${
           chatExpanded ? 'h-0' : 'h-[35%]'
         } ${
@@ -449,7 +449,7 @@ export default function Home() {
       </div>
 
       {/* Landscape mode: horizontal split layout */}
-      <div className="hidden landscape:flex flex-1 relative">
+      <div className="hidden landscape:flex flex-1 overflow-hidden relative">
         {/* Left side: Dashboard info */}
         <div className={`w-1/2 overflow-y-auto border-r-2 ${
           activeDashboard === 'dashboard' ? 'bg-gradient-to-br from-lego-red/20 to-lego-red/5 border-lego-red/30' :
@@ -462,7 +462,7 @@ export default function Home() {
         </div>
         
         {/* Right side: Chat */}
-        <div className="w-1/2">
+        <div className="w-1/2 overflow-hidden">
           <ChatInterface 
             dashboardContext={getChatContext()} 
             themeColor={getThemeColor()} 
