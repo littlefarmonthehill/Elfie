@@ -191,7 +191,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const systemPrompt = `You are E.L.F.I.E. (Expert LEGO Fulfillment & Inventory Engine), an AI assistant for LEGO business operations.
+      // Use custom system prompt if provided, otherwise use default
+      const defaultSystemPrompt = `You are E.L.F.I.E. (Expert LEGO Fulfillment & Inventory Engine), an AI assistant for LEGO business operations.
 
 Current context: ${context}
 
@@ -221,6 +222,10 @@ ALWAYS provide specific, actionable guidance with:
 For parts/sets: https://www.bricklink.com/v2/catalog/catalogitem.page?P=<partNumber>
 
 Keep responses under 5 sentences and be direct.`;
+
+      const systemPrompt = settings?.systemPrompt 
+        ? `${settings.systemPrompt}\n\nCurrent context: ${context}` 
+        : defaultSystemPrompt;
 
       const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',

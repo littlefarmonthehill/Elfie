@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
@@ -49,6 +50,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   const [aiEnabled, setAiEnabled] = useState(true);
   const [apiKey, setApiKey] = useState("");
   const [selectedModel, setSelectedModel] = useState("openai/gpt-4o-mini");
+  const [systemPrompt, setSystemPrompt] = useState("");
   const [availableModels, setAvailableModels] = useState<Array<{ id: string; name: string }>>([]);
   const [loadingModels, setLoadingModels] = useState(false);
 
@@ -83,6 +85,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
       setAiEnabled(settings.aiEnabled);
       setApiKey(settings.openrouterApiKey || "");
       setSelectedModel(settings.selectedModel || "openai/gpt-4o-mini");
+      setSystemPrompt(settings.systemPrompt || "");
       setBricklinkConsumerKey(settings.bricklinkConsumerKey || "");
       setBricklinkConsumerSecret(settings.bricklinkConsumerSecret || "");
       setBricklinkTokenValue(settings.bricklinkTokenValue || "");
@@ -576,6 +579,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                             aiEnabled: checked,
                             openrouterApiKey: apiKey || null,
                             selectedModel: selectedModel || null,
+                            systemPrompt: systemPrompt || null,
                           });
                         }}
                         data-testid="switch-ai-enabled"
@@ -597,6 +601,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                             aiEnabled,
                             openrouterApiKey: apiKey || null,
                             selectedModel: selectedModel || null,
+                            systemPrompt: systemPrompt || null,
                           });
                           if (apiKey) {
                             fetchModels(apiKey);
@@ -629,6 +634,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                               aiEnabled,
                               openrouterApiKey: apiKey || null,
                               selectedModel: value,
+                              systemPrompt: systemPrompt || null,
                             });
                           }}
                         >
@@ -649,6 +655,31 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                     {loadingModels && (
                       <p className="text-xs text-gray-400">Loading models...</p>
                     )}
+
+                    <Separator className="bg-gray-700" />
+
+                    <div className="space-y-2">
+                      <Label htmlFor="system-prompt" className="text-xs text-gray-400">System Prompt / Role Instructions</Label>
+                      <Textarea
+                        id="system-prompt"
+                        placeholder="Enter custom instructions for E.L.F.I.E..."
+                        value={systemPrompt}
+                        onChange={(e) => setSystemPrompt(e.target.value)}
+                        onBlur={() => {
+                          updateSettingsMutation.mutate({
+                            aiEnabled,
+                            openrouterApiKey: apiKey || null,
+                            selectedModel: selectedModel || null,
+                            systemPrompt: systemPrompt || null,
+                          });
+                        }}
+                        className="text-xs font-mono min-h-[200px] resize-y"
+                        data-testid="textarea-system-prompt"
+                      />
+                      <p className="text-xs text-gray-500">
+                        Customize E.L.F.I.E.'s role and behavior. Leave empty to use default instructions.
+                      </p>
+                    </div>
 
                     <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3">
                       <p className="text-xs text-purple-300">
