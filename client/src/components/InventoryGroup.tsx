@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 interface InventoryItem {
   id: number;
   itemNo: string;
+  itemName: string | null;
   colorId: number | null;
   colorName: string | null;
   colorRgb: string | null;
@@ -50,6 +51,7 @@ export function InventoryGroup({ itemNo, items, onItemClick }: InventoryGroupPro
 
   const colorGroups = Object.values(groupedByColor);
   const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
+  const itemName = items[0]?.itemName || null; // Get item name from first item
 
   // Convert RGB string to hex
   const rgbToHex = (rgb: string | null) => {
@@ -74,7 +76,10 @@ export function InventoryGroup({ itemNo, items, onItemClick }: InventoryGroupPro
           ) : (
             <ChevronRight className="h-4 w-4 text-purple-400" />
           )}
-          <span className="font-semibold text-purple-300 text-sm">Part {itemNo}</span>
+          <span className="text-xs text-purple-300">
+            Part {itemNo}
+            {itemName && <span className="text-gray-400"> - {itemName}</span>}
+          </span>
           <span className="text-xs text-gray-400">({totalQuantity} units in {colorGroups.length} colors)</span>
         </div>
       </button>
@@ -101,11 +106,11 @@ export function InventoryGroup({ itemNo, items, onItemClick }: InventoryGroupPro
                   {group.new && (
                     <button
                       onClick={() => onItemClick?.(group.new!.id)}
-                      className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-green-900/30 border border-green-700/50 hover:bg-green-900/50 transition-colors"
+                      className="flex items-center gap-1 hover-elevate active-elevate-2 px-1"
                       data-testid={`item-new-${group.new.id}`}
                     >
                       <span className="text-green-400">N:</span>
-                      <span className="text-gray-300">{group.new.quantity}@${group.new.unitPrice || '0.00'}</span>
+                      <span className="text-green-400">{group.new.quantity}@${group.new.unitPrice || '0.00'}</span>
                     </button>
                   )}
                   
@@ -113,11 +118,11 @@ export function InventoryGroup({ itemNo, items, onItemClick }: InventoryGroupPro
                   {group.used && (
                     <button
                       onClick={() => onItemClick?.(group.used!.id)}
-                      className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-orange-900/30 border border-orange-700/50 hover:bg-orange-900/50 transition-colors"
+                      className="flex items-center gap-1 hover-elevate active-elevate-2 px-1"
                       data-testid={`item-used-${group.used.id}`}
                     >
                       <span className="text-orange-400">U:</span>
-                      <span className="text-gray-300">{group.used.quantity}@${group.used.unitPrice || '0.00'}</span>
+                      <span className="text-orange-400">{group.used.quantity}@${group.used.unitPrice || '0.00'}</span>
                     </button>
                   )}
                 </div>

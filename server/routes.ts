@@ -261,13 +261,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Search inventory by part number, text query, or general inventory request
       const partNumberMatch = lastUserMessage.match(/\b(\d{4,5})\b/);
-      const textQueryMatch = lastUserMessage.match(/\b(star wars|harry potter|[a-z]{3,})\b/gi);
       
-      if (partNumberMatch || textQueryMatch || lastUserMessage.includes('part') || lastUserMessage.includes('inventory')) {
-        const partNumber = partNumberMatch ? partNumberMatch[1] : null;
-        const textQuery = textQueryMatch && !partNumber ? textQueryMatch[0] : null;
+      // Extract meaningful keywords from message (skip common stop words)
+      const stopWords = ['show', 'me', 'find', 'search', 'for', 'get', 'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'from', 'with', 'have', 'has', 'do', 'does'];
+      const extractKeywords = (msg: string): string[] => {
+        if (partNumberMatch) return [];
         
-        console.log('🔍 Search params:', { partNumber, textQuery });
+        // Remove stop words and extract meaningful keywords
+        const words = msg.split(/\s+/).filter(word => 
+          word.length >= 3 && !stopWords.includes(word)
+        );
+        
+        return words;
+      };
+      
+      const searchKeywords = extractKeywords(lastUserMessage);
+      
+      if (partNumberMatch || searchKeywords.length > 0 || lastUserMessage.includes('part') || lastUserMessage.includes('inventory')) {
+        const partNumber = partNumberMatch ? partNumberMatch[1] : null;
+        
+        console.log('🔍 Search params:', { partNumber, keywords: searchKeywords });
         
         // Build query - search across multiple fields
         let inventoryResults;
@@ -292,9 +305,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
             .where(like(blInventory.itemNo, `%${partNumber}%`))
             .limit(50);
-        } else if (textQuery) {
-          // Search by text in name, remarks, or description
-          const searchPattern = `%${textQuery}%`;
+        } else if (searchKeywords.length > 0) {
+          // Search across ALL fields with OR conditions for each keyword
+          const conditions = searchKeywords.flatMap(keyword => {
+            const pattern = `%${keyword}%`;
+            return [
+              like(blInventory.itemNo, pattern),
+              like(blInventory.itemType, pattern),
+              like(blInventory.itemName, pattern),
+              like(blInventory.remarks, pattern),
+              like(blInventory.description, pattern)
+            ];
+          });
+          
           inventoryResults = await db
             .select({
               itemNo: blInventory.itemNo,
@@ -312,13 +335,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .from(blInventory)
             .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
             .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
-            .where(
-              or(
-                like(blInventory.itemName, searchPattern),
-                like(blInventory.remarks, searchPattern),
-                like(blInventory.description, searchPattern)
-              )
-            )
+            .where(or(...conditions))
             .limit(50);
         } else {
           // General inventory query
@@ -342,7 +359,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .limit(50);
         }
         
-        console.log('🔍 Inventory query returned', inventoryResults.length, 'results for:', partNumber || textQuery || 'general');
+        const searchTerm = partNumber || searchKeywords.join(' ') || 'general';
+        console.log('🔍 Inventory query returned', inventoryResults.length, 'results for:', searchTerm);
         if (inventoryResults.length > 0) {
           databaseContext += `\n\nINVENTORY DATA FROM DATABASE:\n`;
           inventoryResults.forEach(item => {
@@ -357,9 +375,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             databaseContext += `\n`;
           });
           console.log('🔍 Database context length:', databaseContext.length);
-        } else if (partNumber || textQuery) {
-          databaseContext += `\n\nINVENTORY SEARCH: No items found for "${partNumber || textQuery}" in database.\n`;
-          console.log('🔍 No inventory found for:', partNumber || textQuery);
+        } else if (partNumber || searchKeywords.length > 0) {
+          databaseContext += `\n\nINVENTORY SEARCH: No items found for "${searchTerm}" in database.\n`;
+          console.log('🔍 No inventory found for:', searchTerm);
         }
       }
 
@@ -492,6 +510,7 @@ Keep responses helpful, accurate, and based on the actual data provided.`;
       const itemsFound: Array<{
         id: number;
         itemNo: string;
+        itemName: string | null;
         colorId: number | null;
         colorName: string | null;
         colorRgb: string | null;
@@ -500,15 +519,16 @@ Keep responses helpful, accurate, and based on the actual data provided.`;
         newOrUsed: string;
       }> = [];
       
-      if (partNumberMatch || textQueryMatch || lastUserMessage.includes('part') || lastUserMessage.includes('inventory')) {
-        const partNumber = partNumberMatch ? partNumberMatch[1] : null;
-        const textQuery = textQueryMatch && !partNumber ? textQueryMatch[0] : null;
-        
+      // Determine search type - prioritize part number, then keywords
+      const partNumber = partNumberMatch ? partNumberMatch[1] : null;
+      
+      if (partNumber || searchKeywords.length > 0 || lastUserMessage.includes('part') || lastUserMessage.includes('inventory')) {
         if (partNumber) {
           const items = await db
             .select({
               id: blInventory.id,
               itemNo: blInventory.itemNo,
+              itemName: blInventory.itemName,
               colorId: blInventory.colorId,
               colorName: blColors.name,
               colorRgb: blColors.rgb,
@@ -522,12 +542,24 @@ Keep responses helpful, accurate, and based on the actual data provided.`;
             .limit(50);
           
           itemsFound.push(...items);
-        } else if (textQuery) {
-          const searchPattern = `%${textQuery}%`;
+        } else if (searchKeywords.length > 0) {
+          // Search across ALL fields with OR conditions for each keyword
+          const itemConditions = searchKeywords.flatMap(keyword => {
+            const pattern = `%${keyword}%`;
+            return [
+              like(blInventory.itemNo, pattern),
+              like(blInventory.itemType, pattern),
+              like(blInventory.itemName, pattern),
+              like(blInventory.remarks, pattern),
+              like(blInventory.description, pattern)
+            ];
+          });
+          
           const items = await db
             .select({
               id: blInventory.id,
               itemNo: blInventory.itemNo,
+              itemName: blInventory.itemName,
               colorId: blInventory.colorId,
               colorName: blColors.name,
               colorRgb: blColors.rgb,
@@ -537,13 +569,7 @@ Keep responses helpful, accurate, and based on the actual data provided.`;
             })
             .from(blInventory)
             .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
-            .where(
-              or(
-                like(blInventory.itemName, searchPattern),
-                like(blInventory.remarks, searchPattern),
-                like(blInventory.description, searchPattern)
-              )
-            )
+            .where(or(...itemConditions))
             .limit(50);
           
           itemsFound.push(...items);

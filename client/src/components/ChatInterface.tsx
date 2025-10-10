@@ -11,6 +11,7 @@ interface ChatMessage {
   items?: Array<{
     id: number;
     itemNo: string;
+    itemName: string | null;
     colorId: number | null;
     colorName: string | null;
     colorRgb: string | null;
@@ -25,6 +26,7 @@ interface MessageContentProps {
   items?: Array<{
     id: number;
     itemNo: string;
+    itemName: string | null;
     colorId: number | null;
     colorName: string | null;
     colorRgb: string | null;
@@ -430,11 +432,13 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
   return (
     <div 
       className={`flex flex-col h-full border-t-4 ${colors.border} bg-gradient-to-br ${colors.gradient} to-transparent ${colors.glow}`}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
     >
-      <div className={`flex items-center justify-between gap-2 p-3 border-b-2 ${colors.border} ${colors.headerBg} backdrop-blur-sm`}>
+      <div 
+        className={`flex items-center justify-between gap-2 p-3 border-b-2 ${colors.border} ${colors.headerBg} backdrop-blur-sm`}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-2 px-2 py-1 rounded-full bg-purple-500/20 border border-purple-500/30">
             <Bot className={`h-4 w-4 ${colors.icon}`} />
