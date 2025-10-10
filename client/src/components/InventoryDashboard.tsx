@@ -71,9 +71,9 @@ export default function InventoryDashboard() {
               </TooltipTrigger>
               <TooltipContent className="max-w-xs">
                 <p className="text-xs">
-                  <strong>My Cost</strong> must be manually entered in your BrickLink inventory. 
-                  Go to BrickLink.com → My Store → Inventory, edit each item, and enter your cost. 
-                  Then sync again here to see updated values.
+                  <strong>My Cost</strong> tracking is not available via BrickLink's API. 
+                  To track costs, you'll need to manually add them in this app. 
+                  (Cost tracking feature coming soon!)
                 </p>
               </TooltipContent>
             </Tooltip>

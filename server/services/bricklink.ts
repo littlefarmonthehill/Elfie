@@ -287,7 +287,7 @@ export async function syncBricklinkInventory(): Promise<{ added: number; updated
           quantity: item.quantity,
           newOrUsed: item.new_or_used,
           unitPrice: item.unit_price,
-          myCost: item.my_cost || "0",
+          myCost: null, // BrickLink API does not provide cost data - users can add manually later
           bindId: item.bind_id || null,
           description: item.description || null,
           remarks: item.remarks || null,
@@ -321,8 +321,6 @@ export async function syncBricklinkInventory(): Promise<{ added: number; updated
         if (!existing) return false;
         
         // Normalize numeric values
-        const apiMyCost = parseFloat(item.my_cost || "0");
-        const existingMyCost = parseFloat(existing.myCost || "0");
         const apiUnitPrice = parseFloat(item.unit_price || "0");
         const existingUnitPrice = parseFloat(existing.unitPrice || "0");
         
@@ -333,7 +331,6 @@ export async function syncBricklinkInventory(): Promise<{ added: number; updated
         return (
           existing.quantity !== item.quantity || 
           Math.abs(existingUnitPrice - apiUnitPrice) > 0.001 ||
-          Math.abs(existingMyCost - apiMyCost) > 0.0001 ||
           existing.itemNo !== item.item.no ||
           existing.itemName !== (item.item.name || null) ||
           existing.itemType !== item.item.type ||
@@ -365,7 +362,8 @@ export async function syncBricklinkInventory(): Promise<{ added: number; updated
               quantity: item.quantity,
               newOrUsed: item.new_or_used,
               unitPrice: item.unit_price,
-              myCost: item.my_cost || "0",
+              // IMPORTANT: myCost is intentionally NOT updated here to preserve user-entered costs
+              // BrickLink API doesn't provide cost data, so we preserve any manual entries
               bindId: item.bind_id || null,
               description: item.description || null,
               remarks: item.remarks || null,

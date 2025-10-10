@@ -124,6 +124,7 @@ Preferred communication style: Simple, everyday language.
   - OAuth 1.0a authentication implemented with consumer key/secret and token
   - **Credentials Storage:** BrickLink credentials (Consumer Key, Consumer Secret, Token Value, Token Secret) are stored in the database (`app_settings` table) and can be configured via Settings UI > Platforms tab
   - Credentials fallback to environment variables if not set in database
+  - **Important Limitation:** BrickLink API does NOT provide cost data (`my_cost` field). The API only returns: inventory_id, item details, color, quantity, condition, unit_price (selling price), and other metadata. Cost tracking must be implemented separately in this app.
   - **Rate Limiting:** Tracks all API calls in `bl_api_calls` table
     - Warning threshold: 2,500 calls per 24 hours (yellow UI alert)
     - Block threshold: 4,750 calls per 24 hours (red alert, sync disabled)
