@@ -167,7 +167,24 @@ Preferred communication style: Simple, everyday language.
   - **Query Filtering:** Uses `LIKE` operator for flexible part number matching (e.g., "3021" matches "30212", "3021", "30210")
   - **Performance:** Limits inventory results to 50 items, order details to 5 items per order, queries 20 most recent orders
   - **Drizzle ORM:** Uses immutable query builder pattern (reassign variables when filtering)
-- **Response format:** Concise answers (under 5 sentences) with actionable guidance
+- **Response Formatting:** 
+  - AI instructed to format responses as **markdown bullet lists** for readability
+  - Format: "- Part [ITEMNO] in [COLOR]: [QTY] units @ $[PRICE] ([CONDITION])"
+  - Backend returns item metadata array with each response for interactive linking
+- **Interactive Chat Features:**
+  - **MessageContent Component:** Parses markdown and creates interactive elements
+    - Renders bullet points (lines starting with "- ") as proper HTML `<li>` elements
+    - Converts part numbers to clickable links with regex escaping for special characters
+    - Converts BrickLink URLs to "View on BrickLink" buttons with ExternalLink icon
+  - **Clickable Part Numbers:** Part numbers matching inventory items become purple underlined links
+    - Clicking opens item detail modal/drawer with real data from `/api/inventory`
+    - `handleItemClick` in home.tsx supports both numeric IDs (real data) and mock IDs (legacy)
+    - Fetches complete inventory item details including color, quantity, price, condition
+  - **BrickLink Integration:** BrickLink URLs open in secure sandboxed iframe dialog
+    - Dialog component (max-w-4xl, h-80vh) with proper accessibility (aria-describedby)
+    - Iframe sandbox: `allow-same-origin allow-scripts allow-popups allow-forms`
+    - Fallback to popup if browser blocks external iframe embedding
+- **Response format:** Concise answers (under 5 sentences intro, then bullet list) with actionable guidance
 - **Always includes BrickLink links** for referenced parts/sets
 - **Never hallucinates data:** Uses actual database query results; acknowledges when no data found
 - **Strategic advice:** Available when explicitly requested (analyze, optimize, improve, strategy keywords)
