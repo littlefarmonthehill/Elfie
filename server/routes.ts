@@ -278,7 +278,7 @@ Provide concise, actionable advice. When relevant, suggest specific actions the 
           totalLots: sql<number>`COUNT(*)`,
           totalParts: sql<number>`SUM(${blInventory.quantity})`,
           totalValue: sql<number>`SUM(${blInventory.quantity} * CAST(${blInventory.unitPrice} AS DECIMAL))`,
-          totalCost: sql<number>`SUM(${blInventory.quantity} * CAST(${blInventory.myCost} AS DECIMAL))`,
+          totalCost: sql<number>`SUM(${blInventory.quantity} * CAST(${blInventory.unitPrice} AS DECIMAL))`,
         })
         .from(blInventory);
 
