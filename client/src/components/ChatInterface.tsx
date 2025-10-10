@@ -3,6 +3,7 @@ import { Send, Bot, RefreshCcw, ChevronUp, ChevronDown, Minimize2, Maximize2, Ex
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { InventoryGroup } from "@/components/InventoryGroup";
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -12,6 +13,9 @@ interface ChatMessage {
     itemNo: string;
     colorId: number | null;
     colorName: string | null;
+    colorRgb: string | null;
+    quantity: number;
+    unitPrice: string | null;
     newOrUsed: string;
   }>;
 }
@@ -23,6 +27,9 @@ interface MessageContentProps {
     itemNo: string;
     colorId: number | null;
     colorName: string | null;
+    colorRgb: string | null;
+    quantity: number;
+    unitPrice: string | null;
     newOrUsed: string;
   }>;
   onItemClick?: (type: 'inventory', id: string) => void;
@@ -30,6 +37,15 @@ interface MessageContentProps {
 }
 
 function MessageContent({ content, items, onItemClick, onBrickLinkClick }: MessageContentProps) {
+  // Group items by itemNo for grouped display
+  const groupedItems = items && items.length > 0 ? items.reduce((acc, item) => {
+    if (!acc[item.itemNo]) {
+      acc[item.itemNo] = [];
+    }
+    acc[item.itemNo].push(item);
+    return acc;
+  }, {} as Record<string, typeof items>) : null;
+
   // Parse markdown bullet points and create clickable elements
   const parseContent = (text: string) => {
     const lines = text.split('\n');
@@ -199,7 +215,22 @@ function MessageContent({ content, items, onItemClick, onBrickLinkClick }: Messa
     return elements;
   };
 
-  return <div className="space-y-1">{parseContent(content)}</div>;
+  return (
+    <div className="space-y-2">
+      {/* Show text content */}
+      <div className="space-y-1">{parseContent(content)}</div>
+      
+      {/* Show grouped inventory items if available */}
+      {groupedItems && Object.entries(groupedItems).map(([itemNo, items]) => (
+        <InventoryGroup
+          key={itemNo}
+          itemNo={itemNo}
+          items={items}
+          onItemClick={(id) => onItemClick?.('inventory', id.toString())}
+        />
+      ))}
+    </div>
+  );
 }
 
 interface ChatInterfaceProps {

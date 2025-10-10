@@ -170,6 +170,24 @@ export const insertAppSettingsSchema = createInsertSchema(appSettings).omit({
 export type InsertAppSettings = z.infer<typeof insertAppSettingsSchema>;
 export type AppSettings = typeof appSettings.$inferSelect;
 
+// Conversation History for E.L.F.I.E. learning
+export const conversations = pgTable("conversations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: text("session_id").notNull(),
+  role: text("role").notNull(), // 'user' or 'assistant'
+  content: text("content").notNull(),
+  context: text("context"), // dashboard context
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertConversationSchema = createInsertSchema(conversations).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertConversation = z.infer<typeof insertConversationSchema>;
+export type Conversation = typeof conversations.$inferSelect;
+
 // BrickLink API Call Tracking
 export const blApiCalls = pgTable("bl_api_calls", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

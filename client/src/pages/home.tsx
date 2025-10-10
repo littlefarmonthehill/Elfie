@@ -68,15 +68,15 @@ export default function Home() {
   const getPrompts = (): string[] => {
     switch (activeDashboard) {
       case 'inventory':
-        return ['Just Listed', 'Price-O-Matic'];
+        return ['Inventory Summary', 'List All Items', 'Low Stock Alert', 'Top Value Items'];
       case 'orders':
-        return ['Awaiting Shipment', 'Shipped', 'Cancelled'];
+        return ['Orders Summary', 'List All Orders', 'Pending Orders', 'Recent Shipments'];
       case 'sales':
-        return ['MTD', 'YTD', '1 Year', '5 Years'];
+        return ['Sales Summary', 'MTD Performance', 'YTD Performance', 'Top Sellers'];
       case 'marketing':
-        return ['Campaign Stats', 'Conversion Rate'];
+        return ['Marketing Summary', 'Customer Insights', 'Campaign Stats', 'Conversion Rate'];
       default:
-        return ['Overview', 'Top Products', 'Recent Activity'];
+        return ['Business Overview', 'Top Products', 'Recent Activity', 'Quick Stats'];
     }
   };
 

@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { syncBricklinkData } from "./services/bricklink";
 import { syncShipStationOrders } from "./services/shipstation";
 import { db } from "./db";
-import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema } from "@shared/schema";
+import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations } from "@shared/schema";
 import { eq, desc, sql, inArray, like, or } from "drizzle-orm";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -211,6 +211,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('🔍 Full message content:', messages[messages.length - 1]?.content);
       let databaseContext = '';
 
+      // Check for summary requests
+      const isSummaryRequest = lastUserMessage.includes('summary') || lastUserMessage.includes('overview');
+
+      // Provide summary data for inventory
+      if (isSummaryRequest && (lastUserMessage.includes('inventory') || context === 'Inventory')) {
+        const totalItems = await db.select({ count: sql<number>`COUNT(*)` }).from(blInventory);
+        const totalQuantity = await db.select({ sum: sql<number>`SUM(${blInventory.quantity})` }).from(blInventory);
+        const totalValue = await db.select({ sum: sql<number>`SUM(${blInventory.quantity} * CAST(${blInventory.unitPrice} AS DECIMAL))` }).from(blInventory);
+        const uniqueColors = await db.select({ count: sql<number>`COUNT(DISTINCT ${blInventory.colorId})` }).from(blInventory);
+        
+        databaseContext += `\n\nINVENTORY SUMMARY:\n`;
+        databaseContext += `- Total Lots: ${totalItems[0]?.count || 0}\n`;
+        databaseContext += `- Total Parts: ${totalQuantity[0]?.sum || 0}\n`;
+        databaseContext += `- Total Value: $${Number(totalValue[0]?.sum || 0).toFixed(2)}\n`;
+        databaseContext += `- Unique Colors: ${uniqueColors[0]?.count || 0}\n`;
+      }
+
+      // Provide summary data for orders
+      if (isSummaryRequest && (lastUserMessage.includes('order') || context === 'Orders')) {
+        const totalOrders = await db.select({ count: sql<number>`COUNT(*)` }).from(orders);
+        const totalRevenue = await db.select({ sum: sql<number>`SUM(CAST(${orders.orderTotal} AS DECIMAL))` }).from(orders);
+        const pendingOrders = await db.select({ count: sql<number>`COUNT(*)` }).from(orders).where(eq(orders.orderStatus, 'Pending'));
+        const shippedOrders = await db.select({ count: sql<number>`COUNT(*)` }).from(orders).where(eq(orders.orderStatus, 'Shipped'));
+        
+        databaseContext += `\n\nORDERS SUMMARY:\n`;
+        databaseContext += `- Total Orders: ${totalOrders[0]?.count || 0}\n`;
+        databaseContext += `- Total Revenue: $${Number(totalRevenue[0]?.sum || 0).toFixed(2)}\n`;
+        databaseContext += `- Pending Orders: ${pendingOrders[0]?.count || 0}\n`;
+        databaseContext += `- Shipped Orders: ${shippedOrders[0]?.count || 0}\n`;
+      }
+
       // Search inventory by part number, text query, or general inventory request
       const partNumberMatch = lastUserMessage.match(/\b(\d{4,5})\b/);
       const textQueryMatch = lastUserMessage.match(/\b(star wars|harry potter|[a-z]{3,})\b/gi);
@@ -379,6 +410,7 @@ RESPONSE GUIDELINES:
 7. Be direct and concise (under 5 sentences for intro, then bullet list)
 8. Provide actionable information
 9. IMPORTANT: Item names and themes are not in database - only part numbers, colors, quantities, and prices. If user asks for themes (Star Wars, Harry Potter), explain this limitation
+10. LEARNING: Remember previous conversations and learn from user interactions to provide better assistance over time
 
 FORMATTING EXAMPLES:
 
@@ -429,12 +461,15 @@ Keep responses helpful, accurate, and based on the actual data provided.`;
 
       const data = await response.json();
       
-      // Extract inventory items from the search for clickable links
+      // Extract inventory items from the search for grouped display
       const itemsFound: Array<{
         id: number;
         itemNo: string;
         colorId: number | null;
         colorName: string | null;
+        colorRgb: string | null;
+        quantity: number;
+        unitPrice: string | null;
         newOrUsed: string;
       }> = [];
       
@@ -449,6 +484,9 @@ Keep responses helpful, accurate, and based on the actual data provided.`;
               itemNo: blInventory.itemNo,
               colorId: blInventory.colorId,
               colorName: blColors.name,
+              colorRgb: blColors.rgb,
+              quantity: blInventory.quantity,
+              unitPrice: blInventory.unitPrice,
               newOrUsed: blInventory.newOrUsed,
             })
             .from(blInventory)
@@ -465,6 +503,9 @@ Keep responses helpful, accurate, and based on the actual data provided.`;
               itemNo: blInventory.itemNo,
               colorId: blInventory.colorId,
               colorName: blColors.name,
+              colorRgb: blColors.rgb,
+              quantity: blInventory.quantity,
+              unitPrice: blInventory.unitPrice,
               newOrUsed: blInventory.newOrUsed,
             })
             .from(blInventory)
