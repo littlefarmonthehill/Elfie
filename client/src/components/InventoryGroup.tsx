@@ -113,35 +113,35 @@ export function InventoryGroup({ itemNo, items, onItemClick }: InventoryGroupPro
                 {/* Color name */}
                 <span className="text-gray-400 text-xs">{group.colorName || 'Unknown'}</span>
                 
-                {/* Conditions aligned in columns */}
-                <div className="grid grid-cols-2 gap-3 text-xs">
+                {/* Conditions aligned in columns with fixed widths to prevent overlap */}
+                <div className="flex items-center gap-4 text-xs">
                   {/* New condition - fixed width for alignment */}
-                  {group.new ? (
-                    <button
-                      onClick={() => onItemClick?.(group.new!.id)}
-                      className="flex items-center gap-1 hover-elevate active-elevate-2 justify-start"
-                      data-testid={`item-new-${group.new.id}`}
-                    >
-                      <span className="text-green-400">N:</span>
-                      <span className="text-green-400">{group.new.quantity}@${group.new.unitPrice || '0.00'}</span>
-                    </button>
-                  ) : (
-                    <div></div>
-                  )}
+                  <div className="w-[120px] flex-shrink-0">
+                    {group.new && (
+                      <button
+                        onClick={() => onItemClick?.(group.new!.id)}
+                        className="flex items-center gap-1 hover-elevate active-elevate-2"
+                        data-testid={`item-new-${group.new.id}`}
+                      >
+                        <span className="text-green-400">N:</span>
+                        <span className="text-green-400 whitespace-nowrap">{group.new.quantity}@${group.new.unitPrice || '0.00'}</span>
+                      </button>
+                    )}
+                  </div>
                   
                   {/* Used condition - fixed width for alignment */}
-                  {group.used ? (
-                    <button
-                      onClick={() => onItemClick?.(group.used!.id)}
-                      className="flex items-center gap-1 hover-elevate active-elevate-2 justify-start"
-                      data-testid={`item-used-${group.used.id}`}
-                    >
-                      <span className="text-orange-400">U:</span>
-                      <span className="text-orange-400">{group.used.quantity}@${group.used.unitPrice || '0.00'}</span>
-                    </button>
-                  ) : (
-                    <div></div>
-                  )}
+                  <div className="w-[120px] flex-shrink-0">
+                    {group.used && (
+                      <button
+                        onClick={() => onItemClick?.(group.used!.id)}
+                        className="flex items-center gap-1 hover-elevate active-elevate-2"
+                        data-testid={`item-used-${group.used.id}`}
+                      >
+                        <span className="text-orange-400">U:</span>
+                        <span className="text-orange-400 whitespace-nowrap">{group.used.quantity}@${group.used.unitPrice || '0.00'}</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             );
