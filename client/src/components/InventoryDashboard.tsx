@@ -1,5 +1,11 @@
 import MetricCard from "./MetricCard";
 import { useQuery } from "@tanstack/react-query";
+import { InfoIcon } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface InventoryStats {
   totalLots: number;
@@ -55,7 +61,23 @@ export default function InventoryDashboard() {
         </div>
 
         <div>
-          <h3 className="text-xs text-gray-500 mb-0.5">Values</h3>
+          <div className="flex items-center gap-1 mb-0.5">
+            <h3 className="text-xs text-gray-500">Values</h3>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button className="text-gray-500 hover:text-gray-400" data-testid="button-cost-info">
+                  <InfoIcon className="h-3 w-3" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                <p className="text-xs">
+                  <strong>My Cost</strong> must be manually entered in your BrickLink inventory. 
+                  Go to BrickLink.com → My Store → Inventory, edit each item, and enter your cost. 
+                  Then sync again here to see updated values.
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
           <div className="grid grid-cols-3 gap-1.5">
             <MetricCard label="My Cost" value={stats ? formatCurrency(stats.totalCost) : '$0.00'} color="red" data-testid="metric-cost" />
             <MetricCard label="Listed" value={stats ? formatCurrency(stats.totalValue) : '$0.00'} color="blue" data-testid="metric-listed" />
