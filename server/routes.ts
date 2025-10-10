@@ -5,7 +5,7 @@ import { syncBricklinkData } from "./services/bricklink";
 import { syncShipStationOrders } from "./services/shipstation";
 import { db } from "./db";
 import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema } from "@shared/schema";
-import { eq, desc, sql, inArray } from "drizzle-orm";
+import { eq, desc, sql, inArray, like } from "drizzle-orm";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Data Fetch Routes
@@ -191,40 +191,124 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      // Query database for relevant data based on user's question
+      const lastUserMessage = messages[messages.length - 1]?.content?.toLowerCase() || '';
+      let databaseContext = '';
+
+      // Search inventory by part number or item number
+      const partNumberMatch = lastUserMessage.match(/\b(\d{4,5})\b/);
+      if (partNumberMatch || lastUserMessage.includes('part') || lastUserMessage.includes('inventory')) {
+        const partNumber = partNumberMatch ? partNumberMatch[1] : null;
+        
+        let baseQuery = db.select({
+          itemNo: blInventory.itemNo,
+          itemType: blInventory.itemType,
+          colorId: blInventory.colorId,
+          colorName: blColors.name,
+          colorRgb: blColors.rgb,
+          categoryName: blCategories.name,
+          quantity: blInventory.quantity,
+          newOrUsed: blInventory.newOrUsed,
+          unitPrice: blInventory.unitPrice,
+        }).from(blInventory);
+        
+        if (partNumber) {
+          baseQuery = baseQuery.where(like(blInventory.itemNo, `%${partNumber}%`));
+        }
+        
+        const inventoryResults = await baseQuery
+          .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+          .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
+          .limit(50);
+        
+        if (inventoryResults.length > 0) {
+          databaseContext += `\n\nINVENTORY DATA FROM DATABASE:\n`;
+          inventoryResults.forEach(item => {
+            databaseContext += `- Part ${item.itemNo} (${item.itemType}): ${item.quantity} units`;
+            if (item.colorName) databaseContext += ` in ${item.colorName}`;
+            if (item.categoryName) databaseContext += ` [${item.categoryName}]`;
+            if (item.unitPrice) databaseContext += ` @ $${item.unitPrice} each`;
+            databaseContext += ` (${item.newOrUsed})\n`;
+          });
+        } else if (partNumber) {
+          databaseContext += `\n\nINVENTORY SEARCH: No items found for part ${partNumber} in database.\n`;
+        }
+      }
+
+      // Search orders
+      if (lastUserMessage.includes('order')) {
+        const ordersResults = await db
+          .select({
+            id: orders.id,
+            orderNumber: orders.orderNumber,
+            customerUsername: orders.customerUsername,
+            orderDate: orders.orderDate,
+            orderTotal: orders.orderTotal,
+            orderStatus: orders.orderStatus,
+          })
+          .from(orders)
+          .limit(20)
+          .orderBy(desc(orders.orderDate));
+        
+        if (ordersResults.length > 0) {
+          databaseContext += `\n\nRECENT ORDERS FROM DATABASE:\n`;
+          
+          // Get order details for each order
+          for (const order of ordersResults) {
+            const details = await db
+              .select({
+                sku: orderDetails.sku,
+                name: orderDetails.name,
+                quantity: orderDetails.quantity,
+                unitPrice: orderDetails.unitPrice,
+              })
+              .from(orderDetails)
+              .where(eq(orderDetails.orderId, order.id))
+              .limit(5); // Limit items per order
+            
+            databaseContext += `- Order #${order.orderNumber}: ${order.customerUsername || 'Customer'} - $${order.orderTotal} (${order.orderStatus}) on ${new Date(order.orderDate).toLocaleDateString()}`;
+            
+            if (details.length > 0) {
+              databaseContext += `\n  Items: `;
+              details.forEach((item, idx) => {
+                if (idx > 0) databaseContext += ', ';
+                const displayName = item.sku || item.name;
+                databaseContext += `${item.quantity}x ${displayName} ($${item.unitPrice})`;
+              });
+            }
+            databaseContext += `\n`;
+          }
+        }
+      }
+
       // Use custom system prompt if provided, otherwise use default
-      const defaultSystemPrompt = `You are E.L.F.I.E. (Expert LEGO Fulfillment & Inventory Engine), an AI assistant for LEGO business operations.
+      const defaultSystemPrompt = `You are E.L.F.I.E. (Expert LEGO Fulfillment & Inventory Engine), an AI assistant for LEGO business operations with DIRECT DATABASE ACCESS.
 
 Current context: ${context}
+${databaseContext}
 
-CRITICAL: You do NOT have database access. When users ask about their data, ALWAYS respond with specific guidance, NOT generic acknowledgments.
+CRITICAL: You HAVE database access and real data is provided above. Use this data to answer questions accurately.
 
-EXAMPLES OF GOOD RESPONSES:
+RESPONSE GUIDELINES:
+1. When database data is provided, use it to give specific answers
+2. Always include BrickLink links for parts: https://www.bricklink.com/v2/catalog/catalogitem.page?P=<partNumber>
+3. If no data found, explain what you searched and suggest alternatives
+4. Be direct and concise (under 5 sentences)
+5. Provide actionable information
+
+EXAMPLES:
 
 User: "Do I have part 3021?"
-E.L.F.I.E.: "To check if you have part 3021, look in your Inventory dashboard and search for '3021'. Here's the BrickLink page: https://www.bricklink.com/v2/catalog/catalogitem.page?P=3021"
+With data: "Yes! You have 3 listings for part 3021: 50 units in Red @ $0.25 each (New), 30 units in Blue @ $0.20 each (New), and 10 units in Yellow @ $0.30 each (Used). View on BrickLink: https://www.bricklink.com/v2/catalog/catalogitem.page?P=3021"
+Without data: "I don't see part 3021 in your current inventory. You may need to sync your BrickLink data or check if it's listed under a different number. BrickLink page: https://www.bricklink.com/v2/catalog/catalogitem.page?P=3021"
 
 User: "How many orders do I have?"
-E.L.F.I.E.: "Check your Orders dashboard to see your current orders. You can filter by status (pending, shipped, cancelled) to find what you need."
+With data: "You have 15 recent orders. Most recent: Order #12345 from JohnDoe ($45.50, shipped) on Jan 15, 2025. You can view all orders in your Orders dashboard."
 
-User: "What's my best selling item?"
-E.L.F.I.E.: "Go to your Sales dashboard to see your top performing items. The dashboard shows sales by item, revenue, and time period."
-
-BAD RESPONSES TO AVOID:
-❌ "I'm ready to help you"
-❌ "I understand, how can I assist?"
-❌ "Let me know what you need"
-
-ALWAYS provide specific, actionable guidance with:
-1. Where to find the data (which dashboard)
-2. How to search/filter for it
-3. BrickLink links for parts/sets when mentioned
-
-For parts/sets: https://www.bricklink.com/v2/catalog/catalogitem.page?P=<partNumber>
-
-Keep responses under 5 sentences and be direct.`;
+Keep responses helpful, accurate, and based on the actual data provided.`;
 
       const systemPrompt = settings?.systemPrompt 
-        ? `${settings.systemPrompt}\n\nCurrent context: ${context}` 
+        ? `${settings.systemPrompt}\n\nCurrent context: ${context}\n${databaseContext}` 
         : defaultSystemPrompt;
 
       const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
