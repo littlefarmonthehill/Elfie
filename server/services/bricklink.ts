@@ -1,6 +1,6 @@
 import { db } from "../db";
 import { blCategories, blColors, blInventory, blApiCalls, appSettings } from "@shared/schema";
-import { eq, gte, sql } from "drizzle-orm";
+import { eq, gte, sql, inArray } from "drizzle-orm";
 import OAuth from "oauth-1.0a";
 import crypto from "crypto";
 
@@ -324,11 +324,11 @@ export async function syncBricklinkInventory(): Promise<{ added: number; updated
       
       for (let i = 0; i < existingItemsToCheck.length; i += FETCH_BATCH_SIZE) {
         const batch = existingItemsToCheck.slice(i, i + FETCH_BATCH_SIZE);
-        const batchIds = batch.map(item => item.inventory_id);
+        const batchIds = batch.map(item => item.inventory_id); // These are already integers from BrickLink API
         
         const batchDetails = await db.select()
           .from(blInventory)
-          .where(sql`${blInventory.id} = ANY(${batchIds})`);
+          .where(inArray(blInventory.id, batchIds));
         
         existingDetails.push(...batchDetails);
         console.log(`Fetched existing details batch ${Math.floor(i / FETCH_BATCH_SIZE) + 1}: ${existingDetails.length}/${existingItemsToCheck.length} items`);

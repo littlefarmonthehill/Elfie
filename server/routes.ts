@@ -644,7 +644,41 @@ Keep responses helpful, accurate, and based on the actual data provided.`;
     }
   });
 
-  // Get Inventory Item by ID
+  // Get Inventory Stats (MUST be before /api/inventory/:id to avoid route conflict)
+  app.get("/api/inventory/stats", async (req, res) => {
+    try {
+      const stats = await db
+        .select({
+          totalLots: sql<number>`COUNT(*)`,
+          totalParts: sql<number>`SUM(${blInventory.quantity})`,
+          totalValue: sql<number>`SUM(${blInventory.quantity} * CAST(${blInventory.unitPrice} AS DECIMAL))`,
+          totalCost: sql<number>`SUM(${blInventory.quantity} * COALESCE(CAST(${blInventory.myCost} AS DECIMAL), 0))`,
+        })
+        .from(blInventory);
+
+      const colorCount = await db
+        .select({ count: sql<number>`COUNT(DISTINCT ${blInventory.colorId})` })
+        .from(blInventory);
+
+      const categoryCount = await db
+        .select({ count: sql<number>`COUNT(DISTINCT ${blInventory.categoryId})` })
+        .from(blInventory);
+
+      res.json({
+        totalLots: Number(stats[0]?.totalLots) || 0,
+        totalParts: Number(stats[0]?.totalParts) || 0,
+        totalValue: Number(stats[0]?.totalValue) || 0,
+        totalCost: Number(stats[0]?.totalCost) || 0,
+        totalColors: Number(colorCount[0]?.count) || 0,
+        totalCategories: Number(categoryCount[0]?.count) || 0,
+      });
+    } catch (error) {
+      console.error("Error fetching inventory stats:", error);
+      res.status(500).json({ error: "Failed to fetch inventory stats" });
+    }
+  });
+
+  // Get Inventory Item by ID (MUST be after /api/inventory/stats to avoid route conflict)
   app.get("/api/inventory/:id", async (req, res) => {
     try {
       const itemId = parseInt(req.params.id);
@@ -680,40 +714,6 @@ Keep responses helpful, accurate, and based on the actual data provided.`;
     } catch (error) {
       console.error("Error fetching item by ID:", error);
       res.status(500).json({ error: "Failed to fetch item" });
-    }
-  });
-
-  // Get Inventory Stats
-  app.get("/api/inventory/stats", async (req, res) => {
-    try {
-      const stats = await db
-        .select({
-          totalLots: sql<number>`COUNT(*)`,
-          totalParts: sql<number>`SUM(${blInventory.quantity})`,
-          totalValue: sql<number>`SUM(${blInventory.quantity} * CAST(${blInventory.unitPrice} AS DECIMAL))`,
-          totalCost: sql<number>`SUM(${blInventory.quantity} * COALESCE(CAST(${blInventory.myCost} AS DECIMAL), 0))`,
-        })
-        .from(blInventory);
-
-      const colorCount = await db
-        .select({ count: sql<number>`COUNT(DISTINCT ${blInventory.colorId})` })
-        .from(blInventory);
-
-      const categoryCount = await db
-        .select({ count: sql<number>`COUNT(DISTINCT ${blInventory.categoryId})` })
-        .from(blInventory);
-
-      res.json({
-        totalLots: Number(stats[0]?.totalLots) || 0,
-        totalParts: Number(stats[0]?.totalParts) || 0,
-        totalValue: Number(stats[0]?.totalValue) || 0,
-        totalCost: Number(stats[0]?.totalCost) || 0,
-        totalColors: Number(colorCount[0]?.count) || 0,
-        totalCategories: Number(categoryCount[0]?.count) || 0,
-      });
-    } catch (error) {
-      console.error("Error fetching inventory stats:", error);
-      res.status(500).json({ error: "Failed to fetch inventory stats" });
     }
   });
 
