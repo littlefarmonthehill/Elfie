@@ -52,6 +52,12 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   const [availableModels, setAvailableModels] = useState<Array<{ id: string; name: string }>>([]);
   const [loadingModels, setLoadingModels] = useState(false);
 
+  // BrickLink Settings
+  const [bricklinkConsumerKey, setBricklinkConsumerKey] = useState("");
+  const [bricklinkConsumerSecret, setBricklinkConsumerSecret] = useState("");
+  const [bricklinkTokenValue, setBricklinkTokenValue] = useState("");
+  const [bricklinkTokenSecret, setBricklinkTokenSecret] = useState("");
+
   const { data: settings } = useQuery<AppSettings>({
     queryKey: ['/api/settings'],
     enabled: open,
@@ -77,6 +83,10 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
       setAiEnabled(settings.aiEnabled);
       setApiKey(settings.openrouterApiKey || "");
       setSelectedModel(settings.selectedModel || "openai/gpt-4o-mini");
+      setBricklinkConsumerKey(settings.bricklinkConsumerKey || "");
+      setBricklinkConsumerSecret(settings.bricklinkConsumerSecret || "");
+      setBricklinkTokenValue(settings.bricklinkTokenValue || "");
+      setBricklinkTokenSecret(settings.bricklinkTokenSecret || "");
     }
   }, [settings]);
 
@@ -309,6 +319,16 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                         id="bricklink-key"
                         placeholder="Enter BrickLink Consumer Key"
                         className="text-xs"
+                        value={bricklinkConsumerKey}
+                        onChange={(e) => setBricklinkConsumerKey(e.target.value)}
+                        onBlur={() => {
+                          updateSettingsMutation.mutate({
+                            bricklinkConsumerKey: bricklinkConsumerKey || null,
+                            bricklinkConsumerSecret: bricklinkConsumerSecret || null,
+                            bricklinkTokenValue: bricklinkTokenValue || null,
+                            bricklinkTokenSecret: bricklinkTokenSecret || null,
+                          });
+                        }}
                         data-testid="input-bricklink-key"
                       />
                     </div>
@@ -319,6 +339,16 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                         type="password"
                         placeholder="Enter BrickLink Consumer Secret"
                         className="text-xs"
+                        value={bricklinkConsumerSecret}
+                        onChange={(e) => setBricklinkConsumerSecret(e.target.value)}
+                        onBlur={() => {
+                          updateSettingsMutation.mutate({
+                            bricklinkConsumerKey: bricklinkConsumerKey || null,
+                            bricklinkConsumerSecret: bricklinkConsumerSecret || null,
+                            bricklinkTokenValue: bricklinkTokenValue || null,
+                            bricklinkTokenSecret: bricklinkTokenSecret || null,
+                          });
+                        }}
                         data-testid="input-bricklink-secret"
                       />
                     </div>
@@ -328,6 +358,16 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                         id="bricklink-token"
                         placeholder="Enter BrickLink Token Value"
                         className="text-xs"
+                        value={bricklinkTokenValue}
+                        onChange={(e) => setBricklinkTokenValue(e.target.value)}
+                        onBlur={() => {
+                          updateSettingsMutation.mutate({
+                            bricklinkConsumerKey: bricklinkConsumerKey || null,
+                            bricklinkConsumerSecret: bricklinkConsumerSecret || null,
+                            bricklinkTokenValue: bricklinkTokenValue || null,
+                            bricklinkTokenSecret: bricklinkTokenSecret || null,
+                          });
+                        }}
                         data-testid="input-bricklink-token"
                       />
                     </div>
@@ -338,6 +378,16 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                         type="password"
                         placeholder="Enter BrickLink Token Secret"
                         className="text-xs"
+                        value={bricklinkTokenSecret}
+                        onChange={(e) => setBricklinkTokenSecret(e.target.value)}
+                        onBlur={() => {
+                          updateSettingsMutation.mutate({
+                            bricklinkConsumerKey: bricklinkConsumerKey || null,
+                            bricklinkConsumerSecret: bricklinkConsumerSecret || null,
+                            bricklinkTokenValue: bricklinkTokenValue || null,
+                            bricklinkTokenSecret: bricklinkTokenSecret || null,
+                          });
+                        }}
                         data-testid="input-bricklink-token-secret"
                       />
                     </div>

@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { blCategories, blColors, blInventory, blApiCalls } from "@shared/schema";
+import { blCategories, blColors, blInventory, blApiCalls, appSettings } from "@shared/schema";
 import { eq, gte, sql } from "drizzle-orm";
 import OAuth from "oauth-1.0a";
 import crypto from "crypto";
@@ -22,25 +22,8 @@ export interface RateLimitStatus {
   blocked?: boolean;
 }
 
-// BrickLink OAuth setup
-const oauth = new OAuth({
-  consumer: {
-    key: process.env.BRICKLINK_CONSUMER_KEY || '',
-    secret: process.env.BRICKLINK_CONSUMER_SECRET || '',
-  },
-  signature_method: 'HMAC-SHA1',
-  hash_function(baseString, key) {
-    return crypto.createHmac('sha1', key).update(baseString).digest('base64');
-  },
-});
-
 // Clean token values - remove any non-alphanumeric characters that may have been added
 const cleanToken = (value: string) => value.replace(/[^A-Z0-9]/gi, '');
-
-const token = {
-  key: cleanToken(process.env.BRICKLINK_TOKEN_VALUE || ''),
-  secret: cleanToken(process.env.BRICKLINK_TOKEN_SECRET || ''),
-};
 
 // Check rate limit status for the last 24 hours
 export async function checkRateLimit(): Promise<RateLimitStatus> {
@@ -88,14 +71,15 @@ async function trackApiCall(endpoint: string, success: boolean = true): Promise<
 
 // Make a BrickLink API request with rate limiting
 async function bricklinkRequest(endpoint: string, queryParams?: Record<string, string>): Promise<{ data: any; apiCalls: number }> {
-  console.log('[BrickLink] Checking credentials...');
-  console.log('  CONSUMER_KEY:', process.env.BRICKLINK_CONSUMER_KEY ? `SET (${process.env.BRICKLINK_CONSUMER_KEY.substring(0, 10)}...)` : 'NOT SET');
-  console.log('  CONSUMER_SECRET:', process.env.BRICKLINK_CONSUMER_SECRET ? `SET (${process.env.BRICKLINK_CONSUMER_SECRET.substring(0, 10)}...)` : 'NOT SET');
-  console.log('  TOKEN_VALUE:', process.env.BRICKLINK_TOKEN_VALUE ? `SET (${process.env.BRICKLINK_TOKEN_VALUE.substring(0, 10)}...)` : 'NOT SET');
-  console.log('  TOKEN_SECRET:', process.env.BRICKLINK_TOKEN_SECRET ? `SET (${process.env.BRICKLINK_TOKEN_SECRET.substring(0, 10)}...)` : 'NOT SET');
+  // Get credentials from database settings (with fallback to env vars)
+  const [settings] = await db.select().from(appSettings).limit(1);
   
-  if (!process.env.BRICKLINK_CONSUMER_KEY || !process.env.BRICKLINK_CONSUMER_SECRET || 
-      !process.env.BRICKLINK_TOKEN_VALUE || !process.env.BRICKLINK_TOKEN_SECRET) {
+  const consumerKey = settings?.bricklinkConsumerKey || process.env.BRICKLINK_CONSUMER_KEY || '';
+  const consumerSecret = settings?.bricklinkConsumerSecret || process.env.BRICKLINK_CONSUMER_SECRET || '';
+  const tokenValue = settings?.bricklinkTokenValue || process.env.BRICKLINK_TOKEN_VALUE || '';
+  const tokenSecret = settings?.bricklinkTokenSecret || process.env.BRICKLINK_TOKEN_SECRET || '';
+  
+  if (!consumerKey || !consumerSecret || !tokenValue || !tokenSecret) {
     throw new Error('BrickLink credentials not configured. Please add them in Settings.');
   }
 
@@ -104,6 +88,23 @@ async function bricklinkRequest(endpoint: string, queryParams?: Record<string, s
   if (!rateLimit.allowed) {
     throw new Error(rateLimit.warning || 'API rate limit exceeded');
   }
+
+  // Create OAuth client with credentials
+  const oauth = new OAuth({
+    consumer: {
+      key: consumerKey,
+      secret: consumerSecret,
+    },
+    signature_method: 'HMAC-SHA1',
+    hash_function(baseString, key) {
+      return crypto.createHmac('sha1', key).update(baseString).digest('base64');
+    },
+  });
+
+  const token = {
+    key: cleanToken(tokenValue),
+    secret: cleanToken(tokenSecret),
+  };
 
   // Build URL with query params - OAuth needs the full URL for GET request signatures
   let url = `https://api.bricklink.com/api/store/v1${endpoint}`;

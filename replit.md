@@ -122,6 +122,8 @@ Preferred communication style: Simple, everyday language.
   - Categories and color definitions
   - Inventory listings with pricing
   - OAuth 1.0a authentication implemented with consumer key/secret and token
+  - **Credentials Storage:** BrickLink credentials (Consumer Key, Consumer Secret, Token Value, Token Secret) are stored in the database (`app_settings` table) and can be configured via Settings UI > Platforms tab
+  - Credentials fallback to environment variables if not set in database
   - **Rate Limiting:** Tracks all API calls in `bl_api_calls` table
     - Warning threshold: 2,500 calls per 24 hours (yellow UI alert)
     - Block threshold: 4,750 calls per 24 hours (red alert, sync disabled)
