@@ -1,21 +1,162 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, Bot, RefreshCcw, ChevronUp, ChevronDown, Minimize2, Maximize2 } from "lucide-react";
+import { Send, Bot, RefreshCcw, ChevronUp, ChevronDown, Minimize2, Maximize2, ExternalLink, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   items?: Array<{
-    type: 'inventory' | 'order' | 'sales' | 'marketing';
-    id: string;
-    label: string;
-    orderNumber?: string;
-    customerName?: string;
-    date?: string;
-    total?: number;
-    isRepeatCustomer?: boolean;
+    id: number;
+    itemNo: string;
+    colorId: number | null;
+    colorName: string | null;
   }>;
+}
+
+interface MessageContentProps {
+  content: string;
+  items?: Array<{
+    id: number;
+    itemNo: string;
+    colorId: number | null;
+    colorName: string | null;
+  }>;
+  onItemClick?: (type: 'inventory', id: string) => void;
+  onBrickLinkClick?: (url: string) => void;
+}
+
+function MessageContent({ content, items, onItemClick, onBrickLinkClick }: MessageContentProps) {
+  // Parse markdown bullet points and create clickable elements
+  const parseContent = (text: string) => {
+    const lines = text.split('\n');
+    const elements: JSX.Element[] = [];
+    let currentParagraph: string[] = [];
+    let key = 0;
+
+    const flushParagraph = () => {
+      if (currentParagraph.length > 0) {
+        const paraText = currentParagraph.join('\n');
+        elements.push(
+          <p key={`para-${key++}`} className="mb-2">
+            {parseInlineContent(paraText)}
+          </p>
+        );
+        currentParagraph = [];
+      }
+    };
+
+    const parseInlineContent = (text: string) => {
+      const parts: (string | JSX.Element)[] = [];
+      let lastIndex = 0;
+
+      // Match BrickLink URLs
+      const urlRegex = /https:\/\/www\.bricklink\.com\/[^\s)]+/g;
+      let match;
+
+      while ((match = urlRegex.exec(text)) !== null) {
+        // Add text before the URL
+        if (match.index > lastIndex) {
+          const beforeText = text.substring(lastIndex, match.index);
+          parts.push(...parsePartNumbers(beforeText));
+        }
+
+        // Add clickable URL
+        const url = match[0];
+        parts.push(
+          <button
+            key={`url-${match.index}`}
+            onClick={() => onBrickLinkClick?.(url)}
+            className="inline-flex items-center gap-1 text-purple-400 hover:text-purple-300 underline"
+          >
+            View on BrickLink
+            <ExternalLink className="h-3 w-3" />
+          </button>
+        );
+
+        lastIndex = match.index + url.length;
+      }
+
+      // Add remaining text
+      if (lastIndex < text.length) {
+        parts.push(...parsePartNumbers(text.substring(lastIndex)));
+      }
+
+      return parts.length > 0 ? parts : text;
+    };
+
+    const parsePartNumbers = (text: string) => {
+      if (!items || items.length === 0) return [text];
+
+      const parts: (string | JSX.Element)[] = [];
+      let lastIndex = 0;
+
+      // Escape special regex characters in part numbers
+      const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      
+      // Match part numbers that exist in items
+      const partNumbers = items.map(item => escapeRegex(item.itemNo));
+      const partRegex = new RegExp(`\\b(${partNumbers.join('|')})\\b`, 'g');
+      let match;
+
+      while ((match = partRegex.exec(text)) !== null) {
+        // Add text before the part number
+        if (match.index > lastIndex) {
+          parts.push(text.substring(lastIndex, match.index));
+        }
+
+        // Find matching item
+        const matchingItem = items.find(item => item.itemNo === match![1]);
+        if (matchingItem) {
+          parts.push(
+            <button
+              key={`part-${match.index}`}
+              onClick={() => onItemClick?.('inventory', matchingItem.id.toString())}
+              className="inline text-purple-400 hover:text-purple-300 font-semibold underline decoration-dotted"
+              title={`View details for ${matchingItem.itemNo}${matchingItem.colorName ? ` in ${matchingItem.colorName}` : ''}`}
+            >
+              {match[1]}
+            </button>
+          );
+        } else {
+          parts.push(match[1]);
+        }
+
+        lastIndex = match.index + match[0].length;
+      }
+
+      // Add remaining text
+      if (lastIndex < text.length) {
+        parts.push(text.substring(lastIndex));
+      }
+
+      return parts.length > 0 ? parts : [text];
+    };
+
+    lines.forEach((line, index) => {
+      // Check if line is a bullet point
+      if (line.trim().startsWith('- ') || line.trim().startsWith('• ')) {
+        flushParagraph();
+        const bulletText = line.trim().substring(2);
+        elements.push(
+          <li key={`bullet-${key++}`} className="ml-4 mb-1">
+            {parseInlineContent(bulletText)}
+          </li>
+        );
+      } else if (line.trim() === '') {
+        flushParagraph();
+      } else {
+        currentParagraph.push(line);
+      }
+    });
+
+    flushParagraph();
+
+    return elements;
+  };
+
+  return <div className="space-y-1">{parseContent(content)}</div>;
 }
 
 interface ChatInterfaceProps {
@@ -50,6 +191,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
   const [isLoading, setIsLoading] = useState(false);
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
+  const [brickLinkUrl, setBrickLinkUrl] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   
@@ -120,6 +262,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
       console.log('📥 Frontend received response:');
       console.log('  - Status:', response.status);
       console.log('  - Message preview:', data.message?.substring(0, 150));
+      console.log('  - Items found:', data.items?.length || 0);
       
       if (data.error) {
         // Use the specific error message from the server if provided
@@ -135,6 +278,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
       const assistantMessage: ChatMessage = {
         role: 'assistant',
         content: data.message || "I'm sorry, I couldn't generate a response.",
+        items: data.items || [],
       };
 
       setMessages(prev => [...prev, assistantMessage]);
@@ -246,36 +390,15 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
                         : 'bg-gray-800/80 text-gray-300 border border-purple-500/20'
                     }`}
                   >
-                    {message.content}
-                    {message.items && message.items.length > 0 && (
-                      <div className="mt-2 space-y-1">
-                        {message.items.map((item, idx) => (
-                          <button
-                            key={idx}
-                            onClick={() => onItemClick?.(item.type, item.id)}
-                            className={`block w-full text-left px-3 py-1.5 rounded-md text-xs ${colors.promptBg} transition-colors`}
-                            data-testid={`item-${item.type}-${item.id}`}
-                          >
-                            {item.type === 'order' && item.orderNumber ? (
-                              <div className="flex items-center gap-2">
-                                <div className="flex-shrink-0 w-4">
-                                  {item.isRepeatCustomer && (
-                                    <RefreshCcw className="h-3 w-3" />
-                                  )}
-                                </div>
-                                <div className="flex-1 flex items-center justify-between gap-3">
-                                  <span className="font-medium">#{item.orderNumber}</span>
-                                  <span className="flex-1">{item.customerName}</span>
-                                  <span className="text-gray-400">{item.date}</span>
-                                  <span className="font-semibold">${item.total?.toFixed(2)}</span>
-                                </div>
-                              </div>
-                            ) : (
-                              item.label
-                            )}
-                          </button>
-                        ))}
-                      </div>
+                    {message.role === 'user' ? (
+                      message.content
+                    ) : (
+                      <MessageContent
+                        content={message.content}
+                        items={message.items}
+                        onItemClick={onItemClick}
+                        onBrickLinkClick={setBrickLinkUrl}
+                      />
                     )}
                   </div>
                 </div>
@@ -330,6 +453,41 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
           ))}
         </div>
       )}
+
+      {/* BrickLink iframe dialog */}
+      <Dialog open={!!brickLinkUrl} onOpenChange={() => setBrickLinkUrl(null)}>
+        <DialogContent className="max-w-4xl h-[80vh] p-0" aria-describedby="bricklink-description">
+          <DialogHeader className="p-4 border-b">
+            <div className="flex items-center justify-between">
+              <DialogTitle className="text-base flex items-center gap-2">
+                <ExternalLink className="h-4 w-4" />
+                BrickLink
+              </DialogTitle>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => setBrickLinkUrl(null)}
+                className="h-8 w-8"
+                data-testid="button-close-bricklink"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <p id="bricklink-description" className="sr-only">
+              BrickLink catalog page displaying part information
+            </p>
+          </DialogHeader>
+          {brickLinkUrl && (
+            <iframe
+              src={brickLinkUrl}
+              className="w-full h-full"
+              title="BrickLink"
+              sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+              data-testid="iframe-bricklink"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

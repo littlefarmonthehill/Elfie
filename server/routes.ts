@@ -328,19 +328,30 @@ CRITICAL: You HAVE database access and real data is provided above. Use this dat
 
 RESPONSE GUIDELINES:
 1. When database data is provided, use it to give specific answers
-2. Always include BrickLink links for parts: https://www.bricklink.com/v2/catalog/catalogitem.page?P=<partNumber>
-3. If no data found, explain what you searched and suggest alternatives
-4. Be direct and concise (under 5 sentences)
-5. Provide actionable information
+2. **FORMAT ALL LISTS AS MARKDOWN BULLET POINTS** - Each item on its own line with "- " prefix
+3. Always include BrickLink links for parts: https://www.bricklink.com/v2/catalog/catalogitem.page?P=<partNumber>
+4. When listing inventory items, format each as: "- Part [ITEMNO] in [COLOR]: [QTY] units @ $[PRICE] ([CONDITION])"
+5. If no data found, explain what you searched and suggest alternatives
+6. Be direct and concise (under 5 sentences for intro, then bullet list)
+7. Provide actionable information
 
-EXAMPLES:
+FORMATTING EXAMPLES:
 
 User: "Do I have part 3021?"
-With data: "Yes! You have 3 listings for part 3021: 50 units in Red @ $0.25 each (New), 30 units in Blue @ $0.20 each (New), and 10 units in Yellow @ $0.30 each (Used). View on BrickLink: https://www.bricklink.com/v2/catalog/catalogitem.page?P=3021"
-Without data: "I don't see part 3021 in your current inventory. You may need to sync your BrickLink data or check if it's listed under a different number. BrickLink page: https://www.bricklink.com/v2/catalog/catalogitem.page?P=3021"
+Good response: "Yes! I found 3 listings for part 3021:
+
+- Part 3021 in Red: 50 units @ $0.25 (New)
+- Part 3021 in Blue: 30 units @ $0.20 (New)  
+- Part 3021 in Yellow: 10 units @ $0.30 (Used)
+
+View on BrickLink: https://www.bricklink.com/v2/catalog/catalogitem.page?P=3021"
 
 User: "How many orders do I have?"
-With data: "You have 15 recent orders. Most recent: Order #12345 from JohnDoe ($45.50, shipped) on Jan 15, 2025. You can view all orders in your Orders dashboard."
+Good response: "You have 15 recent orders. Here are the most recent:
+
+- Order #12345: JohnDoe - $45.50 (shipped) on Jan 15, 2025
+- Order #12346: MarySmith - $32.00 (pending) on Jan 14, 2025
+- Order #12347: BobJones - $67.25 (shipped) on Jan 13, 2025"
 
 Keep responses helpful, accurate, and based on the actual data provided.`;
 
@@ -372,8 +383,37 @@ Keep responses helpful, accurate, and based on the actual data provided.`;
       }
 
       const data = await response.json();
+      
+      // Extract inventory items from the search for clickable links
+      const itemsFound: Array<{
+        id: number;
+        itemNo: string;
+        colorId: number | null;
+        colorName: string | null;
+      }> = [];
+      
+      if (partNumberMatch || lastUserMessage.includes('part') || lastUserMessage.includes('inventory')) {
+        const partNumber = partNumberMatch ? partNumberMatch[1] : null;
+        if (partNumber) {
+          const items = await db
+            .select({
+              id: blInventory.id,
+              itemNo: blInventory.itemNo,
+              colorId: blInventory.colorId,
+              colorName: blColors.name,
+            })
+            .from(blInventory)
+            .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+            .where(like(blInventory.itemNo, `%${partNumber}%`))
+            .limit(50);
+          
+          itemsFound.push(...items);
+        }
+      }
+      
       res.json({
         message: data.choices[0].message.content,
+        items: itemsFound,
       });
     } catch (error) {
       console.error("Chat error:", error);

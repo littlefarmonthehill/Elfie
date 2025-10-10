@@ -322,27 +322,63 @@ export default function Home() {
     },
   };
 
-  const handleItemClick = (type: 'inventory' | 'order' | 'sales' | 'marketing', id: string) => {
+  const handleItemClick = async (type: 'inventory' | 'order' | 'sales' | 'marketing', id: string) => {
     // Generate mock detail data based on type and id
     let detailData: any = {};
 
     if (type === 'inventory') {
-      // Mock inventory detail data
-      const colors = ['Black', 'Red', 'Blue'];
-      const colorData = id.split('-')[1];
-      detailData = {
-        partNumber: '3201',
-        name: 'Brick 2 x 4',
-        category: 'Brick',
-        color: colorData.charAt(0).toUpperCase() + colorData.slice(1),
-        quantity: colorData === 'black' ? 45 : colorData === 'red' ? 23 : 12,
-        condition: 'New' as const,
-        costPerUnit: 0.15,
-        pricePerUnit: 0.35,
-        weight: 0.08,
-        dateAdded: '2024-01-15',
-        bricklinkUrl: 'https://www.bricklink.com/v2/catalog/catalogitem.page?P=3201',
-      };
+      // Check if this is a real database ID (numeric) or mock ID (contains dash)
+      if (!id.includes('-') && !isNaN(Number(id))) {
+        // Real database ID - fetch from API
+        try {
+          const response = await fetch(`/api/inventory`);
+          const items = await response.json();
+          const item = items.find((i: any) => i.id === Number(id));
+          
+          if (item) {
+            detailData = {
+              partNumber: item.itemNo,
+              name: `${item.itemType} ${item.itemNo}`,
+              category: item.categoryName || 'Unknown',
+              color: item.colorName || 'No Color',
+              quantity: item.quantity,
+              condition: item.newOrUsed as 'New' | 'Used',
+              costPerUnit: 0, // BrickLink API doesn't provide cost
+              pricePerUnit: parseFloat(item.unitPrice) || 0,
+              weight: 0, // Not available in current data
+              dateAdded: new Date(item.updatedAt).toISOString().split('T')[0],
+              bricklinkUrl: `https://www.bricklink.com/v2/catalog/catalogitem.page?P=${item.itemNo}`,
+            };
+          } else {
+            console.error('Item not found:', id);
+            return;
+          }
+        } catch (error) {
+          console.error('Error fetching inventory item:', error);
+          return;
+        }
+      } else {
+        // Mock inventory detail data (old format)
+        const colors = ['Black', 'Red', 'Blue'];
+        const colorData = id.split('-')[1];
+        if (!colorData) {
+          console.error('Invalid mock ID format:', id);
+          return;
+        }
+        detailData = {
+          partNumber: '3201',
+          name: 'Brick 2 x 4',
+          category: 'Brick',
+          color: colorData.charAt(0).toUpperCase() + colorData.slice(1),
+          quantity: colorData === 'black' ? 45 : colorData === 'red' ? 23 : 12,
+          condition: 'New' as const,
+          costPerUnit: 0.15,
+          pricePerUnit: 0.35,
+          weight: 0.08,
+          dateAdded: '2024-01-15',
+          bricklinkUrl: 'https://www.bricklink.com/v2/catalog/catalogitem.page?P=3201',
+        };
+      }
     } else if (type === 'order') {
       // Get order from mock database
       detailData = mockOrderDatabase[id];
