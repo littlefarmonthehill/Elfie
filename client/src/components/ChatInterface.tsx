@@ -49,6 +49,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isInputFocused, setIsInputFocused] = useState(false);
+  const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   
@@ -73,6 +74,14 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
       return () => clearTimeout(timeoutId);
     }
   }, [messages, isInputFocused]);
+
+  // Send pending prompt when chat expands
+  useEffect(() => {
+    if (!isMinimized && pendingPrompt) {
+      handleSend(pendingPrompt);
+      setPendingPrompt(null);
+    }
+  }, [isMinimized, pendingPrompt]);
 
   const handleSend = async (message?: string) => {
     const textToSend = message || input;
@@ -136,14 +145,18 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
   };
 
   const handlePromptClick = (prompt: string) => {
-    // Auto-expand when a prompt is clicked
-    if (isMinimized && onToggleMinimize) {
-      onToggleMinimize();
-    }
     if (onPromptAction) {
       onPromptAction(prompt);
     }
-    handleSend(prompt);
+    
+    // If minimized, expand and queue the prompt to send after expansion
+    if (isMinimized && onToggleMinimize) {
+      setPendingPrompt(prompt);
+      onToggleMinimize();
+    } else {
+      // If already expanded, send immediately
+      handleSend(prompt);
+    }
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
