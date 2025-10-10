@@ -160,12 +160,18 @@ Preferred communication style: Simple, everyday language.
 - Context-aware responses based on active dashboard
 - Action prompts for common operations
 - Full conversation history management
-- **No direct database access:** E.L.F.I.E. guides users to check dashboards for their specific data
-- **Helpful navigation:** Directs users to correct dashboard sections (Inventory, Orders, Sales, Marketing)
+- **Direct Database Access:** E.L.F.I.E. queries actual database tables to answer questions
+  - **Inventory Queries:** Detects part numbers in messages (regex: `/\b(\d{4,5})\b/`), queries `bl_inventory` with joins to `bl_colors` and `bl_categories`
+  - **Order Queries:** Detects "order" keyword, fetches recent orders from `orders` table with line items from `order_details`
+  - **Database Context Injection:** Query results formatted and injected into system prompt for AI to use
+  - **Query Filtering:** Uses `LIKE` operator for flexible part number matching (e.g., "3021" matches "30212", "3021", "30210")
+  - **Performance:** Limits inventory results to 50 items, order details to 5 items per order, queries 20 most recent orders
+  - **Drizzle ORM:** Uses immutable query builder pattern (reassign variables when filtering)
 - **Response format:** Concise answers (under 5 sentences) with actionable guidance
 - **Always includes BrickLink links** for referenced parts/sets
-- **Never hallucinates data:** Acknowledges limitations and provides context instead
+- **Never hallucinates data:** Uses actual database query results; acknowledges when no data found
 - **Strategic advice:** Available when explicitly requested (analyze, optimize, improve, strategy keywords)
+- **Custom System Prompts:** Supports user-defined system prompts stored in database; database context appended automatically
 - Dynamic model selection from OpenRouter's model catalog
 - Requires valid OPENROUTER_API_KEY environment variable or user-provided key
 
