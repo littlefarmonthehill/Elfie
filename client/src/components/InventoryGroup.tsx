@@ -108,7 +108,7 @@ export function InventoryGroup({ itemNo, items, onItemClick }: InventoryGroupPro
               <button
                 key={idx}
                 onClick={() => itemId && onItemClick?.(itemId)}
-                className="w-full grid grid-cols-[16px_90px_1fr] gap-2 items-center p-2 -mx-2 rounded overflow-hidden text-left hover:bg-gray-800/20 active:bg-gray-800/30 transition-colors"
+                className="w-full grid grid-cols-[16px_80px_1fr] gap-2 items-center p-2 -mx-2 rounded text-left hover:bg-gray-800/20 active:bg-gray-800/30 transition-colors"
                 data-testid={`inventory-row-${itemNo}-${idx}`}
               >
                 {/* Color dot */}
@@ -121,27 +121,23 @@ export function InventoryGroup({ itemNo, items, onItemClick }: InventoryGroupPro
                 {/* Color name */}
                 <span className="text-gray-400 text-xs truncate">{group.colorName || 'Unknown'}</span>
                 
-                {/* Conditions aligned in columns with fixed widths to prevent overlap */}
-                <div className="flex items-center gap-3 text-xs overflow-hidden">
+                {/* Conditions aligned in columns */}
+                <div className="flex items-center gap-2 text-xs min-w-0">
                   {/* New condition */}
-                  <div className="w-[95px] flex-shrink-0">
-                    {group.new && (
-                      <div className="flex items-center gap-1">
-                        <span className="text-green-400">N:</span>
-                        <span className="text-green-400 whitespace-nowrap">{group.new.quantity}@${group.new.unitPrice || '0.00'}</span>
-                      </div>
-                    )}
-                  </div>
+                  {group.new && (
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <span className="text-green-400">N:</span>
+                      <span className="text-green-400 whitespace-nowrap">{group.new.quantity}@${group.new.unitPrice || '0.00'}</span>
+                    </div>
+                  )}
                   
                   {/* Used condition */}
-                  <div className="w-[95px] flex-shrink-0">
-                    {group.used && (
-                      <div className="flex items-center gap-1">
-                        <span className="text-orange-400">U:</span>
-                        <span className="text-orange-400 whitespace-nowrap">{group.used.quantity}@${group.used.unitPrice || '0.00'}</span>
-                      </div>
-                    )}
-                  </div>
+                  {group.used && (
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <span className="text-orange-400">U:</span>
+                      <span className="text-orange-400 whitespace-nowrap">{group.used.quantity}@${group.used.unitPrice || '0.00'}</span>
+                    </div>
+                  )}
                 </div>
               </button>
             );

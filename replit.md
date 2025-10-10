@@ -31,9 +31,9 @@ Preferred communication style: Simple, everyday language.
 - **Inventory Display:** 
   - **Clean Design:** Transparent background with border-only styling, no gray shading on inventory groups
   - **Color Accuracy:** Color dots display actual LEGO brick colors parsed from hex RGB database format (e.g., "FF0000" → red)
-  - **Layout:** Grid-based layout with color dot (16px), color name (90px with truncation), and fixed-width condition columns (N: 95px, U: 95px) to prevent overlap
+  - **Layout:** Grid-based layout with color dot (16px), color name (80px with truncation), and flexible condition layout that adapts to content width
   - **Full Row Interaction:** Entire color row is clickable (not just condition badges) to show item-level details
-  - **Overflow Handling:** Uses `overflow-hidden` with custom hover states (incompatible with elevation utilities per design guidelines)
+  - **Flexible Conditions:** N: and U: values use flex-shrink-0 to take only needed space, preventing cut-off while maintaining alignment
 - **Response Principles:** Concise answers, markdown formatting, includes BrickLink links, avoids hallucination, offers strategic advice when requested.
 
 ## External Dependencies
