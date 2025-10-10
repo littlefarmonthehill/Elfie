@@ -88,6 +88,12 @@ async function trackApiCall(endpoint: string, success: boolean = true): Promise<
 
 // Make a BrickLink API request with rate limiting
 async function bricklinkRequest(endpoint: string, queryParams?: Record<string, string>): Promise<{ data: any; apiCalls: number }> {
+  console.log('[BrickLink] Checking credentials...');
+  console.log('  CONSUMER_KEY:', process.env.BRICKLINK_CONSUMER_KEY ? `SET (${process.env.BRICKLINK_CONSUMER_KEY.substring(0, 10)}...)` : 'NOT SET');
+  console.log('  CONSUMER_SECRET:', process.env.BRICKLINK_CONSUMER_SECRET ? `SET (${process.env.BRICKLINK_CONSUMER_SECRET.substring(0, 10)}...)` : 'NOT SET');
+  console.log('  TOKEN_VALUE:', process.env.BRICKLINK_TOKEN_VALUE ? `SET (${process.env.BRICKLINK_TOKEN_VALUE.substring(0, 10)}...)` : 'NOT SET');
+  console.log('  TOKEN_SECRET:', process.env.BRICKLINK_TOKEN_SECRET ? `SET (${process.env.BRICKLINK_TOKEN_SECRET.substring(0, 10)}...)` : 'NOT SET');
+  
   if (!process.env.BRICKLINK_CONSUMER_KEY || !process.env.BRICKLINK_CONSUMER_SECRET || 
       !process.env.BRICKLINK_TOKEN_VALUE || !process.env.BRICKLINK_TOKEN_SECRET) {
     throw new Error('BrickLink credentials not configured. Please add them in Settings.');
