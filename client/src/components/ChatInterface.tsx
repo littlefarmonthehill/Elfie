@@ -219,8 +219,10 @@ function MessageContent({ content, items, onItemClick, onBrickLinkClick }: Messa
 
   return (
     <div className="space-y-2">
-      {/* Show text content */}
-      <div className="space-y-1">{parseContent(content)}</div>
+      {/* Only show text content if there are no grouped items */}
+      {!groupedItems && (
+        <div className="space-y-1">{parseContent(content)}</div>
+      )}
       
       {/* Show grouped inventory items if available */}
       {groupedItems && Object.entries(groupedItems).map(([itemNo, items]) => (
@@ -479,10 +481,12 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
                   data-testid={`message-${message.role}-${i}`}
                 >
                   <div
-                    className={`max-w-[80%] rounded-lg p-3 text-xs ${
+                    className={`max-w-[80%] rounded-lg text-xs ${
                       message.role === 'user'
-                        ? colors.userBg + ' text-white'
-                        : 'bg-gray-800/80 text-gray-300 border border-purple-500/20'
+                        ? colors.userBg + ' text-white p-3'
+                        : message.items && message.items.length > 0
+                        ? 'text-gray-300' // No background for messages with inventory items
+                        : 'bg-gray-800/80 text-gray-300 border border-purple-500/20 p-3'
                     }`}
                   >
                     {message.role === 'user' ? (
