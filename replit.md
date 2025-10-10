@@ -161,7 +161,9 @@ Preferred communication style: Simple, everyday language.
 - Action prompts for common operations
 - Full conversation history management
 - **Direct Database Access:** E.L.F.I.E. queries actual database tables to answer questions
-  - **Inventory Queries:** Detects part numbers in messages (regex: `/\b(\d{4,5})\b/`), queries `bl_inventory` with joins to `bl_colors` and `bl_categories`
+  - **Inventory Queries:** Detects part numbers in messages (regex: `/\b(\d{4,5})\b/`) and text queries, queries `bl_inventory` with joins to `bl_colors` and `bl_categories`
+  - **Search Capabilities:** Searches across itemNo, itemName, remarks, and description fields using `LIKE` operator with `OR` conditions
+  - **Important Limitation:** BrickLink API does not provide item names, themes, or descriptive text in inventory data. Only part numbers, colors, quantities, and prices are available. Theme-based searches (Star Wars, Harry Potter) will not work unless this data is manually added to the database.
   - **Order Queries:** Detects "order" keyword, fetches recent orders from `orders` table with line items from `order_details`
   - **Database Context Injection:** Query results formatted and injected into system prompt for AI to use
   - **Query Filtering:** Uses `LIKE` operator for flexible part number matching (e.g., "3021" matches "30212", "3021", "30210")

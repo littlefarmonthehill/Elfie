@@ -5,7 +5,7 @@ import { syncBricklinkData } from "./services/bricklink";
 import { syncShipStationOrders } from "./services/shipstation";
 import { db } from "./db";
 import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema } from "@shared/schema";
-import { eq, desc, sql, inArray, like } from "drizzle-orm";
+import { eq, desc, sql, inArray, like, or } from "drizzle-orm";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Data Fetch Routes
@@ -211,18 +211,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('🔍 Full message content:', messages[messages.length - 1]?.content);
       let databaseContext = '';
 
-      // Search inventory by part number or item number
+      // Search inventory by part number, text query, or general inventory request
       const partNumberMatch = lastUserMessage.match(/\b(\d{4,5})\b/);
-      if (partNumberMatch || lastUserMessage.includes('part') || lastUserMessage.includes('inventory')) {
+      const textQueryMatch = lastUserMessage.match(/\b(star wars|harry potter|[a-z]{3,})\b/gi);
+      
+      if (partNumberMatch || textQueryMatch || lastUserMessage.includes('part') || lastUserMessage.includes('inventory')) {
         const partNumber = partNumberMatch ? partNumberMatch[1] : null;
+        const textQuery = textQueryMatch && !partNumber ? textQueryMatch[0] : null;
         
-        // Build query - apply where before joins
+        console.log('🔍 Search params:', { partNumber, textQuery });
+        
+        // Build query - search across multiple fields
         let inventoryResults;
         if (partNumber) {
+          // Search by part number
           inventoryResults = await db
             .select({
               itemNo: blInventory.itemNo,
               itemType: blInventory.itemType,
+              itemName: blInventory.itemName,
+              remarks: blInventory.remarks,
               colorId: blInventory.colorId,
               colorName: blColors.name,
               colorRgb: blColors.rgb,
@@ -236,11 +244,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
             .where(like(blInventory.itemNo, `%${partNumber}%`))
             .limit(50);
-        } else {
+        } else if (textQuery) {
+          // Search by text in name, remarks, or description
+          const searchPattern = `%${textQuery}%`;
           inventoryResults = await db
             .select({
               itemNo: blInventory.itemNo,
               itemType: blInventory.itemType,
+              itemName: blInventory.itemName,
+              remarks: blInventory.remarks,
+              colorId: blInventory.colorId,
+              colorName: blColors.name,
+              colorRgb: blColors.rgb,
+              categoryName: blCategories.name,
+              quantity: blInventory.quantity,
+              newOrUsed: blInventory.newOrUsed,
+              unitPrice: blInventory.unitPrice,
+            })
+            .from(blInventory)
+            .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+            .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
+            .where(
+              or(
+                like(blInventory.itemName, searchPattern),
+                like(blInventory.remarks, searchPattern),
+                like(blInventory.description, searchPattern)
+              )
+            )
+            .limit(50);
+        } else {
+          // General inventory query
+          inventoryResults = await db
+            .select({
+              itemNo: blInventory.itemNo,
+              itemType: blInventory.itemType,
+              itemName: blInventory.itemName,
+              remarks: blInventory.remarks,
               colorId: blInventory.colorId,
               colorName: blColors.name,
               colorRgb: blColors.rgb,
@@ -255,20 +294,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .limit(50);
         }
         
-        console.log('🔍 Inventory query returned', inventoryResults.length, 'results for part number:', partNumber);
+        console.log('🔍 Inventory query returned', inventoryResults.length, 'results for:', partNumber || textQuery || 'general');
         if (inventoryResults.length > 0) {
           databaseContext += `\n\nINVENTORY DATA FROM DATABASE:\n`;
           inventoryResults.forEach(item => {
-            databaseContext += `- Part ${item.itemNo} (${item.itemType}): ${item.quantity} units`;
+            databaseContext += `- Part ${item.itemNo} (${item.itemType})`;
+            if (item.itemName) databaseContext += ` - ${item.itemName}`;
+            databaseContext += `: ${item.quantity} units`;
             if (item.colorName) databaseContext += ` in ${item.colorName}`;
             if (item.categoryName) databaseContext += ` [${item.categoryName}]`;
             if (item.unitPrice) databaseContext += ` @ $${item.unitPrice} each`;
-            databaseContext += ` (${item.newOrUsed})\n`;
+            databaseContext += ` (${item.newOrUsed})`;
+            if (item.remarks) databaseContext += ` - ${item.remarks}`;
+            databaseContext += `\n`;
           });
           console.log('🔍 Database context length:', databaseContext.length);
-        } else if (partNumber) {
-          databaseContext += `\n\nINVENTORY SEARCH: No items found for part ${partNumber} in database.\n`;
-          console.log('🔍 No inventory found for part:', partNumber);
+        } else if (partNumber || textQuery) {
+          databaseContext += `\n\nINVENTORY SEARCH: No items found for "${partNumber || textQuery}" in database.\n`;
+          console.log('🔍 No inventory found for:', partNumber || textQuery);
         }
       }
 
@@ -328,12 +371,14 @@ CRITICAL: You HAVE database access and real data is provided above. Use this dat
 
 RESPONSE GUIDELINES:
 1. When database data is provided, use it to give specific answers
-2. **FORMAT ALL LISTS AS MARKDOWN BULLET POINTS** - Each item on its own line with "- " prefix
-3. Always include BrickLink links for parts: https://www.bricklink.com/v2/catalog/catalogitem.page?P=<partNumber>
-4. When listing inventory items, format each as: "- Part [ITEMNO] in [COLOR]: [QTY] units @ $[PRICE] ([CONDITION])"
-5. If no data found, explain what you searched and suggest alternatives
-6. Be direct and concise (under 5 sentences for intro, then bullet list)
-7. Provide actionable information
+2. FORMAT ALL LISTS AS MARKDOWN BULLET POINTS - Each item on its own line with "- " prefix
+3. CRITICAL: Do NOT use asterisks (*), bold (**text**), or any markdown formatting in your responses - just plain text
+4. Always include BrickLink links for parts: https://www.bricklink.com/v2/catalog/catalogitem.page?P=<partNumber>
+5. When listing inventory items, format each as: "- Part [ITEMNO] in [COLOR]: [QTY] units @ $[PRICE] ([CONDITION])"
+6. If no data found, explain what you searched and suggest alternatives
+7. Be direct and concise (under 5 sentences for intro, then bullet list)
+8. Provide actionable information
+9. IMPORTANT: Item names and themes are not in database - only part numbers, colors, quantities, and prices. If user asks for themes (Star Wars, Harry Potter), explain this limitation
 
 FORMATTING EXAMPLES:
 
@@ -390,10 +435,13 @@ Keep responses helpful, accurate, and based on the actual data provided.`;
         itemNo: string;
         colorId: number | null;
         colorName: string | null;
+        newOrUsed: string;
       }> = [];
       
-      if (partNumberMatch || lastUserMessage.includes('part') || lastUserMessage.includes('inventory')) {
+      if (partNumberMatch || textQueryMatch || lastUserMessage.includes('part') || lastUserMessage.includes('inventory')) {
         const partNumber = partNumberMatch ? partNumberMatch[1] : null;
+        const textQuery = textQueryMatch && !partNumber ? textQueryMatch[0] : null;
+        
         if (partNumber) {
           const items = await db
             .select({
@@ -401,10 +449,33 @@ Keep responses helpful, accurate, and based on the actual data provided.`;
               itemNo: blInventory.itemNo,
               colorId: blInventory.colorId,
               colorName: blColors.name,
+              newOrUsed: blInventory.newOrUsed,
             })
             .from(blInventory)
             .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
             .where(like(blInventory.itemNo, `%${partNumber}%`))
+            .limit(50);
+          
+          itemsFound.push(...items);
+        } else if (textQuery) {
+          const searchPattern = `%${textQuery}%`;
+          const items = await db
+            .select({
+              id: blInventory.id,
+              itemNo: blInventory.itemNo,
+              colorId: blInventory.colorId,
+              colorName: blColors.name,
+              newOrUsed: blInventory.newOrUsed,
+            })
+            .from(blInventory)
+            .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+            .where(
+              or(
+                like(blInventory.itemName, searchPattern),
+                like(blInventory.remarks, searchPattern),
+                like(blInventory.description, searchPattern)
+              )
+            )
             .limit(50);
           
           itemsFound.push(...items);

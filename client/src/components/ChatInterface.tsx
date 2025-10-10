@@ -12,6 +12,7 @@ interface ChatMessage {
     itemNo: string;
     colorId: number | null;
     colorName: string | null;
+    newOrUsed: string;
   }>;
 }
 
@@ -22,6 +23,7 @@ interface MessageContentProps {
     itemNo: string;
     colorId: number | null;
     colorName: string | null;
+    newOrUsed: string;
   }>;
   onItemClick?: (type: 'inventory', id: string) => void;
   onBrickLinkClick?: (url: string) => void;
@@ -92,43 +94,84 @@ function MessageContent({ content, items, onItemClick, onBrickLinkClick }: Messa
       const parts: (string | JSX.Element)[] = [];
       let lastIndex = 0;
 
-      // Escape special regex characters in part numbers
+      // Escape special regex characters
       const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       
-      // Match part numbers that exist in items
-      const partNumbers = items.map(item => escapeRegex(item.itemNo));
-      const partRegex = new RegExp(`\\b(${partNumbers.join('|')})\\b`, 'g');
+      // First, try to match color/condition level patterns: "Part [ITEMNO] in [COLOR]: ... ([CONDITION])"
+      // Pattern: Part 3021 in Red: 50 units @ $0.25 (New)
+      const colorConditionRegex = /Part\s+(\S+)\s+in\s+([^:]+):\s+[^(]+\(([^)]+)\)/g;
       let match;
 
-      while ((match = partRegex.exec(text)) !== null) {
-        // Add text before the part number
+      while ((match = colorConditionRegex.exec(text)) !== null) {
+        const [fullMatch, itemNo, colorName, condition] = match;
+        
+        // Add text before the match
         if (match.index > lastIndex) {
           parts.push(text.substring(lastIndex, match.index));
         }
 
-        // Find matching item
-        const matchingItem = items.find(item => item.itemNo === match![1]);
+        // Find exact matching item (itemNo + color + condition)
+        const matchingItem = items.find(item => 
+          item.itemNo === itemNo && 
+          item.colorName?.toLowerCase() === colorName.trim().toLowerCase() &&
+          item.newOrUsed?.toLowerCase() === condition.trim().toLowerCase()
+        );
+        
         if (matchingItem) {
           parts.push(
             <button
-              key={`part-${match.index}`}
+              key={`item-${match.index}`}
               onClick={() => onItemClick?.('inventory', matchingItem.id.toString())}
               className="inline text-purple-400 hover:text-purple-300 font-semibold underline decoration-dotted"
-              title={`View details for ${matchingItem.itemNo}${matchingItem.colorName ? ` in ${matchingItem.colorName}` : ''}`}
+              title={`View details for ${matchingItem.itemNo} in ${matchingItem.colorName} (${matchingItem.newOrUsed})`}
             >
-              {match[1]}
+              {fullMatch}
             </button>
           );
         } else {
-          parts.push(match[1]);
+          parts.push(fullMatch);
         }
 
-        lastIndex = match.index + match[0].length;
+        lastIndex = match.index + fullMatch.length;
       }
 
-      // Add remaining text
+      // Add remaining text (or all text if no color/condition patterns found)
       if (lastIndex < text.length) {
-        parts.push(text.substring(lastIndex));
+        const remainingText = text.substring(lastIndex);
+        
+        // Fallback: Try matching just part numbers in the remaining text
+        const partNumbers = items.map(item => escapeRegex(item.itemNo));
+        const partRegex = new RegExp(`\\b(${partNumbers.join('|')})\\b`, 'g');
+        let partMatch;
+        let partLastIndex = 0;
+
+        while ((partMatch = partRegex.exec(remainingText)) !== null) {
+          if (partMatch.index > partLastIndex) {
+            parts.push(remainingText.substring(partLastIndex, partMatch.index));
+          }
+
+          const matchingItem = items.find(item => item.itemNo === partMatch![1]);
+          if (matchingItem) {
+            parts.push(
+              <button
+                key={`part-${lastIndex + partMatch.index}`}
+                onClick={() => onItemClick?.('inventory', matchingItem.id.toString())}
+                className="inline text-purple-400 hover:text-purple-300 font-semibold underline decoration-dotted"
+                title={`View details for ${matchingItem.itemNo}`}
+              >
+                {partMatch[1]}
+              </button>
+            );
+          } else {
+            parts.push(partMatch[1]);
+          }
+
+          partLastIndex = partMatch.index + partMatch[0].length;
+        }
+
+        if (partLastIndex < remainingText.length) {
+          parts.push(remainingText.substring(partLastIndex));
+        }
       }
 
       return parts.length > 0 ? parts : [text];
