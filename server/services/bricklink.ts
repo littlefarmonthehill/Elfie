@@ -318,10 +318,21 @@ export async function syncBricklinkInventory(): Promise<{ added: number; updated
     // For existing items, check if they need updates (quantity or price changes)
     let updated = 0;
     if (existingItemsToCheck.length > 0) {
-      // Get full details of existing items that might need updates
-      const existingDetails = await db.select()
-        .from(blInventory)
-        .where(sql`${blInventory.id} = ANY(${existingItemsToCheck.map(i => i.inventory_id)})`);
+      // Get full details of existing items that might need updates in batches to avoid PostgreSQL ROW limit
+      const FETCH_BATCH_SIZE = 1000; // Fetch in smaller batches to avoid "ROW expressions can have at most 1664 entries" error
+      const existingDetails = [];
+      
+      for (let i = 0; i < existingItemsToCheck.length; i += FETCH_BATCH_SIZE) {
+        const batch = existingItemsToCheck.slice(i, i + FETCH_BATCH_SIZE);
+        const batchIds = batch.map(item => item.inventory_id);
+        
+        const batchDetails = await db.select()
+          .from(blInventory)
+          .where(sql`${blInventory.id} = ANY(${batchIds})`);
+        
+        existingDetails.push(...batchDetails);
+        console.log(`Fetched existing details batch ${Math.floor(i / FETCH_BATCH_SIZE) + 1}: ${existingDetails.length}/${existingItemsToCheck.length} items`);
+      }
       
       const existingMap = new Map(existingDetails.map(item => [item.id, item]));
       
