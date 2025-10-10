@@ -77,22 +77,17 @@ export function InventoryGroup({ itemNo, items, onItemClick }: InventoryGroupPro
         className="w-full flex items-center justify-between p-3 hover-elevate active-elevate-2 rounded-lg"
         data-testid={`inventory-group-${itemNo}`}
       >
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
           {isExpanded ? (
-            <ChevronDown className="h-4 w-4 text-purple-400" />
+            <ChevronDown className="h-4 w-4 text-purple-400 flex-shrink-0" />
           ) : (
-            <ChevronRight className="h-4 w-4 text-purple-400" />
+            <ChevronRight className="h-4 w-4 text-purple-400 flex-shrink-0" />
           )}
-          <div className="text-[11px] flex-1 min-w-0 flex flex-col gap-0.5">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <span className="text-purple-300 whitespace-nowrap font-medium flex-shrink-0">Part {itemNo}</span>
-              {itemName && (
-                <div className="flex-1 min-w-0 text-gray-300 truncate">- {itemName}</div>
-              )}
-            </div>
-            <div className="text-gray-400 text-[10px]">
-              {totalQuantity} units in {colorGroups.length} {colorGroups.length === 1 ? 'color' : 'colors'}
-            </div>
+          <div className="flex items-center gap-1.5 text-[11px] flex-1 min-w-0 overflow-hidden">
+            <span className="text-purple-300 whitespace-nowrap font-medium flex-shrink-0">Part {itemNo}</span>
+            {itemName && (
+              <span className="text-gray-300 truncate flex-1 min-w-0">- {itemName}</span>
+            )}
           </div>
         </div>
       </button>
