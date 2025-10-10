@@ -306,37 +306,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .where(like(blInventory.itemNo, `%${partNumber}%`))
             .limit(50);
         } else if (searchKeywords.length > 0) {
-          // Search across ALL fields with OR conditions for each keyword
-          const conditions = searchKeywords.flatMap(keyword => {
-            const pattern = `%${keyword}%`;
-            return [
-              like(blInventory.itemNo, pattern),
-              like(blInventory.itemType, pattern),
-              like(blInventory.itemName, pattern),
-              like(blInventory.remarks, pattern),
-              like(blInventory.description, pattern)
-            ];
-          });
+          // First try category/theme search - check if keywords match category names
+          // Try both combined phrase and individual keywords for better matching
+          const categoryConditions = [
+            ...searchKeywords.map(keyword => sql`${blCategories.name} ILIKE ${'%' + keyword + '%'}`),
+            sql`${blCategories.name} ILIKE ${'%' + searchKeywords.join(' ') + '%'}`,
+          ];
           
-          inventoryResults = await db
+          const categoryMatches = await db
             .select({
-              itemNo: blInventory.itemNo,
-              itemType: blInventory.itemType,
-              itemName: blInventory.itemName,
-              remarks: blInventory.remarks,
-              colorId: blInventory.colorId,
-              colorName: blColors.name,
-              colorRgb: blColors.rgb,
-              categoryName: blCategories.name,
-              quantity: blInventory.quantity,
-              newOrUsed: blInventory.newOrUsed,
-              unitPrice: blInventory.unitPrice,
+              id: blCategories.id,
+              name: blCategories.name,
             })
-            .from(blInventory)
-            .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
-            .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
-            .where(or(...conditions))
-            .limit(50);
+            .from(blCategories)
+            .where(or(...categoryConditions))
+            .limit(10);
+          
+          if (categoryMatches.length > 0) {
+            // Found matching categories - search inventory by category
+            const categoryIds = categoryMatches.map(cat => cat.id);
+            inventoryResults = await db
+              .select({
+                itemNo: blInventory.itemNo,
+                itemType: blInventory.itemType,
+                itemName: blInventory.itemName,
+                remarks: blInventory.remarks,
+                colorId: blInventory.colorId,
+                colorName: blColors.name,
+                colorRgb: blColors.rgb,
+                categoryName: blCategories.name,
+                quantity: blInventory.quantity,
+                newOrUsed: blInventory.newOrUsed,
+                unitPrice: blInventory.unitPrice,
+              })
+              .from(blInventory)
+              .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+              .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
+              .where(inArray(blInventory.categoryId, categoryIds))
+              .limit(50);
+            
+            console.log(`🔍 Category search: Found ${categoryMatches.length} matching categories:`, categoryMatches.map(c => c.name).join(', '));
+          } else {
+            // No category match - fall back to keyword search across multiple fields
+            const conditions = searchKeywords.flatMap(keyword => {
+              const pattern = `%${keyword}%`;
+              return [
+                like(blInventory.itemNo, pattern),
+                like(blInventory.itemType, pattern),
+                like(blInventory.itemName, pattern),
+                like(blInventory.remarks, pattern),
+                like(blInventory.description, pattern)
+              ];
+            });
+            
+            inventoryResults = await db
+              .select({
+                itemNo: blInventory.itemNo,
+                itemType: blInventory.itemType,
+                itemName: blInventory.itemName,
+                remarks: blInventory.remarks,
+                colorId: blInventory.colorId,
+                colorName: blColors.name,
+                colorRgb: blColors.rgb,
+                categoryName: blCategories.name,
+                quantity: blInventory.quantity,
+                newOrUsed: blInventory.newOrUsed,
+                unitPrice: blInventory.unitPrice,
+              })
+              .from(blInventory)
+              .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+              .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
+              .where(or(...conditions))
+              .limit(50);
+          }
         } else {
           // General inventory query
           inventoryResults = await db
