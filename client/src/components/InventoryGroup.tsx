@@ -56,6 +56,13 @@ export function InventoryGroup({ itemNo, items, onItemClick }: InventoryGroupPro
   // Convert RGB string to hex
   const rgbToHex = (rgb: string | null) => {
     if (!rgb) return '#808080'; // Default gray
+    
+    // Check if it's already in hex format (like "FF0000")
+    if (/^[0-9A-Fa-f]{6}$/.test(rgb)) {
+      return `#${rgb}`;
+    }
+    
+    // Try to parse decimal format (like "255,0,0")
     const match = rgb.match(/(\d+),(\d+),(\d+)/);
     if (!match) return '#808080';
     const [, r, g, b] = match;
@@ -76,11 +83,11 @@ export function InventoryGroup({ itemNo, items, onItemClick }: InventoryGroupPro
           ) : (
             <ChevronRight className="h-4 w-4 text-purple-400" />
           )}
-          <span className="text-xs text-purple-300">
-            Part {itemNo}
-            {itemName && <span className="text-gray-400"> - {itemName}</span>}
+          <span className="text-xs text-purple-300 flex-1 min-w-0">
+            <span>Part {itemNo}</span>
+            {itemName && <span className="text-gray-400 truncate inline-block max-w-[200px] align-bottom"> - {itemName}</span>}
           </span>
-          <span className="text-xs text-gray-400">({totalQuantity} units in {colorGroups.length} colors)</span>
+          <span className="text-xs text-gray-400 flex-shrink-0">({totalQuantity} units in {colorGroups.length} colors)</span>
         </div>
       </button>
 
@@ -90,41 +97,46 @@ export function InventoryGroup({ itemNo, items, onItemClick }: InventoryGroupPro
           {colorGroups.map((group, idx) => {
             const colorHex = rgbToHex(group.colorRgb);
             return (
-              <div key={idx} className="flex items-center gap-2">
+              <div key={idx} className="grid grid-cols-[16px_100px_1fr] gap-2 items-center">
                 {/* Color dot */}
                 <div
-                  className="w-3 h-3 rounded-full border border-gray-600 flex-shrink-0"
+                  className="w-3 h-3 rounded-full border border-gray-700/50 flex-shrink-0"
                   style={{ backgroundColor: colorHex }}
                   title={group.colorName || 'Unknown Color'}
                 />
                 
-                {/* Compact single-line display */}
-                <div className="flex items-center gap-2 flex-1 text-xs">
-                  <span className="text-gray-400 min-w-[80px]">{group.colorName || 'Unknown'}</span>
+                {/* Color name */}
+                <span className="text-gray-400 text-xs">{group.colorName || 'Unknown'}</span>
+                
+                {/* Conditions aligned in columns */}
+                <div className="flex items-center gap-3 text-xs">
+                  {/* New condition - fixed width for alignment */}
+                  <div className="min-w-[90px]">
+                    {group.new && (
+                      <button
+                        onClick={() => onItemClick?.(group.new!.id)}
+                        className="flex items-center gap-1 hover-elevate active-elevate-2"
+                        data-testid={`item-new-${group.new.id}`}
+                      >
+                        <span className="text-green-400">N:</span>
+                        <span className="text-green-400">{group.new.quantity}@${group.new.unitPrice || '0.00'}</span>
+                      </button>
+                    )}
+                  </div>
                   
-                  {/* New condition */}
-                  {group.new && (
-                    <button
-                      onClick={() => onItemClick?.(group.new!.id)}
-                      className="flex items-center gap-1 hover-elevate active-elevate-2 px-1"
-                      data-testid={`item-new-${group.new.id}`}
-                    >
-                      <span className="text-green-400">N:</span>
-                      <span className="text-green-400">{group.new.quantity}@${group.new.unitPrice || '0.00'}</span>
-                    </button>
-                  )}
-                  
-                  {/* Used condition */}
-                  {group.used && (
-                    <button
-                      onClick={() => onItemClick?.(group.used!.id)}
-                      className="flex items-center gap-1 hover-elevate active-elevate-2 px-1"
-                      data-testid={`item-used-${group.used.id}`}
-                    >
-                      <span className="text-orange-400">U:</span>
-                      <span className="text-orange-400">{group.used.quantity}@${group.used.unitPrice || '0.00'}</span>
-                    </button>
-                  )}
+                  {/* Used condition - fixed width for alignment */}
+                  <div className="min-w-[90px]">
+                    {group.used && (
+                      <button
+                        onClick={() => onItemClick?.(group.used!.id)}
+                        className="flex items-center gap-1 hover-elevate active-elevate-2"
+                        data-testid={`item-used-${group.used.id}`}
+                      >
+                        <span className="text-orange-400">U:</span>
+                        <span className="text-orange-400">{group.used.quantity}@${group.used.unitPrice || '0.00'}</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             );
