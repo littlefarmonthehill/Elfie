@@ -81,49 +81,45 @@ export function InventoryGroup({ itemNo, items, onItemClick }: InventoryGroupPro
 
       {/* Expanded content */}
       {isExpanded && (
-        <div className="px-3 pb-3 space-y-2">
+        <div className="px-3 pb-2 space-y-1">
           {colorGroups.map((group, idx) => {
             const colorHex = rgbToHex(group.colorRgb);
             return (
-              <div key={idx} className="flex items-start gap-2 text-xs">
+              <div key={idx} className="flex items-center gap-2">
                 {/* Color dot */}
                 <div
-                  className="w-4 h-4 rounded-full border border-gray-600 mt-0.5 flex-shrink-0"
+                  className="w-3 h-3 rounded-full border border-gray-600 flex-shrink-0"
                   style={{ backgroundColor: colorHex }}
                   title={group.colorName || 'Unknown Color'}
                 />
                 
-                {/* Color name and quantities */}
-                <div className="flex-1">
-                  <div className="font-medium text-gray-300 mb-1">
-                    {group.colorName || 'Unknown Color'}
-                  </div>
+                {/* Compact single-line display */}
+                <div className="flex items-center gap-2 flex-1 text-xs">
+                  <span className="text-gray-400 min-w-[80px]">{group.colorName || 'Unknown'}</span>
                   
-                  <div className="flex gap-3">
-                    {/* New condition */}
-                    {group.new && (
-                      <button
-                        onClick={() => onItemClick?.(group.new!.id)}
-                        className="flex items-center gap-1 px-2 py-1 rounded bg-green-900/30 border border-green-700/50 hover:bg-green-900/50 transition-colors"
-                        data-testid={`item-new-${group.new.id}`}
-                      >
-                        <span className="text-green-400 font-semibold">New:</span>
-                        <span className="text-gray-300">{group.new.quantity} @ ${group.new.unitPrice || '0.00'}</span>
-                      </button>
-                    )}
-                    
-                    {/* Used condition */}
-                    {group.used && (
-                      <button
-                        onClick={() => onItemClick?.(group.used!.id)}
-                        className="flex items-center gap-1 px-2 py-1 rounded bg-orange-900/30 border border-orange-700/50 hover:bg-orange-900/50 transition-colors"
-                        data-testid={`item-used-${group.used.id}`}
-                      >
-                        <span className="text-orange-400 font-semibold">Used:</span>
-                        <span className="text-gray-300">{group.used.quantity} @ ${group.used.unitPrice || '0.00'}</span>
-                      </button>
-                    )}
-                  </div>
+                  {/* New condition */}
+                  {group.new && (
+                    <button
+                      onClick={() => onItemClick?.(group.new!.id)}
+                      className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-green-900/30 border border-green-700/50 hover:bg-green-900/50 transition-colors"
+                      data-testid={`item-new-${group.new.id}`}
+                    >
+                      <span className="text-green-400">N:</span>
+                      <span className="text-gray-300">{group.new.quantity}@${group.new.unitPrice || '0.00'}</span>
+                    </button>
+                  )}
+                  
+                  {/* Used condition */}
+                  {group.used && (
+                    <button
+                      onClick={() => onItemClick?.(group.used!.id)}
+                      className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-orange-900/30 border border-orange-700/50 hover:bg-orange-900/50 transition-colors"
+                      data-testid={`item-used-${group.used.id}`}
+                    >
+                      <span className="text-orange-400">U:</span>
+                      <span className="text-gray-300">{group.used.quantity}@${group.used.unitPrice || '0.00'}</span>
+                    </button>
+                  )}
                 </div>
               </div>
             );

@@ -255,6 +255,12 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
     button: 'bg-purple-600 hover:bg-purple-700',
     promptBg: 'bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30',
   };
+  // Initialize or retrieve session ID for conversation continuity
+  const [sessionId, setSessionId] = useState<string>(() => {
+    const stored = localStorage.getItem('elfie-session-id');
+    return stored || `session-${Date.now()}`;
+  });
+
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: 'assistant',
@@ -268,6 +274,11 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
   const [brickLinkUrl, setBrickLinkUrl] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Persist session ID
+  useEffect(() => {
+    localStorage.setItem('elfie-session-id', sessionId);
+  }, [sessionId]);
   
   // Swipe gesture handling
   const touchStartY = useRef<number>(0);
@@ -321,6 +332,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-Session-Id': sessionId, // Send session ID for conversation continuity
         },
         body: JSON.stringify({
           messages: conversationHistory.map(m => ({
@@ -332,6 +344,11 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
       });
 
       const data = await response.json();
+
+      // Update session ID if server provides a new one
+      if (data.sessionId && data.sessionId !== sessionId) {
+        setSessionId(data.sessionId);
+      }
       
       console.log('📥 Frontend received response:');
       console.log('  - Status:', response.status);

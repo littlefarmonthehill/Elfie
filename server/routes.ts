@@ -205,10 +205,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      // Generate or retrieve session ID for conversation continuity
+      const sessionId = req.headers['x-session-id'] as string || `session-${Date.now()}`;
+      
+      // Retrieve recent conversation history (last 10 messages) for context
+      const recentHistory = await db
+        .select()
+        .from(conversations)
+        .where(eq(conversations.sessionId, sessionId))
+        .orderBy(desc(conversations.createdAt))
+        .limit(10);
+      
+      const conversationHistory = recentHistory.reverse().map(conv => ({
+        role: conv.role,
+        content: conv.content
+      }));
+
       // Query database for relevant data based on user's question
-      const lastUserMessage = messages[messages.length - 1]?.content?.toLowerCase() || '';
+      const lastUserMessageRaw = messages[messages.length - 1]?.content || '';
+      const lastUserMessage = lastUserMessageRaw.toLowerCase(); // Only for search/detection
       console.log('🔍 Backend received user message:', lastUserMessage);
-      console.log('🔍 Full message content:', messages[messages.length - 1]?.content);
+      console.log('🔍 Full message content:', lastUserMessageRaw);
       let databaseContext = '';
 
       // Check for summary requests
@@ -392,11 +409,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Build conversation history context
+      let historyContext = '';
+      if (conversationHistory.length > 0) {
+        historyContext = '\n\nRECENT CONVERSATION HISTORY:\n';
+        conversationHistory.forEach(msg => {
+          historyContext += `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content.substring(0, 200)}${msg.content.length > 200 ? '...' : ''}\n`;
+        });
+      }
+
       // Use custom system prompt if provided, otherwise use default
       const defaultSystemPrompt = `You are E.L.F.I.E. (Expert LEGO Fulfillment & Inventory Engine), an AI assistant for LEGO business operations with DIRECT DATABASE ACCESS.
 
 Current context: ${context}
 ${databaseContext}
+${historyContext}
 
 CRITICAL: You HAVE database access and real data is provided above. Use this data to answer questions accurately.
 
@@ -523,9 +550,34 @@ Keep responses helpful, accurate, and based on the actual data provided.`;
         }
       }
       
+      const assistantMessage = data.choices[0].message.content;
+
+      // Save conversation to database for learning
+      try {
+        // Save user message (use raw content, not lowercase)
+        await db.insert(conversations).values({
+          sessionId,
+          role: 'user',
+          content: lastUserMessageRaw,
+          context,
+        });
+
+        // Save assistant response
+        await db.insert(conversations).values({
+          sessionId,
+          role: 'assistant',
+          content: assistantMessage,
+          context,
+        });
+      } catch (saveError) {
+        console.error('Error saving conversation:', saveError);
+        // Don't fail the request if saving fails
+      }
+
       res.json({
-        message: data.choices[0].message.content,
+        message: assistantMessage,
         items: itemsFound,
+        sessionId, // Return session ID for client to use
       });
     } catch (error) {
       console.error("Chat error:", error);
