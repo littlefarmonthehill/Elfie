@@ -83,13 +83,19 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   useEffect(() => {
     if (settings) {
       setAiEnabled(settings.aiEnabled);
-      setApiKey(settings.openrouterApiKey || "");
+      const key = settings.openrouterApiKey || "";
+      setApiKey(key);
       setSelectedModel(settings.selectedModel || "openai/gpt-4o-mini");
       setSystemPrompt(settings.systemPrompt || "");
       setBricklinkConsumerKey(settings.bricklinkConsumerKey || "");
       setBricklinkConsumerSecret(settings.bricklinkConsumerSecret || "");
       setBricklinkTokenValue(settings.bricklinkTokenValue || "");
       setBricklinkTokenSecret(settings.bricklinkTokenSecret || "");
+      
+      // Fetch models if API key exists
+      if (key) {
+        fetchModels(key);
+      }
     }
   }, [settings]);
 
