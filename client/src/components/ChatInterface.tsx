@@ -98,6 +98,11 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
       return conversationHistory;
     });
     
+    console.log('🚀 Frontend sending to /api/chat:');
+    console.log('  - User message:', textToSend);
+    console.log('  - Number of messages in history:', conversationHistory.length);
+    console.log('  - Dashboard context:', dashboardContext);
+    
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
@@ -114,6 +119,10 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
       });
 
       const data = await response.json();
+      
+      console.log('📥 Frontend received response:');
+      console.log('  - Status:', response.status);
+      console.log('  - Message preview:', data.message?.substring(0, 150));
       
       if (data.error) {
         // Use the specific error message from the server if provided

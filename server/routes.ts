@@ -193,6 +193,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Query database for relevant data based on user's question
       const lastUserMessage = messages[messages.length - 1]?.content?.toLowerCase() || '';
+      console.log('🔍 Backend received user message:', lastUserMessage);
+      console.log('🔍 Full message content:', messages[messages.length - 1]?.content);
       let databaseContext = '';
 
       // Search inventory by part number or item number
@@ -239,6 +241,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .limit(50);
         }
         
+        console.log('🔍 Inventory query returned', inventoryResults.length, 'results for part number:', partNumber);
         if (inventoryResults.length > 0) {
           databaseContext += `\n\nINVENTORY DATA FROM DATABASE:\n`;
           inventoryResults.forEach(item => {
@@ -248,8 +251,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (item.unitPrice) databaseContext += ` @ $${item.unitPrice} each`;
             databaseContext += ` (${item.newOrUsed})\n`;
           });
+          console.log('🔍 Database context length:', databaseContext.length);
         } else if (partNumber) {
           databaseContext += `\n\nINVENTORY SEARCH: No items found for part ${partNumber} in database.\n`;
+          console.log('🔍 No inventory found for part:', partNumber);
         }
       }
 
