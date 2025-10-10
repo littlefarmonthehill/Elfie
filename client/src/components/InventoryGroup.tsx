@@ -97,54 +97,61 @@ export function InventoryGroup({ itemNo, items, onItemClick }: InventoryGroupPro
 
       {/* Expanded content */}
       {isExpanded && (
-        <div className="px-3 pb-2 space-y-1">
-          {colorGroups.map((group, idx) => {
-            const colorHex = rgbToHex(group.colorRgb);
-            // Use the first available item ID for this color group (item-level details)
-            const itemId = group.new?.id || group.used?.id;
-            
-            return (
-              <button
-                key={idx}
-                onClick={() => itemId && onItemClick?.(itemId)}
-                className="w-full grid grid-cols-[16px_80px_1fr] gap-2 items-center p-2 -mx-2 rounded text-left hover:bg-gray-800/20 active:bg-gray-800/30 transition-colors"
-                data-testid={`inventory-row-${itemNo}-${idx}`}
-              >
-                {/* Color dot */}
-                <div
-                  className="w-3 h-3 rounded-full border border-gray-700/50 flex-shrink-0"
-                  style={{ backgroundColor: colorHex }}
-                  title={group.colorName || 'Unknown Color'}
-                />
-                
-                {/* Color name */}
-                <span className="text-gray-400 text-xs truncate">{group.colorName || 'Unknown'}</span>
-                
-                {/* Conditions aligned in columns - using grid for vertical alignment */}
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  {/* New condition - always in first column */}
-                  <div className="flex items-center gap-1">
-                    {group.new && (
-                      <>
-                        <span className="text-green-400">N:</span>
-                        <span className="text-green-400 whitespace-nowrap">{group.new.quantity}@${group.new.unitPrice || '0.00'}</span>
-                      </>
-                    )}
-                  </div>
+        <div className="px-3 pb-2">
+          {/* Column headers */}
+          <div className="grid grid-cols-[16px_80px_1fr] gap-2 items-center pb-1 mb-1 border-b border-purple-500/20">
+            <div></div> {/* Empty space for color dot column */}
+            <div></div> {/* Empty space for color name column */}
+            <div className="grid grid-cols-2 gap-2 text-[10px] font-semibold uppercase tracking-wider">
+              <span className="text-green-400/70">New</span>
+              <span className="text-orange-400/70">Used</span>
+            </div>
+          </div>
+          
+          {/* Color rows */}
+          <div className="space-y-1">
+            {colorGroups.map((group, idx) => {
+              const colorHex = rgbToHex(group.colorRgb);
+              // Use the first available item ID for this color group (item-level details)
+              const itemId = group.new?.id || group.used?.id;
+              
+              return (
+                <button
+                  key={idx}
+                  onClick={() => itemId && onItemClick?.(itemId)}
+                  className="w-full grid grid-cols-[16px_80px_1fr] gap-2 items-center p-2 -mx-2 rounded text-left hover:bg-gray-800/20 active:bg-gray-800/30 transition-colors"
+                  data-testid={`inventory-row-${itemNo}-${idx}`}
+                >
+                  {/* Color dot */}
+                  <div
+                    className="w-3 h-3 rounded-full border border-gray-700/50 flex-shrink-0"
+                    style={{ backgroundColor: colorHex }}
+                    title={group.colorName || 'Unknown Color'}
+                  />
                   
-                  {/* Used condition - always in second column */}
-                  <div className="flex items-center gap-1">
-                    {group.used && (
-                      <>
-                        <span className="text-orange-400">U:</span>
+                  {/* Color name */}
+                  <span className="text-gray-400 text-xs truncate">{group.colorName || 'Unknown'}</span>
+                  
+                  {/* Conditions aligned in columns - using grid for vertical alignment */}
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    {/* New condition - always in first column, no "N:" prefix */}
+                    <div className="flex items-center gap-1">
+                      {group.new && (
+                        <span className="text-green-400 whitespace-nowrap">{group.new.quantity}@${group.new.unitPrice || '0.00'}</span>
+                      )}
+                    </div>
+                    
+                    {/* Used condition - always in second column, no "U:" prefix */}
+                    <div className="flex items-center gap-1">
+                      {group.used && (
                         <span className="text-orange-400 whitespace-nowrap">{group.used.quantity}@${group.used.unitPrice || '0.00'}</span>
-                      </>
-                    )}
+                      )}
+                    </div>
                   </div>
-                </div>
-              </button>
-            );
-          })}
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

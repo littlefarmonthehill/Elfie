@@ -31,9 +31,11 @@ Preferred communication style: Simple, everyday language.
 - **Inventory Display:** 
   - **Clean Design:** Transparent background with border-only styling, no gray shading on inventory groups
   - **Color Accuracy:** Color dots display actual LEGO brick colors parsed from hex RGB database format (e.g., "FF0000" → red)
-  - **Layout:** Grid-based layout with color dot (16px), color name (80px with truncation), and flexible condition layout that adapts to content width
-  - **Full Row Interaction:** Entire color row is clickable (not just condition badges) to show item-level details
-  - **Flexible Conditions:** N: and U: values use flex-shrink-0 to take only needed space, preventing cut-off while maintaining alignment
+  - **Layout:** Grid-based layout with column headers ("NEW" and "USED"), color dot (16px), color name (80px), and two-column grid for conditions
+  - **Column Headers:** Small uppercase headers clearly label New and Used columns, separated by purple border
+  - **Clean Values:** Quantities and prices display without prefixes (e.g., "194@$0.45" instead of "N: 194@$0.45")
+  - **Full Row Interaction:** Entire color row is clickable to show item-level details
+  - **Vertical Alignment:** New and Used values align vertically in their respective columns
 - **Response Principles:** Concise answers, markdown formatting, includes BrickLink links, avoids hallucination, offers strategic advice when requested.
 
 ## External Dependencies
