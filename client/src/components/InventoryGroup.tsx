@@ -83,10 +83,15 @@ export function InventoryGroup({ itemNo, items, onItemClick }: InventoryGroupPro
           ) : (
             <ChevronRight className="h-4 w-4 text-purple-400" />
           )}
-          <span className="text-xs text-purple-300 flex-1 min-w-0">
-            <span>Part {itemNo}</span>
-            {itemName && <span className="text-gray-400 truncate inline-block max-w-[200px] align-bottom"> - {itemName}</span>}
-          </span>
+          <div className="text-xs text-purple-300 flex-1 min-w-0 flex items-center">
+            <span className="whitespace-nowrap">Part {itemNo}</span>
+            {itemName && (
+              <>
+                <span className="whitespace-nowrap mx-1">-</span>
+                <span className="text-gray-400 truncate overflow-hidden text-ellipsis whitespace-nowrap">{itemName}</span>
+              </>
+            )}
+          </div>
           <span className="text-xs text-gray-400 flex-shrink-0">({totalQuantity} units in {colorGroups.length} colors)</span>
         </div>
       </button>
@@ -109,34 +114,34 @@ export function InventoryGroup({ itemNo, items, onItemClick }: InventoryGroupPro
                 <span className="text-gray-400 text-xs">{group.colorName || 'Unknown'}</span>
                 
                 {/* Conditions aligned in columns */}
-                <div className="flex items-center gap-3 text-xs">
+                <div className="grid grid-cols-2 gap-3 text-xs">
                   {/* New condition - fixed width for alignment */}
-                  <div className="min-w-[90px]">
-                    {group.new && (
-                      <button
-                        onClick={() => onItemClick?.(group.new!.id)}
-                        className="flex items-center gap-1 hover-elevate active-elevate-2"
-                        data-testid={`item-new-${group.new.id}`}
-                      >
-                        <span className="text-green-400">N:</span>
-                        <span className="text-green-400">{group.new.quantity}@${group.new.unitPrice || '0.00'}</span>
-                      </button>
-                    )}
-                  </div>
+                  {group.new ? (
+                    <button
+                      onClick={() => onItemClick?.(group.new!.id)}
+                      className="flex items-center gap-1 hover-elevate active-elevate-2 justify-start"
+                      data-testid={`item-new-${group.new.id}`}
+                    >
+                      <span className="text-green-400">N:</span>
+                      <span className="text-green-400">{group.new.quantity}@${group.new.unitPrice || '0.00'}</span>
+                    </button>
+                  ) : (
+                    <div></div>
+                  )}
                   
                   {/* Used condition - fixed width for alignment */}
-                  <div className="min-w-[90px]">
-                    {group.used && (
-                      <button
-                        onClick={() => onItemClick?.(group.used!.id)}
-                        className="flex items-center gap-1 hover-elevate active-elevate-2"
-                        data-testid={`item-used-${group.used.id}`}
-                      >
-                        <span className="text-orange-400">U:</span>
-                        <span className="text-orange-400">{group.used.quantity}@${group.used.unitPrice || '0.00'}</span>
-                      </button>
-                    )}
-                  </div>
+                  {group.used ? (
+                    <button
+                      onClick={() => onItemClick?.(group.used!.id)}
+                      className="flex items-center gap-1 hover-elevate active-elevate-2 justify-start"
+                      data-testid={`item-used-${group.used.id}`}
+                    >
+                      <span className="text-orange-400">U:</span>
+                      <span className="text-orange-400">{group.used.quantity}@${group.used.unitPrice || '0.00'}</span>
+                    </button>
+                  ) : (
+                    <div></div>
+                  )}
                 </div>
               </div>
             );
