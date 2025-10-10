@@ -2,18 +2,18 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { AppSettings } from "@shared/schema";
-import { X, Download, Trash2, RefreshCw } from "lucide-react";
+import { X, Download, Trash2, RefreshCw, Settings, Package, Sparkles, Database } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 interface SettingsModalProps {
   open: boolean;
@@ -292,25 +292,51 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
     });
   };
 
+  const [activeSection, setActiveSection] = useState<'general' | 'platforms' | 'sync' | 'ai' | 'data'>('general');
+
+  const navigationItems = [
+    { id: 'general' as const, label: 'General', icon: Settings },
+    { id: 'platforms' as const, label: 'Platforms', icon: Package },
+    { id: 'sync' as const, label: 'Data & Sync', icon: RefreshCw },
+    { id: 'ai' as const, label: 'AI Assistant', icon: Sparkles },
+    { id: 'data' as const, label: 'Backup & Clear', icon: Database },
+  ];
+
   return (
     <>
       <Dialog open={open} onOpenChange={onClose}>
-        <DialogContent className="sm:max-w-[700px] max-h-[85vh] overflow-y-auto bg-gray-900 border-gray-700">
-          <DialogHeader>
-            <DialogTitle className="text-base font-semibold">Settings</DialogTitle>
-          </DialogHeader>
-          
-          <Tabs defaultValue="general" className="w-full">
-            <TabsList className="grid w-full grid-cols-5 bg-gray-800">
-              <TabsTrigger value="general" className="text-xs" data-testid="tab-general">General</TabsTrigger>
-              <TabsTrigger value="platforms" className="text-xs" data-testid="tab-platforms">Platforms</TabsTrigger>
-              <TabsTrigger value="sync" className="text-xs" data-testid="tab-sync">Data & Sync</TabsTrigger>
-              <TabsTrigger value="ai" className="text-xs" data-testid="tab-ai">AI</TabsTrigger>
-              <TabsTrigger value="data" className="text-xs" data-testid="tab-data">Backup & Clear</TabsTrigger>
-            </TabsList>
+        <DialogContent className="sm:max-w-[800px] max-h-[90vh] bg-gray-900 border-gray-700 p-0">
+          <div className="flex flex-col sm:flex-row h-full max-h-[90vh]">
+            {/* Left Navigation */}
+            <div className="sm:w-48 border-b sm:border-b-0 sm:border-r border-gray-700 bg-gray-800/50">
+              <DialogHeader className="p-4 sm:p-6">
+                <DialogTitle className="text-base font-semibold">Settings</DialogTitle>
+              </DialogHeader>
+              <nav className="flex sm:flex-col gap-1 p-2 sm:p-3 overflow-x-auto sm:overflow-visible">
+                {navigationItems.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => setActiveSection(item.id)}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-md text-xs whitespace-nowrap sm:whitespace-normal transition-colors ${
+                      activeSection === item.id
+                        ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                        : 'text-gray-400 hover:text-gray-300 hover:bg-gray-700/50'
+                    }`}
+                    data-testid={`nav-${item.id}`}
+                  >
+                    <item.icon className="h-4 w-4 flex-shrink-0" />
+                    <span className="hidden sm:inline">{item.label}</span>
+                  </button>
+                ))}
+              </nav>
+            </div>
+
+            {/* Right Content Area */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
 
             {/* General Settings */}
-            <TabsContent value="general" className="space-y-4 mt-4">
+            {activeSection === 'general' && (
+              <div className="space-y-4">
               <div className="space-y-3">
                 <h3 className="text-sm font-medium text-gray-300">General Settings</h3>
                 <div className="space-y-2">
@@ -331,14 +357,22 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                   </Select>
                 </div>
               </div>
-            </TabsContent>
+              </div>
+            )}
 
             {/* Platform Connections */}
-            <TabsContent value="platforms" className="space-y-4 mt-4">
+            {activeSection === 'platforms' && (
               <div className="space-y-4">
-                <div>
-                  <h3 className="text-sm font-medium text-gray-300 mb-3">BrickLink</h3>
-                  <div className="space-y-3">
+                <h3 className="text-sm font-medium text-gray-300 mb-3">API Credentials</h3>
+                <p className="text-xs text-gray-400 mb-4">Configure your platform API keys and credentials</p>
+                
+                <Accordion type="single" collapsible className="space-y-2">
+                  <AccordionItem value="bricklink" className="border border-gray-700 rounded-lg px-4">
+                    <AccordionTrigger className="text-sm font-medium text-gray-300 hover:no-underline">
+                      BrickLink
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="space-y-3 pt-2">
                     <div className="space-y-2">
                       <Label htmlFor="bricklink-key" className="text-xs text-gray-400">Consumer Key</Label>
                       <Input
@@ -417,14 +451,16 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                         data-testid="input-bricklink-token-secret"
                       />
                     </div>
-                  </div>
-                </div>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
 
-                <Separator className="bg-gray-700" />
-
-                <div>
-                  <h3 className="text-sm font-medium text-gray-300 mb-3">BrickOwl</h3>
-                  <div className="space-y-3">
+                  <AccordionItem value="brickowl" className="border border-gray-700 rounded-lg px-4">
+                    <AccordionTrigger className="text-sm font-medium text-gray-300 hover:no-underline">
+                      BrickOwl
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="space-y-3 pt-2">
                     <div className="space-y-2">
                       <Label htmlFor="brickowl-key" className="text-xs text-gray-400">API Key</Label>
                       <Input
@@ -435,14 +471,16 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                         data-testid="input-brickowl-key"
                       />
                     </div>
-                  </div>
-                </div>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
 
-                <Separator className="bg-gray-700" />
-
-                <div>
-                  <h3 className="text-sm font-medium text-gray-300 mb-3">ShipStation</h3>
-                  <div className="space-y-3">
+                  <AccordionItem value="shipstation" className="border border-gray-700 rounded-lg px-4">
+                    <AccordionTrigger className="text-sm font-medium text-gray-300 hover:no-underline">
+                      ShipStation
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="space-y-3 pt-2">
                     <div className="space-y-2">
                       <Label htmlFor="shipstation-key" className="text-xs text-gray-400">API Key</Label>
                       <Input
@@ -462,13 +500,16 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                         data-testid="input-shipstation-secret"
                       />
                     </div>
-                  </div>
-                </div>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
               </div>
-            </TabsContent>
+            )}
 
             {/* Data & Sync */}
-            <TabsContent value="sync" className="space-y-4 mt-4">
+            {activeSection === 'sync' && (
+              <div className="space-y-4">
               <div className="space-y-4">
                 {/* Sync Progress */}
                 {syncProgress.active && (
@@ -581,10 +622,12 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                   </div>
                 </div>
               </div>
-            </TabsContent>
+              </div>
+            )}
 
             {/* AI Settings */}
-            <TabsContent value="ai" className="space-y-4 mt-4">
+            {activeSection === 'ai' && (
+              <div className="space-y-4">
               <div className="space-y-4">
                 <div>
                   <h3 className="text-sm font-medium text-gray-300 mb-3">E.L.F.I.E. Configuration</h3>
@@ -719,10 +762,12 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                   </div>
                 </div>
               </div>
-            </TabsContent>
+              </div>
+            )}
 
             {/* Backup & Clear Data */}
-            <TabsContent value="data" className="space-y-4 mt-4">
+            {activeSection === 'data' && (
+              <div className="space-y-4">
               <div className="space-y-4">
                 <div>
                   <h3 className="text-sm font-medium text-gray-300 mb-3">Backup Data</h3>
@@ -813,8 +858,10 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                   </div>
                 </div>
               </div>
-            </TabsContent>
-          </Tabs>
+              </div>
+            )}
+            </div>
+          </div>
           
           <div className="flex justify-end gap-2 pt-4 border-t border-gray-700">
             <Button variant="outline" size="sm" onClick={onClose} data-testid="button-cancel">
