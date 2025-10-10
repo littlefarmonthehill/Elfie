@@ -83,16 +83,15 @@ export function InventoryGroup({ itemNo, items, onItemClick }: InventoryGroupPro
           ) : (
             <ChevronRight className="h-4 w-4 text-purple-400" />
           )}
-          <div className="text-xs text-purple-300 flex-1 min-w-0 flex items-center">
-            <span className="whitespace-nowrap">Part {itemNo}</span>
+          <div className="text-xs flex-1 min-w-0 flex flex-col gap-0.5">
+            <div className="text-purple-300 flex items-center gap-2">
+              <span className="whitespace-nowrap">Part {itemNo}</span>
+              <span className="text-gray-400 flex-shrink-0">({totalQuantity} units in {colorGroups.length} colors)</span>
+            </div>
             {itemName && (
-              <>
-                <span className="whitespace-nowrap mx-1">-</span>
-                <span className="text-gray-400 truncate overflow-hidden text-ellipsis whitespace-nowrap">{itemName}</span>
-              </>
+              <div className="text-gray-400 text-[11px] truncate">{itemName}</div>
             )}
           </div>
-          <span className="text-xs text-gray-400 flex-shrink-0">({totalQuantity} units in {colorGroups.length} colors)</span>
         </div>
       </button>
 
@@ -121,23 +120,27 @@ export function InventoryGroup({ itemNo, items, onItemClick }: InventoryGroupPro
                 {/* Color name */}
                 <span className="text-gray-400 text-xs truncate">{group.colorName || 'Unknown'}</span>
                 
-                {/* Conditions aligned in columns */}
-                <div className="flex items-center gap-2 text-xs min-w-0">
-                  {/* New condition */}
-                  {group.new && (
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      <span className="text-green-400">N:</span>
-                      <span className="text-green-400 whitespace-nowrap">{group.new.quantity}@${group.new.unitPrice || '0.00'}</span>
-                    </div>
-                  )}
+                {/* Conditions aligned in columns - using grid for vertical alignment */}
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  {/* New condition - always in first column */}
+                  <div className="flex items-center gap-1">
+                    {group.new && (
+                      <>
+                        <span className="text-green-400">N:</span>
+                        <span className="text-green-400 whitespace-nowrap">{group.new.quantity}@${group.new.unitPrice || '0.00'}</span>
+                      </>
+                    )}
+                  </div>
                   
-                  {/* Used condition */}
-                  {group.used && (
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      <span className="text-orange-400">U:</span>
-                      <span className="text-orange-400 whitespace-nowrap">{group.used.quantity}@${group.used.unitPrice || '0.00'}</span>
-                    </div>
-                  )}
+                  {/* Used condition - always in second column */}
+                  <div className="flex items-center gap-1">
+                    {group.used && (
+                      <>
+                        <span className="text-orange-400">U:</span>
+                        <span className="text-orange-400 whitespace-nowrap">{group.used.quantity}@${group.used.unitPrice || '0.00'}</span>
+                      </>
+                    )}
+                  </div>
                 </div>
               </button>
             );
