@@ -266,9 +266,9 @@ export async function syncBricklinkInventory(): Promise<{ added: number; updated
     const existingItems = await db.select({ id: blInventory.id }).from(blInventory);
     const existingIds = new Set(existingItems.map(item => item.id));
     
-    // Separate items into new and existing
-    const newItems = items.filter(item => !existingIds.has(item.inventory_id));
-    const existingItemsToCheck = items.filter(item => existingIds.has(item.inventory_id));
+    // Separate items into new and existing - explicitly convert inventory_id to number for comparison
+    const newItems = items.filter(item => !existingIds.has(Number(item.inventory_id)));
+    const existingItemsToCheck = items.filter(item => existingIds.has(Number(item.inventory_id)));
     
     console.log(`Processing: ${newItems.length} new items, ${existingItemsToCheck.length} existing items to check`);
     
@@ -324,7 +324,8 @@ export async function syncBricklinkInventory(): Promise<{ added: number; updated
       
       for (let i = 0; i < existingItemsToCheck.length; i += FETCH_BATCH_SIZE) {
         const batch = existingItemsToCheck.slice(i, i + FETCH_BATCH_SIZE);
-        const batchIds = batch.map(item => item.inventory_id); // These are already integers from BrickLink API
+        // Explicitly convert to integers to avoid type mismatch with PostgreSQL
+        const batchIds = batch.map(item => Number(item.inventory_id));
         
         const batchDetails = await db.select()
           .from(blInventory)
@@ -339,7 +340,7 @@ export async function syncBricklinkInventory(): Promise<{ added: number; updated
       // Batch update items that have changed
       const BATCH_SIZE = 500;
       const itemsToUpdate = existingItemsToCheck.filter(item => {
-        const existing = existingMap.get(item.inventory_id);
+        const existing = existingMap.get(Number(item.inventory_id));
         if (!existing) return false;
         
         // Normalize numeric values
@@ -406,7 +407,7 @@ export async function syncBricklinkInventory(): Promise<{ added: number; updated
               myWeight: item.my_weight || null,
               updatedAt: new Date() 
             })
-            .where(eq(blInventory.id, item.inventory_id));
+            .where(eq(blInventory.id, Number(item.inventory_id)));
           updated++;
         }
         
