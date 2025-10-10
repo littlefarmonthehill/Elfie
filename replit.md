@@ -27,7 +27,13 @@ Preferred communication style: Simple, everyday language.
 - **Context & Memory:** Persistent conversation memory via `localStorage` and `conversations` table, injecting context into system prompts.
 - **Context-Aware Responses:** Provides summary prompts for dashboard insights (Inventory, Orders, Sales, Marketing).
 - **Direct Database Access:** Queries `bl_inventory` and `orders` tables based on user input, using part numbers and multi-keyword search, formatting results into system prompts.
-- **Interactive Features:** Formats AI responses as markdown bullet lists with clickable part numbers (opening detail modals) and BrickLink URLs (opening sandboxed iframe dialogs). Includes grouped inventory display with color dots and condition badges.
+- **Interactive Features:** Formats AI responses as markdown bullet lists with clickable part numbers (opening detail modals) and BrickLink URLs (opening sandboxed iframe dialogs). Includes grouped inventory display with actual LEGO brick colors, proper column alignment, and full-row clickability.
+- **Inventory Display:** 
+  - **Clean Design:** Transparent background with border-only styling, no gray shading on inventory groups
+  - **Color Accuracy:** Color dots display actual LEGO brick colors parsed from hex RGB database format (e.g., "FF0000" → red)
+  - **Layout:** Grid-based layout with color dot (16px), color name (90px with truncation), and fixed-width condition columns (N: 95px, U: 95px) to prevent overlap
+  - **Full Row Interaction:** Entire color row is clickable (not just condition badges) to show item-level details
+  - **Overflow Handling:** Uses `overflow-hidden` with custom hover states (incompatible with elevation utilities per design guidelines)
 - **Response Principles:** Concise answers, markdown formatting, includes BrickLink links, avoids hallucination, offers strategic advice when requested.
 
 ## External Dependencies

@@ -70,7 +70,7 @@ export function InventoryGroup({ itemNo, items, onItemClick }: InventoryGroupPro
   };
 
   return (
-    <div className="border border-purple-500/20 rounded-lg bg-gray-800/40 mb-3">
+    <div className="border border-purple-500/20 rounded-lg mb-3">
       {/* Header - Always visible */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
@@ -101,8 +101,16 @@ export function InventoryGroup({ itemNo, items, onItemClick }: InventoryGroupPro
         <div className="px-3 pb-2 space-y-1">
           {colorGroups.map((group, idx) => {
             const colorHex = rgbToHex(group.colorRgb);
+            // Use the first available item ID for this color group (item-level details)
+            const itemId = group.new?.id || group.used?.id;
+            
             return (
-              <div key={idx} className="grid grid-cols-[16px_100px_1fr] gap-2 items-center">
+              <button
+                key={idx}
+                onClick={() => itemId && onItemClick?.(itemId)}
+                className="w-full grid grid-cols-[16px_90px_1fr] gap-2 items-center p-2 -mx-2 rounded overflow-hidden text-left hover:bg-gray-800/20 active:bg-gray-800/30 transition-colors"
+                data-testid={`inventory-row-${itemNo}-${idx}`}
+              >
                 {/* Color dot */}
                 <div
                   className="w-3 h-3 rounded-full border border-gray-700/50 flex-shrink-0"
@@ -111,39 +119,31 @@ export function InventoryGroup({ itemNo, items, onItemClick }: InventoryGroupPro
                 />
                 
                 {/* Color name */}
-                <span className="text-gray-400 text-xs">{group.colorName || 'Unknown'}</span>
+                <span className="text-gray-400 text-xs truncate">{group.colorName || 'Unknown'}</span>
                 
                 {/* Conditions aligned in columns with fixed widths to prevent overlap */}
-                <div className="flex items-center gap-4 text-xs">
-                  {/* New condition - fixed width for alignment */}
-                  <div className="w-[120px] flex-shrink-0">
+                <div className="flex items-center gap-3 text-xs overflow-hidden">
+                  {/* New condition */}
+                  <div className="w-[95px] flex-shrink-0">
                     {group.new && (
-                      <button
-                        onClick={() => onItemClick?.(group.new!.id)}
-                        className="flex items-center gap-1 hover-elevate active-elevate-2"
-                        data-testid={`item-new-${group.new.id}`}
-                      >
+                      <div className="flex items-center gap-1">
                         <span className="text-green-400">N:</span>
                         <span className="text-green-400 whitespace-nowrap">{group.new.quantity}@${group.new.unitPrice || '0.00'}</span>
-                      </button>
+                      </div>
                     )}
                   </div>
                   
-                  {/* Used condition - fixed width for alignment */}
-                  <div className="w-[120px] flex-shrink-0">
+                  {/* Used condition */}
+                  <div className="w-[95px] flex-shrink-0">
                     {group.used && (
-                      <button
-                        onClick={() => onItemClick?.(group.used!.id)}
-                        className="flex items-center gap-1 hover-elevate active-elevate-2"
-                        data-testid={`item-used-${group.used.id}`}
-                      >
+                      <div className="flex items-center gap-1">
                         <span className="text-orange-400">U:</span>
                         <span className="text-orange-400 whitespace-nowrap">{group.used.quantity}@${group.used.unitPrice || '0.00'}</span>
-                      </button>
+                      </div>
                     )}
                   </div>
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>
