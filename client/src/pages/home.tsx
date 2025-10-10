@@ -435,7 +435,7 @@ export default function Home() {
           {renderDashboard()}
         </div>
         
-        <div className={`transition-all duration-300 overflow-hidden ${chatExpanded ? 'flex-1' : 'flex-1'}`}>
+        <div className={`transition-all duration-300 flex-1 flex flex-col`}>
           <ChatInterface 
             dashboardContext={getChatContext()} 
             themeColor={getThemeColor()} 
