@@ -159,7 +159,18 @@ Preferred communication style: Simple, everyday language.
 - Default model: GPT-4o-mini (openai/gpt-4o-mini)
 - Context-aware responses based on active dashboard
 - Action prompts for common operations
-- Full conversation history management
+- **Conversation Memory System:**
+  - Persistent session tracking via localStorage ('elfie-session-id')
+  - Session ID sent in X-Session-Id header for continuity
+  - Last 10 conversation turns stored in `conversations` table
+  - Messages preserved with original capitalization for accurate history
+  - Conversation context injected into AI system prompt for learning
+  - Session persists across page refreshes for continuous conversations
+- **Context-Aware Summary Prompts:**
+  - Detects summary/overview requests and provides high-level dashboard insights
+  - Inventory summary: Total Lots, Total Parts, Total Value, Unique Colors
+  - Orders summary: Total Orders, Total Revenue, Pending/Shipped counts
+  - Tailored prompts for each operations area (Inventory, Orders, Sales, Marketing)
 - **Direct Database Access:** E.L.F.I.E. queries actual database tables to answer questions
   - **Inventory Queries:** Detects part numbers in messages (regex: `/\b(\d{4,5})\b/`) and text queries, queries `bl_inventory` with joins to `bl_colors` and `bl_categories`
   - **Search Capabilities:** Searches across itemNo, itemName, remarks, and description fields using `LIKE` operator with `OR` conditions
@@ -186,6 +197,13 @@ Preferred communication style: Simple, everyday language.
     - Dialog component (max-w-4xl, h-80vh) with proper accessibility (aria-describedby)
     - Iframe sandbox: `allow-same-origin allow-scripts allow-popups allow-forms`
     - Fallback to popup if browser blocks external iframe embedding
+  - **Grouped Inventory Display (InventoryGroup Component):**
+    - Groups inventory items by part number with collapsible sections (default collapsed)
+    - Color dots showing actual LEGO brick RGB colors from database
+    - Compact single-line layout with smaller fonts (text-xs)
+    - Separate New/Used quantity displays with distinct color schemes (green/orange)
+    - Clickable condition badges to open detail modal for specific item
+    - Performance optimized with database indexes on item_no, color_id, category_id, item_name
 - **Response format:** Concise answers (under 5 sentences intro, then bullet list) with actionable guidance
 - **Always includes BrickLink links** for referenced parts/sets
 - **Never hallucinates data:** Uses actual database query results; acknowledges when no data found
