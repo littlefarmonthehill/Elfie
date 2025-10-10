@@ -38,15 +38,17 @@ Preferred communication style: Simple, everyday language.
 - Detail modals (drawer-based) for in-depth item views
 - Chat interface with purple/violet theme for AI assistant
 - Responsive design with mobile breakpoint at 768px
-- **iOS Keyboard Fix (Multi-Layer):** Chat interface fixed at multiple levels to prevent keyboard dismissal
+- **iOS Keyboard Fix (Dynamic Overflow Management):** Chat interface uses JavaScript to temporarily adjust overflow properties
   - **ChatInterface Component:** Replaced Radix ScrollArea (overflow-hidden) with `<div className="overflow-y-auto">`
-  - **Parent Containers:** Removed `overflow-hidden` from portrait/landscape mode parent containers in home.tsx
-  - Uses `-webkit-overflow-scrolling: touch` for smooth iOS scrolling
+  - **Parent Containers:** Keep `overflow-hidden` for layout integrity, but dynamically adjust on iOS when input focused
+  - **iOS Detection:** Detects iPad/iPhone/iPod via user agent or MacIntel with touch support
+  - **On Input Focus:** Walks parent tree, temporarily changes `overflow: hidden` to `overflow: visible`, stores original in `data-original-overflow`
+  - **On Input Blur:** Restores original overflow values from data attributes, removes attributes
+  - Uses `-webkit-overflow-scrolling: touch` and `touch-action: manipulation` for smooth iOS interaction
   - Tracks input focus state (`isInputFocused`) to prevent scroll-triggered keyboard dismissal
   - `scrollToBottom()` completely disabled when input has focus
-  - `onFocus`/`onBlur` handlers reliably track input interaction state
   - Auto-scroll only occurs when input is not focused (after sending message)
-  - **Critical:** Never add `overflow-hidden` to any container wrapping ChatInterface or input fields on mobile
+  - **Critical:** Layout preserved when input not focused, iOS can scroll input into view when keyboard appears
   - **Critical:** Never trigger scroll events (scrollIntoView, etc.) while input is focused on mobile
 
 ### Backend Architecture
