@@ -84,10 +84,10 @@ export function InventoryGroup({ itemNo, items, onItemClick }: InventoryGroupPro
             <ChevronRight className="h-4 w-4 text-purple-400" />
           )}
           <div className="text-[11px] flex-1 min-w-0 flex flex-col gap-0.5">
-            <div className="text-purple-300 flex items-center gap-1.5 overflow-hidden">
-              <span className="whitespace-nowrap font-medium flex-shrink-0">Part {itemNo}</span>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="text-purple-300 whitespace-nowrap font-medium flex-shrink-0">Part {itemNo}</span>
               {itemName && (
-                <span className="text-gray-300 truncate min-w-0 flex-shrink">- {itemName}</span>
+                <div className="flex-1 min-w-0 text-gray-300 truncate">- {itemName}</div>
               )}
             </div>
             <div className="text-gray-400 text-[10px]">

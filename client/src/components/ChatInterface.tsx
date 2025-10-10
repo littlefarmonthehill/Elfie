@@ -218,7 +218,7 @@ function MessageContent({ content, items, onItemClick, onBrickLinkClick }: Messa
   };
 
   return (
-    <div className="space-y-2">
+    <div className="w-full space-y-2">
       {/* Only show text content if there are no grouped items */}
       {!groupedItems && (
         <div className="space-y-1">{parseContent(content)}</div>
