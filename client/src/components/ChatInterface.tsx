@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, Bot, RefreshCcw, ChevronUp, ChevronDown } from "lucide-react";
+import { Send, Bot, RefreshCcw, ChevronUp, ChevronDown, Minimize2, Maximize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -24,11 +24,11 @@ interface ChatInterfaceProps {
   prompts: string[];
   onPromptAction?: (prompt: string) => void;
   onItemClick?: (type: 'inventory' | 'order' | 'sales' | 'marketing', id: string) => void;
-  isExpanded?: boolean;
-  onToggleExpand?: () => void;
+  isMinimized?: boolean;
+  onToggleMinimize?: () => void;
 }
 
-export default function ChatInterface({ dashboardContext, themeColor, prompts, onPromptAction, onItemClick, isExpanded = false, onToggleExpand }: ChatInterfaceProps) {
+export default function ChatInterface({ dashboardContext, themeColor, prompts, onPromptAction, onItemClick, isMinimized = true, onToggleMinimize }: ChatInterfaceProps) {
   // Chat has its own distinct purple/violet color scheme
   const colors = {
     gradient: 'from-purple-500/20 via-violet-500/15 to-purple-600/10',
@@ -51,6 +51,10 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
   const [isInputFocused, setIsInputFocused] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  
+  // Swipe gesture handling
+  const touchStartY = useRef<number>(0);
+  const touchEndY = useRef<number>(0);
 
   const scrollToBottom = () => {
     // Never scroll if input is focused (critical for iOS keyboard)
@@ -132,14 +136,50 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
   };
 
   const handlePromptClick = (prompt: string) => {
+    // Auto-expand when a prompt is clicked
+    if (isMinimized && onToggleMinimize) {
+      onToggleMinimize();
+    }
     if (onPromptAction) {
       onPromptAction(prompt);
     }
     handleSend(prompt);
   };
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    touchEndY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = () => {
+    if (!onToggleMinimize) return;
+    
+    const swipeDistance = touchStartY.current - touchEndY.current;
+    const minSwipeDistance = 50; // Minimum pixels to trigger swipe
+    
+    // Swipe up to expand (when minimized)
+    if (isMinimized && swipeDistance > minSwipeDistance) {
+      onToggleMinimize();
+    }
+    // Swipe down to minimize (when expanded)
+    else if (!isMinimized && swipeDistance < -minSwipeDistance) {
+      onToggleMinimize();
+    }
+    
+    touchStartY.current = 0;
+    touchEndY.current = 0;
+  };
+
   return (
-    <div className={`flex flex-col h-full border-t-4 ${colors.border} bg-gradient-to-br ${colors.gradient} to-transparent ${colors.glow}`}>
+    <div 
+      className={`flex flex-col h-full border-t-4 ${colors.border} bg-gradient-to-br ${colors.gradient} to-transparent ${colors.glow}`}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
       <div className={`flex items-center justify-between gap-2 p-3 border-b-2 ${colors.border} ${colors.headerBg} backdrop-blur-sm`}>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-2 px-2 py-1 rounded-full bg-purple-500/20 border border-purple-500/30">
@@ -148,122 +188,129 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
           </div>
           <span className="text-xs text-gray-400">AI Assistant</span>
         </div>
-        {onToggleExpand && (
+        {onToggleMinimize && (
           <Button
             size="icon"
             variant="ghost"
-            onClick={onToggleExpand}
+            onClick={onToggleMinimize}
             className="h-7 w-7 hover:bg-purple-500/20"
             data-testid="button-toggle-chat"
           >
-            {isExpanded ? (
-              <ChevronDown className={`h-4 w-4 ${colors.icon}`} />
+            {isMinimized ? (
+              <Maximize2 className={`h-4 w-4 ${colors.icon}`} />
             ) : (
-              <ChevronUp className={`h-4 w-4 ${colors.icon}`} />
+              <Minimize2 className={`h-4 w-4 ${colors.icon}`} />
             )}
           </Button>
         )}
       </div>
       
-      {/* Use native scrolling to avoid iOS keyboard issues */}
-      <div 
-        className="flex-1 p-4 overflow-y-auto" 
-        style={{ WebkitOverflowScrolling: 'touch' }}
-      >
-        <div className="space-y-4">
-          {messages.map((message, i) => (
-            <div
-              key={i}
-              className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-              data-testid={`message-${message.role}-${i}`}
-            >
-              <div
-                className={`max-w-[80%] rounded-lg p-3 text-xs ${
-                  message.role === 'user'
-                    ? colors.userBg + ' text-white'
-                    : 'bg-gray-800/80 text-gray-300 border border-purple-500/20'
-                }`}
-              >
-                {message.content}
-                {message.items && message.items.length > 0 && (
-                  <div className="mt-2 space-y-1">
-                    {message.items.map((item, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => onItemClick?.(item.type, item.id)}
-                        className={`block w-full text-left px-3 py-1.5 rounded-md text-xs ${colors.promptBg} transition-colors`}
-                        data-testid={`item-${item.type}-${item.id}`}
-                      >
-                        {item.type === 'order' && item.orderNumber ? (
-                          <div className="flex items-center gap-2">
-                            <div className="flex-shrink-0 w-4">
-                              {item.isRepeatCustomer && (
-                                <RefreshCcw className="h-3 w-3" />
-                              )}
-                            </div>
-                            <div className="flex-1 flex items-center justify-between gap-3">
-                              <span className="font-medium">#{item.orderNumber}</span>
-                              <span className="flex-1">{item.customerName}</span>
-                              <span className="text-gray-400">{item.date}</span>
-                              <span className="font-semibold">${item.total?.toFixed(2)}</span>
-                            </div>
-                          </div>
-                        ) : (
-                          item.label
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-          <div ref={messagesEndRef} />
-        </div>
-      </div>
-      
-      <div className={`border-t-2 ${colors.border} bg-gray-900/50 backdrop-blur-sm`}>
-        <div className="flex gap-2 p-3">
-          <Input
-            ref={inputRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-            onFocus={() => setIsInputFocused(true)}
-            onBlur={() => setIsInputFocused(false)}
-            placeholder="Ask E.L.F.I.E. for help..."
-            className="text-xs bg-gray-800/80 border-purple-500/30 focus-visible:ring-purple-500/50"
-            data-testid="input-chat"
-          />
-          <Button 
-            size="icon" 
-            onClick={() => handleSend()} 
-            className={colors.button} 
-            data-testid="button-send"
-            disabled={isLoading}
+      {/* Show messages and input only when expanded */}
+      {!isMinimized && (
+        <>
+          {/* Use native scrolling to avoid iOS keyboard issues */}
+          <div 
+            className="flex-1 p-4 overflow-y-auto" 
+            style={{ WebkitOverflowScrolling: 'touch' }}
           >
-            {isLoading ? (
-              <RefreshCcw className="h-4 w-4 animate-spin" />
-            ) : (
-              <Send className="h-4 w-4" />
-            )}
-          </Button>
-        </div>
-        {prompts.length > 0 && (
-          <div className="flex gap-2 flex-wrap p-3 pt-0 pb-3 border-t border-purple-500/20">
-            {prompts.map((prompt) => (
-              <button
-                key={prompt}
-                onClick={() => handlePromptClick(prompt)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${colors.promptBg}`}
-                data-testid={`prompt-${prompt.toLowerCase().replace(/\s/g, '-')}`}
-              >
-                {prompt}
-              </button>
-            ))}
+            <div className="space-y-4">
+              {messages.map((message, i) => (
+                <div
+                  key={i}
+                  className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                  data-testid={`message-${message.role}-${i}`}
+                >
+                  <div
+                    className={`max-w-[80%] rounded-lg p-3 text-xs ${
+                      message.role === 'user'
+                        ? colors.userBg + ' text-white'
+                        : 'bg-gray-800/80 text-gray-300 border border-purple-500/20'
+                    }`}
+                  >
+                    {message.content}
+                    {message.items && message.items.length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        {message.items.map((item, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => onItemClick?.(item.type, item.id)}
+                            className={`block w-full text-left px-3 py-1.5 rounded-md text-xs ${colors.promptBg} transition-colors`}
+                            data-testid={`item-${item.type}-${item.id}`}
+                          >
+                            {item.type === 'order' && item.orderNumber ? (
+                              <div className="flex items-center gap-2">
+                                <div className="flex-shrink-0 w-4">
+                                  {item.isRepeatCustomer && (
+                                    <RefreshCcw className="h-3 w-3" />
+                                  )}
+                                </div>
+                                <div className="flex-1 flex items-center justify-between gap-3">
+                                  <span className="font-medium">#{item.orderNumber}</span>
+                                  <span className="flex-1">{item.customerName}</span>
+                                  <span className="text-gray-400">{item.date}</span>
+                                  <span className="font-semibold">${item.total?.toFixed(2)}</span>
+                                </div>
+                              </div>
+                            ) : (
+                              item.label
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+              <div ref={messagesEndRef} />
+            </div>
           </div>
-        )}
-      </div>
+          
+          <div className={`border-t-2 ${colors.border} bg-gray-900/50 backdrop-blur-sm`}>
+            <div className="flex gap-2 p-3">
+              <Input
+                ref={inputRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+                onFocus={() => setIsInputFocused(true)}
+                onBlur={() => setIsInputFocused(false)}
+                placeholder="Ask E.L.F.I.E. for help..."
+                className="text-xs bg-gray-800/80 border-purple-500/30 focus-visible:ring-purple-500/50"
+                data-testid="input-chat"
+              />
+              <Button 
+                size="icon" 
+                onClick={() => handleSend()} 
+                className={colors.button} 
+                data-testid="button-send"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <RefreshCcw className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Always show prompts */}
+      {prompts.length > 0 && (
+        <div className={`flex gap-2 flex-wrap p-3 ${!isMinimized ? 'border-t border-purple-500/20' : ''}`}>
+          {prompts.map((prompt) => (
+            <button
+              key={prompt}
+              onClick={() => handlePromptClick(prompt)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${colors.promptBg}`}
+              data-testid={`prompt-${prompt.toLowerCase().replace(/\s/g, '-')}`}
+            >
+              {prompt}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
