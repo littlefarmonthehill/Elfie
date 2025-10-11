@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { syncBricklinkData, fetchPriceOMagicData } from "./services/bricklink";
+import { syncBricklinkData, fetchPriceOMagicData, searchBricklinkCatalogItem } from "./services/bricklink";
 import { syncShipStationOrders } from "./services/shipstation";
 import { db } from "./db";
 import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations } from "@shared/schema";
@@ -662,6 +662,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } else if (partNumber || searchKeywords.length > 0) {
           databaseContext += `\n\nINVENTORY SEARCH: No items found for "${searchTerm}" in database.\n`;
           console.log('🔍 No inventory found for:', searchTerm);
+          
+          // Check if user is responding affirmatively to a previous BrickLink suggestion
+          const isAffirmative = lastUserMessage.match(/\b(yes|yeah|sure|ok|okay|yep|yup|please|go ahead)\b/);
+          const recentMessages = conversationHistory.slice(-4); // Check last 4 messages
+          const hasBrickLinkSuggestion = recentMessages.some(msg => 
+            msg.role === 'assistant' && msg.content.toLowerCase().includes('check') && msg.content.toLowerCase().includes('bricklink')
+          );
+          
+          if (isAffirmative && hasBrickLinkSuggestion) {
+            // User confirmed - find the original search term from conversation history
+            // Look for the user message before the BrickLink suggestion
+            let originalPartNumber = null;
+            for (let i = recentMessages.length - 1; i >= 0; i--) {
+              if (recentMessages[i].role === 'user') {
+                const userMsg = recentMessages[i].content;
+                // Try to extract part number from the original message
+                const partMatch = userMsg.match(/\b([0-9]{2,}[a-z0-9]*)\b/i);
+                if (partMatch) {
+                  originalPartNumber = partMatch[1];
+                  break;
+                }
+              }
+            }
+            
+            // User confirmed - search BrickLink catalog
+            if (originalPartNumber) {
+              try {
+                console.log('🔗 User confirmed - searching BrickLink for:', originalPartNumber);
+                
+                // Default to PART type, but could be enhanced to detect other types
+                const catalogItem = await searchBricklinkCatalogItem(originalPartNumber, 'PART');
+              
+              if (catalogItem) {
+                databaseContext += `\n\nBRICKLINK CATALOG SEARCH RESULTS:\n`;
+                databaseContext += `- Part Number: ${catalogItem.itemNo}\n`;
+                databaseContext += `- Name: ${catalogItem.itemName}\n`;
+                databaseContext += `- Type: ${catalogItem.itemType}\n`;
+                if (catalogItem.categoryId) databaseContext += `- Category ID: ${catalogItem.categoryId}\n`;
+                if (catalogItem.weight) databaseContext += `- Weight: ${catalogItem.weight}g\n`;
+                if (catalogItem.yearReleased) databaseContext += `- Year Released: ${catalogItem.yearReleased}\n`;
+                databaseContext += `- BrickLink URL: https://www.bricklink.com/v2/catalog/catalogitem.page?P=${catalogItem.itemNo}\n`;
+                databaseContext += `\nNote: This item is NOT currently in your inventory. The information above is from the BrickLink catalog.\n`;
+                console.log('🔗 BrickLink catalog data added to context');
+              }
+            } catch (error) {
+              console.error('🔗 Error searching BrickLink catalog:', error);
+              databaseContext += `\nBRICKLINK SEARCH ERROR: Could not find "${searchTerm}" in BrickLink catalog.\n`;
+            }
+          } else if (partNumber) {
+            // Suggest checking BrickLink for part numbers not found locally
+            databaseContext += `\nSUGGESTION: Would you like me to check the BrickLink catalog for part ${partNumber}? (This will use an API call)\n`;
+            console.log('🔗 Suggesting BrickLink search for:', partNumber);
+          }
         }
       }
 
@@ -1197,6 +1250,37 @@ Keep responses helpful, accurate, and based on the actual data provided.`;
     }
   });
 
+  // Get Recently Updated Inventory Items (MUST be before /api/inventory/:id)
+  app.get("/api/inventory/recent-updates", async (req, res) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+      
+      const recentItems = await db
+        .select({
+          id: blInventory.id,
+          inventoryId: blInventory.id,
+          itemNo: blInventory.itemNo,
+          itemName: blInventory.itemName,
+          colorId: blInventory.colorId,
+          colorName: blColors.name,
+          colorRgb: blColors.rgb,
+          quantity: blInventory.quantity,
+          unitPrice: blInventory.unitPrice,
+          newOrUsed: blInventory.newOrUsed,
+          updatedAt: blInventory.updatedAt,
+        })
+        .from(blInventory)
+        .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+        .orderBy(desc(blInventory.updatedAt))
+        .limit(limit);
+
+      res.json(recentItems);
+    } catch (error) {
+      console.error("Error fetching recent inventory updates:", error);
+      res.status(500).json({ error: "Failed to fetch recent updates" });
+    }
+  });
+
   // Price-o-Matic: Get price guide for inventory item (MUST be before /api/inventory/:id)
   app.get("/api/inventory/price-guide/:itemNo/:itemType", async (req, res) => {
     try {
@@ -1217,6 +1301,29 @@ Keep responses helpful, accurate, and based on the actual data provided.`;
       console.error("[Price-o-Matic] Error fetching price guide:", error);
       res.status(500).json({ 
         error: "Failed to fetch price guide", 
+        message: error instanceof Error ? error.message : "Unknown error" 
+      });
+    }
+  });
+
+  // BrickLink Catalog Search (MUST be before /api/inventory/:id)
+  app.get("/api/bricklink/catalog/:itemNo/:itemType", async (req, res) => {
+    try {
+      const { itemNo, itemType } = req.params;
+
+      if (!itemNo || !itemType) {
+        return res.status(400).json({ error: "Item number and type are required" });
+      }
+
+      console.log(`[BrickLink Catalog] Searching for ${itemType}/${itemNo}`);
+
+      const itemData = await searchBricklinkCatalogItem(itemNo, itemType);
+
+      res.json(itemData);
+    } catch (error) {
+      console.error("[BrickLink Catalog] Error searching catalog:", error);
+      res.status(500).json({ 
+        error: "Failed to search BrickLink catalog", 
         message: error instanceof Error ? error.message : "Unknown error" 
       });
     }

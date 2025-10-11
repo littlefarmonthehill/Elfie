@@ -1,11 +1,12 @@
 import MetricCard from "./MetricCard";
 import { useQuery } from "@tanstack/react-query";
-import { InfoIcon, AlertCircle, Package, TrendingUp } from "lucide-react";
+import { InfoIcon, AlertCircle, Package, TrendingUp, Clock } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { formatDistanceToNow } from "date-fns";
 
 interface InventoryStats {
   totalLots: number;
@@ -26,6 +27,20 @@ interface InventoryItem {
     no: string;
     name: string;
   };
+}
+
+interface RecentInventoryItem {
+  id: number;
+  inventoryId: number;
+  itemNo: string;
+  itemName: string | null;
+  colorId: number | null;
+  colorName: string | null;
+  colorRgb: string | null;
+  quantity: number;
+  unitPrice: string | null;
+  newOrUsed: string;
+  updatedAt: string;
 }
 
 interface InventoryDashboardProps {
@@ -52,6 +67,16 @@ export default function InventoryDashboard({ onItemClick }: InventoryDashboardPr
         .filter(item => item.unitPrice && !isNaN(Number(item.unitPrice)))
         .sort((a, b) => Number(b.unitPrice) - Number(a.unitPrice))
         .slice(0, 6)
+  });
+
+  // Fetch recently updated items
+  const { data: recentItems = [] } = useQuery<RecentInventoryItem[]>({
+    queryKey: ['/api/inventory/recent-updates'],
+    queryFn: async () => {
+      const response = await fetch('/api/inventory/recent-updates?limit=6');
+      if (!response.ok) throw new Error('Failed to fetch recent updates');
+      return response.json();
+    }
   });
 
   const formatCurrency = (value: number) => {
@@ -174,6 +199,37 @@ export default function InventoryDashboard({ onItemClick }: InventoryDashboardPr
               ))
             ) : (
               <div className="text-[9px] text-gray-500 italic">No items to display</div>
+            )}
+          </div>
+        </div>
+
+        {/* Recent Activity - Recent Item Updates */}
+        <div className="bg-gray-900/50 border border-blue-500/20 rounded-lg p-3" data-testid="section-recent-updates">
+          <div className="flex items-center gap-2 mb-2">
+            <Clock className="w-3.5 h-3.5 text-blue-400" />
+            <h3 className="text-[10px] font-semibold text-blue-400 uppercase tracking-wide">Recent Activity - Item Updates</h3>
+          </div>
+          <div className="space-y-1">
+            {recentItems.length > 0 ? (
+              recentItems.map((item) => (
+                <div 
+                  key={item.id} 
+                  onClick={() => onItemClick?.('inventory', item.inventoryId)}
+                  className="flex justify-between items-center text-[10px] hover-elevate rounded px-2 py-0.5 cursor-pointer"
+                  data-testid={`recent-update-${item.id}`}
+                >
+                  <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                    <div className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />
+                    <span className="text-gray-400 font-mono flex-shrink-0">{item.itemNo}</span>
+                    <span className="text-gray-500 truncate text-[9px]">{item.colorName || 'N/A'}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 ml-2 flex-shrink-0">
+                    <span className="text-gray-600 text-[9px]">{formatDistanceToNow(new Date(item.updatedAt), { addSuffix: true })}</span>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-[9px] text-gray-500 italic">No recent updates</div>
             )}
           </div>
         </div>

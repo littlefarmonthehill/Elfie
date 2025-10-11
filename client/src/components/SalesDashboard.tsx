@@ -32,12 +32,18 @@ export default function SalesDashboard({ period, dateRange = 'all', onItemClick 
     }
   });
 
-  // Calculate sales data by month - show most recent 6 months
+  // Calculate sales data by month - adjust based on date range
   const getSalesData = () => {
-    const months = Array.from({ length: 6 }, (_, i) => {
-      const date = subMonths(new Date(), 5 - i);
+    // Determine number of months to display based on dateRange
+    const monthsToShow = dateRange === 'all' ? 12 : 
+                        dateRange === '2years' ? 24 :
+                        dateRange === '1year' ? 12 :
+                        dateRange === '6months' ? 6 : 3;
+
+    const months = Array.from({ length: monthsToShow }, (_, i) => {
+      const date = subMonths(new Date(), monthsToShow - 1 - i);
       return {
-        date: format(date, 'MMM'),
+        date: format(date, 'MMM yy'),
         month: startOfMonth(date),
         sales: 0,
       };

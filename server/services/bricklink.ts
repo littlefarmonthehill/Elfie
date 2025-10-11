@@ -818,3 +818,37 @@ export async function fetchPriceOMagicData(
     throw error;
   }
 }
+
+// Search BrickLink catalog for an item
+export async function searchBricklinkCatalogItem(
+  itemNo: string,
+  itemType: string = 'PART'
+): Promise<any> {
+  try {
+    console.log(`[BrickLink Catalog Search] Searching for ${itemType}/${itemNo}`);
+    
+    // Fetch item details from catalog
+    const { data: itemDetails } = await bricklinkCatalogRequest(`/items/${itemType}/${itemNo}`);
+    
+    if (!itemDetails) {
+      throw new Error('Item not found in BrickLink catalog');
+    }
+
+    return {
+      itemNo: itemDetails.no,
+      itemName: itemDetails.name,
+      itemType: itemDetails.type,
+      categoryId: itemDetails.category_id,
+      imageUrl: itemDetails.image_url,
+      thumbnailUrl: itemDetails.thumbnail_url,
+      weight: itemDetails.weight,
+      dimensionX: itemDetails.dim_x,
+      dimensionY: itemDetails.dim_y,
+      dimensionZ: itemDetails.dim_z,
+      yearReleased: itemDetails.year_released,
+    };
+  } catch (error) {
+    console.error('[BrickLink Catalog Search] Error:', error);
+    throw error;
+  }
+}
