@@ -72,6 +72,21 @@ export default function Home() {
           myWeight: bricklinkItem.weight ? String(bricklinkItem.weight) : null,
           isBrickLinkCatalog: true, // Flag to indicate this is from catalog
           bricklinkUrl: `https://www.bricklink.com/v2/catalog/catalogitem.page?${itemTypePrefix}=${bricklinkItem.itemNo}`,
+          // Include pricing data from BrickLink for Price-o-Matic display
+          priceOMagic: {
+            stockAvgPrice: bricklinkItem.stockAvgPrice,
+            stockMinPrice: bricklinkItem.stockMinPrice,
+            stockMaxPrice: bricklinkItem.stockMaxPrice,
+            stockTotalLots: bricklinkItem.stockTotalLots,
+            soldAvgPrice: bricklinkItem.soldAvgPrice,
+            soldMinPrice: bricklinkItem.soldMinPrice,
+            soldMaxPrice: bricklinkItem.soldMaxPrice,
+            soldTotalLots: bricklinkItem.soldTotalLots,
+            suggestedPrice: bricklinkItem.suggestedPrice,
+            itemName: bricklinkItem.itemName,
+            imageUrl: bricklinkItem.imageUrl,
+            thumbnailUrl: bricklinkItem.thumbnailUrl,
+          },
         };
         
         setDetailModal({

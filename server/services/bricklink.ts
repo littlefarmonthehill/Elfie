@@ -656,6 +656,42 @@ function calculateSuggestedPrice(
   return Number(suggestedPrice.toFixed(2));
 }
 
+// Calculate suggested price with supply adjustment (low supply = higher price)
+function calculateSuggestedPriceWithSupply(
+  stockAvgPrice: number | null,
+  soldAvgPrice: number | null,
+  stockTotalLots: number = 0,
+  basePremiumPercentage: number = 15
+): number {
+  // Use stock average as base, fall back to sold average
+  const basePrice = stockAvgPrice || soldAvgPrice || 0;
+  
+  if (basePrice === 0) {
+    return 0;
+  }
+  
+  // Start with base premium (15% for fast turnaround and quality service)
+  let totalPremium = basePremiumPercentage;
+  
+  // Add supply adjustment premium based on scarcity
+  // Very low supply (< 50 lots): +10% premium
+  // Low supply (50-200 lots): +5% premium
+  // Medium supply (200-500 lots): +2% premium
+  // High supply (500+): no adjustment
+  if (stockTotalLots < 50) {
+    totalPremium += 10; // Very scarce
+  } else if (stockTotalLots < 200) {
+    totalPremium += 5; // Low availability
+  } else if (stockTotalLots < 500) {
+    totalPremium += 2; // Moderate availability
+  }
+  
+  // Apply total premium percentage
+  const suggestedPrice = basePrice * (1 + totalPremium / 100);
+  
+  return Number(suggestedPrice.toFixed(2));
+}
+
 // Fetch and cache Price-o-Matic data for an item
 export async function fetchPriceOMagicData(
   itemNo: string,
@@ -722,10 +758,11 @@ export async function fetchPriceOMagicData(
     }
     const { data: soldPriceData } = await bricklinkCatalogRequest(stockPriceEndpoint, soldPriceParams);
 
-    // Calculate suggested price
+    // Calculate suggested price with supply adjustment
     const stockAvgPrice = stockPriceData?.avg_price ? parseFloat(stockPriceData.avg_price) : null;
     const soldAvgPrice = soldPriceData?.avg_price ? parseFloat(soldPriceData.avg_price) : null;
-    const suggestedPrice = calculateSuggestedPrice(stockAvgPrice, soldAvgPrice, premiumPercentage);
+    const stockTotalLots = stockPriceData?.unit_quantity ? parseInt(stockPriceData.unit_quantity.toString()) : 0; // Number of lots/listings
+    const suggestedPrice = calculateSuggestedPriceWithSupply(stockAvgPrice, soldAvgPrice, stockTotalLots, premiumPercentage);
 
     // Merge and store data
     const mergedData = {
@@ -749,14 +786,14 @@ export async function fetchPriceOMagicData(
       stockMinPrice: stockPriceData?.min_price ? stockPriceData.min_price.toString() : null,
       stockMaxPrice: stockPriceData?.max_price ? stockPriceData.max_price.toString() : null,
       stockQuantity: stockPriceData?.qty_avg || null,
-      stockTotalLots: stockPriceData?.total_qty || null,
+      stockTotalLots: stockPriceData?.unit_quantity || null, // Number of lots/listings
       
       // Sold price guide
       soldAvgPrice: soldAvgPrice?.toString() || null,
       soldMinPrice: soldPriceData?.min_price ? soldPriceData.min_price.toString() : null,
       soldMaxPrice: soldPriceData?.max_price ? soldPriceData.max_price.toString() : null,
       soldQuantity: soldPriceData?.qty_avg || null,
-      soldTotalLots: soldPriceData?.total_qty || null,
+      soldTotalLots: soldPriceData?.unit_quantity || null, // Number of lots/listings
       
       // Price-O-Matic
       suggestedPrice: suggestedPrice.toString(),
@@ -819,7 +856,7 @@ export async function fetchPriceOMagicData(
   }
 }
 
-// Search BrickLink catalog for an item
+// Search BrickLink catalog for an item with pricing data
 export async function searchBricklinkCatalogItem(
   itemNo: string,
   itemType: string = 'PART'
@@ -834,6 +871,21 @@ export async function searchBricklinkCatalogItem(
       throw new Error('Item not found in BrickLink catalog');
     }
 
+    // Fetch price guide data - stock
+    const stockPriceParams: Record<string, string> = { guide_type: 'stock', new_or_used: 'N' };
+    const stockPriceEndpoint = `/items/${itemType}/${itemNo}/price`;
+    const { data: stockPriceData } = await bricklinkCatalogRequest(stockPriceEndpoint, stockPriceParams);
+
+    // Fetch price guide data - sold
+    const soldPriceParams: Record<string, string> = { guide_type: 'sold', new_or_used: 'N' };
+    const { data: soldPriceData } = await bricklinkCatalogRequest(stockPriceEndpoint, soldPriceParams);
+
+    // Calculate suggested price with supply adjustment
+    const stockAvgPrice = stockPriceData?.avg_price ? parseFloat(stockPriceData.avg_price) : null;
+    const soldAvgPrice = soldPriceData?.avg_price ? parseFloat(soldPriceData.avg_price) : null;
+    const stockTotalLots = stockPriceData?.unit_quantity ? parseInt(stockPriceData.unit_quantity.toString()) : 0; // Number of lots/listings available
+    const suggestedPrice = calculateSuggestedPriceWithSupply(stockAvgPrice, soldAvgPrice, stockTotalLots);
+
     return {
       itemNo: itemDetails.no,
       itemName: itemDetails.name,
@@ -846,6 +898,16 @@ export async function searchBricklinkCatalogItem(
       dimensionY: itemDetails.dim_y,
       dimensionZ: itemDetails.dim_z,
       yearReleased: itemDetails.year_released,
+      // Pricing data
+      stockAvgPrice: stockAvgPrice?.toString() || null,
+      stockMinPrice: stockPriceData?.min_price ? stockPriceData.min_price.toString() : null,
+      stockMaxPrice: stockPriceData?.max_price ? stockPriceData.max_price.toString() : null,
+      stockTotalLots, // Already correctly calculated above using unit_quantity
+      soldAvgPrice: soldAvgPrice?.toString() || null,
+      soldMinPrice: soldPriceData?.min_price ? soldPriceData.min_price.toString() : null,
+      soldMaxPrice: soldPriceData?.max_price ? soldPriceData.max_price.toString() : null,
+      soldTotalLots: soldPriceData?.unit_quantity ? parseInt(soldPriceData.unit_quantity.toString()) : 0, // Number of sold lots
+      suggestedPrice: suggestedPrice.toString(),
     };
   } catch (error) {
     console.error('[BrickLink Catalog Search] Error:', error);

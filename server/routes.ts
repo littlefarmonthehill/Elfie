@@ -980,6 +980,7 @@ RESPONSE GUIDELINES:
 10. Provide actionable information
 11. IMPORTANT: Item names and themes are not in database - only part numbers, colors, quantities, and prices. If user asks for themes (Star Wars, Harry Potter), explain this limitation
 12. LEARNING: Remember previous conversations and learn from user interactions to provide better assistance over time
+13. CRITICAL: NEVER end responses with "Would you like to..." suggestions, follow-up action lists, or any recommendations for next steps. Simply answer the user's question and STOP. Do not offer additional options or suggestions.
 
 FORMATTING EXAMPLES:
 
@@ -1005,7 +1006,20 @@ Good response: "Here are your awaiting shipment orders:
 - Order #98765: AliceW - $123.45 (awaiting_shipment) on Jan 10, 2025
 - Order #98764: BobM - $89.99 (awaiting_shipment) on Jan 9, 2025"
 
-Keep responses helpful, accurate, and based on the actual data provided.`;
+BAD EXAMPLE (DO NOT DO THIS):
+User: "Do I have part 3021?"
+Bad response: "Yes! I found part 3021 in inventory.
+
+- Part 3021 in Red: 50 units @ $0.25 (New)
+
+Would you like to:
+- View similar parts
+- Check pricing history  
+- See restocking recommendations"
+
+CRITICAL: The above is a BAD example. NEVER include "Would you like to" or any follow-up suggestions. Just answer the question and stop.
+
+Keep responses helpful, accurate, and based on the actual data provided. End your response after providing the requested information.`;
 
       const systemPrompt = settings?.systemPrompt 
         ? `${settings.systemPrompt}\n\nCurrent context: ${context}\n${databaseContext}` 
