@@ -39,10 +39,10 @@ export default function DetailModal({ open, onClose, detail, onOrderSelect }: De
 
   return (
     <Drawer open={open} onOpenChange={onClose}>
-      <DrawerContent className="bg-gray-900 border-gray-700 max-h-[90vh]">
-        <DrawerHeader className="border-b border-gray-700 py-2">
+      <DrawerContent className="bg-gray-900 border-gray-700 h-[85vh] flex flex-col">
+        <DrawerHeader className="border-b border-gray-700 py-2 flex-shrink-0">
           <div className="flex items-center justify-between">
-            <DrawerTitle className="text-[10px] font-black text-white uppercase tracking-wide">
+            <DrawerTitle className="text-xs font-black text-white uppercase tracking-wide">
               {detail.type === 'inventory' ? '🧱 Inventory Detail' :
                detail.type === 'order' ? '📦 Order Detail' :
                detail.type === 'sales' ? '📈 Sales Detail' :
@@ -63,7 +63,7 @@ export default function DetailModal({ open, onClose, detail, onOrderSelect }: De
              detail.type === 'marketing' ? 'View detailed marketing campaign information' : 'View detailed information'}
           </DrawerDescription>
         </DrawerHeader>
-        <div className="overflow-y-auto p-3">
+        <div className="flex-1 overflow-y-auto p-3 min-h-0">
           {renderDetail()}
         </div>
       </DrawerContent>
