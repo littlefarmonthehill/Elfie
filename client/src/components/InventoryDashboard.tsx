@@ -233,7 +233,7 @@ export default function InventoryDashboard({ onItemClick }: InventoryDashboardPr
               {/* Newly Added Items */}
               {newItems.length > 0 && (
                 <div>
-                  <h4 className="text-[9px] font-bold text-gray-500 uppercase mb-1.5 tracking-wide">Items</h4>
+                  <h4 className="text-[9px] font-bold text-gray-500 uppercase mb-1.5 tracking-wide">New Items</h4>
                   <div className="space-y-1">
                     {newItems.map((item) => (
                       <div 

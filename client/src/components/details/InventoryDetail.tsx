@@ -497,14 +497,21 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
                               </div>
                               
                               {/* Market Supply Impact */}
-                              <div className="flex justify-between items-center">
-                                <span className="text-xs text-gray-400">Market Supply Impact:</span>
-                                <div className="text-right">
-                                  <span className={`text-sm font-mono font-bold ${scarcityBonus > 0 ? 'text-orange-400' : 'text-gray-500'}`}>
-                                    +{scarcityBonus}%
-                                  </span>
-                                  <span className="text-[10px] text-gray-500 ml-2">${supplyAdjustment.toFixed(3)}</span>
+                              <div className="space-y-0.5">
+                                <div className="flex justify-between items-center">
+                                  <span className="text-xs text-gray-400">Market Supply Impact:</span>
+                                  <div className="text-right">
+                                    <span className={`text-sm font-mono font-bold ${scarcityBonus > 0 ? 'text-orange-400' : 'text-gray-500'}`}>
+                                      +{scarcityBonus}%
+                                    </span>
+                                    <span className="text-[10px] text-gray-500 ml-2">${supplyAdjustment.toFixed(3)}</span>
+                                  </div>
                                 </div>
+                                {priceOMagic.stockTotalLots !== null && (
+                                  <p className="text-[9px] text-gray-500 pl-1">
+                                    {priceOMagic.stockTotalLots} {priceOMagic.stockTotalLots === 1 ? 'listing' : 'listings'} available worldwide
+                                  </p>
+                                )}
                               </div>
                             </div>
                             
