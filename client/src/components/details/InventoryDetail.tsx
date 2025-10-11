@@ -1,6 +1,7 @@
-import { Package, DollarSign, Weight, Calendar, ExternalLink, TrendingUp, Sparkles, BarChart3, ShoppingCart, FileText, AlertCircle, Database, Tag, Box, Layers, Users, Clock, Zap } from "lucide-react";
+import { Package, DollarSign, Weight, Calendar, ExternalLink, TrendingUp, Sparkles, BarChart3, ShoppingCart, FileText, AlertCircle, Database, Tag, Box, Layers, Users, Clock, Zap, Info } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useState, useEffect } from "react";
 
 interface PriceOMagicData {
@@ -392,18 +393,104 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
                   </Badge>
                 </div>
                 
-                {/* Suggested Price */}
-                <div className="bg-gradient-to-br from-purple-600/20 to-transparent border border-purple-500/30 rounded-lg p-2.5 mb-2 text-center">
-                  <p className="text-[10px] text-purple-300 font-bold mb-1">SUGGESTED PRICE</p>
-                  <p className="text-3xl font-black font-mono text-purple-400">
-                    ${suggestedPrice.toFixed(3)}
-                  </p>
-                  {currentPrice > 0 && suggestedPrice > currentPrice && (
-                    <p className="text-[10px] text-purple-300/70 mt-1">
-                      +${(suggestedPrice - currentPrice).toFixed(3)} vs current
-                    </p>
-                  )}
-                </div>
+                {/* Suggested Price - Clickable for breakdown */}
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <button 
+                      className="w-full bg-gradient-to-br from-purple-600/20 to-transparent border border-purple-500/30 rounded-lg p-2.5 mb-2 text-center hover-elevate active-elevate-2 transition-all group"
+                      data-testid="button-price-breakdown"
+                    >
+                      <div className="flex items-center justify-center gap-1.5 mb-1">
+                        <p className="text-[10px] text-purple-300 font-bold">SUGGESTED PRICE</p>
+                        <Info className="h-3 w-3 text-purple-400 opacity-60 group-hover:opacity-100 transition-opacity" />
+                      </div>
+                      <p className="text-3xl font-black font-mono text-purple-400">
+                        ${suggestedPrice.toFixed(3)}
+                      </p>
+                      {currentPrice > 0 && suggestedPrice > currentPrice && (
+                        <p className="text-[10px] text-purple-300/70 mt-1">
+                          +${(suggestedPrice - currentPrice).toFixed(3)} vs current
+                        </p>
+                      )}
+                      <p className="text-[9px] text-purple-400/60 mt-1 group-hover:text-purple-400/80 transition-colors">
+                        Tap to see calculation
+                      </p>
+                    </button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-md bg-gray-900 border-purple-500/50" data-testid="dialog-price-breakdown">
+                    <DialogHeader>
+                      <DialogTitle className="flex items-center gap-2 text-purple-400">
+                        <Sparkles className="h-5 w-5" />
+                        Price-O-Magic Calculation
+                      </DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 mt-4">
+                      {/* Calculation Steps */}
+                      <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 space-y-3">
+                        <div>
+                          <p className="text-xs text-gray-400 mb-1">Base Price (Stock Average)</p>
+                          <p className="text-lg font-mono font-bold text-white">
+                            ${stockAvgPrice !== null ? stockAvgPrice.toFixed(3) : '0.000'}
+                          </p>
+                        </div>
+                        
+                        <div className="border-t border-gray-700 pt-2">
+                          <p className="text-xs text-gray-400 mb-1">Premium Applied</p>
+                          <p className="text-lg font-mono font-bold text-purple-400">
+                            +{priceOMagic.premiumPercentage}%
+                          </p>
+                          <p className="text-[10px] text-gray-500 mt-1">
+                            ${stockAvgPrice !== null ? (stockAvgPrice * (priceOMagic.premiumPercentage / 100)).toFixed(3) : '0.000'}
+                          </p>
+                        </div>
+                        
+                        <div className="border-t border-gray-700 pt-2">
+                          <p className="text-xs text-gray-400 mb-1">Final Suggested Price</p>
+                          <p className="text-2xl font-mono font-black text-purple-400">
+                            ${suggestedPrice.toFixed(3)}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Market Context */}
+                      <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-3">
+                        <p className="text-xs font-bold text-gray-400 mb-2">MARKET CONTEXT</p>
+                        <div className="space-y-2">
+                          {stockAvgPrice !== null && (
+                            <div className="flex justify-between text-xs">
+                              <span className="text-gray-400">Current Stock Avg:</span>
+                              <span className="font-mono text-blue-400">${stockAvgPrice.toFixed(3)}</span>
+                            </div>
+                          )}
+                          {soldAvgPrice !== null && (
+                            <div className="flex justify-between text-xs">
+                              <span className="text-gray-400">Recent Sold Avg (6mo):</span>
+                              <span className="font-mono text-green-400">${soldAvgPrice.toFixed(3)}</span>
+                            </div>
+                          )}
+                          {priceOMagic.stockMinPrice && priceOMagic.stockMaxPrice && (
+                            <div className="flex justify-between text-xs">
+                              <span className="text-gray-400">Price Range:</span>
+                              <span className="font-mono text-gray-300">
+                                ${parseFloat(priceOMagic.stockMinPrice).toFixed(2)} - ${parseFloat(priceOMagic.stockMaxPrice).toFixed(2)}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Formula Explanation */}
+                      <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3">
+                        <p className="text-[10px] text-purple-300 font-mono">
+                          Formula: Stock Avg × (1 + Premium %) = Suggested Price
+                        </p>
+                        <p className="text-[10px] text-gray-400 mt-2">
+                          Price-O-Magic uses the current market stock average and applies your configured premium to suggest a competitive price.
+                        </p>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
 
                 {/* Market Data */}
                 <div className="grid grid-cols-2 gap-2">
