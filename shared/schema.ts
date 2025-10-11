@@ -208,3 +208,21 @@ export const insertBlApiCallSchema = createInsertSchema(blApiCalls).omit({
 
 export type InsertBlApiCall = z.infer<typeof insertBlApiCallSchema>;
 export type BlApiCall = typeof blApiCalls.$inferSelect;
+
+// Sync Metadata - Track last successful sync times for incremental syncs
+export const syncMetadata = pgTable("sync_metadata", {
+  id: varchar("id").primaryKey(), // e.g., 'bricklink_inventory', 'bricklink_categories', 'shipstation_orders'
+  lastSyncTime: timestamp("last_sync_time"), // null = no successful sync yet (triggers full sync)
+  lastSyncStatus: text("last_sync_status").notNull(), // 'success', 'failed', 'in_progress'
+  recordsAdded: integer("records_added").default(0),
+  recordsUpdated: integer("records_updated").default(0),
+  errorMessage: text("error_message"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertSyncMetadataSchema = createInsertSchema(syncMetadata).omit({
+  updatedAt: true,
+});
+
+export type InsertSyncMetadata = z.infer<typeof insertSyncMetadataSchema>;
+export type SyncMetadata = typeof syncMetadata.$inferSelect;
