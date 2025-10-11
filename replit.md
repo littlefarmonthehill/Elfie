@@ -34,6 +34,9 @@ Preferred communication style: Simple, everyday language.
 ## External Dependencies
 
 -   **BrickLink API:** Core data source for LEGO inventory, categories, and colors. Uses OAuth 1.0a. Strict rate limit of 5,000 calls per 24 hours. Price-o-Matic consumes 3 API calls per item and is designed for individual item detail views only, not bulk syncs, to manage this limit.
+    -   **Price Guide Integration:** Fetches market pricing data for catalog items showing FOR SALE (stock) and SOLD (6mo) averages, min/max prices, and lot counts.
+    -   **Supply-Adjusted Pricing:** Price-o-Matic applies tiered premiums based on supply scarcity using `unit_quantity` (number of lots/listings): <50 lots adds +10% premium, 50-200 lots adds +5%, 200-500 lots adds +2%, 500+ lots uses base 15% premium only.
+    -   **Critical Implementation:** Uses BrickLink API field `unit_quantity` (lot count) not `total_qty` (total pieces) for accurate scarcity detection.
 -   **ShipStation API:** Integrated for order management and fulfillment.
 -   **OpenRouter API:** Provides multi-model AI capabilities for the E.L.F.I.E. chat assistant.
 -   **Neon:** Serverless PostgreSQL database provider.
