@@ -137,6 +137,7 @@ export async function syncShipStationOrders(): Promise<ShipStationSyncResult> {
           orderKey: order.orderKey,
           orderDate: new Date(order.orderDate),
           orderStatus: order.orderStatus,
+          customerUsername: order.shipTo?.name || order.customerUsername || 'Unknown Customer',
           customerEmail: order.customerEmail,
           shipTo: JSON.stringify(order.shipTo),
           orderTotal: order.orderTotal?.toString() || '0',
@@ -155,10 +156,12 @@ export async function syncShipStationOrders(): Promise<ShipStationSyncResult> {
       const orderId = order.orderId.toString();
       const existing = existingOrdersMap.get(orderId);
       
-      if (existing && existing.orderStatus !== order.orderStatus) {
+      if (existing && (existing.orderStatus !== order.orderStatus || !existing.customerUsername)) {
         await db.update(orders)
           .set({ 
             orderStatus: order.orderStatus,
+            customerUsername: order.shipTo?.name || order.customerUsername || existing.customerUsername || 'Unknown Customer',
+            customerEmail: order.customerEmail || existing.customerEmail,
             updatedAt: new Date() 
           })
           .where(eq(orders.id, orderId));

@@ -4,6 +4,7 @@
 PlanetBrick is a comprehensive business operations and analytics dashboard for LEGO reselling businesses. It integrates with BrickLink and ShipStation to offer real-time inventory management, order tracking, sales analytics, and marketing insights. The application features a dark-mode interface with LEGO-inspired colors and an AI chat assistant (E.L.F.I.E.) for operational guidance. The vision is to provide a complete operational toolkit for LEGO resellers, enhancing efficiency and profitability through data-driven decisions and intelligent automation.
 
 ## Recent Changes (October 2025)
+- **Customer Data Fix**: ShipStation sync now properly extracts customer names from shipping addresses to populate `customerUsername` field
 - **Interactive Drawers**: All dashboard list items (orders, inventory) now open detail drawers on click, showing comprehensive information in a right-side slider
 - **Typography Consistency**: Standardized all dashboard fonts to text-[10px] for headers/primary text and text-[9px] for secondary details
 - **Chat Interface Cleanup**: Removed prompt buttons from chat interface for streamlined UX
