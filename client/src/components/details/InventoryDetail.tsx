@@ -48,7 +48,7 @@ interface InventoryDetailProps {
 
 export default function InventoryDetail({ data }: InventoryDetailProps) {
   const priceOMagic = data.priceOMagic;
-  const currentPrice = parseFloat(data.unitPrice);
+  const currentPrice = data.unitPrice ? parseFloat(data.unitPrice) : 0;
   const suggestedPrice = priceOMagic ? parseFloat(priceOMagic.suggestedPrice) : null;
   const stockAvgPrice = priceOMagic?.stockAvgPrice ? parseFloat(priceOMagic.stockAvgPrice) : null;
   const soldAvgPrice = priceOMagic?.soldAvgPrice ? parseFloat(priceOMagic.soldAvgPrice) : null;
@@ -56,10 +56,13 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
   const totalValue = data.quantity * currentPrice;
   
   // BrickLink URL
-  const bricklinkUrl = `https://www.bricklink.com/v2/catalog/catalogitem.page?${data.itemType}=${data.itemNo}${data.colorId ? `&idColor=${data.colorId}` : ''}`;
+  const itemTypeParam = data.itemType || 'P'; // Default to 'P' for Part if not provided
+  const itemNoParam = data.itemNo || 'unknown';
+  const bricklinkUrl = `https://www.bricklink.com/v2/catalog/catalogitem.page?${itemTypeParam}=${itemNoParam}${data.colorId ? `&idColor=${data.colorId}` : ''}`;
   
   // Item display name
-  const itemName = priceOMagic?.itemName || `${data.itemType.toUpperCase()} ${data.itemNo}`;
+  const itemName = priceOMagic?.itemName || 
+    (data.itemType ? `${data.itemType.toUpperCase()} ${itemNoParam}` : itemNoParam || 'Unknown Item');
   
   // Image URL
   const imageUrl = priceOMagic?.imageUrl || priceOMagic?.thumbnailUrl || null;
