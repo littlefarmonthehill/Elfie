@@ -203,35 +203,72 @@ export default function InventoryDashboard({ onItemClick }: InventoryDashboardPr
           </div>
         </div>
 
-        {/* Recent Activity - Recent Item Updates */}
+        {/* Recent Activity */}
         <div className="bg-gray-900/50 border border-blue-500/20 rounded-lg p-3" data-testid="section-recent-updates">
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-2 mb-3">
             <Clock className="w-3.5 h-3.5 text-blue-400" />
-            <h3 className="text-[10px] font-semibold text-blue-400 uppercase tracking-wide">Recent Activity - Item Updates</h3>
+            <h3 className="text-[10px] font-semibold text-blue-400 uppercase tracking-wide">Recent Activity</h3>
           </div>
-          <div className="space-y-1">
-            {recentItems.length > 0 ? (
-              recentItems.map((item) => (
-                <div 
-                  key={item.id} 
-                  onClick={() => onItemClick?.('inventory', item.inventoryId)}
-                  className="flex justify-between items-center text-[10px] hover-elevate rounded px-2 py-0.5 cursor-pointer"
-                  data-testid={`recent-update-${item.id}`}
-                >
-                  <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                    <div className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />
-                    <span className="text-gray-400 font-mono flex-shrink-0">{item.itemNo}</span>
-                    <span className="text-gray-500 truncate text-[9px]">{item.colorName || 'N/A'}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 ml-2 flex-shrink-0">
-                    <span className="text-gray-600 text-[9px]">{formatDistanceToNow(new Date(item.updatedAt), { addSuffix: true })}</span>
-                  </div>
+          
+          {recentItems.length > 0 ? (
+            <div className="space-y-3">
+              {/* Items (Unique) */}
+              <div>
+                <h4 className="text-[9px] font-bold text-gray-500 uppercase mb-1.5 tracking-wide">Items</h4>
+                <div className="space-y-1">
+                  {Array.from(new Set(recentItems.map(item => item.itemNo)))
+                    .slice(0, 3)
+                    .map((itemNo) => {
+                      const item = recentItems.find(i => i.itemNo === itemNo)!;
+                      const itemCount = recentItems.filter(i => i.itemNo === itemNo).length;
+                      return (
+                        <div 
+                          key={itemNo} 
+                          onClick={() => onItemClick?.('inventory', item.inventoryId)}
+                          className="flex justify-between items-center text-[10px] hover-elevate rounded px-2 py-0.5 cursor-pointer"
+                          data-testid={`recent-item-${itemNo}`}
+                        >
+                          <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                            <Package className="w-3 h-3 text-blue-400 flex-shrink-0" />
+                            <span className="text-gray-400 font-mono flex-shrink-0">{itemNo}</span>
+                            <span className="text-gray-500 truncate text-[9px]">{item.itemName || 'N/A'}</span>
+                          </div>
+                          {itemCount > 1 && (
+                            <span className="text-blue-400 text-[9px] ml-2 flex-shrink-0">{itemCount} variants</span>
+                          )}
+                        </div>
+                      );
+                    })}
                 </div>
-              ))
-            ) : (
-              <div className="text-[9px] text-gray-500 italic">No recent updates</div>
-            )}
-          </div>
+              </div>
+
+              {/* Updated Items */}
+              <div>
+                <h4 className="text-[9px] font-bold text-gray-500 uppercase mb-1.5 tracking-wide">Updated Items</h4>
+                <div className="space-y-1">
+                  {recentItems.slice(0, 4).map((item) => (
+                    <div 
+                      key={item.id} 
+                      onClick={() => onItemClick?.('inventory', item.inventoryId)}
+                      className="flex justify-between items-center text-[10px] hover-elevate rounded px-2 py-0.5 cursor-pointer"
+                      data-testid={`recent-update-${item.id}`}
+                    >
+                      <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                        <div className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />
+                        <span className="text-gray-400 font-mono flex-shrink-0">{item.itemNo}</span>
+                        <span className="text-gray-500 truncate text-[9px]">{item.colorName || 'N/A'}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 ml-2 flex-shrink-0">
+                        <span className="text-gray-600 text-[9px]">{formatDistanceToNow(new Date(item.updatedAt), { addSuffix: true })}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-[9px] text-gray-500 italic">No recent updates</div>
+          )}
         </div>
       </div>
     </div>
