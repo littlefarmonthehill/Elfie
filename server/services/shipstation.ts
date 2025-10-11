@@ -46,23 +46,56 @@ function extractMarketplace(order: any): string | null {
     return order.advancedOptions.customField1;
   }
   
-  // Try to extract from orderKey prefix (e.g., "EBAY-123456")
-  if (order.orderKey) {
-    const match = order.orderKey.match(/^([A-Z]+)-/);
-    if (match) {
-      return match[1];
-    }
-  }
-  
-  // Try to infer from orderNumber patterns
+  // Try to extract from orderNumber prefix patterns (most common in this system)
   if (order.orderNumber) {
-    // BrickLink orders often start with specific patterns
+    // BrickLink orders: "BL.1234567"
+    if (order.orderNumber.match(/^BL\./i)) {
+      return 'BrickLink';
+    }
+    // BrickOwl orders: "BO.1234567"
+    if (order.orderNumber.match(/^BO\./i)) {
+      return 'BrickOwl';
+    }
+    // LBS prefix (eBay or local business store)
+    if (order.orderNumber.match(/^LBS/i)) {
+      return 'eBay';
+    }
+    // BrickLink orders: 7-8 digit numeric pattern (legacy format)
     if (order.orderNumber.match(/^\d{7,8}$/)) {
       return 'BrickLink';
     }
-    // eBay order numbers are typically longer
+    // Amazon order numbers: typically 3 sets of digits separated by hyphens
+    if (order.orderNumber.match(/^\d{3}-\d{7}-\d{7}$/)) {
+      return 'Amazon';
+    }
+    // eBay order numbers: typically 2 sets of 5 digits separated by hyphen
     if (order.orderNumber.match(/^\d{2}-\d{5}-\d{5}$/)) {
       return 'eBay';
+    }
+  }
+  
+  // Try to extract from orderKey prefix (e.g., "EBAY-123456", "AMZN-123456")
+  if (order.orderKey) {
+    // BrickLink: "BL.1234567"
+    if (order.orderKey.match(/^BL\./i)) {
+      return 'BrickLink';
+    }
+    // BrickOwl: "BO.1234567"
+    if (order.orderKey.match(/^BO\./i)) {
+      return 'BrickOwl';
+    }
+    // Standard platform prefixes with hyphen
+    const match = order.orderKey.match(/^([A-Z]+)-/);
+    if (match) {
+      const prefix = match[1].toUpperCase();
+      const platformMap: { [key: string]: string } = {
+        'EBAY': 'eBay',
+        'AMZN': 'Amazon',
+        'ETSY': 'Etsy',
+        'FB': 'Facebook Marketplace',
+        'SHOPIFY': 'Shopify',
+      };
+      return platformMap[prefix] || prefix;
     }
   }
   
@@ -70,23 +103,27 @@ function extractMarketplace(order: any): string | null {
   return null;
 }
 
-export async function syncShipStationOrders(): Promise<ShipStationSyncResult> {
+export async function syncShipStationOrders(fullSync: boolean = false): Promise<ShipStationSyncResult> {
   const syncId = 'shipstation_orders';
   
   try {
-    console.log('Starting ShipStation orders sync...');
+    console.log(`Starting ShipStation orders sync (${fullSync ? 'FULL' : 'incremental'})...`);
     
     // Check for existing sync metadata to determine if we should do full or incremental sync
     const [metadata] = await db.select().from(syncMetadata).where(eq(syncMetadata.id, syncId)).limit(1);
     
     let modifyDateStart: string;
     
-    if (!metadata || !metadata.lastSyncTime) {
-      // No previous sync or first time - do full historical sync (10 years)
+    if (!metadata || !metadata.lastSyncTime || fullSync) {
+      // No previous sync, first time, or forced full sync - do full historical sync (10 years)
       const tenYearsAgo = new Date();
       tenYearsAgo.setFullYear(tenYearsAgo.getFullYear() - 10);
       modifyDateStart = tenYearsAgo.toISOString();
-      console.log('No previous sync found - performing full historical sync from:', modifyDateStart);
+      if (fullSync) {
+        console.log('FULL SYNC requested - performing complete historical sync from:', modifyDateStart);
+      } else {
+        console.log('No previous sync found - performing full historical sync from:', modifyDateStart);
+      }
     } else {
       // Incremental sync - fetch only orders modified since last successful sync
       // PostgreSQL returns timestamps as strings, so convert to Date first
@@ -188,13 +225,21 @@ export async function syncShipStationOrders(): Promise<ShipStationSyncResult> {
       }
     }
 
-    // Update orders where status changed or marketplace is missing
+    // Update orders where status changed, marketplace is missing, or during full sync
     for (const order of ordersToCheck) {
       const orderId = order.orderId.toString();
       const existing = existingOrdersMap.get(orderId);
       const marketplace = extractMarketplace(order);
       
-      if (existing && (existing.orderStatus !== order.orderStatus || !existing.customerUsername || !existing.marketplace)) {
+      // Update if: status changed, missing data, or full sync with new marketplace value
+      const shouldUpdate = existing && (
+        existing.orderStatus !== order.orderStatus || 
+        !existing.customerUsername || 
+        !existing.marketplace ||
+        (fullSync && marketplace && marketplace !== existing.marketplace)
+      );
+      
+      if (shouldUpdate) {
         await db.update(orders)
           .set({ 
             orderStatus: order.orderStatus,
@@ -207,7 +252,7 @@ export async function syncShipStationOrders(): Promise<ShipStationSyncResult> {
         ordersUpdated++;
       }
     }
-    console.log(`Updated ${ordersUpdated} orders with status changes`);
+    console.log(`Updated ${ordersUpdated} orders${fullSync ? ' (full sync mode)' : ' with status changes'}`);
 
     // Process order details for all orders
     const allItems: any[] = [];

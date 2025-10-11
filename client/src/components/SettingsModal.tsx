@@ -258,7 +258,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
     });
   };
 
-  const handleSyncOrders = async () => {
+  const handleSyncOrders = async (fullSync: boolean = false) => {
     setSyncProgress({
       active: true,
       type: 'orders',
@@ -272,19 +272,21 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
     await new Promise(resolve => setTimeout(resolve, 300));
     setSyncProgress(prev => ({
       ...prev,
-      stage: 'Checking for new/updated orders (incremental sync)...',
+      stage: fullSync 
+        ? 'Performing FULL sync (all orders from last 10 years)...' 
+        : 'Checking for new/updated orders (incremental sync)...',
       progress: 40,
     }));
 
     await new Promise(resolve => setTimeout(resolve, 400));
     setSyncProgress(prev => ({
       ...prev,
-      stage: 'Processing orders & order details...',
+      stage: 'Processing orders & extracting marketplace data...',
       progress: 60,
     }));
 
     try {
-      const response = await fetch('/api/sync/shipstation/orders', {
+      const response = await fetch(`/api/sync/shipstation/orders?fullSync=${fullSync}`, {
         method: 'POST',
       });
 
@@ -625,12 +627,23 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                       variant="outline" 
                       size="sm" 
                       className="w-full justify-start text-xs" 
-                      onClick={handleSyncOrders}
+                      onClick={() => handleSyncOrders(false)}
                       disabled={syncProgress.active}
                       data-testid="button-sync-shipstation-orders"
                     >
                       <RefreshCw className={`h-3 w-3 mr-2 ${syncProgress.active && syncProgress.type === 'orders' ? 'animate-spin' : ''}`} />
-                      Sync ShipStation Orders
+                      Sync ShipStation Orders (Incremental)
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full justify-start text-xs" 
+                      onClick={() => handleSyncOrders(true)}
+                      disabled={syncProgress.active}
+                      data-testid="button-sync-shipstation-orders-full"
+                    >
+                      <RefreshCw className={`h-3 w-3 mr-2 ${syncProgress.active && syncProgress.type === 'orders' ? 'animate-spin' : ''}`} />
+                      Full Sync (Re-extract Marketplace)
                     </Button>
                   </div>
                 </div>

@@ -1636,10 +1636,13 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
 
   app.post("/api/sync/shipstation/orders", async (req, res) => {
     try {
-      const result = await syncShipStationOrders();
+      // Check for fullSync query parameter
+      const fullSync = req.query.fullSync === 'true' || req.body.fullSync === true;
+      const result = await syncShipStationOrders(fullSync);
       res.json({
         success: true,
         data: result,
+        syncType: fullSync ? 'full' : 'incremental',
       });
     } catch (error) {
       console.error("ShipStation sync error:", error);
