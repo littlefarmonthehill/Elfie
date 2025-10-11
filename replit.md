@@ -11,14 +11,14 @@ Preferred communication style: Simple, everyday language.
 ### Frontend
 - **Technology Stack:** React 18+ with TypeScript, Vite, Wouter, TanStack Query, Shadcn/ui (Radix UI), and Tailwind CSS.
 - **Design System:** Dark mode with jet black backgrounds and a LEGO-themed color palette (Red, Blue, Orange, Yellow, Green). Typography uses Inter/Roboto for UI and JetBrains Mono for metrics, with a focus on compact spacing and gradient backgrounds.
-- **Component Architecture:** Features a modular dashboard with tab-based navigation, reusable metric cards, drawer-based detail modals, and a purple/violet themed AI chat interface. The design is responsive, including dynamic overflow management for iOS keyboard compatibility.
+- **Component Architecture:** Features a modular dashboard with tab-based navigation, reusable metric cards, drawer-based detail modals, and a purple/violet themed AI chat interface. The design is responsive, including dynamic overflow management for iOS keyboard compatibility and optimized chart rendering for mobile displays (3px dots on sales charts for long date ranges).
 
 ### Backend
 - **Server Framework:** Express.js with TypeScript and Node.js, utilizing ESM modules.
 - **Database Layer:** Drizzle ORM with Neon serverless PostgreSQL, and `ws` for WebSockets.
 - **API Design:** RESTful endpoints (`/api`) handle data operations and integrations, including syncs for BrickLink and ShipStation. User management for development uses in-memory storage.
 - **Data Storage:** The schema includes tables for `users`, `bl_categories`, `bl_colors`, `bl_inventory`, `orders` (with `marketplace` field for selling platform tracking), `order_details`, and `sync_metadata`.
-- **Sync Architecture:** Optimized batch operations and incremental synchronization for BrickLink (1000-item batches, selective updates) and ShipStation (fetching orders modified since the last sync). A `sync_metadata` table tracks sync status and performance.
+- **Sync Architecture:** Optimized batch operations and incremental synchronization for BrickLink (1000-item batches, selective updates) and ShipStation (fetching orders modified since the last sync). A `sync_metadata` table tracks sync status and performance. Full sync option available for re-processing all historical orders (10 years) to update marketplace extraction.
 - **Settings Management:** Global application settings (AI enablement, API keys, AI model) are stored in a single-row `app_settings` PostgreSQL table.
 - **Authentication:** Basic username/password authentication with UUID-based user IDs is implemented, with future plans for session-based authentication and secure password hashing.
 
@@ -27,6 +27,7 @@ Preferred communication style: Simple, everyday language.
 - **Context & Memory:** Utilizes `localStorage` and a `conversations` table for persistent memory, injecting context into system prompts.
 - **Context-Aware Responses:** Provides summary prompts for dashboard insights across Inventory, Orders, Sales, and Marketing.
 - **Direct Database Access:** Queries `bl_inventory` and `orders` tables based on user input, supporting part numbers and multi-keyword searches, and formatting results into system prompts.
+- **Smart Search:** Category-based search prioritizes theme/category matches (e.g., searching "potter" finds all Harry Potter items) before falling back to keyword search across item fields. Results populate both AI context and grouped display.
 - **Interactive Features:** Responses are formatted in markdown with clickable part numbers (opening detail modals) and BrickLink URLs (opening sandboxed iframe dialogs). Inventory displays are grouped with actual LEGO brick colors, proper column alignment, and full-row clickability.
 - **BrickLink Catalog Integration:** When items aren't found in local inventory, Elfie suggests checking the BrickLink catalog. Upon user confirmation ("yes", "sure", etc.), searches BrickLink API (tries SET then PART types) and opens catalog item in the detail modal instead of showing text. Modal displays item name, number, type, category, weight, year released, and is clearly labeled as "BrickLink Catalog Item" to distinguish from local inventory. Uses sessionStorage to pass catalog data to modal.
 - **Response Principles:** Focuses on concise answers, markdown formatting, inclusion of BrickLink links, avoidance of hallucination, and offers strategic advice when requested.
@@ -53,8 +54,9 @@ Preferred communication style: Simple, everyday language.
 - **Sales Dashboard Integration:** Located in the Sales tab after Key Metrics section.
 - **Marketplace Tracking:** Orders are automatically tagged with selling platform:
   - Extraction methods: `advancedOptions.source`, order key prefixes, order number patterns
-  - Supported platforms: BrickLink, eBay, Amazon, Etsy, Facebook Marketplace, and more
-  - Graceful fallback to "Unknown" when platform cannot be determined
+  - Supported platforms: BrickLink (BL. prefix, 7-8 digit numeric), BrickOwl (BO. prefix), eBay (LBS prefix), Amazon, Etsy, Facebook Marketplace, and more
+  - Improved extraction logic identifies ~91% of orders; graceful fallback to "Unknown" when platform cannot be determined
+  - Full sync option available to re-extract marketplace for all historical orders
 - **Visualizations:**
   - Bar chart showing revenue by marketplace (color-coded by platform)
   - Platform breakdown cards displaying: revenue, order count, percentage of total, average order value
