@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { orders, orderDetails } from "@shared/schema";
+import { orders, orderDetails, syncMetadata } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
 export interface ShipStationSyncResult {
@@ -35,15 +35,42 @@ async function shipStationRequest(endpoint: string): Promise<any> {
 }
 
 export async function syncShipStationOrders(): Promise<ShipStationSyncResult> {
+  const syncId = 'shipstation_orders';
+  
   try {
     console.log('Starting ShipStation orders sync...');
     
-    // For complete historical sync, use a date far in the past (10 years)
-    // ShipStation API requires modifyDateStart parameter
-    // In production, store lastSyncTime in DB and use it for incremental syncs
-    const tenYearsAgo = new Date();
-    tenYearsAgo.setFullYear(tenYearsAgo.getFullYear() - 10);
-    const modifyDateStart = tenYearsAgo.toISOString();
+    // Check for existing sync metadata to determine if we should do full or incremental sync
+    const [metadata] = await db.select().from(syncMetadata).where(eq(syncMetadata.id, syncId)).limit(1);
+    
+    let modifyDateStart: string;
+    
+    if (!metadata || !metadata.lastSyncTime) {
+      // No previous sync or first time - do full historical sync (10 years)
+      const tenYearsAgo = new Date();
+      tenYearsAgo.setFullYear(tenYearsAgo.getFullYear() - 10);
+      modifyDateStart = tenYearsAgo.toISOString();
+      console.log('No previous sync found - performing full historical sync from:', modifyDateStart);
+    } else {
+      // Incremental sync - fetch only orders modified since last successful sync
+      // PostgreSQL returns timestamps as strings, so convert to Date first
+      const lastSync = new Date(metadata.lastSyncTime);
+      modifyDateStart = lastSync.toISOString();
+      console.log('Previous sync found - performing incremental sync from:', modifyDateStart);
+    }
+    
+    // Mark sync as in progress
+    if (metadata) {
+      await db.update(syncMetadata)
+        .set({ lastSyncStatus: 'in_progress', updatedAt: new Date() })
+        .where(eq(syncMetadata.id, syncId));
+    } else {
+      await db.insert(syncMetadata).values({
+        id: syncId,
+        lastSyncTime: null,
+        lastSyncStatus: 'in_progress',
+      });
+    }
     
     let allOrders: any[] = [];
     let currentPage = 1;
@@ -67,6 +94,21 @@ export async function syncShipStationOrders(): Promise<ShipStationSyncResult> {
     console.log(`Received ${allOrders.length} total orders from ShipStation API`);
     
     if (allOrders.length === 0) {
+      console.log('No orders to sync - updating metadata and returning');
+      
+      // Update sync metadata even when no orders found (to mark successful completion)
+      const now = new Date();
+      await db.update(syncMetadata)
+        .set({
+          lastSyncTime: now,
+          lastSyncStatus: 'success',
+          recordsAdded: 0,
+          recordsUpdated: 0,
+          errorMessage: null,
+          updatedAt: now,
+        })
+        .where(eq(syncMetadata.id, syncId));
+      
       return { ordersAdded: 0, ordersUpdated: 0, orderDetailsAdded: 0, totalApiCalls: apiCalls };
     }
 
@@ -190,6 +232,21 @@ export async function syncShipStationOrders(): Promise<ShipStationSyncResult> {
 
     console.log(`ShipStation sync complete: ${ordersAdded} orders added, ${ordersUpdated} orders updated, ${orderDetailsAdded} items added`);
 
+    // Update sync metadata with successful sync
+    const now = new Date();
+    await db.update(syncMetadata)
+      .set({
+        lastSyncTime: now,
+        lastSyncStatus: 'success',
+        recordsAdded: ordersAdded,
+        recordsUpdated: ordersUpdated,
+        errorMessage: null,
+        updatedAt: now,
+      })
+      .where(eq(syncMetadata.id, syncId));
+
+    console.log(`Sync metadata updated - next incremental sync will start from: ${now.toISOString()}`);
+
     return {
       ordersAdded,
       ordersUpdated,
@@ -198,6 +255,20 @@ export async function syncShipStationOrders(): Promise<ShipStationSyncResult> {
     };
   } catch (error) {
     console.error('Error syncing ShipStation orders:', error);
+    
+    // Update sync metadata with failure
+    try {
+      await db.update(syncMetadata)
+        .set({
+          lastSyncStatus: 'failed',
+          errorMessage: error instanceof Error ? error.message : String(error),
+          updatedAt: new Date(),
+        })
+        .where(eq(syncMetadata.id, syncId));
+    } catch (metadataError) {
+      console.error('Failed to update sync metadata:', metadataError);
+    }
+    
     throw error;
   }
 }
