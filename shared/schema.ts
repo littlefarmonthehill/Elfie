@@ -98,6 +98,7 @@ export const orders = pgTable("orders", {
   id: varchar("id").primaryKey(),
   orderNumber: text("order_number").notNull(),
   orderKey: text("order_key"),
+  marketplace: text("marketplace"), // Selling platform (BrickLink, eBay, Amazon, etc.)
   orderDate: timestamp("order_date").notNull(),
   orderStatus: text("order_status").notNull(),
   customerUsername: text("customer_username"),

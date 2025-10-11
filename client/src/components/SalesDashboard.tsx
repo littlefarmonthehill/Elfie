@@ -3,6 +3,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { format, subMonths, startOfMonth, parseISO } from "date-fns";
 import { TrendingUp, DollarSign, Target } from "lucide-react";
 import { DateRangeValue } from "./DateRangeSelector";
+import PlatformPerformance from "./PlatformPerformance";
 
 type TimePeriod = 'mtd' | 'ytd' | '1y' | '5y';
 
@@ -15,6 +16,7 @@ interface SalesDashboardProps {
 interface Order {
   id: string;
   orderNumber: string;
+  marketplace: string | null;
   orderDate: string;
   orderStatus: string;
   orderTotal: string;
@@ -197,6 +199,11 @@ export default function SalesDashboard({ period, dateRange = 'all', onItemClick 
             <div className="text-xs text-lego-green font-mono">${Math.round(totalRevenue).toLocaleString()}</div>
           </div>
         </div>
+      </div>
+
+      {/* Platform Performance */}
+      <div className="bg-gray-900/50 border border-blue-500/20 rounded-lg p-3" data-testid="section-platform-performance">
+        <PlatformPerformance orders={orders} />
       </div>
     </div>
   );

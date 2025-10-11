@@ -34,6 +34,42 @@ async function shipStationRequest(endpoint: string): Promise<any> {
   return await response.json();
 }
 
+// Helper function to extract marketplace/platform from ShipStation order data
+function extractMarketplace(order: any): string | null {
+  // Try to extract from advancedOptions.source first (most reliable)
+  if (order.advancedOptions?.source) {
+    return order.advancedOptions.source;
+  }
+  
+  // Try to extract from advancedOptions.billToParty or customField1 (some stores use these)
+  if (order.advancedOptions?.customField1) {
+    return order.advancedOptions.customField1;
+  }
+  
+  // Try to extract from orderKey prefix (e.g., "EBAY-123456")
+  if (order.orderKey) {
+    const match = order.orderKey.match(/^([A-Z]+)-/);
+    if (match) {
+      return match[1];
+    }
+  }
+  
+  // Try to infer from orderNumber patterns
+  if (order.orderNumber) {
+    // BrickLink orders often start with specific patterns
+    if (order.orderNumber.match(/^\d{7,8}$/)) {
+      return 'BrickLink';
+    }
+    // eBay order numbers are typically longer
+    if (order.orderNumber.match(/^\d{2}-\d{5}-\d{5}$/)) {
+      return 'eBay';
+    }
+  }
+  
+  // Default to null if we can't determine
+  return null;
+}
+
 export async function syncShipStationOrders(): Promise<ShipStationSyncResult> {
   const syncId = 'shipstation_orders';
   
@@ -135,6 +171,7 @@ export async function syncShipStationOrders(): Promise<ShipStationSyncResult> {
           id: order.orderId.toString(),
           orderNumber: order.orderNumber,
           orderKey: order.orderKey,
+          marketplace: extractMarketplace(order),
           orderDate: new Date(order.orderDate),
           orderStatus: order.orderStatus,
           customerUsername: order.shipTo?.name || order.customerUsername || 'Unknown Customer',
@@ -151,15 +188,17 @@ export async function syncShipStationOrders(): Promise<ShipStationSyncResult> {
       }
     }
 
-    // Update orders where status changed
+    // Update orders where status changed or marketplace is missing
     for (const order of ordersToCheck) {
       const orderId = order.orderId.toString();
       const existing = existingOrdersMap.get(orderId);
+      const marketplace = extractMarketplace(order);
       
-      if (existing && (existing.orderStatus !== order.orderStatus || !existing.customerUsername)) {
+      if (existing && (existing.orderStatus !== order.orderStatus || !existing.customerUsername || !existing.marketplace)) {
         await db.update(orders)
           .set({ 
             orderStatus: order.orderStatus,
+            marketplace: marketplace || existing.marketplace,
             customerUsername: order.shipTo?.name || order.customerUsername || existing.customerUsername || 'Unknown Customer',
             customerEmail: order.customerEmail || existing.customerEmail,
             updatedAt: new Date() 
