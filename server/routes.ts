@@ -1088,36 +1088,75 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
           
           itemsFound.push(...items);
         } else if (searchKeywords.length > 0) {
-          // Search across ALL fields with OR conditions for each keyword
-          const itemConditions = searchKeywords.flatMap(keyword => {
-            const pattern = `%${keyword}%`;
-            return [
-              like(blInventory.itemNo, pattern),
-              like(blInventory.itemType, pattern),
-              like(blInventory.itemName, pattern),
-              like(blInventory.remarks, pattern),
-              like(blInventory.description, pattern)
-            ];
-          });
+          // First try category/theme search
+          const categoryConditions = [
+            ...searchKeywords.map(keyword => sql`${blCategories.name} ILIKE ${'%' + keyword + '%'}`),
+            sql`${blCategories.name} ILIKE ${'%' + searchKeywords.join(' ') + '%'}`,
+          ];
           
-          const items = await db
+          const categoryMatches = await db
             .select({
-              id: blInventory.id,
-              itemNo: blInventory.itemNo,
-              itemName: blInventory.itemName,
-              colorId: blInventory.colorId,
-              colorName: blColors.name,
-              colorRgb: blColors.rgb,
-              quantity: blInventory.quantity,
-              unitPrice: blInventory.unitPrice,
-              newOrUsed: blInventory.newOrUsed,
+              id: blCategories.id,
+              name: blCategories.name,
             })
-            .from(blInventory)
-            .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
-            .where(or(...itemConditions))
-            .limit(50);
+            .from(blCategories)
+            .where(or(...categoryConditions))
+            .limit(10);
           
-          itemsFound.push(...items);
+          if (categoryMatches.length > 0) {
+            // Found matching categories - get items by category
+            const categoryIds = categoryMatches.map(cat => cat.id);
+            const items = await db
+              .select({
+                id: blInventory.id,
+                itemNo: blInventory.itemNo,
+                itemName: blInventory.itemName,
+                colorId: blInventory.colorId,
+                colorName: blColors.name,
+                colorRgb: blColors.rgb,
+                quantity: blInventory.quantity,
+                unitPrice: blInventory.unitPrice,
+                newOrUsed: blInventory.newOrUsed,
+              })
+              .from(blInventory)
+              .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+              .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
+              .where(inArray(blInventory.categoryId, categoryIds))
+              .limit(50);
+            
+            itemsFound.push(...items);
+          } else {
+            // No category match - search across item fields
+            const itemConditions = searchKeywords.flatMap(keyword => {
+              const pattern = `%${keyword}%`;
+              return [
+                like(blInventory.itemNo, pattern),
+                like(blInventory.itemType, pattern),
+                like(blInventory.itemName, pattern),
+                like(blInventory.remarks, pattern),
+                like(blInventory.description, pattern)
+              ];
+            });
+            
+            const items = await db
+              .select({
+                id: blInventory.id,
+                itemNo: blInventory.itemNo,
+                itemName: blInventory.itemName,
+                colorId: blInventory.colorId,
+                colorName: blColors.name,
+                colorRgb: blColors.rgb,
+                quantity: blInventory.quantity,
+                unitPrice: blInventory.unitPrice,
+                newOrUsed: blInventory.newOrUsed,
+              })
+              .from(blInventory)
+              .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+              .where(or(...itemConditions))
+              .limit(50);
+            
+            itemsFound.push(...items);
+          }
         }
       }
       

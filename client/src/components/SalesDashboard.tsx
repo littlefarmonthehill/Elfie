@@ -147,7 +147,7 @@ export default function SalesDashboard({ period, dateRange = 'all', onItemClick 
               contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151', borderRadius: '6px', fontSize: '12px' }}
               labelStyle={{ color: '#D1D5DB' }}
             />
-            <Line type="monotone" dataKey="sales" stroke="hsl(140 70% 50%)" strokeWidth={2} dot={{ fill: 'hsl(140 70% 50%)' }} />
+            <Line type="monotone" dataKey="sales" stroke="hsl(140 70% 50%)" strokeWidth={2} dot={{ fill: 'hsl(140 70% 50%)', r: 3 }} />
           </LineChart>
         </ResponsiveContainer>
       </div>
