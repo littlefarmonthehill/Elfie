@@ -400,64 +400,16 @@ export default function Home() {
   };
 
   const handleItemClick = async (type: 'inventory' | 'order' | 'sales' | 'marketing', id: string) => {
-    // Generate mock detail data based on type and id
+    // Use the unified dashboard item click handler for inventory and orders
+    if (type === 'inventory' || type === 'order') {
+      await handleDashboardItemClick(type, id);
+      return;
+    }
+
+    // Generate mock detail data for sales/marketing only
     let detailData: any = {};
 
-    if (type === 'inventory') {
-      // Check if this is a real database ID (numeric) or mock ID (contains dash)
-      if (!id.includes('-') && !isNaN(Number(id))) {
-        // Real database ID - fetch from dedicated endpoint
-        try {
-          const response = await fetch(`/api/inventory/${id}`);
-          if (!response.ok) {
-            console.error('Item not found:', id);
-            return;
-          }
-          
-          const item = await response.json();
-          detailData = {
-            partNumber: item.itemNo,
-            name: `${item.itemType} ${item.itemNo}`,
-            category: item.categoryName || 'Unknown',
-            color: item.colorName || 'No Color',
-            quantity: item.quantity,
-            condition: item.newOrUsed === 'N' ? 'New' : 'Used',
-            costPerUnit: 0, // BrickLink API doesn't provide cost
-            pricePerUnit: parseFloat(item.unitPrice) || 0,
-            weight: 0, // Not available in current data
-            dateAdded: new Date(item.updatedAt).toISOString().split('T')[0],
-            bricklinkUrl: `https://www.bricklink.com/v2/catalog/catalogitem.page?P=${item.itemNo}`,
-          };
-        } catch (error) {
-          console.error('Error fetching inventory item:', error);
-          return;
-        }
-      } else {
-        // Mock inventory detail data (old format)
-        const colors = ['Black', 'Red', 'Blue'];
-        const colorData = id.split('-')[1];
-        if (!colorData) {
-          console.error('Invalid mock ID format:', id);
-          return;
-        }
-        detailData = {
-          partNumber: '3201',
-          name: 'Brick 2 x 4',
-          category: 'Brick',
-          color: colorData.charAt(0).toUpperCase() + colorData.slice(1),
-          quantity: colorData === 'black' ? 45 : colorData === 'red' ? 23 : 12,
-          condition: 'New' as const,
-          costPerUnit: 0.15,
-          pricePerUnit: 0.35,
-          weight: 0.08,
-          dateAdded: '2024-01-15',
-          bricklinkUrl: 'https://www.bricklink.com/v2/catalog/catalogitem.page?P=3201',
-        };
-      }
-    } else if (type === 'order') {
-      // Get order from mock database
-      detailData = mockOrderDatabase[id];
-    } else if (type === 'sales') {
+    if (type === 'sales') {
       detailData = {
         period: 'Year to Date',
         totalRevenue: 320450,
