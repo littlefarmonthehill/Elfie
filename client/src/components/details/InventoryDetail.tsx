@@ -429,188 +429,105 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
                         Price-o-Matic Calculation
                       </DialogTitle>
                     </DialogHeader>
-                    <div className="space-y-4 mt-4">
-                      {/* Calculation Steps */}
-                      <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 space-y-3">
-                        {(() => {
-                          // Calculate pricing components
-                          const basePremium = priceOMagic.premiumPercentage || 15;
-                          const stockLots = priceOMagic.stockTotalLots;
-                          let scarcityBonus = 0;
-                          
-                          // Calculate scarcity bonus based on supply
-                          if (stockLots !== null && stockLots !== undefined && typeof stockLots === 'number') {
-                            if (stockLots < 50) {
-                              scarcityBonus = 10;
-                            } else if (stockLots < 200) {
-                              scarcityBonus = 5;
-                            } else if (stockLots < 500) {
-                              scarcityBonus = 2;
-                            }
+                    <div className="space-y-3 mt-4">
+                      {(() => {
+                        // Calculate pricing components
+                        const basePremium = priceOMagic.premiumPercentage || 15;
+                        const stockLots = priceOMagic.stockTotalLots;
+                        let scarcityBonus = 0;
+                        
+                        // Calculate scarcity bonus based on supply
+                        if (stockLots !== null && stockLots !== undefined && typeof stockLots === 'number') {
+                          if (stockLots < 50) {
+                            scarcityBonus = 10;
+                          } else if (stockLots < 200) {
+                            scarcityBonus = 5;
+                          } else if (stockLots < 500) {
+                            scarcityBonus = 2;
                           }
-                          
-                          const marketBase = stockAvgPrice !== null ? stockAvgPrice : 0;
-                          const planetBrickPremium = marketBase * (basePremium / 100);
-                          const supplyAdjustment = marketBase * (scarcityBonus / 100);
-                          
-                          return (
-                            <>
-                              {/* Market Base */}
-                              <div>
-                                <p className="text-xs text-gray-400 mb-1">Market Base (Stock Average)</p>
-                                <p className="text-lg font-mono font-bold text-white">
-                                  ${marketBase.toFixed(3)}
-                                </p>
+                        }
+                        
+                        const marketBase = stockAvgPrice !== null ? stockAvgPrice : 0;
+                        const planetBrickPremium = marketBase * (basePremium / 100);
+                        const supplyAdjustment = marketBase * (scarcityBonus / 100);
+                        
+                        return (
+                          <>
+                            {/* Market Base with Context */}
+                            <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3">
+                              <p className="text-xs font-bold text-gray-400 mb-2">MARKET BASE PRICE</p>
+                              <p className="text-2xl font-mono font-black text-white mb-2">
+                                ${marketBase.toFixed(3)}
+                              </p>
+                              <div className="space-y-1 text-[10px]">
+                                {stockAvgPrice !== null && (
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-400">Current Stock Avg:</span>
+                                    <span className="font-mono text-blue-400">${stockAvgPrice.toFixed(3)}</span>
+                                  </div>
+                                )}
                                 {soldAvgPrice !== null && (
-                                  <p className="text-[9px] text-gray-500 mt-0.5">
-                                    Sold avg: ${soldAvgPrice.toFixed(3)}
-                                  </p>
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-400">Recent Sold Avg (6mo):</span>
+                                    <span className="font-mono text-green-400">${soldAvgPrice.toFixed(3)}</span>
+                                  </div>
+                                )}
+                                {priceOMagic.stockMinPrice && priceOMagic.stockMaxPrice && (
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-400">Market Range:</span>
+                                    <span className="font-mono text-gray-300">
+                                      ${parseFloat(priceOMagic.stockMinPrice).toFixed(2)} - ${parseFloat(priceOMagic.stockMaxPrice).toFixed(2)}
+                                    </span>
+                                  </div>
                                 )}
                               </div>
+                            </div>
+                            
+                            {/* PlanetBrick Premium + Stock Supply */}
+                            <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 space-y-2">
+                              <p className="text-xs font-bold text-gray-400 mb-1">PRICING ADJUSTMENTS</p>
                               
                               {/* PlanetBrick Premium */}
-                              <div className="border-t border-gray-700 pt-2">
-                                <p className="text-xs text-gray-400 mb-1">+ PlanetBrick Premium</p>
-                                <p className="text-lg font-mono font-bold text-purple-400">
-                                  +{basePremium}%
-                                </p>
-                                <p className="text-[10px] text-gray-500 mt-0.5">
-                                  ${planetBrickPremium.toFixed(3)}
-                                </p>
+                              <div className="flex justify-between items-center">
+                                <span className="text-xs text-gray-400">PlanetBrick Premium:</span>
+                                <div className="text-right">
+                                  <span className="text-sm font-mono font-bold text-purple-400">+{basePremium}%</span>
+                                  <span className="text-[10px] text-gray-500 ml-2">${planetBrickPremium.toFixed(3)}</span>
+                                </div>
                               </div>
                               
                               {/* Supply Impact */}
                               {scarcityBonus > 0 && (
-                                <div className="border-t border-gray-700 pt-2">
-                                  <p className="text-xs text-gray-400 mb-1">+ Supply Impact (Scarcity)</p>
-                                  <p className="text-lg font-mono font-bold text-orange-400">
-                                    +{scarcityBonus}%
-                                  </p>
-                                  <p className="text-[10px] text-gray-500 mt-0.5">
-                                    ${supplyAdjustment.toFixed(3)}
-                                  </p>
+                                <div className="flex justify-between items-center">
+                                  <span className="text-xs text-gray-400">Supply Impact:</span>
+                                  <div className="text-right">
+                                    <span className="text-sm font-mono font-bold text-orange-400">+{scarcityBonus}%</span>
+                                    <span className="text-[10px] text-gray-500 ml-2">${supplyAdjustment.toFixed(3)}</span>
+                                  </div>
                                 </div>
                               )}
-                              
-                              {/* Final Price */}
-                              <div className="border-t-2 border-purple-500/50 pt-2">
-                                <p className="text-xs text-gray-400 mb-1">= Final Suggested Price</p>
-                                <p className="text-2xl font-mono font-black text-purple-400">
-                                  ${suggestedPrice.toFixed(3)}
-                                </p>
-                                {priceOMagic.stockMinPrice && priceOMagic.stockMaxPrice && (
-                                  <p className="text-[9px] text-gray-500 mt-1">
-                                    Market range: ${parseFloat(priceOMagic.stockMinPrice).toFixed(2)} - ${parseFloat(priceOMagic.stockMaxPrice).toFixed(2)}
-                                  </p>
-                                )}
-                              </div>
-                            </>
-                          );
-                        })()}
-                      </div>
-
-                      {/* World Supply Analysis */}
-                      {priceOMagic.stockTotalLots !== null && priceOMagic.stockTotalLots !== undefined && (
-                        <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
-                          <p className="text-xs font-bold text-blue-400 mb-2 flex items-center gap-1">
-                            <Globe className="h-3.5 w-3.5" />
-                            WORLD SUPPLY ANALYSIS
-                          </p>
-                          <div className="space-y-2">
-                            <div className="flex justify-between items-center">
-                              <span className="text-xs text-gray-400">Available Listings:</span>
-                              <span className="font-mono font-bold text-white">{priceOMagic.stockTotalLots} lots</span>
                             </div>
                             
-                            {(() => {
-                              const lots = priceOMagic.stockTotalLots;
-                              let supplyLevel = '';
-                              let supplyImpact = 0;
-                              let supplyColor = '';
-                              
-                              if (lots < 50) {
-                                supplyLevel = 'Very Low Supply';
-                                supplyImpact = 10;
-                                supplyColor = 'text-red-400';
-                              } else if (lots < 200) {
-                                supplyLevel = 'Low Supply';
-                                supplyImpact = 5;
-                                supplyColor = 'text-orange-400';
-                              } else if (lots < 500) {
-                                supplyLevel = 'Medium Supply';
-                                supplyImpact = 2;
-                                supplyColor = 'text-yellow-400';
-                              } else {
-                                supplyLevel = 'High Supply';
-                                supplyImpact = 0;
-                                supplyColor = 'text-green-400';
-                              }
-                              
-                              return (
-                                <>
-                                  <div className="flex justify-between items-center">
-                                    <span className="text-xs text-gray-400">Supply Level:</span>
-                                    <span className={`text-xs font-bold ${supplyColor}`}>{supplyLevel}</span>
-                                  </div>
-                                  
-                                  {supplyImpact > 0 && (
-                                    <div className="bg-gray-900/50 rounded p-2 mt-2">
-                                      <div className="flex justify-between text-[10px]">
-                                        <span className="text-gray-400">Supply Impact:</span>
-                                        <span className={`font-mono font-bold ${supplyColor}`}>+{supplyImpact}%</span>
-                                      </div>
-                                    </div>
-                                  )}
-                                  
-                                  <p className="text-[9px] text-gray-500 mt-2 leading-relaxed">
-                                    {supplyImpact > 0 
-                                      ? `Limited availability (${lots} listings worldwide) adds a +${supplyImpact}% scarcity adjustment to help maximize profit.`
-                                      : `Abundant supply (${lots}+ listings) means competitive pricing without scarcity adjustment.`
-                                    }
-                                  </p>
-                                </>
-                              );
-                            })()}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Market Context */}
-                      <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-3">
-                        <p className="text-xs font-bold text-gray-400 mb-2">MARKET CONTEXT</p>
-                        <div className="space-y-2">
-                          {stockAvgPrice !== null && (
-                            <div className="flex justify-between text-xs">
-                              <span className="text-gray-400">Current Stock Avg:</span>
-                              <span className="font-mono text-blue-400">${stockAvgPrice.toFixed(3)}</span>
+                            {/* Final Suggested Price with Range */}
+                            <div className="bg-purple-500/10 border border-purple-500/50 rounded-lg p-3">
+                              <p className="text-xs text-gray-400 mb-1">SUGGESTED PRICE</p>
+                              <p className="text-3xl font-mono font-black text-purple-400 mb-2">
+                                ${suggestedPrice.toFixed(3)}
+                              </p>
+                              {priceOMagic.stockMinPrice && priceOMagic.stockMaxPrice && (
+                                <p className="text-[9px] text-gray-500 mb-2">
+                                  Market range: ${parseFloat(priceOMagic.stockMinPrice).toFixed(2)} - ${parseFloat(priceOMagic.stockMaxPrice).toFixed(2)}
+                                </p>
+                              )}
+                              <div className="pt-2 border-t border-purple-500/30">
+                                <p className="text-[9px] text-purple-300 font-mono">
+                                  Market Base + PlanetBrick Premium + Supply Impact
+                                </p>
+                              </div>
                             </div>
-                          )}
-                          {soldAvgPrice !== null && (
-                            <div className="flex justify-between text-xs">
-                              <span className="text-gray-400">Recent Sold Avg (6mo):</span>
-                              <span className="font-mono text-green-400">${soldAvgPrice.toFixed(3)}</span>
-                            </div>
-                          )}
-                          {priceOMagic.stockMinPrice && priceOMagic.stockMaxPrice && (
-                            <div className="flex justify-between text-xs">
-                              <span className="text-gray-400">Price Range:</span>
-                              <span className="font-mono text-gray-300">
-                                ${parseFloat(priceOMagic.stockMinPrice).toFixed(2)} - ${parseFloat(priceOMagic.stockMaxPrice).toFixed(2)}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Formula Explanation */}
-                      <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3">
-                        <p className="text-[10px] text-purple-300 font-mono">
-                          Market Base + PlanetBrick Premium + Supply Impact = Suggested Price
-                        </p>
-                        <p className="text-[10px] text-gray-400 mt-2">
-                          Price-o-Matic starts with current market data, adds your PlanetBrick premium (15%), then adjusts for supply scarcity (0-10%) to maximize profit.
-                        </p>
-                      </div>
+                          </>
+                        );
+                      })()}
                     </div>
                   </DialogContent>
                 </Dialog>
