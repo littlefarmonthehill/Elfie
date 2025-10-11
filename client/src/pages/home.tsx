@@ -21,7 +21,13 @@ export default function Home() {
   });
 
   const handleDashboardItemClick = async (type: 'order' | 'inventory', id: number | string) => {
-    // Fetch real data from API
+    // Open modal immediately with loading state
+    setDetailModal({
+      open: true,
+      data: { type, data: { id, loading: true } as any }
+    });
+
+    // Fetch real data from API in background
     if (type === 'order') {
       try {
         const response = await fetch(`/api/orders/${id}`);
@@ -71,7 +77,16 @@ export default function Home() {
         if (response.ok) {
           const inventoryData = await response.json();
           
-          // Fetch Price-O-Magic data
+          // Update modal with inventory data immediately
+          setDetailModal({
+            open: true,
+            data: { 
+              type: 'inventory', 
+              data: { ...inventoryData, loadingPriceOMagic: true }
+            }
+          });
+          
+          // Fetch Price-O-Magic data in background
           const priceGuideUrl = `/api/inventory/price-guide/${inventoryData.itemNo}/${inventoryData.itemType}${
             inventoryData.colorId ? `?color_id=${inventoryData.colorId}` : ''
           }`;
@@ -85,7 +100,8 @@ export default function Home() {
           
           const finalData = {
             ...inventoryData,
-            priceOMagic: priceOMagicData
+            priceOMagic: priceOMagicData,
+            loadingPriceOMagic: false
           };
           
           setDetailModal({

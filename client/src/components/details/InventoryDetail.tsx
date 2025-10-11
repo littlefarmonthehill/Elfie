@@ -60,36 +60,38 @@ interface AnalyticsData {
 interface InventoryDetailProps {
   data: {
     id: number;
-    itemNo: string;
-    itemName: string | null;
-    itemType: string;
-    colorId: number | null;
-    colorName: string | null;
-    colorRgb: string | null;
-    categoryId: number | null;
-    categoryName: string | null;
-    quantity: number;
-    newOrUsed: string;
-    completeness: string | null;
-    unitPrice: string;
-    myCost: string | null;
-    bindId: number | null;
-    description: string | null;
-    remarks: string | null;
-    bulk: number | null;
-    isRetain: boolean | null;
-    isStockRoom: boolean | null;
-    stockRoomId: string | null;
-    dateCreated: string | null;
-    saleRate: number | null;
-    tierPrice1: string | null;
-    tierPrice2: string | null;
-    tierPrice3: string | null;
-    tierQuantity1: number | null;
-    tierQuantity2: number | null;
-    tierQuantity3: number | null;
-    myWeight: string | null;
-    updatedAt: string | null;
+    loading?: boolean;
+    loadingPriceOMagic?: boolean;
+    itemNo?: string;
+    itemName?: string | null;
+    itemType?: string;
+    colorId?: number | null;
+    colorName?: string | null;
+    colorRgb?: string | null;
+    categoryId?: number | null;
+    categoryName?: string | null;
+    quantity?: number;
+    newOrUsed?: string;
+    completeness?: string | null;
+    unitPrice?: string;
+    myCost?: string | null;
+    bindId?: number | null;
+    description?: string | null;
+    remarks?: string | null;
+    bulk?: number | null;
+    isRetain?: boolean | null;
+    isStockRoom?: boolean | null;
+    stockRoomId?: string | null;
+    dateCreated?: string | null;
+    saleRate?: number | null;
+    tierPrice1?: string | null;
+    tierPrice2?: string | null;
+    tierPrice3?: string | null;
+    tierQuantity1?: number | null;
+    tierQuantity2?: number | null;
+    tierQuantity3?: number | null;
+    myWeight?: string | null;
+    updatedAt?: string | null;
     priceOMagic?: PriceOMagicData | null;
   };
 }
@@ -103,6 +105,8 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
   // Fetch analytics data
   useEffect(() => {
     const fetchAnalytics = async () => {
+      if (data.loading) return; // Don't fetch if still loading main data
+      
       setLoadingAnalytics(true);
       try {
         const response = await fetch(`/api/inventory/${data.id}/analytics`);
@@ -118,15 +122,50 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
     };
 
     fetchAnalytics();
-  }, [data.id]);
+  }, [data.id, data.loading]);
+
+  // Show loading skeleton
+  if (data.loading) {
+    return (
+      <div className="flex flex-col h-full" data-testid="inventory-detail-loading">
+        {/* Header skeleton */}
+        <div className="flex-shrink-0 bg-gradient-to-r from-lego-blue/15 via-lego-blue/5 to-transparent border border-lego-blue/30 rounded-lg p-3 mb-3">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0 w-24 h-24 bg-gray-800 rounded-lg border border-gray-700 animate-pulse"></div>
+            <div className="flex-1 space-y-2">
+              <div className="h-6 bg-gray-800 rounded w-3/4 animate-pulse"></div>
+              <div className="h-4 bg-gray-800 rounded w-1/2 animate-pulse"></div>
+              <div className="flex gap-2 mt-2">
+                <div className="h-5 w-16 bg-gray-800 rounded animate-pulse"></div>
+                <div className="h-5 w-20 bg-gray-800 rounded animate-pulse"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Tab skeleton */}
+        <div className="flex-shrink-0 mb-3">
+          <div className="h-8 bg-gray-800 rounded animate-pulse"></div>
+        </div>
+        
+        {/* Content skeleton */}
+        <div className="flex-1 space-y-3">
+          <div className="h-24 bg-gray-800/30 border border-gray-700 rounded-lg animate-pulse"></div>
+          <div className="h-24 bg-gray-800/30 border border-gray-700 rounded-lg animate-pulse"></div>
+          <div className="h-24 bg-gray-800/30 border border-gray-700 rounded-lg animate-pulse"></div>
+        </div>
+      </div>
+    );
+  }
   const currentPrice = data.unitPrice ? parseFloat(data.unitPrice) : 0;
   const myCost = data.myCost ? parseFloat(data.myCost) : null;
   const suggestedPrice = priceOMagic ? parseFloat(priceOMagic.suggestedPrice) : null;
   const stockAvgPrice = priceOMagic?.stockAvgPrice ? parseFloat(priceOMagic.stockAvgPrice) : null;
   const soldAvgPrice = priceOMagic?.soldAvgPrice ? parseFloat(priceOMagic.soldAvgPrice) : null;
   
-  const totalValue = data.quantity * currentPrice;
-  const profit = myCost !== null && myCost > 0 ? (currentPrice - myCost) * data.quantity : null;
+  const quantity = data.quantity ?? 0;
+  const totalValue = quantity * currentPrice;
+  const profit = myCost !== null && myCost > 0 ? (currentPrice - myCost) * quantity : null;
   const profitMargin = myCost !== null && myCost > 0 && currentPrice > 0 ? ((currentPrice - myCost) / currentPrice * 100) : null;
   
   // BrickLink URL
@@ -331,8 +370,19 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
 
           {/* Pricing Tab */}
           <TabsContent value="pricing" className="mt-0 space-y-2.5">
+            {/* Loading skeleton for Price-O-Magic */}
+            {data.loadingPriceOMagic && (
+              <div className="bg-gradient-to-br from-purple-500/20 to-purple-500/5 border-2 border-purple-500/50 rounded-lg p-3" data-testid="price-o-magic-loading">
+                <div className="flex items-center gap-2 mb-2">
+                  <Sparkles className="h-4 w-4 text-purple-400 animate-pulse" />
+                  <div className="h-4 bg-purple-800 rounded w-24 animate-pulse"></div>
+                </div>
+                <div className="h-24 bg-purple-900/20 rounded animate-pulse"></div>
+              </div>
+            )}
+            
             {/* Price-O-Magic Section */}
-            {priceOMagic && suggestedPrice !== null && (
+            {!data.loadingPriceOMagic && priceOMagic && suggestedPrice !== null && (
               <div className="bg-gradient-to-br from-purple-500/20 to-purple-500/5 border-2 border-purple-500/50 rounded-lg p-3">
                 <div className="flex items-center gap-2 mb-2">
                   <Sparkles className="h-4 w-4 text-purple-400" />
@@ -426,7 +476,7 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
             )}
 
             {/* Sale Rate */}
-            {data.saleRate !== null && data.saleRate > 0 && (
+            {data.saleRate !== undefined && data.saleRate !== null && data.saleRate > 0 && (
               <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-2.5">
                 <p className="text-[10px] font-bold text-gray-400 mb-1">SALE DISCOUNT</p>
                 <p className="text-xl font-black font-mono text-red-400">{data.saleRate}% OFF</p>

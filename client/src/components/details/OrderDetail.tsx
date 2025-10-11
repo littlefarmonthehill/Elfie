@@ -4,11 +4,13 @@ import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
 interface OrderDetailProps {
   data: {
-    orderId: string;
-    orderNumber: string;
-    platform: 'BrickLink' | 'BrickOwl' | 'ShipStation' | 'Other';
-    status: 'Pending' | 'Paid' | 'Shipped' | 'Cancelled';
-    customer: {
+    id: string | number;
+    loading?: boolean;
+    orderId?: string;
+    orderNumber?: string;
+    platform?: 'BrickLink' | 'BrickOwl' | 'ShipStation' | 'Other';
+    status?: 'Pending' | 'Paid' | 'Shipped' | 'Cancelled';
+    customer?: {
       name: string;
       email: string;
       address: string;
@@ -17,16 +19,16 @@ interface OrderDetailProps {
       zip: string;
       country: string;
     };
-    items: Array<{
+    items?: Array<{
       partNumber: string;
       name: string;
       quantity: number;
       price: number;
     }>;
-    shipping: number;
-    tax: number;
-    total: number;
-    orderDate: string;
+    shipping?: number;
+    tax?: number;
+    total?: number;
+    orderDate?: string;
     shippedDate?: string;
     trackingNumber?: string;
     isRepeatCustomer?: boolean;
@@ -42,6 +44,37 @@ interface OrderDetailProps {
 }
 
 export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
+  // Show loading skeleton
+  if (data.loading) {
+    return (
+      <div className="space-y-2" data-testid="order-detail-loading">
+        {/* Header skeleton */}
+        <div className="bg-gradient-to-r from-lego-blue/15 via-lego-blue/5 to-transparent border border-lego-blue/30 rounded-lg p-2">
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <div className="h-4 bg-gray-800 rounded w-32 animate-pulse"></div>
+            <div className="h-3.5 bg-gray-800 rounded w-16 animate-pulse"></div>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="h-3 bg-gray-800 rounded flex-1 animate-pulse"></div>
+          </div>
+        </div>
+
+        {/* Content skeleton */}
+        <div className="space-y-2">
+          <div className="h-24 bg-gray-800/30 border border-gray-700 rounded-lg animate-pulse"></div>
+          <div className="h-24 bg-gray-800/30 border border-gray-700 rounded-lg animate-pulse"></div>
+        </div>
+      </div>
+    );
+  }
+  
+  if (!data.items || !data.customer || !data.orderNumber) {
+    return (
+      <div className="p-4 text-center text-gray-400">
+        <p className="text-sm">Unable to load order details</p>
+      </div>
+    );
+  }
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'Pending': return 'bg-lego-yellow/20 text-lego-yellow border-lego-yellow/40';
@@ -53,15 +86,18 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
   };
 
   const subtotal = data.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const shipping = data.shipping ?? 0;
+  const tax = data.tax ?? 0;
+  const total = data.total ?? 0;
 
   // Combine current order with other orders for the pills
   const allCustomerOrders = data.previousOrders ? [
     {
-      orderId: data.orderId,
-      orderNumber: data.orderNumber,
-      orderDate: data.orderDate,
-      total: data.total,
-      status: data.status,
+      orderId: data.orderId!,
+      orderNumber: data.orderNumber!,
+      orderDate: data.orderDate!,
+      total: total,
+      status: data.status!,
       isCurrent: true,
     },
     ...data.previousOrders.map(order => ({ ...order, isCurrent: false })),
@@ -105,12 +141,12 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
       <div className="bg-gradient-to-r from-lego-blue/15 via-lego-blue/5 to-transparent border border-lego-blue/30 rounded-lg p-2">
         <div className="flex items-center justify-between gap-2 mb-1">
           <div className="flex items-center gap-1.5">
-            <h3 className="text-[10px] font-black text-white">ORDER #{data.orderNumber}</h3>
-            <Badge className={getStatusColor(data.status) + ' text-[9px] h-3.5 px-1.5 font-bold'}>{data.status}</Badge>
+            <h3 className="text-[10px] font-black text-white">ORDER #{data.orderNumber!}</h3>
+            <Badge className={getStatusColor(data.status!) + ' text-[9px] h-3.5 px-1.5 font-bold'}>{data.status!}</Badge>
           </div>
           <div className="flex items-center gap-1 text-[9px] text-gray-400">
             <Calendar className="h-3 w-3" />
-            <span className="font-medium">{new Date(data.orderDate).toLocaleDateString()}</span>
+            <span className="font-medium">{new Date(data.orderDate!).toLocaleDateString()}</span>
           </div>
         </div>
         
@@ -174,11 +210,11 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Shipping</span>
-              <span className="font-mono text-white">${data.shipping.toFixed(2)}</span>
+              <span className="font-mono text-white">${shipping.toFixed(2)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Tax</span>
-              <span className="font-mono text-white">${data.tax.toFixed(2)}</span>
+              <span className="font-mono text-white">${tax.toFixed(2)}</span>
             </div>
           </div>
         </div>
@@ -186,7 +222,7 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
         {/* Total */}
         <div className="bg-gradient-to-br from-lego-green/20 to-lego-green/5 border-2 border-lego-green/50 rounded-lg p-1.5 flex flex-col justify-center items-center">
           <span className="text-[9px] font-bold text-gray-400 mb-0.5">ORDER TOTAL</span>
-          <span className="text-2xl font-black font-mono text-lego-green leading-none">${data.total.toFixed(2)}</span>
+          <span className="text-2xl font-black font-mono text-lego-green leading-none">${total.toFixed(2)}</span>
         </div>
       </div>
 
