@@ -30,10 +30,30 @@ export default function OrdersDashboard({ dateRange = 'all', onItemClick }: Orde
     }
   });
 
-  // Process orders into 7-day trend data
+  // Process orders into trend data based on date range
   const getTrendData = () => {
+    // If no orders, show empty 7-day chart
+    if (orders.length === 0) {
+      return Array.from({ length: 7 }, (_, i) => {
+        const date = subDays(new Date(), 6 - i);
+        return {
+          date: format(date, 'EEE'),
+          bricklink: 0,
+          brickowl: 0,
+          other: 0,
+        };
+      });
+    }
+
+    // Find the most recent order date to base the chart on
+    const mostRecentOrderDate = orders.reduce((latest, order) => {
+      const orderDate = new Date(order.orderDate);
+      return orderDate > latest ? orderDate : latest;
+    }, new Date(orders[0].orderDate));
+
+    // Create 7-day window ending at the most recent order date
     const last7Days = Array.from({ length: 7 }, (_, i) => {
-      const date = subDays(new Date(), 6 - i);
+      const date = subDays(mostRecentOrderDate, 6 - i);
       return {
         date: format(date, 'EEE'),
         fullDate: startOfDay(date),

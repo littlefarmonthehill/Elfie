@@ -173,22 +173,22 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
         <ScrollArea className="h-[140px] px-2 pb-1.5">
           <div className="space-y-0.5">
             {/* Table Header */}
-            <div className="grid grid-cols-12 gap-1.5 text-[9px] font-bold text-gray-500 border-b border-gray-700 pb-0.5 sticky top-0 bg-gray-900/95">
+            <div className="grid grid-cols-12 gap-2 text-[9px] font-bold text-gray-500 border-b border-gray-700 pb-0.5 sticky top-0 bg-gray-900/95">
               <div className="col-span-2">PART #</div>
-              <div className="col-span-6">ITEM NAME</div>
+              <div className="col-span-5">ITEM NAME</div>
               <div className="col-span-1 text-center">QTY</div>
-              <div className="col-span-1.5 text-right">PRICE</div>
-              <div className="col-span-1.5 text-right">TOTAL</div>
+              <div className="col-span-2 text-right">PRICE</div>
+              <div className="col-span-2 text-right">TOTAL</div>
             </div>
             
             {/* Items Rows */}
             {data.items.map((item, index) => (
-              <div key={index} className="grid grid-cols-12 gap-1.5 text-[10px] items-center py-0.5 hover:bg-lego-green/5 rounded transition-colors">
+              <div key={index} className="grid grid-cols-12 gap-2 text-[10px] items-center py-0.5 hover:bg-lego-green/5 rounded transition-colors">
                 <div className="col-span-2 font-mono font-bold text-lego-blue truncate" title={item.partNumber}>{item.partNumber}</div>
-                <div className="col-span-6 text-white truncate" title={item.name}>{item.name}</div>
+                <div className="col-span-5 text-white truncate" title={item.name}>{item.name}</div>
                 <div className="col-span-1 text-center font-bold text-gray-300">{item.quantity}</div>
-                <div className="col-span-1.5 text-right font-mono text-gray-300">${item.price.toFixed(2)}</div>
-                <div className="col-span-1.5 text-right font-mono font-bold text-lego-green">${(item.quantity * item.price).toFixed(2)}</div>
+                <div className="col-span-2 text-right font-mono text-gray-300">${item.price.toFixed(2)}</div>
+                <div className="col-span-2 text-right font-mono font-bold text-lego-green">${(item.quantity * item.price).toFixed(2)}</div>
               </div>
             ))}
           </div>
