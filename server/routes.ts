@@ -470,6 +470,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Search by part number
           inventoryResults = await db
             .select({
+              id: blInventory.id,
               itemNo: blInventory.itemNo,
               itemType: blInventory.itemType,
               itemName: blInventory.itemName,
@@ -509,6 +510,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const categoryIds = categoryMatches.map(cat => cat.id);
             inventoryResults = await db
               .select({
+                id: blInventory.id,
                 itemNo: blInventory.itemNo,
                 itemType: blInventory.itemType,
                 itemName: blInventory.itemName,
@@ -543,6 +545,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             inventoryResults = await db
               .select({
+                id: blInventory.id,
                 itemNo: blInventory.itemNo,
                 itemType: blInventory.itemType,
                 itemName: blInventory.itemName,
@@ -565,6 +568,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // General inventory query
           inventoryResults = await db
             .select({
+              id: blInventory.id,
               itemNo: blInventory.itemNo,
               itemType: blInventory.itemType,
               itemName: blInventory.itemName,

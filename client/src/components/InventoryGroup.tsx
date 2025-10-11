@@ -115,7 +115,12 @@ export function InventoryGroup({ itemNo, items, onItemClick }: InventoryGroupPro
               return (
                 <button
                   key={idx}
-                  onClick={() => itemId && onItemClick?.(itemId)}
+                  onClick={() => {
+                    console.log('[InventoryGroup] Clicked row:', { idx, itemId, itemNo, colorName: group.colorName, newItem: group.new, usedItem: group.used });
+                    if (itemId) {
+                      onItemClick?.(itemId);
+                    }
+                  }}
                   className="w-full grid grid-cols-[14px_80px_1fr] gap-2 items-center py-1.5 px-2 -mx-2 rounded text-left hover:bg-gray-800/20 active:bg-gray-800/30 transition-colors"
                   data-testid={`inventory-row-${itemNo}-${idx}`}
                 >

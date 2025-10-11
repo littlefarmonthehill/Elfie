@@ -551,12 +551,26 @@ export async function syncBricklinkData(): Promise<BricklinkSyncResult> {
 async function bricklinkCatalogRequest(endpoint: string, queryParams?: Record<string, string>): Promise<{ data: any; apiCalls: number }> {
   const [settings] = await db.select().from(appSettings).limit(1);
   
+  console.log('[Price-O-Magic Debug] Settings loaded:', {
+    hasSettings: !!settings,
+    consumerKey: settings?.bricklinkConsumerKey ? 'present' : 'missing',
+    consumerSecret: settings?.bricklinkConsumerSecret ? 'present' : 'missing',
+    tokenValue: settings?.bricklinkTokenValue ? 'present' : 'missing',
+    tokenSecret: settings?.bricklinkTokenSecret ? 'present' : 'missing',
+  });
+  
   const consumerKey = settings?.bricklinkConsumerKey || process.env.BRICKLINK_CONSUMER_KEY || '';
   const consumerSecret = settings?.bricklinkConsumerSecret || process.env.BRICKLINK_CONSUMER_SECRET || '';
   const tokenValue = settings?.bricklinkTokenValue || process.env.BRICKLINK_TOKEN_VALUE || '';
   const tokenSecret = settings?.bricklinkTokenSecret || process.env.BRICKLINK_TOKEN_SECRET || '';
   
   if (!consumerKey || !consumerSecret || !tokenValue || !tokenSecret) {
+    console.error('[Price-O-Magic Debug] Missing credentials:', {
+      consumerKey: consumerKey ? 'present' : 'MISSING',
+      consumerSecret: consumerSecret ? 'present' : 'MISSING',
+      tokenValue: tokenValue ? 'present' : 'MISSING',
+      tokenSecret: tokenSecret ? 'present' : 'MISSING',
+    });
     throw new Error('BrickLink credentials not configured. Please add them in Settings.');
   }
 
@@ -583,8 +597,8 @@ async function bricklinkCatalogRequest(endpoint: string, queryParams?: Record<st
     secret: cleanToken(tokenSecret),
   };
 
-  // Catalog API uses /api/v1 instead of /api/store/v1
-  let url = `https://api.bricklink.com/api/v1${endpoint}`;
+  // Catalog API uses same /api/store/v1 base as other endpoints
+  let url = `https://api.bricklink.com/api/store/v1${endpoint}`;
   if (queryParams) {
     const params = new URLSearchParams(queryParams);
     url = `${url}?${params.toString()}`;
@@ -673,8 +687,24 @@ export async function fetchPriceOMagicData(
 
     console.log(`[Price-O-Magic] Fetching fresh data for ${itemType}/${itemNo}${colorId ? `/${colorId}` : ''}`);
 
+    // Convert item type code to BrickLink API format (P -> PART, M -> MINIFIG, etc.)
+    // Handle both single-letter codes (P, M, S) and full words (PART, MINIFIG, SET)
+    const itemTypeMap: Record<string, string> = {
+      'P': 'PART',
+      'M': 'MINIFIG', 
+      'S': 'SET',
+      'B': 'BOOK',
+      'G': 'GEAR',
+      'C': 'CATALOG',
+      'I': 'INSTRUCTION',
+      'O': 'ORIGINAL_BOX',
+      'U': 'UNSORTED_LOT'
+    };
+    const upperItemType = itemType.toUpperCase();
+    const apiItemType = itemTypeMap[upperItemType] || upperItemType;
+
     // Fetch item details
-    const itemDetailsEndpoint = `/catalog/items/${itemType}/${itemNo}`;
+    const itemDetailsEndpoint = `/items/${apiItemType}/${itemNo}`;
     const { data: itemDetails } = await bricklinkCatalogRequest(itemDetailsEndpoint);
 
     // Fetch price guide - stock
@@ -682,7 +712,7 @@ export async function fetchPriceOMagicData(
     if (colorId) {
       stockPriceParams.color_id = colorId.toString();
     }
-    const stockPriceEndpoint = `/catalog/items/${itemType}/${itemNo}/price`;
+    const stockPriceEndpoint = `/items/${apiItemType}/${itemNo}/price`;
     const { data: stockPriceData } = await bricklinkCatalogRequest(stockPriceEndpoint, stockPriceParams);
 
     // Fetch price guide - sold
