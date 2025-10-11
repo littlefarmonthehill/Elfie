@@ -47,6 +47,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Fetch single order by ID with full details
+  app.get("/api/orders/:id", async (req, res) => {
+    try {
+      const orderId = req.params.id;
+      
+      // Fetch the order
+      const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+      
+      if (!order) {
+        res.status(404).json({ error: "Order not found" });
+        return;
+      }
+      
+      // Fetch order items
+      const items = await db.select().from(orderDetails).where(eq(orderDetails.orderId, orderId));
+      
+      // Parse shipTo JSON to get customer address
+      let shipToData: any = {};
+      try {
+        shipToData = order.shipTo ? JSON.parse(order.shipTo) : {};
+      } catch (e) {
+        console.error("Error parsing shipTo JSON:", e);
+      }
+      
+      // Format response to match OrderDetail component expectations
+      const formattedOrder = {
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        platform: 'ShipStation' as const,
+        status: order.orderStatus === 'shipped' ? 'Shipped' as const :
+                order.orderStatus === 'cancelled' ? 'Cancelled' as const :
+                order.orderStatus === 'awaiting_payment' ? 'Pending' as const :
+                'Paid' as const,
+        customer: {
+          name: order.customerUsername || 'Unknown Customer',
+          email: order.customerEmail || '',
+          address: shipToData.street1 || '',
+          city: shipToData.city || '',
+          state: shipToData.state || '',
+          zip: shipToData.postalCode || '',
+          country: shipToData.country || '',
+        },
+        items: items.map(item => ({
+          partNumber: item.sku || '',
+          name: item.name,
+          quantity: item.quantity,
+          price: Number(item.unitPrice) || 0,
+        })),
+        shipping: Number(order.shippingAmount) || 0,
+        tax: Number(order.taxAmount) || 0,
+        total: Number(order.orderTotal) || 0,
+        orderDate: order.orderDate.toISOString(),
+        shippedDate: order.shipDate?.toISOString(),
+        trackingNumber: undefined,
+        isRepeatCustomer: false,
+        previousOrders: [],
+      };
+      
+      res.json(formattedOrder);
+    } catch (error) {
+      console.error("Error fetching order:", error);
+      res.status(500).json({ error: "Failed to fetch order" });
+    }
+  });
+
   app.get("/api/dashboard/stats", async (req, res) => {
     try {
       // Get total orders count
