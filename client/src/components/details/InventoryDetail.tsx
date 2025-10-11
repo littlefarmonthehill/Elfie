@@ -1,4 +1,4 @@
-import { Package, DollarSign, Weight, Calendar, ExternalLink, TrendingUp, Sparkles, BarChart3, ShoppingCart, FileText, AlertCircle, Database, Tag, Box, Layers, Users, Clock, Zap, Info } from "lucide-react";
+import { Package, DollarSign, Weight, Calendar, ExternalLink, TrendingUp, Sparkles, BarChart3, ShoppingCart, FileText, AlertCircle, Database, Tag, Box, Layers, Users, Clock, Zap, Info, Globe } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -456,6 +456,83 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
                           </p>
                         </div>
                       </div>
+
+                      {/* World Supply Analysis */}
+                      {priceOMagic.stockTotalLots !== null && priceOMagic.stockTotalLots !== undefined && (
+                        <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
+                          <p className="text-xs font-bold text-blue-400 mb-2 flex items-center gap-1">
+                            <Globe className="h-3.5 w-3.5" />
+                            WORLD SUPPLY ANALYSIS
+                          </p>
+                          <div className="space-y-2">
+                            <div className="flex justify-between items-center">
+                              <span className="text-xs text-gray-400">Available Listings:</span>
+                              <span className="font-mono font-bold text-white">{priceOMagic.stockTotalLots} lots</span>
+                            </div>
+                            
+                            {(() => {
+                              const lots = priceOMagic.stockTotalLots;
+                              let supplyLevel = '';
+                              let supplyPremium = 0;
+                              let supplyColor = '';
+                              
+                              if (lots < 50) {
+                                supplyLevel = 'Very Low Supply';
+                                supplyPremium = 10;
+                                supplyColor = 'text-red-400';
+                              } else if (lots < 200) {
+                                supplyLevel = 'Low Supply';
+                                supplyPremium = 5;
+                                supplyColor = 'text-orange-400';
+                              } else if (lots < 500) {
+                                supplyLevel = 'Medium Supply';
+                                supplyPremium = 2;
+                                supplyColor = 'text-yellow-400';
+                              } else {
+                                supplyLevel = 'High Supply';
+                                supplyPremium = 0;
+                                supplyColor = 'text-green-400';
+                              }
+                              
+                              const basePremium = 15; // Base premium
+                              const totalPremium = basePremium + supplyPremium;
+                              
+                              return (
+                                <>
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-xs text-gray-400">Supply Level:</span>
+                                    <span className={`text-xs font-bold ${supplyColor}`}>{supplyLevel}</span>
+                                  </div>
+                                  
+                                  <div className="bg-gray-900/50 rounded p-2 mt-2 space-y-1.5">
+                                    <div className="flex justify-between text-[10px]">
+                                      <span className="text-gray-400">Base Premium:</span>
+                                      <span className="font-mono text-purple-400">+{basePremium}%</span>
+                                    </div>
+                                    {supplyPremium > 0 && (
+                                      <div className="flex justify-between text-[10px]">
+                                        <span className="text-gray-400">Scarcity Bonus:</span>
+                                        <span className={`font-mono font-bold ${supplyColor}`}>+{supplyPremium}%</span>
+                                      </div>
+                                    )}
+                                    <div className="flex justify-between text-xs border-t border-gray-700 pt-1.5">
+                                      <span className="text-gray-300 font-bold">Total Premium:</span>
+                                      <span className="font-mono font-bold text-purple-400">+{totalPremium}%</span>
+                                    </div>
+                                  </div>
+                                  
+                                  <p className="text-[9px] text-gray-500 mt-2 leading-relaxed">
+                                    {supplyPremium > 0 
+                                      ? `Limited availability ({lots} listings worldwide) adds a +${supplyPremium}% scarcity premium to help maximize profit.`
+                                      : `Abundant supply ({lots}+ listings) means competitive pricing with base premium only.`
+                                    }
+                                  </p>
+                                </>
+                              );
+                            })()}
+                          </div>
+                        </div>
+                      )}
 
                       {/* Market Context */}
                       <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-3">
