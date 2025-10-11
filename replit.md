@@ -4,7 +4,13 @@
 PlanetBrick is a comprehensive business operations and analytics dashboard for LEGO reselling businesses. It integrates with BrickLink and ShipStation to offer real-time inventory management, order tracking, sales analytics, and marketing insights. The application features a dark-mode interface with LEGO-inspired colors and an AI chat assistant (E.L.F.I.E.) for operational guidance. The vision is to provide a complete operational toolkit for LEGO resellers, enhancing efficiency and profitability through data-driven decisions and intelligent automation.
 
 ## Recent Changes (October 2025)
-- **Price-O-Magic Feature**: Integrated BrickLink Catalog API to fetch real-time item details and price guides. Displays suggested pricing with configurable premium (default 15%), market data (stock/sold prices), item images, weights, and dimensions. Uses 24-hour caching via `price_guide_cache` table. Auto-updates inventory weights from BrickLink. Available in inventory detail drawers and AI chat responses.
+- **Comprehensive Inventory Details**: Redesigned inventory detail drawer with three-tab interface:
+  - **Overview Tab**: Key metrics (quantity, price, value), cost/profit analysis, description, remarks, and physical specifications (weight, dimensions, year released)
+  - **Pricing Tab**: Price-O-Magic suggested pricing with market data (stock/sold averages), tier pricing/bulk discounts, and sale rates
+  - **Details Tab**: Complete identifiers (inventory ID, part number, item type, color ID, bind ID) with note about part number changes, plus inventory settings (completeness, bulk, retain, stock room status)
+- **Enhanced Data Fields**: Backend now returns all available inventory fields including description, remarks, bindId, cost, tier pricing, completeness, stock room settings, and creation dates
+- **API Usage Documentation**: Documented BrickLink's 5,000 API call limit per 24 hours. Price-O-Magic consumes 3 API calls per item (details + 2 price guides), so it should ONLY be called for individual item detail views, NOT during bulk sync operations
+- **Price-O-Magic Feature**: Integrated BrickLink Catalog API to fetch real-time item details and price guides. Displays suggested pricing with configurable premium (default 15%), market data (stock/sold prices), item images, weights, and dimensions. Uses 24-hour caching via `price_guide_cache` table. Auto-updates inventory weights from BrickLink
 - **Engaging Detail Modals**: Redesigned order and inventory detail drawers with vibrant LEGO-colored gradients, ultra-compact layouts showing maximum info without scrolling, full item names visible, and internal scrolling for long item lists
 - **Scrolling Order Pills**: Customer order details now display all orders as clickable, scrollable pills - clicking a pill instantly updates the drawer to show that order's details while maintaining customer context
 - **Customer Data Fix**: ShipStation sync now properly extracts customer names from shipping addresses to populate `customerUsername` field
@@ -55,7 +61,9 @@ Preferred communication style: Simple, everyday language.
 
 ## External Dependencies
 
--   **BrickLink API:** Primary data source for LEGO inventory (categories, colors, inventory listings). Uses OAuth 1.0a. Credentials stored in `app_settings` or environment variables. Tracks API call rate limits (warning at 2,500 calls/24h, block at 4,750 calls/24h) and supports paginated inventory sync (1,000 items/page). Does NOT provide cost data; only selling price.
+-   **BrickLink API:** Primary data source for LEGO inventory (categories, colors, inventory listings). Uses OAuth 1.0a. Credentials stored in `app_settings` or environment variables. **IMPORTANT: 5,000 API call limit per 24-hour period.** Tracks rate limits (warning at 2,500 calls, block at 4,750 calls). Supports paginated inventory sync (1,000 items/page). 
+    - **Price-O-Magic API Usage**: Item detail calls (catalog item info + price guides) consume **3 API calls per item** (item details + stock price guide + sold price guide). Therefore, Price-O-Magic should ONLY be called when viewing individual item details in drawers, NOT during bulk sync operations. This prevents exceeding the 5,000 call daily limit.
+    - Does NOT provide cost data; only selling price.
 -   **ShipStation API:** Order management and fulfillment.
 -   **OpenRouter API:** Powers the E.L.F.I.E. AI chat assistant, enabling multi-model access and dynamic model selection. Requires `OPENROUTER_API_KEY`.
 -   **Neon:** Serverless PostgreSQL database provider.
