@@ -268,7 +268,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const totalOrders = await db.select({ count: sql<number>`COUNT(*)` }).from(orders);
         const avgOrderValue = Number(totalRevenue[0]?.sum || 0) / (Number(totalOrders[0]?.count) || 1);
         
-        // Get top revenue orders (filter out empty/null totals)
+        // Get top revenue orders (filter out empty/null totals and use safe CAST)
         const topOrders = await db
           .select({
             orderNumber: orders.orderNumber,
@@ -281,7 +281,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             sql`${orders.orderTotal} IS NOT NULL`,
             sql`${orders.orderTotal} != ''`
           ))
-          .orderBy(desc(sql`CAST(${orders.orderTotal} AS DECIMAL)`))
+          .orderBy(desc(sql`CASE WHEN ${orders.orderTotal} != '' AND ${orders.orderTotal} IS NOT NULL THEN CAST(${orders.orderTotal} AS DECIMAL) ELSE 0 END`))
           .limit(5);
         
         databaseContext += `\n\nSALES SUMMARY:\n`;
@@ -640,19 +640,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           }
           
-          // Sort by revenue if top revenue query, otherwise by date
-          // Guard against empty/null totals when sorting by revenue
+          // For revenue sorting, we'll fetch more records and filter/sort in JavaScript to avoid CAST errors
+          let ordersResults;
           if (isTopRevenue) {
-            ordersQuery = ordersQuery
-              .where(and(
-                sql`${orders.orderTotal} IS NOT NULL`,
-                sql`${orders.orderTotal} != ''`
-              )) as any;
+            // Fetch all orders without revenue sorting
+            const allOrders = await ordersQuery
+              .orderBy(desc(orders.orderDate))
+              .limit(100); // Get more to ensure we have enough valid revenue orders
+            
+            // Filter and sort in JavaScript
+            ordersResults = allOrders
+              .filter(order => {
+                const total = order.orderTotal;
+                // Check if it's a valid number
+                return total && total !== '' && !isNaN(Number(total));
+              })
+              .sort((a, b) => {
+                const totalA = Number(a.orderTotal);
+                const totalB = Number(b.orderTotal);
+                return totalB - totalA; // Descending order
+              })
+              .slice(0, 20);
+          } else {
+            ordersResults = await ordersQuery
+              .limit(20)
+              .orderBy(desc(orders.orderDate));
           }
-          
-          const ordersResults = await ordersQuery
-            .limit(20)
-            .orderBy(isTopRevenue ? desc(sql`CAST(${orders.orderTotal} AS DECIMAL)`) : desc(orders.orderDate));
           
           if (ordersResults.length > 0) {
             databaseContext += `\n\n${statusFilter ? statusFilter.toUpperCase().replace('_', ' ') + ' ' : ''}ORDERS FROM DATABASE:\n`;
@@ -879,6 +892,9 @@ Keep responses helpful, accurate, and based on the actual data provided.`;
       });
     } catch (error) {
       console.error("Chat error:", error);
+      if (error instanceof Error) {
+        console.error("Error stack:", error.stack);
+      }
       res.status(500).json({
         error: "Failed to generate response",
         message: "I'm having trouble connecting right now. Please try again.",
