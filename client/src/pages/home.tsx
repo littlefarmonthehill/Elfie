@@ -23,11 +23,67 @@ export default function Home() {
   });
 
   const handleDashboardItemClick = async (type: 'order' | 'inventory', id: number | string) => {
+    // Check if this is a BrickLink catalog item
+    const isBrickLinkCatalog = String(id).startsWith('bricklink-');
+    
     // Open modal immediately with loading state
     setDetailModal({
       open: true,
       data: { type, data: { id, loading: true } as any }
     });
+
+    // Handle BrickLink catalog items
+    if (isBrickLinkCatalog && type === 'inventory') {
+      const itemNo = String(id).replace('bricklink-', '');
+      const catalogItemKey = `bricklink-item-${itemNo}`;
+      const storedData = sessionStorage.getItem(catalogItemKey);
+      
+      if (storedData) {
+        const bricklinkItem = JSON.parse(storedData);
+        console.log('🔗 Retrieved BrickLink catalog item from storage:', bricklinkItem);
+        
+        // Format BrickLink catalog data to match inventory structure
+        // Build correct BrickLink URL based on item type
+        const itemTypePrefix = bricklinkItem.itemType === 'SET' ? 'S' :
+                               bricklinkItem.itemType === 'MINIFIG' ? 'M' :
+                               bricklinkItem.itemType === 'PART' ? 'P' :
+                               bricklinkItem.itemType === 'BOOK' ? 'B' :
+                               bricklinkItem.itemType === 'GEAR' ? 'G' :
+                               bricklinkItem.itemType === 'CATALOG' ? 'C' :
+                               bricklinkItem.itemType === 'INSTRUCTION' ? 'I' :
+                               'P'; // Default to PART if unknown
+        
+        const catalogData = {
+          id: String(id),
+          itemNo: bricklinkItem.itemNo,
+          itemName: bricklinkItem.itemName,
+          itemType: bricklinkItem.itemType,
+          categoryId: bricklinkItem.categoryId,
+          categoryName: null,
+          colorId: null,
+          colorName: null,
+          colorRgb: null,
+          quantity: 0,
+          newOrUsed: 'N',
+          unitPrice: '0.00',
+          myCost: null,
+          description: `BrickLink Catalog Item - ${bricklinkItem.itemName}`,
+          remarks: `Year Released: ${bricklinkItem.yearReleased || 'Unknown'}`,
+          myWeight: bricklinkItem.weight ? String(bricklinkItem.weight) : null,
+          isBrickLinkCatalog: true, // Flag to indicate this is from catalog
+          bricklinkUrl: `https://www.bricklink.com/v2/catalog/catalogitem.page?${itemTypePrefix}=${bricklinkItem.itemNo}`,
+        };
+        
+        setDetailModal({
+          open: true,
+          data: { 
+            type: 'inventory', 
+            data: { ...catalogData, loadingPriceOMagic: false }
+          }
+        });
+      }
+      return;
+    }
 
     // Fetch real data from API in background
     if (type === 'order') {

@@ -377,6 +377,21 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
       };
 
       setMessages(prev => [...prev, assistantMessage]);
+      
+      // If BrickLink catalog item is returned, open the detail modal immediately
+      if (data.bricklinkItem && onItemClick) {
+        console.log('🔗 BrickLink catalog item found, opening modal:', data.bricklinkItem);
+        
+        // Store BrickLink catalog item in sessionStorage so the modal can access it
+        const catalogItemKey = `bricklink-item-${data.bricklinkItem.itemNo}`;
+        sessionStorage.setItem(catalogItemKey, JSON.stringify(data.bricklinkItem));
+        
+        // Use a special ID format to indicate it's from BrickLink catalog
+        const catalogItemId = `bricklink-${data.bricklinkItem.itemNo}`;
+        
+        // Trigger modal with the catalog item data
+        onItemClick('inventory', catalogItemId);
+      }
     } catch (error) {
       console.error('Chat error:', error);
       const errorMessage: ChatMessage = {

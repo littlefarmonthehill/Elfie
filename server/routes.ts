@@ -497,6 +497,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // FIRST: Check if user is confirming a BrickLink catalog search
+      const isAffirmative = lastUserMessage.match(/\b(yes|yeah|sure|ok|okay|yep|yup|please|go ahead)\b/i);
+      const recentMessages = conversationHistory.slice(-5);
+      const hasBrickLinkSuggestion = recentMessages.some(msg => 
+        msg.role === 'assistant' && (
+          (msg.content.toLowerCase().includes('check') && msg.content.toLowerCase().includes('bricklink')) ||
+          (msg.content.toLowerCase().includes('search') && msg.content.toLowerCase().includes('bricklink'))
+        )
+      );
+      
+      let bricklinkCatalogItem = null;
+      if (isAffirmative && hasBrickLinkSuggestion) {
+        // Find the original part number from conversation history
+        let originalPartNumber = null;
+        for (let i = recentMessages.length - 1; i >= 0; i--) {
+          if (recentMessages[i].role === 'user' && recentMessages[i].content !== lastUserMessage) {
+            const partMatch = recentMessages[i].content.match(/\b([0-9]{2,}[a-z0-9\-]*)\b/i);
+            if (partMatch) {
+              originalPartNumber = partMatch[1];
+              break;
+            }
+          }
+        }
+        
+        if (originalPartNumber) {
+          try {
+            console.log('🔗 User confirmed BrickLink search for:', originalPartNumber);
+            
+            // Try SET first (most common for sets like 11013-1), then PART
+            let catalogItem = await searchBricklinkCatalogItem(originalPartNumber, 'SET');
+            if (!catalogItem) {
+              catalogItem = await searchBricklinkCatalogItem(originalPartNumber, 'PART');
+            }
+            
+            if (catalogItem) {
+              bricklinkCatalogItem = catalogItem;
+              databaseContext += `\n\nBRICKLINK CATALOG ITEM FOUND: ${catalogItem.itemNo} - ${catalogItem.itemName}.
+IMPORTANT: Briefly tell the user you found "${catalogItem.itemName}" in the BrickLink catalog and that it will open in the detail modal.\n`;
+              console.log('🔗 BrickLink catalog found:', catalogItem.itemNo, '-', catalogItem.itemName);
+            } else {
+              databaseContext += `\nBRICKLINK SEARCH: Could not find "${originalPartNumber}" in BrickLink catalog.\n`;
+              console.log('🔗 BrickLink catalog: item not found');
+            }
+          } catch (error) {
+            console.error('🔗 Error searching BrickLink catalog:', error);
+            databaseContext += `\nBRICKLINK ERROR: ${error instanceof Error ? error.message : 'Unknown error'}\n`;
+          }
+          
+          (req as any).bricklinkCatalogItem = bricklinkCatalogItem;
+        }
+      }
+      
       // Search inventory by part number, text query, or general inventory request
       const partNumberMatch = lastUserMessage.match(/\b(\d{4,5})\b/);
       
@@ -663,56 +715,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           databaseContext += `\n\nINVENTORY SEARCH: No items found for "${searchTerm}" in database.\n`;
           console.log('🔍 No inventory found for:', searchTerm);
           
-          // Check if user is responding affirmatively to a previous BrickLink suggestion
-          const isAffirmative = lastUserMessage.match(/\b(yes|yeah|sure|ok|okay|yep|yup|please|go ahead)\b/);
-          const recentMessages = conversationHistory.slice(-4); // Check last 4 messages
-          const hasBrickLinkSuggestion = recentMessages.some(msg => 
-            msg.role === 'assistant' && msg.content.toLowerCase().includes('check') && msg.content.toLowerCase().includes('bricklink')
-          );
-          
-          if (isAffirmative && hasBrickLinkSuggestion) {
-            // User confirmed - find the original search term from conversation history
-            // Look for the user message before the BrickLink suggestion
-            let originalPartNumber = null;
-            for (let i = recentMessages.length - 1; i >= 0; i--) {
-              if (recentMessages[i].role === 'user') {
-                const userMsg = recentMessages[i].content;
-                // Try to extract part number from the original message
-                const partMatch = userMsg.match(/\b([0-9]{2,}[a-z0-9]*)\b/i);
-                if (partMatch) {
-                  originalPartNumber = partMatch[1];
-                  break;
-                }
-              }
-            }
-            
-            // User confirmed - search BrickLink catalog
-            if (originalPartNumber) {
-              try {
-                console.log('🔗 User confirmed - searching BrickLink for:', originalPartNumber);
-                
-                // Default to PART type, but could be enhanced to detect other types
-                const catalogItem = await searchBricklinkCatalogItem(originalPartNumber, 'PART');
-                
-                if (catalogItem) {
-                  databaseContext += `\n\nBRICKLINK CATALOG SEARCH RESULTS:\n`;
-                  databaseContext += `- Part Number: ${catalogItem.itemNo}\n`;
-                  databaseContext += `- Name: ${catalogItem.itemName}\n`;
-                  databaseContext += `- Type: ${catalogItem.itemType}\n`;
-                  if (catalogItem.categoryId) databaseContext += `- Category ID: ${catalogItem.categoryId}\n`;
-                  if (catalogItem.weight) databaseContext += `- Weight: ${catalogItem.weight}g\n`;
-                  if (catalogItem.yearReleased) databaseContext += `- Year Released: ${catalogItem.yearReleased}\n`;
-                  databaseContext += `- BrickLink URL: https://www.bricklink.com/v2/catalog/catalogitem.page?P=${catalogItem.itemNo}\n`;
-                  databaseContext += `\nNote: This item is NOT currently in your inventory. The information above is from the BrickLink catalog.\n`;
-                  console.log('🔗 BrickLink catalog data added to context');
-                }
-              } catch (error) {
-                console.error('🔗 Error searching BrickLink catalog:', error);
-                databaseContext += `\nBRICKLINK SEARCH ERROR: Could not find "${originalPartNumber}" in BrickLink catalog.\n`;
-              }
-            }
-          } else if (partNumber) {
-            // Suggest checking BrickLink for part numbers not found locally
+          // Suggest checking BrickLink for part numbers not found locally
+          if (partNumber) {
             databaseContext += `\nSUGGESTION: Would you like me to check the BrickLink catalog for part ${partNumber}? (This will use an API call)\n`;
             console.log('🔗 Suggesting BrickLink search for:', partNumber);
           }
@@ -1174,6 +1178,7 @@ Keep responses helpful, accurate, and based on the actual data provided.`;
         message: assistantMessage,
         items: itemsFound,
         sessionId, // Return session ID for client to use
+        bricklinkItem: (req as any).bricklinkCatalogItem || null, // Return BrickLink catalog item if found
       });
     } catch (error) {
       console.error("Chat error:", error);

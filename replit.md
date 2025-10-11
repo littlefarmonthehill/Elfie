@@ -1,80 +1,7 @@
 # PlanetBrick - LEGO Business Operations Dashboard
 
 ## Overview
-PlanetBrick is a comprehensive business operations and analytics dashboard for LEGO reselling businesses. It integrates with BrickLink and ShipStation to offer real-time inventory management, order tracking, sales analytics, and marketing insights. The application features a dark-mode interface with LEGO-inspired colors and an AI chat assistant (E.L.F.I.E.) for operational guidance. The vision is to provide a complete operational toolkit for LEGO resellers, enhancing efficiency and profitability through data-driven decisions and intelligent automation.
-
-## Recent Changes (October 2025)
-- **Sales Dashboard Time Range Filter**: Added dynamic time range selector for sales chart:
-  - Time range buttons (3M, 6M, 1Y, 2Y) allow viewing different historical periods
-  - Chart data filters dynamically based on selected range
-  - Helps identify seasonal trends and compare performance across different periods
-- **Recent Inventory Updates Widget**: Added "Recent Activity" section to inventory dashboard:
-  - Displays items updated/modified in the last 7 days
-  - Shows item number, color, and time since last update (e.g., "2 days ago")
-  - Clickable items open detail drawer for quick access to recently modified inventory
-  - Useful for tracking recent price changes, quantity updates, or new additions
-- **BrickLink Catalog Search Integration**: Enhanced Elfie chat with BrickLink API fallback:
-  - When searching for items not in local inventory, Elfie suggests checking BrickLink catalog
-  - User can confirm with "yes", "sure", etc. to trigger BrickLink API search
-  - Returns catalog details including part name, type, category, weight, year released, and BrickLink URL
-  - Clearly indicates items are from catalog, not local inventory
-  - Respects BrickLink API rate limits (5,000 calls/24 hours)
-- **Fixed Inventory Click Handlers**: Resolved issue where dashboard widgets used incorrect IDs:
-  - All three inventory dashboard sections (Low Stock, Top Value, Recent Updates) now use `inventoryId` for navigation
-  - Ensures detail modals open with correct inventory data
-  - Consistent behavior across all clickable inventory items
-- **Instant Modal Loading UX**: Improved user experience with instant modal feedback:
-  - Drawer opens immediately when clicking any inventory or order item, showing skeleton loading state
-  - Data loads progressively: base data → Price-o-Matic → Analytics
-  - No more waiting for network before visual response
-  - Smooth transitions from skeleton to actual content
-  - All detail components (InventoryDetail, OrderDetail) support loading states
-- **Price-o-Matic Calculation Popup**: Added transparency to pricing suggestions:
-  - Suggested price is now clickable with visual hint ("Tap to see calculation")
-  - Dialog shows complete calculation breakdown:
-    - Base Price (Stock Average)
-    - Premium Applied (% and dollar amount)
-    - Final Suggested Price
-    - Market Context (stock/sold averages, price range)
-    - Formula explanation
-  - Helps users understand and trust the AI pricing recommendations
-- **Date Range Analytics Selector**: Flexible historical data analysis for businesses that were closed or dormant:
-  - Date range selector in Analytics tab with options: 3M, 6M, 1Y, 2Y, All
-  - Default: "All" (all-time data)
-  - Backend filters order data by selected range before calculating metrics
-  - Perfect for businesses reopening after closures - can compare historical vs recent performance
-  - All analytics metrics (sales, velocity, customers) recalculate based on selected period
-- **Alternative IDs Verification**: Confirmed complete identifier display in Details tab:
-  - All identifiers shown: Inventory ID, Part Number, Item Type, Color ID, Bind ID
-  - Helpful note warns users that part numbers may change, recommends using Inventory ID
-  - Inventory settings clearly displayed: Completeness, Bulk, Retain, Stock Room, Date Created
-  - Proper null handling - optional fields only show when available
-- **Inventory Analytics System**: Comprehensive sales analytics and movement insights for data-driven inventory management:
-  - **Backend Analytics API** (`/api/inventory/:id/analytics`): Joins order history with inventory by SKU matching (order_details.sku = bl_inventory.itemNo) to calculate sales velocity, revenue, customer patterns, and time-based trends. Now supports date range filtering via `?range=` query parameter
-  - **Analytics Tab**: Fourth tab added to inventory detail drawer showing:
-    - **Sales Performance**: Total units sold, revenue, sales velocity (units/month), average selling price, total orders
-    - **Movement Insights**: Days since last sold (color-coded: green <30 days, yellow 30-90, red >90), days in inventory, best selling month with units
-    - **Recent Activity**: Last 3 months sales with percentage of total
-    - **Top Customers**: List of buyers with units purchased, orders count, and revenue
-    - **Movement Strategies**: AI-powered recommendations for inventory optimization (price reductions for slow items >90 days, restocking alerts for high velocity >5/mo, bulk offer opportunities for repeat customers, seasonal promotion planning)
-  - Gracefully handles items with zero sales history, showing "No sales data available" message
-- **Fixed Inventory Detail Data Flow** (Critical Bug Fix): Resolved issue where chat-triggered inventory details showed blank fields. The `handleItemClick` function was incorrectly transforming API data to wrong field names (partNumber/name/color instead of itemNo/itemName/colorName). Now uses unified `handleDashboardItemClick` handler for both chat and dashboard clicks, ensuring correct data flow to InventoryDetail component. All fields now display properly.
-- **Comprehensive Inventory Details**: Redesigned inventory detail drawer with four-tab interface and fixed height (85vh) that stays constant when switching tabs:
-  - **Overview Tab**: Description/remarks (priority), key metrics (quantity, price, value), cost/profit analysis, physical specifications (weight, dimensions, year released), and placeholder for "Appears in Sets" (future feature)
-  - **Pricing Tab**: Price-o-Matic suggested pricing with market data (stock/sold averages), tier pricing/bulk discounts, and sale rates
-  - **Analytics Tab**: Sales analytics, movement insights, customer data, and strategic recommendations for inventory optimization
-  - **Details Tab**: Complete identifiers (inventory ID, part number, item type, color ID, bind ID) with note about part number changes, plus inventory settings (completeness, bulk, retain, stock room status)
-- **Enhanced Font Sizes**: Increased all font sizes in inventory detail drawer for better readability while maintaining compact layout
-- **Enhanced Data Fields**: Backend now returns all available inventory fields including description, remarks, bindId, cost, tier pricing, completeness, stock room settings, and creation dates
-- **API Usage Documentation**: Documented BrickLink's 5,000 API call limit per 24 hours. Price-o-Matic consumes 3 API calls per item (details + 2 price guides), so it should ONLY be called for individual item detail views, NOT during bulk sync operations
-- **Price-o-Matic Feature**: Integrated BrickLink Catalog API to fetch real-time item details and price guides. Displays suggested pricing with configurable premium (default 15%), market data (stock/sold prices), item images, weights, and dimensions. Uses 24-hour caching via `price_guide_cache` table. Auto-updates inventory weights from BrickLink
-- **Engaging Detail Modals**: Redesigned order and inventory detail drawers with vibrant LEGO-colored gradients, ultra-compact layouts showing maximum info without scrolling, full item names visible, and internal scrolling for long item lists
-- **Scrolling Order Pills**: Customer order details now display all orders as clickable, scrollable pills - clicking a pill instantly updates the drawer to show that order's details while maintaining customer context
-- **Customer Data Fix**: ShipStation sync now properly extracts customer names from shipping addresses to populate `customerUsername` field
-- **Interactive Drawers**: All dashboard list items (orders, inventory) now open detail drawers on click, showing comprehensive information in a right-side slider
-- **Typography Consistency**: Standardized all dashboard fonts to text-[10px] for headers/primary text and text-[9px] for secondary details
-- **Chat Interface Cleanup**: Removed prompt buttons from chat interface for streamlined UX
-- **ID Handling**: Improved order ID handling to support both numeric and string formats (e.g., "ss-12345", "bl-98765")
+PlanetBrick is a comprehensive business operations and analytics dashboard designed for LEGO reselling businesses. It integrates with BrickLink and ShipStation to provide real-time inventory management, order tracking, sales analytics, and marketing insights. The application features a dark-mode interface with a LEGO-inspired aesthetic and includes an AI chat assistant (E.L.F.I.E.) for operational guidance. The project's vision is to offer a complete operational toolkit that enhances efficiency and profitability for LEGO resellers through data-driven decisions and intelligent automation.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -82,52 +9,38 @@ Preferred communication style: Simple, everyday language.
 ## System Architecture
 
 ### Frontend
-- **Technology Stack:** React 18+ with TypeScript, Vite, Wouter, TanStack Query, Shadcn/ui (Radix UI), Tailwind CSS.
-- **Design System:** Dark mode with jet black backgrounds, LEGO-themed color palette for sections (Red, Blue, Orange, Yellow, Green), Inter/Roboto typography for UI, JetBrains Mono for metrics, compact spacing, gradient backgrounds.
-- **Component Architecture:** Modular dashboard with tab-based navigation, reusable metric cards, drawer-based detail modals, purple/violet themed AI chat interface, responsive design.
-- **iOS Keyboard Fix:** Dynamic overflow management in chat interface for iOS devices, detecting focus and adjusting parent container `overflow` properties to ensure smooth scrolling and input visibility, while maintaining layout integrity.
+- **Technology Stack:** React 18+ with TypeScript, Vite, Wouter, TanStack Query, Shadcn/ui (Radix UI), and Tailwind CSS.
+- **Design System:** Dark mode with jet black backgrounds and a LEGO-themed color palette (Red, Blue, Orange, Yellow, Green). Typography uses Inter/Roboto for UI and JetBrains Mono for metrics, with a focus on compact spacing and gradient backgrounds.
+- **Component Architecture:** Features a modular dashboard with tab-based navigation, reusable metric cards, drawer-based detail modals, and a purple/violet themed AI chat interface. The design is responsive, including dynamic overflow management for iOS keyboard compatibility.
 
 ### Backend
-- **Server Framework:** Express.js with TypeScript and Node.js, using ESM modules.
-- **Database Layer:** Drizzle ORM, Neon serverless PostgreSQL, `ws` library for WebSockets.
-- **API Design:** RESTful endpoints (`/api`), including sync endpoints for BrickLink and ShipStation. Uses in-memory storage for development user management.
-- **Data Storage:** Schema includes `users`, `bl_categories`, `bl_colors`, `bl_inventory`, `orders`, `order_details`, and `sync_metadata` tables. Features efficient batch operations and incremental synchronization.
-- **Sync Architecture:** 
-  - **BrickLink Sync:** Batch operations for categories/colors (single query fetch, batch insert/update). Inventory sync already optimized with 1000-item batch inserts and selective updates.
-  - **ShipStation Sync:** Batch operations eliminate 8000+ individual queries. Incremental sync using `sync_metadata` table - first sync fetches 10 years of history, subsequent syncs fetch only orders modified since last successful sync (via `modifyDateStart` parameter).
-  - **Sync Metadata Table:** Tracks last successful sync time, status (success/failed/in_progress), records added/updated, and error messages for each sync type.
-  - **Performance:** First sync processes ~2,500 orders, subsequent syncs typically 0-50 orders (100-500x faster).
-- **Settings Management:** Global application settings (AI enablement, API keys, selected AI model) stored in a single-row `app_settings` PostgreSQL table, accessible via `/api/settings`.
-- **Authentication:** Basic username/password authentication with UUID-based user identification and in-memory storage (for development). Future plans include session-based authentication and secure password hashing.
+- **Server Framework:** Express.js with TypeScript and Node.js, utilizing ESM modules.
+- **Database Layer:** Drizzle ORM with Neon serverless PostgreSQL, and `ws` for WebSockets.
+- **API Design:** RESTful endpoints (`/api`) handle data operations and integrations, including syncs for BrickLink and ShipStation. User management for development uses in-memory storage.
+- **Data Storage:** The schema includes tables for `users`, `bl_categories`, `bl_colors`, `bl_inventory`, `orders`, `order_details`, and `sync_metadata`.
+- **Sync Architecture:** Optimized batch operations and incremental synchronization for BrickLink (1000-item batches, selective updates) and ShipStation (fetching orders modified since the last sync). A `sync_metadata` table tracks sync status and performance.
+- **Settings Management:** Global application settings (AI enablement, API keys, AI model) are stored in a single-row `app_settings` PostgreSQL table.
+- **Authentication:** Basic username/password authentication with UUID-based user IDs is implemented, with future plans for session-based authentication and secure password hashing.
 
 ### AI Assistant (E.L.F.I.E.)
-- **Integration:** OpenRouter API for multi-model access (default: GPT-4o-mini).
-- **Context & Memory:** Persistent conversation memory via `localStorage` and `conversations` table, injecting context into system prompts.
-- **Context-Aware Responses:** Provides summary prompts for dashboard insights (Inventory, Orders, Sales, Marketing).
-- **Direct Database Access:** Queries `bl_inventory` and `orders` tables based on user input, using part numbers and multi-keyword search, formatting results into system prompts.
-- **Interactive Features:** Formats AI responses as markdown bullet lists with clickable part numbers (opening detail modals) and BrickLink URLs (opening sandboxed iframe dialogs). Includes grouped inventory display with actual LEGO brick colors, proper column alignment, and full-row clickability.
-- **Inventory Display:** 
-  - **Clean Design:** Transparent background with border-only styling, no gray shading on inventory groups
-  - **Color Accuracy:** Color dots display actual LEGO brick colors parsed from hex RGB database format (e.g., "FF0000" → red)
-  - **Layout:** Grid-based layout with column headers ("NEW" and "USED"), color dot (16px), color name (80px), and two-column grid for conditions
-  - **Column Headers:** Small uppercase headers clearly label New and Used columns, separated by purple border
-  - **Clean Values:** Quantities and prices display without prefixes (e.g., "194@$0.45" instead of "N: 194@$0.45")
-  - **Full Row Interaction:** Entire color row is clickable to show item-level details
-  - **Vertical Alignment:** New and Used values align vertically in their respective columns
-- **Response Principles:** Concise answers, markdown formatting, includes BrickLink links, avoids hallucination, offers strategic advice when requested.
+- **Integration:** Powered by the OpenRouter API for multi-model access (default: GPT-4o-mini).
+- **Context & Memory:** Utilizes `localStorage` and a `conversations` table for persistent memory, injecting context into system prompts.
+- **Context-Aware Responses:** Provides summary prompts for dashboard insights across Inventory, Orders, Sales, and Marketing.
+- **Direct Database Access:** Queries `bl_inventory` and `orders` tables based on user input, supporting part numbers and multi-keyword searches, and formatting results into system prompts.
+- **Interactive Features:** Responses are formatted in markdown with clickable part numbers (opening detail modals) and BrickLink URLs (opening sandboxed iframe dialogs). Inventory displays are grouped with actual LEGO brick colors, proper column alignment, and full-row clickability.
+- **BrickLink Catalog Integration:** When items aren't found in local inventory, Elfie suggests checking the BrickLink catalog. Upon user confirmation ("yes", "sure", etc.), searches BrickLink API (tries SET then PART types) and opens catalog item in the detail modal instead of showing text. Modal displays item name, number, type, category, weight, year released, and is clearly labeled as "BrickLink Catalog Item" to distinguish from local inventory. Uses sessionStorage to pass catalog data to modal.
+- **Response Principles:** Focuses on concise answers, markdown formatting, inclusion of BrickLink links, avoidance of hallucination, and offers strategic advice when requested.
 
 ## External Dependencies
 
--   **BrickLink API:** Primary data source for LEGO inventory (categories, colors, inventory listings). Uses OAuth 1.0a. Credentials stored in `app_settings` or environment variables. **IMPORTANT: 5,000 API call limit per 24-hour period.** Tracks rate limits (warning at 2,500 calls, block at 4,750 calls). Supports paginated inventory sync (1,000 items/page). 
-    - **Price-o-Matic API Usage**: Item detail calls (catalog item info + price guides) consume **3 API calls per item** (item details + stock price guide + sold price guide). Therefore, Price-o-Matic should ONLY be called when viewing individual item details in drawers, NOT during bulk sync operations. This prevents exceeding the 5,000 call daily limit.
-    - Does NOT provide cost data; only selling price.
--   **ShipStation API:** Order management and fulfillment.
--   **OpenRouter API:** Powers the E.L.F.I.E. AI chat assistant, enabling multi-model access and dynamic model selection. Requires `OPENROUTER_API_KEY`.
+-   **BrickLink API:** Core data source for LEGO inventory, categories, and colors. Uses OAuth 1.0a. Strict rate limit of 5,000 calls per 24 hours. Price-o-Matic consumes 3 API calls per item and is designed for individual item detail views only, not bulk syncs, to manage this limit.
+-   **ShipStation API:** Integrated for order management and fulfillment.
+-   **OpenRouter API:** Provides multi-model AI capabilities for the E.L.F.I.E. chat assistant.
 -   **Neon:** Serverless PostgreSQL database provider.
--   **Radix UI:** UI component primitives.
--   **Recharts:** Data visualization library.
--   **Embla Carousel:** Image carousel component.
--   **date-fns:** Date utility library.
--   **Vaul:** Drawer component for modals.
--   **React Hook Form & Zod:** Form management and validation.
--   **Drizzle Kit:** Database migrations.
+-   **Radix UI:** Used for foundational UI components.
+-   **Recharts:** Utilized for data visualization.
+-   **Embla Carousel:** Provides image carousel functionality.
+-   **date-fns:** Library for date manipulation and formatting.
+-   **Vaul:** Drawer component for interactive modals.
+-   **React Hook Form & Zod:** Employed for form management and validation.
+-   **Drizzle Kit:** Used for database schema migrations.
