@@ -550,7 +550,8 @@ IMPORTANT: Briefly tell the user you found "${catalogItem.itemName}" in the Bric
       }
       
       // Search inventory by part number, text query, or general inventory request
-      const partNumberMatch = lastUserMessage.match(/\b(\d{4,5})\b/);
+      // Match 4-5 digits optionally followed by hyphen and more characters (e.g., 11013, 11013-1, 3021)
+      const partNumberMatch = lastUserMessage.match(/\b(\d{4,5}(?:-[a-z0-9]+)?)\b/i);
       
       // Extract meaningful keywords from message (skip common stop words)
       const stopWords = ['show', 'me', 'find', 'search', 'for', 'get', 'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'from', 'with', 'have', 'has', 'do', 'does'];
@@ -1093,10 +1094,11 @@ Keep responses helpful, accurate, and based on the actual data provided.`;
         newOrUsed: string;
       }> = [];
       
-      // Determine search type - prioritize part number, then keywords
+      // Re-extract items for frontend display using same search criteria
+      // This ensures items shown to user match what AI is describing
       const partNumber = partNumberMatch ? partNumberMatch[1] : null;
       
-      if (partNumber || searchKeywords.length > 0 || lastUserMessage.includes('part') || lastUserMessage.includes('inventory')) {
+      if (partNumber || searchKeywords.length > 0) {
         if (partNumber) {
           const items = await db
             .select({
