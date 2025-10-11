@@ -7,6 +7,7 @@ type TimePeriod = 'mtd' | 'ytd' | '1y' | '5y';
 
 interface SalesDashboardProps {
   period: TimePeriod;
+  onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
 }
 
 interface Order {
@@ -18,7 +19,7 @@ interface Order {
   customerUsername: string;
 }
 
-export default function SalesDashboard({ period }: SalesDashboardProps) {
+export default function SalesDashboard({ period, onItemClick }: SalesDashboardProps) {
   const { data: orders = [], isLoading } = useQuery<Order[]>({
     queryKey: ['/api/orders'],
   });
@@ -114,6 +115,7 @@ export default function SalesDashboard({ period }: SalesDashboardProps) {
             topRevenueOrders.map((order) => (
               <div 
                 key={order.id} 
+                onClick={() => onItemClick?.('order', order.id)}
                 className="flex justify-between items-center text-[10px] hover-elevate rounded px-2 py-0.5 cursor-pointer"
                 data-testid={`top-revenue-${order.id}`}
               >
@@ -142,6 +144,7 @@ export default function SalesDashboard({ period }: SalesDashboardProps) {
             recentHighValueSales.map((order) => (
               <div 
                 key={order.id} 
+                onClick={() => onItemClick?.('order', order.id)}
                 className="flex justify-between items-center text-[10px] hover-elevate rounded px-2 py-0.5 cursor-pointer"
                 data-testid={`high-value-sale-${order.id}`}
               >

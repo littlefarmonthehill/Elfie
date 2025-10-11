@@ -28,7 +28,11 @@ interface InventoryItem {
   };
 }
 
-export default function InventoryDashboard() {
+interface InventoryDashboardProps {
+  onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
+}
+
+export default function InventoryDashboard({ onItemClick }: InventoryDashboardProps) {
   const { data: stats, isLoading } = useQuery<InventoryStats>({
     queryKey: ['/api/inventory/stats'],
   });
@@ -125,6 +129,7 @@ export default function InventoryDashboard() {
               lowStockItems.map((item) => (
                 <div 
                   key={item.id} 
+                  onClick={() => onItemClick?.('inventory', item.id)}
                   className="flex justify-between items-center text-[10px] hover-elevate rounded px-2 py-0.5 cursor-pointer"
                   data-testid={`low-stock-${item.id}`}
                 >
@@ -153,6 +158,7 @@ export default function InventoryDashboard() {
               topValueItems.map((item) => (
                 <div 
                   key={item.id} 
+                  onClick={() => onItemClick?.('inventory', item.id)}
                   className="flex justify-between items-center text-[10px] hover-elevate rounded px-2 py-0.5 cursor-pointer"
                   data-testid={`top-value-${item.id}`}
                 >

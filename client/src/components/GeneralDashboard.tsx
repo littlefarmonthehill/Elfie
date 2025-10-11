@@ -30,7 +30,11 @@ interface InventoryItem {
   };
 }
 
-export default function GeneralDashboard() {
+interface GeneralDashboardProps {
+  onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
+}
+
+export default function GeneralDashboard({ onItemClick }: GeneralDashboardProps) {
   // Fetch dashboard stats
   const { data: stats } = useQuery<DashboardStats>({
     queryKey: ['/api/dashboard/stats'],
@@ -98,13 +102,14 @@ export default function GeneralDashboard() {
         <div className="bg-gray-900/50 border border-orange-500/20 rounded-lg p-4" data-testid="section-action-items">
           <div className="flex items-center gap-2 mb-3">
             <AlertCircle className="w-4 h-4 text-orange-400" />
-            <h3 className="text-xs font-semibold text-orange-400 uppercase tracking-wide">Action Items - Orders to Fulfill</h3>
+            <h3 className="text-[10px] font-semibold text-orange-400 uppercase tracking-wide">Action Items - Orders to Fulfill</h3>
           </div>
           <div className="space-y-1.5">
             {pendingOrders.length > 0 ? (
               pendingOrders.map((order) => (
                 <div 
                   key={order.id} 
+                  onClick={() => onItemClick?.('order', order.id)}
                   className="flex justify-between items-center text-[10px] hover-elevate rounded px-2 py-1 cursor-pointer"
                   data-testid={`action-order-${order.id}`}
                 >
@@ -126,13 +131,14 @@ export default function GeneralDashboard() {
         <div className="bg-gray-900/50 border border-red-500/20 rounded-lg p-4" data-testid="section-critical-alerts">
           <div className="flex items-center gap-2 mb-3">
             <Package className="w-4 h-4 text-red-400" />
-            <h3 className="text-xs font-semibold text-red-400 uppercase tracking-wide">Critical Alerts - Low Stock</h3>
+            <h3 className="text-[10px] font-semibold text-red-400 uppercase tracking-wide">Critical Alerts - Low Stock</h3>
           </div>
           <div className="space-y-1.5">
             {lowStockItems.length > 0 ? (
               lowStockItems.map((item) => (
                 <div 
                   key={item.id} 
+                  onClick={() => onItemClick?.('inventory', item.id)}
                   className="flex justify-between items-center text-[10px] hover-elevate rounded px-2 py-1 cursor-pointer"
                   data-testid={`alert-item-${item.id}`}
                 >
@@ -155,13 +161,14 @@ export default function GeneralDashboard() {
       <div className="bg-gray-900/50 border border-green-500/20 rounded-lg p-4" data-testid="section-recent-activity">
         <div className="flex items-center gap-2 mb-3">
           <TrendingUp className="w-4 h-4 text-green-400" />
-          <h3 className="text-xs font-semibold text-green-400 uppercase tracking-wide">Recent Activity - Latest Sales</h3>
+          <h3 className="text-[10px] font-semibold text-green-400 uppercase tracking-wide">Recent Activity - Latest Sales</h3>
         </div>
         <div className="space-y-1.5">
           {recentSales.length > 0 ? (
             recentSales.map((order) => (
               <div 
                 key={order.id} 
+                onClick={() => onItemClick?.('order', order.id)}
                 className="flex justify-between items-center text-[10px] hover-elevate rounded px-2 py-1 cursor-pointer"
                 data-testid={`activity-order-${order.id}`}
               >

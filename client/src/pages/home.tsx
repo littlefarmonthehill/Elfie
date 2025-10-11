@@ -20,18 +20,51 @@ export default function Home() {
     data: null,
   });
 
+  const handleDashboardItemClick = (type: 'order' | 'inventory', id: number | string) => {
+    // Mock data mapping - in real app, fetch from API
+    if (type === 'order') {
+      const orderId = typeof id === 'string' && id.startsWith('ord-') ? id : `ord-${id}`;
+      const mockOrder = mockOrderDatabase[orderId];
+      if (mockOrder) {
+        setDetailModal({
+          open: true,
+          data: { type: 'order', data: mockOrder }
+        });
+      }
+    } else if (type === 'inventory') {
+      // Mock inventory detail
+      const mockInventory = {
+        partNumber: '3001',
+        name: 'Brick 2 x 4',
+        category: 'Brick',
+        color: 'Red',
+        quantity: 5,
+        condition: 'New' as const,
+        costPerUnit: 0.25,
+        pricePerUnit: 0.45,
+        weight: 2.5,
+        dateAdded: new Date().toISOString(),
+        bricklinkUrl: 'https://www.bricklink.com/v2/catalog/catalogitem.page?P=3001',
+      };
+      setDetailModal({
+        open: true,
+        data: { type: 'inventory', data: mockInventory }
+      });
+    }
+  };
+
   const renderDashboard = () => {
     switch (activeDashboard) {
       case 'inventory':
-        return <InventoryDashboard />;
+        return <InventoryDashboard onItemClick={handleDashboardItemClick} />;
       case 'orders':
-        return <OrdersDashboard />;
+        return <OrdersDashboard onItemClick={handleDashboardItemClick} />;
       case 'sales':
-        return <SalesDashboard period={salesPeriod} />;
+        return <SalesDashboard period={salesPeriod} onItemClick={handleDashboardItemClick} />;
       case 'marketing':
-        return <MarketingDashboard />;
+        return <MarketingDashboard onItemClick={handleDashboardItemClick} />;
       default:
-        return <GeneralDashboard />;
+        return <GeneralDashboard onItemClick={handleDashboardItemClick} />;
     }
   };
 
@@ -65,20 +98,6 @@ export default function Home() {
     }
   };
 
-  const getPrompts = (): string[] => {
-    switch (activeDashboard) {
-      case 'inventory':
-        return ['Inventory Summary', 'List All Items', 'Low Stock Alert', 'Top Value Items'];
-      case 'orders':
-        return ['Orders Summary', 'Awaiting Payment', 'Awaiting Shipment', 'Shipped', 'On Hold', 'Cancelled'];
-      case 'sales':
-        return ['Sales Summary', 'Top Revenue Orders', 'Recent Sales', 'Sales by Status'];
-      case 'marketing':
-        return ['Marketing Summary', 'Top Customers', 'Customer Demographics', 'Repeat Customers'];
-      default:
-        return ['Business Overview', 'Top Products', 'Recent Activity', 'Quick Stats'];
-    }
-  };
 
   const handlePromptAction = (prompt: string) => {
     if (activeDashboard === 'sales') {
@@ -473,7 +492,7 @@ export default function Home() {
           <ChatInterface 
             dashboardContext={getChatContext()} 
             themeColor={getThemeColor()} 
-            prompts={getPrompts()} 
+            prompts={[]} 
             onPromptAction={handlePromptAction}
             onItemClick={handleItemClick}
             isMinimized={chatMinimized}

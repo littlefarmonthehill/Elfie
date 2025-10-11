@@ -13,7 +13,11 @@ interface Order {
   items: any[];
 }
 
-export default function OrdersDashboard() {
+interface OrdersDashboardProps {
+  onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
+}
+
+export default function OrdersDashboard({ onItemClick }: OrdersDashboardProps) {
   const { data: orders = [], isLoading } = useQuery<Order[]>({
     queryKey: ['/api/orders'],
   });
@@ -135,6 +139,7 @@ export default function OrdersDashboard() {
             pendingOrders.map((order) => (
               <div 
                 key={order.id} 
+                onClick={() => onItemClick?.('order', order.id)}
                 className="flex justify-between items-center text-[10px] hover-elevate rounded px-2 py-0.5 cursor-pointer"
                 data-testid={`pending-order-${order.id}`}
               >
@@ -168,6 +173,7 @@ export default function OrdersDashboard() {
             recentShipments.map((order) => (
               <div 
                 key={order.id} 
+                onClick={() => onItemClick?.('order', order.id)}
                 className="flex justify-between items-center text-[10px] hover-elevate rounded px-2 py-0.5 cursor-pointer"
                 data-testid={`shipped-order-${order.id}`}
               >
@@ -197,6 +203,7 @@ export default function OrdersDashboard() {
             highValueOrders.map((order) => (
               <div 
                 key={order.id} 
+                onClick={() => onItemClick?.('order', order.id)}
                 className="flex justify-between items-center text-[10px] hover-elevate rounded px-2 py-0.5 cursor-pointer"
                 data-testid={`high-value-order-${order.id}`}
               >

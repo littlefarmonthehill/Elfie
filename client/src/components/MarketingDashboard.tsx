@@ -17,7 +17,11 @@ interface CustomerData {
   lastOrderDate: string;
 }
 
-export default function MarketingDashboard() {
+interface MarketingDashboardProps {
+  onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
+}
+
+export default function MarketingDashboard({ onItemClick }: MarketingDashboardProps) {
   const { data: orders = [], isLoading } = useQuery<Order[]>({
     queryKey: ['/api/orders'],
   });
@@ -51,6 +55,14 @@ export default function MarketingDashboard() {
   };
 
   const customerData = getCustomerData();
+
+  // Helper to get most recent order ID for a customer
+  const getCustomerOrderId = (customerUsername: string): string | null => {
+    const customerOrders = orders
+      .filter(o => o.customerUsername === customerUsername)
+      .sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime());
+    return customerOrders.length > 0 ? customerOrders[0].id : null;
+  };
 
   // Top customers by revenue
   const topCustomers = [...customerData]
@@ -123,6 +135,10 @@ export default function MarketingDashboard() {
             topCustomers.map((customer, idx) => (
               <div 
                 key={customer.customerUsername + idx} 
+                onClick={() => {
+                  const orderId = getCustomerOrderId(customer.customerUsername);
+                  if (orderId) onItemClick?.('order', orderId);
+                }}
                 className="flex justify-between items-center text-[10px] hover-elevate rounded px-2 py-0.5 cursor-pointer"
                 data-testid={`top-customer-${idx}`}
               >
@@ -151,6 +167,10 @@ export default function MarketingDashboard() {
             repeatCustomers.map((customer, idx) => (
               <div 
                 key={customer.customerUsername + idx} 
+                onClick={() => {
+                  const orderId = getCustomerOrderId(customer.customerUsername);
+                  if (orderId) onItemClick?.('order', orderId);
+                }}
                 className="flex justify-between items-center text-[10px] hover-elevate rounded px-2 py-0.5 cursor-pointer"
                 data-testid={`repeat-customer-${idx}`}
               >
@@ -179,6 +199,10 @@ export default function MarketingDashboard() {
             recentNewCustomers.map((customer, idx) => (
               <div 
                 key={customer.customerUsername + idx} 
+                onClick={() => {
+                  const orderId = getCustomerOrderId(customer.customerUsername);
+                  if (orderId) onItemClick?.('order', orderId);
+                }}
                 className="flex justify-between items-center text-[10px] hover-elevate rounded px-2 py-0.5 cursor-pointer"
                 data-testid={`new-customer-${idx}`}
               >
