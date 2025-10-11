@@ -1224,6 +1224,144 @@ Keep responses helpful, accurate, and based on the actual data provided.`;
     }
   });
 
+  // Get Item Analytics
+  app.get("/api/inventory/:id/analytics", async (req, res) => {
+    try {
+      const itemId = parseInt(req.params.id);
+      if (isNaN(itemId)) {
+        return res.status(400).json({ error: "Invalid item ID" });
+      }
+
+      // Get the inventory item to find the itemNo (SKU)
+      const [item] = await db
+        .select({ itemNo: blInventory.itemNo, dateCreated: blInventory.dateCreated })
+        .from(blInventory)
+        .where(eq(blInventory.id, itemId))
+        .limit(1);
+
+      if (!item) {
+        return res.status(404).json({ error: "Item not found" });
+      }
+
+      // Query all sales for this item (matching SKU to itemNo)
+      const sales = await db
+        .select({
+          orderId: orderDetails.orderId,
+          quantity: orderDetails.quantity,
+          unitPrice: orderDetails.unitPrice,
+          orderDate: orders.orderDate,
+          customerUsername: orders.customerUsername,
+          customerEmail: orders.customerEmail,
+          orderStatus: orders.orderStatus,
+        })
+        .from(orderDetails)
+        .innerJoin(orders, eq(orderDetails.orderId, orders.id))
+        .where(eq(orderDetails.sku, item.itemNo))
+        .orderBy(desc(orders.orderDate));
+
+      // Calculate analytics metrics
+      const totalUnitsSold = sales.reduce((sum, sale) => sum + sale.quantity, 0);
+      const totalRevenue = sales.reduce((sum, sale) => sum + (sale.quantity * parseFloat(sale.unitPrice || "0")), 0);
+      const averageSellingPrice = totalUnitsSold > 0 ? totalRevenue / totalUnitsSold : 0;
+
+      // Calculate sales by month
+      const salesByMonth: Record<string, { units: number; revenue: number }> = {};
+      sales.forEach(sale => {
+        const monthKey = new Date(sale.orderDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
+        if (!salesByMonth[monthKey]) {
+          salesByMonth[monthKey] = { units: 0, revenue: 0 };
+        }
+        salesByMonth[monthKey].units += sale.quantity;
+        salesByMonth[monthKey].revenue += sale.quantity * parseFloat(sale.unitPrice || "0");
+      });
+
+      // Find best selling month
+      let bestMonth = { month: '', units: 0 };
+      Object.entries(salesByMonth).forEach(([month, data]) => {
+        if (data.units > bestMonth.units) {
+          bestMonth = { month, units: data.units };
+        }
+      });
+
+      // Calculate days since last sold
+      let daysSinceLastSold = null;
+      if (sales.length > 0) {
+        const lastSaleDate = new Date(sales[0].orderDate);
+        const now = new Date();
+        daysSinceLastSold = Math.floor((now.getTime() - lastSaleDate.getTime()) / (1000 * 60 * 60 * 24));
+      }
+
+      // Calculate sales velocity (units per month)
+      let salesVelocity = 0;
+      if (sales.length > 0) {
+        const firstSaleDate = new Date(sales[sales.length - 1].orderDate);
+        const lastSaleDate = new Date(sales[0].orderDate);
+        const monthsDiff = (lastSaleDate.getTime() - firstSaleDate.getTime()) / (1000 * 60 * 60 * 24 * 30);
+        salesVelocity = monthsDiff > 0 ? totalUnitsSold / monthsDiff : totalUnitsSold;
+      }
+
+      // Identify top customers
+      const customerPurchases: Record<string, { name: string; units: number; revenue: number; orders: number }> = {};
+      sales.forEach(sale => {
+        const customerKey = sale.customerUsername || sale.customerEmail || 'Unknown';
+        if (!customerPurchases[customerKey]) {
+          customerPurchases[customerKey] = { 
+            name: customerKey, 
+            units: 0, 
+            revenue: 0,
+            orders: 0
+          };
+        }
+        customerPurchases[customerKey].units += sale.quantity;
+        customerPurchases[customerKey].revenue += sale.quantity * parseFloat(sale.unitPrice || "0");
+        customerPurchases[customerKey].orders += 1;
+      });
+
+      const topCustomers = Object.values(customerPurchases)
+        .sort((a, b) => b.units - a.units)
+        .slice(0, 5);
+
+      // Days in inventory
+      let daysInInventory = null;
+      if (item.dateCreated) {
+        const now = new Date();
+        const created = new Date(item.dateCreated);
+        daysInInventory = Math.floor((now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24));
+      }
+
+      // Recent sales (last 3 months)
+      const threeMonthsAgo = new Date();
+      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+      const recentSales = sales.filter(sale => new Date(sale.orderDate) >= threeMonthsAgo);
+      const recentUnitsSold = recentSales.reduce((sum, sale) => sum + sale.quantity, 0);
+
+      res.json({
+        totalUnitsSold,
+        totalRevenue: totalRevenue.toFixed(2),
+        averageSellingPrice: averageSellingPrice.toFixed(2),
+        salesVelocity: salesVelocity.toFixed(1),
+        daysSinceLastSold,
+        daysInInventory,
+        bestSellingMonth: bestMonth.month || 'N/A',
+        bestSellingMonthUnits: bestMonth.units,
+        topCustomers,
+        recentSales: {
+          last3Months: recentUnitsSold,
+          percentOfTotal: totalUnitsSold > 0 ? ((recentUnitsSold / totalUnitsSold) * 100).toFixed(1) : '0'
+        },
+        salesByMonth: Object.entries(salesByMonth).map(([month, data]) => ({
+          month,
+          units: data.units,
+          revenue: data.revenue.toFixed(2)
+        })).reverse().slice(0, 12), // Last 12 months
+        totalOrders: sales.length,
+      });
+    } catch (error) {
+      console.error("Error fetching item analytics:", error);
+      res.status(500).json({ error: "Failed to fetch analytics" });
+    }
+  });
+
   // Rate Limit Status
   app.get("/api/bricklink/rate-limit", async (req, res) => {
     try {

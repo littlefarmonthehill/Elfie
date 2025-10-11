@@ -1,7 +1,7 @@
-import { Package, DollarSign, Weight, Calendar, ExternalLink, TrendingUp, Sparkles, BarChart3, ShoppingCart, FileText, AlertCircle, Database, Tag, Box, Layers } from "lucide-react";
+import { Package, DollarSign, Weight, Calendar, ExternalLink, TrendingUp, Sparkles, BarChart3, ShoppingCart, FileText, AlertCircle, Database, Tag, Box, Layers, Users, Clock, Zap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface PriceOMagicData {
   itemNo: string;
@@ -28,6 +28,33 @@ interface PriceOMagicData {
   soldTotalLots: number | null;
   suggestedPrice: string;
   premiumPercentage: number;
+}
+
+interface AnalyticsData {
+  totalUnitsSold: number;
+  totalRevenue: string;
+  averageSellingPrice: string;
+  salesVelocity: string;
+  daysSinceLastSold: number | null;
+  daysInInventory: number | null;
+  bestSellingMonth: string;
+  bestSellingMonthUnits: number;
+  topCustomers: Array<{
+    name: string;
+    units: number;
+    revenue: number;
+    orders: number;
+  }>;
+  recentSales: {
+    last3Months: number;
+    percentOfTotal: string;
+  };
+  salesByMonth: Array<{
+    month: string;
+    units: number;
+    revenue: string;
+  }>;
+  totalOrders: number;
 }
 
 interface InventoryDetailProps {
@@ -69,7 +96,29 @@ interface InventoryDetailProps {
 
 export default function InventoryDetail({ data }: InventoryDetailProps) {
   const [activeTab, setActiveTab] = useState("overview");
+  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
+  const [loadingAnalytics, setLoadingAnalytics] = useState(false);
   const priceOMagic = data.priceOMagic;
+
+  // Fetch analytics data
+  useEffect(() => {
+    const fetchAnalytics = async () => {
+      setLoadingAnalytics(true);
+      try {
+        const response = await fetch(`/api/inventory/${data.id}/analytics`);
+        if (response.ok) {
+          const analyticsData = await response.json();
+          setAnalytics(analyticsData);
+        }
+      } catch (error) {
+        console.error("Error fetching analytics:", error);
+      } finally {
+        setLoadingAnalytics(false);
+      }
+    };
+
+    fetchAnalytics();
+  }, [data.id]);
   const currentPrice = data.unitPrice ? parseFloat(data.unitPrice) : 0;
   const myCost = data.myCost ? parseFloat(data.myCost) : null;
   const suggestedPrice = priceOMagic ? parseFloat(priceOMagic.suggestedPrice) : null;
@@ -160,9 +209,10 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
 
       {/* Tabbed Content - Scrollable with fixed height */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
-        <TabsList className="flex-shrink-0 grid w-full grid-cols-3 bg-gray-800 p-0.5 h-8 mb-3">
+        <TabsList className="flex-shrink-0 grid w-full grid-cols-4 bg-gray-800 p-0.5 h-8 mb-3">
           <TabsTrigger value="overview" className="text-[10px] py-0.5 data-[state=active]:bg-lego-blue" data-testid="tab-overview">OVERVIEW</TabsTrigger>
           <TabsTrigger value="pricing" className="text-[10px] py-0.5 data-[state=active]:bg-purple-600" data-testid="tab-pricing">PRICING</TabsTrigger>
+          <TabsTrigger value="analytics" className="text-[10px] py-0.5 data-[state=active]:bg-lego-orange" data-testid="tab-analytics">ANALYTICS</TabsTrigger>
           <TabsTrigger value="details" className="text-[10px] py-0.5 data-[state=active]:bg-lego-green" data-testid="tab-details">DETAILS</TabsTrigger>
         </TabsList>
 
@@ -380,6 +430,156 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
               <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-2.5">
                 <p className="text-[10px] font-bold text-gray-400 mb-1">SALE DISCOUNT</p>
                 <p className="text-xl font-black font-mono text-red-400">{data.saleRate}% OFF</p>
+              </div>
+            )}
+          </TabsContent>
+
+          {/* Analytics Tab */}
+          <TabsContent value="analytics" className="mt-0 space-y-2.5">
+            {loadingAnalytics ? (
+              <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-4 text-center">
+                <BarChart3 className="h-8 w-8 text-lego-orange mx-auto mb-2 animate-pulse" />
+                <p className="text-xs text-gray-400">Loading analytics...</p>
+              </div>
+            ) : analytics ? (
+              <>
+                {/* Sales Performance */}
+                <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-2.5">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <TrendingUp className="h-3.5 w-3.5 text-green-400" />
+                    <p className="text-[10px] font-bold text-green-400">SALES PERFORMANCE</p>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 mb-2">
+                    <div className="text-center">
+                      <ShoppingCart className="h-4 w-4 text-lego-blue mx-auto mb-1" />
+                      <p className="text-[9px] text-gray-400 mb-0.5">TOTAL SOLD</p>
+                      <p className="text-lg font-black font-mono text-lego-blue">{analytics.totalUnitsSold}</p>
+                    </div>
+                    <div className="text-center">
+                      <DollarSign className="h-4 w-4 text-lego-green mx-auto mb-1" />
+                      <p className="text-[9px] text-gray-400 mb-0.5">REVENUE</p>
+                      <p className="text-lg font-black font-mono text-lego-green">${analytics.totalRevenue}</p>
+                    </div>
+                    <div className="text-center">
+                      <Zap className="h-4 w-4 text-lego-orange mx-auto mb-1" />
+                      <p className="text-[9px] text-gray-400 mb-0.5">VELOCITY</p>
+                      <p className="text-lg font-black font-mono text-lego-orange">{analytics.salesVelocity}/mo</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="bg-gray-900/50 rounded px-2.5 py-1.5">
+                      <span className="text-gray-500 block text-[9px]">Avg Price</span>
+                      <span className="text-white font-mono">${analytics.averageSellingPrice}</span>
+                    </div>
+                    <div className="bg-gray-900/50 rounded px-2.5 py-1.5">
+                      <span className="text-gray-500 block text-[9px]">Orders</span>
+                      <span className="text-white font-mono">{analytics.totalOrders}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Movement Insights */}
+                <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-2.5">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Clock className="h-3.5 w-3.5 text-yellow-400" />
+                    <p className="text-[10px] font-bold text-yellow-400">MOVEMENT INSIGHTS</p>
+                  </div>
+                  <div className="space-y-1.5 text-xs">
+                    <div className="flex items-center justify-between bg-gray-900/50 rounded px-2.5 py-1.5">
+                      <span className="text-gray-500">Last Sold:</span>
+                      <span className={`font-mono ${analytics.daysSinceLastSold === null ? 'text-gray-400' : analytics.daysSinceLastSold > 90 ? 'text-red-400' : analytics.daysSinceLastSold > 30 ? 'text-yellow-400' : 'text-green-400'}`}>
+                        {analytics.daysSinceLastSold === null ? 'Never' : `${analytics.daysSinceLastSold} days ago`}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between bg-gray-900/50 rounded px-2.5 py-1.5">
+                      <span className="text-gray-500">In Inventory:</span>
+                      <span className="text-white font-mono">{analytics.daysInInventory || 'N/A'} days</span>
+                    </div>
+                    <div className="flex items-center justify-between bg-gray-900/50 rounded px-2.5 py-1.5">
+                      <span className="text-gray-500">Best Month:</span>
+                      <span className="text-white font-mono">{analytics.bestSellingMonth} ({analytics.bestSellingMonthUnits} units)</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Recent Activity */}
+                <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-2.5">
+                  <p className="text-[10px] font-bold text-gray-400 mb-2">RECENT ACTIVITY (3 MONTHS)</p>
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 text-center">
+                      <p className="text-xl font-black font-mono text-purple-400">{analytics.recentSales.last3Months}</p>
+                      <p className="text-[9px] text-gray-500">Units Sold</p>
+                    </div>
+                    <div className="flex-1 text-center">
+                      <p className="text-xl font-black font-mono text-purple-400">{analytics.recentSales.percentOfTotal}%</p>
+                      <p className="text-[9px] text-gray-500">of Total</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Top Customers */}
+                {analytics.topCustomers.length > 0 && (
+                  <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-2.5">
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <Users className="h-3.5 w-3.5 text-blue-400" />
+                      <p className="text-[10px] font-bold text-blue-400">TOP CUSTOMERS</p>
+                    </div>
+                    <div className="space-y-1.5">
+                      {analytics.topCustomers.map((customer, idx) => (
+                        <div key={idx} className="bg-gray-900/50 rounded px-2.5 py-1.5">
+                          <div className="flex items-center justify-between mb-0.5">
+                            <span className="text-xs text-white truncate pr-2">{customer.name}</span>
+                            <span className="text-xs font-mono text-lego-green">{customer.units} units</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[9px]">
+                            <span className="text-gray-500">{customer.orders} {customer.orders === 1 ? 'order' : 'orders'}</span>
+                            <span className="text-gray-400 font-mono">${customer.revenue.toFixed(2)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Strategy Recommendations */}
+                <div className="bg-gradient-to-r from-lego-orange/20 via-lego-orange/10 to-transparent border border-lego-orange/30 rounded-lg p-2.5">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Sparkles className="h-3.5 w-3.5 text-lego-orange" />
+                    <p className="text-[10px] font-bold text-lego-orange">MOVEMENT STRATEGIES</p>
+                  </div>
+                  <div className="space-y-1.5 text-xs text-gray-300">
+                    {analytics.daysSinceLastSold !== null && analytics.daysSinceLastSold > 90 && (
+                      <p className="flex items-start gap-1.5">
+                        <span className="text-yellow-400 mt-0.5">•</span>
+                        <span>Consider price reduction - item hasn't sold in {analytics.daysSinceLastSold} days</span>
+                      </p>
+                    )}
+                    {parseFloat(analytics.salesVelocity) > 5 && (
+                      <p className="flex items-start gap-1.5">
+                        <span className="text-green-400 mt-0.5">•</span>
+                        <span>High velocity item ({analytics.salesVelocity}/mo) - consider restocking</span>
+                      </p>
+                    )}
+                    {analytics.topCustomers.length > 0 && analytics.topCustomers[0].orders > 1 && (
+                      <p className="flex items-start gap-1.5">
+                        <span className="text-blue-400 mt-0.5">•</span>
+                        <span>Repeat buyers detected - reach out to {analytics.topCustomers[0].name} for bulk offers</span>
+                      </p>
+                    )}
+                    {analytics.bestSellingMonth !== 'N/A' && (
+                      <p className="flex items-start gap-1.5">
+                        <span className="text-purple-400 mt-0.5">•</span>
+                        <span>Best sales in {analytics.bestSellingMonth} - plan promotions accordingly</span>
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-4 text-center">
+                <BarChart3 className="h-8 w-8 text-gray-600 mx-auto mb-2" />
+                <p className="text-xs text-gray-500">No sales data available</p>
+                <p className="text-[10px] text-gray-600 mt-1">This item hasn't been sold yet</p>
               </div>
             )}
           </TabsContent>
