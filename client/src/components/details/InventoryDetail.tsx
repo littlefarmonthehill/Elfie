@@ -422,7 +422,7 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
                       </p>
                     </button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-md bg-gray-900 border-purple-500/50" data-testid="dialog-price-breakdown">
+                  <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto bg-gray-900 border-purple-500/50" data-testid="dialog-price-breakdown">
                     <DialogHeader>
                       <DialogTitle className="flex items-center gap-2 text-purple-400">
                         <Sparkles className="h-5 w-5" />
@@ -461,7 +461,7 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
                           
                           return (
                             <div className="border-t border-gray-700 pt-2">
-                              <p className="text-xs text-gray-400 mb-1">Premium Applied</p>
+                              <p className="text-xs text-gray-400 mb-1">PlanetBrick Premium Applied</p>
                               <p className="text-lg font-mono font-bold text-purple-400">
                                 +{totalPremium}%
                               </p>
@@ -534,7 +534,7 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
                                   
                                   <div className="bg-gray-900/50 rounded p-2 mt-2 space-y-1.5">
                                     <div className="flex justify-between text-[10px]">
-                                      <span className="text-gray-400">Base Premium:</span>
+                                      <span className="text-gray-400">Base PlanetBrick Premium:</span>
                                       <span className="font-mono text-purple-400">+{basePremium}%</span>
                                     </div>
                                     {supplyPremium > 0 && (
@@ -544,7 +544,7 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
                                       </div>
                                     )}
                                     <div className="flex justify-between text-xs border-t border-gray-700 pt-1.5">
-                                      <span className="text-gray-300 font-bold">Total Premium:</span>
+                                      <span className="text-gray-300 font-bold">Total PlanetBrick Premium:</span>
                                       <span className="font-mono font-bold text-purple-400">+{totalPremium}%</span>
                                     </div>
                                   </div>
