@@ -1295,29 +1295,56 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
     }
   });
 
-  // Get Recently Updated Inventory Items (MUST be before /api/inventory/:id)
+  // Get Recently Updated/Added Inventory Items (MUST be before /api/inventory/:id)
   app.get("/api/inventory/recent-updates", async (req, res) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+      const type = req.query.type as string; // 'new' or 'updated'
       
-      const recentItems = await db
-        .select({
-          id: blInventory.id,
-          inventoryId: blInventory.id,
-          itemNo: blInventory.itemNo,
-          itemName: blInventory.itemName,
-          colorId: blInventory.colorId,
-          colorName: blColors.name,
-          colorRgb: blColors.rgb,
-          quantity: blInventory.quantity,
-          unitPrice: blInventory.unitPrice,
-          newOrUsed: blInventory.newOrUsed,
-          updatedAt: blInventory.updatedAt,
-        })
-        .from(blInventory)
-        .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
-        .orderBy(desc(blInventory.updatedAt))
-        .limit(limit);
+      const baseSelect = {
+        id: blInventory.id,
+        inventoryId: blInventory.id,
+        itemNo: blInventory.itemNo,
+        itemName: blInventory.itemName,
+        colorId: blInventory.colorId,
+        colorName: blColors.name,
+        colorRgb: blColors.rgb,
+        quantity: blInventory.quantity,
+        unitPrice: blInventory.unitPrice,
+        newOrUsed: blInventory.newOrUsed,
+        syncedAt: blInventory.syncedAt,
+        updatedAt: blInventory.updatedAt,
+      };
+
+      let recentItems;
+
+      if (type === 'new') {
+        // Newly added items: syncedAt and updatedAt are very close (within 5 seconds)
+        recentItems = await db
+          .select(baseSelect)
+          .from(blInventory)
+          .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+          .where(sql`EXTRACT(EPOCH FROM (${blInventory.updatedAt} - ${blInventory.syncedAt})) < 5`)
+          .orderBy(desc(blInventory.syncedAt))
+          .limit(limit);
+      } else if (type === 'updated') {
+        // Updated items: updatedAt is significantly later than syncedAt (more than 5 seconds)
+        recentItems = await db
+          .select(baseSelect)
+          .from(blInventory)
+          .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+          .where(sql`EXTRACT(EPOCH FROM (${blInventory.updatedAt} - ${blInventory.syncedAt})) >= 5`)
+          .orderBy(desc(blInventory.updatedAt))
+          .limit(limit);
+      } else {
+        // All recent items (default behavior)
+        recentItems = await db
+          .select(baseSelect)
+          .from(blInventory)
+          .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+          .orderBy(desc(blInventory.updatedAt))
+          .limit(limit);
+      }
 
       res.json(recentItems);
     } catch (error) {
