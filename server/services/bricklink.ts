@@ -1,6 +1,6 @@
 import { db } from "../db";
-import { blCategories, blColors, blInventory, blApiCalls, appSettings } from "@shared/schema";
-import { eq, gte, sql, inArray } from "drizzle-orm";
+import { blCategories, blColors, blInventory, blApiCalls, appSettings, priceGuideCache } from "@shared/schema";
+import { eq, gte, sql, inArray, and } from "drizzle-orm";
 import OAuth from "oauth-1.0a";
 import crypto from "crypto";
 
@@ -543,4 +543,218 @@ export async function syncBricklinkData(): Promise<BricklinkSyncResult> {
     totalApiCalls,
     rateLimitWarning: rateLimit.warning,
   };
+}
+
+// ====== PRICE-O-MAGIC FUNCTIONS ======
+
+// Make a BrickLink Catalog API request (different base URL)
+async function bricklinkCatalogRequest(endpoint: string, queryParams?: Record<string, string>): Promise<{ data: any; apiCalls: number }> {
+  const [settings] = await db.select().from(appSettings).limit(1);
+  
+  const consumerKey = settings?.bricklinkConsumerKey || process.env.BRICKLINK_CONSUMER_KEY || '';
+  const consumerSecret = settings?.bricklinkConsumerSecret || process.env.BRICKLINK_CONSUMER_SECRET || '';
+  const tokenValue = settings?.bricklinkTokenValue || process.env.BRICKLINK_TOKEN_VALUE || '';
+  const tokenSecret = settings?.bricklinkTokenSecret || process.env.BRICKLINK_TOKEN_SECRET || '';
+  
+  if (!consumerKey || !consumerSecret || !tokenValue || !tokenSecret) {
+    throw new Error('BrickLink credentials not configured. Please add them in Settings.');
+  }
+
+  // Check rate limit
+  const rateLimit = await checkRateLimit();
+  if (!rateLimit.allowed) {
+    throw new Error(rateLimit.warning || 'API rate limit exceeded');
+  }
+
+  // Create OAuth client
+  const oauth = new OAuth({
+    consumer: {
+      key: consumerKey,
+      secret: consumerSecret,
+    },
+    signature_method: 'HMAC-SHA1',
+    hash_function(baseString, key) {
+      return crypto.createHmac('sha1', key).update(baseString).digest('base64');
+    },
+  });
+
+  const token = {
+    key: cleanToken(tokenValue),
+    secret: cleanToken(tokenSecret),
+  };
+
+  // Catalog API uses /api/v1 instead of /api/store/v1
+  let url = `https://api.bricklink.com/api/v1${endpoint}`;
+  if (queryParams) {
+    const params = new URLSearchParams(queryParams);
+    url = `${url}?${params.toString()}`;
+  }
+  
+  const requestData = { url, method: 'GET' };
+  const authHeader = oauth.toHeader(oauth.authorize(requestData, token));
+  
+  let success = false;
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        ...authHeader,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`BrickLink Catalog API error (${response.status}):`, errorText);
+      throw new Error(`BrickLink Catalog API error: ${response.statusText}`);
+    }
+
+    const json = await response.json();
+    
+    if (json.meta && json.meta.code !== 200) {
+      console.error(`BrickLink Catalog API error (meta.code ${json.meta.code}):`, json.meta.description || json.meta.message);
+      throw new Error(`BrickLink Catalog API error: ${json.meta.description || json.meta.message}`);
+    }
+    
+    success = true;
+    return { data: json.data, apiCalls: 1 };
+  } finally {
+    await trackApiCall(endpoint, success);
+  }
+}
+
+// Calculate Price-O-Matic suggested price with premium
+function calculateSuggestedPrice(
+  stockAvgPrice: number | null,
+  soldAvgPrice: number | null,
+  premiumPercentage: number = 15
+): number {
+  // Use stock average as base, fall back to sold average
+  const basePrice = stockAvgPrice || soldAvgPrice || 0;
+  
+  if (basePrice === 0) {
+    return 0;
+  }
+  
+  // Apply premium percentage (default 15% for fast turnaround and large inventory)
+  const suggestedPrice = basePrice * (1 + premiumPercentage / 100);
+  
+  return Number(suggestedPrice.toFixed(2));
+}
+
+// Fetch and cache Price-O-Magic data for an item
+export async function fetchPriceOMagicData(
+  itemNo: string,
+  itemType: string,
+  colorId?: number,
+  premiumPercentage: number = 15
+): Promise<any> {
+  try {
+    // Check if we have cached data less than 24 hours old
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    
+    const existingCache = await db
+      .select()
+      .from(priceGuideCache)
+      .where(
+        and(
+          eq(priceGuideCache.itemNo, itemNo),
+          eq(priceGuideCache.itemType, itemType),
+          colorId ? eq(priceGuideCache.colorId, colorId) : sql`${priceGuideCache.colorId} IS NULL`,
+          gte(priceGuideCache.fetchedAt, twentyFourHoursAgo)
+        )
+      )
+      .limit(1);
+    
+    if (existingCache.length > 0) {
+      console.log(`[Price-O-Magic] Using cached data for ${itemType}/${itemNo}${colorId ? `/${colorId}` : ''}`);
+      return existingCache[0];
+    }
+
+    console.log(`[Price-O-Magic] Fetching fresh data for ${itemType}/${itemNo}${colorId ? `/${colorId}` : ''}`);
+
+    // Fetch item details
+    const itemDetailsEndpoint = `/catalog/items/${itemType}/${itemNo}`;
+    const { data: itemDetails } = await bricklinkCatalogRequest(itemDetailsEndpoint);
+
+    // Fetch price guide - stock
+    const stockPriceParams: Record<string, string> = { guide_type: 'stock' };
+    if (colorId) {
+      stockPriceParams.color_id = colorId.toString();
+    }
+    const stockPriceEndpoint = `/catalog/items/${itemType}/${itemNo}/price`;
+    const { data: stockPriceData } = await bricklinkCatalogRequest(stockPriceEndpoint, stockPriceParams);
+
+    // Fetch price guide - sold
+    const soldPriceParams: Record<string, string> = { guide_type: 'sold' };
+    if (colorId) {
+      soldPriceParams.color_id = colorId.toString();
+    }
+    const { data: soldPriceData } = await bricklinkCatalogRequest(stockPriceEndpoint, soldPriceParams);
+
+    // Calculate suggested price
+    const stockAvgPrice = stockPriceData?.avg_price ? parseFloat(stockPriceData.avg_price) : null;
+    const soldAvgPrice = soldPriceData?.avg_price ? parseFloat(soldPriceData.avg_price) : null;
+    const suggestedPrice = calculateSuggestedPrice(stockAvgPrice, soldAvgPrice, premiumPercentage);
+
+    // Merge and store data
+    const mergedData = {
+      itemNo,
+      itemType,
+      colorId: colorId || null,
+      
+      // Item details
+      itemName: itemDetails?.name || null,
+      imageUrl: itemDetails?.image_url || null,
+      thumbnailUrl: itemDetails?.thumbnail_url || null,
+      categoryId: itemDetails?.category_id || null,
+      weight: itemDetails?.weight ? itemDetails.weight.toString() : null,
+      dimensionX: itemDetails?.dim_x ? itemDetails.dim_x.toString() : null,
+      dimensionY: itemDetails?.dim_y ? itemDetails.dim_y.toString() : null,
+      dimensionZ: itemDetails?.dim_z ? itemDetails.dim_z.toString() : null,
+      yearReleased: itemDetails?.year_released || null,
+      
+      // Stock price guide
+      stockAvgPrice: stockAvgPrice?.toString() || null,
+      stockMinPrice: stockPriceData?.min_price ? stockPriceData.min_price.toString() : null,
+      stockMaxPrice: stockPriceData?.max_price ? stockPriceData.max_price.toString() : null,
+      stockQuantity: stockPriceData?.qty_avg || null,
+      stockTotalLots: stockPriceData?.total_qty || null,
+      
+      // Sold price guide
+      soldAvgPrice: soldAvgPrice?.toString() || null,
+      soldMinPrice: soldPriceData?.min_price ? soldPriceData.min_price.toString() : null,
+      soldMaxPrice: soldPriceData?.max_price ? soldPriceData.max_price.toString() : null,
+      soldQuantity: soldPriceData?.qty_avg || null,
+      soldTotalLots: soldPriceData?.total_qty || null,
+      
+      // Price-O-Matic
+      suggestedPrice: suggestedPrice.toString(),
+      premiumPercentage,
+    };
+
+    // Delete old cache entry if exists
+    await db
+      .delete(priceGuideCache)
+      .where(
+        and(
+          eq(priceGuideCache.itemNo, itemNo),
+          eq(priceGuideCache.itemType, itemType),
+          colorId ? eq(priceGuideCache.colorId, colorId) : sql`${priceGuideCache.colorId} IS NULL`
+        )
+      );
+
+    // Insert new cache entry
+    const [insertedData] = await db
+      .insert(priceGuideCache)
+      .values([mergedData])
+      .returning();
+
+    console.log(`[Price-O-Magic] Cached data for ${itemType}/${itemNo}${colorId ? `/${colorId}` : ''}`);
+    
+    return insertedData;
+  } catch (error) {
+    console.error('[Price-O-Magic] Error fetching data:', error);
+    throw error;
+  }
 }

@@ -226,3 +226,53 @@ export const insertSyncMetadataSchema = createInsertSchema(syncMetadata).omit({
 
 export type InsertSyncMetadata = z.infer<typeof insertSyncMetadataSchema>;
 export type SyncMetadata = typeof syncMetadata.$inferSelect;
+
+// Price-O-Magic Cache - Stores merged BrickLink item details and price guide data
+export const priceGuideCache = pgTable("price_guide_cache", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  itemNo: text("item_no").notNull(),
+  itemType: text("item_type").notNull(),
+  colorId: integer("color_id"),
+  
+  // Item Details from BrickLink
+  itemName: text("item_name"),
+  imageUrl: text("image_url"),
+  thumbnailUrl: text("thumbnail_url"),
+  categoryId: integer("category_id"),
+  weight: decimal("weight", { precision: 10, scale: 4 }),
+  dimensionX: decimal("dimension_x", { precision: 10, scale: 2 }),
+  dimensionY: decimal("dimension_y", { precision: 10, scale: 2 }),
+  dimensionZ: decimal("dimension_z", { precision: 10, scale: 2 }),
+  yearReleased: integer("year_released"),
+  
+  // Price Guide - Stock (current market)
+  stockAvgPrice: decimal("stock_avg_price", { precision: 10, scale: 2 }),
+  stockMinPrice: decimal("stock_min_price", { precision: 10, scale: 2 }),
+  stockMaxPrice: decimal("stock_max_price", { precision: 10, scale: 2 }),
+  stockQuantity: integer("stock_quantity"),
+  stockTotalLots: integer("stock_total_lots"),
+  
+  // Price Guide - Sold (historical)
+  soldAvgPrice: decimal("sold_avg_price", { precision: 10, scale: 2 }),
+  soldMinPrice: decimal("sold_min_price", { precision: 10, scale: 2 }),
+  soldMaxPrice: decimal("sold_max_price", { precision: 10, scale: 2 }),
+  soldQuantity: integer("sold_quantity"),
+  soldTotalLots: integer("sold_total_lots"),
+  
+  // Price-O-Matic Suggested Price (with premium)
+  suggestedPrice: decimal("suggested_price", { precision: 10, scale: 2 }),
+  premiumPercentage: integer("premium_percentage").default(15), // Default 15% premium
+  
+  // Cache management
+  fetchedAt: timestamp("fetched_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertPriceGuideCacheSchema = createInsertSchema(priceGuideCache).omit({
+  id: true,
+  fetchedAt: true,
+  updatedAt: true,
+});
+
+export type InsertPriceGuideCache = z.infer<typeof insertPriceGuideCacheSchema>;
+export type PriceGuideCache = typeof priceGuideCache.$inferSelect;
