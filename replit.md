@@ -4,8 +4,34 @@
 PlanetBrick is a comprehensive business operations and analytics dashboard for LEGO reselling businesses. It integrates with BrickLink and ShipStation to offer real-time inventory management, order tracking, sales analytics, and marketing insights. The application features a dark-mode interface with LEGO-inspired colors and an AI chat assistant (E.L.F.I.E.) for operational guidance. The vision is to provide a complete operational toolkit for LEGO resellers, enhancing efficiency and profitability through data-driven decisions and intelligent automation.
 
 ## Recent Changes (October 2025)
+- **Instant Modal Loading UX**: Improved user experience with instant modal feedback:
+  - Drawer opens immediately when clicking any inventory or order item, showing skeleton loading state
+  - Data loads progressively: base data → Price-O-Magic → Analytics
+  - No more waiting for network before visual response
+  - Smooth transitions from skeleton to actual content
+  - All detail components (InventoryDetail, OrderDetail) support loading states
+- **Price-O-Magic Calculation Popup**: Added transparency to pricing suggestions:
+  - Suggested price is now clickable with visual hint ("Tap to see calculation")
+  - Dialog shows complete calculation breakdown:
+    - Base Price (Stock Average)
+    - Premium Applied (% and dollar amount)
+    - Final Suggested Price
+    - Market Context (stock/sold averages, price range)
+    - Formula explanation
+  - Helps users understand and trust the AI pricing recommendations
+- **Date Range Analytics Selector**: Flexible historical data analysis for businesses that were closed or dormant:
+  - Date range selector in Analytics tab with options: 3M, 6M, 1Y, 2Y, All
+  - Default: "All" (all-time data)
+  - Backend filters order data by selected range before calculating metrics
+  - Perfect for businesses reopening after closures - can compare historical vs recent performance
+  - All analytics metrics (sales, velocity, customers) recalculate based on selected period
+- **Alternative IDs Verification**: Confirmed complete identifier display in Details tab:
+  - All identifiers shown: Inventory ID, Part Number, Item Type, Color ID, Bind ID
+  - Helpful note warns users that part numbers may change, recommends using Inventory ID
+  - Inventory settings clearly displayed: Completeness, Bulk, Retain, Stock Room, Date Created
+  - Proper null handling - optional fields only show when available
 - **Inventory Analytics System**: Comprehensive sales analytics and movement insights for data-driven inventory management:
-  - **Backend Analytics API** (`/api/inventory/:id/analytics`): Joins order history with inventory by SKU matching (order_details.sku = bl_inventory.itemNo) to calculate sales velocity, revenue, customer patterns, and time-based trends
+  - **Backend Analytics API** (`/api/inventory/:id/analytics`): Joins order history with inventory by SKU matching (order_details.sku = bl_inventory.itemNo) to calculate sales velocity, revenue, customer patterns, and time-based trends. Now supports date range filtering via `?range=` query parameter
   - **Analytics Tab**: Fourth tab added to inventory detail drawer showing:
     - **Sales Performance**: Total units sold, revenue, sales velocity (units/month), average selling price, total orders
     - **Movement Insights**: Days since last sold (color-coded: green <30 days, yellow 30-90, red >90), days in inventory, best selling month with units
