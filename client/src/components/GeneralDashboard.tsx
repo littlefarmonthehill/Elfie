@@ -1,6 +1,7 @@
 import MetricCard from "./MetricCard";
 import { useQuery } from "@tanstack/react-query";
 import { Package, AlertCircle, TrendingUp, ShoppingCart } from "lucide-react";
+import { DateRangeValue } from "./DateRangeSelector";
 
 interface DashboardStats {
   totalOrders: number;
@@ -31,18 +32,35 @@ interface InventoryItem {
 }
 
 interface GeneralDashboardProps {
+  dateRange?: DateRangeValue;
   onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
 }
 
-export default function GeneralDashboard({ onItemClick }: GeneralDashboardProps) {
-  // Fetch dashboard stats
+export default function GeneralDashboard({ dateRange = 'all', onItemClick }: GeneralDashboardProps) {
+  // Build query URL with date range parameter
+  const buildQueryUrl = (baseUrl: string) => {
+    if (dateRange === 'all') return baseUrl;
+    return `${baseUrl}?range=${dateRange}`;
+  };
+
+  // Fetch dashboard stats with date range
   const { data: stats } = useQuery<DashboardStats>({
-    queryKey: ['/api/dashboard/stats'],
+    queryKey: ['/api/dashboard/stats', dateRange],
+    queryFn: async () => {
+      const response = await fetch(buildQueryUrl('/api/dashboard/stats'));
+      if (!response.ok) throw new Error('Failed to fetch stats');
+      return response.json();
+    }
   });
 
-  // Fetch pending orders (actionable items)
+  // Fetch pending orders (actionable items) with date range
   const { data: pendingOrders = [] } = useQuery<Order[]>({
-    queryKey: ['/api/orders', 'pending'],
+    queryKey: ['/api/orders', dateRange, 'pending'],
+    queryFn: async () => {
+      const response = await fetch(buildQueryUrl('/api/orders'));
+      if (!response.ok) throw new Error('Failed to fetch orders');
+      return response.json();
+    },
     select: (data: Order[]) => 
       data.filter(order => 
         order.orderStatus === 'awaiting_payment' || 
@@ -57,9 +75,14 @@ export default function GeneralDashboard({ onItemClick }: GeneralDashboardProps)
       data.filter(item => item.quantity > 0 && item.quantity < 10).slice(0, 5)
   });
 
-  // Fetch recent high-value orders
+  // Fetch recent high-value orders with date range
   const { data: recentSales = [] } = useQuery<Order[]>({
-    queryKey: ['/api/orders', 'recent-sales'],
+    queryKey: ['/api/orders', dateRange, 'recent-sales'],
+    queryFn: async () => {
+      const response = await fetch(buildQueryUrl('/api/orders'));
+      if (!response.ok) throw new Error('Failed to fetch orders');
+      return response.json();
+    },
     select: (data: Order[]) => 
       data
         .filter(order => order.orderTotal && !isNaN(Number(order.orderTotal)))

@@ -376,7 +376,7 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
 
           {/* Pricing Tab */}
           <TabsContent value="pricing" className="mt-0 space-y-2.5">
-            {/* Loading skeleton for Price-O-Magic */}
+            {/* Loading skeleton for Price-o-Matic */}
             {data.loadingPriceOMagic && (
               <div className="bg-gradient-to-br from-purple-500/20 to-purple-500/5 border-2 border-purple-500/50 rounded-lg p-3" data-testid="price-o-magic-loading">
                 <div className="flex items-center gap-2 mb-2">
@@ -387,7 +387,7 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
               </div>
             )}
             
-            {/* Price-O-Magic Section */}
+            {/* Price-o-Matic Section */}
             {!data.loadingPriceOMagic && priceOMagic && suggestedPrice !== null && (
               <div className="bg-gradient-to-br from-purple-500/20 to-purple-500/5 border-2 border-purple-500/50 rounded-lg p-3">
                 <div className="flex items-center gap-2 mb-2">
@@ -426,7 +426,7 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
                     <DialogHeader>
                       <DialogTitle className="flex items-center gap-2 text-purple-400">
                         <Sparkles className="h-5 w-5" />
-                        Price-O-Magic Calculation
+                        Price-o-Matic Calculation
                       </DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4 mt-4">
@@ -490,7 +490,7 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
                           Formula: Stock Avg × (1 + Premium %) = Suggested Price
                         </p>
                         <p className="text-[10px] text-gray-400 mt-2">
-                          Price-O-Magic uses the current market stock average and applies your configured premium to suggest a competitive price.
+                          Price-o-Matic uses the current market stock average and applies your configured premium to suggest a competitive price.
                         </p>
                       </div>
                     </div>
@@ -786,11 +786,6 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
                     <span className="text-white font-mono">#{data.bindId}</span>
                   </div>
                 )}
-              </div>
-              <div className="mt-2.5 pt-2.5 border-t border-gray-700">
-                <p className="text-[9px] text-yellow-400 italic">
-                  💡 Part numbers may change over time. Use Inventory ID #{data.id} as the unique identifier.
-                </p>
               </div>
             </div>
 

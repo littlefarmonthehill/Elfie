@@ -196,7 +196,7 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
       </div>
 
       {/* Financial Summary - Ultra Compact */}
-      <div className="grid grid-cols-2 gap-1.5">
+      <div className="grid grid-cols-2 gap-3">
         {/* Totals */}
         <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-lg p-1.5">
           <div className="flex items-center gap-1 mb-1">

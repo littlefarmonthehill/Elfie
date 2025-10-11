@@ -9,11 +9,13 @@ import GeneralDashboard from "@/components/GeneralDashboard";
 import OrdersDashboard from "@/components/OrdersDashboard";
 import ChatInterface from "@/components/ChatInterface";
 import DetailModal, { DetailData } from "@/components/DetailModal";
+import DateRangeSelector, { DateRangeValue } from "@/components/DateRangeSelector";
 
 export default function Home() {
   const [activeDashboard, setActiveDashboard] = useState<DashboardType>('dashboard');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [salesPeriod, setSalesPeriod] = useState<'mtd' | 'ytd' | '1y' | '5y'>('ytd');
+  const [dateRange, setDateRange] = useState<DateRangeValue>('all');
   const [chatMinimized, setChatMinimized] = useState(true);
   const [detailModal, setDetailModal] = useState<{ open: boolean; data: DetailData | null }>({
     open: false,
@@ -86,7 +88,7 @@ export default function Home() {
             }
           });
           
-          // Fetch Price-O-Magic data in background
+          // Fetch Price-o-Matic data in background
           const priceGuideUrl = `/api/inventory/price-guide/${inventoryData.itemNo}/${inventoryData.itemType}${
             inventoryData.colorId ? `?color_id=${inventoryData.colorId}` : ''
           }`;
@@ -125,13 +127,13 @@ export default function Home() {
       case 'inventory':
         return <InventoryDashboard onItemClick={handleDashboardItemClick} />;
       case 'orders':
-        return <OrdersDashboard onItemClick={handleDashboardItemClick} />;
+        return <OrdersDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} />;
       case 'sales':
-        return <SalesDashboard period={salesPeriod} onItemClick={handleDashboardItemClick} />;
+        return <SalesDashboard period={salesPeriod} dateRange={dateRange} onItemClick={handleDashboardItemClick} />;
       case 'marketing':
         return <MarketingDashboard onItemClick={handleDashboardItemClick} />;
       default:
-        return <GeneralDashboard onItemClick={handleDashboardItemClick} />;
+        return <GeneralDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} />;
     }
   };
 
@@ -477,6 +479,13 @@ export default function Home() {
     <div className="flex flex-col h-screen bg-background text-foreground">
       <Header onSettingsClick={() => setSettingsOpen(true)} />
       <DashboardNav active={activeDashboard} onSelect={setActiveDashboard} />
+      
+      {/* Date Range Selector - Only show for dashboards, orders, and sales */}
+      {(activeDashboard === 'dashboard' || activeDashboard === 'orders' || activeDashboard === 'sales') && (
+        <div className="px-4 py-2 border-b border-gray-800">
+          <DateRangeSelector value={dateRange} onChange={setDateRange} />
+        </div>
+      )}
       
       {/* Simple single-column layout for all devices */}
       <div className="flex-1 flex flex-col overflow-hidden">

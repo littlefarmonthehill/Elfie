@@ -140,9 +140,9 @@ export async function syncShipStationOrders(): Promise<ShipStationSyncResult> {
           customerUsername: order.shipTo?.name || order.customerUsername || 'Unknown Customer',
           customerEmail: order.customerEmail,
           shipTo: JSON.stringify(order.shipTo),
-          orderTotal: order.orderTotal?.toString() || '0',
-          shippingAmount: order.shippingAmount?.toString() || '0',
-          taxAmount: order.taxAmount?.toString() || '0',
+          orderTotal: (order.orderTotal?.toString().trim() || '0'),
+          shippingAmount: (order.shippingAmount?.toString().trim() || '0'),
+          taxAmount: (order.taxAmount?.toString().trim() || '0'),
         }));
         
         await db.insert(orders).values(values);

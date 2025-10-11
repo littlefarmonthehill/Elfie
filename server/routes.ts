@@ -11,8 +11,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Data Fetch Routes
   app.get("/api/orders", async (req, res) => {
     try {
-      // Fetch all orders
-      const allOrders = await db.select().from(orders).orderBy(desc(orders.orderDate));
+      // Parse date range parameter
+      const range = req.query.range as string;
+      let dateFilter: Date | null = null;
+      
+      if (range) {
+        const now = new Date();
+        switch (range) {
+          case '3months':
+            dateFilter = new Date(now.setMonth(now.getMonth() - 3));
+            break;
+          case '6months':
+            dateFilter = new Date(now.setMonth(now.getMonth() - 6));
+            break;
+          case '1year':
+            dateFilter = new Date(now.setFullYear(now.getFullYear() - 1));
+            break;
+          case '2years':
+            dateFilter = new Date(now.setFullYear(now.getFullYear() - 2));
+            break;
+        }
+      }
+
+      // Fetch orders with optional date filter
+      const allOrders = dateFilter
+        ? await db.select().from(orders)
+            .where(sql`${orders.orderDate} >= ${dateFilter.toISOString()}`)
+            .orderBy(desc(orders.orderDate))
+        : await db.select().from(orders).orderBy(desc(orders.orderDate));
       
       if (allOrders.length === 0) {
         res.json([]);
@@ -145,21 +171,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/dashboard/stats", async (req, res) => {
     try {
-      // Get total orders count
-      const orderCount = await db.select({ count: sql<number>`count(*)` }).from(orders);
+      // Parse date range parameter
+      const range = req.query.range as string;
+      let dateFilter: Date | null = null;
       
-      // Get total inventory items count
+      if (range) {
+        const now = new Date();
+        switch (range) {
+          case '3months':
+            dateFilter = new Date(now.setMonth(now.getMonth() - 3));
+            break;
+          case '6months':
+            dateFilter = new Date(now.setMonth(now.getMonth() - 6));
+            break;
+          case '1year':
+            dateFilter = new Date(now.setFullYear(now.getFullYear() - 1));
+            break;
+          case '2years':
+            dateFilter = new Date(now.setFullYear(now.getFullYear() - 2));
+            break;
+        }
+      }
+
+      // Get total orders count with date filter
+      const orderCount = dateFilter
+        ? await db.select({ count: sql<number>`count(*)` }).from(orders)
+            .where(sql`${orders.orderDate} >= ${dateFilter.toISOString()}`)
+        : await db.select({ count: sql<number>`count(*)` }).from(orders);
+      
+      // Get total inventory items count (not date-filtered - inventory is current state)
       const inventoryCount = await db.select({ count: sql<number>`count(*)` }).from(blInventory);
       
-      // Get total inventory quantity
+      // Get total inventory quantity (not date-filtered - inventory is current state)
       const inventoryQty = await db.select({ 
         total: sql<number>`sum(${blInventory.quantity})` 
       }).from(blInventory);
       
-      // Get total sales from orders (guard against empty/null totals)
-      const totalSales = await db.select({
-        total: sql<number>`sum(case when ${orders.orderTotal} != '' and ${orders.orderTotal} is not null then cast(${orders.orderTotal} as decimal) else 0 end)`
-      }).from(orders);
+      // Get total sales from orders with date filter
+      // orderTotal is already decimal type, so just sum it (COALESCE handles nulls)
+      const totalSales = dateFilter
+        ? await db.select({
+            total: sql<number>`COALESCE(sum(${orders.orderTotal}), 0)`
+          }).from(orders).where(sql`${orders.orderDate} >= ${dateFilter.toISOString()}`)
+        : await db.select({
+            total: sql<number>`COALESCE(sum(${orders.orderTotal}), 0)`
+          }).from(orders);
       
       res.json({
         totalOrders: Number(orderCount[0]?.count) || 0,
@@ -642,7 +698,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 - Number of different colors: ${statsData.totalColors}
 - Number of different categories: ${statsData.totalCategories}\n`;
 
-      // Price-O-Magic: Check for pricing queries
+      // Price-o-Matic: Check for pricing queries
       const isPricingQuery = lastUserMessage.includes('price') || lastUserMessage.includes('pricing') || 
                             lastUserMessage.includes('worth') || lastUserMessage.includes('value') ||
                             lastUserMessage.includes('market') || lastUserMessage.includes('sell for');
@@ -698,11 +754,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
               if (priceOMagicData.weight) {
                 databaseContext += `- Weight: ${parseFloat(priceOMagicData.weight).toFixed(1)}g\n`;
               }
-              console.log('💰 Price-O-Magic data added to context for:', item.itemNo);
+              console.log('💰 Price-o-Matic data added to context for:', item.itemNo);
             }
           }
         } catch (error) {
-          console.error('💰 Error fetching Price-O-Magic data:', error);
+          console.error('💰 Error fetching Price-o-Matic data:', error);
           // Don't throw - pricing is optional, continue with chat
         }
       }
@@ -1141,7 +1197,7 @@ Keep responses helpful, accurate, and based on the actual data provided.`;
     }
   });
 
-  // Price-O-Magic: Get price guide for inventory item (MUST be before /api/inventory/:id)
+  // Price-o-Matic: Get price guide for inventory item (MUST be before /api/inventory/:id)
   app.get("/api/inventory/price-guide/:itemNo/:itemType", async (req, res) => {
     try {
       const { itemNo, itemType } = req.params;
@@ -1152,13 +1208,13 @@ Keep responses helpful, accurate, and based on the actual data provided.`;
         return res.status(400).json({ error: "Item number and type are required" });
       }
 
-      console.log(`[Price-O-Magic] Fetching price guide for ${itemType}/${itemNo}${colorId ? `/${colorId}` : ''}`);
+      console.log(`[Price-o-Matic] Fetching price guide for ${itemType}/${itemNo}${colorId ? `/${colorId}` : ''}`);
 
       const priceData = await fetchPriceOMagicData(itemNo, itemType, colorId, premiumPercentage);
 
       res.json(priceData);
     } catch (error) {
-      console.error("[Price-O-Magic] Error fetching price guide:", error);
+      console.error("[Price-o-Matic] Error fetching price guide:", error);
       res.status(500).json({ 
         error: "Failed to fetch price guide", 
         message: error instanceof Error ? error.message : "Unknown error" 
@@ -1256,9 +1312,9 @@ Keep responses helpful, accurate, and based on the actual data provided.`;
         }
       }
 
-      // Get the inventory item to find the itemNo (SKU)
+      // Get the inventory item
       const [item] = await db
-        .select({ itemNo: blInventory.itemNo, dateCreated: blInventory.dateCreated })
+        .select({ id: blInventory.id, dateCreated: blInventory.dateCreated })
         .from(blInventory)
         .where(eq(blInventory.id, itemId))
         .limit(1);
@@ -1267,8 +1323,13 @@ Keep responses helpful, accurate, and based on the actual data provided.`;
         return res.status(404).json({ error: "Item not found" });
       }
 
-      // Build query conditions
-      const conditions = [eq(orderDetails.sku, item.itemNo)];
+      // Build query conditions - match SKU (inventory ID as text) to inventory ID
+      // Filter out non-numeric SKUs (custom codes like "M40-1") to avoid cast errors
+      // Also filter out SKUs longer than 9 digits to prevent integer overflow (max int is 2,147,483,647)
+      const conditions = [
+        sql`${orderDetails.sku} ~ '^[0-9]{1,9}$'`, // Only numeric SKUs with max 9 digits
+        sql`CAST(${orderDetails.sku} AS INTEGER) = ${item.id}`
+      ];
       if (dateFilter) {
         conditions.push(sql`${orders.orderDate} >= ${dateFilter.toISOString()}`);
       }

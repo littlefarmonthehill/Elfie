@@ -227,7 +227,7 @@ export const insertSyncMetadataSchema = createInsertSchema(syncMetadata).omit({
 export type InsertSyncMetadata = z.infer<typeof insertSyncMetadataSchema>;
 export type SyncMetadata = typeof syncMetadata.$inferSelect;
 
-// Price-O-Magic Cache - Stores merged BrickLink item details and price guide data
+// Price-o-Matic Cache - Stores merged BrickLink item details and price guide data
 export const priceGuideCache = pgTable("price_guide_cache", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   itemNo: text("item_no").notNull(),

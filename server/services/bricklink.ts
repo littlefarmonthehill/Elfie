@@ -551,7 +551,7 @@ export async function syncBricklinkData(): Promise<BricklinkSyncResult> {
 async function bricklinkCatalogRequest(endpoint: string, queryParams?: Record<string, string>): Promise<{ data: any; apiCalls: number }> {
   const [settings] = await db.select().from(appSettings).limit(1);
   
-  console.log('[Price-O-Magic Debug] Settings loaded:', {
+  console.log('[Price-o-Matic Debug] Settings loaded:', {
     hasSettings: !!settings,
     consumerKey: settings?.bricklinkConsumerKey ? 'present' : 'missing',
     consumerSecret: settings?.bricklinkConsumerSecret ? 'present' : 'missing',
@@ -565,7 +565,7 @@ async function bricklinkCatalogRequest(endpoint: string, queryParams?: Record<st
   const tokenSecret = settings?.bricklinkTokenSecret || process.env.BRICKLINK_TOKEN_SECRET || '';
   
   if (!consumerKey || !consumerSecret || !tokenValue || !tokenSecret) {
-    console.error('[Price-O-Magic Debug] Missing credentials:', {
+    console.error('[Price-o-Matic Debug] Missing credentials:', {
       consumerKey: consumerKey ? 'present' : 'MISSING',
       consumerSecret: consumerSecret ? 'present' : 'MISSING',
       tokenValue: tokenValue ? 'present' : 'MISSING',
@@ -656,7 +656,7 @@ function calculateSuggestedPrice(
   return Number(suggestedPrice.toFixed(2));
 }
 
-// Fetch and cache Price-O-Magic data for an item
+// Fetch and cache Price-o-Matic data for an item
 export async function fetchPriceOMagicData(
   itemNo: string,
   itemType: string,
@@ -681,11 +681,11 @@ export async function fetchPriceOMagicData(
       .limit(1);
     
     if (existingCache.length > 0) {
-      console.log(`[Price-O-Magic] Using cached data for ${itemType}/${itemNo}${colorId ? `/${colorId}` : ''}`);
+      console.log(`[Price-o-Matic] Using cached data for ${itemType}/${itemNo}${colorId ? `/${colorId}` : ''}`);
       return existingCache[0];
     }
 
-    console.log(`[Price-O-Magic] Fetching fresh data for ${itemType}/${itemNo}${colorId ? `/${colorId}` : ''}`);
+    console.log(`[Price-o-Matic] Fetching fresh data for ${itemType}/${itemNo}${colorId ? `/${colorId}` : ''}`);
 
     // Convert item type code to BrickLink API format (P -> PART, M -> MINIFIG, etc.)
     // Handle both single-letter codes (P, M, S) and full words (PART, MINIFIG, SET)
@@ -780,7 +780,7 @@ export async function fetchPriceOMagicData(
       .values([mergedData])
       .returning();
 
-    console.log(`[Price-O-Magic] Cached data for ${itemType}/${itemNo}${colorId ? `/${colorId}` : ''}`);
+    console.log(`[Price-o-Matic] Cached data for ${itemType}/${itemNo}${colorId ? `/${colorId}` : ''}`);
     
     // Update inventory weight if we have weight data and inventory weight is null
     if (itemDetails?.weight) {
@@ -804,17 +804,17 @@ export async function fetchPriceOMagicData(
           .where(inventoryQuery);
 
         if (updatedCount) {
-          console.log(`[Price-O-Magic] Updated weight for ${itemType}/${itemNo}${colorId ? `/${colorId}` : ''} to ${itemDetails.weight}g`);
+          console.log(`[Price-o-Matic] Updated weight for ${itemType}/${itemNo}${colorId ? `/${colorId}` : ''} to ${itemDetails.weight}g`);
         }
       } catch (error) {
-        console.error('[Price-O-Magic] Error updating inventory weight:', error);
+        console.error('[Price-o-Matic] Error updating inventory weight:', error);
         // Don't throw - this is a nice-to-have feature
       }
     }
     
     return insertedData;
   } catch (error) {
-    console.error('[Price-O-Magic] Error fetching data:', error);
+    console.error('[Price-o-Matic] Error fetching data:', error);
     throw error;
   }
 }

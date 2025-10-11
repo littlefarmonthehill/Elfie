@@ -6,11 +6,11 @@ PlanetBrick is a comprehensive business operations and analytics dashboard for L
 ## Recent Changes (October 2025)
 - **Instant Modal Loading UX**: Improved user experience with instant modal feedback:
   - Drawer opens immediately when clicking any inventory or order item, showing skeleton loading state
-  - Data loads progressively: base data → Price-O-Magic → Analytics
+  - Data loads progressively: base data → Price-o-Matic → Analytics
   - No more waiting for network before visual response
   - Smooth transitions from skeleton to actual content
   - All detail components (InventoryDetail, OrderDetail) support loading states
-- **Price-O-Magic Calculation Popup**: Added transparency to pricing suggestions:
+- **Price-o-Matic Calculation Popup**: Added transparency to pricing suggestions:
   - Suggested price is now clickable with visual hint ("Tap to see calculation")
   - Dialog shows complete calculation breakdown:
     - Base Price (Stock Average)
@@ -42,13 +42,13 @@ PlanetBrick is a comprehensive business operations and analytics dashboard for L
 - **Fixed Inventory Detail Data Flow** (Critical Bug Fix): Resolved issue where chat-triggered inventory details showed blank fields. The `handleItemClick` function was incorrectly transforming API data to wrong field names (partNumber/name/color instead of itemNo/itemName/colorName). Now uses unified `handleDashboardItemClick` handler for both chat and dashboard clicks, ensuring correct data flow to InventoryDetail component. All fields now display properly.
 - **Comprehensive Inventory Details**: Redesigned inventory detail drawer with four-tab interface and fixed height (85vh) that stays constant when switching tabs:
   - **Overview Tab**: Description/remarks (priority), key metrics (quantity, price, value), cost/profit analysis, physical specifications (weight, dimensions, year released), and placeholder for "Appears in Sets" (future feature)
-  - **Pricing Tab**: Price-O-Magic suggested pricing with market data (stock/sold averages), tier pricing/bulk discounts, and sale rates
+  - **Pricing Tab**: Price-o-Matic suggested pricing with market data (stock/sold averages), tier pricing/bulk discounts, and sale rates
   - **Analytics Tab**: Sales analytics, movement insights, customer data, and strategic recommendations for inventory optimization
   - **Details Tab**: Complete identifiers (inventory ID, part number, item type, color ID, bind ID) with note about part number changes, plus inventory settings (completeness, bulk, retain, stock room status)
 - **Enhanced Font Sizes**: Increased all font sizes in inventory detail drawer for better readability while maintaining compact layout
 - **Enhanced Data Fields**: Backend now returns all available inventory fields including description, remarks, bindId, cost, tier pricing, completeness, stock room settings, and creation dates
-- **API Usage Documentation**: Documented BrickLink's 5,000 API call limit per 24 hours. Price-O-Magic consumes 3 API calls per item (details + 2 price guides), so it should ONLY be called for individual item detail views, NOT during bulk sync operations
-- **Price-O-Magic Feature**: Integrated BrickLink Catalog API to fetch real-time item details and price guides. Displays suggested pricing with configurable premium (default 15%), market data (stock/sold prices), item images, weights, and dimensions. Uses 24-hour caching via `price_guide_cache` table. Auto-updates inventory weights from BrickLink
+- **API Usage Documentation**: Documented BrickLink's 5,000 API call limit per 24 hours. Price-o-Matic consumes 3 API calls per item (details + 2 price guides), so it should ONLY be called for individual item detail views, NOT during bulk sync operations
+- **Price-o-Matic Feature**: Integrated BrickLink Catalog API to fetch real-time item details and price guides. Displays suggested pricing with configurable premium (default 15%), market data (stock/sold prices), item images, weights, and dimensions. Uses 24-hour caching via `price_guide_cache` table. Auto-updates inventory weights from BrickLink
 - **Engaging Detail Modals**: Redesigned order and inventory detail drawers with vibrant LEGO-colored gradients, ultra-compact layouts showing maximum info without scrolling, full item names visible, and internal scrolling for long item lists
 - **Scrolling Order Pills**: Customer order details now display all orders as clickable, scrollable pills - clicking a pill instantly updates the drawer to show that order's details while maintaining customer context
 - **Customer Data Fix**: ShipStation sync now properly extracts customer names from shipping addresses to populate `customerUsername` field
@@ -100,7 +100,7 @@ Preferred communication style: Simple, everyday language.
 ## External Dependencies
 
 -   **BrickLink API:** Primary data source for LEGO inventory (categories, colors, inventory listings). Uses OAuth 1.0a. Credentials stored in `app_settings` or environment variables. **IMPORTANT: 5,000 API call limit per 24-hour period.** Tracks rate limits (warning at 2,500 calls, block at 4,750 calls). Supports paginated inventory sync (1,000 items/page). 
-    - **Price-O-Magic API Usage**: Item detail calls (catalog item info + price guides) consume **3 API calls per item** (item details + stock price guide + sold price guide). Therefore, Price-O-Magic should ONLY be called when viewing individual item details in drawers, NOT during bulk sync operations. This prevents exceeding the 5,000 call daily limit.
+    - **Price-o-Matic API Usage**: Item detail calls (catalog item info + price guides) consume **3 API calls per item** (item details + stock price guide + sold price guide). Therefore, Price-o-Matic should ONLY be called when viewing individual item details in drawers, NOT during bulk sync operations. This prevents exceeding the 5,000 call daily limit.
     - Does NOT provide cost data; only selling price.
 -   **ShipStation API:** Order management and fulfillment.
 -   **OpenRouter API:** Powers the E.L.F.I.E. AI chat assistant, enabling multi-model access and dynamic model selection. Requires `OPENROUTER_API_KEY`.

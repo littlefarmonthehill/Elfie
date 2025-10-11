@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { format, subDays, startOfDay } from "date-fns";
 import { AlertCircle, ShoppingCart, TrendingUp, Package } from "lucide-react";
+import { DateRangeValue } from "./DateRangeSelector";
 
 interface Order {
   id: string;
@@ -14,12 +15,19 @@ interface Order {
 }
 
 interface OrdersDashboardProps {
+  dateRange?: DateRangeValue;
   onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
 }
 
-export default function OrdersDashboard({ onItemClick }: OrdersDashboardProps) {
+export default function OrdersDashboard({ dateRange = 'all', onItemClick }: OrdersDashboardProps) {
   const { data: orders = [], isLoading } = useQuery<Order[]>({
-    queryKey: ['/api/orders'],
+    queryKey: ['/api/orders', dateRange],
+    queryFn: async () => {
+      const url = dateRange === 'all' ? '/api/orders' : `/api/orders?range=${dateRange}`;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Failed to fetch orders');
+      return response.json();
+    }
   });
 
   // Process orders into 7-day trend data

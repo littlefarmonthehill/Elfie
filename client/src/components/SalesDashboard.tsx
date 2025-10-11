@@ -2,11 +2,13 @@ import { useQuery } from "@tanstack/react-query";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { format, subMonths, startOfMonth, parseISO } from "date-fns";
 import { TrendingUp, DollarSign, Target } from "lucide-react";
+import { DateRangeValue } from "./DateRangeSelector";
 
 type TimePeriod = 'mtd' | 'ytd' | '1y' | '5y';
 
 interface SalesDashboardProps {
   period: TimePeriod;
+  dateRange?: DateRangeValue;
   onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
 }
 
@@ -19,9 +21,15 @@ interface Order {
   customerUsername: string;
 }
 
-export default function SalesDashboard({ period, onItemClick }: SalesDashboardProps) {
+export default function SalesDashboard({ period, dateRange = 'all', onItemClick }: SalesDashboardProps) {
   const { data: orders = [], isLoading } = useQuery<Order[]>({
-    queryKey: ['/api/orders'],
+    queryKey: ['/api/orders', dateRange],
+    queryFn: async () => {
+      const url = dateRange === 'all' ? '/api/orders' : `/api/orders?range=${dateRange}`;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Failed to fetch orders');
+      return response.json();
+    }
   });
 
   // Calculate sales data by month - show most recent 6 months
