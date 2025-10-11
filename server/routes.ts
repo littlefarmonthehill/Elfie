@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { syncBricklinkData } from "./services/bricklink";
+import { syncBricklinkData, fetchPriceOMagicData } from "./services/bricklink";
 import { syncShipStationOrders } from "./services/shipstation";
 import { db } from "./db";
 import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations } from "@shared/schema";
@@ -1062,7 +1062,32 @@ Keep responses helpful, accurate, and based on the actual data provided.`;
     }
   });
 
-  // Get Inventory Item by ID (MUST be after /api/inventory/stats to avoid route conflict)
+  // Price-O-Magic: Get price guide for inventory item (MUST be before /api/inventory/:id)
+  app.get("/api/inventory/price-guide/:itemNo/:itemType", async (req, res) => {
+    try {
+      const { itemNo, itemType } = req.params;
+      const colorId = req.query.color_id ? parseInt(req.query.color_id as string) : undefined;
+      const premiumPercentage = req.query.premium ? parseInt(req.query.premium as string) : 15;
+
+      if (!itemNo || !itemType) {
+        return res.status(400).json({ error: "Item number and type are required" });
+      }
+
+      console.log(`[Price-O-Magic] Fetching price guide for ${itemType}/${itemNo}${colorId ? `/${colorId}` : ''}`);
+
+      const priceData = await fetchPriceOMagicData(itemNo, itemType, colorId, premiumPercentage);
+
+      res.json(priceData);
+    } catch (error) {
+      console.error("[Price-O-Magic] Error fetching price guide:", error);
+      res.status(500).json({ 
+        error: "Failed to fetch price guide", 
+        message: error instanceof Error ? error.message : "Unknown error" 
+      });
+    }
+  });
+
+  // Get Inventory Item by ID (MUST be after /api/inventory/stats and price-guide to avoid route conflict)
   app.get("/api/inventory/:id", async (req, res) => {
     try {
       const itemId = parseInt(req.params.id);
