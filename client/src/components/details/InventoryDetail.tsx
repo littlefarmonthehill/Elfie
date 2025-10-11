@@ -439,15 +439,43 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
                           </p>
                         </div>
                         
-                        <div className="border-t border-gray-700 pt-2">
-                          <p className="text-xs text-gray-400 mb-1">Premium Applied</p>
-                          <p className="text-lg font-mono font-bold text-purple-400">
-                            +{priceOMagic.premiumPercentage}%
-                          </p>
-                          <p className="text-[10px] text-gray-500 mt-1">
-                            ${stockAvgPrice !== null ? (stockAvgPrice * (priceOMagic.premiumPercentage / 100)).toFixed(3) : '0.000'}
-                          </p>
-                        </div>
+                        {(() => {
+                          // Calculate actual premium based on supply
+                          const basePremium = priceOMagic.premiumPercentage || 15;
+                          const stockLots = priceOMagic.stockTotalLots;
+                          let scarcityBonus = 0;
+                          
+                          // Only calculate scarcity bonus if stockTotalLots is actually available
+                          if (stockLots !== null && stockLots !== undefined && typeof stockLots === 'number') {
+                            if (stockLots < 50) {
+                              scarcityBonus = 10;
+                            } else if (stockLots < 200) {
+                              scarcityBonus = 5;
+                            } else if (stockLots < 500) {
+                              scarcityBonus = 2;
+                            }
+                          }
+                          
+                          const totalPremium = basePremium + scarcityBonus;
+                          const premiumAmount = stockAvgPrice !== null ? (stockAvgPrice * (totalPremium / 100)) : 0;
+                          
+                          return (
+                            <div className="border-t border-gray-700 pt-2">
+                              <p className="text-xs text-gray-400 mb-1">Premium Applied</p>
+                              <p className="text-lg font-mono font-bold text-purple-400">
+                                +{totalPremium}%
+                              </p>
+                              {scarcityBonus > 0 && (
+                                <p className="text-[9px] text-purple-300/70 mt-0.5">
+                                  (Base {basePremium}% + Supply Bonus {scarcityBonus}%)
+                                </p>
+                              )}
+                              <p className="text-[10px] text-gray-500 mt-1">
+                                ${premiumAmount.toFixed(3)}
+                              </p>
+                            </div>
+                          );
+                        })()}
                         
                         <div className="border-t border-gray-700 pt-2">
                           <p className="text-xs text-gray-400 mb-1">Final Suggested Price</p>

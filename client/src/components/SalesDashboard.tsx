@@ -36,21 +36,53 @@ export default function SalesDashboard({ period, dateRange = 'all', onItemClick 
 
   // Calculate sales data by month - adjust based on date range
   const getSalesData = () => {
-    // Determine number of months to display based on dateRange
-    const monthsToShow = dateRange === 'all' ? 12 : 
-                        dateRange === '2years' ? 24 :
-                        dateRange === '1year' ? 12 :
-                        dateRange === '6months' ? 6 : 3;
+    if (orders.length === 0) {
+      return [];
+    }
 
-    const months = Array.from({ length: monthsToShow }, (_, i) => {
-      const date = subMonths(new Date(), monthsToShow - 1 - i);
-      return {
-        date: format(date, 'MMM yy'),
-        month: startOfMonth(date),
-        sales: 0,
-      };
-    });
+    let months: Array<{ date: string; month: Date; sales: number }>;
+    
+    if (dateRange === 'all') {
+      // For 'all time', use the actual earliest to latest order dates
+      const orderDates = orders.map(o => parseISO(o.orderDate));
+      const earliestOrderDate = new Date(Math.min(...orderDates.map(d => d.getTime())));
+      const latestOrderDate = new Date(Math.max(...orderDates.map(d => d.getTime())));
+      
+      // Start from the earliest order's month
+      const startMonth = startOfMonth(earliestOrderDate);
+      const endMonth = startOfMonth(latestOrderDate);
+      
+      // Calculate months between earliest and latest
+      const monthDiff = (endMonth.getFullYear() - startMonth.getFullYear()) * 12 + 
+                        (endMonth.getMonth() - startMonth.getMonth()) + 1;
+      
+      // Generate months from earliest to latest
+      months = Array.from({ length: monthDiff }, (_, i) => {
+        const monthDate = new Date(startMonth);
+        monthDate.setMonth(startMonth.getMonth() + i);
+        return {
+          date: format(monthDate, 'MMM yy'),
+          month: startOfMonth(monthDate),
+          sales: 0,
+        };
+      });
+    } else {
+      // For specific date ranges, use predefined periods from current date
+      const monthsToShow = dateRange === '2years' ? 24 :
+                          dateRange === '1year' ? 12 :
+                          dateRange === '6months' ? 6 : 3;
+      
+      months = Array.from({ length: monthsToShow }, (_, i) => {
+        const date = subMonths(new Date(), monthsToShow - 1 - i);
+        return {
+          date: format(date, 'MMM yy'),
+          month: startOfMonth(date),
+          sales: 0,
+        };
+      });
+    }
 
+    // Aggregate orders into months
     orders.forEach(order => {
       if (order.orderTotal && !isNaN(Number(order.orderTotal))) {
         const orderMonth = startOfMonth(parseISO(order.orderDate));
