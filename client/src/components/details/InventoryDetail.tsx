@@ -101,6 +101,7 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
   const [activeTab, setActiveTab] = useState("overview");
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
+  const [dateRange, setDateRange] = useState<'all' | '1year' | '2years' | '3months' | '6months'>('all');
   const priceOMagic = data.priceOMagic;
 
   // Fetch analytics data
@@ -110,7 +111,11 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
       
       setLoadingAnalytics(true);
       try {
-        const response = await fetch(`/api/inventory/${data.id}/analytics`);
+        const params = new URLSearchParams();
+        if (dateRange !== 'all') {
+          params.append('range', dateRange);
+        }
+        const response = await fetch(`/api/inventory/${data.id}/analytics?${params.toString()}`);
         if (response.ok) {
           const analyticsData = await response.json();
           setAnalytics(analyticsData);
@@ -123,7 +128,7 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
     };
 
     fetchAnalytics();
-  }, [data.id, data.loading]);
+  }, [data.id, data.loading, dateRange]);
 
   // Show loading skeleton
   if (data.loading) {
@@ -573,6 +578,33 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
 
           {/* Analytics Tab */}
           <TabsContent value="analytics" className="mt-0 space-y-2.5">
+            {/* Date Range Selector */}
+            <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-2">
+              <p className="text-[9px] font-bold text-gray-400 mb-1.5">ANALYSIS PERIOD</p>
+              <div className="grid grid-cols-5 gap-1">
+                {[
+                  { value: '3months' as const, label: '3M' },
+                  { value: '6months' as const, label: '6M' },
+                  { value: '1year' as const, label: '1Y' },
+                  { value: '2years' as const, label: '2Y' },
+                  { value: 'all' as const, label: 'All' }
+                ].map(option => (
+                  <button
+                    key={option.value}
+                    onClick={() => setDateRange(option.value)}
+                    className={`text-[9px] font-bold py-1 px-2 rounded transition-all ${
+                      dateRange === option.value
+                        ? 'bg-lego-orange text-white border border-lego-orange'
+                        : 'bg-gray-900 text-gray-400 border border-gray-700 hover-elevate'
+                    }`}
+                    data-testid={`button-range-${option.value}`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {loadingAnalytics ? (
               <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-4 text-center">
                 <BarChart3 className="h-8 w-8 text-lego-orange mx-auto mb-2 animate-pulse" />

@@ -1232,6 +1232,30 @@ Keep responses helpful, accurate, and based on the actual data provided.`;
         return res.status(400).json({ error: "Invalid item ID" });
       }
 
+      // Parse date range parameter
+      const range = req.query.range as string;
+      let dateFilter: Date | null = null;
+      
+      if (range) {
+        const now = new Date();
+        switch (range) {
+          case '3months':
+            dateFilter = new Date(now.setMonth(now.getMonth() - 3));
+            break;
+          case '6months':
+            dateFilter = new Date(now.setMonth(now.getMonth() - 6));
+            break;
+          case '1year':
+            dateFilter = new Date(now.setFullYear(now.getFullYear() - 1));
+            break;
+          case '2years':
+            dateFilter = new Date(now.setFullYear(now.getFullYear() - 2));
+            break;
+          default:
+            dateFilter = null; // 'all' or invalid range
+        }
+      }
+
       // Get the inventory item to find the itemNo (SKU)
       const [item] = await db
         .select({ itemNo: blInventory.itemNo, dateCreated: blInventory.dateCreated })
@@ -1241,6 +1265,12 @@ Keep responses helpful, accurate, and based on the actual data provided.`;
 
       if (!item) {
         return res.status(404).json({ error: "Item not found" });
+      }
+
+      // Build query conditions
+      const conditions = [eq(orderDetails.sku, item.itemNo)];
+      if (dateFilter) {
+        conditions.push(sql`${orders.orderDate} >= ${dateFilter.toISOString()}`);
       }
 
       // Query all sales for this item (matching SKU to itemNo)
@@ -1256,7 +1286,7 @@ Keep responses helpful, accurate, and based on the actual data provided.`;
         })
         .from(orderDetails)
         .innerJoin(orders, eq(orderDetails.orderId, orders.id))
-        .where(eq(orderDetails.sku, item.itemNo))
+        .where(and(...conditions))
         .orderBy(desc(orders.orderDate));
 
       // Calculate analytics metrics
