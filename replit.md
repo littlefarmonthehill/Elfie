@@ -4,10 +4,20 @@
 PlanetBrick is a comprehensive business operations and analytics dashboard for LEGO reselling businesses. It integrates with BrickLink and ShipStation to offer real-time inventory management, order tracking, sales analytics, and marketing insights. The application features a dark-mode interface with LEGO-inspired colors and an AI chat assistant (E.L.F.I.E.) for operational guidance. The vision is to provide a complete operational toolkit for LEGO resellers, enhancing efficiency and profitability through data-driven decisions and intelligent automation.
 
 ## Recent Changes (October 2025)
+- **Inventory Analytics System**: Comprehensive sales analytics and movement insights for data-driven inventory management:
+  - **Backend Analytics API** (`/api/inventory/:id/analytics`): Joins order history with inventory by SKU matching (order_details.sku = bl_inventory.itemNo) to calculate sales velocity, revenue, customer patterns, and time-based trends
+  - **Analytics Tab**: Fourth tab added to inventory detail drawer showing:
+    - **Sales Performance**: Total units sold, revenue, sales velocity (units/month), average selling price, total orders
+    - **Movement Insights**: Days since last sold (color-coded: green <30 days, yellow 30-90, red >90), days in inventory, best selling month with units
+    - **Recent Activity**: Last 3 months sales with percentage of total
+    - **Top Customers**: List of buyers with units purchased, orders count, and revenue
+    - **Movement Strategies**: AI-powered recommendations for inventory optimization (price reductions for slow items >90 days, restocking alerts for high velocity >5/mo, bulk offer opportunities for repeat customers, seasonal promotion planning)
+  - Gracefully handles items with zero sales history, showing "No sales data available" message
 - **Fixed Inventory Detail Data Flow** (Critical Bug Fix): Resolved issue where chat-triggered inventory details showed blank fields. The `handleItemClick` function was incorrectly transforming API data to wrong field names (partNumber/name/color instead of itemNo/itemName/colorName). Now uses unified `handleDashboardItemClick` handler for both chat and dashboard clicks, ensuring correct data flow to InventoryDetail component. All fields now display properly.
-- **Comprehensive Inventory Details**: Redesigned inventory detail drawer with three-tab interface and fixed height (85vh) that stays constant when switching tabs:
+- **Comprehensive Inventory Details**: Redesigned inventory detail drawer with four-tab interface and fixed height (85vh) that stays constant when switching tabs:
   - **Overview Tab**: Description/remarks (priority), key metrics (quantity, price, value), cost/profit analysis, physical specifications (weight, dimensions, year released), and placeholder for "Appears in Sets" (future feature)
   - **Pricing Tab**: Price-O-Magic suggested pricing with market data (stock/sold averages), tier pricing/bulk discounts, and sale rates
+  - **Analytics Tab**: Sales analytics, movement insights, customer data, and strategic recommendations for inventory optimization
   - **Details Tab**: Complete identifiers (inventory ID, part number, item type, color ID, bind ID) with note about part number changes, plus inventory settings (completeness, bulk, retain, stock room status)
 - **Enhanced Font Sizes**: Increased all font sizes in inventory detail drawer for better readability while maintaining compact layout
 - **Enhanced Data Fields**: Backend now returns all available inventory fields including description, remarks, bindId, cost, tier pricing, completeness, stock room settings, and creation dates
