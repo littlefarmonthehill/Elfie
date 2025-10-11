@@ -5,7 +5,7 @@ import { syncBricklinkData } from "./services/bricklink";
 import { syncShipStationOrders } from "./services/shipstation";
 import { db } from "./db";
 import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations } from "@shared/schema";
-import { eq, desc, sql, inArray, like, or } from "drizzle-orm";
+import { eq, desc, sql, inArray, like, or, and } from "drizzle-orm";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Data Fetch Routes
@@ -60,9 +60,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         total: sql<number>`sum(${blInventory.quantity})` 
       }).from(blInventory);
       
-      // Get total sales from orders
+      // Get total sales from orders (guard against empty/null totals)
       const totalSales = await db.select({
-        total: sql<number>`sum(cast(${orders.orderTotal} as decimal))`
+        total: sql<number>`sum(case when ${orders.orderTotal} != '' and ${orders.orderTotal} is not null then cast(${orders.orderTotal} as decimal) else 0 end)`
       }).from(orders);
       
       res.json({
@@ -223,9 +223,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Query database for relevant data based on user's question
       const lastUserMessageRaw = messages[messages.length - 1]?.content || '';
-      const lastUserMessage = lastUserMessageRaw.toLowerCase(); // Only for search/detection
+      const lastUserMessage = lastUserMessageRaw.toLowerCase(); // ALWAYS use this for detection
       console.log('🔍 Backend received user message:', lastUserMessage);
-      console.log('🔍 Full message content:', lastUserMessageRaw);
       let databaseContext = '';
 
       // Check for summary requests
@@ -248,7 +247,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Provide summary data for orders
       if (isSummaryRequest && (lastUserMessage.includes('order') || context === 'Orders')) {
         const totalOrders = await db.select({ count: sql<number>`COUNT(*)` }).from(orders);
-        const totalRevenue = await db.select({ sum: sql<number>`SUM(CAST(${orders.orderTotal} AS DECIMAL))` }).from(orders);
+        const totalRevenue = await db.select({ 
+          sum: sql<number>`SUM(CASE WHEN ${orders.orderTotal} != '' AND ${orders.orderTotal} IS NOT NULL THEN CAST(${orders.orderTotal} AS DECIMAL) ELSE 0 END)` 
+        }).from(orders);
         const pendingOrders = await db.select({ count: sql<number>`COUNT(*)` }).from(orders).where(eq(orders.orderStatus, 'Pending'));
         const shippedOrders = await db.select({ count: sql<number>`COUNT(*)` }).from(orders).where(eq(orders.orderStatus, 'Shipped'));
         
@@ -257,6 +258,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
         databaseContext += `- Total Revenue: $${Number(totalRevenue[0]?.sum || 0).toFixed(2)}\n`;
         databaseContext += `- Pending Orders: ${pendingOrders[0]?.count || 0}\n`;
         databaseContext += `- Shipped Orders: ${shippedOrders[0]?.count || 0}\n`;
+      }
+      
+      // Provide sales-focused data for sales dashboard
+      if (isSummaryRequest && (lastUserMessage.includes('sales') || context === 'Sales')) {
+        const totalRevenue = await db.select({ 
+          sum: sql<number>`SUM(CASE WHEN ${orders.orderTotal} != '' AND ${orders.orderTotal} IS NOT NULL THEN CAST(${orders.orderTotal} AS DECIMAL) ELSE 0 END)` 
+        }).from(orders);
+        const totalOrders = await db.select({ count: sql<number>`COUNT(*)` }).from(orders);
+        const avgOrderValue = Number(totalRevenue[0]?.sum || 0) / (Number(totalOrders[0]?.count) || 1);
+        
+        // Get top revenue orders (filter out empty/null totals)
+        const topOrders = await db
+          .select({
+            orderNumber: orders.orderNumber,
+            customerUsername: orders.customerUsername,
+            orderTotal: orders.orderTotal,
+            orderDate: orders.orderDate,
+          })
+          .from(orders)
+          .where(and(
+            sql`${orders.orderTotal} IS NOT NULL`,
+            sql`${orders.orderTotal} != ''`
+          ))
+          .orderBy(desc(sql`CAST(${orders.orderTotal} AS DECIMAL)`))
+          .limit(5);
+        
+        databaseContext += `\n\nSALES SUMMARY:\n`;
+        databaseContext += `- Total Revenue: $${Number(totalRevenue[0]?.sum || 0).toFixed(2)}\n`;
+        databaseContext += `- Total Orders: ${totalOrders[0]?.count || 0}\n`;
+        databaseContext += `- Average Order Value: $${avgOrderValue.toFixed(2)}\n`;
+        
+        if (topOrders.length > 0) {
+          databaseContext += `\nTop Revenue Orders:\n`;
+          topOrders.forEach(order => {
+            databaseContext += `- Order #${order.orderNumber}: ${order.customerUsername || 'Customer'} - $${order.orderTotal} on ${new Date(order.orderDate).toLocaleDateString()}\n`;
+          });
+        }
+      }
+      
+      // Provide marketing-focused data for marketing dashboard
+      if (isSummaryRequest && (lastUserMessage.includes('marketing') || lastUserMessage.includes('customer') || context === 'Marketing')) {
+        // Get unique customers count
+        const uniqueCustomers = await db.select({ 
+          count: sql<number>`COUNT(DISTINCT ${orders.customerUsername})` 
+        }).from(orders);
+        
+        // Get top customers by total revenue (guard against empty/null totals)
+        const topCustomers = await db
+          .select({
+            customerUsername: orders.customerUsername,
+            totalRevenue: sql<number>`SUM(CASE WHEN ${orders.orderTotal} != '' AND ${orders.orderTotal} IS NOT NULL THEN CAST(${orders.orderTotal} AS DECIMAL) ELSE 0 END)`,
+            orderCount: sql<number>`COUNT(*)`,
+          })
+          .from(orders)
+          .groupBy(orders.customerUsername)
+          .orderBy(desc(sql`SUM(CASE WHEN ${orders.orderTotal} != '' AND ${orders.orderTotal} IS NOT NULL THEN CAST(${orders.orderTotal} AS DECIMAL) ELSE 0 END)`))
+          .limit(5);
+        
+        // Get repeat customers (customers with more than 1 order)
+        const repeatCustomers = await db
+          .select({
+            count: sql<number>`COUNT(*)`,
+          })
+          .from(
+            db.select({
+              customerUsername: orders.customerUsername,
+              orderCount: sql<number>`COUNT(*)`.as('order_count'),
+            })
+            .from(orders)
+            .groupBy(orders.customerUsername)
+            .having(sql`COUNT(*) > 1`)
+            .as('repeat_customers')
+          );
+        
+        databaseContext += `\n\nMARKETING & CUSTOMER INSIGHTS:\n`;
+        databaseContext += `- Total Unique Customers: ${uniqueCustomers[0]?.count || 0}\n`;
+        databaseContext += `- Repeat Customers: ${repeatCustomers[0]?.count || 0}\n`;
+        databaseContext += `- Repeat Rate: ${((Number(repeatCustomers[0]?.count || 0) / Number(uniqueCustomers[0]?.count || 1)) * 100).toFixed(1)}%\n`;
+        
+        if (topCustomers.length > 0) {
+          databaseContext += `\nTop Customers by Revenue:\n`;
+          topCustomers.forEach(customer => {
+            databaseContext += `- ${customer.customerUsername || 'Unknown'}: $${Number(customer.totalRevenue).toFixed(2)} (${customer.orderCount} orders)\n`;
+          });
+        }
       }
 
       // Search inventory by part number, text query, or general inventory request
@@ -456,48 +542,148 @@ export async function registerRoutes(app: Express): Promise<Server> {
 - Number of different colors: ${statsData.totalColors}
 - Number of different categories: ${statsData.totalCategories}\n`;
 
-      // Search orders
-      if (lastUserMessage.includes('order')) {
-        const ordersResults = await db
-          .select({
-            id: orders.id,
-            orderNumber: orders.orderNumber,
-            customerUsername: orders.customerUsername,
-            orderDate: orders.orderDate,
-            orderTotal: orders.orderTotal,
-            orderStatus: orders.orderStatus,
-          })
-          .from(orders)
-          .limit(20)
-          .orderBy(desc(orders.orderDate));
-        
-        if (ordersResults.length > 0) {
-          databaseContext += `\n\nRECENT ORDERS FROM DATABASE:\n`;
+      // Search orders - check for specific status filters and date ranges
+      const orderStatusMap: { [key: string]: string } = {
+        'awaiting payment': 'awaiting_payment',
+        'awaiting shipment': 'awaiting_shipment',
+        'on hold': 'on_hold',
+        'shipped': 'shipped',
+        'cancelled': 'cancelled',
+      };
+      
+      let statusFilter: string | null = null;
+      for (const [keyword, dbStatus] of Object.entries(orderStatusMap)) {
+        if (lastUserMessage.includes(keyword)) {
+          statusFilter = dbStatus;
+          break;
+        }
+      }
+      
+      // Check for date-based queries (years ago, months ago, etc.)
+      let dateFilter: Date | null = null;
+      const yearsAgoMatch = lastUserMessage.match(/(\d+)\s*years?\s*ago/);
+      const monthsAgoMatch = lastUserMessage.match(/(\d+)\s*months?\s*ago/);
+      
+      if (yearsAgoMatch) {
+        const years = parseInt(yearsAgoMatch[1]);
+        dateFilter = new Date();
+        dateFilter.setFullYear(dateFilter.getFullYear() - years);
+      } else if (monthsAgoMatch) {
+        const months = parseInt(monthsAgoMatch[1]);
+        dateFilter = new Date();
+        dateFilter.setMonth(dateFilter.getMonth() - months);
+      }
+      
+      // Check for sales-specific queries
+      const isTopRevenue = lastUserMessage.includes('top revenue') || lastUserMessage.includes('highest revenue') || lastUserMessage.includes('biggest orders');
+      const isRecentSales = lastUserMessage.includes('recent sales') || lastUserMessage.includes('latest sales');
+      
+      // Check for marketing/customer-specific queries
+      const isTopCustomers = lastUserMessage.includes('top customer') || lastUserMessage.includes('best customer');
+      const isRepeatCustomers = lastUserMessage.includes('repeat customer') || lastUserMessage.includes('returning customer');
+      const isCustomerDemographics = lastUserMessage.includes('customer demographic') || lastUserMessage.includes('customer insight');
+      
+      if (lastUserMessage.includes('order') || lastUserMessage.includes('sales') || isTopRevenue || isRecentSales || isTopCustomers || isRepeatCustomers || isCustomerDemographics) {
+        // Handle customer-specific queries differently
+        if (isTopCustomers || isRepeatCustomers || isCustomerDemographics) {
+          // Get customer data (guard against empty/null totals)
+          const customerResults = await db
+            .select({
+              customerUsername: orders.customerUsername,
+              totalRevenue: sql<number>`SUM(CASE WHEN ${orders.orderTotal} != '' AND ${orders.orderTotal} IS NOT NULL THEN CAST(${orders.orderTotal} AS DECIMAL) ELSE 0 END)`,
+              orderCount: sql<number>`COUNT(*)`,
+              lastOrderDate: sql<string>`MAX(${orders.orderDate})`,
+            })
+            .from(orders)
+            .groupBy(orders.customerUsername)
+            .orderBy(isTopCustomers ? desc(sql`SUM(CASE WHEN ${orders.orderTotal} != '' AND ${orders.orderTotal} IS NOT NULL THEN CAST(${orders.orderTotal} AS DECIMAL) ELSE 0 END)`) : desc(sql`COUNT(*)`))
+            .limit(20);
           
-          // Get order details for each order
-          for (const order of ordersResults) {
-            const details = await db
-              .select({
-                sku: orderDetails.sku,
-                name: orderDetails.name,
-                quantity: orderDetails.quantity,
-                unitPrice: orderDetails.unitPrice,
-              })
-              .from(orderDetails)
-              .where(eq(orderDetails.orderId, order.id))
-              .limit(5); // Limit items per order
-            
-            databaseContext += `- Order #${order.orderNumber}: ${order.customerUsername || 'Customer'} - $${order.orderTotal} (${order.orderStatus}) on ${new Date(order.orderDate).toLocaleDateString()}`;
-            
-            if (details.length > 0) {
-              databaseContext += `\n  Items: `;
-              details.forEach((item, idx) => {
-                if (idx > 0) databaseContext += ', ';
-                const displayName = item.sku || item.name;
-                databaseContext += `${item.quantity}x ${displayName} ($${item.unitPrice})`;
-              });
+          // Filter for repeat customers if requested
+          const finalResults = isRepeatCustomers 
+            ? customerResults.filter(c => Number(c.orderCount) > 1)
+            : customerResults;
+          
+          if (finalResults.length > 0) {
+            databaseContext += `\n\nCUSTOMER DATA FROM DATABASE:\n`;
+            finalResults.forEach(customer => {
+              databaseContext += `- ${customer.customerUsername || 'Unknown'}: $${Number(customer.totalRevenue).toFixed(2)} total revenue, ${customer.orderCount} orders, last order: ${new Date(customer.lastOrderDate).toLocaleDateString()}\n`;
+            });
+          } else {
+            databaseContext += `\n\nNo customer data found matching your criteria.\n`;
+          }
+        } else {
+          // Handle order queries
+          let ordersQuery = db
+            .select({
+              id: orders.id,
+              orderNumber: orders.orderNumber,
+              customerUsername: orders.customerUsername,
+              orderDate: orders.orderDate,
+              orderTotal: orders.orderTotal,
+              orderStatus: orders.orderStatus,
+            })
+            .from(orders);
+          
+          // Apply status filter if found
+          if (statusFilter) {
+            ordersQuery = ordersQuery.where(eq(orders.orderStatus, statusFilter)) as any;
+          }
+          
+          // Apply date filter if found
+          if (dateFilter) {
+            const dateCondition = sql`${orders.orderDate} >= ${dateFilter.toISOString()}`;
+            if (statusFilter) {
+              ordersQuery = ordersQuery.where(and(eq(orders.orderStatus, statusFilter), dateCondition)) as any;
+            } else {
+              ordersQuery = ordersQuery.where(dateCondition) as any;
             }
-            databaseContext += `\n`;
+          }
+          
+          // Sort by revenue if top revenue query, otherwise by date
+          // Guard against empty/null totals when sorting by revenue
+          if (isTopRevenue) {
+            ordersQuery = ordersQuery
+              .where(and(
+                sql`${orders.orderTotal} IS NOT NULL`,
+                sql`${orders.orderTotal} != ''`
+              )) as any;
+          }
+          
+          const ordersResults = await ordersQuery
+            .limit(20)
+            .orderBy(isTopRevenue ? desc(sql`CAST(${orders.orderTotal} AS DECIMAL)`) : desc(orders.orderDate));
+          
+          if (ordersResults.length > 0) {
+            databaseContext += `\n\n${statusFilter ? statusFilter.toUpperCase().replace('_', ' ') + ' ' : ''}ORDERS FROM DATABASE:\n`;
+            
+            // Get order details for each order
+            for (const order of ordersResults) {
+              const details = await db
+                .select({
+                  sku: orderDetails.sku,
+                  name: orderDetails.name,
+                  quantity: orderDetails.quantity,
+                  unitPrice: orderDetails.unitPrice,
+                })
+                .from(orderDetails)
+                .where(eq(orderDetails.orderId, order.id))
+                .limit(5); // Limit items per order
+              
+              databaseContext += `- Order #${order.orderNumber}: ${order.customerUsername || 'Customer'} - $${order.orderTotal} (${order.orderStatus}) on ${new Date(order.orderDate).toLocaleDateString()}`;
+              
+              if (details.length > 0) {
+                databaseContext += `\n  Items: `;
+                details.forEach((item, idx) => {
+                  if (idx > 0) databaseContext += ', ';
+                  const displayName = item.sku || item.name;
+                  databaseContext += `${item.quantity}x ${displayName} ($${item.unitPrice})`;
+                });
+              }
+              databaseContext += `\n`;
+            }
+          } else if (statusFilter) {
+            databaseContext += `\n\nNo ${statusFilter.replace('_', ' ')} orders found in database.\n`;
           }
         }
       }
@@ -524,13 +710,18 @@ RESPONSE GUIDELINES:
 1. When database data is provided, use it to give specific answers
 2. FORMAT ALL LISTS AS MARKDOWN BULLET POINTS - Each item on its own line with "- " prefix
 3. CRITICAL: Do NOT use asterisks (*), bold (**text**), or any markdown formatting in your responses - just plain text
-4. Always include BrickLink links for parts: https://www.bricklink.com/v2/catalog/catalogitem.page?P=<partNumber>
-5. When listing inventory items, format each as: "- Part [ITEMNO] in [COLOR]: [QTY] units @ $[PRICE] ([CONDITION])"
-6. If no data found, explain what you searched and suggest alternatives
-7. Be direct and concise (under 5 sentences for intro, then bullet list)
-8. Provide actionable information
-9. IMPORTANT: Item names and themes are not in database - only part numbers, colors, quantities, and prices. If user asks for themes (Star Wars, Harry Potter), explain this limitation
-10. LEARNING: Remember previous conversations and learn from user interactions to provide better assistance over time
+4. IMPORTANT CONTEXT AWARENESS:
+   - When asked about ORDERS, list orders (not inventory items)
+   - When asked about INVENTORY, list inventory items (not orders)
+   - Pay attention to the user's question - respond with the appropriate data type
+5. Always include BrickLink links for parts: https://www.bricklink.com/v2/catalog/catalogitem.page?P=<partNumber>
+6. When listing inventory items, format each as: "- Part [ITEMNO] in [COLOR]: [QTY] units @ $[PRICE] ([CONDITION])"
+7. When listing orders, format each as: "- Order #[NUMBER]: [CUSTOMER] - $[TOTAL] ([STATUS]) on [DATE]"
+8. If no data found, explain what you searched and suggest alternatives
+9. Be direct and concise (under 5 sentences for intro, then bullet list)
+10. Provide actionable information
+11. IMPORTANT: Item names and themes are not in database - only part numbers, colors, quantities, and prices. If user asks for themes (Star Wars, Harry Potter), explain this limitation
+12. LEARNING: Remember previous conversations and learn from user interactions to provide better assistance over time
 
 FORMATTING EXAMPLES:
 
@@ -543,12 +734,18 @@ Good response: "Yes! I found 3 listings for part 3021:
 
 View on BrickLink: https://www.bricklink.com/v2/catalog/catalogitem.page?P=3021"
 
-User: "How many orders do I have?"
-Good response: "You have 15 recent orders. Here are the most recent:
+User: "Show me orders from 5 years ago"
+Good response: "Here are orders from 5 years ago:
 
-- Order #12345: JohnDoe - $45.50 (shipped) on Jan 15, 2025
-- Order #12346: MarySmith - $32.00 (pending) on Jan 14, 2025
-- Order #12347: BobJones - $67.25 (shipped) on Jan 13, 2025"
+- Order #12345: JohnDoe - $45.50 (shipped) on Jan 15, 2020
+- Order #12346: MarySmith - $32.00 (shipped) on Jan 14, 2020
+- Order #12347: BobJones - $67.25 (shipped) on Jan 13, 2020"
+
+User: "Show me awaiting shipment orders"
+Good response: "Here are your awaiting shipment orders:
+
+- Order #98765: AliceW - $123.45 (awaiting_shipment) on Jan 10, 2025
+- Order #98764: BobM - $89.99 (awaiting_shipment) on Jan 9, 2025"
 
 Keep responses helpful, accurate, and based on the actual data provided.`;
 

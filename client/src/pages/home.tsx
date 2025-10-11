@@ -70,11 +70,11 @@ export default function Home() {
       case 'inventory':
         return ['Inventory Summary', 'List All Items', 'Low Stock Alert', 'Top Value Items'];
       case 'orders':
-        return ['Orders Summary', 'List All Orders', 'Pending Orders', 'Recent Shipments'];
+        return ['Orders Summary', 'Awaiting Payment', 'Awaiting Shipment', 'Shipped', 'On Hold', 'Cancelled'];
       case 'sales':
-        return ['Sales Summary', 'MTD Performance', 'YTD Performance', 'Top Sellers'];
+        return ['Sales Summary', 'Top Revenue Orders', 'Recent Sales', 'Sales by Status'];
       case 'marketing':
-        return ['Marketing Summary', 'Customer Insights', 'Campaign Stats', 'Conversion Rate'];
+        return ['Marketing Summary', 'Top Customers', 'Customer Demographics', 'Repeat Customers'];
       default:
         return ['Business Overview', 'Top Products', 'Recent Activity', 'Quick Stats'];
     }

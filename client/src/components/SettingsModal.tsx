@@ -174,25 +174,25 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
     setSyncProgress({
       active: true,
       type: 'inventory',
-      stage: 'Syncing Categories...',
+      stage: 'Connecting to BrickLink API...',
       progress: 10,
       apiCalls: 0,
       recordsAdded: 0,
       recordsUpdated: 0,
     });
 
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise(resolve => setTimeout(resolve, 300));
     setSyncProgress(prev => ({
       ...prev,
-      stage: 'Syncing Colors...',
-      progress: 40,
+      stage: 'Fetching categories & colors from BrickLink...',
+      progress: 25,
     }));
 
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise(resolve => setTimeout(resolve, 400));
     setSyncProgress(prev => ({
       ...prev,
-      stage: 'Syncing Inventory...',
-      progress: 70,
+      stage: 'Processing inventory data (this may take 30-60 seconds)...',
+      progress: 50,
     }));
 
     try {
@@ -206,10 +206,23 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
         const totalAdded = result.data.categoriesAdded + result.data.colorsAdded + result.data.inventoryAdded;
         const totalUpdated = result.data.categoriesUpdated + result.data.colorsUpdated + result.data.inventoryUpdated;
         
+        // Build detailed completion message
+        const details = [];
+        if (result.data.categoriesAdded > 0 || result.data.categoriesUpdated > 0) {
+          details.push(`Categories: ${result.data.categoriesAdded} new, ${result.data.categoriesUpdated} updated`);
+        }
+        if (result.data.colorsAdded > 0 || result.data.colorsUpdated > 0) {
+          details.push(`Colors: ${result.data.colorsAdded} new, ${result.data.colorsUpdated} updated`);
+        }
+        if (result.data.inventoryAdded > 0 || result.data.inventoryUpdated > 0) {
+          details.push(`Inventory: ${result.data.inventoryAdded} new, ${result.data.inventoryUpdated} updated`);
+        }
+        const detailsText = details.length > 0 ? details.join(' • ') : 'All data up to date';
+        
         setSyncProgress({
           active: true,
           type: 'inventory',
-          stage: result.data.rateLimitWarning ? `Complete! ${result.data.rateLimitWarning}` : 'Complete!',
+          stage: result.data.rateLimitWarning ? `${detailsText} • ${result.data.rateLimitWarning}` : detailsText,
           progress: 100,
           apiCalls: result.data.totalApiCalls,
           recordsAdded: totalAdded,
@@ -249,12 +262,26 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
     setSyncProgress({
       active: true,
       type: 'orders',
-      stage: 'Syncing ShipStation Orders...',
-      progress: 50,
+      stage: 'Connecting to ShipStation API...',
+      progress: 20,
       apiCalls: 0,
       recordsAdded: 0,
       recordsUpdated: 0,
     });
+
+    await new Promise(resolve => setTimeout(resolve, 300));
+    setSyncProgress(prev => ({
+      ...prev,
+      stage: 'Checking for new/updated orders (incremental sync)...',
+      progress: 40,
+    }));
+
+    await new Promise(resolve => setTimeout(resolve, 400));
+    setSyncProgress(prev => ({
+      ...prev,
+      stage: 'Processing orders & order details...',
+      progress: 60,
+    }));
 
     try {
       const response = await fetch('/api/sync/shipstation/orders', {
@@ -264,10 +291,23 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
       const result = await response.json();
 
       if (result.success) {
+        // Build detailed completion message
+        const details = [];
+        if (result.data.ordersAdded > 0) {
+          details.push(`${result.data.ordersAdded} orders added`);
+        }
+        if (result.data.ordersUpdated > 0) {
+          details.push(`${result.data.ordersUpdated} orders updated`);
+        }
+        if (result.data.orderDetailsAdded > 0) {
+          details.push(`${result.data.orderDetailsAdded} items added`);
+        }
+        const detailsText = details.length > 0 ? details.join(', ') : 'All orders up to date';
+        
         setSyncProgress({
           active: true,
           type: 'orders',
-          stage: 'Complete!',
+          stage: detailsText,
           progress: 100,
           apiCalls: result.data.totalApiCalls,
           recordsAdded: result.data.ordersAdded + result.data.orderDetailsAdded,
