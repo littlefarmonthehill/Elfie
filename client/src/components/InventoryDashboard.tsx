@@ -154,7 +154,7 @@ export default function InventoryDashboard({ onItemClick }: InventoryDashboardPr
               lowStockItems.map((item) => (
                 <div 
                   key={item.id} 
-                  onClick={() => onItemClick?.('inventory', item.id)}
+                  onClick={() => onItemClick?.('inventory', item.inventoryId)}
                   className="flex justify-between items-center text-[10px] hover-elevate rounded px-2 py-0.5 cursor-pointer"
                   data-testid={`low-stock-${item.id}`}
                 >
@@ -183,7 +183,7 @@ export default function InventoryDashboard({ onItemClick }: InventoryDashboardPr
               topValueItems.map((item) => (
                 <div 
                   key={item.id} 
-                  onClick={() => onItemClick?.('inventory', item.id)}
+                  onClick={() => onItemClick?.('inventory', item.inventoryId)}
                   className="flex justify-between items-center text-[10px] hover-elevate rounded px-2 py-0.5 cursor-pointer"
                   data-testid={`top-value-${item.id}`}
                 >

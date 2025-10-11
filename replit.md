@@ -4,6 +4,25 @@
 PlanetBrick is a comprehensive business operations and analytics dashboard for LEGO reselling businesses. It integrates with BrickLink and ShipStation to offer real-time inventory management, order tracking, sales analytics, and marketing insights. The application features a dark-mode interface with LEGO-inspired colors and an AI chat assistant (E.L.F.I.E.) for operational guidance. The vision is to provide a complete operational toolkit for LEGO resellers, enhancing efficiency and profitability through data-driven decisions and intelligent automation.
 
 ## Recent Changes (October 2025)
+- **Sales Dashboard Time Range Filter**: Added dynamic time range selector for sales chart:
+  - Time range buttons (3M, 6M, 1Y, 2Y) allow viewing different historical periods
+  - Chart data filters dynamically based on selected range
+  - Helps identify seasonal trends and compare performance across different periods
+- **Recent Inventory Updates Widget**: Added "Recent Activity" section to inventory dashboard:
+  - Displays items updated/modified in the last 7 days
+  - Shows item number, color, and time since last update (e.g., "2 days ago")
+  - Clickable items open detail drawer for quick access to recently modified inventory
+  - Useful for tracking recent price changes, quantity updates, or new additions
+- **BrickLink Catalog Search Integration**: Enhanced Elfie chat with BrickLink API fallback:
+  - When searching for items not in local inventory, Elfie suggests checking BrickLink catalog
+  - User can confirm with "yes", "sure", etc. to trigger BrickLink API search
+  - Returns catalog details including part name, type, category, weight, year released, and BrickLink URL
+  - Clearly indicates items are from catalog, not local inventory
+  - Respects BrickLink API rate limits (5,000 calls/24 hours)
+- **Fixed Inventory Click Handlers**: Resolved issue where dashboard widgets used incorrect IDs:
+  - All three inventory dashboard sections (Low Stock, Top Value, Recent Updates) now use `inventoryId` for navigation
+  - Ensures detail modals open with correct inventory data
+  - Consistent behavior across all clickable inventory items
 - **Instant Modal Loading UX**: Improved user experience with instant modal feedback:
   - Drawer opens immediately when clicking any inventory or order item, showing skeleton loading state
   - Data loads progressively: base data → Price-o-Matic → Analytics

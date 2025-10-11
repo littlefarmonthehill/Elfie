@@ -693,22 +693,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 
                 // Default to PART type, but could be enhanced to detect other types
                 const catalogItem = await searchBricklinkCatalogItem(originalPartNumber, 'PART');
-              
-              if (catalogItem) {
-                databaseContext += `\n\nBRICKLINK CATALOG SEARCH RESULTS:\n`;
-                databaseContext += `- Part Number: ${catalogItem.itemNo}\n`;
-                databaseContext += `- Name: ${catalogItem.itemName}\n`;
-                databaseContext += `- Type: ${catalogItem.itemType}\n`;
-                if (catalogItem.categoryId) databaseContext += `- Category ID: ${catalogItem.categoryId}\n`;
-                if (catalogItem.weight) databaseContext += `- Weight: ${catalogItem.weight}g\n`;
-                if (catalogItem.yearReleased) databaseContext += `- Year Released: ${catalogItem.yearReleased}\n`;
-                databaseContext += `- BrickLink URL: https://www.bricklink.com/v2/catalog/catalogitem.page?P=${catalogItem.itemNo}\n`;
-                databaseContext += `\nNote: This item is NOT currently in your inventory. The information above is from the BrickLink catalog.\n`;
-                console.log('🔗 BrickLink catalog data added to context');
+                
+                if (catalogItem) {
+                  databaseContext += `\n\nBRICKLINK CATALOG SEARCH RESULTS:\n`;
+                  databaseContext += `- Part Number: ${catalogItem.itemNo}\n`;
+                  databaseContext += `- Name: ${catalogItem.itemName}\n`;
+                  databaseContext += `- Type: ${catalogItem.itemType}\n`;
+                  if (catalogItem.categoryId) databaseContext += `- Category ID: ${catalogItem.categoryId}\n`;
+                  if (catalogItem.weight) databaseContext += `- Weight: ${catalogItem.weight}g\n`;
+                  if (catalogItem.yearReleased) databaseContext += `- Year Released: ${catalogItem.yearReleased}\n`;
+                  databaseContext += `- BrickLink URL: https://www.bricklink.com/v2/catalog/catalogitem.page?P=${catalogItem.itemNo}\n`;
+                  databaseContext += `\nNote: This item is NOT currently in your inventory. The information above is from the BrickLink catalog.\n`;
+                  console.log('🔗 BrickLink catalog data added to context');
+                }
+              } catch (error) {
+                console.error('🔗 Error searching BrickLink catalog:', error);
+                databaseContext += `\nBRICKLINK SEARCH ERROR: Could not find "${originalPartNumber}" in BrickLink catalog.\n`;
               }
-            } catch (error) {
-              console.error('🔗 Error searching BrickLink catalog:', error);
-              databaseContext += `\nBRICKLINK SEARCH ERROR: Could not find "${searchTerm}" in BrickLink catalog.\n`;
             }
           } else if (partNumber) {
             // Suggest checking BrickLink for part numbers not found locally
