@@ -497,15 +497,15 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
                               </div>
                               
                               {/* Market Supply Impact */}
-                              {scarcityBonus > 0 && (
-                                <div className="flex justify-between items-center">
-                                  <span className="text-xs text-gray-400">Market Supply Impact:</span>
-                                  <div className="text-right">
-                                    <span className="text-sm font-mono font-bold text-orange-400">+{scarcityBonus}%</span>
-                                    <span className="text-[10px] text-gray-500 ml-2">${supplyAdjustment.toFixed(3)}</span>
-                                  </div>
+                              <div className="flex justify-between items-center">
+                                <span className="text-xs text-gray-400">Market Supply Impact:</span>
+                                <div className="text-right">
+                                  <span className={`text-sm font-mono font-bold ${scarcityBonus > 0 ? 'text-orange-400' : 'text-gray-500'}`}>
+                                    +{scarcityBonus}%
+                                  </span>
+                                  <span className="text-[10px] text-gray-500 ml-2">${supplyAdjustment.toFixed(3)}</span>
                                 </div>
-                              )}
+                              </div>
                             </div>
                             
                             {/* Final Suggested Price with Range */}
