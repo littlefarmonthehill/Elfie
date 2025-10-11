@@ -496,10 +496,10 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
                                 </div>
                               </div>
                               
-                              {/* Supply Impact */}
+                              {/* Market Supply Impact */}
                               {scarcityBonus > 0 && (
                                 <div className="flex justify-between items-center">
-                                  <span className="text-xs text-gray-400">Supply Impact:</span>
+                                  <span className="text-xs text-gray-400">Market Supply Impact:</span>
                                   <div className="text-right">
                                     <span className="text-sm font-mono font-bold text-orange-400">+{scarcityBonus}%</span>
                                     <span className="text-[10px] text-gray-500 ml-2">${supplyAdjustment.toFixed(3)}</span>
@@ -521,7 +521,7 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
                               )}
                               <div className="pt-2 border-t border-purple-500/30">
                                 <p className="text-[9px] text-purple-300 font-mono">
-                                  Market Base + PlanetBrick Premium + Supply Impact
+                                  Market Base + PlanetBrick Premium + Market Supply Impact
                                 </p>
                               </div>
                             </div>
