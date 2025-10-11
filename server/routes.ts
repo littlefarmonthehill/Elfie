@@ -1149,6 +1149,35 @@ Keep responses helpful, accurate, and based on the actual data provided.`;
     }
   });
 
+  // BrickLink Catalog Search Endpoint
+  app.get("/api/bricklink/search", async (req, res) => {
+    try {
+      const { itemNo, itemType } = req.query;
+      
+      if (!itemNo || !itemType) {
+        return res.status(400).json({ error: "Missing itemNo or itemType parameter" });
+      }
+      
+      console.log('🔗 BrickLink search endpoint called for:', itemNo, 'type:', itemType);
+      
+      // Search BrickLink catalog
+      const catalogItem = await searchBricklinkCatalogItem(itemNo as string, itemType as string);
+      
+      if (catalogItem) {
+        console.log('🔗 BrickLink catalog item found:', catalogItem.itemNo, '-', catalogItem.itemName);
+        res.json({ item: catalogItem });
+      } else {
+        console.log('🔗 BrickLink catalog: item not found');
+        res.status(404).json({ error: "Item not found in BrickLink catalog" });
+      }
+    } catch (error) {
+      console.error('🔗 BrickLink search error:', error);
+      res.status(500).json({ 
+        error: error instanceof Error ? error.message : "Failed to search BrickLink catalog"
+      });
+    }
+  });
+
   // Get Inventory Items
   app.get("/api/inventory", async (req, res) => {
     try {
