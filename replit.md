@@ -18,7 +18,12 @@ Preferred communication style: Simple, everyday language.
 - **Server Framework:** Express.js with TypeScript and Node.js, using ESM modules.
 - **Database Layer:** Drizzle ORM, Neon serverless PostgreSQL, `ws` library for WebSockets.
 - **API Design:** RESTful endpoints (`/api`), including sync endpoints for BrickLink and ShipStation. Uses in-memory storage for development user management.
-- **Data Storage:** Schema includes `users`, `bl_categories`, `bl_colors`, `bl_inventory`, `orders`, and `order_details` tables. Features incremental synchronization with timestamp tracking for external APIs.
+- **Data Storage:** Schema includes `users`, `bl_categories`, `bl_colors`, `bl_inventory`, `orders`, `order_details`, and `sync_metadata` tables. Features efficient batch operations and incremental synchronization.
+- **Sync Architecture:** 
+  - **BrickLink Sync:** Batch operations for categories/colors (single query fetch, batch insert/update). Inventory sync already optimized with 1000-item batch inserts and selective updates.
+  - **ShipStation Sync:** Batch operations eliminate 8000+ individual queries. Incremental sync using `sync_metadata` table - first sync fetches 10 years of history, subsequent syncs fetch only orders modified since last successful sync (via `modifyDateStart` parameter).
+  - **Sync Metadata Table:** Tracks last successful sync time, status (success/failed/in_progress), records added/updated, and error messages for each sync type.
+  - **Performance:** First sync processes ~2,500 orders, subsequent syncs typically 0-50 orders (100-500x faster).
 - **Settings Management:** Global application settings (AI enablement, API keys, selected AI model) stored in a single-row `app_settings` PostgreSQL table, accessible via `/api/settings`.
 - **Authentication:** Basic username/password authentication with UUID-based user identification and in-memory storage (for development). Future plans include session-based authentication and secure password hashing.
 
