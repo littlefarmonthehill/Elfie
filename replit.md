@@ -17,7 +17,7 @@ Preferred communication style: Simple, everyday language.
 - **Server Framework:** Express.js with TypeScript and Node.js, utilizing ESM modules.
 - **Database Layer:** Drizzle ORM with Neon serverless PostgreSQL, and `ws` for WebSockets.
 - **API Design:** RESTful endpoints (`/api`) handle data operations and integrations, including syncs for BrickLink and ShipStation. User management for development uses in-memory storage.
-- **Data Storage:** The schema includes tables for `users`, `bl_categories`, `bl_colors`, `bl_inventory`, `orders`, `order_details`, and `sync_metadata`.
+- **Data Storage:** The schema includes tables for `users`, `bl_categories`, `bl_colors`, `bl_inventory`, `orders` (with `marketplace` field for selling platform tracking), `order_details`, and `sync_metadata`.
 - **Sync Architecture:** Optimized batch operations and incremental synchronization for BrickLink (1000-item batches, selective updates) and ShipStation (fetching orders modified since the last sync). A `sync_metadata` table tracks sync status and performance.
 - **Settings Management:** Global application settings (AI enablement, API keys, AI model) are stored in a single-row `app_settings` PostgreSQL table.
 - **Authentication:** Basic username/password authentication with UUID-based user IDs is implemented, with future plans for session-based authentication and secure password hashing.
@@ -30,6 +30,37 @@ Preferred communication style: Simple, everyday language.
 - **Interactive Features:** Responses are formatted in markdown with clickable part numbers (opening detail modals) and BrickLink URLs (opening sandboxed iframe dialogs). Inventory displays are grouped with actual LEGO brick colors, proper column alignment, and full-row clickability.
 - **BrickLink Catalog Integration:** When items aren't found in local inventory, Elfie suggests checking the BrickLink catalog. Upon user confirmation ("yes", "sure", etc.), searches BrickLink API (tries SET then PART types) and opens catalog item in the detail modal instead of showing text. Modal displays item name, number, type, category, weight, year released, and is clearly labeled as "BrickLink Catalog Item" to distinguish from local inventory. Uses sessionStorage to pass catalog data to modal.
 - **Response Principles:** Focuses on concise answers, markdown formatting, inclusion of BrickLink links, avoidance of hallucination, and offers strategic advice when requested.
+
+### Dashboard Features
+
+#### Price-o-Matic with World Supply Analysis
+- **Calculation Dialog:** Clicking the suggested price in the Pricing tab opens a detailed breakdown showing:
+  - Base Price (stock average from BrickLink)
+  - Premium breakdown (base 15% + supply-adjusted scarcity bonus)
+  - Final suggested price with comparison to current price
+  - Market context (stock avg, sold avg, price ranges)
+- **World Supply Analysis Panel:**
+  - Displays number of available listings worldwide (lot count from BrickLink)
+  - Color-coded supply level classification:
+    - Very Low Supply (red, <50 lots): +10% scarcity bonus
+    - Low Supply (orange, 50-200 lots): +5% scarcity bonus
+    - Medium Supply (yellow, 200-500 lots): +2% scarcity bonus
+    - High Supply (green, 500+ lots): base premium only
+  - Shows premium breakdown: Base Premium + Scarcity Bonus = Total Premium
+  - Contextual explanation of how scarcity affects pricing
+
+#### Platform Performance Dashboard
+- **Sales Dashboard Integration:** Located in the Sales tab after Key Metrics section.
+- **Marketplace Tracking:** Orders are automatically tagged with selling platform:
+  - Extraction methods: `advancedOptions.source`, order key prefixes, order number patterns
+  - Supported platforms: BrickLink, eBay, Amazon, Etsy, Facebook Marketplace, and more
+  - Graceful fallback to "Unknown" when platform cannot be determined
+- **Visualizations:**
+  - Bar chart showing revenue by marketplace (color-coded by platform)
+  - Platform breakdown cards displaying: revenue, order count, percentage of total, average order value
+  - Progress bars indicating each platform's share of total revenue
+- **Date Range Alignment:** Automatically syncs with dashboard date range selector (3M, 6M, 1Y, 2Y, All).
+- **ShipStation Integration:** Marketplace data is captured during order sync and stored in the `orders.marketplace` field for historical tracking and trend analysis.
 
 ## External Dependencies
 
