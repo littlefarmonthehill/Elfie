@@ -172,24 +172,40 @@ export async function syncBricklinkCategories(): Promise<{ added: number; update
     // BrickLink API returns data directly as an array
     const categories = Array.isArray(responseData) ? responseData : [];
     
+    if (categories.length === 0) {
+      return { added: 0, updated: 0, apiCalls };
+    }
+    
+    // Fetch all existing categories in one query
+    const existingCategories = await db.select().from(blCategories);
+    const existingMap = new Map(existingCategories.map(cat => [cat.id, cat]));
+    
+    // Separate into new and existing
+    const newCategories = categories.filter(cat => !existingMap.has(cat.category_id));
+    const categoriesToUpdate = categories.filter(cat => {
+      const existing = existingMap.get(cat.category_id);
+      return existing && existing.name !== cat.category_name;
+    });
+    
     let added = 0;
     let updated = 0;
 
-    for (const category of categories) {
-      const existing = await db.select().from(blCategories).where(eq(blCategories.id, category.category_id));
-      
-      if (existing.length === 0) {
-        await db.insert(blCategories).values({
-          id: category.category_id,
-          name: category.category_name,
-        });
-        added++;
-      } else if (existing[0].name !== category.category_name) {
-        await db.update(blCategories)
-          .set({ name: category.category_name, updatedAt: new Date() })
-          .where(eq(blCategories.id, category.category_id));
-        updated++;
-      }
+    // Batch insert new categories
+    if (newCategories.length > 0) {
+      const values = newCategories.map(cat => ({
+        id: cat.category_id,
+        name: cat.category_name,
+      }));
+      await db.insert(blCategories).values(values);
+      added = newCategories.length;
+    }
+    
+    // Update changed categories
+    for (const cat of categoriesToUpdate) {
+      await db.update(blCategories)
+        .set({ name: cat.category_name, updatedAt: new Date() })
+        .where(eq(blCategories.id, cat.category_id));
+      updated++;
     }
 
     return { added, updated, apiCalls };
@@ -206,36 +222,51 @@ export async function syncBricklinkColors(): Promise<{ added: number; updated: n
     // BrickLink API returns data directly as an array
     const colors = Array.isArray(responseData) ? responseData : [];
     
+    if (colors.length === 0) {
+      return { added: 0, updated: 0, apiCalls };
+    }
+    
+    // Fetch all existing colors in one query
+    const existingColors = await db.select().from(blColors);
+    const existingMap = new Map(existingColors.map(color => [color.id, color]));
+    
+    // Separate into new and existing
+    const newColors = colors.filter(color => !existingMap.has(color.color_id));
+    const colorsToUpdate = colors.filter(color => {
+      const existing = existingMap.get(color.color_id);
+      if (!existing) return false;
+      
+      return existing.name !== color.color_name || 
+             existing.rgb !== (color.color_code || '000000') || 
+             existing.type !== (color.color_type || 'solid');
+    });
+    
     let added = 0;
     let updated = 0;
 
-    for (const color of colors) {
-      const existing = await db.select().from(blColors).where(eq(blColors.id, color.color_id));
-      
-      if (existing.length === 0) {
-        await db.insert(blColors).values({
-          id: color.color_id,
-          name: color.color_name,
-          rgb: color.color_code || '000000',
-          type: color.color_type || 'solid',
-        });
-        added++;
-      } else {
-        const needsUpdate = existing[0].name !== color.color_name || 
-                            existing[0].rgb !== (color.color_code || '000000') || 
-                            existing[0].type !== (color.color_type || 'solid');
-        if (needsUpdate) {
-          await db.update(blColors)
-            .set({ 
-              name: color.color_name, 
-              rgb: color.color_code || '000000', 
-              type: color.color_type || 'solid', 
-              updatedAt: new Date() 
-            })
-            .where(eq(blColors.id, color.color_id));
-          updated++;
-        }
-      }
+    // Batch insert new colors
+    if (newColors.length > 0) {
+      const values = newColors.map(color => ({
+        id: color.color_id,
+        name: color.color_name,
+        rgb: color.color_code || '000000',
+        type: color.color_type || 'solid',
+      }));
+      await db.insert(blColors).values(values);
+      added = newColors.length;
+    }
+    
+    // Update changed colors
+    for (const color of colorsToUpdate) {
+      await db.update(blColors)
+        .set({ 
+          name: color.color_name, 
+          rgb: color.color_code || '000000', 
+          type: color.color_type || 'solid', 
+          updatedAt: new Date() 
+        })
+        .where(eq(blColors.id, color.color_id));
+      updated++;
     }
 
     return { added, updated, apiCalls };
