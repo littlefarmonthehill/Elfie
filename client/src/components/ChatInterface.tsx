@@ -19,6 +19,10 @@ interface ChatMessage {
     unitPrice: string | null;
     newOrUsed: string;
   }>;
+  bricklinkSearchSuggestion?: {
+    itemNo: string;
+    itemType: string;
+  } | null;
 }
 
 interface MessageContentProps {
@@ -34,11 +38,16 @@ interface MessageContentProps {
     unitPrice: string | null;
     newOrUsed: string;
   }>;
+  bricklinkSearchSuggestion?: {
+    itemNo: string;
+    itemType: string;
+  } | null;
   onItemClick?: (type: 'inventory', id: string) => void;
   onBrickLinkClick?: (url: string) => void;
+  onBrickLinkSearch?: (itemNo: string, itemType: string) => void;
 }
 
-function MessageContent({ content, items, onItemClick, onBrickLinkClick }: MessageContentProps) {
+function MessageContent({ content, items, bricklinkSearchSuggestion, onItemClick, onBrickLinkClick, onBrickLinkSearch }: MessageContentProps) {
   // Group items by itemNo for grouped display
   const groupedItems = items && items.length > 0 ? items.reduce((acc, item) => {
     if (!acc[item.itemNo]) {
@@ -233,6 +242,22 @@ function MessageContent({ content, items, onItemClick, onBrickLinkClick }: Messa
           onItemClick={(id) => onItemClick?.('inventory', id.toString())}
         />
       ))}
+      
+      {/* Show BrickLink search button if suggestion is present */}
+      {bricklinkSearchSuggestion && onBrickLinkSearch && (
+        <div className="mt-3">
+          <Button
+            onClick={() => onBrickLinkSearch(bricklinkSearchSuggestion.itemNo, bricklinkSearchSuggestion.itemType)}
+            variant="outline"
+            size="sm"
+            className="bg-purple-500/10 border-purple-500/30 text-purple-300 hover:bg-purple-500/20 hover:text-purple-200"
+            data-testid="button-bricklink-search"
+          >
+            <ExternalLink className="h-3 w-3 mr-2" />
+            Search BrickLink Catalog for {bricklinkSearchSuggestion.itemNo}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
@@ -374,11 +399,12 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
         role: 'assistant',
         content: data.message || "I'm sorry, I couldn't generate a response.",
         items: data.items || [],
+        bricklinkSearchSuggestion: data.bricklinkSearchSuggestion || null,
       };
 
       setMessages(prev => [...prev, assistantMessage]);
       
-      // If BrickLink catalog item is returned, open the detail modal immediately
+      // Legacy: If BrickLink catalog item is returned, open the detail modal immediately
       if (data.bricklinkItem && onItemClick) {
         console.log('🔗 BrickLink catalog item found, opening modal:', data.bricklinkItem);
         
@@ -416,6 +442,55 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
     } else {
       // If already expanded, send immediately
       handleSend(prompt);
+    }
+  };
+
+  const handleBrickLinkSearch = async (itemNo: string, itemType: string) => {
+    console.log('🔗 Searching BrickLink catalog for:', itemNo, 'type:', itemType);
+    
+    try {
+      // Call BrickLink search endpoint
+      const response = await fetch(`/api/bricklink/search?itemNo=${encodeURIComponent(itemNo)}&itemType=${encodeURIComponent(itemType)}`);
+      const data = await response.json();
+      
+      if (data.error) {
+        console.error('🔗 BrickLink search error:', data.error);
+        // Add error message to chat
+        const errorMessage: ChatMessage = {
+          role: 'assistant',
+          content: `I couldn't find "${itemNo}" in the BrickLink catalog. ${data.error}`,
+        };
+        setMessages(prev => [...prev, errorMessage]);
+        return;
+      }
+      
+      if (data.item) {
+        console.log('🔗 BrickLink catalog item found:', data.item);
+        
+        // Store in sessionStorage for modal to access
+        const catalogItemKey = `bricklink-item-${data.item.itemNo}`;
+        sessionStorage.setItem(catalogItemKey, JSON.stringify(data.item));
+        
+        // Add success message to chat
+        const successMessage: ChatMessage = {
+          role: 'assistant',
+          content: `Found "${data.item.itemName}" in the BrickLink catalog! Opening details...`,
+        };
+        setMessages(prev => [...prev, successMessage]);
+        
+        // Open modal with catalog item
+        if (onItemClick) {
+          const catalogItemId = `bricklink-${data.item.itemNo}`;
+          onItemClick('inventory', catalogItemId);
+        }
+      }
+    } catch (error) {
+      console.error('🔗 BrickLink search error:', error);
+      const errorMessage: ChatMessage = {
+        role: 'assistant',
+        content: `I had trouble searching BrickLink. Please try again.`,
+      };
+      setMessages(prev => [...prev, errorMessage]);
     }
   };
 
@@ -510,8 +585,10 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
                       <MessageContent
                         content={message.content}
                         items={message.items}
+                        bricklinkSearchSuggestion={message.bricklinkSearchSuggestion}
                         onItemClick={onItemClick}
                         onBrickLinkClick={setBrickLinkUrl}
+                        onBrickLinkSearch={handleBrickLinkSearch}
                       />
                     )}
                   </div>
