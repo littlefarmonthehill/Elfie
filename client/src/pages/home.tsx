@@ -67,33 +67,26 @@ export default function Home() {
       }
     } else if (type === 'inventory') {
       try {
-        console.log('[Inventory Detail] Fetching inventory ID:', id);
         const response = await fetch(`/api/inventory/${id}`);
         if (response.ok) {
           const inventoryData = await response.json();
-          console.log('[Inventory Detail] Received inventory data:', inventoryData);
           
           // Fetch Price-O-Magic data
           const priceGuideUrl = `/api/inventory/price-guide/${inventoryData.itemNo}/${inventoryData.itemType}${
             inventoryData.colorId ? `?color_id=${inventoryData.colorId}` : ''
           }`;
-          console.log('[Inventory Detail] Fetching Price-O-Magic from:', priceGuideUrl);
           
           const priceResponse = await fetch(priceGuideUrl);
           
           let priceOMagicData = null;
           if (priceResponse.ok) {
             priceOMagicData = await priceResponse.json();
-            console.log('[Inventory Detail] Received Price-O-Magic data:', priceOMagicData);
-          } else {
-            console.error('[Inventory Detail] Price-O-Magic fetch failed:', priceResponse.status, priceResponse.statusText);
           }
           
           const finalData = {
             ...inventoryData,
             priceOMagic: priceOMagicData
           };
-          console.log('[Inventory Detail] Setting modal data:', finalData);
           
           setDetailModal({
             open: true,
