@@ -24,13 +24,37 @@ export default function Home() {
     // Mock data mapping - in real app, fetch from API
     if (type === 'order') {
       const orderId = typeof id === 'string' && id.startsWith('ord-') ? id : `ord-${id}`;
-      const mockOrder = mockOrderDatabase[orderId];
-      if (mockOrder) {
-        setDetailModal({
-          open: true,
-          data: { type: 'order', data: mockOrder }
-        });
+      let mockOrder = mockOrderDatabase[orderId];
+      
+      // If not in mock database, create generic mock data
+      if (!mockOrder) {
+        const orderNumber = String(id).replace(/^(ord-|ss-|bl-|bo-)/, '');
+        mockOrder = {
+          orderId: String(id),
+          orderNumber: orderNumber,
+          platform: 'ShipStation' as const,
+          status: 'Paid' as const,
+          customer: {
+            name: 'Customer',
+            email: 'customer@example.com',
+            address: '123 Main St, City, ST 12345',
+          },
+          orderDate: new Date().toISOString(),
+          items: [
+            { name: 'LEGO Brick 2x4', quantity: 10, price: 4.50 },
+            { name: 'LEGO Plate 1x2', quantity: 25, price: 2.25 },
+          ],
+          subtotal: 101.25,
+          shipping: 8.50,
+          tax: 9.85,
+          total: 119.60,
+        };
       }
+      
+      setDetailModal({
+        open: true,
+        data: { type: 'order', data: mockOrder }
+      });
     } else if (type === 'inventory') {
       // Mock inventory detail
       const mockInventory = {
