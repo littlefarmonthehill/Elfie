@@ -66,24 +66,39 @@ export default function Home() {
         console.error('Error fetching order:', error);
       }
     } else if (type === 'inventory') {
-      // Mock inventory detail
-      const mockInventory = {
-        partNumber: '3001',
-        name: 'Brick 2 x 4',
-        category: 'Brick',
-        color: 'Red',
-        quantity: 5,
-        condition: 'New' as const,
-        costPerUnit: 0.25,
-        pricePerUnit: 0.45,
-        weight: 2.5,
-        dateAdded: new Date().toISOString(),
-        bricklinkUrl: 'https://www.bricklink.com/v2/catalog/catalogitem.page?P=3001',
-      };
-      setDetailModal({
-        open: true,
-        data: { type: 'inventory', data: mockInventory }
-      });
+      try {
+        const response = await fetch(`/api/inventory/${id}`);
+        if (response.ok) {
+          const inventoryData = await response.json();
+          
+          // Fetch Price-O-Magic data
+          const priceResponse = await fetch(
+            `/api/inventory/price-guide/${inventoryData.itemNo}/${inventoryData.itemType}${
+              inventoryData.colorId ? `?color_id=${inventoryData.colorId}` : ''
+            }`
+          );
+          
+          let priceOMagicData = null;
+          if (priceResponse.ok) {
+            priceOMagicData = await priceResponse.json();
+          }
+          
+          setDetailModal({
+            open: true,
+            data: { 
+              type: 'inventory', 
+              data: {
+                ...inventoryData,
+                priceOMagic: priceOMagicData
+              }
+            }
+          });
+        } else {
+          console.error('Failed to fetch inventory:', response.statusText);
+        }
+      } catch (error) {
+        console.error('Error fetching inventory:', error);
+      }
     }
   };
 

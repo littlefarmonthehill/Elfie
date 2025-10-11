@@ -638,6 +638,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
 - Number of different colors: ${statsData.totalColors}
 - Number of different categories: ${statsData.totalCategories}\n`;
 
+      // Price-O-Magic: Check for pricing queries
+      const isPricingQuery = lastUserMessage.includes('price') || lastUserMessage.includes('pricing') || 
+                            lastUserMessage.includes('worth') || lastUserMessage.includes('value') ||
+                            lastUserMessage.includes('market') || lastUserMessage.includes('sell for');
+      
+      if (isPricingQuery && partNumberMatch) {
+        try {
+          const partNumber = partNumberMatch[1];
+          
+          // Get inventory item details to extract itemType and colorId
+          const inventoryItem = await db
+            .select({
+              itemNo: blInventory.itemNo,
+              itemType: blInventory.itemType,
+              colorId: blInventory.colorId,
+            })
+            .from(blInventory)
+            .where(eq(blInventory.itemNo, partNumber))
+            .limit(1);
+          
+          if (inventoryItem.length > 0) {
+            const item = inventoryItem[0];
+            const priceOMagicData = await fetchPriceOMagicData(
+              item.itemNo,
+              item.itemType,
+              item.colorId || undefined,
+              15 // 15% premium
+            );
+            
+            if (priceOMagicData) {
+              databaseContext += `\n\nPRICE-O-MAGIC DATA FOR ${item.itemNo}:\n`;
+              databaseContext += `- Item: ${priceOMagicData.itemName || item.itemNo}\n`;
+              if (priceOMagicData.stockAvgPrice) {
+                databaseContext += `- Currently For Sale: Avg $${parseFloat(priceOMagicData.stockAvgPrice).toFixed(3)}`;
+                if (priceOMagicData.stockMinPrice && priceOMagicData.stockMaxPrice) {
+                  databaseContext += ` (range: $${parseFloat(priceOMagicData.stockMinPrice).toFixed(2)}-$${parseFloat(priceOMagicData.stockMaxPrice).toFixed(2)})`;
+                }
+                if (priceOMagicData.stockTotalLots) {
+                  databaseContext += ` across ${priceOMagicData.stockTotalLots} lots`;
+                }
+                databaseContext += `\n`;
+              }
+              if (priceOMagicData.soldAvgPrice) {
+                databaseContext += `- Sold (last 6mo): Avg $${parseFloat(priceOMagicData.soldAvgPrice).toFixed(3)}`;
+                if (priceOMagicData.soldMinPrice && priceOMagicData.soldMaxPrice) {
+                  databaseContext += ` (range: $${parseFloat(priceOMagicData.soldMinPrice).toFixed(2)}-$${parseFloat(priceOMagicData.soldMaxPrice).toFixed(2)})`;
+                }
+                if (priceOMagicData.soldTotalLots) {
+                  databaseContext += ` across ${priceOMagicData.soldTotalLots} lots`;
+                }
+                databaseContext += `\n`;
+              }
+              databaseContext += `- SUGGESTED PRICE: $${parseFloat(priceOMagicData.suggestedPrice).toFixed(3)} (includes ${priceOMagicData.premiumPercentage}% premium)\n`;
+              if (priceOMagicData.weight) {
+                databaseContext += `- Weight: ${parseFloat(priceOMagicData.weight).toFixed(1)}g\n`;
+              }
+              console.log('💰 Price-O-Magic data added to context for:', item.itemNo);
+            }
+          }
+        } catch (error) {
+          console.error('💰 Error fetching Price-O-Magic data:', error);
+          // Don't throw - pricing is optional, continue with chat
+        }
+      }
+
       // Search orders - check for specific status filters and date ranges
       const orderStatusMap: { [key: string]: string } = {
         'awaiting payment': 'awaiting_payment',
@@ -814,6 +879,16 @@ ${databaseContext}
 ${historyContext}
 
 CRITICAL: You HAVE database access and real data is provided above. Use this data to answer questions accurately.
+
+PRICE-O-MAGIC FEATURE:
+- You have access to real-time BrickLink market data including stock prices, sold prices, and suggested pricing
+- When price guide data is provided, it includes:
+  * Stock (currently for sale) average/min/max prices and lot counts
+  * Sold (last 6 months) average/min/max prices and lot counts
+  * AI-calculated suggested price with premium percentage for fast turnaround/large inventory
+  * Item details including weight, dimensions, images, and BrickLink metadata
+- Use this data to provide intelligent pricing recommendations and market insights
+- Suggested prices include a premium (typically 15%) for fast turnaround and quality service
 
 RESPONSE GUIDELINES:
 1. When database data is provided, use it to give specific answers

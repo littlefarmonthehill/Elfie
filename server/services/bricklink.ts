@@ -752,6 +752,36 @@ export async function fetchPriceOMagicData(
 
     console.log(`[Price-O-Magic] Cached data for ${itemType}/${itemNo}${colorId ? `/${colorId}` : ''}`);
     
+    // Update inventory weight if we have weight data and inventory weight is null
+    if (itemDetails?.weight) {
+      try {
+        const inventoryQuery = colorId 
+          ? and(
+              eq(blInventory.itemNo, itemNo),
+              eq(blInventory.itemType, itemType),
+              eq(blInventory.colorId, colorId),
+              sql`${blInventory.myWeight} IS NULL`
+            )
+          : and(
+              eq(blInventory.itemNo, itemNo),
+              eq(blInventory.itemType, itemType),
+              sql`${blInventory.myWeight} IS NULL`
+            );
+
+        const updatedCount = await db
+          .update(blInventory)
+          .set({ myWeight: itemDetails.weight.toString() })
+          .where(inventoryQuery);
+
+        if (updatedCount) {
+          console.log(`[Price-O-Magic] Updated weight for ${itemType}/${itemNo}${colorId ? `/${colorId}` : ''} to ${itemDetails.weight}g`);
+        }
+      } catch (error) {
+        console.error('[Price-O-Magic] Error updating inventory weight:', error);
+        // Don't throw - this is a nice-to-have feature
+      }
+    }
+    
     return insertedData;
   } catch (error) {
     console.error('[Price-O-Magic] Error fetching data:', error);
