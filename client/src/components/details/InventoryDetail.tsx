@@ -432,20 +432,13 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
                     <div className="space-y-4 mt-4">
                       {/* Calculation Steps */}
                       <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 space-y-3">
-                        <div>
-                          <p className="text-xs text-gray-400 mb-1">Base Price (Stock Average)</p>
-                          <p className="text-lg font-mono font-bold text-white">
-                            ${stockAvgPrice !== null ? stockAvgPrice.toFixed(3) : '0.000'}
-                          </p>
-                        </div>
-                        
                         {(() => {
-                          // Calculate actual premium based on supply
+                          // Calculate pricing components
                           const basePremium = priceOMagic.premiumPercentage || 15;
                           const stockLots = priceOMagic.stockTotalLots;
                           let scarcityBonus = 0;
                           
-                          // Only calculate scarcity bonus if stockTotalLots is actually available
+                          // Calculate scarcity bonus based on supply
                           if (stockLots !== null && stockLots !== undefined && typeof stockLots === 'number') {
                             if (stockLots < 50) {
                               scarcityBonus = 10;
@@ -456,33 +449,64 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
                             }
                           }
                           
-                          const totalPremium = basePremium + scarcityBonus;
-                          const premiumAmount = stockAvgPrice !== null ? (stockAvgPrice * (totalPremium / 100)) : 0;
+                          const marketBase = stockAvgPrice !== null ? stockAvgPrice : 0;
+                          const planetBrickPremium = marketBase * (basePremium / 100);
+                          const supplyAdjustment = marketBase * (scarcityBonus / 100);
                           
                           return (
-                            <div className="border-t border-gray-700 pt-2">
-                              <p className="text-xs text-gray-400 mb-1">PlanetBrick Premium Applied</p>
-                              <p className="text-lg font-mono font-bold text-purple-400">
-                                +{totalPremium}%
-                              </p>
-                              {scarcityBonus > 0 && (
-                                <p className="text-[9px] text-purple-300/70 mt-0.5">
-                                  (Base {basePremium}% + Supply Bonus {scarcityBonus}%)
+                            <>
+                              {/* Market Base */}
+                              <div>
+                                <p className="text-xs text-gray-400 mb-1">Market Base (Stock Average)</p>
+                                <p className="text-lg font-mono font-bold text-white">
+                                  ${marketBase.toFixed(3)}
                                 </p>
+                                {soldAvgPrice !== null && (
+                                  <p className="text-[9px] text-gray-500 mt-0.5">
+                                    Sold avg: ${soldAvgPrice.toFixed(3)}
+                                  </p>
+                                )}
+                              </div>
+                              
+                              {/* PlanetBrick Premium */}
+                              <div className="border-t border-gray-700 pt-2">
+                                <p className="text-xs text-gray-400 mb-1">+ PlanetBrick Premium</p>
+                                <p className="text-lg font-mono font-bold text-purple-400">
+                                  +{basePremium}%
+                                </p>
+                                <p className="text-[10px] text-gray-500 mt-0.5">
+                                  ${planetBrickPremium.toFixed(3)}
+                                </p>
+                              </div>
+                              
+                              {/* Supply Impact */}
+                              {scarcityBonus > 0 && (
+                                <div className="border-t border-gray-700 pt-2">
+                                  <p className="text-xs text-gray-400 mb-1">+ Supply Impact (Scarcity)</p>
+                                  <p className="text-lg font-mono font-bold text-orange-400">
+                                    +{scarcityBonus}%
+                                  </p>
+                                  <p className="text-[10px] text-gray-500 mt-0.5">
+                                    ${supplyAdjustment.toFixed(3)}
+                                  </p>
+                                </div>
                               )}
-                              <p className="text-[10px] text-gray-500 mt-1">
-                                ${premiumAmount.toFixed(3)}
-                              </p>
-                            </div>
+                              
+                              {/* Final Price */}
+                              <div className="border-t-2 border-purple-500/50 pt-2">
+                                <p className="text-xs text-gray-400 mb-1">= Final Suggested Price</p>
+                                <p className="text-2xl font-mono font-black text-purple-400">
+                                  ${suggestedPrice.toFixed(3)}
+                                </p>
+                                {priceOMagic.stockMinPrice && priceOMagic.stockMaxPrice && (
+                                  <p className="text-[9px] text-gray-500 mt-1">
+                                    Market range: ${parseFloat(priceOMagic.stockMinPrice).toFixed(2)} - ${parseFloat(priceOMagic.stockMaxPrice).toFixed(2)}
+                                  </p>
+                                )}
+                              </div>
+                            </>
                           );
                         })()}
-                        
-                        <div className="border-t border-gray-700 pt-2">
-                          <p className="text-xs text-gray-400 mb-1">Final Suggested Price</p>
-                          <p className="text-2xl font-mono font-black text-purple-400">
-                            ${suggestedPrice.toFixed(3)}
-                          </p>
-                        </div>
                       </div>
 
                       {/* World Supply Analysis */}
@@ -501,29 +525,26 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
                             {(() => {
                               const lots = priceOMagic.stockTotalLots;
                               let supplyLevel = '';
-                              let supplyPremium = 0;
+                              let supplyImpact = 0;
                               let supplyColor = '';
                               
                               if (lots < 50) {
                                 supplyLevel = 'Very Low Supply';
-                                supplyPremium = 10;
+                                supplyImpact = 10;
                                 supplyColor = 'text-red-400';
                               } else if (lots < 200) {
                                 supplyLevel = 'Low Supply';
-                                supplyPremium = 5;
+                                supplyImpact = 5;
                                 supplyColor = 'text-orange-400';
                               } else if (lots < 500) {
                                 supplyLevel = 'Medium Supply';
-                                supplyPremium = 2;
+                                supplyImpact = 2;
                                 supplyColor = 'text-yellow-400';
                               } else {
                                 supplyLevel = 'High Supply';
-                                supplyPremium = 0;
+                                supplyImpact = 0;
                                 supplyColor = 'text-green-400';
                               }
-                              
-                              const basePremium = 15; // Base premium
-                              const totalPremium = basePremium + supplyPremium;
                               
                               return (
                                 <>
@@ -532,27 +553,19 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
                                     <span className={`text-xs font-bold ${supplyColor}`}>{supplyLevel}</span>
                                   </div>
                                   
-                                  <div className="bg-gray-900/50 rounded p-2 mt-2 space-y-1.5">
-                                    <div className="flex justify-between text-[10px]">
-                                      <span className="text-gray-400">Base PlanetBrick Premium:</span>
-                                      <span className="font-mono text-purple-400">+{basePremium}%</span>
-                                    </div>
-                                    {supplyPremium > 0 && (
+                                  {supplyImpact > 0 && (
+                                    <div className="bg-gray-900/50 rounded p-2 mt-2">
                                       <div className="flex justify-between text-[10px]">
-                                        <span className="text-gray-400">Scarcity Bonus:</span>
-                                        <span className={`font-mono font-bold ${supplyColor}`}>+{supplyPremium}%</span>
+                                        <span className="text-gray-400">Supply Impact:</span>
+                                        <span className={`font-mono font-bold ${supplyColor}`}>+{supplyImpact}%</span>
                                       </div>
-                                    )}
-                                    <div className="flex justify-between text-xs border-t border-gray-700 pt-1.5">
-                                      <span className="text-gray-300 font-bold">Total PlanetBrick Premium:</span>
-                                      <span className="font-mono font-bold text-purple-400">+{totalPremium}%</span>
                                     </div>
-                                  </div>
+                                  )}
                                   
                                   <p className="text-[9px] text-gray-500 mt-2 leading-relaxed">
-                                    {supplyPremium > 0 
-                                      ? `Limited availability ({lots} listings worldwide) adds a +${supplyPremium}% scarcity premium to help maximize profit.`
-                                      : `Abundant supply ({lots}+ listings) means competitive pricing with base premium only.`
+                                    {supplyImpact > 0 
+                                      ? `Limited availability (${lots} listings worldwide) adds a +${supplyImpact}% scarcity adjustment to help maximize profit.`
+                                      : `Abundant supply (${lots}+ listings) means competitive pricing without scarcity adjustment.`
                                     }
                                   </p>
                                 </>
@@ -592,10 +605,10 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
                       {/* Formula Explanation */}
                       <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3">
                         <p className="text-[10px] text-purple-300 font-mono">
-                          Formula: Stock Avg × (1 + Premium %) = Suggested Price
+                          Market Base + PlanetBrick Premium + Supply Impact = Suggested Price
                         </p>
                         <p className="text-[10px] text-gray-400 mt-2">
-                          Price-o-Matic uses the current market stock average and applies your configured premium to suggest a competitive price.
+                          Price-o-Matic starts with current market data, adds your PlanetBrick premium (15%), then adjusts for supply scarcity (0-10%) to maximize profit.
                         </p>
                       </div>
                     </div>
