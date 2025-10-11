@@ -101,6 +101,13 @@ export default function InventoryDashboard({ onItemClick }: InventoryDashboardPr
     return new Intl.NumberFormat('en-US').format(value);
   };
 
+  const safeFormatDate = (dateString: string | null | undefined): string => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'N/A';
+    return formatDistanceToNow(date, { addSuffix: true });
+  };
+
   const profitPotential = stats ? stats.totalValue - stats.totalCost : 0;
 
   if (isLoading) {
@@ -241,7 +248,9 @@ export default function InventoryDashboard({ onItemClick }: InventoryDashboardPr
                           <span className="text-gray-500 truncate text-[9px]">{item.colorName || 'N/A'}</span>
                         </div>
                         <div className="flex items-center gap-1.5 ml-2 flex-shrink-0">
-                          <span className="text-gray-600 text-[9px]">{formatDistanceToNow(new Date(item.syncedAt), { addSuffix: true })}</span>
+                          <span className="text-gray-600 text-[9px]">
+                            {safeFormatDate(item.syncedAt)}
+                          </span>
                         </div>
                       </div>
                     ))}
@@ -267,7 +276,9 @@ export default function InventoryDashboard({ onItemClick }: InventoryDashboardPr
                           <span className="text-gray-500 truncate text-[9px]">{item.colorName || 'N/A'}</span>
                         </div>
                         <div className="flex items-center gap-1.5 ml-2 flex-shrink-0">
-                          <span className="text-gray-600 text-[9px]">{formatDistanceToNow(new Date(item.updatedAt), { addSuffix: true })}</span>
+                          <span className="text-gray-600 text-[9px]">
+                            {safeFormatDate(item.updatedAt)}
+                          </span>
                         </div>
                       </div>
                     ))}
