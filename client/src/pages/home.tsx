@@ -471,35 +471,20 @@ export default function Home() {
     });
   };
 
-  const handleOrderSelect = (orderId: string) => {
-    const orderData = mockOrderDatabase[orderId];
-    if (orderData) {
-      // Find all orders from the same customer
-      const customerEmail = orderData.customer.email;
-      const customerOrders = Object.values(mockOrderDatabase)
-        .filter((order: any) => 
-          order.customer.email === customerEmail && order.orderId !== orderId
-        )
-        .map((order: any) => ({
-          orderId: order.orderId,
-          orderNumber: order.orderNumber,
-          orderDate: order.orderDate,
-          total: order.total,
-          status: order.status,
-        }))
-        .sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime());
-
-      // Update order data with all customer orders
-      const enrichedOrderData = {
-        ...orderData,
-        isRepeatCustomer: customerOrders.length > 0,
-        previousOrders: customerOrders,
-      };
-
-      setDetailModal({
-        open: true,
-        data: { type: 'order', data: enrichedOrderData },
-      });
+  const handleOrderSelect = async (orderId: string) => {
+    try {
+      const response = await fetch(`/api/orders/${orderId}`);
+      if (response.ok) {
+        const orderData = await response.json();
+        setDetailModal({
+          open: true,
+          data: { type: 'order', data: orderData }
+        });
+      } else {
+        console.error('Failed to fetch order:', response.statusText);
+      }
+    } catch (error) {
+      console.error('Error fetching order:', error);
     }
   };
 

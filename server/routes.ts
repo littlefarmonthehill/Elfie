@@ -71,6 +71,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error("Error parsing shipTo JSON:", e);
       }
       
+      // Fetch all orders for this customer to show as pills
+      const customerUsername = order.customerUsername;
+      let allCustomerOrders: any[] = [];
+      let isRepeatCustomer = false;
+      
+      if (customerUsername && customerUsername !== 'Unknown Customer') {
+        allCustomerOrders = await db.select({
+          id: orders.id,
+          orderNumber: orders.orderNumber,
+          orderDate: orders.orderDate,
+          orderStatus: orders.orderStatus,
+          orderTotal: orders.orderTotal,
+        })
+        .from(orders)
+        .where(eq(orders.customerUsername, customerUsername))
+        .orderBy(desc(orders.orderDate));
+        
+        isRepeatCustomer = allCustomerOrders.length > 1;
+      }
+      
       // Format response to match OrderDetail component expectations
       const formattedOrder = {
         orderId: order.id,
@@ -101,8 +121,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         orderDate: order.orderDate.toISOString(),
         shippedDate: order.shipDate?.toISOString(),
         trackingNumber: undefined,
-        isRepeatCustomer: false,
-        previousOrders: [],
+        isRepeatCustomer: isRepeatCustomer,
+        previousOrders: allCustomerOrders
+          .filter(o => o.id !== orderId) // Exclude current order from previous orders
+          .map(o => ({
+            orderId: o.id,
+            orderNumber: o.orderNumber,
+            orderDate: o.orderDate.toISOString(),
+            total: Number(o.orderTotal) || 0,
+            status: o.orderStatus === 'shipped' ? 'Shipped' as const :
+                    o.orderStatus === 'cancelled' ? 'Cancelled' as const :
+                    o.orderStatus === 'awaiting_payment' ? 'Pending' as const :
+                    'Paid' as const,
+          })),
       };
       
       res.json(formattedOrder);
