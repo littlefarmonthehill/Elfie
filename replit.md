@@ -52,7 +52,7 @@ Preferred communication style: Simple, everyday language.
 
 #### Price-o-Matic Dashboard (Bulk Pricing Intelligence)
 - **Purpose:** Separate dashboard for identifying pricing opportunities across entire inventory without exhausting API limits.
-- **UI Design:** Compact layout with info cards at top (sync status, category counts, "How it works" section), single item list below that updates based on selected category button (Too High/Too Low/Well Priced). Items sorted by absolute variance descending to prioritize biggest discrepancies.
+- **UI Design:** Mobile-optimized compact layout with clickable info cards at top for filtering (Too High/Too Low/Well Priced categories). Touch behavior optimized (`touch-pan-y`) to prevent horizontal page dragging. Single item list below updates based on selected card. Items sorted by absolute variance descending to prioritize biggest discrepancies. Ultra-compact item display with reduced padding (p-1.5) and smaller font sizes (9-10px) for maximum information density.
 - **Intelligent Caching System:**
   - Background sync processes up to 1,500 items per day (stays under 5,000 API call limit)
   - Rolling 14-day refresh cycle ensures all inventory stays current
@@ -77,7 +77,7 @@ Preferred communication style: Simple, everyday language.
   - Calculates pricing variance by comparing `blInventory.unitPrice` with cached `suggestedPrice`
 
 #### Dashboard Layout & Organization
-- **Default Dashboard:** Displays "Total Revenue" and "Total Orders" metrics with "Top Pricing Opportunities" section showing items priced too low from Price-o-Matic insights. Removed "Inventory Items" and "Total Pieces" metrics for cleaner layout.
+- **Default Dashboard:** Displays "Total Revenue" and "Total Orders" metrics with "Top Pricing Opportunities" section showing items priced too low from Price-o-Matic insights. Each opportunity displays item number, color badge, and item name (truncated) for easy identification. Removed "Inventory Items" and "Total Pieces" metrics for cleaner layout.
 - **Inventory Dashboard:** Streamlined view showing top value items, newly added items, and recently updated items. Removed redundant low stock section to reduce duplication.
 - **Orders Dashboard:** Features date-based chart (30-60 day rolling window) using "MMM d" format (e.g., "Jan 15") instead of day-of-week labels. Chart intelligently bases date range on actual order dates to handle historical data properly. Includes date range selector for filtering.
 - **Marketing Dashboard:** Enhanced with date range selector for customer pattern analysis. Customer metrics (new vs repeat) filter based on selected date range with proper API query integration.
