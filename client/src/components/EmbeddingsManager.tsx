@@ -75,6 +75,8 @@ export function EmbeddingsManager() {
       if (items && items.length > 0) {
         const inventoryIds = items.map((item: any) => item.id);
         batchEmbedInventory(inventoryIds);
+      } else {
+        console.log('No inventory items need embedding');
       }
     } catch (error) {
       console.error('Error getting inventory for embedding:', error);
@@ -90,6 +92,8 @@ export function EmbeddingsManager() {
       if (items && items.length > 0) {
         const orderIds = items.map((item: any) => item.id);
         batchEmbedOrders(orderIds);
+      } else {
+        console.log('No orders need embedding');
       }
     } catch (error) {
       console.error('Error getting orders for embedding:', error);
@@ -102,6 +106,14 @@ export function EmbeddingsManager() {
   return (
     <div className="space-y-4">
       <p className="text-xs text-gray-400">Manage vector embeddings and test semantic search capabilities</p>
+
+      {/* API Key Notice */}
+      <Alert className="p-2 border-blue-500/30 bg-blue-500/10">
+        <AlertCircle className="h-3 w-3 text-blue-400" />
+        <AlertDescription className="text-xs ml-2 text-blue-300">
+          <strong>OpenAI API Key Required:</strong> Embeddings use OpenAI's API (separate from OpenRouter). Add your OpenAI API key above to enable semantic search. Get one at platform.openai.com/api-keys
+        </AlertDescription>
+      </Alert>
 
       {/* Statistics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
