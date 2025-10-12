@@ -207,7 +207,7 @@ export default function Home() {
       case 'priceomatic':
         return <PriceOMaticDashboard onItemClick={handleDashboardItemClick} />;
       default:
-        return <GeneralDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} />;
+        return <GeneralDashboard onItemClick={handleDashboardItemClick} />;
     }
   };
 
@@ -558,8 +558,8 @@ export default function Home() {
       <Header onSettingsClick={() => setSettingsOpen(true)} />
       <DashboardNav active={activeDashboard} onSelect={setActiveDashboard} />
       
-      {/* Date Range Selector - Only show for dashboards, orders, sales, and marketing */}
-      {(activeDashboard === 'dashboard' || activeDashboard === 'orders' || activeDashboard === 'sales' || activeDashboard === 'marketing') && (
+      {/* Date Range Selector - Only show for orders, sales, and marketing */}
+      {(activeDashboard === 'orders' || activeDashboard === 'sales' || activeDashboard === 'marketing') && (
         <div className="px-4 py-2 border-b border-gray-800">
           <DateRangeSelector value={dateRange} onChange={setDateRange} />
         </div>
@@ -580,7 +580,7 @@ export default function Home() {
           {renderDashboard()}
         </div>
         
-        <div className={`transition-all duration-300 ${chatMinimized ? 'h-auto' : 'flex-1'} flex flex-col overflow-hidden`}>
+        <div className={`transition-all duration-300 ${chatMinimized ? 'shrink-0' : 'flex-1'} flex flex-col overflow-hidden`}>
           <ChatInterface 
             dashboardContext={getChatContext()} 
             themeColor={getThemeColor()} 

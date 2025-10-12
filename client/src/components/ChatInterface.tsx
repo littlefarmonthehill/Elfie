@@ -523,7 +523,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
 
   return (
     <div 
-      className={`flex flex-col h-full border-t-4 ${colors.border} bg-gradient-to-br ${colors.gradient} to-transparent ${colors.glow}`}
+      className={`flex flex-col ${isMinimized ? '' : 'h-full'} border-t-4 ${colors.border} bg-gradient-to-br ${colors.gradient} to-transparent ${colors.glow}`}
     >
       <div 
         className={`flex items-center justify-between gap-2 p-3 border-b-2 ${colors.border} ${colors.headerBg} backdrop-blur-sm`}

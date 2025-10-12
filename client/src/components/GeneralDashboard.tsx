@@ -1,7 +1,6 @@
 import MetricCard from "./MetricCard";
 import { useQuery } from "@tanstack/react-query";
 import { TrendingDown, AlertCircle, TrendingUp, ShoppingCart } from "lucide-react";
-import { DateRangeValue } from "./DateRangeSelector";
 import { Badge } from "@/components/ui/badge";
 
 interface DashboardStats {
@@ -45,32 +44,25 @@ interface InsightsData {
 }
 
 interface GeneralDashboardProps {
-  dateRange?: DateRangeValue;
   onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
 }
 
-export default function GeneralDashboard({ dateRange = 'all', onItemClick }: GeneralDashboardProps) {
-  // Build query URL with date range parameter
-  const buildQueryUrl = (baseUrl: string) => {
-    if (dateRange === 'all') return baseUrl;
-    return `${baseUrl}?range=${dateRange}`;
-  };
-
-  // Fetch dashboard stats with date range
+export default function GeneralDashboard({ onItemClick }: GeneralDashboardProps) {
+  // Fetch dashboard stats (all-time)
   const { data: stats } = useQuery<DashboardStats>({
-    queryKey: ['/api/dashboard/stats', dateRange],
+    queryKey: ['/api/dashboard/stats'],
     queryFn: async () => {
-      const response = await fetch(buildQueryUrl('/api/dashboard/stats'));
+      const response = await fetch('/api/dashboard/stats');
       if (!response.ok) throw new Error('Failed to fetch stats');
       return response.json();
     }
   });
 
-  // Fetch pending orders (actionable items) with date range
+  // Fetch pending orders (actionable items, all-time)
   const { data: pendingOrders = [] } = useQuery<Order[]>({
-    queryKey: ['/api/orders', dateRange, 'pending'],
+    queryKey: ['/api/orders', 'pending'],
     queryFn: async () => {
-      const response = await fetch(buildQueryUrl('/api/orders'));
+      const response = await fetch('/api/orders');
       if (!response.ok) throw new Error('Failed to fetch orders');
       return response.json();
     },
@@ -91,11 +83,11 @@ export default function GeneralDashboard({ dateRange = 'all', onItemClick }: Gen
     ?.sort((a, b) => Math.abs(b.variance) - Math.abs(a.variance))
     ?.slice(0, 5) || [];
 
-  // Fetch recent high-value orders with date range
+  // Fetch recent high-value orders (all-time)
   const { data: recentSales = [] } = useQuery<Order[]>({
-    queryKey: ['/api/orders', dateRange, 'recent-sales'],
+    queryKey: ['/api/orders', 'recent-sales'],
     queryFn: async () => {
-      const response = await fetch(buildQueryUrl('/api/orders'));
+      const response = await fetch('/api/orders');
       if (!response.ok) throw new Error('Failed to fetch orders');
       return response.json();
     },
@@ -220,20 +212,27 @@ export default function GeneralDashboard({ dateRange = 'all', onItemClick }: Gen
               <div 
                 key={order.id} 
                 onClick={() => onItemClick?.('order', order.id)}
-                className="flex justify-between items-center text-[10px] hover-elevate rounded px-2 py-1 cursor-pointer"
+                className="flex justify-between items-start text-[10px] hover-elevate rounded px-2 py-1 cursor-pointer"
                 data-testid={`activity-order-${order.id}`}
               >
-                <div className="flex items-center gap-2">
-                  <div className={`w-1.5 h-1.5 rounded-full ${
+                <div className="flex gap-1.5 flex-1 min-w-0">
+                  <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1.5 ${
                     order.orderStatus === 'shipped' ? 'bg-green-400' : 
                     order.orderStatus === 'awaiting_shipment' ? 'bg-orange-400' : 
                     'bg-gray-400'
                   }`} />
-                  <span className="text-gray-300 font-mono">#{order.orderNumber}</span>
-                  <span className="text-gray-500 text-[9px]">{order.customerUsername}</span>
-                  <span className="text-gray-600 text-[9px]">{new Date(order.orderDate).toLocaleDateString()}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-gray-300 font-mono text-[10px] font-medium">
+                      #{order.orderNumber}
+                    </div>
+                    <div className="flex gap-1.5 text-[9px] text-gray-500 mt-0.5">
+                      <span>{order.customerUsername}</span>
+                      <span>•</span>
+                      <span>{new Date(order.orderDate).toLocaleDateString()}</span>
+                    </div>
+                  </div>
                 </div>
-                <span className="text-lego-green font-mono">${Number(order.orderTotal || 0).toFixed(2)}</span>
+                <span className="text-lego-green font-mono ml-2 flex-shrink-0">${Number(order.orderTotal || 0).toFixed(2)}</span>
               </div>
             ))
           ) : (
