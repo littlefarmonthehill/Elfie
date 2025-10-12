@@ -343,14 +343,13 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
     });
   };
 
-  const [activeSection, setActiveSection] = useState<'general' | 'platforms' | 'sync' | 'ai' | 'intelligence' | 'data'>('general');
+  const [activeSection, setActiveSection] = useState<'general' | 'platforms' | 'sync' | 'ai' | 'data'>('general');
 
   const navigationItems = [
     { id: 'general' as const, label: 'General', icon: Settings },
     { id: 'platforms' as const, label: 'Platforms', icon: Package },
     { id: 'sync' as const, label: 'Data & Sync', icon: RefreshCw },
-    { id: 'ai' as const, label: 'AI Assistant', icon: Sparkles },
-    { id: 'intelligence' as const, label: 'AI Intelligence', icon: Sparkles },
+    { id: 'ai' as const, label: 'AI & Intelligence', icon: Sparkles },
     { id: 'data' as const, label: 'Backup & Clear', icon: Database },
   ];
 
@@ -688,12 +687,12 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
               </div>
             )}
 
-            {/* AI Settings */}
+            {/* AI Settings & Intelligence */}
             {activeSection === 'ai' && (
               <div className="space-y-4">
               <div className="space-y-4">
                 <div>
-                  <h3 className="text-sm font-medium text-gray-300 mb-3">E.L.F.I.E. Configuration</h3>
+                  <h3 className="text-sm font-medium text-gray-300 mb-3">Chat Assistant (E.L.F.I.E.)</h3>
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <div className="space-y-0.5">
@@ -857,13 +856,16 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                     </div>
                   </div>
                 </div>
-              </div>
-              </div>
-            )}
 
-            {/* AI Intelligence & Semantic Search */}
-            {activeSection === 'intelligence' && (
-              <EmbeddingsManager />
+                <Separator className="bg-gray-700" />
+
+                {/* Semantic Search & Embeddings */}
+                <div>
+                  <h3 className="text-sm font-medium text-gray-300 mb-3">Semantic Search & Embeddings</h3>
+                  <EmbeddingsManager />
+                </div>
+              </div>
+              </div>
             )}
 
             {/* Backup & Clear Data */}
