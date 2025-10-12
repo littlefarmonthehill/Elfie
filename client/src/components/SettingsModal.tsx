@@ -387,7 +387,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
 
             {/* General Settings */}
             {activeSection === 'general' && (
-              <div className="space-y-4">
+              <div className="space-y-4 min-h-[400px]">
               <div className="space-y-3">
                 <h3 className="text-sm font-medium text-gray-300">General Settings</h3>
                 <div className="space-y-2">
@@ -413,7 +413,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
 
             {/* Platform Connections */}
             {activeSection === 'platforms' && (
-              <div className="space-y-4">
+              <div className="space-y-4 min-h-[400px]">
                 <h3 className="text-sm font-medium text-gray-300 mb-3">API Credentials</h3>
                 <p className="text-xs text-gray-400 mb-4">Configure your platform API keys and credentials</p>
                 
@@ -560,7 +560,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
 
             {/* Data & Sync */}
             {activeSection === 'sync' && (
-              <div className="space-y-4">
+              <div className="space-y-4 min-h-[400px]">
               <div className="space-y-4">
                 {/* Sync Progress */}
                 {syncProgress.active && (
@@ -689,7 +689,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
 
             {/* AI Settings & Intelligence */}
             {activeSection === 'ai' && (
-              <div className="space-y-4">
+              <div className="space-y-4 min-h-[400px]">
               <div className="space-y-4">
                 <div>
                   <h3 className="text-sm font-medium text-gray-300 mb-3">Chat Assistant (E.L.F.I.E.)</h3>
@@ -870,7 +870,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
 
             {/* Backup & Clear Data */}
             {activeSection === 'data' && (
-              <div className="space-y-4">
+              <div className="space-y-4 min-h-[400px]">
               <div className="space-y-4">
                 <div>
                   <h3 className="text-sm font-medium text-gray-300 mb-3">Backup Data</h3>
