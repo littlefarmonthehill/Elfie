@@ -1407,6 +1407,107 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
     }
   });
 
+  // Background Job Routes
+  
+  // Start background embedding job
+  app.post("/api/embeddings/jobs/start", async (req, res) => {
+    try {
+      const { type, batchSize } = req.body;
+      
+      if (!type || !['inventory', 'orders'].includes(type)) {
+        return res.status(400).json({ error: "Invalid job type. Must be 'inventory' or 'orders'" });
+      }
+      
+      const { jobManager } = await import('./services/backgroundJobs');
+      const jobId = await jobManager.startEmbeddingJob(type, batchSize || 30);
+      
+      res.json({ jobId, message: 'Background job started' });
+    } catch (error) {
+      console.error("Start job error:", error);
+      res.status(500).json({ 
+        error: error instanceof Error ? error.message : "Failed to start background job" 
+      });
+    }
+  });
+
+  // Stop background embedding job
+  app.post("/api/embeddings/jobs/:jobId/stop", async (req, res) => {
+    try {
+      const { jobId } = req.params;
+      
+      const { jobManager } = await import('./services/backgroundJobs');
+      const stopped = jobManager.stopJob(jobId);
+      
+      if (stopped) {
+        res.json({ message: 'Job stopped successfully' });
+      } else {
+        res.status(404).json({ error: 'Job not found or not running' });
+      }
+    } catch (error) {
+      console.error("Stop job error:", error);
+      res.status(500).json({ 
+        error: error instanceof Error ? error.message : "Failed to stop job" 
+      });
+    }
+  });
+
+  // Get job status
+  app.get("/api/embeddings/jobs/:jobId", async (req, res) => {
+    try {
+      const { jobId } = req.params;
+      
+      const { jobManager } = await import('./services/backgroundJobs');
+      const job = jobManager.getJobStatus(jobId);
+      
+      if (job) {
+        res.json(job);
+      } else {
+        res.status(404).json({ error: 'Job not found' });
+      }
+    } catch (error) {
+      console.error("Get job status error:", error);
+      res.status(500).json({ 
+        error: error instanceof Error ? error.message : "Failed to get job status" 
+      });
+    }
+  });
+
+  // Get active job for a type
+  app.get("/api/embeddings/jobs/active/:type", async (req, res) => {
+    try {
+      const { type } = req.params;
+      
+      if (!type || !['inventory', 'orders'].includes(type)) {
+        return res.status(400).json({ error: "Invalid job type. Must be 'inventory' or 'orders'" });
+      }
+      
+      const { jobManager } = await import('./services/backgroundJobs');
+      const job = jobManager.getActiveJob(type as 'inventory' | 'orders');
+      
+      res.json(job || null);
+    } catch (error) {
+      console.error("Get active job error:", error);
+      res.status(500).json({ 
+        error: error instanceof Error ? error.message : "Failed to get active job" 
+      });
+    }
+  });
+
+  // Get all jobs
+  app.get("/api/embeddings/jobs", async (req, res) => {
+    try {
+      const { jobManager } = await import('./services/backgroundJobs');
+      const jobs = jobManager.getAllJobs();
+      
+      res.json(jobs);
+    } catch (error) {
+      console.error("Get all jobs error:", error);
+      res.status(500).json({ 
+        error: error instanceof Error ? error.message : "Failed to get jobs" 
+      });
+    }
+  });
+
   // BrickLink Catalog Search Endpoint
   app.get("/api/bricklink/search", async (req, res) => {
     try {
