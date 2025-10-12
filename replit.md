@@ -13,7 +13,7 @@ The frontend uses React 18+ with TypeScript, Vite, Shadcn/ui, and Tailwind CSS, 
 
 **Recent UI Improvements (October 2025):**
 - E.L.F.I.E. chat interface iPhone safe area fix (Oct 12): Minimized chat now uses `position: fixed` outside overflow container with `env(safe-area-inset-bottom)` padding to properly anchor to viewport bottom on iPhone Safari, accounting for browser controls. Expanded chat uses flex layout. This ensures chat is always visible and accessible on mobile devices.
-- Sales Dashboard iPhone crash fix (Oct 12): Added safe date parsing/formatting helpers to handle iOS Safari's stricter date validation. All date operations (parsing, sorting, display) now use defensive wrappers that prevent crashes on invalid dates. Component gracefully handles malformed dates instead of crashing, ensuring stable operation on iPhone.
+- Sales Dashboard date handling (Oct 12): Uses straightforward parseISO and format from date-fns without defensive wrappers. Production-validated approach works reliably on iPhone Safari. Component processes date ranges correctly for all time periods (all, 3months, 6months, 1year, 2years).
 - Default dashboard simplified: Shows all-time stats (date range selector removed for cleaner mobile experience)
 - Enhanced dashboard readability: Recent activity items use two-line layout with primary info (item name/order number) on top line, secondary details (color/condition or customer/date) on second line
 - Consistent mobile-first layout across Inventory and Default dashboards for improved information density
