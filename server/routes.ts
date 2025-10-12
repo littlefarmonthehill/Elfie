@@ -6,6 +6,7 @@ import { syncShipStationOrders } from "./services/shipstation";
 import { db } from "./db";
 import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings } from "@shared/schema";
 import { eq, desc, sql, inArray, like, or, and } from "drizzle-orm";
+import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Data Fetch Routes
@@ -1409,20 +1410,29 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
 
   // Background Job Routes
   
+  // Validation schema for starting a background job
+  const startJobSchema = z.object({
+    type: z.enum(['inventory', 'orders']),
+    batchSize: z.number().int().min(10).max(100).optional().default(30),
+  });
+  
   // Start background embedding job
   app.post("/api/embeddings/jobs/start", async (req, res) => {
     try {
-      const { type, batchSize } = req.body;
-      
-      if (!type || !['inventory', 'orders'].includes(type)) {
-        return res.status(400).json({ error: "Invalid job type. Must be 'inventory' or 'orders'" });
-      }
+      // Validate input
+      const validated = startJobSchema.parse(req.body);
       
       const { jobManager } = await import('./services/backgroundJobs');
-      const jobId = await jobManager.startEmbeddingJob(type, batchSize || 30);
+      const jobId = await jobManager.startEmbeddingJob(validated.type, validated.batchSize);
       
       res.json({ jobId, message: 'Background job started' });
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          error: "Invalid input", 
+          details: error.errors 
+        });
+      }
       console.error("Start job error:", error);
       res.status(500).json({ 
         error: error instanceof Error ? error.message : "Failed to start background job" 

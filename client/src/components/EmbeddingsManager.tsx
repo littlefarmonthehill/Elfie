@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Sparkles, Database, Search, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Sparkles, Database, Search, Loader2, CheckCircle2, AlertCircle, Play, Square } from 'lucide-react';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -16,97 +16,139 @@ export function EmbeddingsManager() {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [inventoryBatchSize, setInventoryBatchSize] = useState(30);
   const [orderBatchSize, setOrderBatchSize] = useState(30);
-  const [isAutoContinuing, setIsAutoContinuing] = useState(false);
 
   // Get embedding statistics
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['/api/embeddings/stats'],
-    refetchInterval: 5000, // Refresh every 5 seconds during batch operations
+    refetchInterval: 3000, // Refresh every 3 seconds
   });
 
-  // Batch embed inventory
-  const { mutate: batchEmbedInventory, isPending: isBatchEmbeddingInventory } = useMutation({
-    mutationFn: async (inventoryIds: number[]) => {
-      const response = await fetch('/api/embeddings/inventory/batch', {
+  // Get active inventory job
+  const { data: inventoryJob, refetch: refetchInventoryJob } = useQuery({
+    queryKey: ['/api/embeddings/jobs/active/inventory'],
+    refetchInterval: 2000, // Poll every 2 seconds
+  });
+
+  // Get active orders job
+  const { data: ordersJob, refetch: refetchOrdersJob } = useQuery({
+    queryKey: ['/api/embeddings/jobs/active/orders'],
+    refetchInterval: 2000, // Poll every 2 seconds
+  });
+
+  // Show completion toast when job finishes
+  useEffect(() => {
+    if ((inventoryJob as any)?.status === 'completed') {
+      toast({
+        title: "✅ Inventory Embedding Complete!",
+        description: `Successfully embedded ${(inventoryJob as any).itemsProcessed} items`,
+      });
+    }
+  }, [(inventoryJob as any)?.status]);
+
+  useEffect(() => {
+    if ((ordersJob as any)?.status === 'completed') {
+      toast({
+        title: "✅ Order Embedding Complete!",
+        description: `Successfully embedded ${(ordersJob as any).itemsProcessed} orders`,
+      });
+    }
+  }, [(ordersJob as any)?.status]);
+
+  // Start inventory job
+  const { mutate: startInventoryJob, isPending: startingInventoryJob } = useMutation({
+    mutationFn: async () => {
+      const response = await fetch('/api/embeddings/jobs/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ inventoryIds }),
+        body: JSON.stringify({ type: 'inventory', batchSize: inventoryBatchSize }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to embed inventory');
+      if (!response.ok) throw new Error(data.error || 'Failed to start job');
       return data;
     },
-    onSuccess: async (data) => {
-      const successful = data.results?.filter((r: any) => r.success).length || 0;
-      const failed = data.results?.filter((r: any) => !r.success).length || 0;
-      
+    onSuccess: () => {
       toast({
-        title: "Batch Complete",
-        description: `Embedded ${successful} items${failed > 0 ? `. ${failed} failed.` : ''}`,
+        title: "🚀 Background Job Started",
+        description: `Embedding inventory items in batches of ${inventoryBatchSize}. You can close this screen!`,
       });
-      
-      await queryClient.invalidateQueries({ queryKey: ['/api/embeddings/stats'] });
-      
-      // Auto-continue if more items remain
-      if (isAutoContinuing && successful > 0) {
-        setTimeout(() => handleBatchEmbedInventory(), 1000);
-      } else if (isAutoContinuing) {
-        setIsAutoContinuing(false);
-        toast({
-          title: "All Done!",
-          description: "All inventory items have been embedded",
-        });
-      }
+      refetchInventoryJob();
     },
     onError: (error: any) => {
       toast({
-        title: "Embedding Failed",
-        description: error.message || "Failed to generate embeddings. Check your OpenAI API key.",
+        title: "Failed to Start Job",
+        description: error.message,
         variant: "destructive",
       });
     },
   });
 
-  // Batch embed orders
-  const { mutate: batchEmbedOrders, isPending: isBatchEmbeddingOrders } = useMutation({
-    mutationFn: async (orderIds: string[]) => {
-      const response = await fetch('/api/embeddings/orders/batch', {
+  // Start orders job
+  const { mutate: startOrdersJob, isPending: startingOrdersJob } = useMutation({
+    mutationFn: async () => {
+      const response = await fetch('/api/embeddings/jobs/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderIds }),
+        body: JSON.stringify({ type: 'orders', batchSize: orderBatchSize }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to embed orders');
+      if (!response.ok) throw new Error(data.error || 'Failed to start job');
       return data;
     },
-    onSuccess: async (data) => {
-      const successful = data.results?.filter((r: any) => r.success).length || 0;
-      const failed = data.results?.filter((r: any) => !r.success).length || 0;
-      
+    onSuccess: () => {
       toast({
-        title: "Batch Complete",
-        description: `Embedded ${successful} orders${failed > 0 ? `. ${failed} failed.` : ''}`,
+        title: "🚀 Background Job Started",
+        description: `Embedding orders in batches of ${orderBatchSize}. You can close this screen!`,
       });
-      
-      await queryClient.invalidateQueries({ queryKey: ['/api/embeddings/stats'] });
-      
-      // Auto-continue if more items remain
-      if (isAutoContinuing && successful > 0) {
-        setTimeout(() => handleBatchEmbedOrders(), 1000);
-      } else if (isAutoContinuing) {
-        setIsAutoContinuing(false);
-        toast({
-          title: "All Done!",
-          description: "All orders have been embedded",
-        });
-      }
+      refetchOrdersJob();
     },
     onError: (error: any) => {
       toast({
-        title: "Embedding Failed",
-        description: error.message || "Failed to generate embeddings. Check your OpenAI API key.",
+        title: "Failed to Start Job",
+        description: error.message,
         variant: "destructive",
       });
+    },
+  });
+
+  // Stop inventory job
+  const { mutate: stopInventoryJob } = useMutation({
+    mutationFn: async () => {
+      if (!(inventoryJob as any)?.id) throw new Error('No active job');
+      const response = await fetch(`/api/embeddings/jobs/${(inventoryJob as any).id}/stop`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to stop job');
+      return data;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Job Stopped",
+        description: "Inventory embedding job has been paused",
+      });
+      refetchInventoryJob();
+    },
+  });
+
+  // Stop orders job
+  const { mutate: stopOrdersJob } = useMutation({
+    mutationFn: async () => {
+      if (!(ordersJob as any)?.id) throw new Error('No active job');
+      const response = await fetch(`/api/embeddings/jobs/${(ordersJob as any).id}/stop`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to stop job');
+      return data;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Job Stopped",
+        description: "Order embedding job has been paused",
+      });
+      refetchOrdersJob();
     },
   });
 
@@ -125,158 +167,94 @@ export function EmbeddingsManager() {
     },
   });
 
-  const handleBatchEmbedInventory = async () => {
-    try {
-      // Get inventory items without embeddings
-      const response = await fetch('/api/embeddings/inventory/missing?limit=' + inventoryBatchSize);
-      const items = await response.json();
-      
-      if (items && items.length > 0) {
-        const inventoryIds = items.map((item: any) => item.id);
-        
-        if (!isAutoContinuing) {
-          setIsAutoContinuing(true);
-          toast({
-            title: "Auto-Embedding Started",
-            description: `Processing all inventory items in batches of ${inventoryBatchSize}...`,
-          });
-        }
-        
-        batchEmbedInventory(inventoryIds);
-      } else {
-        setIsAutoContinuing(false);
-        toast({
-          title: "All Done!",
-          description: "All inventory items already have embeddings.",
-        });
-      }
-    } catch (error: any) {
-      console.error('Error getting inventory for embedding:', error);
-      setIsAutoContinuing(false);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to fetch items for embedding",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleBatchEmbedOrders = async () => {
-    try {
-      // Get orders without embeddings
-      const response = await fetch('/api/embeddings/orders/missing?limit=' + orderBatchSize);
-      const items = await response.json();
-      
-      if (items && items.length > 0) {
-        const orderIds = items.map((item: any) => item.id);
-        
-        if (!isAutoContinuing) {
-          setIsAutoContinuing(true);
-          toast({
-            title: "Auto-Embedding Started",
-            description: `Processing all orders in batches of ${orderBatchSize}...`,
-          });
-        }
-        
-        batchEmbedOrders(orderIds);
-      } else {
-        setIsAutoContinuing(false);
-        toast({
-          title: "All Done!",
-          description: "All orders already have embeddings.",
-        });
-      }
-    } catch (error: any) {
-      console.error('Error getting orders for embedding:', error);
-      setIsAutoContinuing(false);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to fetch orders for embedding",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const inventoryProgress = (stats as any)?.inventory ? 
-    ((stats as any).inventory.embedded / (stats as any).inventory.total) * 100 : 0;
+  const inventoryProgress = (inventoryJob as any)?.progress?.percentage || 0;
+  const ordersProgress = (ordersJob as any)?.progress?.percentage || 0;
+  const isInventoryRunning = (inventoryJob as any)?.status === 'running';
+  const isOrdersRunning = (ordersJob as any)?.status === 'running';
 
   return (
     <div className="space-y-4">
-      <p className="text-xs text-gray-400">Manage vector embeddings and test semantic search capabilities</p>
+      {/* Header */}
+      <div className="flex items-center gap-2">
+        <Sparkles className="w-5 h-5 text-violet-400" />
+        <h3 className="text-base font-semibold">AI Intelligence & Embeddings</h3>
+      </div>
 
-      {/* API Key Notice */}
-      <Alert className="p-2 border-blue-500/30 bg-blue-500/10">
-        <AlertCircle className="h-3 w-3 text-blue-400" />
-        <AlertDescription className="text-xs ml-2 text-blue-300">
-          <strong>OpenAI API Key Required:</strong> Embeddings use OpenAI's API (separate from OpenRouter). Add your OpenAI API key above to enable semantic search. Get one at platform.openai.com/api-keys
-        </AlertDescription>
-      </Alert>
-
-      {/* Statistics */}
+      {/* Stats Overview */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <Card>
+        <Card className="bg-card/50">
           <CardHeader className="pb-2 p-3">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Database className="w-4 h-4" />
-              Inventory Embeddings
-            </CardTitle>
-            <CardDescription className="text-xs">
-              {statsLoading ? 'Loading...' : `${(stats as any)?.inventory?.embedded || 0} of ${(stats as any)?.inventory?.total || 0} items`}
-            </CardDescription>
+            <CardTitle className="text-xs text-muted-foreground">Inventory Embeddings</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 p-3 pt-0">
-            <Progress value={inventoryProgress} className="h-1.5" />
-            <div className="flex justify-between items-center text-xs">
-              <span className="text-gray-400">{inventoryProgress.toFixed(1)}%</span>
-              {inventoryProgress === 100 && (
-                <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-500/30 text-xs py-0 h-5">
-                  <CheckCircle2 className="w-3 h-3 mr-1" />
-                  Done
-                </Badge>
-              )}
+          <CardContent className="p-3 pt-0">
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl font-bold" data-testid="text-inventory-embedded">
+                {(stats as any)?.inventory?.embedded || 0}
+              </span>
+              <span className="text-sm text-muted-foreground">
+                / {(stats as any)?.inventory?.total || 0}
+              </span>
+            </div>
+            <div className="text-xs text-muted-foreground mt-1">
+              {(stats as any)?.inventory?.percentage || 0}% complete
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-card/50">
           <CardHeader className="pb-2 p-3">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Database className="w-4 h-4" />
-              Order Embeddings
-            </CardTitle>
-            <CardDescription className="text-xs">
-              {statsLoading ? 'Loading...' : `${(stats as any)?.orders?.embedded || 0} of ${(stats as any)?.orders?.total || 0} orders`}
-            </CardDescription>
+            <CardTitle className="text-xs text-muted-foreground">Order Embeddings</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 p-3 pt-0">
-            <Progress 
-              value={(stats as any)?.orders ? ((stats as any).orders.embedded / (stats as any).orders.total) * 100 : 0} 
-              className="h-1.5" 
-            />
-            <div className="flex justify-between items-center text-xs">
-              <span className="text-gray-400">
-                {(stats as any)?.orders ? (((stats as any).orders.embedded / (stats as any).orders.total) * 100).toFixed(1) : 0}%
+          <CardContent className="p-3 pt-0">
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl font-bold" data-testid="text-orders-embedded">
+                {(stats as any)?.orders?.embedded || 0}
               </span>
+              <span className="text-sm text-muted-foreground">
+                / {(stats as any)?.orders?.total || 0}
+              </span>
+            </div>
+            <div className="text-xs text-muted-foreground mt-1">
+              {(stats as any)?.orders?.percentage || 0}% complete
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Inventory Batch Embedding */}
+      {/* Inventory Background Job */}
       <Card>
         <CardHeader className="pb-2 p-3">
-          <CardTitle className="text-sm">Generate Inventory Embeddings</CardTitle>
+          <CardTitle className="text-sm">🚀 Inventory Background Job</CardTitle>
           <CardDescription className="text-xs">
-            Embed inventory items to enable semantic search
+            Runs on server - close your phone and it keeps going!
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 p-3 pt-0">
+          {isInventoryRunning && (
+            <Alert className="p-2 bg-violet-500/10 border-violet-500/20">
+              <Loader2 className="h-3 w-3 animate-spin text-violet-400" />
+              <AlertDescription className="text-xs ml-2">
+                Processing: {(inventoryJob as any)?.itemsProcessed || 0} items • {(inventoryJob as any)?.errors || 0} errors
+              </AlertDescription>
+            </Alert>
+          )}
+
           <Alert className="p-2">
             <AlertCircle className="h-3 w-3" />
             <AlertDescription className="text-xs ml-2">
-              ~$0.002 per 1,000 items. Total cost: ~${(((stats as any)?.inventory?.total || 0) * 0.000002).toFixed(2)}
+              ~$0.002 per 1,000 items. Total: ~${(((stats as any)?.inventory?.total || 0) * 0.000002).toFixed(2)}
             </AlertDescription>
           </Alert>
+
+          {isInventoryRunning && (
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs">
+                <span>Progress</span>
+                <span>{inventoryProgress}%</span>
+              </div>
+              <Progress value={inventoryProgress} className="h-2" />
+            </div>
+          )}
 
           <div className="flex flex-col sm:flex-row gap-2 sm:items-end">
             <div className="flex-1">
@@ -284,55 +262,76 @@ export function EmbeddingsManager() {
               <Input
                 type="number"
                 value={inventoryBatchSize}
-                onChange={(e) => setInventoryBatchSize(parseInt(e.target.value) || 100)}
+                onChange={(e) => setInventoryBatchSize(parseInt(e.target.value) || 30)}
                 className="w-full sm:w-32 text-xs h-8"
                 min={10}
-                max={1000}
+                max={100}
+                disabled={isInventoryRunning}
                 data-testid="input-inventory-batch-size"
               />
             </div>
-            <div className="flex gap-2">
+            
+            {!isInventoryRunning ? (
               <Button
-                onClick={handleBatchEmbedInventory}
-                disabled={isBatchEmbeddingInventory || inventoryProgress === 100}
+                onClick={() => startInventoryJob()}
+                disabled={startingInventoryJob || inventoryProgress === 100}
                 size="sm"
-                className="text-xs h-8 flex-1"
-                data-testid="button-batch-embed-inventory"
+                className="text-xs h-8 gap-1"
+                data-testid="button-start-inventory-job"
               >
-                {isBatchEmbeddingInventory && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
-                {inventoryProgress === 100 ? 'All Done' : isAutoContinuing ? 'Processing...' : `Start Auto-Embed`}
+                <Play className="w-3 h-3" />
+                {inventoryProgress === 100 ? 'All Done' : 'Start Background Job'}
               </Button>
-              {isAutoContinuing && (
-                <Button
-                  onClick={() => setIsAutoContinuing(false)}
-                  size="sm"
-                  variant="outline"
-                  className="text-xs h-8"
-                  data-testid="button-stop-auto-embed"
-                >
-                  Stop
-                </Button>
-              )}
-            </div>
+            ) : (
+              <Button
+                onClick={() => stopInventoryJob()}
+                size="sm"
+                variant="outline"
+                className="text-xs h-8 gap-1"
+                data-testid="button-stop-inventory-job"
+              >
+                <Square className="w-3 h-3" />
+                Stop
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
 
-      {/* Orders Batch Embedding */}
+      {/* Orders Background Job */}
       <Card>
         <CardHeader className="pb-2 p-3">
-          <CardTitle className="text-sm">Generate Order Embeddings</CardTitle>
+          <CardTitle className="text-sm">🚀 Orders Background Job</CardTitle>
           <CardDescription className="text-xs">
-            Embed orders to enable semantic search
+            Runs on server - close your phone and it keeps going!
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 p-3 pt-0">
+          {isOrdersRunning && (
+            <Alert className="p-2 bg-violet-500/10 border-violet-500/20">
+              <Loader2 className="h-3 w-3 animate-spin text-violet-400" />
+              <AlertDescription className="text-xs ml-2">
+                Processing: {(ordersJob as any)?.itemsProcessed || 0} orders • {(ordersJob as any)?.errors || 0} errors
+              </AlertDescription>
+            </Alert>
+          )}
+
           <Alert className="p-2">
             <AlertCircle className="h-3 w-3" />
             <AlertDescription className="text-xs ml-2">
-              ~$0.002 per 1,000 orders. Total cost: ~${(((stats as any)?.orders?.total || 0) * 0.000002).toFixed(2)}
+              ~$0.002 per 1,000 orders. Total: ~${(((stats as any)?.orders?.total || 0) * 0.000002).toFixed(2)}
             </AlertDescription>
           </Alert>
+
+          {isOrdersRunning && (
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs">
+                <span>Progress</span>
+                <span>{ordersProgress}%</span>
+              </div>
+              <Progress value={ordersProgress} className="h-2" />
+            </div>
+          )}
 
           <div className="flex flex-col sm:flex-row gap-2 sm:items-end">
             <div className="flex-1">
@@ -340,36 +339,38 @@ export function EmbeddingsManager() {
               <Input
                 type="number"
                 value={orderBatchSize}
-                onChange={(e) => setOrderBatchSize(parseInt(e.target.value) || 100)}
+                onChange={(e) => setOrderBatchSize(parseInt(e.target.value) || 30)}
                 className="w-full sm:w-32 text-xs h-8"
                 min={10}
-                max={1000}
+                max={100}
+                disabled={isOrdersRunning}
                 data-testid="input-order-batch-size"
               />
             </div>
-            <div className="flex gap-2">
+            
+            {!isOrdersRunning ? (
               <Button
-                onClick={handleBatchEmbedOrders}
-                disabled={isBatchEmbeddingOrders || ((stats as any)?.orders?.embedded || 0) === ((stats as any)?.orders?.total || 0)}
+                onClick={() => startOrdersJob()}
+                disabled={startingOrdersJob || ordersProgress === 100}
                 size="sm"
-                className="text-xs h-8 flex-1"
-                data-testid="button-batch-embed-orders"
+                className="text-xs h-8 gap-1"
+                data-testid="button-start-orders-job"
               >
-                {isBatchEmbeddingOrders && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
-                {((stats as any)?.orders?.embedded || 0) === ((stats as any)?.orders?.total || 0) ? 'All Done' : isAutoContinuing ? 'Processing...' : `Start Auto-Embed`}
+                <Play className="w-3 h-3" />
+                {ordersProgress === 100 ? 'All Done' : 'Start Background Job'}
               </Button>
-              {isAutoContinuing && (
-                <Button
-                  onClick={() => setIsAutoContinuing(false)}
-                  size="sm"
-                  variant="outline"
-                  className="text-xs h-8"
-                  data-testid="button-stop-auto-embed-orders"
-                >
-                  Stop
-                </Button>
-              )}
-            </div>
+            ) : (
+              <Button
+                onClick={() => stopOrdersJob()}
+                size="sm"
+                variant="outline"
+                className="text-xs h-8 gap-1"
+                data-testid="button-stop-orders-job"
+              >
+                <Square className="w-3 h-3" />
+                Stop
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -409,47 +410,42 @@ export function EmbeddingsManager() {
 
           {searchResults.length > 0 && (
             <div className="space-y-2">
-              <h3 className="text-xs font-semibold text-gray-300">Results (by similarity):</h3>
-              {searchResults.map((result, idx) => (
-                <div
-                  key={idx}
-                  className="p-2 bg-gray-900/50 border border-gray-700 rounded-lg"
-                  data-testid={`result-${idx}`}
-                >
-                  <div className="flex justify-between items-start gap-2">
+              <div className="text-xs font-medium">Results:</div>
+              {searchResults.map((result: any, idx: number) => (
+                <Card key={idx} className="p-2">
+                  <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
-                      <p className="font-mono text-xs text-purple-400">{result.item_no}</p>
-                      <p className="text-xs text-white truncate">{result.item_name}</p>
-                      <div className="flex gap-1 mt-1 text-xs text-gray-400 flex-wrap">
-                        {result.color_name && (
-                          <Badge variant="outline" className="text-xs py-0 h-4">{result.color_name}</Badge>
-                        )}
-                        <span className="text-xs">{result.quantity} @ ${result.unit_price}</span>
+                      <div className="text-xs font-medium truncate">
+                        {result.item_no || result.itemNo}
                       </div>
+                      <div className="text-xs text-muted-foreground truncate">
+                        {result.item_name || result.itemName}
+                      </div>
+                      {result.color_name && (
+                        <Badge variant="secondary" className="text-xs mt-1">
+                          {result.color_name}
+                        </Badge>
+                      )}
                     </div>
-                    <Badge variant="outline" className="bg-purple-500/10 text-purple-400 border-purple-500/30 text-xs py-0 h-5 shrink-0">
-                      {(parseFloat(result.similarity) * 100).toFixed(0)}%
-                    </Badge>
+                    <div className="text-xs text-muted-foreground shrink-0">
+                      {(result.similarity * 100).toFixed(0)}% match
+                    </div>
                   </div>
-                </div>
+                </Card>
               ))}
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* How It Works */}
-      <Card className="border-purple-500/30">
-        <CardHeader className="pb-2 p-3">
-          <CardTitle className="text-sm text-purple-400">How Semantic Search Works</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-1.5 text-xs text-gray-300 p-3 pt-0">
-          <p>🧠 <strong>Vector Embeddings:</strong> Items converted to 1536-dim vectors</p>
-          <p>🔍 <strong>Semantic Matching:</strong> Queries compared via cosine similarity</p>
-          <p>✨ <strong>Intelligent Results:</strong> Find by concept, not just keywords</p>
-          <p>🤖 <strong>AI Enhancement:</strong> Elfie uses this for smarter responses</p>
-        </CardContent>
-      </Card>
+      {/* Info Card */}
+      <Alert>
+        <Database className="h-4 w-4" />
+        <AlertDescription className="text-xs">
+          <strong>Background jobs run on the server.</strong> Start a job and close this screen - even lock your phone! 
+          The job continues running. Come back anytime to check progress.
+        </AlertDescription>
+      </Alert>
     </div>
   );
 }

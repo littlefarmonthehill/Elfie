@@ -1,6 +1,6 @@
 import { db } from '../db';
 import { blInventory, orders, inventoryEmbeddings, orderEmbeddings } from '@shared/schema';
-import { eq, sql, notInArray } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 import { embedInventoryItem, embedOrder } from './embeddings';
 
 interface JobStatus {
@@ -177,93 +177,53 @@ class BackgroundJobManager {
   }
 
   /**
-   * Get count of unembedded items
+   * Get count of unembedded items using efficient LEFT JOIN
    */
   private async getUnembeddedCount(type: 'inventory' | 'orders'): Promise<number> {
     if (type === 'inventory') {
-      const embeddedIds = await db
-        .select({ id: inventoryEmbeddings.inventoryId })
-        .from(inventoryEmbeddings);
-      
-      const embedded = embeddedIds.map(e => e.id);
-      
-      if (embedded.length === 0) {
-        const result = await db.execute(sql`SELECT COUNT(*) as count FROM bl_inventory`);
-        return parseInt(String((result.rows[0] as any)?.count || '0'));
-      }
-      
       const result = await db.execute(sql`
         SELECT COUNT(*) as count 
-        FROM bl_inventory 
-        WHERE id NOT IN (${sql.join(embedded.map(id => sql`${id}`), sql`, `)})
+        FROM bl_inventory bi
+        LEFT JOIN inventory_embeddings ie ON bi.id = ie.inventory_id
+        WHERE ie.inventory_id IS NULL
       `);
       return parseInt(String((result.rows[0] as any)?.count || '0'));
     } else {
-      const embeddedIds = await db
-        .select({ id: orderEmbeddings.orderId })
-        .from(orderEmbeddings);
-      
-      const embedded = embeddedIds.map(e => e.id);
-      
-      if (embedded.length === 0) {
-        const result = await db.execute(sql`SELECT COUNT(*) as count FROM orders`);
-        return parseInt(String((result.rows[0] as any)?.count || '0'));
-      }
-      
       const result = await db.execute(sql`
         SELECT COUNT(*) as count 
-        FROM orders 
-        WHERE id NOT IN (${sql.join(embedded.map(id => sql`${id}`), sql`, `)})
+        FROM orders o
+        LEFT JOIN order_embeddings oe ON o.id = oe.order_id
+        WHERE oe.order_id IS NULL
       `);
       return parseInt(String((result.rows[0] as any)?.count || '0'));
     }
   }
 
   /**
-   * Get unembedded items
+   * Get unembedded items using efficient LEFT JOIN
    */
   private async getUnembeddedItems(
     type: 'inventory' | 'orders',
     limit: number
   ): Promise<{ id: any }[]> {
     if (type === 'inventory') {
-      const embeddedIds = await db
-        .select({ id: inventoryEmbeddings.inventoryId })
-        .from(inventoryEmbeddings);
-      
-      const embedded = embeddedIds.map(e => e.id);
-      
-      if (embedded.length === 0) {
-        return await db
-          .select({ id: blInventory.id })
-          .from(blInventory)
-          .limit(limit);
-      }
-      
-      return await db
-        .select({ id: blInventory.id })
-        .from(blInventory)
-        .where(notInArray(blInventory.id, embedded))
-        .limit(limit);
+      const result = await db.execute(sql`
+        SELECT bi.id
+        FROM bl_inventory bi
+        LEFT JOIN inventory_embeddings ie ON bi.id = ie.inventory_id
+        WHERE ie.inventory_id IS NULL
+        LIMIT ${limit}
+      `);
+      return result.rows.map((row: any) => ({ id: row.id }));
     } else {
-      const embeddedIds = await db
-        .select({ id: orderEmbeddings.orderId })
-        .from(orderEmbeddings);
-      
-      const embedded = embeddedIds.map(e => e.id);
-      
-      if (embedded.length === 0) {
-        return await db
-          .select({ id: orders.id })
-          .from(orders)
-          .limit(limit);
-      }
-      
-      return await db
-        .select({ id: orders.id })
-        .from(orders)
-        .where(notInArray(orders.id, embedded))
-        .limit(limit);
+      const result = await db.execute(sql`
+        SELECT o.id
+        FROM orders o
+        LEFT JOIN order_embeddings oe ON o.id = oe.order_id
+        WHERE oe.order_id IS NULL
+        LIMIT ${limit}
+      `);
+      return result.rows.map((row: any) => ({ id: row.id }));
     }
   }
 }
