@@ -37,20 +37,53 @@ export default function SalesDashboard({ period, dateRange = 'all', onItemClick 
       return [];
     }
 
-    // For all date ranges, use predefined periods from current date
-    const monthsToShow = dateRange === 'all' ? 36 :  // 3 years for 'all'
-                        dateRange === '2years' ? 24 :
-                        dateRange === '1year' ? 12 :
-                        dateRange === '6months' ? 6 : 3;
+    let months: Array<{ date: string; month: Date; sales: number }>;
     
-    const months = Array.from({ length: monthsToShow }, (_, i) => {
-      const date = subMonths(new Date(), monthsToShow - 1 - i);
-      return {
-        date: format(date, 'MMM yy'),
-        month: startOfMonth(date),
-        sales: 0,
-      };
-    });
+    if (dateRange === 'all') {
+      // For 'all time', use the actual earliest to latest order dates
+      const orderDates = orders.map(o => parseISO(o.orderDate));
+      const earliestOrderDate = new Date(Math.min(...orderDates.map(d => d.getTime())));
+      const latestOrderDate = new Date(Math.max(...orderDates.map(d => d.getTime())));
+      
+      // Start from the earliest order's month
+      const startMonth = startOfMonth(earliestOrderDate);
+      const endMonth = startOfMonth(latestOrderDate);
+      
+      // Calculate months between earliest and latest
+      const monthDiff = (endMonth.getFullYear() - startMonth.getFullYear()) * 12 + 
+                        (endMonth.getMonth() - startMonth.getMonth()) + 1;
+      
+      // Limit to most recent 120 months (10 years) if history is very long
+      const monthsToShow = Math.min(monthDiff, 120);
+      const adjustedStartMonth = monthsToShow < monthDiff 
+        ? new Date(endMonth.getFullYear(), endMonth.getMonth() - monthsToShow + 1, 1)
+        : startMonth;
+      
+      // Generate months from adjusted start to latest
+      months = Array.from({ length: monthsToShow }, (_, i) => {
+        const monthDate = new Date(adjustedStartMonth);
+        monthDate.setMonth(adjustedStartMonth.getMonth() + i);
+        return {
+          date: format(monthDate, 'MMM yy'),
+          month: startOfMonth(monthDate),
+          sales: 0,
+        };
+      });
+    } else {
+      // For specific date ranges, use predefined periods from current date
+      const monthsToShow = dateRange === '2years' ? 24 :
+                          dateRange === '1year' ? 12 :
+                          dateRange === '6months' ? 6 : 3;
+      
+      months = Array.from({ length: monthsToShow }, (_, i) => {
+        const date = subMonths(new Date(), monthsToShow - 1 - i);
+        return {
+          date: format(date, 'MMM yy'),
+          month: startOfMonth(date),
+          sales: 0,
+        };
+      });
+    }
 
     // Aggregate orders into months
     orders.forEach(order => {
