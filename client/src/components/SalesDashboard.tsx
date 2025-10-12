@@ -37,6 +37,28 @@ export default function SalesDashboard({ period, dateRange = 'all', onItemClick 
     }
   });
 
+  // Safe date parsing helper for iOS Safari compatibility
+  const safeParseDate = (dateString: string): Date | null => {
+    try {
+      const parsed = parseISO(dateString);
+      if (isNaN(parsed.getTime())) return null;
+      return parsed;
+    } catch {
+      return null;
+    }
+  };
+
+  // Safe date formatter for display
+  const formatDateSafe = (dateString: string): string => {
+    const date = safeParseDate(dateString);
+    if (!date) return 'Invalid date';
+    try {
+      return date.toLocaleDateString();
+    } catch {
+      return 'Invalid date';
+    }
+  };
+
   // Calculate sales data by month - adjust based on date range
   const getSalesData = () => {
     if (orders.length === 0) {
@@ -48,8 +70,8 @@ export default function SalesDashboard({ period, dateRange = 'all', onItemClick 
     if (dateRange === 'all') {
       // For 'all time', use the actual earliest to latest order dates
       const orderDates = orders
-        .map(o => parseISO(o.orderDate))
-        .filter(d => !isNaN(d.getTime())); // Filter out invalid dates
+        .map(o => safeParseDate(o.orderDate))
+        .filter((d): d is Date => d !== null); // Filter out invalid dates
       
       if (orderDates.length === 0) {
         return [];
@@ -115,10 +137,13 @@ export default function SalesDashboard({ period, dateRange = 'all', onItemClick 
     // Aggregate orders into months
     orders.forEach(order => {
       if (order.orderTotal && !isNaN(Number(order.orderTotal))) {
-        const orderMonth = startOfMonth(parseISO(order.orderDate));
-        const monthData = months.find(m => m.month.getTime() === orderMonth.getTime());
-        if (monthData) {
-          monthData.sales += Number(order.orderTotal);
+        const orderDate = safeParseDate(order.orderDate);
+        if (orderDate) {
+          const orderMonth = startOfMonth(orderDate);
+          const monthData = months.find(m => m.month.getTime() === orderMonth.getTime());
+          if (monthData) {
+            monthData.sales += Number(order.orderTotal);
+          }
         }
       }
     });
@@ -138,7 +163,12 @@ export default function SalesDashboard({ period, dateRange = 'all', onItemClick 
   // Get recent high-value sales
   const recentHighValueSales = orders
     .filter(order => order.orderTotal && Number(order.orderTotal) >= 50)
-    .sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime())
+    .sort((a, b) => {
+      const dateA = safeParseDate(a.orderDate);
+      const dateB = safeParseDate(b.orderDate);
+      if (!dateA || !dateB) return 0;
+      return dateB.getTime() - dateA.getTime();
+    })
     .slice(0, 5);
 
   // Calculate total revenue and average
@@ -238,7 +268,7 @@ export default function SalesDashboard({ period, dateRange = 'all', onItemClick 
                   <div className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />
                   <span className="text-gray-300 font-mono">#{order.orderNumber}</span>
                   <span className="text-gray-500 text-[9px]">{order.customerUsername}</span>
-                  <span className="text-gray-600 text-[9px]">{new Date(order.orderDate).toLocaleDateString()}</span>
+                  <span className="text-gray-600 text-[9px]">{formatDateSafe(order.orderDate)}</span>
                 </div>
                 <span className="text-lego-green font-mono ml-2">${Number(order.orderTotal).toFixed(2)}</span>
               </div>
@@ -302,7 +332,12 @@ export default function SalesDashboard({ period, dateRange = 'all', onItemClick 
         <div className="space-y-1 max-h-64 overflow-y-auto">
           {platformOrders.length > 0 ? (
             [...platformOrders]
-              .sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime())
+              .sort((a, b) => {
+                const dateA = safeParseDate(a.orderDate);
+                const dateB = safeParseDate(b.orderDate);
+                if (!dateA || !dateB) return 0;
+                return dateB.getTime() - dateA.getTime();
+              })
               .map(order => (
                 <div
                   key={order.id}
@@ -320,7 +355,7 @@ export default function SalesDashboard({ period, dateRange = 'all', onItemClick 
                     <div className="flex items-center gap-2 text-[9px] text-gray-400">
                       <span>{order.customerUsername}</span>
                       <span className="text-gray-600">•</span>
-                      <span>{new Date(order.orderDate).toLocaleDateString()}</span>
+                      <span>{formatDateSafe(order.orderDate)}</span>
                     </div>
                   </div>
                   <div className="text-right flex-shrink-0 ml-2">
