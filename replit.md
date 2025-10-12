@@ -25,7 +25,7 @@ The frontend uses React 18+ with TypeScript, Vite, Shadcn/ui, and Tailwind CSS, 
 - **Price-o-Matic:** Provides bulk pricing intelligence with a dedicated dashboard. Features a world supply analysis panel for scarcity-based pricing adjustments (+2% to +10% premium based on lot count). Includes an intelligent caching system with background syncs (up to 1,500 items/day) and a rolling 14-day refresh. Categorizes items as "Too High," "Too Low," or "Well Priced" based on variance from suggested prices.
 - **Dashboard Layout:** Features a default dashboard with "Top Pricing Opportunities." Inventory, Orders, Sales, and Marketing dashboards provide streamlined views and analytics. Orders and Marketing dashboards include date range selectors for analysis.
 - **Platform Performance Dashboard:** Located in the Sales tab. Automatically tracks and categorizes orders by selling platform (e.g., BrickLink, eBay, Amazon) using an 8-priority detection system. Displays revenue by marketplace, order counts, and average order values with visualizations.
-- **AI Intelligence & Embeddings Management (Settings):** Unified settings section combining AI assistant configuration and embeddings management. Features separate batch embedding generation for inventory and orders (each with configurable batch size), statistics dashboard showing progress for both types, and a semantic search testing interface. OpenAI API key configuration is handled here. Smart endpoint filtering ensures only items/orders without embeddings are processed.
+- **AI Intelligence & Embeddings Management (Settings):** Unified settings section combining AI assistant configuration and embeddings management. Features server-side background job system for embedding generation (inventory and orders), statistics dashboard showing progress for both types, and a semantic search testing interface. OpenAI API key configuration is handled here. Background jobs run independently on the server - users can close the browser or lock their phone and jobs continue processing. Jobs use efficient LEFT JOIN queries to find unembedded items, avoiding SQL parameter limits and scaling to any data volume. Input validation (Zod) ensures batch sizes are between 10-100 items. Real-time progress polling (every 2 seconds) shows job status, items processed, and completion percentage.
 
 ### System Design Choices
 - **Modular Component Architecture:** For reusability and maintainability.
@@ -33,6 +33,7 @@ The frontend uses React 18+ with TypeScript, Vite, Shadcn/ui, and Tailwind CSS, 
 - **Semantic Search:** Leveraging vector embeddings for intelligent, conceptual item searches.
 - **Single-Row App Settings Table:** For global application configuration.
 - **Mobile-Optimized UI:** Compact layouts and touch behavior optimizations for key dashboards like Price-o-Matic.
+- **Server-Side Background Jobs:** Long-running tasks (embedding generation) execute on the server, not in the browser. Jobs persist through browser closure and phone lock, making the system production-ready for mobile usage. Uses efficient database queries to scale to large datasets.
 
 ## External Dependencies
 
