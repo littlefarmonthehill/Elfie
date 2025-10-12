@@ -14,6 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { EmbeddingsManager } from "@/components/EmbeddingsManager";
 
 interface SettingsModalProps {
   open: boolean;
@@ -340,13 +341,14 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
     });
   };
 
-  const [activeSection, setActiveSection] = useState<'general' | 'platforms' | 'sync' | 'ai' | 'data'>('general');
+  const [activeSection, setActiveSection] = useState<'general' | 'platforms' | 'sync' | 'ai' | 'intelligence' | 'data'>('general');
 
   const navigationItems = [
     { id: 'general' as const, label: 'General', icon: Settings },
     { id: 'platforms' as const, label: 'Platforms', icon: Package },
     { id: 'sync' as const, label: 'Data & Sync', icon: RefreshCw },
     { id: 'ai' as const, label: 'AI Assistant', icon: Sparkles },
+    { id: 'intelligence' as const, label: 'AI Intelligence', icon: Sparkles },
     { id: 'data' as const, label: 'Backup & Clear', icon: Database },
   ];
 
@@ -822,6 +824,11 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                 </div>
               </div>
               </div>
+            )}
+
+            {/* AI Intelligence & Semantic Search */}
+            {activeSection === 'intelligence' && (
+              <EmbeddingsManager />
             )}
 
             {/* Backup & Clear Data */}

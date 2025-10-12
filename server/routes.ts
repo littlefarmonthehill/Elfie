@@ -591,38 +591,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             console.log(`🔍 Category search: Found ${categoryMatches.length} matching categories:`, categoryMatches.map(c => c.name).join(', '));
           } else {
-            // No category match - fall back to keyword search across multiple fields
-            const conditions = searchKeywords.flatMap(keyword => {
-              const pattern = `%${keyword}%`;
-              return [
-                like(blInventory.itemNo, pattern),
-                like(blInventory.itemType, pattern),
-                like(blInventory.itemName, pattern),
-                like(blInventory.remarks, pattern),
-                like(blInventory.description, pattern)
-              ];
-            });
-            
-            inventoryResults = await db
-              .select({
-                id: blInventory.id,
-                itemNo: blInventory.itemNo,
-                itemType: blInventory.itemType,
-                itemName: blInventory.itemName,
-                remarks: blInventory.remarks,
-                colorId: blInventory.colorId,
-                colorName: blColors.name,
-                colorRgb: blColors.rgb,
-                categoryName: blCategories.name,
-                quantity: blInventory.quantity,
-                newOrUsed: blInventory.newOrUsed,
-                unitPrice: blInventory.unitPrice,
-              })
-              .from(blInventory)
-              .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
-              .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
-              .where(or(...conditions))
-              .limit(50);
+            // No category match - try semantic search first if embeddings available
+            try {
+              const { searchInventorySemantic } = await import('./services/embeddings');
+              const semanticResults = await searchInventorySemantic(lastUserMessage, 10);
+              
+              if (semanticResults && semanticResults.length > 0) {
+                console.log(`🧠 Semantic search: Found ${semanticResults.length} items`);
+                inventoryResults = semanticResults.map((result: any) => ({
+                  id: result.inventory_id,
+                  itemNo: result.item_no,
+                  itemType: result.item_type,
+                  itemName: result.item_name,
+                  remarks: null,
+                  colorId: null,
+                  colorName: result.color_name,
+                  colorRgb: null,
+                  categoryName: null,
+                  quantity: result.quantity,
+                  newOrUsed: result.new_or_used,
+                  unitPrice: result.unit_price,
+                }));
+              } else {
+                throw new Error('No semantic results');
+              }
+            } catch (semanticError) {
+              // Fall back to keyword search across multiple fields
+              console.log('Falling back to keyword search');
+              const conditions = searchKeywords.flatMap(keyword => {
+                const pattern = `%${keyword}%`;
+                return [
+                  like(blInventory.itemNo, pattern),
+                  like(blInventory.itemType, pattern),
+                  like(blInventory.itemName, pattern),
+                  like(blInventory.remarks, pattern),
+                  like(blInventory.description, pattern)
+                ];
+              });
+              
+              inventoryResults = await db
+                .select({
+                  id: blInventory.id,
+                  itemNo: blInventory.itemNo,
+                  itemType: blInventory.itemType,
+                  itemName: blInventory.itemName,
+                  remarks: blInventory.remarks,
+                  colorId: blInventory.colorId,
+                  colorName: blColors.name,
+                  colorRgb: blColors.rgb,
+                  categoryName: blCategories.name,
+                  quantity: blInventory.quantity,
+                  newOrUsed: blInventory.newOrUsed,
+                  unitPrice: blInventory.unitPrice,
+                })
+                .from(blInventory)
+                .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+                .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
+                .where(or(...conditions))
+                .limit(50);
+            }
           }
         } else {
           // General inventory query

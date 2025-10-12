@@ -23,11 +23,12 @@ export function EmbeddingsManager() {
   // Batch embed inventory
   const { mutate: batchEmbed, isPending: isBatchEmbedding } = useMutation({
     mutationFn: async (inventoryIds: number[]) => {
-      return apiRequest('/api/embeddings/inventory/batch', {
+      const response = await fetch('/api/embeddings/inventory/batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ inventoryIds }),
       });
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/embeddings/stats'] });
@@ -37,11 +38,12 @@ export function EmbeddingsManager() {
   // Semantic search test
   const { mutate: testSearch, isPending: isSearching } = useMutation({
     mutationFn: async (query: string) => {
-      return apiRequest('/api/search/inventory/semantic', {
+      const response = await fetch('/api/search/inventory/semantic', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query, limit: 5 }),
       });
+      return response.json();
     },
     onSuccess: (data: any) => {
       setSearchResults(data.results || []);
@@ -63,8 +65,8 @@ export function EmbeddingsManager() {
     }
   };
 
-  const inventoryProgress = stats?.inventory ? 
-    (stats.inventory.embedded / stats.inventory.total) * 100 : 0;
+  const inventoryProgress = (stats as any)?.inventory ? 
+    ((stats as any).inventory.embedded / (stats as any).inventory.total) * 100 : 0;
 
   return (
     <div className="space-y-6 p-6">
@@ -85,7 +87,7 @@ export function EmbeddingsManager() {
               Inventory Embeddings
             </CardTitle>
             <CardDescription>
-              {statsLoading ? 'Loading...' : `${stats?.inventory.embedded || 0} of ${stats?.inventory.total || 0} items embedded`}
+              {statsLoading ? 'Loading...' : `${(stats as any)?.inventory?.embedded || 0} of ${(stats as any)?.inventory?.total || 0} items embedded`}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -109,17 +111,17 @@ export function EmbeddingsManager() {
               Order Embeddings
             </CardTitle>
             <CardDescription>
-              {statsLoading ? 'Loading...' : `${stats?.orders.embedded || 0} of ${stats?.orders.total || 0} orders embedded`}
+              {statsLoading ? 'Loading...' : `${(stats as any)?.orders?.embedded || 0} of ${(stats as any)?.orders?.total || 0} orders embedded`}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             <Progress 
-              value={stats?.orders ? (stats.orders.embedded / stats.orders.total) * 100 : 0} 
+              value={(stats as any)?.orders ? ((stats as any).orders.embedded / (stats as any).orders.total) * 100 : 0} 
               className="h-2" 
             />
             <div className="flex justify-between text-sm">
               <span className="text-gray-400">
-                {stats?.orders ? ((stats.orders.embedded / stats.orders.total) * 100).toFixed(1) : 0}% complete
+                {(stats as any)?.orders ? (((stats as any).orders.embedded / (stats as any).orders.total) * 100).toFixed(1) : 0}% complete
               </span>
             </div>
           </CardContent>
@@ -139,7 +141,7 @@ export function EmbeddingsManager() {
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
               Embedding generation uses OpenAI's API and costs approximately $0.002 per 1,000 items.
-              For {stats?.inventory.total || 0} items, this will cost ~${((stats?.inventory.total || 0) * 0.000002).toFixed(2)}.
+              For {(stats as any)?.inventory?.total || 0} items, this will cost ~${(((stats as any)?.inventory?.total || 0) * 0.000002).toFixed(2)}.
             </AlertDescription>
           </Alert>
 
