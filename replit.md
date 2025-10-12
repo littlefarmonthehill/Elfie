@@ -52,6 +52,7 @@ Preferred communication style: Simple, everyday language.
 
 #### Price-o-Matic Dashboard (Bulk Pricing Intelligence)
 - **Purpose:** Separate dashboard for identifying pricing opportunities across entire inventory without exhausting API limits.
+- **UI Design:** Compact layout with info cards at top (sync status, category counts, "How it works" section), single item list below that updates based on selected category button (Too High/Too Low/Well Priced). Items sorted by absolute variance descending to prioritize biggest discrepancies.
 - **Intelligent Caching System:**
   - Background sync processes up to 1,500 items per day (stays under 5,000 API call limit)
   - Rolling 14-day refresh cycle ensures all inventory stays current
@@ -60,7 +61,7 @@ Preferred communication style: Simple, everyday language.
 - **Pricing Insights:**
   - Categorizes items as "Too High" (20%+ above suggested), "Too Low" (20%+ below suggested), or "Well Priced"
   - Displays variance percentage, current vs suggested price, and market data freshness
-  - Tabbed interface for easy filtering of pricing categories
+  - Removed separate Overview tab in favor of unified category-driven list view
   - Shows up to 50 items per category with full inventory details
 - **Sync Management:**
   - Real-time status display (Success, Partial, In Progress, Failed, Never Synced)
@@ -75,12 +76,20 @@ Preferred communication style: Simple, everyday language.
   - Sync metadata tracked in `sync_metadata` table (id: 'priceomatic_cache')
   - Calculates pricing variance by comparing `blInventory.unitPrice` with cached `suggestedPrice`
 
+#### Dashboard Layout & Organization
+- **Default Dashboard:** Displays "Total Revenue" and "Total Orders" metrics with "Top Pricing Opportunities" section showing items priced too low from Price-o-Matic insights. Removed "Inventory Items" and "Total Pieces" metrics for cleaner layout.
+- **Inventory Dashboard:** Streamlined view showing top value items, newly added items, and recently updated items. Removed redundant low stock section to reduce duplication.
+- **Orders Dashboard:** Features date-based chart (30-60 day rolling window) using "MMM d" format (e.g., "Jan 15") instead of day-of-week labels. Chart intelligently bases date range on actual order dates to handle historical data properly. Includes date range selector for filtering.
+- **Marketing Dashboard:** Enhanced with date range selector for customer pattern analysis. Customer metrics (new vs repeat) filter based on selected date range with proper API query integration.
+- **Date Range Filtering:** Available on Default, Orders, Sales, and Marketing dashboards with options for 3M, 6M, 1Y, 2Y, and All time periods.
+
 #### Platform Performance Dashboard
 - **Sales Dashboard Integration:** Located in the Sales tab after Key Metrics section.
 - **Marketplace Tracking:** Orders are automatically tagged with selling platform:
   - Extraction methods: `advancedOptions.source`, order key prefixes, order number patterns
   - Supported platforms: BrickLink (BL. prefix, 7-8 digit numeric), BrickOwl (BO. prefix), eBay (LBS prefix), Amazon, Etsy, Facebook Marketplace, and more
   - Improved extraction logic identifies ~91% of orders; graceful fallback to "Unknown" when platform cannot be determined
+  - Database standardization: "Brick Owl" → "BrickOwl" (1,784 records updated) to eliminate duplicate platform entries
   - Full sync option available to re-extract marketplace for all historical orders
 - **Visualizations:**
   - Bar chart showing revenue by marketplace (color-coded by platform)

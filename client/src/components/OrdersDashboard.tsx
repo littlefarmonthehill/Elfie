@@ -36,6 +36,12 @@ export default function OrdersDashboard({ dateRange = 'all', onItemClick }: Orde
       return [];
     }
 
+    // Find the most recent order date to base the chart on
+    const mostRecentOrderDate = orders.reduce((latest, order) => {
+      const orderDate = new Date(order.orderDate);
+      return orderDate > latest ? orderDate : latest;
+    }, new Date(orders[0].orderDate));
+
     // Determine number of days to show based on date range
     const daysToShow = dateRange === '2years' ? 60 :  // Show ~2 months of days for 2 years
                       dateRange === '1year' ? 30 :     // Show 1 month of days for 1 year
@@ -43,9 +49,9 @@ export default function OrdersDashboard({ dateRange = 'all', onItemClick }: Orde
                       dateRange === '3months' ? 30 :   // Show 1 month of days for 3 months
                       30;  // Default to 30 days for 'all'
 
-    // Create array of days
+    // Create array of days ending at the most recent order date
     const days = Array.from({ length: daysToShow }, (_, i) => {
-      const date = subDays(new Date(), daysToShow - 1 - i);
+      const date = subDays(mostRecentOrderDate, daysToShow - 1 - i);
       return {
         date: format(date, 'MMM d'),  // Format like "Jan 15"
         fullDate: startOfDay(date),
