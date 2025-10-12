@@ -66,6 +66,8 @@ Preferred communication style: Simple, everyday language.
   - Real-time status display (Success, Partial, In Progress, Failed, Never Synced)
   - Shows last sync time, items updated count, and error messages
   - Manual "Update Prices" button to trigger on-demand sync
+  - Background async sync: endpoint responds immediately, sync runs in background
+  - Concurrent sync protection: prevents multiple syncs running simultaneously (10-minute timeout for stale syncs)
   - API safeguards: checks rate limit before starting, every 10 items during sync, stops if approaching limit
 - **Technical Implementation:**
   - Endpoints: `POST /api/sync/priceomatic`, `GET /api/sync/priceomatic/status`, `GET /api/priceomatic/insights`

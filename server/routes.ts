@@ -1685,6 +1685,27 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
     try {
       const maxItems = req.body.maxItems || 1500;
       
+      // Check if a sync is already in progress
+      const [existingSync] = await db
+        .select()
+        .from(syncMetadata)
+        .where(eq(syncMetadata.id, 'priceomatic_cache'))
+        .limit(1);
+      
+      // If sync is in progress and started less than 10 minutes ago, reject
+      if (existingSync?.lastSyncStatus === 'in_progress' && existingSync.lastSyncTime) {
+        const timeSinceSync = Date.now() - new Date(existingSync.lastSyncTime).getTime();
+        const tenMinutesInMs = 10 * 60 * 1000;
+        
+        if (timeSinceSync < tenMinutesInMs) {
+          return res.status(409).json({
+            success: false,
+            error: 'A sync is already in progress. Please wait for it to complete.',
+          });
+        }
+        // If sync has been in progress for more than 10 minutes, consider it stale and allow new sync
+      }
+      
       // Update sync metadata to "in_progress"
       await db
         .insert(syncMetadata)
@@ -1704,60 +1725,67 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
           },
         });
 
-      const result = await syncPriceOMagicCache(maxItems);
-      
-      // Update sync metadata with results
-      await db
-        .insert(syncMetadata)
-        .values({
-          id: 'priceomatic_cache',
-          lastSyncStatus: result.stopped && result.stopReason?.includes('limit') ? 'partial' : 'success',
-          lastSyncTime: new Date(),
-          recordsAdded: 0,
-          recordsUpdated: result.itemsUpdated,
-          errorMessage: result.stopReason || null,
-        })
-        .onConflictDoUpdate({
-          target: syncMetadata.id,
-          set: {
+      // Start the sync in the background (don't await)
+      syncPriceOMagicCache(maxItems).then(async (result) => {
+        // Update sync metadata with results
+        await db
+          .insert(syncMetadata)
+          .values({
+            id: 'priceomatic_cache',
             lastSyncStatus: result.stopped && result.stopReason?.includes('limit') ? 'partial' : 'success',
             lastSyncTime: new Date(),
+            recordsAdded: 0,
             recordsUpdated: result.itemsUpdated,
             errorMessage: result.stopReason || null,
-            updatedAt: new Date(),
-          },
-        });
+          })
+          .onConflictDoUpdate({
+            target: syncMetadata.id,
+            set: {
+              lastSyncStatus: result.stopped && result.stopReason?.includes('limit') ? 'partial' : 'success',
+              lastSyncTime: new Date(),
+              recordsUpdated: result.itemsUpdated,
+              errorMessage: result.stopReason || null,
+              updatedAt: new Date(),
+            },
+          });
+      }).catch(async (error) => {
+        console.error("Price-o-Matic background sync error:", error);
+        
+        // Update sync metadata to failed
+        await db
+          .insert(syncMetadata)
+          .values({
+            id: 'priceomatic_cache',
+            lastSyncStatus: 'failed',
+            lastSyncTime: new Date(),
+            recordsAdded: 0,
+            recordsUpdated: 0,
+            errorMessage: error instanceof Error ? error.message : 'Unknown error',
+          })
+          .onConflictDoUpdate({
+            target: syncMetadata.id,
+            set: {
+              lastSyncStatus: 'failed',
+              errorMessage: error instanceof Error ? error.message : 'Unknown error',
+              updatedAt: new Date(),
+            },
+          });
+      });
 
+      // Respond immediately that sync has started
       res.json({
         success: true,
-        data: result,
+        data: {
+          message: 'Sync started in background',
+          maxItems,
+        },
       });
     } catch (error) {
-      console.error("Price-o-Matic sync error:", error);
-      
-      // Update sync metadata to failed
-      await db
-        .insert(syncMetadata)
-        .values({
-          id: 'priceomatic_cache',
-          lastSyncStatus: 'failed',
-          lastSyncTime: new Date(),
-          recordsAdded: 0,
-          recordsUpdated: 0,
-          errorMessage: error instanceof Error ? error.message : 'Unknown error',
-        })
-        .onConflictDoUpdate({
-          target: syncMetadata.id,
-          set: {
-            lastSyncStatus: 'failed',
-            errorMessage: error instanceof Error ? error.message : 'Unknown error',
-            updatedAt: new Date(),
-          },
-        });
+      console.error("Price-o-Matic sync start error:", error);
       
       res.status(500).json({
         success: false,
-        error: "Failed to sync Price-o-Matic cache",
+        error: "Failed to start Price-o-Matic sync",
       });
     }
   });
