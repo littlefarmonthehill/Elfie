@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { format, subMonths, startOfMonth, parseISO } from "date-fns";
-import { TrendingUp, DollarSign, Target } from "lucide-react";
+import { TrendingUp, DollarSign, Target, Store, ShoppingCart } from "lucide-react";
 import { DateRangeValue } from "./DateRangeSelector";
 import PlatformPerformance from "./PlatformPerformance";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type TimePeriod = 'mtd' | 'ytd' | '1y' | '5y';
 
@@ -24,6 +26,7 @@ interface Order {
 }
 
 export default function SalesDashboard({ period, dateRange = 'all', onItemClick }: SalesDashboardProps) {
+  const [selectedPlatform, setSelectedPlatform] = useState<string>('all');
   const { data: orders = [], isLoading } = useQuery<Order[]>({
     queryKey: ['/api/orders', dateRange],
     queryFn: async () => {
@@ -119,6 +122,14 @@ export default function SalesDashboard({ period, dateRange = 'all', onItemClick 
 
   const data = getSalesData();
   const average = data.length > 0 ? Math.round(data.reduce((sum, d) => sum + d.sales, 0) / data.length) : 0;
+
+  // Get unique platforms from orders
+  const platforms = Array.from(new Set(orders.map(o => o.marketplace || 'Unknown'))).sort();
+  
+  // Filter orders by selected platform
+  const platformOrders = selectedPlatform === 'all' 
+    ? orders 
+    : orders.filter(o => (o.marketplace || 'Unknown') === selectedPlatform);
 
   if (isLoading) {
     return (
@@ -236,6 +247,67 @@ export default function SalesDashboard({ period, dateRange = 'all', onItemClick 
       {/* Platform Performance */}
       <div className="bg-gray-900/50 border border-blue-500/20 rounded-lg p-3" data-testid="section-platform-performance">
         <PlatformPerformance orders={orders} />
+      </div>
+
+      {/* Platform Order Browser */}
+      <div className="bg-gray-900/50 border border-purple-500/20 rounded-lg p-3" data-testid="section-platform-orders">
+        <div className="flex items-center gap-2 mb-3">
+          <ShoppingCart className="w-3.5 h-3.5 text-purple-400" />
+          <h3 className="text-[10px] font-semibold text-purple-400 uppercase tracking-wide">Orders by Platform</h3>
+        </div>
+        
+        {/* Platform Selector */}
+        <div className="mb-3">
+          <Select value={selectedPlatform} onValueChange={setSelectedPlatform}>
+            <SelectTrigger className="w-full text-xs" data-testid="select-platform">
+              <SelectValue placeholder="Select platform" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Platforms</SelectItem>
+              {platforms.map(platform => (
+                <SelectItem key={platform} value={platform}>{platform}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Order List */}
+        <div className="space-y-1 max-h-64 overflow-y-auto">
+          {platformOrders.length > 0 ? (
+            [...platformOrders]
+              .sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime())
+              .map(order => (
+                <div
+                  key={order.id}
+                  onClick={() => onItemClick?.('order', order.id)}
+                  className="flex justify-between items-start p-2 rounded hover-elevate active-elevate-2 cursor-pointer border border-transparent hover:border-purple-500/30"
+                  data-testid={`platform-order-${order.id}`}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-xs font-mono text-white">#{order.orderNumber}</span>
+                      {order.marketplace && (
+                        <span className="text-[9px] text-gray-400">{order.marketplace}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 text-[9px] text-gray-400">
+                      <span>{order.customerUsername}</span>
+                      <span className="text-gray-600">•</span>
+                      <span>{new Date(order.orderDate).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                  <div className="text-right flex-shrink-0 ml-2">
+                    <div className="text-xs font-mono text-green-400">${Number(order.orderTotal).toFixed(2)}</div>
+                    <div className="text-[8px] text-gray-500">{order.orderStatus}</div>
+                  </div>
+                </div>
+              ))
+          ) : (
+            <div className="text-center py-4 text-xs text-gray-500">
+              No orders for {selectedPlatform === 'all' ? 'any platform' : selectedPlatform}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
