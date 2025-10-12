@@ -580,7 +580,7 @@ export default function Home() {
           {renderDashboard()}
         </div>
         
-        <div className={`transition-all duration-300 ${chatMinimized ? 'shrink-0' : 'flex-1'} flex flex-col overflow-hidden`}>
+        <div className={`transition-all duration-300 ${chatMinimized ? 'h-16 shrink-0' : 'flex-1'} flex flex-col overflow-hidden`}>
           <ChatInterface 
             dashboardContext={getChatContext()} 
             themeColor={getThemeColor()} 
