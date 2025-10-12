@@ -1,8 +1,8 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { format, subMonths, startOfMonth, parseISO } from "date-fns";
-import { TrendingUp, DollarSign, Target, Store, ShoppingCart } from "lucide-react";
+import { TrendingUp, DollarSign, Target, ShoppingCart } from "lucide-react";
 import { DateRangeValue } from "./DateRangeSelector";
 import PlatformPerformance from "./PlatformPerformance";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -27,73 +27,9 @@ interface Order {
 
 export default function SalesDashboard({ period, dateRange = 'all', onItemClick }: SalesDashboardProps) {
   const [selectedPlatform, setSelectedPlatform] = useState<string>('all');
-  const [isMobile, setIsMobile] = useState(false);
-  
-  const { data: allOrders = [], isLoading } = useQuery<Order[]>({
+  const { data: orders = [], isLoading } = useQuery<Order[]>({
     queryKey: ['/api/orders', dateRange],
-    queryFn: async () => {
-      const url = dateRange === 'all' ? '/api/orders' : `/api/orders?range=${dateRange}`;
-      const response = await fetch(url);
-      if (!response.ok) throw new Error('Failed to fetch orders');
-      return response.json();
-    }
   });
-
-  // Detect mobile device in useEffect to avoid SSR/hydration issues
-  useEffect(() => {
-    setIsMobile(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent));
-  }, []);
-
-  // Safe date parsing helper for iOS Safari compatibility
-  const safeParseDate = (dateString: string): Date | null => {
-    try {
-      const parsed = parseISO(dateString);
-      if (isNaN(parsed.getTime())) return null;
-      return parsed;
-    } catch {
-      return null;
-    }
-  };
-
-  // Limit data processing on mobile to prevent crashes
-  // Use most recent 5000 orders on mobile for "All" time range
-  const orders = useMemo(() => {
-    const shouldLimit = isMobile && dateRange === 'all' && allOrders.length > 5000;
-    if (!shouldLimit) return allOrders;
-    
-    // Sort and limit to most recent 5000 orders
-    return [...allOrders]
-      .sort((a, b) => {
-        const dateA = safeParseDate(a.orderDate);
-        const dateB = safeParseDate(b.orderDate);
-        if (!dateA || !dateB) return 0;
-        return dateB.getTime() - dateA.getTime(); // Most recent first
-      })
-      .slice(0, 5000); // Take first 5000 (most recent)
-  }, [isMobile, dateRange, allOrders]);
-
-  const isDataLimited = isMobile && dateRange === 'all' && allOrders.length > 5000;
-
-  // Safe date formatter for display
-  const formatDateSafe = (dateString: string): string => {
-    const date = safeParseDate(dateString);
-    if (!date) return 'Invalid date';
-    try {
-      return date.toLocaleDateString();
-    } catch {
-      return 'Invalid date';
-    }
-  };
-
-  // Safe chart date formatter
-  const formatChartDate = (date: Date): string => {
-    try {
-      if (isNaN(date.getTime())) return '';
-      return format(date, 'MMM yy');
-    } catch {
-      return '';
-    }
-  };
 
   // Calculate sales data by month - adjust based on date range
   const getSalesData = () => {
@@ -105,51 +41,24 @@ export default function SalesDashboard({ period, dateRange = 'all', onItemClick 
     
     if (dateRange === 'all') {
       // For 'all time', use the actual earliest to latest order dates
-      const orderDates = orders
-        .map(o => safeParseDate(o.orderDate))
-        .filter((d): d is Date => d !== null); // Filter out invalid dates
-      
-      if (orderDates.length === 0) {
-        return [];
-      }
-      
+      const orderDates = orders.map(o => parseISO(o.orderDate));
       const earliestOrderDate = new Date(Math.min(...orderDates.map(d => d.getTime())));
       const latestOrderDate = new Date(Math.max(...orderDates.map(d => d.getTime())));
       
-      // Validate dates
-      if (isNaN(earliestOrderDate.getTime()) || isNaN(latestOrderDate.getTime())) {
-        return [];
-      }
-      
       // Start from the earliest order's month
-      const earliestMonth = startOfMonth(earliestOrderDate);
-      const latestMonth = startOfMonth(latestOrderDate);
+      const startMonth = startOfMonth(earliestOrderDate);
+      const endMonth = startOfMonth(latestOrderDate);
       
       // Calculate months between earliest and latest
-      const monthDiff = (latestMonth.getFullYear() - earliestMonth.getFullYear()) * 12 + 
-                        (latestMonth.getMonth() - earliestMonth.getMonth()) + 1;
+      const monthDiff = (endMonth.getFullYear() - startMonth.getFullYear()) * 12 + 
+                        (endMonth.getMonth() - startMonth.getMonth()) + 1;
       
-      // If history is too long (>10 years/120 months), show only the most recent 120 months
-      let startMonth: Date;
-      let monthCount: number;
-      
-      if (monthDiff > 120) {
-        // Start from 120 months before the latest month
-        startMonth = new Date(latestMonth);
-        startMonth.setMonth(latestMonth.getMonth() - 119); // -119 because we include the latest month
-        monthCount = 120;
-      } else {
-        // Show full history
-        startMonth = earliestMonth;
-        monthCount = Math.max(monthDiff, 1);
-      }
-      
-      // Generate months from start to latest
-      months = Array.from({ length: monthCount }, (_, i) => {
+      // Generate months from earliest to latest
+      months = Array.from({ length: monthDiff }, (_, i) => {
         const monthDate = new Date(startMonth);
         monthDate.setMonth(startMonth.getMonth() + i);
         return {
-          date: formatChartDate(monthDate),
+          date: format(monthDate, 'MMM yy'),
           month: startOfMonth(monthDate),
           sales: 0,
         };
@@ -163,7 +72,7 @@ export default function SalesDashboard({ period, dateRange = 'all', onItemClick 
       months = Array.from({ length: monthsToShow }, (_, i) => {
         const date = subMonths(new Date(), monthsToShow - 1 - i);
         return {
-          date: formatChartDate(date),
+          date: format(date, 'MMM yy'),
           month: startOfMonth(date),
           sales: 0,
         };
@@ -173,13 +82,10 @@ export default function SalesDashboard({ period, dateRange = 'all', onItemClick 
     // Aggregate orders into months
     orders.forEach(order => {
       if (order.orderTotal && !isNaN(Number(order.orderTotal))) {
-        const orderDate = safeParseDate(order.orderDate);
-        if (orderDate) {
-          const orderMonth = startOfMonth(orderDate);
-          const monthData = months.find(m => m.month.getTime() === orderMonth.getTime());
-          if (monthData) {
-            monthData.sales += Number(order.orderTotal);
-          }
+        const orderMonth = startOfMonth(parseISO(order.orderDate));
+        const monthData = months.find(m => m.month.getTime() === orderMonth.getTime());
+        if (monthData) {
+          monthData.sales += Number(order.orderTotal);
         }
       }
     });
@@ -199,12 +105,7 @@ export default function SalesDashboard({ period, dateRange = 'all', onItemClick 
   // Get recent high-value sales
   const recentHighValueSales = orders
     .filter(order => order.orderTotal && Number(order.orderTotal) >= 50)
-    .sort((a, b) => {
-      const dateA = safeParseDate(a.orderDate);
-      const dateB = safeParseDate(b.orderDate);
-      if (!dateA || !dateB) return 0;
-      return dateB.getTime() - dateA.getTime();
-    })
+    .sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime())
     .slice(0, 5);
 
   // Calculate total revenue and average
@@ -236,16 +137,6 @@ export default function SalesDashboard({ period, dateRange = 'all', onItemClick 
 
   return (
     <div className="p-2 space-y-1.5 bg-gradient-to-br from-lego-green/5 to-transparent rounded-lg border border-lego-green/10 shadow-[0_0_15px_rgba(34,197,94,0.1)]">
-      {/* Mobile Data Limit Notice */}
-      {isDataLimited && (
-        <div 
-          className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-2 text-[10px] text-blue-300"
-          data-testid="notice-mobile-data-limit"
-        >
-          Mobile: Showing most recent 5,000 orders (of {allOrders.length.toLocaleString()}) for optimal performance
-        </div>
-      )}
-      
       {/* Chart */}
       <div className="bg-gray-900/50 border border-lego-green/20 rounded-lg p-2">
         <div className="mb-1 text-xs text-gray-400">
@@ -314,7 +205,7 @@ export default function SalesDashboard({ period, dateRange = 'all', onItemClick 
                   <div className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />
                   <span className="text-gray-300 font-mono">#{order.orderNumber}</span>
                   <span className="text-gray-500 text-[9px]">{order.customerUsername}</span>
-                  <span className="text-gray-600 text-[9px]">{formatDateSafe(order.orderDate)}</span>
+                  <span className="text-gray-600 text-[9px]">{new Date(order.orderDate).toLocaleDateString()}</span>
                 </div>
                 <span className="text-lego-green font-mono ml-2">${Number(order.orderTotal).toFixed(2)}</span>
               </div>
@@ -378,12 +269,7 @@ export default function SalesDashboard({ period, dateRange = 'all', onItemClick 
         <div className="space-y-1 max-h-64 overflow-y-auto">
           {platformOrders.length > 0 ? (
             [...platformOrders]
-              .sort((a, b) => {
-                const dateA = safeParseDate(a.orderDate);
-                const dateB = safeParseDate(b.orderDate);
-                if (!dateA || !dateB) return 0;
-                return dateB.getTime() - dateA.getTime();
-              })
+              .sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime())
               .map(order => (
                 <div
                   key={order.id}
@@ -401,7 +287,7 @@ export default function SalesDashboard({ period, dateRange = 'all', onItemClick 
                     <div className="flex items-center gap-2 text-[9px] text-gray-400">
                       <span>{order.customerUsername}</span>
                       <span className="text-gray-600">•</span>
-                      <span>{formatDateSafe(order.orderDate)}</span>
+                      <span>{new Date(order.orderDate).toLocaleDateString()}</span>
                     </div>
                   </div>
                   <div className="text-right flex-shrink-0 ml-2">
