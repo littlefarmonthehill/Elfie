@@ -2221,6 +2221,7 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
           itemType: blInventory.itemType,
           colorId: blInventory.colorId,
           colorName: blInventory.colorName,
+          newOrUsed: blInventory.newOrUsed,
           currentPrice: blInventory.unitPrice,
           suggestedPrice: priceGuideCache.suggestedPrice,
           stockAvgPrice: priceGuideCache.stockAvgPrice,

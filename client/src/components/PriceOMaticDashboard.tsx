@@ -32,6 +32,7 @@ interface PricingInsight {
   itemName: string | null;
   itemType: string;
   colorName: string | null;
+  newOrUsed: string;
   currentPrice: string;
   suggestedPrice: string;
   stockAvgPrice: string;
@@ -289,15 +290,19 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 mb-0.5">
-                        <span className="text-[9px] font-mono text-gray-400">{item.itemNo}</span>
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <p className="text-xs text-white truncate">{item.itemName || 'Unknown Item'}</p>
+                        <span className="text-[10px] font-mono text-gray-400 flex-shrink-0">{item.itemNo}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <span className="text-[10px] text-gray-400">{item.newOrUsed === 'N' ? 'New' : 'Used'}</span>
                         {item.colorName && (
-                          <Badge variant="outline" className="text-[7px] px-0.5 py-0">
-                            {item.colorName}
-                          </Badge>
+                          <>
+                            <span className="text-gray-600">•</span>
+                            <span className="text-[10px] text-gray-400">{item.colorName}</span>
+                          </>
                         )}
                       </div>
-                      <p className="text-[10px] text-white truncate mb-1">{item.itemName || 'Unknown Item'}</p>
                       <div className="flex items-center gap-2">
                         <div className="flex-1">
                           <p className="text-[7px] text-gray-500">Current</p>
