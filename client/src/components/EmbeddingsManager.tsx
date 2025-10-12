@@ -14,8 +14,9 @@ export function EmbeddingsManager() {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [inventoryBatchSize, setInventoryBatchSize] = useState(100);
-  const [orderBatchSize, setOrderBatchSize] = useState(100);
+  const [inventoryBatchSize, setInventoryBatchSize] = useState(30);
+  const [orderBatchSize, setOrderBatchSize] = useState(30);
+  const [isAutoContinuing, setIsAutoContinuing] = useState(false);
 
   // Get embedding statistics
   const { data: stats, isLoading: statsLoading } = useQuery({
@@ -35,14 +36,27 @@ export function EmbeddingsManager() {
       if (!response.ok) throw new Error(data.error || 'Failed to embed inventory');
       return data;
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       const successful = data.results?.filter((r: any) => r.success).length || 0;
       const failed = data.results?.filter((r: any) => !r.success).length || 0;
+      
       toast({
-        title: "Embeddings Generated",
-        description: `Successfully embedded ${successful} items${failed > 0 ? `. ${failed} failed.` : ''}`,
+        title: "Batch Complete",
+        description: `Embedded ${successful} items${failed > 0 ? `. ${failed} failed.` : ''}`,
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/embeddings/stats'] });
+      
+      await queryClient.invalidateQueries({ queryKey: ['/api/embeddings/stats'] });
+      
+      // Auto-continue if more items remain
+      if (isAutoContinuing && successful > 0) {
+        setTimeout(() => handleBatchEmbedInventory(), 1000);
+      } else if (isAutoContinuing) {
+        setIsAutoContinuing(false);
+        toast({
+          title: "All Done!",
+          description: "All inventory items have been embedded",
+        });
+      }
     },
     onError: (error: any) => {
       toast({
@@ -65,14 +79,27 @@ export function EmbeddingsManager() {
       if (!response.ok) throw new Error(data.error || 'Failed to embed orders');
       return data;
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       const successful = data.results?.filter((r: any) => r.success).length || 0;
       const failed = data.results?.filter((r: any) => !r.success).length || 0;
+      
       toast({
-        title: "Order Embeddings Generated",
-        description: `Successfully embedded ${successful} orders${failed > 0 ? `. ${failed} failed.` : ''}`,
+        title: "Batch Complete",
+        description: `Embedded ${successful} orders${failed > 0 ? `. ${failed} failed.` : ''}`,
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/embeddings/stats'] });
+      
+      await queryClient.invalidateQueries({ queryKey: ['/api/embeddings/stats'] });
+      
+      // Auto-continue if more items remain
+      if (isAutoContinuing && successful > 0) {
+        setTimeout(() => handleBatchEmbedOrders(), 1000);
+      } else if (isAutoContinuing) {
+        setIsAutoContinuing(false);
+        toast({
+          title: "All Done!",
+          description: "All orders have been embedded",
+        });
+      }
     },
     onError: (error: any) => {
       toast({
@@ -106,12 +133,18 @@ export function EmbeddingsManager() {
       
       if (items && items.length > 0) {
         const inventoryIds = items.map((item: any) => item.id);
-        toast({
-          title: "Generating Embeddings",
-          description: `Processing ${inventoryIds.length} inventory items...`,
-        });
+        
+        if (!isAutoContinuing) {
+          setIsAutoContinuing(true);
+          toast({
+            title: "Auto-Embedding Started",
+            description: `Processing all inventory items in batches of ${inventoryBatchSize}...`,
+          });
+        }
+        
         batchEmbedInventory(inventoryIds);
       } else {
+        setIsAutoContinuing(false);
         toast({
           title: "All Done!",
           description: "All inventory items already have embeddings.",
@@ -119,6 +152,7 @@ export function EmbeddingsManager() {
       }
     } catch (error: any) {
       console.error('Error getting inventory for embedding:', error);
+      setIsAutoContinuing(false);
       toast({
         title: "Error",
         description: error.message || "Failed to fetch items for embedding",
@@ -135,12 +169,18 @@ export function EmbeddingsManager() {
       
       if (items && items.length > 0) {
         const orderIds = items.map((item: any) => item.id);
-        toast({
-          title: "Generating Embeddings",
-          description: `Processing ${orderIds.length} orders...`,
-        });
+        
+        if (!isAutoContinuing) {
+          setIsAutoContinuing(true);
+          toast({
+            title: "Auto-Embedding Started",
+            description: `Processing all orders in batches of ${orderBatchSize}...`,
+          });
+        }
+        
         batchEmbedOrders(orderIds);
       } else {
+        setIsAutoContinuing(false);
         toast({
           title: "All Done!",
           description: "All orders already have embeddings.",
@@ -148,6 +188,7 @@ export function EmbeddingsManager() {
       }
     } catch (error: any) {
       console.error('Error getting orders for embedding:', error);
+      setIsAutoContinuing(false);
       toast({
         title: "Error",
         description: error.message || "Failed to fetch orders for embedding",
@@ -250,16 +291,29 @@ export function EmbeddingsManager() {
                 data-testid="input-inventory-batch-size"
               />
             </div>
-            <Button
-              onClick={handleBatchEmbedInventory}
-              disabled={isBatchEmbeddingInventory || inventoryProgress === 100}
-              size="sm"
-              className="text-xs h-8"
-              data-testid="button-batch-embed-inventory"
-            >
-              {isBatchEmbeddingInventory && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
-              {inventoryProgress === 100 ? 'All Done' : `Embed ${inventoryBatchSize}`}
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                onClick={handleBatchEmbedInventory}
+                disabled={isBatchEmbeddingInventory || inventoryProgress === 100}
+                size="sm"
+                className="text-xs h-8 flex-1"
+                data-testid="button-batch-embed-inventory"
+              >
+                {isBatchEmbeddingInventory && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
+                {inventoryProgress === 100 ? 'All Done' : isAutoContinuing ? 'Processing...' : `Start Auto-Embed`}
+              </Button>
+              {isAutoContinuing && (
+                <Button
+                  onClick={() => setIsAutoContinuing(false)}
+                  size="sm"
+                  variant="outline"
+                  className="text-xs h-8"
+                  data-testid="button-stop-auto-embed"
+                >
+                  Stop
+                </Button>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -293,16 +347,29 @@ export function EmbeddingsManager() {
                 data-testid="input-order-batch-size"
               />
             </div>
-            <Button
-              onClick={handleBatchEmbedOrders}
-              disabled={isBatchEmbeddingOrders || ((stats as any)?.orders?.embedded || 0) === ((stats as any)?.orders?.total || 0)}
-              size="sm"
-              className="text-xs h-8"
-              data-testid="button-batch-embed-orders"
-            >
-              {isBatchEmbeddingOrders && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
-              {((stats as any)?.orders?.embedded || 0) === ((stats as any)?.orders?.total || 0) ? 'All Done' : `Embed ${orderBatchSize}`}
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                onClick={handleBatchEmbedOrders}
+                disabled={isBatchEmbeddingOrders || ((stats as any)?.orders?.embedded || 0) === ((stats as any)?.orders?.total || 0)}
+                size="sm"
+                className="text-xs h-8 flex-1"
+                data-testid="button-batch-embed-orders"
+              >
+                {isBatchEmbeddingOrders && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
+                {((stats as any)?.orders?.embedded || 0) === ((stats as any)?.orders?.total || 0) ? 'All Done' : isAutoContinuing ? 'Processing...' : `Start Auto-Embed`}
+              </Button>
+              {isAutoContinuing && (
+                <Button
+                  onClick={() => setIsAutoContinuing(false)}
+                  size="sm"
+                  variant="outline"
+                  className="text-xs h-8"
+                  data-testid="button-stop-auto-embed-orders"
+                >
+                  Stop
+                </Button>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
