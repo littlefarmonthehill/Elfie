@@ -102,7 +102,7 @@ export async function embedInventoryItem(inventoryId: number) {
       await db
         .update(inventoryEmbeddings)
         .set({
-          embedding: sql`${embedding}::vector`,
+          embedding: sql.raw(`'${JSON.stringify(embedding)}'::vector`),
           content,
           updatedAt: new Date(),
         })
@@ -111,7 +111,7 @@ export async function embedInventoryItem(inventoryId: number) {
       // Insert new
       await db.insert(inventoryEmbeddings).values({
         inventoryId,
-        embedding: sql`${embedding}::vector`,
+        embedding: sql.raw(`'${JSON.stringify(embedding)}'::vector`),
         content,
       });
     }
@@ -154,7 +154,7 @@ export async function embedOrder(orderId: string) {
       await db
         .update(orderEmbeddings)
         .set({
-          embedding: sql`${embedding}::vector`,
+          embedding: sql.raw(`'${JSON.stringify(embedding)}'::vector`),
           content,
           updatedAt: new Date(),
         })
@@ -163,7 +163,7 @@ export async function embedOrder(orderId: string) {
       // Insert new
       await db.insert(orderEmbeddings).values({
         orderId,
-        embedding: sql`${embedding}::vector`,
+        embedding: sql.raw(`'${JSON.stringify(embedding)}'::vector`),
         content,
       });
     }
@@ -184,7 +184,7 @@ export async function searchInventorySemantic(query: string, limit: number = 5) 
     const queryEmbedding = await generateEmbedding(query);
     
     // Search using cosine similarity
-    const results = await db.execute(sql`
+    const results = await db.execute(sql.raw(`
       SELECT 
         ie.inventory_id,
         ie.content,
@@ -195,12 +195,12 @@ export async function searchInventorySemantic(query: string, limit: number = 5) 
         bi.quantity,
         bi.unit_price,
         bi.new_or_used,
-        1 - (ie.embedding <=> ${queryEmbedding}::vector) as similarity
+        1 - (ie.embedding <=> '${JSON.stringify(queryEmbedding)}'::vector) as similarity
       FROM inventory_embeddings ie
       JOIN bl_inventory bi ON ie.inventory_id = bi.id
-      ORDER BY ie.embedding <=> ${queryEmbedding}::vector
+      ORDER BY ie.embedding <=> '${JSON.stringify(queryEmbedding)}'::vector
       LIMIT ${limit}
-    `);
+    `));
     
     return results.rows;
   } catch (error: any) {
@@ -218,7 +218,7 @@ export async function searchOrders(query: string, limit: number = 5) {
     const queryEmbedding = await generateEmbedding(query);
     
     // Search using cosine similarity
-    const results = await db.execute(sql`
+    const results = await db.execute(sql.raw(`
       SELECT 
         oe.order_id,
         oe.content,
@@ -228,12 +228,12 @@ export async function searchOrders(query: string, limit: number = 5) {
         o.order_status,
         o.customer_username,
         o.order_total,
-        1 - (oe.embedding <=> ${queryEmbedding}::vector) as similarity
+        1 - (oe.embedding <=> '${JSON.stringify(queryEmbedding)}'::vector) as similarity
       FROM order_embeddings oe
       JOIN orders o ON oe.order_id = o.id
-      ORDER BY oe.embedding <=> ${queryEmbedding}::vector
+      ORDER BY oe.embedding <=> '${JSON.stringify(queryEmbedding)}'::vector
       LIMIT ${limit}
-    `);
+    `));
     
     return results.rows;
   } catch (error: any) {
