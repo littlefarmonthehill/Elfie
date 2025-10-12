@@ -28,7 +28,7 @@ interface Order {
 export default function SalesDashboard({ period, dateRange = 'all', onItemClick }: SalesDashboardProps) {
   const [selectedPlatform, setSelectedPlatform] = useState<string>('all');
   const { data: orders = [], isLoading } = useQuery<Order[]>({
-    queryKey: ['/api/orders', dateRange],
+    queryKey: ['/api/orders'],
   });
 
   // Calculate sales data by month - adjust based on date range
