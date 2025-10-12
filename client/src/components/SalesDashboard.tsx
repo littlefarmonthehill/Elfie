@@ -59,6 +59,16 @@ export default function SalesDashboard({ period, dateRange = 'all', onItemClick 
     }
   };
 
+  // Safe chart date formatter
+  const formatChartDate = (date: Date): string => {
+    try {
+      if (isNaN(date.getTime())) return '';
+      return format(date, 'MMM yy');
+    } catch {
+      return '';
+    }
+  };
+
   // Calculate sales data by month - adjust based on date range
   const getSalesData = () => {
     if (orders.length === 0) {
@@ -113,7 +123,7 @@ export default function SalesDashboard({ period, dateRange = 'all', onItemClick 
         const monthDate = new Date(startMonth);
         monthDate.setMonth(startMonth.getMonth() + i);
         return {
-          date: format(monthDate, 'MMM yy'),
+          date: formatChartDate(monthDate),
           month: startOfMonth(monthDate),
           sales: 0,
         };
@@ -127,7 +137,7 @@ export default function SalesDashboard({ period, dateRange = 'all', onItemClick 
       months = Array.from({ length: monthsToShow }, (_, i) => {
         const date = subMonths(new Date(), monthsToShow - 1 - i);
         return {
-          date: format(date, 'MMM yy'),
+          date: formatChartDate(date),
           month: startOfMonth(date),
           sales: 0,
         };
