@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { syncBricklinkData, fetchPriceOMagicData, searchBricklinkCatalogItem, syncPriceOMagicCache } from "./services/bricklink";
 import { syncShipStationOrders } from "./services/shipstation";
 import { db } from "./db";
-import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata } from "@shared/schema";
+import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings } from "@shared/schema";
 import { eq, desc, sql, inArray, like, or, and } from "drizzle-orm";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -1338,6 +1338,71 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
       console.error("Get embedding stats error:", error);
       res.status(500).json({ 
         error: error instanceof Error ? error.message : "Failed to get stats" 
+      });
+    }
+  });
+
+  // Get Inventory Items Without Embeddings
+  app.get("/api/embeddings/inventory/missing", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 100;
+      
+      // Get inventory items that don't have embeddings yet
+      const itemsWithoutEmbeddings = await db
+        .select({ id: blInventory.id })
+        .from(blInventory)
+        .leftJoin(inventoryEmbeddings, eq(blInventory.id, inventoryEmbeddings.inventoryId))
+        .where(sql`${inventoryEmbeddings.inventoryId} IS NULL`)
+        .limit(limit);
+      
+      res.json(itemsWithoutEmbeddings);
+    } catch (error) {
+      console.error("Get missing embeddings error:", error);
+      res.status(500).json({ 
+        error: error instanceof Error ? error.message : "Failed to get missing embeddings" 
+      });
+    }
+  });
+
+  // Get Orders Without Embeddings
+  app.get("/api/embeddings/orders/missing", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 100;
+      
+      // Get orders that don't have embeddings yet
+      const ordersWithoutEmbeddings = await db
+        .select({ id: orders.id })
+        .from(orders)
+        .leftJoin(orderEmbeddings, eq(orders.id, orderEmbeddings.orderId))
+        .where(sql`${orderEmbeddings.orderId} IS NULL`)
+        .limit(limit);
+      
+      res.json(ordersWithoutEmbeddings);
+    } catch (error) {
+      console.error("Get missing order embeddings error:", error);
+      res.status(500).json({ 
+        error: error instanceof Error ? error.message : "Failed to get missing order embeddings" 
+      });
+    }
+  });
+
+  // Batch Embed Orders
+  app.post("/api/embeddings/orders/batch", async (req, res) => {
+    try {
+      const { orderIds } = req.body;
+      
+      if (!orderIds || !Array.isArray(orderIds)) {
+        return res.status(400).json({ error: "orderIds array is required" });
+      }
+      
+      const { batchEmbedOrders } = await import('./services/embeddings');
+      const results = await batchEmbedOrders(orderIds);
+      
+      res.json({ results });
+    } catch (error) {
+      console.error("Batch order embedding error:", error);
+      res.status(500).json({ 
+        error: error instanceof Error ? error.message : "Batch order embedding failed" 
       });
     }
   });

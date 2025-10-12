@@ -12,7 +12,8 @@ import { Badge } from '@/components/ui/badge';
 export function EmbeddingsManager() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [batchSize, setBatchSize] = useState(100);
+  const [inventoryBatchSize, setInventoryBatchSize] = useState(100);
+  const [orderBatchSize, setOrderBatchSize] = useState(100);
 
   // Get embedding statistics
   const { data: stats, isLoading: statsLoading } = useQuery({
@@ -21,12 +22,27 @@ export function EmbeddingsManager() {
   });
 
   // Batch embed inventory
-  const { mutate: batchEmbed, isPending: isBatchEmbedding } = useMutation({
+  const { mutate: batchEmbedInventory, isPending: isBatchEmbeddingInventory } = useMutation({
     mutationFn: async (inventoryIds: number[]) => {
       const response = await fetch('/api/embeddings/inventory/batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ inventoryIds }),
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/embeddings/stats'] });
+    },
+  });
+
+  // Batch embed orders
+  const { mutate: batchEmbedOrders, isPending: isBatchEmbeddingOrders } = useMutation({
+    mutationFn: async (orderIds: string[]) => {
+      const response = await fetch('/api/embeddings/orders/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderIds }),
       });
       return response.json();
     },
@@ -50,18 +66,33 @@ export function EmbeddingsManager() {
     },
   });
 
-  const handleBatchEmbed = async () => {
+  const handleBatchEmbedInventory = async () => {
     try {
-      // Get first batch of inventory items without embeddings
-      const response = await fetch('/api/inventory?limit=' + batchSize);
+      // Get inventory items without embeddings
+      const response = await fetch('/api/embeddings/inventory/missing?limit=' + inventoryBatchSize);
       const items = await response.json();
       
       if (items && items.length > 0) {
         const inventoryIds = items.map((item: any) => item.id);
-        batchEmbed(inventoryIds);
+        batchEmbedInventory(inventoryIds);
       }
     } catch (error) {
       console.error('Error getting inventory for embedding:', error);
+    }
+  };
+
+  const handleBatchEmbedOrders = async () => {
+    try {
+      // Get orders without embeddings
+      const response = await fetch('/api/embeddings/orders/missing?limit=' + orderBatchSize);
+      const items = await response.json();
+      
+      if (items && items.length > 0) {
+        const orderIds = items.map((item: any) => item.id);
+        batchEmbedOrders(orderIds);
+      }
+    } catch (error) {
+      console.error('Error getting orders for embedding:', error);
     }
   };
 
@@ -122,19 +153,19 @@ export function EmbeddingsManager() {
         </Card>
       </div>
 
-      {/* Batch Embedding */}
+      {/* Inventory Batch Embedding */}
       <Card>
         <CardHeader className="pb-2 p-3">
-          <CardTitle className="text-sm">Generate Embeddings</CardTitle>
+          <CardTitle className="text-sm">Generate Inventory Embeddings</CardTitle>
           <CardDescription className="text-xs">
-            Create vector embeddings to enable semantic search
+            Embed inventory items to enable semantic search
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 p-3 pt-0">
           <Alert className="p-2">
             <AlertCircle className="h-3 w-3" />
             <AlertDescription className="text-xs ml-2">
-              ~$0.002 per 1,000 items. For {(stats as any)?.inventory?.total || 0} items: ~${(((stats as any)?.inventory?.total || 0) * 0.000002).toFixed(2)}
+              ~$0.002 per 1,000 items. Total cost: ~${(((stats as any)?.inventory?.total || 0) * 0.000002).toFixed(2)}
             </AlertDescription>
           </Alert>
 
@@ -143,23 +174,66 @@ export function EmbeddingsManager() {
               <label className="text-xs text-gray-400 mb-1 block">Batch Size</label>
               <Input
                 type="number"
-                value={batchSize}
-                onChange={(e) => setBatchSize(parseInt(e.target.value) || 100)}
+                value={inventoryBatchSize}
+                onChange={(e) => setInventoryBatchSize(parseInt(e.target.value) || 100)}
                 className="w-full sm:w-32 text-xs h-8"
                 min={10}
                 max={1000}
-                data-testid="input-batch-size"
+                data-testid="input-inventory-batch-size"
               />
             </div>
             <Button
-              onClick={handleBatchEmbed}
-              disabled={isBatchEmbedding || inventoryProgress === 100}
+              onClick={handleBatchEmbedInventory}
+              disabled={isBatchEmbeddingInventory || inventoryProgress === 100}
               size="sm"
               className="text-xs h-8"
-              data-testid="button-batch-embed"
+              data-testid="button-batch-embed-inventory"
             >
-              {isBatchEmbedding && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
-              {inventoryProgress === 100 ? 'All Done' : `Embed ${batchSize}`}
+              {isBatchEmbeddingInventory && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
+              {inventoryProgress === 100 ? 'All Done' : `Embed ${inventoryBatchSize}`}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Orders Batch Embedding */}
+      <Card>
+        <CardHeader className="pb-2 p-3">
+          <CardTitle className="text-sm">Generate Order Embeddings</CardTitle>
+          <CardDescription className="text-xs">
+            Embed orders to enable semantic search
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 p-3 pt-0">
+          <Alert className="p-2">
+            <AlertCircle className="h-3 w-3" />
+            <AlertDescription className="text-xs ml-2">
+              ~$0.002 per 1,000 orders. Total cost: ~${(((stats as any)?.orders?.total || 0) * 0.000002).toFixed(2)}
+            </AlertDescription>
+          </Alert>
+
+          <div className="flex flex-col sm:flex-row gap-2 sm:items-end">
+            <div className="flex-1">
+              <label className="text-xs text-gray-400 mb-1 block">Batch Size</label>
+              <Input
+                type="number"
+                value={orderBatchSize}
+                onChange={(e) => setOrderBatchSize(parseInt(e.target.value) || 100)}
+                className="w-full sm:w-32 text-xs h-8"
+                min={10}
+                max={1000}
+                data-testid="input-order-batch-size"
+              />
+            </div>
+            <Button
+              onClick={handleBatchEmbedOrders}
+              disabled={isBatchEmbeddingOrders || ((stats as any)?.orders?.embedded || 0) === ((stats as any)?.orders?.total || 0)}
+              size="sm"
+              className="text-xs h-8"
+              data-testid="button-batch-embed-orders"
+            >
+              {isBatchEmbeddingOrders && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
+              {((stats as any)?.orders?.embedded || 0) === ((stats as any)?.orders?.total || 0) ? 'All Done' : `Embed ${orderBatchSize}`}
             </Button>
           </div>
         </CardContent>

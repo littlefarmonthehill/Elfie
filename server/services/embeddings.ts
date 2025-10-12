@@ -290,6 +290,23 @@ export async function batchEmbedInventory(inventoryIds: number[]) {
 }
 
 /**
+ * Batch embed orders
+ */
+export async function batchEmbedOrders(orderIds: string[]) {
+  const results = [];
+  
+  for (const id of orderIds) {
+    const result = await embedOrder(id);
+    results.push(result);
+    
+    // Small delay to avoid rate limits
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  
+  return results;
+}
+
+/**
  * Get embedding statistics
  */
 export async function getEmbeddingStats() {
