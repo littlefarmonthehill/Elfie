@@ -1680,6 +1680,68 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
     }
   });
 
+  // Marketplace diagnostic endpoint
+  app.get("/api/orders/marketplace-diagnostic", async (req, res) => {
+    try {
+      // Get summary statistics
+      const stats = await db.execute(sql`
+        SELECT 
+          marketplace,
+          COUNT(*) as count,
+          ROUND(100.0 * COUNT(*) / (SELECT COUNT(*) FROM orders), 1) as percentage
+        FROM orders
+        GROUP BY marketplace
+        ORDER BY count DESC
+      `);
+
+      // Get sample "Unknown" orders with their data
+      const unknownSamples = await db.execute(sql`
+        SELECT 
+          order_number,
+          order_key,
+          marketplace,
+          order_date,
+          CASE 
+            WHEN order_number ~ '^BL\\.' THEN 'Should be: BrickLink'
+            WHEN order_number ~ '^BO\\.' THEN 'Should be: BrickOwl'
+            WHEN order_number ~ '^LBS' THEN 'Should be: eBay'
+            WHEN order_number ~ '^\\d{7,8}$' THEN 'Should be: BrickLink (numeric)'
+            WHEN order_number ~ '^\\d{3}-\\d{7}-\\d{7}$' THEN 'Should be: Amazon'
+            WHEN order_number ~ '^\\d{2}-\\d{5}-\\d{5}$' THEN 'Should be: eBay'
+            ELSE 'Pattern not recognized'
+          END as detected_pattern
+        FROM orders 
+        WHERE marketplace IS NULL
+        ORDER BY order_date DESC
+        LIMIT 20
+      `);
+
+      res.json({
+        success: true,
+        summary: stats.rows,
+        unknownSamples: unknownSamples.rows,
+        insights: {
+          totalOrders: stats.rows.reduce((sum: number, row: any) => sum + Number(row.count), 0),
+          unknownCount: stats.rows.find((row: any) => row.marketplace === null)?.count || 0,
+          detectionPatterns: [
+            { pattern: 'BL.XXXXXXX', platform: 'BrickLink' },
+            { pattern: 'BO.XXXXXXX', platform: 'BrickOwl' },
+            { pattern: 'LBS*', platform: 'eBay' },
+            { pattern: '7-8 digits', platform: 'BrickLink (legacy)' },
+            { pattern: 'XXX-XXXXXXX-XXXXXXX', platform: 'Amazon' },
+            { pattern: 'XX-XXXXX-XXXXX', platform: 'eBay' }
+          ]
+        }
+      });
+    } catch (error) {
+      console.error("Marketplace diagnostic error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to generate marketplace diagnostic",
+      });
+    }
+  });
+
   // Price-o-Matic sync endpoint
   app.post("/api/sync/priceomatic", async (req, res) => {
     try {
