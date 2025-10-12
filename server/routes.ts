@@ -1202,6 +1202,119 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
     }
   });
 
+  // Semantic Search - Inventory
+  app.post("/api/search/inventory/semantic", async (req, res) => {
+    try {
+      const { query, limit = 5 } = req.body;
+      
+      if (!query) {
+        return res.status(400).json({ error: "Query is required" });
+      }
+      
+      const { searchInventorySemantic } = await import('./services/embeddings');
+      const results = await searchInventorySemantic(query, limit);
+      
+      res.json({ results });
+    } catch (error) {
+      console.error("Semantic search error:", error);
+      res.status(500).json({ 
+        error: error instanceof Error ? error.message : "Semantic search failed" 
+      });
+    }
+  });
+
+  // Semantic Search - Orders
+  app.post("/api/search/orders/semantic", async (req, res) => {
+    try {
+      const { query, limit = 5 } = req.body;
+      
+      if (!query) {
+        return res.status(400).json({ error: "Query is required" });
+      }
+      
+      const { searchOrders } = await import('./services/embeddings');
+      const results = await searchOrders(query, limit);
+      
+      res.json({ results });
+    } catch (error) {
+      console.error("Order semantic search error:", error);
+      res.status(500).json({ 
+        error: error instanceof Error ? error.message : "Order search failed" 
+      });
+    }
+  });
+
+  // Find Similar Items
+  app.get("/api/inventory/:id/similar", async (req, res) => {
+    try {
+      const inventoryId = parseInt(req.params.id);
+      const limit = parseInt(req.query.limit as string) || 5;
+      
+      const { findSimilarItems } = await import('./services/embeddings');
+      const results = await findSimilarItems(inventoryId, limit);
+      
+      res.json({ results });
+    } catch (error) {
+      console.error("Find similar items error:", error);
+      res.status(500).json({ 
+        error: error instanceof Error ? error.message : "Failed to find similar items" 
+      });
+    }
+  });
+
+  // Batch Embed Inventory Items
+  app.post("/api/embeddings/inventory/batch", async (req, res) => {
+    try {
+      const { inventoryIds } = req.body;
+      
+      if (!inventoryIds || !Array.isArray(inventoryIds)) {
+        return res.status(400).json({ error: "inventoryIds array is required" });
+      }
+      
+      const { batchEmbedInventory } = await import('./services/embeddings');
+      const results = await batchEmbedInventory(inventoryIds);
+      
+      res.json({ results });
+    } catch (error) {
+      console.error("Batch embedding error:", error);
+      res.status(500).json({ 
+        error: error instanceof Error ? error.message : "Batch embedding failed" 
+      });
+    }
+  });
+
+  // Embed Single Inventory Item
+  app.post("/api/embeddings/inventory/:id", async (req, res) => {
+    try {
+      const inventoryId = parseInt(req.params.id);
+      
+      const { embedInventoryItem } = await import('./services/embeddings');
+      const result = await embedInventoryItem(inventoryId);
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Embedding error:", error);
+      res.status(500).json({ 
+        error: error instanceof Error ? error.message : "Embedding failed" 
+      });
+    }
+  });
+
+  // Get Embedding Statistics
+  app.get("/api/embeddings/stats", async (req, res) => {
+    try {
+      const { getEmbeddingStats } = await import('./services/embeddings');
+      const stats = await getEmbeddingStats();
+      
+      res.json(stats);
+    } catch (error) {
+      console.error("Get embedding stats error:", error);
+      res.status(500).json({ 
+        error: error instanceof Error ? error.message : "Failed to get stats" 
+      });
+    }
+  });
+
   // BrickLink Catalog Search Endpoint
   app.get("/api/bricklink/search", async (req, res) => {
     try {
