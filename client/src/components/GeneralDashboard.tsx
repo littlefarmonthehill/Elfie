@@ -1,7 +1,8 @@
 import MetricCard from "./MetricCard";
 import { useQuery } from "@tanstack/react-query";
-import { Package, AlertCircle, TrendingUp, ShoppingCart } from "lucide-react";
+import { TrendingDown, AlertCircle, TrendingUp, ShoppingCart } from "lucide-react";
 import { DateRangeValue } from "./DateRangeSelector";
+import { Badge } from "@/components/ui/badge";
 
 interface DashboardStats {
   totalOrders: number;
@@ -19,15 +20,27 @@ interface Order {
   orderStatus: string;
 }
 
-interface InventoryItem {
-  id: number;
+interface PricingInsight {
   inventoryId: number;
+  itemNo: string;
+  itemName: string | null;
+  itemType: string;
+  colorName: string | null;
+  currentPrice: string;
+  suggestedPrice: string;
+  variance: number;
   quantity: number;
-  unitPrice: string;
-  colorName: string;
-  item: {
-    no: string;
-    name: string;
+}
+
+interface InsightsData {
+  tooHigh: PricingInsight[];
+  tooLow: PricingInsight[];
+  wellPriced: PricingInsight[];
+  summary: {
+    total: number;
+    tooHigh: number;
+    tooLow: number;
+    wellPriced: number;
   };
 }
 
@@ -68,12 +81,15 @@ export default function GeneralDashboard({ dateRange = 'all', onItemClick }: Gen
       ).slice(0, 5)
   });
 
-  // Fetch low stock items (critical alerts)
-  const { data: lowStockItems = [] } = useQuery<InventoryItem[]>({
-    queryKey: ['/api/inventory', 'low-stock'],
-    select: (data: InventoryItem[]) => 
-      data.filter(item => item.quantity > 0 && item.quantity < 10).slice(0, 5)
+  // Fetch pricing opportunities (items priced too low)
+  const { data: pricingInsights } = useQuery<{ success: boolean; data: InsightsData }>({
+    queryKey: ['/api/priceomatic/insights'],
   });
+
+  // Get top pricing opportunities (items priced too low, sorted by variance)
+  const pricingOpportunities = pricingInsights?.data?.tooLow
+    ?.sort((a, b) => Math.abs(b.variance) - Math.abs(a.variance))
+    ?.slice(0, 5) || [];
 
   // Fetch recent high-value orders with date range
   const { data: recentSales = [] } = useQuery<Order[]>({
@@ -90,10 +106,20 @@ export default function GeneralDashboard({ dateRange = 'all', onItemClick }: Gen
         .slice(0, 5)
   });
 
+  const formatCurrency = (value: string | number) => {
+    const num = typeof value === 'string' ? parseFloat(value) : value;
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 3,
+    }).format(num);
+  };
+
   return (
     <div className="p-4 space-y-4 bg-gradient-to-br from-lego-red/5 to-transparent rounded-lg border border-lego-red/10 shadow-[0_0_15px_rgba(239,68,68,0.1)]">
       {/* Key Metrics */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         <MetricCard 
           label="Total Revenue" 
           value={`$${(stats?.totalSales || 0).toLocaleString()}`} 
@@ -105,18 +131,6 @@ export default function GeneralDashboard({ dateRange = 'all', onItemClick }: Gen
           value={stats?.totalOrders.toLocaleString() || '0'} 
           color="blue" 
           data-testid="metric-total-orders"
-        />
-        <MetricCard 
-          label="Inventory Items" 
-          value={stats?.totalInventoryItems.toLocaleString() || '0'} 
-          color="red" 
-          data-testid="metric-inventory-items"
-        />
-        <MetricCard 
-          label="Total Pieces" 
-          value={stats?.totalInventoryQuantity.toLocaleString() || '0'} 
-          color="yellow" 
-          data-testid="metric-total-pieces"
         />
       </div>
       
@@ -150,31 +164,38 @@ export default function GeneralDashboard({ dateRange = 'all', onItemClick }: Gen
           </div>
         </div>
 
-        {/* Critical Alerts - Low Stock */}
-        <div className="bg-gray-900/50 border border-red-500/20 rounded-lg p-4" data-testid="section-critical-alerts">
+        {/* Top Pricing Opportunities */}
+        <div className="bg-gray-900/50 border border-purple-500/20 rounded-lg p-4" data-testid="section-pricing-opportunities">
           <div className="flex items-center gap-2 mb-3">
-            <Package className="w-4 h-4 text-red-400" />
-            <h3 className="text-[10px] font-semibold text-red-400 uppercase tracking-wide">Critical Alerts - Low Stock</h3>
+            <TrendingDown className="w-4 h-4 text-purple-400" />
+            <h3 className="text-[10px] font-semibold text-purple-400 uppercase tracking-wide">Top Pricing Opportunities</h3>
           </div>
           <div className="space-y-1.5">
-            {lowStockItems.length > 0 ? (
-              lowStockItems.map((item) => (
+            {pricingOpportunities.length > 0 ? (
+              pricingOpportunities.map((item) => (
                 <div 
-                  key={item.id} 
-                  onClick={() => onItemClick?.('inventory', item.id)}
+                  key={item.inventoryId} 
+                  onClick={() => onItemClick?.('inventory', item.inventoryId)}
                   className="flex justify-between items-center text-[10px] hover-elevate rounded px-2 py-1 cursor-pointer"
-                  data-testid={`alert-item-${item.id}`}
+                  data-testid={`pricing-item-${item.inventoryId}`}
                 >
                   <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <AlertCircle className="w-3 h-3 text-red-400 flex-shrink-0" />
-                    <span className="text-gray-400 font-mono flex-shrink-0">{item.item.no}</span>
-                    <span className="text-gray-500 text-[9px] truncate">{item.colorName}</span>
+                    <TrendingDown className="w-3 h-3 text-purple-400 flex-shrink-0" />
+                    <span className="text-gray-400 font-mono flex-shrink-0">{item.itemNo}</span>
+                    {item.colorName && (
+                      <Badge variant="outline" className="text-[8px] px-1 py-0">
+                        {item.colorName}
+                      </Badge>
+                    )}
                   </div>
-                  <span className="text-red-400 font-mono text-[9px] ml-2 flex-shrink-0">Qty: {item.quantity}</span>
+                  <div className="flex items-center gap-2 ml-2 flex-shrink-0">
+                    <span className="text-gray-500 font-mono text-[9px]">{formatCurrency(item.currentPrice)}</span>
+                    <span className="text-orange-400 font-mono text-[9px] font-bold">{item.variance}%</span>
+                  </div>
                 </div>
               ))
             ) : (
-              <div className="text-[9px] text-gray-500 italic">No low stock items</div>
+              <div className="text-[9px] text-gray-500 italic">Run Price-o-Matic to see opportunities</div>
             )}
           </div>
         </div>

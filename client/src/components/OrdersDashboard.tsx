@@ -32,30 +32,22 @@ export default function OrdersDashboard({ dateRange = 'all', onItemClick }: Orde
 
   // Process orders into trend data based on date range
   const getTrendData = () => {
-    // If no orders, show empty 7-day chart
     if (orders.length === 0) {
-      return Array.from({ length: 7 }, (_, i) => {
-        const date = subDays(new Date(), 6 - i);
-        return {
-          date: format(date, 'EEE'),
-          bricklink: 0,
-          brickowl: 0,
-          other: 0,
-        };
-      });
+      return [];
     }
 
-    // Find the most recent order date to base the chart on
-    const mostRecentOrderDate = orders.reduce((latest, order) => {
-      const orderDate = new Date(order.orderDate);
-      return orderDate > latest ? orderDate : latest;
-    }, new Date(orders[0].orderDate));
+    // Determine number of days to show based on date range
+    const daysToShow = dateRange === '2years' ? 60 :  // Show ~2 months of days for 2 years
+                      dateRange === '1year' ? 30 :     // Show 1 month of days for 1 year
+                      dateRange === '6months' ? 30 :   // Show 1 month of days for 6 months
+                      dateRange === '3months' ? 30 :   // Show 1 month of days for 3 months
+                      30;  // Default to 30 days for 'all'
 
-    // Create 7-day window ending at the most recent order date
-    const last7Days = Array.from({ length: 7 }, (_, i) => {
-      const date = subDays(mostRecentOrderDate, 6 - i);
+    // Create array of days
+    const days = Array.from({ length: daysToShow }, (_, i) => {
+      const date = subDays(new Date(), daysToShow - 1 - i);
       return {
-        date: format(date, 'EEE'),
+        date: format(date, 'MMM d'),  // Format like "Jan 15"
         fullDate: startOfDay(date),
         bricklink: 0,
         brickowl: 0,
@@ -63,9 +55,10 @@ export default function OrdersDashboard({ dateRange = 'all', onItemClick }: Orde
       };
     });
 
+    // Aggregate orders into days
     orders.forEach(order => {
       const orderDate = startOfDay(new Date(order.orderDate));
-      const dayData = last7Days.find(day => 
+      const dayData = days.find(day => 
         orderDate.getTime() === day.fullDate.getTime()
       );
       
@@ -82,7 +75,7 @@ export default function OrdersDashboard({ dateRange = 'all', onItemClick }: Orde
       }
     });
 
-    return last7Days.map(({ date, bricklink, brickowl, other }) => ({
+    return days.map(({ date, bricklink, brickowl, other }) => ({
       date,
       bricklink,
       brickowl,

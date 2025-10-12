@@ -53,13 +53,6 @@ export default function InventoryDashboard({ onItemClick }: InventoryDashboardPr
     queryKey: ['/api/inventory/stats'],
   });
 
-  // Fetch low stock items
-  const { data: lowStockItems = [] } = useQuery<InventoryItem[]>({
-    queryKey: ['/api/inventory', 'low-stock'],
-    select: (data: InventoryItem[]) => 
-      data.filter(item => item.quantity > 0 && item.quantity < 10).slice(0, 6)
-  });
-
   // Fetch top value items
   const { data: topValueItems = [] } = useQuery<InventoryItem[]>({
     queryKey: ['/api/inventory', 'top-value'],
@@ -158,35 +151,6 @@ export default function InventoryDashboard({ onItemClick }: InventoryDashboardPr
             <MetricCard label="My Cost" value={stats ? formatCurrency(stats.totalCost) : '$0.00'} color="red" data-testid="metric-cost" />
             <MetricCard label="Listed" value={stats ? formatCurrency(stats.totalValue) : '$0.00'} color="blue" data-testid="metric-listed" />
             <MetricCard label="Profit Potential" value={formatCurrency(profitPotential)} color="green" data-testid="metric-profit" />
-          </div>
-        </div>
-
-        {/* Action Items - Low Stock Alerts */}
-        <div className="bg-gray-900/50 border border-red-500/20 rounded-lg p-3" data-testid="section-low-stock">
-          <div className="flex items-center gap-2 mb-2">
-            <AlertCircle className="w-3.5 h-3.5 text-red-400" />
-            <h3 className="text-[10px] font-semibold text-red-400 uppercase tracking-wide">Action Items - Low Stock Alerts</h3>
-          </div>
-          <div className="space-y-1">
-            {lowStockItems.length > 0 ? (
-              lowStockItems.map((item) => (
-                <div 
-                  key={item.id} 
-                  onClick={() => onItemClick?.('inventory', item.inventoryId)}
-                  className="flex justify-between items-center text-[10px] hover-elevate rounded px-2 py-0.5 cursor-pointer"
-                  data-testid={`low-stock-${item.id}`}
-                >
-                  <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                    <Package className="w-3 h-3 text-red-400 flex-shrink-0" />
-                    <span className="text-gray-400 font-mono flex-shrink-0">{item.item.no}</span>
-                    <span className="text-gray-500 truncate text-[9px]">{item.colorName}</span>
-                  </div>
-                  <span className="text-red-400 font-mono ml-2 flex-shrink-0">Qty: {item.quantity}</span>
-                </div>
-              ))
-            ) : (
-              <div className="text-[9px] text-gray-500 italic">No low stock items</div>
-            )}
           </div>
         </div>
 

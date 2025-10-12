@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Users, TrendingUp, Star, Target } from "lucide-react";
+import { DateRangeValue } from "./DateRangeSelector";
 
 interface Order {
   id: string;
@@ -18,12 +19,24 @@ interface CustomerData {
 }
 
 interface MarketingDashboardProps {
+  dateRange?: DateRangeValue;
   onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
 }
 
-export default function MarketingDashboard({ onItemClick }: MarketingDashboardProps) {
+export default function MarketingDashboard({ dateRange = 'all', onItemClick }: MarketingDashboardProps) {
+  // Build query URL with date range parameter
+  const buildQueryUrl = (baseUrl: string) => {
+    if (dateRange === 'all') return baseUrl;
+    return `${baseUrl}?range=${dateRange}`;
+  };
+
   const { data: orders = [], isLoading } = useQuery<Order[]>({
-    queryKey: ['/api/orders'],
+    queryKey: ['/api/orders', dateRange],
+    queryFn: async () => {
+      const response = await fetch(buildQueryUrl('/api/orders'));
+      if (!response.ok) throw new Error('Failed to fetch orders');
+      return response.json();
+    }
   });
 
   // Calculate customer metrics

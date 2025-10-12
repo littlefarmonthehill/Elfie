@@ -203,7 +203,7 @@ export default function Home() {
       case 'sales':
         return <SalesDashboard period={salesPeriod} dateRange={dateRange} onItemClick={handleDashboardItemClick} />;
       case 'marketing':
-        return <MarketingDashboard onItemClick={handleDashboardItemClick} />;
+        return <MarketingDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} />;
       case 'priceomatic':
         return <PriceOMaticDashboard onItemClick={handleDashboardItemClick} />;
       default:
@@ -558,8 +558,8 @@ export default function Home() {
       <Header onSettingsClick={() => setSettingsOpen(true)} />
       <DashboardNav active={activeDashboard} onSelect={setActiveDashboard} />
       
-      {/* Date Range Selector - Only show for dashboards, orders, and sales */}
-      {(activeDashboard === 'dashboard' || activeDashboard === 'orders' || activeDashboard === 'sales') && (
+      {/* Date Range Selector - Only show for dashboards, orders, sales, and marketing */}
+      {(activeDashboard === 'dashboard' || activeDashboard === 'orders' || activeDashboard === 'sales' || activeDashboard === 'marketing') && (
         <div className="px-4 py-2 border-b border-gray-800">
           <DateRangeSelector value={dateRange} onChange={setDateRange} />
         </div>
