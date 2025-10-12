@@ -174,8 +174,16 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
   const profit = myCost !== null && myCost > 0 ? (currentPrice - myCost) * quantity : null;
   const profitMargin = myCost !== null && myCost > 0 && currentPrice > 0 ? ((currentPrice - myCost) / currentPrice * 100) : null;
   
-  // BrickLink URL
-  const itemTypeParam = data.itemType || 'P';
+  // BrickLink URL - Map full item type names to BrickLink URL parameters
+  const itemType = data.itemType || 'PART';
+  const itemTypeParam = itemType === 'SET' ? 'S' :
+                        itemType === 'MINIFIG' ? 'M' :
+                        itemType === 'PART' ? 'P' :
+                        itemType === 'BOOK' ? 'B' :
+                        itemType === 'GEAR' ? 'G' :
+                        itemType === 'CATALOG' ? 'C' :
+                        itemType === 'INSTRUCTION' ? 'I' :
+                        'P'; // Default to P for parts
   const itemNoParam = data.itemNo || 'unknown';
   const bricklinkUrl = `https://www.bricklink.com/v2/catalog/catalogitem.page?${itemTypeParam}=${itemNoParam}${data.colorId ? `&idColor=${data.colorId}` : ''}`;
   

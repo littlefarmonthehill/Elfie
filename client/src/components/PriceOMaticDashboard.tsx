@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,8 @@ import {
   RefreshCw,
   AlertCircle,
   Clock,
-  Zap
+  Zap,
+  ChevronDown
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -58,6 +59,7 @@ interface PriceOMaticDashboardProps {
 export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboardProps) {
   const { toast } = useToast();
   const [selectedCategory, setSelectedCategory] = useState<'too-high' | 'too-low' | 'good'>('too-high');
+  const [itemsToShow, setItemsToShow] = useState(50);
 
   // Fetch sync status
   const { data: syncStatus } = useQuery<{ success: boolean; data: SyncStatus }>({
@@ -125,6 +127,11 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
   };
 
   const selectedItems = getSelectedItems();
+
+  // Reset items to show when category changes
+  useEffect(() => {
+    setItemsToShow(50);
+  }, [selectedCategory]);
 
   return (
     <div className="space-y-4 p-4 touch-pan-y">
@@ -273,7 +280,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
             </div>
           ) : (
             <>
-              {selectedItems.slice(0, 50).map((item) => (
+              {selectedItems.slice(0, itemsToShow).map((item) => (
                 <div
                   key={item.inventoryId}
                   onClick={() => onItemClick?.('inventory', item.inventoryId)}
@@ -317,10 +324,17 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
                   </div>
                 </div>
               ))}
-              {selectedItems.length > 50 && (
-                <p className="text-[10px] text-gray-500 text-center py-2">
-                  Showing 50 of {selectedItems.length} items
-                </p>
+              {selectedItems.length > itemsToShow && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setItemsToShow(prev => prev + 50)}
+                  className="w-full gap-2"
+                  data-testid="button-show-more"
+                >
+                  <ChevronDown className="w-4 h-4" />
+                  Show More ({selectedItems.length - itemsToShow} remaining)
+                </Button>
               )}
             </>
           )}

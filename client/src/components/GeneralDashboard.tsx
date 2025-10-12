@@ -183,14 +183,16 @@ export default function GeneralDashboard({ dateRange = 'all', onItemClick }: Gen
                     <div className="flex items-center gap-2 mb-0.5">
                       <TrendingDown className="w-3 h-3 text-purple-400 flex-shrink-0" />
                       <span className="text-gray-400 font-mono flex-shrink-0">{item.itemNo}</span>
-                      {item.colorName && (
+                      {item.itemName && (
+                        <span className="text-white text-[10px] truncate">{item.itemName}</span>
+                      )}
+                    </div>
+                    {item.colorName && (
+                      <div className="ml-5">
                         <Badge variant="outline" className="text-[8px] px-1 py-0">
                           {item.colorName}
                         </Badge>
-                      )}
-                    </div>
-                    {item.itemName && (
-                      <p className="text-[9px] text-gray-500 truncate ml-5">{item.itemName}</p>
+                      </div>
                     )}
                   </div>
                   <div className="flex items-center gap-2 ml-2 flex-shrink-0">
