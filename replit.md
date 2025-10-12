@@ -12,7 +12,7 @@ Preferred communication style: Simple, everyday language.
 The frontend uses React 18+ with TypeScript, Vite, Shadcn/ui, and Tailwind CSS, featuring a dark mode with a LEGO-themed color palette. Typography uses Inter/Roboto for UI and JetBrains Mono for metrics. The design includes modular dashboards with tab-based navigation, reusable metric cards, drawer-based detail modals, and a purple/violet themed AI chat interface. It is responsive, with optimizations for mobile displays and iOS keyboard compatibility.
 
 **Recent UI Improvements (October 2025):**
-- E.L.F.I.E. chat interface fixed for iPhone viewport: Container now uses h-16 when minimized to prevent overflow below screen
+- E.L.F.I.E. chat interface iPhone safe area fix (Oct 12): Minimized chat now uses `position: fixed` outside overflow container with `env(safe-area-inset-bottom)` padding to properly anchor to viewport bottom on iPhone Safari, accounting for browser controls. Expanded chat uses flex layout. This ensures chat is always visible and accessible on mobile devices.
 - Default dashboard simplified: Shows all-time stats (date range selector removed for cleaner mobile experience)
 - Enhanced dashboard readability: Recent activity items use two-line layout with primary info (item name/order number) on top line, secondary details (color/condition or customer/date) on second line
 - Consistent mobile-first layout across Inventory and Default dashboards for improved information density

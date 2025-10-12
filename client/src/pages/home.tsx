@@ -554,7 +554,7 @@ export default function Home() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-background text-foreground" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+    <div className="flex flex-col h-screen bg-background text-foreground">
       <Header onSettingsClick={() => setSettingsOpen(true)} />
       <DashboardNav active={activeDashboard} onSelect={setActiveDashboard} />
       
@@ -580,9 +580,28 @@ export default function Home() {
           {renderDashboard()}
         </div>
         
+        {!chatMinimized && (
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <ChatInterface 
+              dashboardContext={getChatContext()} 
+              themeColor={getThemeColor()} 
+              prompts={[]} 
+              onPromptAction={handlePromptAction}
+              onItemClick={handleItemClick}
+              isMinimized={chatMinimized}
+              onToggleMinimize={() => setChatMinimized(!chatMinimized)}
+            />
+          </div>
+        )}
+      </div>
+      
+      {/* Fixed position chat when minimized - outside overflow container */}
+      {chatMinimized && (
         <div 
-          className={`transition-all duration-300 ${chatMinimized ? 'shrink-0' : 'flex-1'} flex flex-col overflow-hidden`}
-          style={{ height: chatMinimized ? 'calc(4rem + env(safe-area-inset-bottom, 0px))' : undefined }}
+          className="fixed left-0 right-0 bottom-0 z-50"
+          style={{ 
+            paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+          }}
         >
           <ChatInterface 
             dashboardContext={getChatContext()} 
@@ -594,7 +613,7 @@ export default function Home() {
             onToggleMinimize={() => setChatMinimized(!chatMinimized)}
           />
         </div>
-      </div>
+      )}
       
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       
