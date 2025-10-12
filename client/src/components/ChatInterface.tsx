@@ -264,7 +264,7 @@ function MessageContent({ content, items, bricklinkSearchSuggestion, onItemClick
 
 interface ChatInterfaceProps {
   dashboardContext: string;
-  themeColor: 'red' | 'blue' | 'yellow' | 'green' | 'orange';
+  themeColor: 'red' | 'blue' | 'yellow' | 'green' | 'orange' | 'purple';
   prompts: string[];
   onPromptAction?: (prompt: string) => void;
   onItemClick?: (type: 'inventory' | 'order' | 'sales' | 'marketing', id: string) => void;

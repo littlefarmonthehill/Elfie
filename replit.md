@@ -50,6 +50,29 @@ Preferred communication style: Simple, everyday language.
   - Shows premium breakdown: Base Premium + Scarcity Bonus = Total Premium
   - Contextual explanation of how scarcity affects pricing
 
+#### Price-o-Matic Dashboard (Bulk Pricing Intelligence)
+- **Purpose:** Separate dashboard for identifying pricing opportunities across entire inventory without exhausting API limits.
+- **Intelligent Caching System:**
+  - Background sync processes up to 1,500 items per day (stays under 5,000 API call limit)
+  - Rolling 14-day refresh cycle ensures all inventory stays current
+  - Stops automatically at 4,500 API calls to preserve quota buffer
+  - Priority queue: items without cache → oldest cached items
+- **Pricing Insights:**
+  - Categorizes items as "Too High" (20%+ above suggested), "Too Low" (20%+ below suggested), or "Well Priced"
+  - Displays variance percentage, current vs suggested price, and market data freshness
+  - Tabbed interface for easy filtering of pricing categories
+  - Shows up to 50 items per category with full inventory details
+- **Sync Management:**
+  - Real-time status display (Success, Partial, In Progress, Failed, Never Synced)
+  - Shows last sync time, items updated count, and error messages
+  - Manual "Update Prices" button to trigger on-demand sync
+  - API safeguards: checks rate limit before starting, every 10 items during sync, stops if approaching limit
+- **Technical Implementation:**
+  - Endpoints: `POST /api/sync/priceomatic`, `GET /api/sync/priceomatic/status`, `GET /api/priceomatic/insights`
+  - Uses `price_guide_cache` table with `nextRefresh` timestamp for rolling updates
+  - Sync metadata tracked in `sync_metadata` table (id: 'priceomatic_cache')
+  - Calculates pricing variance by comparing `blInventory.unitPrice` with cached `suggestedPrice`
+
 #### Platform Performance Dashboard
 - **Sales Dashboard Integration:** Located in the Sales tab after Key Metrics section.
 - **Marketplace Tracking:** Orders are automatically tagged with selling platform:

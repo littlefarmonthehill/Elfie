@@ -36,8 +36,8 @@ export async function checkRateLimit(): Promise<RateLimitStatus> {
   
   const callsLast24h = Number(recentCalls[0]?.count) || 0;
   
-  // Block at 4750 calls
-  if (callsLast24h >= 4750) {
+  // Block at 4500 calls to preserve quota for Price-o-Matic
+  if (callsLast24h >= 4500) {
     return {
       allowed: false,
       callsLast24h,

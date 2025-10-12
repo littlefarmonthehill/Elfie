@@ -7,6 +7,7 @@ import SalesDashboard from "@/components/SalesDashboard";
 import MarketingDashboard from "@/components/MarketingDashboard";
 import GeneralDashboard from "@/components/GeneralDashboard";
 import OrdersDashboard from "@/components/OrdersDashboard";
+import PriceOMaticDashboard from "@/components/PriceOMaticDashboard";
 import ChatInterface from "@/components/ChatInterface";
 import DetailModal, { DetailData } from "@/components/DetailModal";
 import DateRangeSelector, { DateRangeValue } from "@/components/DateRangeSelector";
@@ -203,6 +204,8 @@ export default function Home() {
         return <SalesDashboard period={salesPeriod} dateRange={dateRange} onItemClick={handleDashboardItemClick} />;
       case 'marketing':
         return <MarketingDashboard onItemClick={handleDashboardItemClick} />;
+      case 'priceomatic':
+        return <PriceOMaticDashboard onItemClick={handleDashboardItemClick} />;
       default:
         return <GeneralDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} />;
     }
@@ -218,12 +221,14 @@ export default function Home() {
         return 'Sales';
       case 'marketing':
         return 'Marketing';
+      case 'priceomatic':
+        return 'Price-o-Matic';
       default:
         return 'Business';
     }
   };
 
-  const getThemeColor = (): 'red' | 'blue' | 'yellow' | 'green' | 'orange' => {
+  const getThemeColor = (): 'red' | 'blue' | 'yellow' | 'green' | 'orange' | 'purple' => {
     switch (activeDashboard) {
       case 'inventory':
         return 'blue';
@@ -233,6 +238,8 @@ export default function Home() {
         return 'green';
       case 'marketing':
         return 'yellow';
+      case 'priceomatic':
+        return 'purple';
       default:
         return 'red';
     }
@@ -567,6 +574,7 @@ export default function Home() {
           activeDashboard === 'inventory' ? 'bg-gradient-to-b from-lego-blue/20 to-lego-blue/5 border-lego-blue/30' :
           activeDashboard === 'orders' ? 'bg-gradient-to-b from-lego-orange/20 to-lego-orange/5 border-lego-orange/30' :
           activeDashboard === 'sales' ? 'bg-gradient-to-b from-lego-green/20 to-lego-green/5 border-lego-green/30' :
+          activeDashboard === 'priceomatic' ? 'bg-gradient-to-b from-purple-500/20 to-purple-500/5 border-purple-500/30' :
           'bg-gradient-to-b from-lego-yellow/20 to-lego-yellow/5 border-lego-yellow/30'
         }`}>
           {renderDashboard()}

@@ -74,10 +74,8 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
   // Sync mutation
   const syncMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest('/api/sync/priceomatic', {
-        method: 'POST',
-        body: JSON.stringify({ maxItems: 1500 }),
-      });
+      const response = await apiRequest('POST', '/api/sync/priceomatic', { maxItems: 1500 });
+      return await response.json();
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/sync/priceomatic/status'] });
