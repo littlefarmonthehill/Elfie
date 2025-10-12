@@ -306,15 +306,15 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
                       <div className="flex items-center gap-2">
                         <div className="flex-1">
                           <p className="text-[7px] text-gray-500">Current</p>
-                          <p className="text-[9px] font-mono text-white">{formatCurrency(item.currentPrice)}</p>
+                          <p className="text-[10px] font-mono text-white">{formatCurrency(item.currentPrice)}</p>
                         </div>
                         <div className="flex-1">
                           <p className="text-[7px] text-gray-500">Suggested</p>
-                          <p className="text-[9px] font-mono text-purple-400">{formatCurrency(item.suggestedPrice)}</p>
+                          <p className="text-[10px] font-mono text-purple-400">{formatCurrency(item.suggestedPrice)}</p>
                         </div>
                         <div className="flex-1">
                           <p className="text-[7px] text-gray-500">Variance</p>
-                          <p className={`text-[9px] font-mono font-bold ${
+                          <p className={`text-[10px] font-mono font-bold ${
                             item.variance > 0 ? 'text-red-400' : item.variance < 0 ? 'text-orange-400' : 'text-green-400'
                           }`}>
                             {item.variance > 0 ? '+' : ''}{item.variance}%

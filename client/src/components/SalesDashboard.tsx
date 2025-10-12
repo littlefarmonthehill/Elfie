@@ -47,20 +47,47 @@ export default function SalesDashboard({ period, dateRange = 'all', onItemClick 
     
     if (dateRange === 'all') {
       // For 'all time', use the actual earliest to latest order dates
-      const orderDates = orders.map(o => parseISO(o.orderDate));
+      const orderDates = orders
+        .map(o => parseISO(o.orderDate))
+        .filter(d => !isNaN(d.getTime())); // Filter out invalid dates
+      
+      if (orderDates.length === 0) {
+        return [];
+      }
+      
       const earliestOrderDate = new Date(Math.min(...orderDates.map(d => d.getTime())));
       const latestOrderDate = new Date(Math.max(...orderDates.map(d => d.getTime())));
       
+      // Validate dates
+      if (isNaN(earliestOrderDate.getTime()) || isNaN(latestOrderDate.getTime())) {
+        return [];
+      }
+      
       // Start from the earliest order's month
-      const startMonth = startOfMonth(earliestOrderDate);
-      const endMonth = startOfMonth(latestOrderDate);
+      const earliestMonth = startOfMonth(earliestOrderDate);
+      const latestMonth = startOfMonth(latestOrderDate);
       
       // Calculate months between earliest and latest
-      const monthDiff = (endMonth.getFullYear() - startMonth.getFullYear()) * 12 + 
-                        (endMonth.getMonth() - startMonth.getMonth()) + 1;
+      const monthDiff = (latestMonth.getFullYear() - earliestMonth.getFullYear()) * 12 + 
+                        (latestMonth.getMonth() - earliestMonth.getMonth()) + 1;
       
-      // Generate months from earliest to latest
-      months = Array.from({ length: monthDiff }, (_, i) => {
+      // If history is too long (>10 years/120 months), show only the most recent 120 months
+      let startMonth: Date;
+      let monthCount: number;
+      
+      if (monthDiff > 120) {
+        // Start from 120 months before the latest month
+        startMonth = new Date(latestMonth);
+        startMonth.setMonth(latestMonth.getMonth() - 119); // -119 because we include the latest month
+        monthCount = 120;
+      } else {
+        // Show full history
+        startMonth = earliestMonth;
+        monthCount = Math.max(monthDiff, 1);
+      }
+      
+      // Generate months from start to latest
+      months = Array.from({ length: monthCount }, (_, i) => {
         const monthDate = new Date(startMonth);
         monthDate.setMonth(startMonth.getMonth() + i);
         return {
