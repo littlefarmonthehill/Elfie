@@ -18,6 +18,11 @@ interface DiagnosticData {
   insights: {
     totalOrders: number;
     unknownCount: number;
+    detectionMethods: Array<{
+      priority: number;
+      method: string;
+      description: string;
+    }>;
     detectionPatterns: Array<{
       pattern: string;
       platform: string;
@@ -88,9 +93,30 @@ export default function MarketplaceDiagnostic() {
         </div>
       )}
 
+      {/* Enhanced Detection Methods */}
+      <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
+        <h3 className="text-sm font-semibold text-gray-300 mb-3">Enhanced Multi-Field Detection</h3>
+        <p className="text-xs text-gray-400 mb-3">
+          The system now checks 8 different data sources in priority order to identify marketplaces:
+        </p>
+        <div className="space-y-2">
+          {data.insights?.detectionMethods?.map((method: any, idx: number) => (
+            <div key={idx} className="flex items-start gap-3 text-xs">
+              <div className="bg-blue-500/20 text-blue-400 rounded px-1.5 py-0.5 font-mono text-[10px] flex-shrink-0">
+                P{method.priority}
+              </div>
+              <div className="flex-1">
+                <div className="font-semibold text-gray-300">{method.method}</div>
+                <div className="text-gray-500 text-[10px]">{method.description}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Detection Patterns */}
       <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
-        <h3 className="text-sm font-semibold text-gray-300 mb-3">Detection Patterns</h3>
+        <h3 className="text-sm font-semibold text-gray-300 mb-3">Order Number Patterns</h3>
         <div className="space-y-2">
           {data.insights?.detectionPatterns?.map((pattern: any, idx: number) => (
             <div key={idx} className="flex items-center gap-3 text-xs">

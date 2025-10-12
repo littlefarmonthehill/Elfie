@@ -1708,6 +1708,7 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
             WHEN order_number ~ '^\\d{7,8}$' THEN 'Should be: BrickLink (numeric)'
             WHEN order_number ~ '^\\d{3}-\\d{7}-\\d{7}$' THEN 'Should be: Amazon'
             WHEN order_number ~ '^\\d{2}-\\d{5}-\\d{5}$' THEN 'Should be: eBay'
+            WHEN order_number ~ '^\\d{12}-\\d{13}$' THEN 'Should be: eBay (long format)'
             ELSE 'Pattern not recognized'
           END as detected_pattern
         FROM orders 
@@ -1723,13 +1724,24 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
         insights: {
           totalOrders: stats.rows.reduce((sum: number, row: any) => sum + Number(row.count), 0),
           unknownCount: stats.rows.find((row: any) => row.marketplace === null)?.count || 0,
+          detectionMethods: [
+            { priority: 1, method: 'advancedOptions.source', description: 'Most reliable - direct marketplace field' },
+            { priority: 2, method: 'Custom Fields', description: 'Check customField1, customField2, customField3' },
+            { priority: 3, method: 'Order Number Pattern', description: 'BL., BO., LBS, numeric patterns' },
+            { priority: 4, method: 'Order Key Pattern', description: 'EBAY-, AMZN-, etc. prefixes' },
+            { priority: 5, method: 'Customer Email Domain', description: 'Marketplace notification emails' },
+            { priority: 6, method: 'Shipping Service', description: 'Carrier code or service mentions' },
+            { priority: 7, method: 'Store ID', description: 'advancedOptions.storeId references' },
+            { priority: 8, method: 'Order Notes', description: 'Internal/customer notes mentioning marketplace' }
+          ],
           detectionPatterns: [
             { pattern: 'BL.XXXXXXX', platform: 'BrickLink' },
             { pattern: 'BO.XXXXXXX', platform: 'BrickOwl' },
             { pattern: 'LBS*', platform: 'eBay' },
             { pattern: '7-8 digits', platform: 'BrickLink (legacy)' },
             { pattern: 'XXX-XXXXXXX-XXXXXXX', platform: 'Amazon' },
-            { pattern: 'XX-XXXXX-XXXXX', platform: 'eBay' }
+            { pattern: 'XX-XXXXX-XXXXX', platform: 'eBay' },
+            { pattern: '12-13 digit with hyphen', platform: 'eBay (long)' }
           ]
         }
       });

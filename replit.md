@@ -85,12 +85,18 @@ Preferred communication style: Simple, everyday language.
 
 #### Platform Performance Dashboard
 - **Sales Dashboard Integration:** Located in the Sales tab after Key Metrics section.
-- **Marketplace Tracking:** Orders are automatically tagged with selling platform:
-  - Extraction methods: `advancedOptions.source`, order key prefixes, order number patterns
-  - Supported platforms: BrickLink (BL. prefix, 7-8 digit numeric), BrickOwl (BO. prefix), eBay (LBS prefix), Amazon, Etsy, Facebook Marketplace, and more
-  - Improved extraction logic identifies ~91% of orders; graceful fallback to "Unknown" when platform cannot be determined
-  - Database standardization: "Brick Owl" → "BrickOwl" (1,784 records updated) to eliminate duplicate platform entries
-  - Full sync option available to re-extract marketplace for all historical orders
+- **Marketplace Tracking:** Orders are automatically tagged with selling platform using an enhanced 8-priority detection system:
+  - **Priority 1:** advancedOptions.source (most reliable)
+  - **Priority 2:** Custom fields (customField1/2/3)
+  - **Priority 3:** Order number patterns (BL., BO., LBS, numeric)
+  - **Priority 4:** Order key prefixes (EBAY-, AMZN-, etc.)
+  - **Priority 5:** Customer email domains (marketplace notifications)
+  - **Priority 6:** Shipping service/carrier codes
+  - **Priority 7:** Store ID references
+  - **Priority 8:** Internal/customer order notes
+  - Supported platforms: BrickLink, BrickOwl, eBay, Amazon, Etsy, Facebook Marketplace, Shopify, and more
+  - Database standardization: "Brick Owl" → "BrickOwl" to eliminate duplicate platform entries
+  - Full sync option available to re-extract marketplace for all historical orders using enhanced detection
 - **Visualizations:**
   - Bar chart showing revenue by marketplace (color-coded by platform)
   - Platform breakdown cards displaying: revenue, order count, percentage of total, average order value

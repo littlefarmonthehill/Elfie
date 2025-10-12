@@ -35,57 +35,84 @@ async function shipStationRequest(endpoint: string): Promise<any> {
 }
 
 // Helper function to extract marketplace/platform from ShipStation order data
-function extractMarketplace(order: any): string | null {
-  // Try to extract from advancedOptions.source first (most reliable)
+function extractMarketplace(order: any, debug: boolean = false): string | null {
+  const orderId = order.orderId || 'unknown';
+  
+  // Priority 1: Check advancedOptions.source (most reliable when present)
   if (order.advancedOptions?.source) {
-    return order.advancedOptions.source;
-  }
-  
-  // Try to extract from advancedOptions.billToParty or customField1 (some stores use these)
-  if (order.advancedOptions?.customField1) {
-    return order.advancedOptions.customField1;
-  }
-  
-  // Try to extract from orderNumber prefix patterns (most common in this system)
-  if (order.orderNumber) {
-    // BrickLink orders: "BL.1234567"
-    if (order.orderNumber.match(/^BL\./i)) {
+    const source = order.advancedOptions.source.trim();
+    // Normalize common variations
+    if (source.toLowerCase().includes('bricklink')) {
+      if (debug) console.log(`[Marketplace] Order ${orderId}: BrickLink (from source field)`);
       return 'BrickLink';
     }
-    // BrickOwl orders: "BO.1234567"
-    if (order.orderNumber.match(/^BO\./i)) {
+    if (source.toLowerCase().includes('brickowl') || source.toLowerCase().includes('brick owl')) {
+      if (debug) console.log(`[Marketplace] Order ${orderId}: BrickOwl (from source field)`);
       return 'BrickOwl';
     }
-    // LBS prefix (eBay or local business store)
-    if (order.orderNumber.match(/^LBS/i)) {
+    if (source.toLowerCase().includes('ebay')) {
+      if (debug) console.log(`[Marketplace] Order ${orderId}: eBay (from source field)`);
       return 'eBay';
     }
-    // BrickLink orders: 7-8 digit numeric pattern (legacy format)
-    if (order.orderNumber.match(/^\d{7,8}$/)) {
-      return 'BrickLink';
-    }
-    // Amazon order numbers: typically 3 sets of digits separated by hyphens
-    if (order.orderNumber.match(/^\d{3}-\d{7}-\d{7}$/)) {
+    if (source.toLowerCase().includes('amazon')) {
+      if (debug) console.log(`[Marketplace] Order ${orderId}: Amazon (from source field)`);
       return 'Amazon';
     }
-    // eBay order numbers: typically 2 sets of 5 digits separated by hyphen
-    if (order.orderNumber.match(/^\d{2}-\d{5}-\d{5}$/)) {
-      return 'eBay';
+    if (source.toLowerCase().includes('etsy')) {
+      if (debug) console.log(`[Marketplace] Order ${orderId}: Etsy (from source field)`);
+      return 'Etsy';
     }
+    if (debug) console.log(`[Marketplace] Order ${orderId}: ${source} (from source field)`);
+    return source; // Use as-is if it's something else
   }
   
-  // Try to extract from orderKey prefix (e.g., "EBAY-123456", "AMZN-123456")
+  // Priority 2: Check custom fields (some stores map marketplace here)
+  const customFields = [
+    order.advancedOptions?.customField1,
+    order.advancedOptions?.customField2,
+    order.advancedOptions?.customField3
+  ].filter(f => f && f.trim());
+  
+  for (const field of customFields) {
+    const lower = field.toLowerCase();
+    if (lower.includes('bricklink') || lower === 'bl') return 'BrickLink';
+    if (lower.includes('brickowl') || lower === 'bo') return 'BrickOwl';
+    if (lower.includes('ebay')) return 'eBay';
+    if (lower.includes('amazon') || lower === 'amzn') return 'Amazon';
+    if (lower.includes('etsy')) return 'Etsy';
+  }
+  
+  // Priority 3: Analyze orderNumber patterns
+  if (order.orderNumber) {
+    const orderNum = order.orderNumber.trim();
+    
+    // Explicit prefix patterns
+    if (orderNum.match(/^BL\./i)) return 'BrickLink';
+    if (orderNum.match(/^BO\./i)) return 'BrickOwl';
+    if (orderNum.match(/^LBS/i)) return 'eBay';
+    
+    // BrickLink legacy: 7-8 digit numeric
+    if (orderNum.match(/^\d{7,8}$/)) return 'BrickLink';
+    
+    // Amazon: XXX-XXXXXXX-XXXXXXX pattern
+    if (orderNum.match(/^\d{3}-\d{7}-\d{7}$/)) return 'Amazon';
+    
+    // eBay: XX-XXXXX-XXXXX pattern
+    if (orderNum.match(/^\d{2}-\d{5}-\d{5}$/)) return 'eBay';
+    
+    // Long numeric with hyphens (often eBay or other marketplace)
+    if (orderNum.match(/^\d{12}-\d{13}$/)) return 'eBay';
+  }
+  
+  // Priority 4: Analyze orderKey patterns
   if (order.orderKey) {
-    // BrickLink: "BL.1234567"
-    if (order.orderKey.match(/^BL\./i)) {
-      return 'BrickLink';
-    }
-    // BrickOwl: "BO.1234567"
-    if (order.orderKey.match(/^BO\./i)) {
-      return 'BrickOwl';
-    }
-    // Standard platform prefixes with hyphen
-    const match = order.orderKey.match(/^([A-Z]+)-/);
+    const orderKey = order.orderKey.trim();
+    
+    if (orderKey.match(/^BL\./i)) return 'BrickLink';
+    if (orderKey.match(/^BO\./i)) return 'BrickOwl';
+    
+    // Platform prefix with hyphen (EBAY-123, AMZN-456)
+    const match = orderKey.match(/^([A-Z]+)-/);
     if (match) {
       const prefix = match[1].toUpperCase();
       const platformMap: { [key: string]: string } = {
@@ -95,11 +122,53 @@ function extractMarketplace(order: any): string | null {
         'FB': 'Facebook Marketplace',
         'SHOPIFY': 'Shopify',
       };
-      return platformMap[prefix] || prefix;
+      if (platformMap[prefix]) return platformMap[prefix];
     }
   }
   
-  // Default to null if we can't determine
+  // Priority 5: Analyze customer email domain (quality assumption)
+  if (order.customerEmail) {
+    const email = order.customerEmail.toLowerCase();
+    
+    // BrickLink notifications come from specific domains
+    if (email.includes('@bricklink.com') || email.includes('bricklink')) return 'BrickLink';
+    if (email.includes('@brickowl.com') || email.includes('brickowl')) return 'BrickOwl';
+    
+    // Marketplace notification patterns
+    if (email.includes('@ebay.com') || email.includes('@marketplace.ebay')) return 'eBay';
+    if (email.includes('@amazon.com') || email.includes('@marketplace.amazon')) return 'Amazon';
+    if (email.includes('@etsy.com')) return 'Etsy';
+  }
+  
+  // Priority 6: Analyze shipping service/carrier patterns (quality assumption)
+  const shippingService = order.requestedShippingService?.toLowerCase() || '';
+  const carrierCode = order.carrierCode?.toLowerCase() || '';
+  
+  // BrickLink typically uses specific shipping methods
+  if (shippingService.includes('bricklink') || carrierCode.includes('bricklink')) {
+    return 'BrickLink';
+  }
+  
+  // Priority 7: Check storeId or marketplaceId fields if available
+  if (order.advancedOptions?.storeId) {
+    const storeId = order.advancedOptions.storeId.toString().toLowerCase();
+    if (storeId.includes('bricklink') || storeId.includes('bl')) return 'BrickLink';
+    if (storeId.includes('brickowl') || storeId.includes('bo')) return 'BrickOwl';
+    if (storeId.includes('ebay')) return 'eBay';
+    if (storeId.includes('amazon')) return 'Amazon';
+  }
+  
+  // Priority 8: Analyze internal notes for marketplace mentions (last resort)
+  const internalNotes = order.internalNotes?.toLowerCase() || '';
+  const customerNotes = order.customerNotes?.toLowerCase() || '';
+  const combinedNotes = internalNotes + ' ' + customerNotes;
+  
+  if (combinedNotes.includes('bricklink order') || combinedNotes.includes('from bricklink')) return 'BrickLink';
+  if (combinedNotes.includes('brickowl order') || combinedNotes.includes('from brickowl')) return 'BrickOwl';
+  if (combinedNotes.includes('ebay order') || combinedNotes.includes('from ebay')) return 'eBay';
+  if (combinedNotes.includes('amazon order') || combinedNotes.includes('from amazon')) return 'Amazon';
+  
+  // Could not determine marketplace from any available field
   return null;
 }
 
