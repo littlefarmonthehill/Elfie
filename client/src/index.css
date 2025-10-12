@@ -364,4 +364,13 @@
   .border.hover-elevate:not(.no-hover-interaction-elevate)::after {
     inset: -1px;
   }
+
+  /* Safe area insets for iPhone */
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .safe-h-16 {
+    height: calc(4rem + env(safe-area-inset-bottom));
+  }
 }

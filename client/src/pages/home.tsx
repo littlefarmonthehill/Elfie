@@ -554,7 +554,7 @@ export default function Home() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-background text-foreground">
+    <div className="flex flex-col h-screen bg-background text-foreground" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
       <Header onSettingsClick={() => setSettingsOpen(true)} />
       <DashboardNav active={activeDashboard} onSelect={setActiveDashboard} />
       
@@ -580,7 +580,10 @@ export default function Home() {
           {renderDashboard()}
         </div>
         
-        <div className={`transition-all duration-300 ${chatMinimized ? 'h-16 shrink-0' : 'flex-1'} flex flex-col overflow-hidden`}>
+        <div 
+          className={`transition-all duration-300 ${chatMinimized ? 'shrink-0' : 'flex-1'} flex flex-col overflow-hidden`}
+          style={{ height: chatMinimized ? 'calc(4rem + env(safe-area-inset-bottom, 0px))' : undefined }}
+        >
           <ChatInterface 
             dashboardContext={getChatContext()} 
             themeColor={getThemeColor()} 
