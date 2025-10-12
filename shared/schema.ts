@@ -179,6 +179,12 @@ export const appSettings = pgTable("app_settings", {
   bricklinkConsumerSecret: text("bricklink_consumer_secret"),
   bricklinkTokenValue: text("bricklink_token_value"),
   bricklinkTokenSecret: text("bricklink_token_secret"),
+  // Automation & Scheduling
+  inventorySyncEnabled: boolean("inventory_sync_enabled").default(false).notNull(),
+  inventorySyncTime: text("inventory_sync_time").default('02:00'), // Time of day (HH:MM format)
+  priceOMaticEnabled: boolean("price_o_matic_enabled").default(false).notNull(),
+  ordersSyncEnabled: boolean("orders_sync_enabled").default(false).notNull(),
+  ordersSyncFrequency: integer("orders_sync_frequency").default(15).notNull(), // minutes
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

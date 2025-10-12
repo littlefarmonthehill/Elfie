@@ -62,6 +62,13 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   const [bricklinkTokenValue, setBricklinkTokenValue] = useState("");
   const [bricklinkTokenSecret, setBricklinkTokenSecret] = useState("");
 
+  // Automation Settings
+  const [inventorySyncEnabled, setInventorySyncEnabled] = useState(false);
+  const [inventorySyncTime, setInventorySyncTime] = useState("02:00");
+  const [priceOMaticEnabled, setPriceOMaticEnabled] = useState(false);
+  const [ordersSyncEnabled, setOrdersSyncEnabled] = useState(false);
+  const [ordersSyncFrequency, setOrdersSyncFrequency] = useState(15);
+
   const { data: settings } = useQuery<AppSettings>({
     queryKey: ['/api/settings'],
     enabled: open,
@@ -94,6 +101,11 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
       setBricklinkConsumerSecret(settings.bricklinkConsumerSecret || "");
       setBricklinkTokenValue(settings.bricklinkTokenValue || "");
       setBricklinkTokenSecret(settings.bricklinkTokenSecret || "");
+      setInventorySyncEnabled(settings.inventorySyncEnabled || false);
+      setInventorySyncTime(settings.inventorySyncTime || "02:00");
+      setPriceOMaticEnabled(settings.priceOMaticEnabled || false);
+      setOrdersSyncEnabled(settings.ordersSyncEnabled || false);
+      setOrdersSyncFrequency(settings.ordersSyncFrequency || 15);
       
       // Fetch models if API key exists
       if (key) {
@@ -343,13 +355,14 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
     });
   };
 
-  const [activeSection, setActiveSection] = useState<'general' | 'platforms' | 'sync' | 'ai' | 'data'>('general');
+  const [activeSection, setActiveSection] = useState<'general' | 'platforms' | 'sync' | 'ai' | 'automation' | 'data'>('general');
 
   const navigationItems = [
     { id: 'general' as const, label: 'General', icon: Settings },
     { id: 'platforms' as const, label: 'Platforms', icon: Package },
     { id: 'sync' as const, label: 'Data & Sync', icon: RefreshCw },
     { id: 'ai' as const, label: 'AI & Intelligence', icon: Sparkles },
+    { id: 'automation' as const, label: 'Automation', icon: Clock },
     { id: 'data' as const, label: 'Backup & Clear', icon: Database },
   ];
 
@@ -865,6 +878,122 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                   <EmbeddingsManager />
                 </div>
               </div>
+              </div>
+            )}
+
+            {/* Automation & Scheduling */}
+            {activeSection === 'automation' && (
+              <div className="space-y-4 min-h-[400px]">
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-300 mb-3">Automation & Scheduling</h3>
+                    <p className="text-xs text-gray-400 mb-4">Configure automated syncing and updates</p>
+
+                    {/* Inventory Sync */}
+                    <div className="space-y-3 mb-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <Label className="text-xs font-medium text-gray-300">Inventory Sync (Daily)</Label>
+                          <p className="text-[10px] text-gray-500 mt-0.5">Sync inventory, colors, categories + embeddings</p>
+                        </div>
+                        <Switch
+                          checked={inventorySyncEnabled}
+                          onCheckedChange={(checked) => {
+                            setInventorySyncEnabled(checked);
+                            updateSettingsMutation.mutate({ inventorySyncEnabled: checked });
+                          }}
+                          data-testid="switch-inventory-sync"
+                        />
+                      </div>
+                      
+                      {inventorySyncEnabled && (
+                        <div className="ml-4 space-y-2">
+                          <Label htmlFor="inventory-time" className="text-xs text-gray-400">Sync Time</Label>
+                          <Input
+                            id="inventory-time"
+                            type="time"
+                            value={inventorySyncTime}
+                            onChange={(e) => setInventorySyncTime(e.target.value)}
+                            onBlur={() => updateSettingsMutation.mutate({ inventorySyncTime })}
+                            className="text-xs w-32"
+                            data-testid="input-inventory-time"
+                          />
+                          <p className="text-[10px] text-gray-500">Time in your local timezone</p>
+                        </div>
+                      )}
+                    </div>
+
+                    <Separator className="bg-gray-700" />
+
+                    {/* Price-o-Matic */}
+                    <div className="space-y-3 my-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <Label className="text-xs font-medium text-gray-300">Price-o-Matic</Label>
+                          <p className="text-[10px] text-gray-500 mt-0.5">Runs after inventory sync, respecting API limits</p>
+                        </div>
+                        <Switch
+                          checked={priceOMaticEnabled}
+                          onCheckedChange={(checked) => {
+                            setPriceOMaticEnabled(checked);
+                            updateSettingsMutation.mutate({ priceOMaticEnabled: checked });
+                          }}
+                          data-testid="switch-price-o-matic"
+                        />
+                      </div>
+                      
+                      {priceOMaticEnabled && (
+                        <div className="ml-4">
+                          <p className="text-[10px] text-gray-400">Will run automatically after inventory sync completes</p>
+                        </div>
+                      )}
+                    </div>
+
+                    <Separator className="bg-gray-700" />
+
+                    {/* Orders Sync */}
+                    <div className="space-y-3 mt-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <Label className="text-xs font-medium text-gray-300">Orders Sync</Label>
+                          <p className="text-[10px] text-gray-500 mt-0.5">Sync orders, details + embeddings periodically</p>
+                        </div>
+                        <Switch
+                          checked={ordersSyncEnabled}
+                          onCheckedChange={(checked) => {
+                            setOrdersSyncEnabled(checked);
+                            updateSettingsMutation.mutate({ ordersSyncEnabled: checked });
+                          }}
+                          data-testid="switch-orders-sync"
+                        />
+                      </div>
+                      
+                      {ordersSyncEnabled && (
+                        <div className="ml-4 space-y-2">
+                          <Label htmlFor="orders-frequency" className="text-xs text-gray-400">Sync Frequency (minutes)</Label>
+                          <Input
+                            id="orders-frequency"
+                            type="number"
+                            min="5"
+                            max="120"
+                            value={ordersSyncFrequency}
+                            onChange={(e) => setOrdersSyncFrequency(parseInt(e.target.value) || 15)}
+                            onBlur={() => updateSettingsMutation.mutate({ ordersSyncFrequency })}
+                            className="text-xs w-24"
+                            data-testid="input-orders-frequency"
+                          />
+                          <p className="text-[10px] text-gray-500">Recommended: 15 minutes</p>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3 mt-4">
+                      <p className="text-xs text-purple-300">
+                        <strong>Note:</strong> All automation respects BrickLink's 5,000 API calls/day limit. Syncs will automatically pause when approaching the limit.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 
