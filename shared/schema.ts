@@ -266,6 +266,7 @@ export const priceGuideCache = pgTable("price_guide_cache", {
   
   // Cache management
   fetchedAt: timestamp("fetched_at").defaultNow().notNull(),
+  nextRefresh: timestamp("next_refresh"), // When this item should be refreshed next
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

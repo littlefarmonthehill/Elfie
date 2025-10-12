@@ -693,6 +693,121 @@ function calculateSuggestedPriceWithSupply(
 }
 
 // Fetch and cache Price-o-Matic data for an item
+// Sync Price-o-Matic data for up to 1500 inventory items
+export async function syncPriceOMagicCache(maxItems: number = 1500): Promise<{
+  itemsUpdated: number;
+  itemsSkipped: number;
+  apiCallsUsed: number;
+  stopped: boolean;
+  stopReason?: string;
+}> {
+  console.log(`[Price-o-Matic Sync] Starting sync for up to ${maxItems} items`);
+  
+  let itemsUpdated = 0;
+  let itemsSkipped = 0;
+  let apiCallsUsed = 0;
+  let stopped = false;
+  let stopReason: string | undefined;
+
+  try {
+    // Get initial rate limit status
+    const initialRateLimit = await checkRateLimit();
+    if (!initialRateLimit.allowed) {
+      return {
+        itemsUpdated: 0,
+        itemsSkipped: 0,
+        apiCallsUsed: 0,
+        stopped: true,
+        stopReason: initialRateLimit.warning || 'API rate limit exceeded',
+      };
+    }
+
+    // Find inventory items that need price refresh
+    // Priority: items without cache first, then oldest cache
+    const inventoryItems = await db
+      .select({
+        id: blInventory.id,
+        itemNo: blInventory.itemNo,
+        itemType: blInventory.itemType,
+        colorId: blInventory.colorId,
+        cacheId: priceGuideCache.id,
+        lastFetched: priceGuideCache.fetchedAt,
+      })
+      .from(blInventory)
+      .leftJoin(
+        priceGuideCache,
+        and(
+          eq(blInventory.itemNo, priceGuideCache.itemNo),
+          eq(blInventory.itemType, priceGuideCache.itemType),
+          sql`(${blInventory.colorId} = ${priceGuideCache.colorId} OR (${blInventory.colorId} IS NULL AND ${priceGuideCache.colorId} IS NULL))`
+        )
+      )
+      .orderBy(sql`COALESCE(${priceGuideCache.fetchedAt}, '1970-01-01'::timestamp) ASC`)
+      .limit(maxItems);
+
+    console.log(`[Price-o-Matic Sync] Found ${inventoryItems.length} items to process`);
+
+    // Process each item
+    for (const item of inventoryItems) {
+      try {
+        // Check rate limit before each batch (every 10 items) to avoid hitting hard limit
+        if (itemsUpdated % 10 === 0) {
+          const currentRateLimit = await checkRateLimit();
+          
+          // Stop at 4500 calls to leave buffer (each item uses ~3 calls)
+          if (currentRateLimit.callsLast24h >= 4500) {
+            stopped = true;
+            stopReason = `Approaching API limit: ${currentRateLimit.callsLast24h}/5000 calls. Stopping to preserve quota.`;
+            console.log(`[Price-o-Matic Sync] ${stopReason}`);
+            break;
+          }
+        }
+
+        // Fetch price data (uses 3 API calls per item)
+        await fetchPriceOMagicData(
+          item.itemNo,
+          item.itemType,
+          item.colorId || undefined,
+          15 // Default 15% premium
+        );
+
+        itemsUpdated++;
+        apiCallsUsed += 3; // Track approximate API usage
+        
+        // Log progress every 100 items
+        if (itemsUpdated % 100 === 0) {
+          console.log(`[Price-o-Matic Sync] Progress: ${itemsUpdated}/${inventoryItems.length} items updated`);
+        }
+
+      } catch (error) {
+        console.error(`[Price-o-Matic Sync] Error processing item ${item.itemNo}:`, error);
+        itemsSkipped++;
+        
+        // If it's a rate limit error, stop immediately
+        if (error instanceof Error && error.message.includes('rate limit')) {
+          stopped = true;
+          stopReason = error.message;
+          break;
+        }
+      }
+    }
+
+    console.log(`[Price-o-Matic Sync] Completed: ${itemsUpdated} updated, ${itemsSkipped} skipped, ${apiCallsUsed} API calls used`);
+
+    return {
+      itemsUpdated,
+      itemsSkipped,
+      apiCallsUsed,
+      stopped,
+      stopReason,
+    };
+
+  } catch (error) {
+    console.error('[Price-o-Matic Sync] Fatal error:', error);
+    throw error;
+  }
+}
+
 export async function fetchPriceOMagicData(
   itemNo: string,
   itemType: string,

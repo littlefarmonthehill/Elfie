@@ -1,10 +1,10 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { syncBricklinkData, fetchPriceOMagicData, searchBricklinkCatalogItem } from "./services/bricklink";
+import { syncBricklinkData, fetchPriceOMagicData, searchBricklinkCatalogItem, syncPriceOMagicCache } from "./services/bricklink";
 import { syncShipStationOrders } from "./services/shipstation";
 import { db } from "./db";
-import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations } from "@shared/schema";
+import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata } from "@shared/schema";
 import { eq, desc, sql, inArray, like, or, and } from "drizzle-orm";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -1676,6 +1676,193 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
       res.status(500).json({
         success: false,
         error: "Failed to sync ShipStation orders",
+      });
+    }
+  });
+
+  // Price-o-Matic sync endpoint
+  app.post("/api/sync/priceomatic", async (req, res) => {
+    try {
+      const maxItems = req.body.maxItems || 1500;
+      
+      // Update sync metadata to "in_progress"
+      await db
+        .insert(syncMetadata)
+        .values({
+          id: 'priceomatic_cache',
+          lastSyncStatus: 'in_progress',
+          lastSyncTime: new Date(),
+          recordsAdded: 0,
+          recordsUpdated: 0,
+        })
+        .onConflictDoUpdate({
+          target: syncMetadata.id,
+          set: {
+            lastSyncStatus: 'in_progress',
+            lastSyncTime: new Date(),
+            updatedAt: new Date(),
+          },
+        });
+
+      const result = await syncPriceOMagicCache(maxItems);
+      
+      // Update sync metadata with results
+      await db
+        .insert(syncMetadata)
+        .values({
+          id: 'priceomatic_cache',
+          lastSyncStatus: result.stopped && result.stopReason?.includes('limit') ? 'partial' : 'success',
+          lastSyncTime: new Date(),
+          recordsAdded: 0,
+          recordsUpdated: result.itemsUpdated,
+          errorMessage: result.stopReason || null,
+        })
+        .onConflictDoUpdate({
+          target: syncMetadata.id,
+          set: {
+            lastSyncStatus: result.stopped && result.stopReason?.includes('limit') ? 'partial' : 'success',
+            lastSyncTime: new Date(),
+            recordsUpdated: result.itemsUpdated,
+            errorMessage: result.stopReason || null,
+            updatedAt: new Date(),
+          },
+        });
+
+      res.json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      console.error("Price-o-Matic sync error:", error);
+      
+      // Update sync metadata to failed
+      await db
+        .insert(syncMetadata)
+        .values({
+          id: 'priceomatic_cache',
+          lastSyncStatus: 'failed',
+          lastSyncTime: new Date(),
+          recordsAdded: 0,
+          recordsUpdated: 0,
+          errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        })
+        .onConflictDoUpdate({
+          target: syncMetadata.id,
+          set: {
+            lastSyncStatus: 'failed',
+            errorMessage: error instanceof Error ? error.message : 'Unknown error',
+            updatedAt: new Date(),
+          },
+        });
+      
+      res.status(500).json({
+        success: false,
+        error: "Failed to sync Price-o-Matic cache",
+      });
+    }
+  });
+
+  // Get Price-o-Matic sync status
+  app.get("/api/sync/priceomatic/status", async (req, res) => {
+    try {
+      const [status] = await db
+        .select()
+        .from(syncMetadata)
+        .where(eq(syncMetadata.id, 'priceomatic_cache'))
+        .limit(1);
+
+      res.json({
+        success: true,
+        data: status || {
+          id: 'priceomatic_cache',
+          lastSyncStatus: 'never',
+          lastSyncTime: null,
+          recordsUpdated: 0,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching Price-o-Matic status:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch sync status",
+      });
+    }
+  });
+
+  // Get Price-o-Matic insights (pricing discrepancies)
+  app.get("/api/priceomatic/insights", async (req, res) => {
+    try {
+      const { priceGuideCache } = await import("@shared/schema");
+      
+      // Join inventory with cached price data to find discrepancies
+      const insights = await db
+        .select({
+          inventoryId: blInventory.id,
+          itemNo: blInventory.itemNo,
+          itemName: blInventory.itemName,
+          itemType: blInventory.itemType,
+          colorId: blInventory.colorId,
+          colorName: blInventory.colorName,
+          currentPrice: blInventory.unitPrice,
+          suggestedPrice: priceGuideCache.suggestedPrice,
+          stockAvgPrice: priceGuideCache.stockAvgPrice,
+          soldAvgPrice: priceGuideCache.soldAvgPrice,
+          premiumPercentage: priceGuideCache.premiumPercentage,
+          quantity: blInventory.quantity,
+          lastFetched: priceGuideCache.fetchedAt,
+        })
+        .from(blInventory)
+        .innerJoin(
+          priceGuideCache,
+          and(
+            eq(blInventory.itemNo, priceGuideCache.itemNo),
+            eq(blInventory.itemType, priceGuideCache.itemType),
+            sql`(${blInventory.colorId} = ${priceGuideCache.colorId} OR (${blInventory.colorId} IS NULL AND ${priceGuideCache.colorId} IS NULL))`
+          )
+        )
+        .where(sql`${blInventory.unitPrice} IS NOT NULL AND ${priceGuideCache.suggestedPrice} IS NOT NULL`);
+
+      // Calculate price variance and categorize
+      const categorizedInsights = insights.map(item => {
+        const currentPrice = parseFloat(item.currentPrice || '0');
+        const suggestedPrice = parseFloat(item.suggestedPrice || '0');
+        const variance = ((currentPrice - suggestedPrice) / suggestedPrice) * 100;
+        
+        let category: 'too_high' | 'too_low' | 'good' = 'good';
+        if (variance > 20) category = 'too_high';
+        else if (variance < -20) category = 'too_low';
+        
+        return {
+          ...item,
+          variance: Math.round(variance),
+          category,
+        };
+      });
+
+      // Separate into categories
+      const tooHigh = categorizedInsights.filter(i => i.category === 'too_high');
+      const tooLow = categorizedInsights.filter(i => i.category === 'too_low');
+      const wellPriced = categorizedInsights.filter(i => i.category === 'good');
+
+      res.json({
+        success: true,
+        data: {
+          tooHigh,
+          tooLow,
+          wellPriced,
+          summary: {
+            total: insights.length,
+            tooHigh: tooHigh.length,
+            tooLow: tooLow.length,
+            wellPriced: wellPriced.length,
+          },
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching Price-o-Matic insights:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch pricing insights",
       });
     }
   });
