@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { sql, relations } from "drizzle-orm";
 import { pgTable, text, varchar, integer, decimal, timestamp, boolean } from "drizzle-orm/pg-core";
 import { vector } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
@@ -154,6 +154,18 @@ export const insertOrderDetailSchema = createInsertSchema(orderDetails).omit({
 
 export type InsertOrderDetail = z.infer<typeof insertOrderDetailSchema>;
 export type OrderDetail = typeof orderDetails.$inferSelect;
+
+// Relations
+export const ordersRelations = relations(orders, ({ many }) => ({
+  items: many(orderDetails),
+}));
+
+export const orderDetailsRelations = relations(orderDetails, ({ one }) => ({
+  order: one(orders, {
+    fields: [orderDetails.orderId],
+    references: [orders.id],
+  }),
+}));
 
 // App Settings
 export const appSettings = pgTable("app_settings", {

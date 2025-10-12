@@ -16,7 +16,7 @@ The frontend uses React 18+ with TypeScript, Vite, Shadcn/ui, and Tailwind CSS, 
 - **Backend:** Express.js with TypeScript and Node.js (ESM modules).
 - **Database:** Drizzle ORM with Neon serverless PostgreSQL, including `pgvector` extension for embeddings.
 - **API:** RESTful endpoints for data operations and BrickLink/ShipStation integrations.
-- **Data Schema:** Includes `users`, `bl_categories`, `bl_colors`, `bl_inventory`, `orders`, `order_details`, `sync_metadata`, `app_settings`, `inventory_embeddings`, and `order_embeddings`.
+- **Data Schema:** Includes `users`, `bl_categories`, `bl_colors`, `bl_inventory`, `orders`, `order_details` (with Drizzle relations for order.items), `sync_metadata`, `app_settings`, `inventory_embeddings`, and `order_embeddings`.
 - **Authentication:** Basic username/password authentication (future plans for session-based and secure hashing).
 - **Sync Architecture:** Optimized batch and incremental synchronization for BrickLink (1000-item batches) and ShipStation (modified since last sync). A `sync_metadata` table tracks status. Full sync options are available for historical data.
 
