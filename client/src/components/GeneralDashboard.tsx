@@ -176,16 +176,21 @@ export default function GeneralDashboard({ dateRange = 'all', onItemClick }: Gen
                 <div 
                   key={item.inventoryId} 
                   onClick={() => onItemClick?.('inventory', item.inventoryId)}
-                  className="flex justify-between items-center text-[10px] hover-elevate rounded px-2 py-1 cursor-pointer"
+                  className="flex justify-between items-start text-[10px] hover-elevate rounded px-2 py-1 cursor-pointer"
                   data-testid={`pricing-item-${item.inventoryId}`}
                 >
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <TrendingDown className="w-3 h-3 text-purple-400 flex-shrink-0" />
-                    <span className="text-gray-400 font-mono flex-shrink-0">{item.itemNo}</span>
-                    {item.colorName && (
-                      <Badge variant="outline" className="text-[8px] px-1 py-0">
-                        {item.colorName}
-                      </Badge>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <TrendingDown className="w-3 h-3 text-purple-400 flex-shrink-0" />
+                      <span className="text-gray-400 font-mono flex-shrink-0">{item.itemNo}</span>
+                      {item.colorName && (
+                        <Badge variant="outline" className="text-[8px] px-1 py-0">
+                          {item.colorName}
+                        </Badge>
+                      )}
+                    </div>
+                    {item.itemName && (
+                      <p className="text-[9px] text-gray-500 truncate ml-5">{item.itemName}</p>
                     )}
                   </div>
                   <div className="flex items-center gap-2 ml-2 flex-shrink-0">

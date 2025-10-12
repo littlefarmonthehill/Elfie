@@ -127,7 +127,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
   const selectedItems = getSelectedItems();
 
   return (
-    <div className="space-y-4 p-4">
+    <div className="space-y-4 p-4 touch-pan-y">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -151,9 +151,17 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
 
       {/* Compact Summary Cards & How It Works */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        {/* Stats */}
+        {/* Stats - Now Clickable for Filtering */}
         <div className="grid grid-cols-2 gap-2">
-          <Card className="p-2.5 bg-red-500/10 border-red-500/30" data-testid="stat-too-high">
+          <Card 
+            className={`p-2.5 cursor-pointer hover-elevate active-elevate-2 ${
+              selectedCategory === 'too-high' 
+                ? 'bg-red-500/20 border-red-500/50' 
+                : 'bg-red-500/10 border-red-500/30'
+            }`}
+            onClick={() => setSelectedCategory('too-high')}
+            data-testid="stat-too-high"
+          >
             <div className="flex items-center gap-1.5 mb-0.5">
               <TrendingUp className="w-3.5 h-3.5 text-red-400" />
               <p className="text-[9px] text-red-400 uppercase">Too High</p>
@@ -162,7 +170,15 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
             <p className="text-[8px] text-gray-500">Losing sales</p>
           </Card>
           
-          <Card className="p-2.5 bg-orange-500/10 border-orange-500/30" data-testid="stat-too-low">
+          <Card 
+            className={`p-2.5 cursor-pointer hover-elevate active-elevate-2 ${
+              selectedCategory === 'too-low' 
+                ? 'bg-orange-500/20 border-orange-500/50' 
+                : 'bg-orange-500/10 border-orange-500/30'
+            }`}
+            onClick={() => setSelectedCategory('too-low')}
+            data-testid="stat-too-low"
+          >
             <div className="flex items-center gap-1.5 mb-0.5">
               <TrendingDown className="w-3.5 h-3.5 text-orange-400" />
               <p className="text-[9px] text-orange-400 uppercase">Too Low</p>
@@ -171,7 +187,15 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
             <p className="text-[8px] text-gray-500">Losing profit</p>
           </Card>
           
-          <Card className="p-2.5 bg-green-500/10 border-green-500/30" data-testid="stat-good">
+          <Card 
+            className={`p-2.5 cursor-pointer hover-elevate active-elevate-2 ${
+              selectedCategory === 'good' 
+                ? 'bg-green-500/20 border-green-500/50' 
+                : 'bg-green-500/10 border-green-500/30'
+            }`}
+            onClick={() => setSelectedCategory('good')}
+            data-testid="stat-good"
+          >
             <div className="flex items-center gap-1.5 mb-0.5">
               <CheckCircle className="w-3.5 h-3.5 text-green-400" />
               <p className="text-[9px] text-green-400 uppercase">Well Priced</p>
@@ -202,81 +226,42 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
         </Card>
       </div>
 
-      {/* Sync Status */}
-      <Card className="p-3 bg-gray-900/50 border-gray-700">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-              status?.lastSyncStatus === 'success' ? 'bg-green-500/20' :
-              status?.lastSyncStatus === 'partial' ? 'bg-orange-500/20' :
-              status?.lastSyncStatus === 'in_progress' ? 'bg-blue-500/20' :
-              status?.lastSyncStatus === 'failed' ? 'bg-red-500/20' :
-              'bg-gray-500/20'
-            }`}>
-              {status?.lastSyncStatus === 'success' && <CheckCircle className="w-4 h-4 text-green-400" />}
-              {status?.lastSyncStatus === 'partial' && <AlertCircle className="w-4 h-4 text-orange-400" />}
-              {status?.lastSyncStatus === 'in_progress' && <RefreshCw className="w-4 h-4 text-blue-400 animate-spin" />}
-              {status?.lastSyncStatus === 'failed' && <AlertCircle className="w-4 h-4 text-red-400" />}
-              {(!status || status.lastSyncStatus === 'never') && <Clock className="w-4 h-4 text-gray-400" />}
+      {/* Sync Status - Only show if synced before */}
+      {status && status.lastSyncStatus !== 'never' && (
+        <Card className="p-3 bg-gray-900/50 border-gray-700">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                status.lastSyncStatus === 'success' ? 'bg-green-500/20' :
+                status.lastSyncStatus === 'partial' ? 'bg-orange-500/20' :
+                status.lastSyncStatus === 'in_progress' ? 'bg-blue-500/20' :
+                'bg-red-500/20'
+              }`}>
+                {status.lastSyncStatus === 'success' && <CheckCircle className="w-4 h-4 text-green-400" />}
+                {status.lastSyncStatus === 'partial' && <AlertCircle className="w-4 h-4 text-orange-400" />}
+                {status.lastSyncStatus === 'in_progress' && <RefreshCw className="w-4 h-4 text-blue-400 animate-spin" />}
+                {status.lastSyncStatus === 'failed' && <AlertCircle className="w-4 h-4 text-red-400" />}
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-white">
+                  {status.lastSyncStatus === 'success' && 'Sync Completed'}
+                  {status.lastSyncStatus === 'partial' && 'Partial Sync'}
+                  {status.lastSyncStatus === 'in_progress' && 'Syncing...'}
+                  {status.lastSyncStatus === 'failed' && 'Sync Failed'}
+                </p>
+                <p className="text-[9px] text-gray-400">
+                  {status.lastSyncTime && formatDistanceToNow(new Date(status.lastSyncTime), { addSuffix: true })}
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-xs font-semibold text-white">
-                {status?.lastSyncStatus === 'success' && 'Sync Completed'}
-                {status?.lastSyncStatus === 'partial' && 'Partial Sync'}
-                {status?.lastSyncStatus === 'in_progress' && 'Syncing...'}
-                {status?.lastSyncStatus === 'failed' && 'Sync Failed'}
-                {(!status || status.lastSyncStatus === 'never') && 'Never Synced'}
-              </p>
-              <p className="text-[9px] text-gray-400">
-                {status?.lastSyncTime 
-                  ? `${formatDistanceToNow(new Date(status.lastSyncTime), { addSuffix: true })}`
-                  : 'Run your first sync'}
-              </p>
-            </div>
+            {status.recordsUpdated !== undefined && status.recordsUpdated > 0 && (
+              <div className="text-right">
+                <p className="text-lg font-mono font-bold text-purple-400">{status.recordsUpdated}</p>
+                <p className="text-[8px] text-gray-500 uppercase">Items</p>
+              </div>
+            )}
           </div>
-          {status?.recordsUpdated !== undefined && status.recordsUpdated > 0 && (
-            <div className="text-right">
-              <p className="text-lg font-mono font-bold text-purple-400">{status.recordsUpdated}</p>
-              <p className="text-[8px] text-gray-500 uppercase">Items</p>
-            </div>
-          )}
-        </div>
-      </Card>
-
-      {/* Category Selector Buttons */}
-      {insightsData && (
-        <div className="flex gap-2">
-          <Button
-            variant={selectedCategory === 'too-high' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setSelectedCategory('too-high')}
-            className="flex-1 gap-1.5"
-            data-testid="button-filter-too-high"
-          >
-            <TrendingUp className="w-3.5 h-3.5" />
-            Too High ({insightsData.summary.tooHigh})
-          </Button>
-          <Button
-            variant={selectedCategory === 'too-low' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setSelectedCategory('too-low')}
-            className="flex-1 gap-1.5"
-            data-testid="button-filter-too-low"
-          >
-            <TrendingDown className="w-3.5 h-3.5" />
-            Too Low ({insightsData.summary.tooLow})
-          </Button>
-          <Button
-            variant={selectedCategory === 'good' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setSelectedCategory('good')}
-            className="flex-1 gap-1.5"
-            data-testid="button-filter-good"
-          >
-            <CheckCircle className="w-3.5 h-3.5" />
-            Well Priced ({insightsData.summary.wellPriced})
-          </Button>
-        </div>
+        </Card>
       )}
 
       {/* Single Item List */}
@@ -292,32 +277,32 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
                 <div
                   key={item.inventoryId}
                   onClick={() => onItemClick?.('inventory', item.inventoryId)}
-                  className="bg-gray-900/50 border border-gray-700 rounded-lg p-2.5 hover-elevate active-elevate-2 cursor-pointer"
+                  className="bg-gray-900/50 border border-gray-700 rounded-lg p-1.5 hover-elevate active-elevate-2 cursor-pointer"
                   data-testid={`item-${item.inventoryId}`}
                 >
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center justify-between gap-2">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className="text-[10px] font-mono text-gray-400">{item.itemNo}</span>
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <span className="text-[9px] font-mono text-gray-400">{item.itemNo}</span>
                         {item.colorName && (
-                          <Badge variant="outline" className="text-[8px] px-1 py-0">
+                          <Badge variant="outline" className="text-[7px] px-0.5 py-0">
                             {item.colorName}
                           </Badge>
                         )}
                       </div>
-                      <p className="text-xs text-white truncate">{item.itemName || 'Unknown Item'}</p>
-                      <div className="flex items-center gap-3 mt-1.5">
-                        <div>
-                          <p className="text-[8px] text-gray-500">Current</p>
-                          <p className="text-[10px] font-mono text-white">{formatCurrency(item.currentPrice)}</p>
+                      <p className="text-[10px] text-white truncate mb-1">{item.itemName || 'Unknown Item'}</p>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1">
+                          <p className="text-[7px] text-gray-500">Current</p>
+                          <p className="text-[9px] font-mono text-white">{formatCurrency(item.currentPrice)}</p>
                         </div>
-                        <div>
-                          <p className="text-[8px] text-gray-500">Suggested</p>
-                          <p className="text-[10px] font-mono text-purple-400">{formatCurrency(item.suggestedPrice)}</p>
+                        <div className="flex-1">
+                          <p className="text-[7px] text-gray-500">Suggested</p>
+                          <p className="text-[9px] font-mono text-purple-400">{formatCurrency(item.suggestedPrice)}</p>
                         </div>
-                        <div>
-                          <p className="text-[8px] text-gray-500">Variance</p>
-                          <p className={`text-[10px] font-mono font-bold ${
+                        <div className="flex-1">
+                          <p className="text-[7px] text-gray-500">Variance</p>
+                          <p className={`text-[9px] font-mono font-bold ${
                             item.variance > 0 ? 'text-red-400' : item.variance < 0 ? 'text-orange-400' : 'text-green-400'
                           }`}>
                             {item.variance > 0 ? '+' : ''}{item.variance}%
@@ -326,8 +311,8 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
                       </div>
                     </div>
                     <div className="text-right flex-shrink-0">
-                      <p className="text-[8px] text-gray-500">Qty</p>
-                      <p className="text-xs font-mono text-gray-300">{item.quantity}</p>
+                      <p className="text-[7px] text-gray-500">Qty</p>
+                      <p className="text-[10px] font-mono text-gray-300">{item.quantity}</p>
                     </div>
                   </div>
                 </div>
