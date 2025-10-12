@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { format, subMonths, startOfMonth, parseISO } from "date-fns";
@@ -27,7 +27,9 @@ interface Order {
 
 export default function SalesDashboard({ period, dateRange = 'all', onItemClick }: SalesDashboardProps) {
   const [selectedPlatform, setSelectedPlatform] = useState<string>('all');
-  const { data: orders = [], isLoading } = useQuery<Order[]>({
+  const [isMobile, setIsMobile] = useState(false);
+  
+  const { data: allOrders = [], isLoading } = useQuery<Order[]>({
     queryKey: ['/api/orders', dateRange],
     queryFn: async () => {
       const url = dateRange === 'all' ? '/api/orders' : `/api/orders?range=${dateRange}`;
@@ -36,6 +38,11 @@ export default function SalesDashboard({ period, dateRange = 'all', onItemClick 
       return response.json();
     }
   });
+
+  // Detect mobile device in useEffect to avoid SSR/hydration issues
+  useEffect(() => {
+    setIsMobile(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent));
+  }, []);
 
   // Safe date parsing helper for iOS Safari compatibility
   const safeParseDate = (dateString: string): Date | null => {
@@ -47,6 +54,25 @@ export default function SalesDashboard({ period, dateRange = 'all', onItemClick 
       return null;
     }
   };
+
+  // Limit data processing on mobile to prevent crashes
+  // Use most recent 5000 orders on mobile for "All" time range
+  const orders = useMemo(() => {
+    const shouldLimit = isMobile && dateRange === 'all' && allOrders.length > 5000;
+    if (!shouldLimit) return allOrders;
+    
+    // Sort and limit to most recent 5000 orders
+    return [...allOrders]
+      .sort((a, b) => {
+        const dateA = safeParseDate(a.orderDate);
+        const dateB = safeParseDate(b.orderDate);
+        if (!dateA || !dateB) return 0;
+        return dateB.getTime() - dateA.getTime(); // Most recent first
+      })
+      .slice(0, 5000); // Take first 5000 (most recent)
+  }, [isMobile, dateRange, allOrders]);
+
+  const isDataLimited = isMobile && dateRange === 'all' && allOrders.length > 5000;
 
   // Safe date formatter for display
   const formatDateSafe = (dateString: string): string => {
@@ -210,6 +236,16 @@ export default function SalesDashboard({ period, dateRange = 'all', onItemClick 
 
   return (
     <div className="p-2 space-y-1.5 bg-gradient-to-br from-lego-green/5 to-transparent rounded-lg border border-lego-green/10 shadow-[0_0_15px_rgba(34,197,94,0.1)]">
+      {/* Mobile Data Limit Notice */}
+      {isDataLimited && (
+        <div 
+          className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-2 text-[10px] text-blue-300"
+          data-testid="notice-mobile-data-limit"
+        >
+          Mobile: Showing most recent 5,000 orders (of {allOrders.length.toLocaleString()}) for optimal performance
+        </div>
+      )}
+      
       {/* Chart */}
       <div className="bg-gray-900/50 border border-lego-green/20 rounded-lg p-2">
         <div className="mb-1 text-xs text-gray-400">
