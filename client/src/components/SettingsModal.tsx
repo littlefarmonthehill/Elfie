@@ -50,6 +50,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   // AI Settings
   const [aiEnabled, setAiEnabled] = useState(true);
   const [apiKey, setApiKey] = useState("");
+  const [openaiApiKey, setOpenaiApiKey] = useState("");
   const [selectedModel, setSelectedModel] = useState("openai/gpt-4o-mini");
   const [systemPrompt, setSystemPrompt] = useState("");
   const [availableModels, setAvailableModels] = useState<Array<{ id: string; name: string }>>([]);
@@ -86,6 +87,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
       setAiEnabled(settings.aiEnabled);
       const key = settings.openrouterApiKey || "";
       setApiKey(key);
+      setOpenaiApiKey(settings.openaiApiKey || "");
       setSelectedModel(settings.selectedModel || "openai/gpt-4o-mini");
       setSystemPrompt(settings.systemPrompt || "");
       setBricklinkConsumerKey(settings.bricklinkConsumerKey || "");
@@ -746,6 +748,39 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                           className="text-purple-400 hover:text-purple-300"
                         >
                           OpenRouter
+                        </a>
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="openai-api-key" className="text-xs text-gray-400">OpenAI API Key (for Embeddings)</Label>
+                      <Input
+                        id="openai-api-key"
+                        type="password"
+                        placeholder="sk-proj-..."
+                        value={openaiApiKey}
+                        onChange={(e) => setOpenaiApiKey(e.target.value)}
+                        onBlur={() => {
+                          updateSettingsMutation.mutate({
+                            aiEnabled,
+                            openrouterApiKey: apiKey || null,
+                            openaiApiKey: openaiApiKey || null,
+                            selectedModel: selectedModel || null,
+                            systemPrompt: systemPrompt || null,
+                          });
+                        }}
+                        className="text-xs font-mono"
+                        data-testid="input-openai-api-key"
+                      />
+                      <p className="text-xs text-gray-500">
+                        Required for semantic search and embeddings. Get one from{" "}
+                        <a 
+                          href="https://platform.openai.com/api-keys" 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-purple-400 hover:text-purple-300"
+                        >
+                          OpenAI
                         </a>
                       </p>
                     </div>

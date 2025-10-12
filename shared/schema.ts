@@ -160,6 +160,7 @@ export const appSettings = pgTable("app_settings", {
   id: varchar("id").primaryKey().default('default'),
   aiEnabled: boolean("ai_enabled").default(true).notNull(),
   openrouterApiKey: text("openrouter_api_key"),
+  openaiApiKey: text("openai_api_key"),
   selectedModel: text("selected_model").default('openai/gpt-4o-mini'),
   systemPrompt: text("system_prompt"),
   bricklinkConsumerKey: text("bricklink_consumer_key"),

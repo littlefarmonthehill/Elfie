@@ -1,16 +1,32 @@
 import OpenAI from 'openai';
 import { db } from '../db';
-import { inventoryEmbeddings, orderEmbeddings, blInventory, orders } from '@shared/schema';
+import { inventoryEmbeddings, orderEmbeddings, blInventory, orders, appSettings } from '@shared/schema';
 import { eq, sql } from 'drizzle-orm';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+/**
+ * Get OpenAI client with API key from settings or environment
+ */
+async function getOpenAIClient(): Promise<OpenAI> {
+  // Try to get API key from settings first
+  const settings = await db.query.appSettings.findFirst({
+    where: eq(appSettings.id, 'default'),
+  });
+  
+  const apiKey = settings?.openaiApiKey || process.env.OPENAI_API_KEY;
+  
+  if (!apiKey) {
+    throw new Error('OpenAI API key not configured. Please add it in Settings.');
+  }
+  
+  return new OpenAI({ apiKey });
+}
 
 /**
  * Generate an embedding vector for text using OpenAI
  */
 export async function generateEmbedding(text: string): Promise<number[]> {
+  const openai = await getOpenAIClient();
+  
   const response = await openai.embeddings.create({
     model: 'text-embedding-3-small',
     input: text,
