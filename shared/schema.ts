@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { pgTable, text, varchar, integer, decimal, timestamp, boolean } from "drizzle-orm/pg-core";
+import { vector } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -278,3 +279,43 @@ export const insertPriceGuideCacheSchema = createInsertSchema(priceGuideCache).o
 
 export type InsertPriceGuideCache = z.infer<typeof insertPriceGuideCacheSchema>;
 export type PriceGuideCache = typeof priceGuideCache.$inferSelect;
+
+// Vector Embeddings - For semantic search and AI intelligence
+export const inventoryEmbeddings = pgTable("inventory_embeddings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  inventoryId: integer("inventory_id").notNull(), // Reference to bl_inventory.id
+  embedding: vector("embedding", { dimensions: 1536 }), // OpenAI text-embedding-3-small uses 1536 dimensions
+  content: text("content").notNull(), // The text that was embedded (item details, description, etc.)
+  embeddingModel: text("embedding_model").default('text-embedding-3-small').notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertInventoryEmbeddingSchema = createInsertSchema(inventoryEmbeddings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertInventoryEmbedding = z.infer<typeof insertInventoryEmbeddingSchema>;
+export type InventoryEmbedding = typeof inventoryEmbeddings.$inferSelect;
+
+// Order Embeddings - For order pattern analysis
+export const orderEmbeddings = pgTable("order_embeddings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id").notNull(), // Reference to orders.id
+  embedding: vector("embedding", { dimensions: 1536 }),
+  content: text("content").notNull(), // Order details, items, customer patterns
+  embeddingModel: text("embedding_model").default('text-embedding-3-small').notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertOrderEmbeddingSchema = createInsertSchema(orderEmbeddings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertOrderEmbedding = z.infer<typeof insertOrderEmbeddingSchema>;
+export type OrderEmbedding = typeof orderEmbeddings.$inferSelect;
