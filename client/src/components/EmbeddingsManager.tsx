@@ -8,8 +8,10 @@ import { Sparkles, Database, Search, Loader2, CheckCircle2, AlertCircle } from '
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
 
 export function EmbeddingsManager() {
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [inventoryBatchSize, setInventoryBatchSize] = useState(100);
@@ -29,10 +31,25 @@ export function EmbeddingsManager() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ inventoryIds }),
       });
-      return response.json();
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to embed inventory');
+      return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      const successful = data.results?.filter((r: any) => r.success).length || 0;
+      const failed = data.results?.filter((r: any) => !r.success).length || 0;
+      toast({
+        title: "Embeddings Generated",
+        description: `Successfully embedded ${successful} items${failed > 0 ? `. ${failed} failed.` : ''}`,
+      });
       queryClient.invalidateQueries({ queryKey: ['/api/embeddings/stats'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Embedding Failed",
+        description: error.message || "Failed to generate embeddings. Check your OpenAI API key.",
+        variant: "destructive",
+      });
     },
   });
 
@@ -44,10 +61,25 @@ export function EmbeddingsManager() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ orderIds }),
       });
-      return response.json();
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to embed orders');
+      return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      const successful = data.results?.filter((r: any) => r.success).length || 0;
+      const failed = data.results?.filter((r: any) => !r.success).length || 0;
+      toast({
+        title: "Order Embeddings Generated",
+        description: `Successfully embedded ${successful} orders${failed > 0 ? `. ${failed} failed.` : ''}`,
+      });
       queryClient.invalidateQueries({ queryKey: ['/api/embeddings/stats'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Embedding Failed",
+        description: error.message || "Failed to generate embeddings. Check your OpenAI API key.",
+        variant: "destructive",
+      });
     },
   });
 
@@ -74,12 +106,24 @@ export function EmbeddingsManager() {
       
       if (items && items.length > 0) {
         const inventoryIds = items.map((item: any) => item.id);
+        toast({
+          title: "Generating Embeddings",
+          description: `Processing ${inventoryIds.length} inventory items...`,
+        });
         batchEmbedInventory(inventoryIds);
       } else {
-        console.log('No inventory items need embedding');
+        toast({
+          title: "All Done!",
+          description: "All inventory items already have embeddings.",
+        });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error getting inventory for embedding:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to fetch items for embedding",
+        variant: "destructive",
+      });
     }
   };
 
@@ -91,12 +135,24 @@ export function EmbeddingsManager() {
       
       if (items && items.length > 0) {
         const orderIds = items.map((item: any) => item.id);
+        toast({
+          title: "Generating Embeddings",
+          description: `Processing ${orderIds.length} orders...`,
+        });
         batchEmbedOrders(orderIds);
       } else {
-        console.log('No orders need embedding');
+        toast({
+          title: "All Done!",
+          description: "All orders already have embeddings.",
+        });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error getting orders for embedding:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to fetch orders for embedding",
+        variant: "destructive",
+      });
     }
   };
 
