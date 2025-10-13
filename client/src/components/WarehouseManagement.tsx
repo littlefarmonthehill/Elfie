@@ -578,10 +578,15 @@ function UnassignedInventorySection({ items, bins, onAssign, onItemClick }: any)
 
   const handleBulkAssign = () => {
     if (!bulkBinId || selectedLots.size === 0) return;
+    
     const binId = parseInt(bulkBinId);
-    selectedLots.forEach(inventoryId => {
+    
+    // Call mutation for each selected lot
+    Array.from(selectedLots).forEach(inventoryId => {
       onAssign({ inventoryId, binId });
     });
+    
+    // Clear selections
     setSelectedLots(new Set());
     setBulkBinId("");
   };
