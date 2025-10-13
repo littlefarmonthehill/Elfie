@@ -334,15 +334,20 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     if (!activeView) return [];
 
     if (activeView === 'lots') {
-      const assigned = locations.map(loc => ({
-        id: loc.inventoryId,
-        itemNo: loc.itemNo,
-        colorName: loc.colorName,
-        newOrUsed: loc.newOrUsed,
-        quantity: loc.quantity,
-        binName: loc.binName,
-        assigned: true,
-      }));
+      // Deduplicate assigned lots by inventory ID (keep last occurrence)
+      const assignedMap = new Map();
+      locations.forEach(loc => {
+        assignedMap.set(loc.inventoryId, {
+          id: loc.inventoryId,
+          itemNo: loc.itemNo,
+          colorName: loc.colorName,
+          newOrUsed: loc.newOrUsed,
+          quantity: loc.quantity,
+          binName: loc.binName,
+          assigned: true,
+        });
+      });
+      const assigned = Array.from(assignedMap.values());
       const unassigned = unassignedInventory.map(item => ({ ...item, assigned: false }));
       
       if (filter === 'assigned') return assigned;
