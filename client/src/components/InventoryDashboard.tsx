@@ -210,7 +210,7 @@ export default function InventoryDashboard({ onItemClick }: InventoryDashboardPr
                           <Package className="w-3 h-3 text-green-400 flex-shrink-0 mt-0.5" />
                           <div className="flex-1 min-w-0">
                             <div className="text-gray-300 truncate text-[10px] font-medium">
-                              {item.itemName || item.itemNo}
+                              {item.itemNo} {item.itemName && `- ${item.itemName}`}
                             </div>
                             <div className="flex gap-1.5 text-[9px] text-gray-500 mt-0.5">
                               <span>{item.colorName || 'N/A'}</span>
@@ -246,7 +246,7 @@ export default function InventoryDashboard({ onItemClick }: InventoryDashboardPr
                           <div className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0 mt-1.5" />
                           <div className="flex-1 min-w-0">
                             <div className="text-gray-300 truncate text-[10px] font-medium">
-                              {item.itemName || item.itemNo}
+                              {item.itemNo} {item.itemName && `- ${item.itemName}`}
                             </div>
                             <div className="flex gap-1.5 text-[9px] text-gray-500 mt-0.5">
                               <span>{item.colorName || 'N/A'}</span>
