@@ -129,31 +129,32 @@ export default function InventoryDashboard({ onItemClick }: InventoryDashboardPr
   return (
     <div className="p-2 space-y-1.5 bg-gradient-to-br from-lego-blue/5 to-transparent rounded-lg border border-lego-blue/10 shadow-[0_0_15px_rgba(59,130,246,0.1)]">
       {/* Action Buttons Row */}
-      <div className="bg-gray-900/50 border border-blue-500/20 rounded-lg p-2">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
+          <Package className="h-3.5 w-3.5 text-gray-400" />
+          <span className="text-[10px] font-bold text-gray-400">TOOLS</span>
+        </div>
+        <div className="flex gap-1.5">
           <button
             onClick={() => setActiveDrawer('priceomatic')}
-            className="flex items-center gap-1.5 text-[9px] font-bold py-1 px-2 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
+            className="text-[9px] font-bold py-1 px-2 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
             data-testid="button-priceomatic"
           >
-            <Sparkles className="w-3 h-3" />
-            <span>Price-O-Matic</span>
+            Price-O-Matic
           </button>
           <button
             onClick={() => setActiveDrawer('warehouse')}
-            className="flex items-center gap-1.5 text-[9px] font-bold py-1 px-2 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
+            className="text-[9px] font-bold py-1 px-2 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
             data-testid="button-warehouse"
           >
-            <Warehouse className="w-3 h-3" />
-            <span>Warehouse Management</span>
+            Warehouse
           </button>
           <button
             onClick={() => setActiveDrawer('sync')}
-            className="flex items-center gap-1.5 text-[9px] font-bold py-1 px-2 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
+            className="text-[9px] font-bold py-1 px-2 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
             data-testid="button-sync"
           >
-            <RefreshCw className="w-3 h-3" />
-            <span>Platform Sync</span>
+            Platform Sync
           </button>
         </div>
       </div>

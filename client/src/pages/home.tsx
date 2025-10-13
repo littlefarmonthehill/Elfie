@@ -567,7 +567,6 @@ export default function Home() {
           activeDashboard === 'inventory' ? 'bg-gradient-to-b from-lego-blue/20 to-lego-blue/5 border-lego-blue/30' :
           activeDashboard === 'orders' ? 'bg-gradient-to-b from-lego-orange/20 to-lego-orange/5 border-lego-orange/30' :
           activeDashboard === 'sales' ? 'bg-gradient-to-b from-lego-green/20 to-lego-green/5 border-lego-green/30' :
-          activeDashboard === 'priceomatic' ? 'bg-gradient-to-b from-purple-500/20 to-purple-500/5 border-purple-500/30' :
           'bg-gradient-to-b from-lego-yellow/20 to-lego-yellow/5 border-lego-yellow/30'
         }`}>
           {renderDashboard()}
