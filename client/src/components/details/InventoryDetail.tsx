@@ -1,9 +1,10 @@
-import { Package, DollarSign, Weight, Calendar, ExternalLink, TrendingUp, Sparkles, BarChart3, ShoppingCart, FileText, AlertCircle, Database, Tag, Box, Layers, Users, Clock, Zap, Info } from "lucide-react";
+import { Package, DollarSign, Weight, Calendar, ExternalLink, TrendingUp, Sparkles, BarChart3, ShoppingCart, FileText, AlertCircle, Database, Tag, Box, Layers, Users, Clock, Zap, Info, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 
 interface PriceOMagicData {
   itemNo: string;
@@ -104,6 +105,12 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
   const [dateRange, setDateRange] = useState<'all' | '1year' | '2years' | '3months' | '6months'>('all');
   const priceOMagic = data.priceOMagic;
+
+  // Fetch warehouse location
+  const { data: warehouseLocation } = useQuery<any[]>({
+    queryKey: [`/api/warehouse/locations?inventoryId=${data.id}`],
+    enabled: !data.loading && !!data.id,
+  });
 
   // Fetch analytics data
   useEffect(() => {
@@ -339,6 +346,38 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
                     </div>
                   )}
                 </div>
+              )}
+            </div>
+
+            {/* Warehouse Location */}
+            <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-2.5">
+              <div className="flex items-center gap-1.5 mb-2">
+                <MapPin className="h-3.5 w-3.5 text-blue-400" />
+                <p className="text-[10px] font-bold text-blue-400">WAREHOUSE LOCATION</p>
+              </div>
+              {warehouseLocation && warehouseLocation.length > 0 ? (
+                <div className="space-y-1">
+                  {warehouseLocation.map((loc: any, index: number) => (
+                    <div key={index} className="text-xs">
+                      <span className="text-gray-400">
+                        {loc.aisleName && `Aisle: ${loc.aisleName}`}
+                        {loc.aisleName && loc.shelfName && ' • '}
+                        {loc.shelfName && `Shelf: ${loc.shelfName}`}
+                        {(loc.aisleName || loc.shelfName) && loc.binName && ' • '}
+                      </span>
+                      <span className="text-white font-semibold">
+                        {loc.binName ? `Bin: ${loc.binName}` : 'No bin assigned'}
+                      </span>
+                      {loc.bagLabel && (
+                        <span className="text-gray-400"> • Bag: {loc.bagLabel}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[10px] text-gray-400 italic">
+                  Not assigned to a warehouse location
+                </p>
               )}
             </div>
 
