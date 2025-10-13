@@ -50,6 +50,13 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
     return Array.from(years).sort((a, b) => b - a);
   }, [orders]);
 
+  // Filter selected years to only include years with actual data
+  // This ensures UI, chart, and metrics only show years from availableYears
+  const validCompareYears = useMemo(() => {
+    const nonCurrentYears = availableYears.filter(y => y !== currentYear);
+    return selectedCompareYears.filter(y => nonCurrentYears.includes(y));
+  }, [selectedCompareYears, availableYears, currentYear]);
+
   const handlePlatformClick = (platform: string) => {
     setPlatformDrawer({ open: true, platform });
   };
@@ -201,7 +208,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
 
   // Year comparison data generation - respects date range filter
   const getYearComparisonData = () => {
-    const years = [currentYear, ...selectedCompareYears];
+    const years = [currentYear, ...validCompareYears];
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     
     // Determine the date range boundaries for comparison
@@ -251,7 +258,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
     
     // Initialize bucket with all years
     const initialBucketData: Record<string, number> = { [`${currentYear}`]: 0 };
-    selectedCompareYears.forEach(year => {
+    validCompareYears.forEach(year => {
       initialBucketData[`${year}`] = 0;
     });
     
@@ -355,7 +362,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
   }
 
   const comparisonData = compareMode ? getYearComparisonData() : [];
-  const comparisonYears = [currentYear, ...selectedCompareYears];
+  const comparisonYears = [currentYear, ...validCompareYears];
   
   // Colors for year lines in comparison chart - dynamic palette
   const colorPalette = [
@@ -372,7 +379,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
   const yearColors: Record<number, string> = {
     [currentYear]: colorPalette[0],
   };
-  selectedCompareYears.forEach((year, index) => {
+  validCompareYears.forEach((year, index) => {
     yearColors[year] = colorPalette[(index + 1) % colorPalette.length];
   });
 
@@ -395,33 +402,45 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
           </button>
           
           {compareMode && availableYears.length > 0 && (
-            <div className="flex items-center gap-1 flex-wrap flex-1">
-              <span className="text-[9px] text-gray-500">vs</span>
-              {availableYears
-                .filter(y => y !== currentYear)
-                .map(year => {
-                  const isSelected = selectedCompareYears.includes(year);
-                  return (
-                    <button
-                      key={year}
-                      onClick={() => {
-                        if (isSelected) {
-                          setSelectedCompareYears(selectedCompareYears.filter(y => y !== year));
-                        } else {
-                          setSelectedCompareYears([...selectedCompareYears, year].sort((a, b) => b - a));
-                        }
-                      }}
-                      className={`text-[10px] px-2 py-0.5 rounded transition-all ${
-                        isSelected
-                          ? 'bg-blue-600 text-white border border-blue-500'
-                          : 'bg-gray-800 text-gray-400 border border-gray-700 hover-elevate'
-                      }`}
-                      data-testid={`year-toggle-${year}`}
-                    >
-                      {year}
-                    </button>
-                  );
-                })}
+            <div className="flex items-center gap-1 flex-1 overflow-x-auto">
+              <span className="text-[9px] text-gray-500 flex-shrink-0">vs</span>
+              <div className="flex gap-1 flex-nowrap">
+                {(() => {
+                  const nonCurrentYears = availableYears.filter(y => y !== currentYear);
+                  // Sort years: selected first (descending), then unselected (descending)
+                  // validCompareYears is already filtered to only include years with data
+                  const selectedYears = [...validCompareYears].sort((a, b) => b - a);
+                  const unselectedYears = nonCurrentYears
+                    .filter(y => !validCompareYears.includes(y))
+                    .sort((a, b) => b - a);
+                  const sortedYears = [...selectedYears, ...unselectedYears];
+                  
+                  return sortedYears.map(year => {
+                    const isSelected = selectedCompareYears.includes(year);
+                    return (
+                      <button
+                        key={year}
+                        onClick={() => {
+                          if (isSelected) {
+                            setSelectedCompareYears(selectedCompareYears.filter(y => y !== year));
+                          } else {
+                            setSelectedCompareYears([...selectedCompareYears, year].sort((a, b) => b - a));
+                          }
+                        }}
+                        aria-pressed={isSelected}
+                        className={`text-[10px] px-2 py-0.5 rounded transition-all flex-shrink-0 ${
+                          isSelected
+                            ? 'bg-blue-600 text-white border border-blue-500'
+                            : 'bg-gray-800 text-gray-400 border border-gray-700 hover-elevate'
+                        }`}
+                        data-testid={`year-toggle-${year}`}
+                      >
+                        {year}
+                      </button>
+                    );
+                  });
+                })()}
+              </div>
             </div>
           )}
         </div>
@@ -481,13 +500,13 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
       </div>
 
       {/* Year-over-Year Growth Metrics */}
-      {compareMode && selectedCompareYears.length > 0 && (
+      {compareMode && validCompareYears.length > 0 && (
         <div className="bg-gray-900/50 border border-purple-500/20 rounded-lg p-3" data-testid="section-yoy-metrics">
           <div className="flex items-center gap-2 mb-2">
             <TrendingUp className="w-3.5 h-3.5 text-purple-400" />
             <h3 className="text-[10px] font-semibold text-purple-400 uppercase tracking-wide">Year-over-Year Growth</h3>
           </div>
-          <div className={`grid gap-2 ${selectedCompareYears.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+          <div className={`grid gap-2 ${validCompareYears.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
             {(() => {
               // Calculate total revenue for each year using the same date range filter
               const yearTotals = comparisonYears.reduce((acc, year) => {
@@ -500,7 +519,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
                 return acc;
               }, {} as Record<number, number>);
 
-              return selectedCompareYears.map(compareYear => {
+              return validCompareYears.map(compareYear => {
                 const growth = yearTotals[compareYear] > 0
                   ? ((yearTotals[currentYear] - yearTotals[compareYear]) / yearTotals[compareYear]) * 100
                   : 0;
