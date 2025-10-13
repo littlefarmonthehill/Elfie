@@ -593,7 +593,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
                         }
                       }}
                       aria-pressed={isSelected}
-                      className={`text-xs px-3 py-1.5 rounded transition-all flex-shrink-0 font-medium ${
+                      className={`text-[9px] font-bold py-1 px-2 rounded transition-all flex-shrink-0 ${
                         isSelected
                           ? 'bg-blue-600 text-white border border-blue-500'
                           : 'bg-gray-800 text-gray-400 border border-gray-700 hover-elevate'
@@ -635,7 +635,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
                         }
                       }}
                       aria-pressed={isSelected}
-                      className={`text-xs px-3 py-1.5 rounded transition-all flex-shrink-0 font-medium ${
+                      className={`text-[9px] font-bold py-1 px-2 rounded transition-all flex-shrink-0 ${
                         isSelected
                           ? 'bg-blue-600 text-white border border-blue-500'
                           : 'bg-gray-800 text-gray-400 border border-gray-700 hover-elevate'
@@ -695,7 +695,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
                     dataKey={`${year}`} 
                     stroke={yearColors[year]} 
                     strokeWidth={2} 
-                    dot={{ fill: yearColors[year], r: 2 }}
+                    dot={{ fill: yearColors[year], r: 1 }}
                     name={year.toString()}
                   />
                 ))}
@@ -724,7 +724,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
                     dataKey={platform} 
                     stroke={PLATFORM_COLORS[platform] || PLATFORM_COLORS['Other']} 
                     strokeWidth={2} 
-                    dot={{ fill: PLATFORM_COLORS[platform] || PLATFORM_COLORS['Other'], r: 2 }}
+                    dot={{ fill: PLATFORM_COLORS[platform] || PLATFORM_COLORS['Other'], r: 1 }}
                     name={platform}
                   />
                 ))}
