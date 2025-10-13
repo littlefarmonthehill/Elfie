@@ -23,7 +23,7 @@ interface MarketingDashboardProps {
   onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
 }
 
-export default function MarketingDashboard({ dateRange = 'all', onItemClick }: MarketingDashboardProps) {
+export default function MarketingDashboard({ dateRange = 'mtd', onItemClick }: MarketingDashboardProps) {
   // Build query URL with date range parameter
   const buildQueryUrl = (baseUrl: string) => {
     if (dateRange === 'all') return baseUrl;
