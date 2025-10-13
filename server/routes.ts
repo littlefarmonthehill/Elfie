@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { syncBricklinkData, fetchPriceOMagicData, searchBricklinkCatalogItem, syncPriceOMagicCache } from "./services/bricklink";
 import { syncShipStationOrders } from "./services/shipstation";
 import { db } from "./db";
-import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings } from "@shared/schema";
+import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, whAisles, whShelves, whBins, inventoryLocations, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema } from "@shared/schema";
 import { eq, desc, sql, inArray, like, or, and } from "drizzle-orm";
 import { z } from "zod";
 
@@ -2356,6 +2356,418 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
         success: false,
         error: "Failed to fetch pricing insights",
       });
+    }
+  });
+
+  // ========================================
+  // WAREHOUSE MANAGEMENT ROUTES
+  // ========================================
+
+  // Get all aisles with shelf and bin counts
+  app.get("/api/warehouse/aisles", async (req, res) => {
+    try {
+      const aislesWithCounts = await db
+        .select({
+          id: whAisles.id,
+          name: whAisles.name,
+          description: whAisles.description,
+          createdAt: whAisles.createdAt,
+          updatedAt: whAisles.updatedAt,
+          shelfCount: sql<number>`(SELECT COUNT(*) FROM ${whShelves} WHERE ${whShelves.aisleId} = ${whAisles.id})`,
+        })
+        .from(whAisles)
+        .orderBy(whAisles.name);
+
+      res.json(aislesWithCounts);
+    } catch (error) {
+      console.error("Error fetching aisles:", error);
+      res.status(500).json({ error: "Failed to fetch aisles" });
+    }
+  });
+
+  // Create aisle
+  app.post("/api/warehouse/aisles", async (req, res) => {
+    try {
+      const data = insertWhAisleSchema.parse(req.body);
+      const [aisle] = await db
+        .insert(whAisles)
+        .values(data)
+        .returning();
+      res.json(aisle);
+    } catch (error) {
+      console.error("Error creating aisle:", error);
+      res.status(500).json({ error: "Failed to create aisle" });
+    }
+  });
+
+  // Update aisle
+  app.put("/api/warehouse/aisles/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const data = insertWhAisleSchema.parse(req.body);
+      const [aisle] = await db
+        .update(whAisles)
+        .set({ ...data, updatedAt: sql`CURRENT_TIMESTAMP` })
+        .where(eq(whAisles.id, id))
+        .returning();
+      
+      if (!aisle) {
+        return res.status(404).json({ error: "Aisle not found" });
+      }
+      res.json(aisle);
+    } catch (error) {
+      console.error("Error updating aisle:", error);
+      res.status(500).json({ error: "Failed to update aisle" });
+    }
+  });
+
+  // Delete aisle
+  app.delete("/api/warehouse/aisles/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await db.delete(whAisles).where(eq(whAisles.id, id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting aisle:", error);
+      res.status(500).json({ error: "Failed to delete aisle" });
+    }
+  });
+
+  // Get all shelves (with optional aisle filter)
+  app.get("/api/warehouse/shelves", async (req, res) => {
+    try {
+      const aisleId = req.query.aisleId ? parseInt(req.query.aisleId as string) : null;
+      
+      const shelvesWithCounts = await db
+        .select({
+          id: whShelves.id,
+          name: whShelves.name,
+          aisleId: whShelves.aisleId,
+          aisleName: whAisles.name,
+          position: whShelves.position,
+          description: whShelves.description,
+          createdAt: whShelves.createdAt,
+          updatedAt: whShelves.updatedAt,
+          binCount: sql<number>`(SELECT COUNT(*) FROM ${whBins} WHERE ${whBins.shelfId} = ${whShelves.id})`,
+        })
+        .from(whShelves)
+        .leftJoin(whAisles, eq(whShelves.aisleId, whAisles.id))
+        .where(aisleId ? eq(whShelves.aisleId, aisleId) : undefined)
+        .orderBy(whShelves.aisleId, whShelves.position);
+
+      res.json(shelvesWithCounts);
+    } catch (error) {
+      console.error("Error fetching shelves:", error);
+      res.status(500).json({ error: "Failed to fetch shelves" });
+    }
+  });
+
+  // Create shelf
+  app.post("/api/warehouse/shelves", async (req, res) => {
+    try {
+      const data = insertWhShelfSchema.parse(req.body);
+      const [shelf] = await db
+        .insert(whShelves)
+        .values(data)
+        .returning();
+      res.json(shelf);
+    } catch (error) {
+      console.error("Error creating shelf:", error);
+      res.status(500).json({ error: "Failed to create shelf" });
+    }
+  });
+
+  // Update shelf
+  app.put("/api/warehouse/shelves/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const data = insertWhShelfSchema.parse(req.body);
+      const [shelf] = await db
+        .update(whShelves)
+        .set({ ...data, updatedAt: sql`CURRENT_TIMESTAMP` })
+        .where(eq(whShelves.id, id))
+        .returning();
+      
+      if (!shelf) {
+        return res.status(404).json({ error: "Shelf not found" });
+      }
+      res.json(shelf);
+    } catch (error) {
+      console.error("Error updating shelf:", error);
+      res.status(500).json({ error: "Failed to update shelf" });
+    }
+  });
+
+  // Delete shelf
+  app.delete("/api/warehouse/shelves/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await db.delete(whShelves).where(eq(whShelves.id, id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting shelf:", error);
+      res.status(500).json({ error: "Failed to delete shelf" });
+    }
+  });
+
+  // Get all bins (with optional shelf filter)
+  app.get("/api/warehouse/bins", async (req, res) => {
+    try {
+      const shelfId = req.query.shelfId ? parseInt(req.query.shelfId as string) : null;
+      
+      const binsWithDetails = await db
+        .select({
+          id: whBins.id,
+          name: whBins.name,
+          shelfId: whBins.shelfId,
+          shelfName: whShelves.name,
+          aisleId: whAisles.id,
+          aisleName: whAisles.name,
+          position: whBins.position,
+          description: whBins.description,
+          createdAt: whBins.createdAt,
+          updatedAt: whBins.updatedAt,
+          itemCount: sql<number>`(SELECT COUNT(*) FROM ${inventoryLocations} WHERE ${inventoryLocations.binId} = ${whBins.id})`,
+        })
+        .from(whBins)
+        .leftJoin(whShelves, eq(whBins.shelfId, whShelves.id))
+        .leftJoin(whAisles, eq(whShelves.aisleId, whAisles.id))
+        .where(shelfId ? eq(whBins.shelfId, shelfId) : undefined)
+        .orderBy(whBins.shelfId, whBins.position);
+
+      res.json(binsWithDetails);
+    } catch (error) {
+      console.error("Error fetching bins:", error);
+      res.status(500).json({ error: "Failed to fetch bins" });
+    }
+  });
+
+  // Create bin
+  app.post("/api/warehouse/bins", async (req, res) => {
+    try {
+      const data = insertWhBinSchema.parse(req.body);
+      const [bin] = await db
+        .insert(whBins)
+        .values(data)
+        .returning();
+      res.json(bin);
+    } catch (error) {
+      console.error("Error creating bin:", error);
+      res.status(500).json({ error: "Failed to create bin" });
+    }
+  });
+
+  // Update bin
+  app.put("/api/warehouse/bins/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const data = insertWhBinSchema.parse(req.body);
+      const [bin] = await db
+        .update(whBins)
+        .set({ ...data, updatedAt: sql`CURRENT_TIMESTAMP` })
+        .where(eq(whBins.id, id))
+        .returning();
+      
+      if (!bin) {
+        return res.status(404).json({ error: "Bin not found" });
+      }
+      res.json(bin);
+    } catch (error) {
+      console.error("Error updating bin:", error);
+      res.status(500).json({ error: "Failed to update bin" });
+    }
+  });
+
+  // Delete bin
+  app.delete("/api/warehouse/bins/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await db.delete(whBins).where(eq(whBins.id, id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting bin:", error);
+      res.status(500).json({ error: "Failed to delete bin" });
+    }
+  });
+
+  // Get unassigned inventory items (not in any bin)
+  app.get("/api/warehouse/unassigned/inventory", async (req, res) => {
+    try {
+      const unassignedItems = await db
+        .select({
+          id: blInventory.id,
+          itemNo: blInventory.itemNo,
+          itemName: blInventory.itemName,
+          colorName: blColors.name,
+          newOrUsed: blInventory.newOrUsed,
+          quantity: blInventory.quantity,
+        })
+        .from(blInventory)
+        .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+        .leftJoin(inventoryLocations, eq(blInventory.id, inventoryLocations.inventoryId))
+        .where(sql`${inventoryLocations.id} IS NULL`)
+        .limit(1000); // Limit to avoid performance issues
+
+      res.json(unassignedItems);
+    } catch (error) {
+      console.error("Error fetching unassigned inventory:", error);
+      res.status(500).json({ error: "Failed to fetch unassigned inventory" });
+    }
+  });
+
+  // Get unassigned bins (not on any shelf)
+  app.get("/api/warehouse/unassigned/bins", async (req, res) => {
+    try {
+      const unassignedBins = await db
+        .select()
+        .from(whBins)
+        .where(sql`${whBins.shelfId} IS NULL`);
+
+      res.json(unassignedBins);
+    } catch (error) {
+      console.error("Error fetching unassigned bins:", error);
+      res.status(500).json({ error: "Failed to fetch unassigned bins" });
+    }
+  });
+
+  // Get unassigned shelves (not in any aisle)
+  app.get("/api/warehouse/unassigned/shelves", async (req, res) => {
+    try {
+      const unassignedShelves = await db
+        .select()
+        .from(whShelves)
+        .where(sql`${whShelves.aisleId} IS NULL`);
+
+      res.json(unassignedShelves);
+    } catch (error) {
+      console.error("Error fetching unassigned shelves:", error);
+      res.status(500).json({ error: "Failed to fetch unassigned shelves" });
+    }
+  });
+
+  // Assign inventory to bin
+  app.post("/api/warehouse/assign/inventory", async (req, res) => {
+    try {
+      const data = insertInventoryLocationSchema.parse(req.body);
+      const [location] = await db
+        .insert(inventoryLocations)
+        .values(data)
+        .returning();
+      res.json(location);
+    } catch (error) {
+      console.error("Error assigning inventory:", error);
+      res.status(500).json({ error: "Failed to assign inventory" });
+    }
+  });
+
+  // Assign bin to shelf
+  app.put("/api/warehouse/assign/bin/:binId/shelf/:shelfId", async (req, res) => {
+    try {
+      const binId = parseInt(req.params.binId);
+      const shelfId = parseInt(req.params.shelfId);
+      const [bin] = await db
+        .update(whBins)
+        .set({ shelfId, updatedAt: sql`CURRENT_TIMESTAMP` })
+        .where(eq(whBins.id, binId))
+        .returning();
+      
+      if (!bin) {
+        return res.status(404).json({ error: "Bin not found" });
+      }
+      res.json(bin);
+    } catch (error) {
+      console.error("Error assigning bin to shelf:", error);
+      res.status(500).json({ error: "Failed to assign bin to shelf" });
+    }
+  });
+
+  // Assign shelf to aisle
+  app.put("/api/warehouse/assign/shelf/:shelfId/aisle/:aisleId", async (req, res) => {
+    try {
+      const shelfId = parseInt(req.params.shelfId);
+      const aisleId = parseInt(req.params.aisleId);
+      const [shelf] = await db
+        .update(whShelves)
+        .set({ aisleId, updatedAt: sql`CURRENT_TIMESTAMP` })
+        .where(eq(whShelves.id, shelfId))
+        .returning();
+      
+      if (!shelf) {
+        return res.status(404).json({ error: "Shelf not found" });
+      }
+      res.json(shelf);
+    } catch (error) {
+      console.error("Error assigning shelf to aisle:", error);
+      res.status(500).json({ error: "Failed to assign shelf to aisle" });
+    }
+  });
+
+  // Get inventory locations with full details
+  app.get("/api/warehouse/locations", async (req, res) => {
+    try {
+      const locations = await db
+        .select({
+          id: inventoryLocations.id,
+          inventoryId: inventoryLocations.inventoryId,
+          itemNo: blInventory.itemNo,
+          itemName: blInventory.itemName,
+          colorName: blColors.name,
+          newOrUsed: blInventory.newOrUsed,
+          binId: inventoryLocations.binId,
+          binName: whBins.name,
+          bagLabel: inventoryLocations.bagLabel,
+          quantity: inventoryLocations.quantity,
+          shelfId: whShelves.id,
+          shelfName: whShelves.name,
+          aisleId: whAisles.id,
+          aisleName: whAisles.name,
+          notes: inventoryLocations.notes,
+        })
+        .from(inventoryLocations)
+        .leftJoin(blInventory, eq(inventoryLocations.inventoryId, blInventory.id))
+        .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+        .leftJoin(whBins, eq(inventoryLocations.binId, whBins.id))
+        .leftJoin(whShelves, eq(whBins.shelfId, whShelves.id))
+        .leftJoin(whAisles, eq(whShelves.aisleId, whAisles.id))
+        .limit(1000);
+
+      res.json(locations);
+    } catch (error) {
+      console.error("Error fetching locations:", error);
+      res.status(500).json({ error: "Failed to fetch locations" });
+    }
+  });
+
+  // Update inventory location
+  app.put("/api/warehouse/locations/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const data = insertInventoryLocationSchema.parse(req.body);
+      const [location] = await db
+        .update(inventoryLocations)
+        .set({ ...data, updatedAt: sql`CURRENT_TIMESTAMP` })
+        .where(eq(inventoryLocations.id, id))
+        .returning();
+      
+      if (!location) {
+        return res.status(404).json({ error: "Location not found" });
+      }
+      res.json(location);
+    } catch (error) {
+      console.error("Error updating location:", error);
+      res.status(500).json({ error: "Failed to update location" });
+    }
+  });
+
+  // Delete inventory location (unassign item from bin)
+  app.delete("/api/warehouse/locations/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await db.delete(inventoryLocations).where(eq(inventoryLocations.id, id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting location:", error);
+      res.status(500).json({ error: "Failed to delete location" });
     }
   });
 

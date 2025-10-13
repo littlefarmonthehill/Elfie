@@ -338,3 +338,114 @@ export const insertOrderEmbeddingSchema = createInsertSchema(orderEmbeddings).om
 
 export type InsertOrderEmbedding = z.infer<typeof insertOrderEmbeddingSchema>;
 export type OrderEmbedding = typeof orderEmbeddings.$inferSelect;
+
+// Warehouse Management - Aisles
+export const whAisles = pgTable("wh_aisles", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  name: text("name").notNull().unique(), // e.g., "Aisle 1", "A", etc.
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertWhAisleSchema = createInsertSchema(whAisles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertWhAisle = z.infer<typeof insertWhAisleSchema>;
+export type WhAisle = typeof whAisles.$inferSelect;
+
+// Warehouse Management - Shelves
+export const whShelves = pgTable("wh_shelves", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  name: text("name").notNull(), // e.g., "Shelf 1", "Top Shelf", etc.
+  aisleId: integer("aisle_id").references(() => whAisles.id, { onDelete: 'cascade' }),
+  position: integer("position"), // Optional: ordering within aisle
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertWhShelfSchema = createInsertSchema(whShelves).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertWhShelf = z.infer<typeof insertWhShelfSchema>;
+export type WhShelf = typeof whShelves.$inferSelect;
+
+// Warehouse Management - Bins
+export const whBins = pgTable("wh_bins", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  name: text("name").notNull(), // e.g., "Bin A1", "Box 23", etc.
+  shelfId: integer("shelf_id").references(() => whShelves.id, { onDelete: 'cascade' }),
+  position: integer("position"), // Optional: ordering on shelf
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertWhBinSchema = createInsertSchema(whBins).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertWhBin = z.infer<typeof insertWhBinSchema>;
+export type WhBin = typeof whBins.$inferSelect;
+
+// Warehouse Management - Inventory Locations (mapping table)
+export const inventoryLocations = pgTable("inventory_locations", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  inventoryId: integer("inventory_id").notNull().references(() => blInventory.id, { onDelete: 'cascade' }), 
+  binId: integer("bin_id").notNull().references(() => whBins.id, { onDelete: 'cascade' }),
+  bagLabel: text("bag_label"), // Optional: label on the physical bag
+  quantity: integer("quantity"), // Optional: if splitting inventory across multiple bins
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertInventoryLocationSchema = createInsertSchema(inventoryLocations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertInventoryLocation = z.infer<typeof insertInventoryLocationSchema>;
+export type InventoryLocation = typeof inventoryLocations.$inferSelect;
+
+// Relations for warehouse management
+export const whAislesRelations = relations(whAisles, ({ many }) => ({
+  shelves: many(whShelves),
+}));
+
+export const whShelvesRelations = relations(whShelves, ({ one, many }) => ({
+  aisle: one(whAisles, {
+    fields: [whShelves.aisleId],
+    references: [whAisles.id],
+  }),
+  bins: many(whBins),
+}));
+
+export const whBinsRelations = relations(whBins, ({ one, many }) => ({
+  shelf: one(whShelves, {
+    fields: [whBins.shelfId],
+    references: [whShelves.id],
+  }),
+  inventoryLocations: many(inventoryLocations),
+}));
+
+export const inventoryLocationsRelations = relations(inventoryLocations, ({ one }) => ({
+  inventory: one(blInventory, {
+    fields: [inventoryLocations.inventoryId],
+    references: [blInventory.id],
+  }),
+  bin: one(whBins, {
+    fields: [inventoryLocations.binId],
+    references: [whBins.id],
+  }),
+}));

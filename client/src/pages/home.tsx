@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Package } from "lucide-react";
 import Header from "@/components/Header";
 import DashboardNav, { DashboardType } from "@/components/DashboardNav";
 import SettingsModal from "@/components/SettingsModal";
@@ -17,6 +18,7 @@ export default function Home() {
   const [salesPeriod, setSalesPeriod] = useState<'mtd' | 'ytd' | '1y' | '5y'>('ytd');
   const [dateRange, setDateRange] = useState<DateRangeValue>('mtd');
   const [chatMinimized, setChatMinimized] = useState(true);
+  const [activeInventoryDrawer, setActiveInventoryDrawer] = useState<'priceomatic' | 'warehouse' | 'sync' | null>(null);
   const [detailModal, setDetailModal] = useState<{ open: boolean; data: DetailData | null }>({
     open: false,
     data: null,
@@ -196,7 +198,7 @@ export default function Home() {
   const renderDashboard = () => {
     switch (activeDashboard) {
       case 'inventory':
-        return <InventoryDashboard onItemClick={handleDashboardItemClick} />;
+        return <InventoryDashboard onItemClick={handleDashboardItemClick} activeDrawer={activeInventoryDrawer} onDrawerChange={setActiveInventoryDrawer} />;
       case 'orders':
         return <OrdersDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} />;
       case 'sales':
@@ -555,6 +557,41 @@ export default function Home() {
       {(activeDashboard === 'orders' || activeDashboard === 'sales' || activeDashboard === 'marketing') && (
         <div className="px-4 py-2 border-b border-gray-800">
           <DateRangeSelector value={dateRange} onChange={setDateRange} />
+        </div>
+      )}
+      
+      {/* Tools Selector - Only show for inventory */}
+      {activeDashboard === 'inventory' && (
+        <div className="px-4 py-2 border-b border-gray-800">
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
+              <Package className="h-3.5 w-3.5 text-gray-400" />
+              <span className="text-[10px] font-bold text-gray-400">TOOLS</span>
+            </div>
+            <div className="flex gap-1.5">
+              <button
+                onClick={() => setActiveInventoryDrawer('priceomatic')}
+                className="text-[9px] font-bold py-1 px-2 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
+                data-testid="button-priceomatic"
+              >
+                Price-O-Matic
+              </button>
+              <button
+                onClick={() => setActiveInventoryDrawer('warehouse')}
+                className="text-[9px] font-bold py-1 px-2 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
+                data-testid="button-warehouse"
+              >
+                Warehouse
+              </button>
+              <button
+                onClick={() => setActiveInventoryDrawer('sync')}
+                className="text-[9px] font-bold py-1 px-2 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
+                data-testid="button-sync"
+              >
+                Platform Sync
+              </button>
+            </div>
+          </div>
         </div>
       )}
       
