@@ -13,6 +13,7 @@ interface Order {
 
 interface PlatformPerformanceProps {
   orders: Order[];
+  onPlatformClick?: (platform: string) => void;
 }
 
 const PLATFORM_COLORS: Record<string, string> = {
@@ -25,7 +26,7 @@ const PLATFORM_COLORS: Record<string, string> = {
   'Other': '#9CA3AF',
 };
 
-export default function PlatformPerformance({ orders }: PlatformPerformanceProps) {
+export default function PlatformPerformance({ orders, onPlatformClick }: PlatformPerformanceProps) {
   // Group orders by marketplace and calculate metrics
   const platformData = orders.reduce((acc, order) => {
     const marketplace = order.marketplace || 'Unknown';
@@ -133,7 +134,8 @@ export default function PlatformPerformance({ orders }: PlatformPerformanceProps
           return (
             <Card 
               key={platform.name}
-              className="bg-gray-800/50 border-gray-700 p-2.5 hover-elevate"
+              onClick={() => onPlatformClick?.(platform.name)}
+              className="bg-gray-800/50 border-gray-700 p-2.5 hover-elevate active-elevate-2 cursor-pointer"
               data-testid={`platform-${platform.name.toLowerCase().replace(/\s+/g, '-')}`}
             >
               <div className="flex items-center gap-2 mb-2">

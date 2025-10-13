@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { format, subMonths, startOfMonth, parseISO } from "date-fns";
 import { TrendingUp, DollarSign, Target } from "lucide-react";
 import { DateRangeValue } from "./DateRangeSelector";
 import PlatformPerformance from "./PlatformPerformance";
+import PlatformOrdersDrawer from "./PlatformOrdersDrawer";
 
 type TimePeriod = 'mtd' | 'ytd' | '1y' | '5y';
 
@@ -24,9 +26,29 @@ interface Order {
 }
 
 export default function SalesDashboard({ period, dateRange = 'all', onItemClick }: SalesDashboardProps) {
+  const [platformDrawer, setPlatformDrawer] = useState<{ open: boolean; platform: string }>({
+    open: false,
+    platform: '',
+  });
+  
   const { data: orders = [], isLoading } = useQuery<Order[]>({
     queryKey: ['/api/orders'],
   });
+
+  const handlePlatformClick = (platform: string) => {
+    setPlatformDrawer({ open: true, platform });
+  };
+
+  const handlePlatformOrderClick = (orderId: string) => {
+    // Close platform drawer and open order detail (nested drawer)
+    setPlatformDrawer({ open: false, platform: '' });
+    onItemClick?.('order', orderId);
+  };
+
+  // Filter orders for selected platform
+  const platformOrders = orders.filter(
+    order => (order.marketplace || 'Unknown') === platformDrawer.platform
+  );
 
   // Calculate sales data by month - adjust based on date range
   const getSalesData = () => {
@@ -235,8 +257,17 @@ export default function SalesDashboard({ period, dateRange = 'all', onItemClick 
 
       {/* Platform Performance */}
       <div className="bg-gray-900/50 border border-blue-500/20 rounded-lg p-3" data-testid="section-platform-performance">
-        <PlatformPerformance orders={orders} />
+        <PlatformPerformance orders={orders} onPlatformClick={handlePlatformClick} />
       </div>
+
+      {/* Platform Orders Drawer */}
+      <PlatformOrdersDrawer
+        open={platformDrawer.open}
+        onClose={() => setPlatformDrawer({ open: false, platform: '' })}
+        platform={platformDrawer.platform}
+        orders={platformOrders}
+        onOrderClick={handlePlatformOrderClick}
+      />
     </div>
   );
 }
