@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { format, subMonths, startOfMonth, parseISO, startOfDay } from "date-fns";
-import { TrendingUp, DollarSign, Target } from "lucide-react";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { format, subMonths, startOfMonth, parseISO, startOfDay, getYear } from "date-fns";
+import { TrendingUp, DollarSign, Target, GitCompare } from "lucide-react";
 import { DateRangeValue } from "./DateRangeSelector";
 import PlatformPerformance from "./PlatformPerformance";
 import PlatformOrdersDrawer from "./PlatformOrdersDrawer";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type TimePeriod = 'mtd' | 'ytd' | '1y' | '5y';
 
@@ -31,9 +32,24 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
     platform: '',
   });
   
+  const currentYear = new Date().getFullYear();
+  const [compareMode, setCompareMode] = useState(false);
+  const [compareYear1, setCompareYear1] = useState<number>(currentYear - 1);
+  const [compareYear2, setCompareYear2] = useState<number>(currentYear - 2);
+  
   const { data: orders = [], isLoading } = useQuery<Order[]>({
     queryKey: ['/api/orders'],
   });
+
+  // Get available years from orders
+  const availableYears = useMemo(() => {
+    const years = new Set<number>();
+    orders.forEach(order => {
+      const year = getYear(parseISO(order.orderDate));
+      years.add(year);
+    });
+    return Array.from(years).sort((a, b) => b - a);
+  }, [orders]);
 
   const handlePlatformClick = (platform: string) => {
     setPlatformDrawer({ open: true, platform });
@@ -182,6 +198,46 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
     }));
   };
 
+  // Year comparison data generation
+  const getYearComparisonData = () => {
+    const years = [currentYear, compareYear1, compareYear2];
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    
+    // Create data structure for all months
+    const comparisonData = months.map((month, index) => ({
+      month,
+      monthIndex: index,
+      [`${currentYear}`]: 0,
+      [`${compareYear1}`]: 0,
+      [`${compareYear2}`]: 0,
+    }));
+
+    // Aggregate orders by year and month
+    orders.forEach(order => {
+      if (!order.orderTotal || isNaN(Number(order.orderTotal))) return;
+      
+      const orderDate = parseISO(order.orderDate);
+      const year = getYear(orderDate);
+      const monthIndex = orderDate.getMonth();
+      
+      if (years.includes(year)) {
+        const monthData = comparisonData[monthIndex];
+        if (monthData) {
+          const currentValue = monthData[`${year}`] as number || 0;
+          monthData[`${year}`] = currentValue + Number(order.orderTotal);
+        }
+      }
+    });
+
+    // Round values and return
+    return comparisonData.map(d => ({
+      ...d,
+      [`${currentYear}`]: Math.round((d[`${currentYear}`] as number) || 0),
+      [`${compareYear1}`]: Math.round((d[`${compareYear1}`] as number) || 0),
+      [`${compareYear2}`]: Math.round((d[`${compareYear2}`] as number) || 0),
+    }));
+  };
+
   // Get top revenue orders
   const topRevenueOrders = filteredOrders
     .filter(order => order.orderTotal && !isNaN(Number(order.orderTotal)))
@@ -213,26 +269,115 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
     );
   }
 
+  const comparisonData = compareMode ? getYearComparisonData() : [];
+  const comparisonYears = [currentYear, compareYear1, compareYear2];
+  
+  // Colors for year lines in comparison chart
+  const yearColors = {
+    [currentYear]: 'hsl(140 70% 50%)',      // Green for current year
+    [compareYear1]: 'hsl(200 70% 50%)',     // Blue for year 1
+    [compareYear2]: 'hsl(280 70% 50%)',     // Purple for year 2
+  };
+
   return (
     <div className="p-2 space-y-1.5 bg-gradient-to-br from-lego-green/5 to-transparent rounded-lg border border-lego-green/10 shadow-[0_0_15px_rgba(34,197,94,0.1)]">
+      {/* Year Comparison Toggle */}
+      <div className="bg-gray-900/50 border border-lego-green/20 rounded-lg p-2">
+        <div className="flex items-center gap-2 mb-2">
+          <button
+            onClick={() => setCompareMode(!compareMode)}
+            className={`flex items-center gap-1.5 text-[10px] font-bold py-1 px-2 rounded transition-all ${
+              compareMode
+                ? 'bg-lego-orange text-white border border-lego-orange'
+                : 'bg-gray-900 text-gray-400 border border-gray-700 hover-elevate'
+            }`}
+            data-testid="button-compare-years"
+          >
+            <GitCompare className="w-3 h-3" />
+            <span>Compare Years</span>
+          </button>
+          
+          {compareMode && availableYears.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-1">
+              <span className="text-[9px] text-gray-500">vs</span>
+              <Select value={compareYear1.toString()} onValueChange={(v) => setCompareYear1(parseInt(v))}>
+                <SelectTrigger className="h-6 text-[10px] w-16 bg-gray-800 border-gray-700" data-testid="select-year1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableYears.filter(y => y !== currentYear && y !== compareYear2).map(year => (
+                    <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              <span className="text-[9px] text-gray-500">vs</span>
+              <Select value={compareYear2.toString()} onValueChange={(v) => setCompareYear2(parseInt(v))}>
+                <SelectTrigger className="h-6 text-[10px] w-16 bg-gray-800 border-gray-700" data-testid="select-year2">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableYears.filter(y => y !== currentYear && y !== compareYear1).map(year => (
+                    <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Chart */}
       <div className="bg-gray-900/50 border border-lego-green/20 rounded-lg p-2">
-        <div className="mb-1 text-xs text-gray-400">
-          Average: <span className="text-lego-green font-mono font-semibold">${average.toLocaleString()}</span>
-          <span className="ml-2 text-gray-500">Total Revenue: ${Math.round(totalRevenue).toLocaleString()}</span>
-        </div>
-        <ResponsiveContainer width="100%" height={120}>
-          <LineChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-            <XAxis dataKey="date" stroke="#9CA3AF" style={{ fontSize: '10px' }} />
-            <YAxis stroke="#9CA3AF" style={{ fontSize: '10px' }} />
-            <Tooltip
-              contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151', borderRadius: '6px', fontSize: '12px' }}
-              labelStyle={{ color: '#D1D5DB' }}
-            />
-            <Line type="monotone" dataKey="sales" stroke="hsl(140 70% 50%)" strokeWidth={2} dot={{ fill: 'hsl(140 70% 50%)', r: 1 }} />
-          </LineChart>
-        </ResponsiveContainer>
+        {!compareMode ? (
+          <>
+            <div className="mb-1 text-xs text-gray-400">
+              Average: <span className="text-lego-green font-mono font-semibold">${average.toLocaleString()}</span>
+              <span className="ml-2 text-gray-500">Total Revenue: ${Math.round(totalRevenue).toLocaleString()}</span>
+            </div>
+            <ResponsiveContainer width="100%" height={120}>
+              <LineChart data={data}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                <XAxis dataKey="date" stroke="#9CA3AF" style={{ fontSize: '10px' }} />
+                <YAxis stroke="#9CA3AF" style={{ fontSize: '10px' }} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151', borderRadius: '6px', fontSize: '12px' }}
+                  labelStyle={{ color: '#D1D5DB' }}
+                />
+                <Line type="monotone" dataKey="sales" stroke="hsl(140 70% 50%)" strokeWidth={2} dot={{ fill: 'hsl(140 70% 50%)', r: 1 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </>
+        ) : (
+          <>
+            <div className="mb-1 text-xs text-gray-400">
+              <span className="text-lego-green font-semibold">Year-over-Year Comparison</span>
+            </div>
+            <ResponsiveContainer width="100%" height={140}>
+              <LineChart data={comparisonData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                <XAxis dataKey="month" stroke="#9CA3AF" style={{ fontSize: '10px' }} />
+                <YAxis stroke="#9CA3AF" style={{ fontSize: '10px' }} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151', borderRadius: '6px', fontSize: '12px' }}
+                  labelStyle={{ color: '#D1D5DB' }}
+                />
+                <Legend wrapperStyle={{ fontSize: '10px' }} />
+                {comparisonYears.map(year => (
+                  <Line 
+                    key={year}
+                    type="monotone" 
+                    dataKey={`${year}`} 
+                    stroke={yearColors[year]} 
+                    strokeWidth={2} 
+                    dot={{ fill: yearColors[year], r: 2 }}
+                    name={year.toString()}
+                  />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          </>
+        )}
       </div>
 
       {/* Highlights - Top Revenue Orders */}
