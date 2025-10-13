@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { format, subDays, startOfDay } from "date-fns";
+import { format, subDays, startOfDay, startOfMonth } from "date-fns";
 import { AlertCircle, ShoppingCart, TrendingUp, Package } from "lucide-react";
 import { DateRangeValue } from "./DateRangeSelector";
 
@@ -19,7 +19,7 @@ interface OrdersDashboardProps {
   onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
 }
 
-export default function OrdersDashboard({ dateRange = 'all', onItemClick }: OrdersDashboardProps) {
+export default function OrdersDashboard({ dateRange = 'mtd', onItemClick }: OrdersDashboardProps) {
   const { data: orders = [], isLoading } = useQuery<Order[]>({
     queryKey: ['/api/orders', dateRange],
     queryFn: async () => {
@@ -34,6 +34,52 @@ export default function OrdersDashboard({ dateRange = 'all', onItemClick }: Orde
   const getTrendData = () => {
     if (orders.length === 0) {
       return [];
+    }
+
+    // For MTD, show daily data for current month
+    if (dateRange === 'mtd') {
+      const today = new Date();
+      const startOfCurrentMonth = startOfMonth(today);
+      const daysInMonth = today.getDate();
+      
+      const days = Array.from({ length: daysInMonth }, (_, i) => {
+        const dayDate = new Date(startOfCurrentMonth);
+        dayDate.setDate(i + 1);
+        return {
+          date: format(dayDate, 'MMM d'),
+          fullDate: startOfDay(dayDate),
+          bricklink: 0,
+          brickowl: 0,
+          other: 0,
+        };
+      });
+
+      // Aggregate orders into days
+      orders.forEach(order => {
+        const orderDate = startOfDay(new Date(order.orderDate));
+        const dayData = days.find(day => 
+          orderDate.getTime() === day.fullDate.getTime()
+        );
+        
+        if (dayData) {
+          if (order.orderNumber.toLowerCase().includes('bl') || 
+              order.orderNumber.toLowerCase().includes('bricklink')) {
+            dayData.bricklink++;
+          } else if (order.orderNumber.toLowerCase().includes('bo') || 
+                     order.orderNumber.toLowerCase().includes('brickowl')) {
+            dayData.brickowl++;
+          } else {
+            dayData.other++;
+          }
+        }
+      });
+
+      return days.map(({ date, bricklink, brickowl, other }) => ({
+        date,
+        bricklink,
+        brickowl,
+        other,
+      }));
     }
 
     // Find the most recent order date to base the chart on

@@ -19,6 +19,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (range) {
         const now = new Date();
         switch (range) {
+          case 'mtd':
+            // Month-to-Date: start of current month
+            dateFilter = new Date(now.getFullYear(), now.getMonth(), 1);
+            break;
           case '3months':
             dateFilter = new Date(now.setMonth(now.getMonth() - 3));
             break;
@@ -179,6 +183,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (range) {
         const now = new Date();
         switch (range) {
+          case 'mtd':
+            // Month-to-Date: start of current month
+            dateFilter = new Date(now.getFullYear(), now.getMonth(), 1);
+            break;
           case '3months':
             dateFilter = new Date(now.setMonth(now.getMonth() - 3));
             break;
