@@ -11,9 +11,6 @@ import PriceOMaticDashboard from "@/components/PriceOMaticDashboard";
 import ChatInterface from "@/components/ChatInterface";
 import DetailModal, { DetailData } from "@/components/DetailModal";
 import DateRangeSelector, { DateRangeValue } from "@/components/DateRangeSelector";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { ExternalLink, X } from "lucide-react";
 
 export default function Home() {
   const [activeDashboard, setActiveDashboard] = useState<DashboardType>('dashboard');
@@ -21,7 +18,6 @@ export default function Home() {
   const [salesPeriod, setSalesPeriod] = useState<'mtd' | 'ytd' | '1y' | '5y'>('ytd');
   const [dateRange, setDateRange] = useState<DateRangeValue>('all');
   const [chatMinimized, setChatMinimized] = useState(true);
-  const [brickLinkUrl, setBrickLinkUrl] = useState<string | null>(null);
   const [detailModal, setDetailModal] = useState<{ open: boolean; data: DetailData | null }>({
     open: false,
     data: null,
@@ -628,44 +624,8 @@ export default function Home() {
           onClose={() => setDetailModal({ open: false, data: null })} 
           detail={detailModal.data}
           onOrderSelect={handleOrderSelect}
-          onBrickLinkClick={setBrickLinkUrl}
         />
       </div>
-
-      {/* BrickLink iframe dialog */}
-      <Dialog open={!!brickLinkUrl} onOpenChange={() => setBrickLinkUrl(null)}>
-        <DialogContent className="max-w-4xl h-[80vh] p-0" aria-describedby="bricklink-description">
-          <DialogHeader className="p-4 border-b">
-            <div className="flex items-center justify-between">
-              <DialogTitle className="text-base flex items-center gap-2">
-                <ExternalLink className="h-4 w-4" />
-                BrickLink
-              </DialogTitle>
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={() => setBrickLinkUrl(null)}
-                className="h-8 w-8"
-                data-testid="button-close-bricklink"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            <p id="bricklink-description" className="sr-only">
-              BrickLink catalog page displaying part information
-            </p>
-          </DialogHeader>
-          {brickLinkUrl && (
-            <iframe
-              src={brickLinkUrl}
-              className="w-full h-full"
-              title="BrickLink"
-              sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
-              data-testid="iframe-bricklink"
-            />
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

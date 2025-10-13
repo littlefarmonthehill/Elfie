@@ -17,16 +17,15 @@ interface DetailModalProps {
   onClose: () => void;
   detail: DetailData | null;
   onOrderSelect?: (orderId: string) => void;
-  onBrickLinkClick?: (url: string) => void;
 }
 
-export default function DetailModal({ open, onClose, detail, onOrderSelect, onBrickLinkClick }: DetailModalProps) {
+export default function DetailModal({ open, onClose, detail, onOrderSelect }: DetailModalProps) {
   if (!detail) return null;
 
   const renderDetail = () => {
     switch (detail.type) {
       case 'inventory':
-        return <InventoryDetail data={detail.data} onBrickLinkClick={onBrickLinkClick} />;
+        return <InventoryDetail data={detail.data} />;
       case 'order':
         return <OrderDetail data={detail.data} onOrderSelect={onOrderSelect} />;
       case 'sales':
