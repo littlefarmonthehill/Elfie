@@ -34,8 +34,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
   
   const currentYear = new Date().getFullYear();
   const [compareMode, setCompareMode] = useState(false);
-  const [compareYear1, setCompareYear1] = useState<number>(currentYear - 1);
-  const [compareYear2, setCompareYear2] = useState<number>(currentYear - 2);
+  const [selectedCompareYears, setSelectedCompareYears] = useState<number[]>([currentYear - 1, currentYear - 2]);
   
   const { data: orders = [], isLoading } = useQuery<Order[]>({
     queryKey: ['/api/orders'],
@@ -202,7 +201,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
 
   // Year comparison data generation - respects date range filter
   const getYearComparisonData = () => {
-    const years = [currentYear, compareYear1, compareYear2];
+    const years = [currentYear, ...selectedCompareYears];
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     
     // Determine the date range boundaries for comparison
@@ -250,6 +249,12 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
     let currentDate = startOfMonth(startDate);
     const endMonth = startOfMonth(endDate);
     
+    // Initialize bucket with all years
+    const initialBucketData: Record<string, number> = { [`${currentYear}`]: 0 };
+    selectedCompareYears.forEach(year => {
+      initialBucketData[`${year}`] = 0;
+    });
+    
     while (currentDate <= endMonth) {
       const monthIndex = currentDate.getMonth();
       const monthYear = currentDate.getFullYear();
@@ -261,9 +266,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
         month: monthLabel,
         monthIndex,
         bucketDate: new Date(currentDate),  // Store full date for matching
-        [`${currentYear}`]: 0,
-        [`${compareYear1}`]: 0,
-        [`${compareYear2}`]: 0,
+        ...initialBucketData,
       });
       
       currentDate = subMonths(currentDate, -1); // Add 1 month
@@ -306,12 +309,18 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
     });
 
     // Round values and return
-    return comparisonData.map(d => ({
-      ...d,
-      [`${currentYear}`]: Math.round((d[`${currentYear}`] as number) || 0),
-      [`${compareYear1}`]: Math.round((d[`${compareYear1}`] as number) || 0),
-      [`${compareYear2}`]: Math.round((d[`${compareYear2}`] as number) || 0),
-    }));
+    return comparisonData.map(d => {
+      const roundedData: Record<string, any> = {
+        month: d.month,
+        monthIndex: d.monthIndex,
+        bucketDate: d.bucketDate,
+        [`${currentYear}`]: Math.round((d[`${currentYear}`] as number) || 0),
+      };
+      selectedCompareYears.forEach(year => {
+        roundedData[`${year}`] = Math.round((d[`${year}`] as number) || 0);
+      });
+      return roundedData;
+    });
   };
 
   // Get top revenue orders
@@ -322,7 +331,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
 
   // Get recent high-value sales
   const recentHighValueSales = filteredOrders
-    .filter(order => order.orderTotal && Number(order.orderTotal) >= 50)
+    .filter(order => order.orderTotal && Number(order.orderTotal) >= 100)
     .sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime())
     .slice(0, 5);
 
@@ -346,14 +355,26 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
   }
 
   const comparisonData = compareMode ? getYearComparisonData() : [];
-  const comparisonYears = [currentYear, compareYear1, compareYear2];
+  const comparisonYears = [currentYear, ...selectedCompareYears];
   
-  // Colors for year lines in comparison chart
-  const yearColors = {
-    [currentYear]: 'hsl(140 70% 50%)',      // Green for current year
-    [compareYear1]: 'hsl(200 70% 50%)',     // Blue for year 1
-    [compareYear2]: 'hsl(280 70% 50%)',     // Purple for year 2
+  // Colors for year lines in comparison chart - dynamic palette
+  const colorPalette = [
+    'hsl(140 70% 50%)',  // Green for current year
+    'hsl(200 70% 50%)',  // Blue
+    'hsl(280 70% 50%)',  // Purple
+    'hsl(30 70% 50%)',   // Orange
+    'hsl(340 70% 50%)',  // Pink
+    'hsl(180 70% 50%)',  // Cyan
+    'hsl(60 70% 50%)',   // Yellow
+    'hsl(260 70% 50%)',  // Violet
+  ];
+  
+  const yearColors: Record<number, string> = {
+    [currentYear]: colorPalette[0],
   };
+  selectedCompareYears.forEach((year, index) => {
+    yearColors[year] = colorPalette[(index + 1) % colorPalette.length];
+  });
 
   return (
     <div className="p-2 space-y-1.5 bg-gradient-to-br from-lego-green/5 to-transparent rounded-lg border border-lego-green/10 shadow-[0_0_15px_rgba(34,197,94,0.1)]">
@@ -374,30 +395,33 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
           </button>
           
           {compareMode && availableYears.length > 0 && (
-            <div className="flex items-center gap-1.5 flex-1">
+            <div className="flex items-center gap-1 flex-wrap flex-1">
               <span className="text-[9px] text-gray-500">vs</span>
-              <Select value={compareYear1.toString()} onValueChange={(v) => setCompareYear1(parseInt(v))}>
-                <SelectTrigger className="h-6 text-[10px] w-16 bg-gray-800 border-gray-700" data-testid="select-year1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableYears.filter(y => y !== currentYear && y !== compareYear2).map(year => (
-                    <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              
-              <span className="text-[9px] text-gray-500">vs</span>
-              <Select value={compareYear2.toString()} onValueChange={(v) => setCompareYear2(parseInt(v))}>
-                <SelectTrigger className="h-6 text-[10px] w-16 bg-gray-800 border-gray-700" data-testid="select-year2">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableYears.filter(y => y !== currentYear && y !== compareYear1).map(year => (
-                    <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {availableYears
+                .filter(y => y !== currentYear)
+                .map(year => {
+                  const isSelected = selectedCompareYears.includes(year);
+                  return (
+                    <button
+                      key={year}
+                      onClick={() => {
+                        if (isSelected) {
+                          setSelectedCompareYears(selectedCompareYears.filter(y => y !== year));
+                        } else {
+                          setSelectedCompareYears([...selectedCompareYears, year].sort((a, b) => b - a));
+                        }
+                      }}
+                      className={`text-[10px] px-2 py-0.5 rounded transition-all ${
+                        isSelected
+                          ? 'bg-blue-600 text-white border border-blue-500'
+                          : 'bg-gray-800 text-gray-400 border border-gray-700 hover-elevate'
+                      }`}
+                      data-testid={`year-toggle-${year}`}
+                    >
+                      {year}
+                    </button>
+                  );
+                })}
             </div>
           )}
         </div>
@@ -457,13 +481,13 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
       </div>
 
       {/* Year-over-Year Growth Metrics */}
-      {compareMode && (
+      {compareMode && selectedCompareYears.length > 0 && (
         <div className="bg-gray-900/50 border border-purple-500/20 rounded-lg p-3" data-testid="section-yoy-metrics">
           <div className="flex items-center gap-2 mb-2">
             <TrendingUp className="w-3.5 h-3.5 text-purple-400" />
             <h3 className="text-[10px] font-semibold text-purple-400 uppercase tracking-wide">Year-over-Year Growth</h3>
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className={`grid gap-2 ${selectedCompareYears.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
             {(() => {
               // Calculate total revenue for each year using the same date range filter
               const yearTotals = comparisonYears.reduce((acc, year) => {
@@ -476,41 +500,25 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
                 return acc;
               }, {} as Record<number, number>);
 
-              // Calculate growth percentages
-              const growth1 = yearTotals[compareYear1] > 0
-                ? ((yearTotals[currentYear] - yearTotals[compareYear1]) / yearTotals[compareYear1]) * 100
-                : 0;
-              const growth2 = yearTotals[compareYear2] > 0
-                ? ((yearTotals[currentYear] - yearTotals[compareYear2]) / yearTotals[compareYear2]) * 100
-                : 0;
+              return selectedCompareYears.map(compareYear => {
+                const growth = yearTotals[compareYear] > 0
+                  ? ((yearTotals[currentYear] - yearTotals[compareYear]) / yearTotals[compareYear]) * 100
+                  : 0;
 
-              return (
-                <>
-                  <div className="bg-gray-800/50 rounded p-2">
+                return (
+                  <div key={compareYear} className="bg-gray-800/50 rounded p-2">
                     <div className="text-[9px] text-gray-500 mb-1">
-                      {currentYear} vs {compareYear1}
+                      {currentYear} vs {compareYear}
                     </div>
-                    <div className={`text-sm font-mono font-bold ${growth1 >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                      {growth1 >= 0 ? '+' : ''}{growth1.toFixed(1)}%
+                    <div className={`text-sm font-mono font-bold ${growth >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                      {growth >= 0 ? '+' : ''}{growth.toFixed(1)}%
                     </div>
                     <div className="text-[9px] text-gray-400 mt-1">
-                      ${Math.round(yearTotals[currentYear]).toLocaleString()} vs ${Math.round(yearTotals[compareYear1]).toLocaleString()}
+                      ${Math.round(yearTotals[currentYear]).toLocaleString()} vs ${Math.round(yearTotals[compareYear]).toLocaleString()}
                     </div>
                   </div>
-                  
-                  <div className="bg-gray-800/50 rounded p-2">
-                    <div className="text-[9px] text-gray-500 mb-1">
-                      {currentYear} vs {compareYear2}
-                    </div>
-                    <div className={`text-sm font-mono font-bold ${growth2 >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                      {growth2 >= 0 ? '+' : ''}{growth2.toFixed(1)}%
-                    </div>
-                    <div className="text-[9px] text-gray-400 mt-1">
-                      ${Math.round(yearTotals[currentYear]).toLocaleString()} vs ${Math.round(yearTotals[compareYear2]).toLocaleString()}
-                    </div>
-                  </div>
-                </>
-              );
+                );
+              });
             })()}
           </div>
         </div>
@@ -549,7 +557,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
       <div className="bg-gray-900/50 border border-blue-500/20 rounded-lg p-3" data-testid="section-recent-high-value">
         <div className="flex items-center gap-2 mb-2">
           <Target className="w-3.5 h-3.5 text-blue-400" />
-          <h3 className="text-[10px] font-semibold text-blue-400 uppercase tracking-wide">Recent Activity - High Value Sales ($50+)</h3>
+          <h3 className="text-[10px] font-semibold text-blue-400 uppercase tracking-wide">Recent Activity - High Value Sales ($100+)</h3>
         </div>
         <div className="space-y-1">
           {recentHighValueSales.length > 0 ? (
