@@ -140,14 +140,13 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       return await response.json();
     },
     onSuccess: () => {
+      // Only invalidate queries, don't clear state here (bulk handler will do that)
       queryClient.invalidateQueries({ queryKey: ['/api/warehouse/unassigned/inventory'] });
       queryClient.invalidateQueries({ queryKey: ['/api/warehouse/bins'] });
       queryClient.invalidateQueries({ queryKey: ['/api/warehouse/shelves'] });
       queryClient.invalidateQueries({ queryKey: ['/api/warehouse/aisles'] });
       queryClient.invalidateQueries({ queryKey: ['/api/warehouse/locations'] });
-      toast({ title: "Lot assigned successfully" });
-      setSelectedItems(new Set());
-      setBulkBinId("");
+      queryClient.invalidateQueries({ queryKey: ['/api/inventory/stats'] });
     },
   });
 
@@ -161,9 +160,6 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       queryClient.invalidateQueries({ queryKey: ['/api/warehouse/unassigned/bins'] });
       queryClient.invalidateQueries({ queryKey: ['/api/warehouse/shelves'] });
       queryClient.invalidateQueries({ queryKey: ['/api/warehouse/aisles'] });
-      toast({ title: "Bin assigned to shelf" });
-      setSelectedItems(new Set());
-      setBulkShelfId("");
     },
   });
 
@@ -176,9 +172,6 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       queryClient.invalidateQueries({ queryKey: ['/api/warehouse/shelves'] });
       queryClient.invalidateQueries({ queryKey: ['/api/warehouse/unassigned/shelves'] });
       queryClient.invalidateQueries({ queryKey: ['/api/warehouse/aisles'] });
-      toast({ title: "Shelf assigned to aisle" });
-      setSelectedItems(new Set());
-      setBulkAisleId("");
     },
   });
 
@@ -298,24 +291,41 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     setSelectedItems(newSelected);
   };
 
-  const handleBulkAssign = () => {
+  const handleBulkAssign = async () => {
     if (selectedItems.size === 0) return;
+
+    const count = selectedItems.size;
 
     if (activeView === 'lots' && bulkBinId) {
       const binId = parseInt(bulkBinId);
-      Array.from(selectedItems).forEach(inventoryId => {
-        assignInventoryMutation.mutate({ inventoryId, binId });
-      });
+      const promises = Array.from(selectedItems).map(inventoryId => 
+        assignInventoryMutation.mutateAsync({ inventoryId, binId })
+      );
+      
+      await Promise.all(promises);
+      toast({ title: `${count} lot${count > 1 ? 's' : ''} assigned successfully` });
+      setSelectedItems(new Set());
+      setBulkBinId("");
     } else if (activeView === 'bins' && bulkShelfId) {
       const shelfId = parseInt(bulkShelfId);
-      Array.from(selectedItems).forEach(binId => {
-        assignBinToShelfMutation.mutate({ binId, shelfId });
-      });
+      const promises = Array.from(selectedItems).map(binId => 
+        assignBinToShelfMutation.mutateAsync({ binId, shelfId })
+      );
+      
+      await Promise.all(promises);
+      toast({ title: `${count} bin${count > 1 ? 's' : ''} assigned successfully` });
+      setSelectedItems(new Set());
+      setBulkShelfId("");
     } else if (activeView === 'shelves' && bulkAisleId) {
       const aisleId = parseInt(bulkAisleId);
-      Array.from(selectedItems).forEach(shelfId => {
-        assignShelfToAisleMutation.mutate({ shelfId, aisleId });
-      });
+      const promises = Array.from(selectedItems).map(shelfId => 
+        assignShelfToAisleMutation.mutateAsync({ shelfId, aisleId })
+      );
+      
+      await Promise.all(promises);
+      toast({ title: `${count} ${count > 1 ? 'shelves' : 'shelf'} assigned successfully` });
+      setSelectedItems(new Set());
+      setBulkAisleId("");
     }
   };
 
