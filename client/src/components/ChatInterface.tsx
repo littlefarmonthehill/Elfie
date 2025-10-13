@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { InventoryGroup } from "@/components/InventoryGroup";
+import { OrderGroup } from "@/components/OrderGroup";
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -18,6 +19,15 @@ interface ChatMessage {
     quantity: number;
     unitPrice: string | null;
     newOrUsed: string;
+  }>;
+  orders?: Array<{
+    id: string;
+    orderNumber: string;
+    marketplace: string | null;
+    orderDate: string;
+    orderTotal: string;
+    customerUsername: string;
+    orderStatus: string;
   }>;
   bricklinkSearchSuggestion?: {
     itemNo: string;
@@ -38,16 +48,25 @@ interface MessageContentProps {
     unitPrice: string | null;
     newOrUsed: string;
   }>;
+  orders?: Array<{
+    id: string;
+    orderNumber: string;
+    marketplace: string | null;
+    orderDate: string;
+    orderTotal: string;
+    customerUsername: string;
+    orderStatus: string;
+  }>;
   bricklinkSearchSuggestion?: {
     itemNo: string;
     itemType: string;
   } | null;
-  onItemClick?: (type: 'inventory', id: string) => void;
+  onItemClick?: (type: 'inventory' | 'order', id: string) => void;
   onBrickLinkClick?: (url: string) => void;
   onBrickLinkSearch?: (itemNo: string, itemType: string) => void;
 }
 
-function MessageContent({ content, items, bricklinkSearchSuggestion, onItemClick, onBrickLinkClick, onBrickLinkSearch }: MessageContentProps) {
+function MessageContent({ content, items, orders, bricklinkSearchSuggestion, onItemClick, onBrickLinkClick, onBrickLinkSearch }: MessageContentProps) {
   // Group items by itemNo for grouped display
   const groupedItems = items && items.length > 0 ? items.reduce((acc, item) => {
     if (!acc[item.itemNo]) {
@@ -228,8 +247,8 @@ function MessageContent({ content, items, bricklinkSearchSuggestion, onItemClick
 
   return (
     <div className="w-full space-y-2">
-      {/* Only show text content if there are no grouped items */}
-      {!groupedItems && (
+      {/* Only show text content if there are no grouped items or orders */}
+      {!groupedItems && !orders?.length && (
         <div className="space-y-1">{parseContent(content)}</div>
       )}
       
@@ -242,6 +261,14 @@ function MessageContent({ content, items, bricklinkSearchSuggestion, onItemClick
           onItemClick={(id) => onItemClick?.('inventory', id.toString())}
         />
       ))}
+      
+      {/* Show orders if available */}
+      {orders && orders.length > 0 && (
+        <OrderGroup
+          orders={orders}
+          onOrderClick={(id) => onItemClick?.('order', id)}
+        />
+      )}
       
       {/* Show BrickLink search button if suggestion is present */}
       {bricklinkSearchSuggestion && onBrickLinkSearch && (
@@ -399,6 +426,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
         role: 'assistant',
         content: data.message || "I'm sorry, I couldn't generate a response.",
         items: data.items || [],
+        orders: data.orders || [],
         bricklinkSearchSuggestion: data.bricklinkSearchSuggestion || null,
       };
 
@@ -574,8 +602,8 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
                     className={`max-w-[80%] rounded-lg text-xs ${
                       message.role === 'user'
                         ? colors.userBg + ' text-white p-3'
-                        : message.items && message.items.length > 0
-                        ? 'text-gray-300' // No background for messages with inventory items
+                        : (message.items && message.items.length > 0) || (message.orders && message.orders.length > 0)
+                        ? 'text-gray-300' // No background for messages with inventory items or orders
                         : 'bg-gray-800/80 text-gray-300 border border-purple-500/20 p-3'
                     }`}
                   >
@@ -585,6 +613,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
                       <MessageContent
                         content={message.content}
                         items={message.items}
+                        orders={message.orders}
                         bricklinkSearchSuggestion={message.bricklinkSearchSuggestion}
                         onItemClick={onItemClick}
                         onBrickLinkClick={setBrickLinkUrl}

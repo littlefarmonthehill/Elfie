@@ -1244,7 +1244,12 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
           .orderBy(desc(orders.orderDate))
           .limit(20);
         
-        ordersFound.push(...orderResults);
+        // Convert dates to strings for frontend
+        ordersFound.push(...orderResults.map(order => ({
+          ...order,
+          orderDate: order.orderDate instanceof Date ? order.orderDate.toISOString() : String(order.orderDate),
+          customerUsername: order.customerUsername || 'Unknown',
+        })));
       }
       
       const assistantMessage = data.choices[0].message.content;
