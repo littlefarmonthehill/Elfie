@@ -44,14 +44,34 @@ export default function SalesDashboard({ period, dateRange = 'all', onItemClick 
     onItemClick?.('order', orderId);
   };
 
+  // Filter orders based on date range
+  const getFilteredOrders = () => {
+    if (dateRange === 'all') {
+      return orders;
+    }
+
+    const monthsToShow = dateRange === '2years' ? 24 :
+                        dateRange === '1year' ? 12 :
+                        dateRange === '6months' ? 6 : 3;
+    
+    const cutoffDate = subMonths(new Date(), monthsToShow);
+    
+    return orders.filter(order => {
+      const orderDate = parseISO(order.orderDate);
+      return orderDate >= cutoffDate;
+    });
+  };
+
+  const filteredOrders = getFilteredOrders();
+
   // Filter orders for selected platform
-  const platformOrders = orders.filter(
+  const platformOrders = filteredOrders.filter(
     order => (order.marketplace || 'Unknown') === platformDrawer.platform
   );
 
   // Calculate sales data by month - adjust based on date range
   const getSalesData = () => {
-    if (orders.length === 0) {
+    if (filteredOrders.length === 0) {
       return [];
     }
 
@@ -59,7 +79,7 @@ export default function SalesDashboard({ period, dateRange = 'all', onItemClick 
     
     if (dateRange === 'all') {
       // For 'all time', use the actual earliest to latest order dates
-      const orderDates = orders.map(o => parseISO(o.orderDate));
+      const orderDates = filteredOrders.map(o => parseISO(o.orderDate));
       const earliestOrderDate = new Date(Math.min(...orderDates.map(d => d.getTime())));
       const latestOrderDate = new Date(Math.max(...orderDates.map(d => d.getTime())));
       
@@ -104,7 +124,7 @@ export default function SalesDashboard({ period, dateRange = 'all', onItemClick 
     }
 
     // Aggregate orders into months
-    orders.forEach(order => {
+    filteredOrders.forEach(order => {
       if (order.orderTotal && !isNaN(Number(order.orderTotal))) {
         const orderMonth = startOfMonth(parseISO(order.orderDate));
         const monthData = months.find(m => m.month.getTime() === orderMonth.getTime());
@@ -121,22 +141,22 @@ export default function SalesDashboard({ period, dateRange = 'all', onItemClick 
   };
 
   // Get top revenue orders
-  const topRevenueOrders = orders
+  const topRevenueOrders = filteredOrders
     .filter(order => order.orderTotal && !isNaN(Number(order.orderTotal)))
     .sort((a, b) => Number(b.orderTotal) - Number(a.orderTotal))
     .slice(0, 5);
 
   // Get recent high-value sales
-  const recentHighValueSales = orders
+  const recentHighValueSales = filteredOrders
     .filter(order => order.orderTotal && Number(order.orderTotal) >= 50)
     .sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime())
     .slice(0, 5);
 
   // Calculate total revenue and average
-  const totalRevenue = orders.reduce((sum, order) => 
+  const totalRevenue = filteredOrders.reduce((sum, order) => 
     sum + (order.orderTotal && !isNaN(Number(order.orderTotal)) ? Number(order.orderTotal) : 0), 0
   );
-  const averageOrderValue = orders.length > 0 ? totalRevenue / orders.length : 0;
+  const averageOrderValue = filteredOrders.length > 0 ? totalRevenue / filteredOrders.length : 0;
 
   const data = getSalesData();
   const average = data.length > 0 ? Math.round(data.reduce((sum, d) => sum + d.sales, 0) / data.length) : 0;
@@ -241,7 +261,7 @@ export default function SalesDashboard({ period, dateRange = 'all', onItemClick 
         <div className="grid grid-cols-3 gap-2">
           <div className="text-center">
             <div className="text-[9px] text-gray-500">Total Orders</div>
-            <div className="text-xs text-gray-300 font-mono">{orders.length}</div>
+            <div className="text-xs text-gray-300 font-mono">{filteredOrders.length}</div>
           </div>
           <div className="text-center">
             <div className="text-[9px] text-gray-500">Avg Order Value</div>
@@ -256,7 +276,7 @@ export default function SalesDashboard({ period, dateRange = 'all', onItemClick 
 
       {/* Platform Performance */}
       <div className="bg-gray-900/50 border border-blue-500/20 rounded-lg p-3" data-testid="section-platform-performance">
-        <PlatformPerformance orders={orders} onPlatformClick={handlePlatformClick} />
+        <PlatformPerformance orders={filteredOrders} onPlatformClick={handlePlatformClick} />
       </div>
 
       {/* Platform Orders Drawer */}
