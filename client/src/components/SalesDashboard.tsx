@@ -52,27 +52,12 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
     return Array.from(years).sort((a, b) => b - a);
   }, [orders]);
 
-  // Get available platforms from orders
-  const availablePlatforms = useMemo(() => {
-    const platforms = new Set<string>();
-    orders.forEach(order => {
-      const platform = order.marketplace || 'Unknown';
-      platforms.add(platform);
-    });
-    return Array.from(platforms).sort();
-  }, [orders]);
-
   // Filter selected years to only include years with actual data
   // This ensures UI, chart, and metrics only show years from availableYears
   const validCompareYears = useMemo(() => {
     const nonCurrentYears = availableYears.filter(y => y !== currentYear);
     return selectedCompareYears.filter(y => nonCurrentYears.includes(y));
   }, [selectedCompareYears, availableYears, currentYear]);
-
-  // Filter selected platforms to only include platforms with actual data
-  const validPlatforms = useMemo(() => {
-    return selectedPlatforms.filter(p => availablePlatforms.includes(p));
-  }, [selectedPlatforms, availablePlatforms]);
 
   const handlePlatformClick = (platform: string) => {
     setPlatformDrawer({ open: true, platform });
@@ -113,6 +98,21 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
   };
 
   const filteredOrders = getFilteredOrders();
+
+  // Get available platforms from FILTERED orders (only show platforms with data in selected date range)
+  const availablePlatforms = useMemo(() => {
+    const platforms = new Set<string>();
+    filteredOrders.forEach(order => {
+      const platform = order.marketplace || 'Unknown';
+      platforms.add(platform);
+    });
+    return Array.from(platforms).sort();
+  }, [filteredOrders]);
+
+  // Filter selected platforms to only include platforms with actual data
+  const validPlatforms = useMemo(() => {
+    return selectedPlatforms.filter(p => availablePlatforms.includes(p));
+  }, [selectedPlatforms, availablePlatforms]);
 
   // Filter orders for selected platform
   const platformOrders = filteredOrders.filter(
@@ -521,8 +521,9 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
   return (
     <div className="p-2 space-y-1.5 bg-gradient-to-br from-lego-green/5 to-transparent rounded-lg border border-lego-green/10 shadow-[0_0_15px_rgba(34,197,94,0.1)]">
       {/* Comparison Controls */}
-      <div className="bg-gray-900/50 border border-lego-green/20 rounded-lg p-2">
-        <div className="flex items-center gap-2 mb-2">
+      <div className="bg-gray-900/50 border border-lego-green/20 rounded-lg p-2 space-y-2">
+        {/* Row 1: Compare toggle and Year/Platform mode buttons */}
+        <div className="flex items-center gap-2">
           <button
             onClick={() => setCompareMode(!compareMode)}
             className={`flex items-center gap-1.5 text-[10px] font-bold py-1 px-2 rounded transition-all ${
@@ -563,92 +564,92 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
               </button>
             </div>
           )}
-          
-          {/* Year Selection */}
-          {compareMode && comparisonType === 'year' && availableYears.length > 0 && (
-            <div className="flex items-center gap-1 flex-1 overflow-x-auto">
-              <span className="text-[9px] text-gray-500 flex-shrink-0">vs</span>
-              <div className="flex gap-1 flex-nowrap">
-                {(() => {
-                  const nonCurrentYears = availableYears.filter(y => y !== currentYear);
-                  // Sort years: selected first (descending), then unselected (descending)
-                  const selectedYears = [...validCompareYears].sort((a, b) => b - a);
-                  const unselectedYears = nonCurrentYears
-                    .filter(y => !validCompareYears.includes(y))
-                    .sort((a, b) => b - a);
-                  const sortedYears = [...selectedYears, ...unselectedYears];
-                  
-                  return sortedYears.map(year => {
-                    const isSelected = selectedCompareYears.includes(year);
-                    return (
-                      <button
-                        key={year}
-                        onClick={() => {
-                          if (isSelected) {
-                            setSelectedCompareYears(selectedCompareYears.filter(y => y !== year));
-                          } else {
-                            setSelectedCompareYears([...selectedCompareYears, year].sort((a, b) => b - a));
-                          }
-                        }}
-                        aria-pressed={isSelected}
-                        className={`text-[10px] px-2 py-0.5 rounded transition-all flex-shrink-0 ${
-                          isSelected
-                            ? 'bg-blue-600 text-white border border-blue-500'
-                            : 'bg-gray-800 text-gray-400 border border-gray-700 hover-elevate'
-                        }`}
-                        data-testid={`year-toggle-${year}`}
-                      >
-                        {year}
-                      </button>
-                    );
-                  });
-                })()}
-              </div>
-            </div>
-          )}
-          
-          {/* Platform Selection */}
-          {compareMode && comparisonType === 'platform' && availablePlatforms.length > 0 && (
-            <div className="flex items-center gap-1 flex-1 overflow-x-auto">
-              <span className="text-[9px] text-gray-500 flex-shrink-0">select</span>
-              <div className="flex gap-1 flex-nowrap">
-                {(() => {
-                  // Sort platforms: selected first (alphabetical), then unselected (alphabetical)
-                  const selectedItems = [...validPlatforms].sort((a, b) => a.localeCompare(b));
-                  const unselectedItems = availablePlatforms
-                    .filter(p => !validPlatforms.includes(p))
-                    .sort((a, b) => a.localeCompare(b));
-                  const sortedPlatforms = [...selectedItems, ...unselectedItems];
-                  
-                  return sortedPlatforms.map(platform => {
-                    const isSelected = selectedPlatforms.includes(platform);
-                    return (
-                      <button
-                        key={platform}
-                        onClick={() => {
-                          if (isSelected) {
-                            setSelectedPlatforms(selectedPlatforms.filter(p => p !== platform));
-                          } else {
-                            setSelectedPlatforms([...selectedPlatforms, platform].sort((a, b) => a.localeCompare(b)));
-                          }
-                        }}
-                        aria-pressed={isSelected}
-                        className={`text-[10px] px-2 py-0.5 rounded transition-all flex-shrink-0 ${
-                          isSelected
-                            ? 'bg-blue-600 text-white border border-blue-500'
-                            : 'bg-gray-800 text-gray-400 border border-gray-700 hover-elevate'
-                        }`}
-                        data-testid={`platform-toggle-${platform.toLowerCase().replace(/\s+/g, '-')}`}
-                      >
-                        {platform}
-                      </button>
-                    );
-                  });
-                })()}
-              </div>
-            </div>
-          )}
         </div>
+        
+        {/* Row 2: Year Selection (full width for easier mobile tapping) */}
+        {compareMode && comparisonType === 'year' && availableYears.length > 0 && (
+          <div className="flex items-center gap-2 overflow-x-auto">
+            <span className="text-[9px] text-gray-500 flex-shrink-0">vs</span>
+            <div className="flex gap-2 flex-nowrap">
+              {(() => {
+                const nonCurrentYears = availableYears.filter(y => y !== currentYear);
+                // Sort years: selected first (descending), then unselected (descending)
+                const selectedYears = [...validCompareYears].sort((a, b) => b - a);
+                const unselectedYears = nonCurrentYears
+                  .filter(y => !validCompareYears.includes(y))
+                  .sort((a, b) => b - a);
+                const sortedYears = [...selectedYears, ...unselectedYears];
+                
+                return sortedYears.map(year => {
+                  const isSelected = selectedCompareYears.includes(year);
+                  return (
+                    <button
+                      key={year}
+                      onClick={() => {
+                        if (isSelected) {
+                          setSelectedCompareYears(selectedCompareYears.filter(y => y !== year));
+                        } else {
+                          setSelectedCompareYears([...selectedCompareYears, year].sort((a, b) => b - a));
+                        }
+                      }}
+                      aria-pressed={isSelected}
+                      className={`text-xs px-3 py-1.5 rounded transition-all flex-shrink-0 font-medium ${
+                        isSelected
+                          ? 'bg-blue-600 text-white border border-blue-500'
+                          : 'bg-gray-800 text-gray-400 border border-gray-700 hover-elevate'
+                      }`}
+                      data-testid={`year-toggle-${year}`}
+                    >
+                      {year}
+                    </button>
+                  );
+                });
+              })()}
+            </div>
+          </div>
+        )}
+        
+        {/* Row 2: Platform Selection (full width for easier mobile tapping) */}
+        {compareMode && comparisonType === 'platform' && availablePlatforms.length > 0 && (
+          <div className="flex items-center gap-2 overflow-x-auto">
+            <span className="text-[9px] text-gray-500 flex-shrink-0">select</span>
+            <div className="flex gap-2 flex-nowrap">
+              {(() => {
+                // Sort platforms: selected first (alphabetical), then unselected (alphabetical)
+                const selectedItems = [...validPlatforms].sort((a, b) => a.localeCompare(b));
+                const unselectedItems = availablePlatforms
+                  .filter(p => !validPlatforms.includes(p))
+                  .sort((a, b) => a.localeCompare(b));
+                const sortedPlatforms = [...selectedItems, ...unselectedItems];
+                
+                return sortedPlatforms.map(platform => {
+                  const isSelected = selectedPlatforms.includes(platform);
+                  return (
+                    <button
+                      key={platform}
+                      onClick={() => {
+                        if (isSelected) {
+                          setSelectedPlatforms(selectedPlatforms.filter(p => p !== platform));
+                        } else {
+                          setSelectedPlatforms([...selectedPlatforms, platform].sort((a, b) => a.localeCompare(b)));
+                        }
+                      }}
+                      aria-pressed={isSelected}
+                      className={`text-xs px-3 py-1.5 rounded transition-all flex-shrink-0 font-medium ${
+                        isSelected
+                          ? 'bg-blue-600 text-white border border-blue-500'
+                          : 'bg-gray-800 text-gray-400 border border-gray-700 hover-elevate'
+                      }`}
+                      data-testid={`platform-toggle-${platform.toLowerCase().replace(/\s+/g, '-')}`}
+                    >
+                      {platform}
+                    </button>
+                  );
+                });
+              })()}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Chart */}
