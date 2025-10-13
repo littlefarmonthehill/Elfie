@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { format, subMonths, startOfMonth, parseISO, startOfDay, getYear } from "date-fns";
+import { format, subMonths, startOfMonth, parseISO, startOfDay, getYear, subYears, addYears } from "date-fns";
 import { TrendingUp, DollarSign, Target, GitCompare } from "lucide-react";
 import { DateRangeValue } from "./DateRangeSelector";
 import PlatformPerformance from "./PlatformPerformance";
@@ -79,7 +79,9 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
                         dateRange === '1year' ? 12 :
                         dateRange === '6months' ? 6 : 3;
     
-    const cutoffDate = subMonths(new Date(), monthsToShow);
+    // Start from the beginning of the month (N-1) months ago
+    // This ensures we get exactly N months: current month + (N-1) prior months
+    const cutoffDate = startOfMonth(subMonths(new Date(), monthsToShow - 1));
     
     return orders.filter(order => {
       const orderDate = parseISO(order.orderDate);
@@ -198,31 +200,105 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
     }));
   };
 
-  // Year comparison data generation
+  // Year comparison data generation - respects date range filter
   const getYearComparisonData = () => {
     const years = [currentYear, compareYear1, compareYear2];
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     
-    // Create data structure for all months
-    const comparisonData = months.map((month, index) => ({
-      month,
-      monthIndex: index,
-      [`${currentYear}`]: 0,
-      [`${compareYear1}`]: 0,
-      [`${compareYear2}`]: 0,
-    }));
+    // Determine the date range boundaries for comparison
+    let startDate: Date, endDate: Date;
+    const now = new Date();
+    
+    if (dateRange === 'mtd') {
+      startDate = startOfMonth(now);
+      endDate = now;
+    } else if (dateRange === '3months') {
+      // 3 months = current month + 2 prior months
+      startDate = startOfMonth(subMonths(now, 2));
+      endDate = now;
+    } else if (dateRange === '6months') {
+      // 6 months = current month + 5 prior months
+      startDate = startOfMonth(subMonths(now, 5));
+      endDate = now;
+    } else if (dateRange === '1year') {
+      // 12 months = current month + 11 prior months
+      startDate = startOfMonth(subMonths(now, 11));
+      endDate = now;
+    } else if (dateRange === '2years') {
+      // 24 months = current month + 23 prior months
+      startDate = startOfMonth(subMonths(now, 23));
+      endDate = now;
+    } else {
+      // 'all' - get oldest order date
+      const oldestOrder = orders.reduce((oldest, order) => {
+        const orderDate = parseISO(order.orderDate);
+        return !oldest || orderDate < oldest ? orderDate : oldest;
+      }, null as Date | null);
+      startDate = oldestOrder || subYears(now, 10);
+      endDate = now;
+    }
+    
+    // Create data structure only for months within the date range
+    const comparisonData: Array<{
+      month: string;
+      monthIndex: number;
+      bucketDate: Date;  // Full date for accurate matching
+      [key: string]: string | number | Date;
+    }> = [];
+    
+    // Generate month buckets from startDate to endDate
+    let currentDate = startOfMonth(startDate);
+    const endMonth = startOfMonth(endDate);
+    
+    while (currentDate <= endMonth) {
+      const monthIndex = currentDate.getMonth();
+      const monthYear = currentDate.getFullYear();
+      const monthLabel = dateRange === 'mtd' 
+        ? monthNames[monthIndex]  // Just month name for MTD
+        : `${monthNames[monthIndex]} ${monthYear.toString().slice(-2)}`; // Month + year for longer ranges
+      
+      comparisonData.push({
+        month: monthLabel,
+        monthIndex,
+        bucketDate: new Date(currentDate),  // Store full date for matching
+        [`${currentYear}`]: 0,
+        [`${compareYear1}`]: 0,
+        [`${compareYear2}`]: 0,
+      });
+      
+      currentDate = subMonths(currentDate, -1); // Add 1 month
+    }
 
-    // Aggregate orders by year and month
+    // Aggregate orders by year and month, respecting the same date range window
     orders.forEach(order => {
       if (!order.orderTotal || isNaN(Number(order.orderTotal))) return;
       
       const orderDate = parseISO(order.orderDate);
       const year = getYear(orderDate);
-      const monthIndex = orderDate.getMonth();
       
-      if (years.includes(year)) {
-        const monthData = comparisonData[monthIndex];
-        if (monthData) {
+      // Only process orders from the comparison years
+      if (!years.includes(year)) return;
+      
+      // Apply same date range filter logic for each year
+      // For example, if we're looking at Oct 1-13 this year, only include Oct 1-13 for previous years
+      const yearDiff = currentYear - year;
+      const compareStartDate = subYears(startDate, yearDiff);
+      const compareEndDate = subYears(endDate, yearDiff);
+      
+      if (orderDate >= compareStartDate && orderDate <= compareEndDate) {
+        // Find the bucket for this order's month by matching the year-adjusted month
+        const orderMonth = startOfMonth(orderDate);
+        // Shift the order date to current year's timeline for bucket matching
+        // For older years, we need to ADD years to bring them forward to current year timeline
+        const adjustedMonth = addYears(orderMonth, yearDiff);
+        
+        const bucketIndex = comparisonData.findIndex(bucket => {
+          const bucketDateObj = bucket.bucketDate as Date;
+          return bucketDateObj.getTime() === adjustedMonth.getTime();
+        });
+        
+        if (bucketIndex !== -1) {
+          const monthData = comparisonData[bucketIndex];
           const currentValue = monthData[`${year}`] as number || 0;
           monthData[`${year}`] = currentValue + Number(order.orderTotal);
         }
@@ -379,6 +455,66 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
           </>
         )}
       </div>
+
+      {/* Year-over-Year Growth Metrics */}
+      {compareMode && (
+        <div className="bg-gray-900/50 border border-purple-500/20 rounded-lg p-3" data-testid="section-yoy-metrics">
+          <div className="flex items-center gap-2 mb-2">
+            <TrendingUp className="w-3.5 h-3.5 text-purple-400" />
+            <h3 className="text-[10px] font-semibold text-purple-400 uppercase tracking-wide">Year-over-Year Growth</h3>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {(() => {
+              // Calculate total revenue for each year using the same date range filter
+              const yearTotals = comparisonYears.reduce((acc, year) => {
+                // Sum the comparison data for this year
+                const total = comparisonData.reduce((sum, monthData) => {
+                  const value = monthData[`${year}`] as number || 0;
+                  return sum + value;
+                }, 0);
+                acc[year] = total;
+                return acc;
+              }, {} as Record<number, number>);
+
+              // Calculate growth percentages
+              const growth1 = yearTotals[compareYear1] > 0
+                ? ((yearTotals[currentYear] - yearTotals[compareYear1]) / yearTotals[compareYear1]) * 100
+                : 0;
+              const growth2 = yearTotals[compareYear2] > 0
+                ? ((yearTotals[currentYear] - yearTotals[compareYear2]) / yearTotals[compareYear2]) * 100
+                : 0;
+
+              return (
+                <>
+                  <div className="bg-gray-800/50 rounded p-2">
+                    <div className="text-[9px] text-gray-500 mb-1">
+                      {currentYear} vs {compareYear1}
+                    </div>
+                    <div className={`text-sm font-mono font-bold ${growth1 >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                      {growth1 >= 0 ? '+' : ''}{growth1.toFixed(1)}%
+                    </div>
+                    <div className="text-[9px] text-gray-400 mt-1">
+                      ${Math.round(yearTotals[currentYear]).toLocaleString()} vs ${Math.round(yearTotals[compareYear1]).toLocaleString()}
+                    </div>
+                  </div>
+                  
+                  <div className="bg-gray-800/50 rounded p-2">
+                    <div className="text-[9px] text-gray-500 mb-1">
+                      {currentYear} vs {compareYear2}
+                    </div>
+                    <div className={`text-sm font-mono font-bold ${growth2 >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                      {growth2 >= 0 ? '+' : ''}{growth2.toFixed(1)}%
+                    </div>
+                    <div className="text-[9px] text-gray-400 mt-1">
+                      ${Math.round(yearTotals[currentYear]).toLocaleString()} vs ${Math.round(yearTotals[compareYear2]).toLocaleString()}
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        </div>
+      )}
 
       {/* Highlights - Top Revenue Orders */}
       <div className="bg-gray-900/50 border border-green-500/20 rounded-lg p-3" data-testid="section-top-revenue">
