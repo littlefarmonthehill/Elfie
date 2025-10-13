@@ -40,8 +40,7 @@ export default function SalesDashboard({ period, dateRange = 'all', onItemClick 
   };
 
   const handlePlatformOrderClick = (orderId: string) => {
-    // Close platform drawer and open order detail (nested drawer)
-    setPlatformDrawer({ open: false, platform: '' });
+    // Keep platform drawer open, just open order detail as nested drawer
     onItemClick?.('order', orderId);
   };
 
