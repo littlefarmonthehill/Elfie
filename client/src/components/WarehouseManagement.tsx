@@ -50,6 +50,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   const [bulkBinId, setBulkBinId] = useState<string>("");
   const [bulkShelfId, setBulkShelfId] = useState<string>("");
   const [bulkAisleId, setBulkAisleId] = useState<string>("");
+  const [searchQuery, setSearchQuery] = useState<string>("");
 
   // Fetch warehouse data
   const { data: aisles = [] } = useQuery<any[]>({
@@ -340,6 +341,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
         assignedMap.set(loc.inventoryId, {
           id: loc.inventoryId,
           itemNo: loc.itemNo,
+          itemName: loc.itemName,
           colorName: loc.colorName,
           newOrUsed: loc.newOrUsed,
           quantity: loc.quantity,
@@ -350,9 +352,18 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       const assigned = Array.from(assignedMap.values());
       const unassigned = unassignedInventory.map(item => ({ ...item, assigned: false }));
       
-      if (filter === 'assigned') return assigned;
-      if (filter === 'unassigned') return unassigned;
-      return [...assigned, ...unassigned];
+      let items = filter === 'assigned' ? assigned : filter === 'unassigned' ? unassigned : [...assigned, ...unassigned];
+      
+      // Apply search filter for lots
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase();
+        items = items.filter((item: any) => 
+          item.itemNo?.toLowerCase().includes(query) ||
+          item.itemName?.toLowerCase().includes(query)
+        );
+      }
+      
+      return items;
     }
 
     if (activeView === 'bins') {
@@ -414,7 +425,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       <Card className="p-3">
         <div className="space-y-2">
           <button
-            onClick={() => { setActiveView('lots'); setFilter('all'); setSelectedItems(new Set()); }}
+            onClick={() => { setActiveView('lots'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
             className={`w-full flex items-center justify-between p-2 rounded text-xs hover-elevate ${
               activeView === 'lots' ? 'bg-blue-500/20' : ''
             }`}
@@ -435,7 +446,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
           </button>
 
           <button
-            onClick={() => { setActiveView('bins'); setFilter('all'); setSelectedItems(new Set()); }}
+            onClick={() => { setActiveView('bins'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
             className={`w-full flex items-center justify-between p-2 rounded text-xs hover-elevate ${
               activeView === 'bins' ? 'bg-green-500/20' : ''
             }`}
@@ -456,7 +467,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
           </button>
 
           <button
-            onClick={() => { setActiveView('shelves'); setFilter('all'); setSelectedItems(new Set()); }}
+            onClick={() => { setActiveView('shelves'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
             className={`w-full flex items-center justify-between p-2 rounded text-xs hover-elevate ${
               activeView === 'shelves' ? 'bg-orange-500/20' : ''
             }`}
@@ -477,7 +488,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
           </button>
 
           <button
-            onClick={() => { setActiveView('aisles'); setFilter('all'); setSelectedItems(new Set()); }}
+            onClick={() => { setActiveView('aisles'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
             className={`w-full flex items-center justify-between p-2 rounded text-xs hover-elevate ${
               activeView === 'aisles' ? 'bg-purple-500/20' : ''
             }`}
@@ -499,6 +510,19 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       {/* List View */}
       {activeView && (
         <Card className="p-3">
+          {/* Search (Lots only) */}
+          {activeView === 'lots' && (
+            <div className="mb-3">
+              <Input
+                placeholder="Search by part number or name..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="text-xs"
+                data-testid="input-search-lots"
+              />
+            </div>
+          )}
+          
           {/* Filter and Actions */}
           <div className="flex items-center justify-between mb-3">
             <div className="flex gap-2">
@@ -520,7 +544,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
               >
                 Assigned
               </Button>
-              {(activeView === 'lots' || activeView === 'bins') && (
+              {activeView === 'lots' && (
                 <Button
                   size="sm"
                   variant={filter === 'unassigned' ? 'default' : 'ghost'}
@@ -607,59 +631,30 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
           </div>
 
           {/* Bulk Assignment Controls */}
-          {selectedItems.size > 0 && (activeView === 'lots' || (activeView === 'bins' && filter === 'unassigned')) && (
+          {selectedItems.size > 0 && activeView === 'lots' && (
             <div className="flex items-center gap-2 mb-3 p-2 bg-blue-500/10 rounded">
               <span className="text-xs text-gray-400">{selectedItems.size} selected</span>
-              {activeView === 'lots' && (
-                <>
-                  <Select value={bulkBinId} onValueChange={setBulkBinId}>
-                    <SelectTrigger className="w-32 h-7 text-[10px]" data-testid="select-bulk-bin">
-                      <SelectValue placeholder="Select bin" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {bins.map((bin: any) => (
-                        <SelectItem key={bin.id} value={String(bin.id)}>
-                          {bin.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Button 
-                    size="sm" 
-                    onClick={handleBulkAssign} 
-                    disabled={!bulkBinId}
-                    data-testid="button-bulk-assign"
-                    className="text-[10px]"
-                  >
-                    {filter === 'assigned' ? 'Move to Bin' : 'Assign to Bin'}
-                  </Button>
-                </>
-              )}
-              {activeView === 'bins' && filter === 'unassigned' && (
-                <>
-                  <Select value={bulkShelfId} onValueChange={setBulkShelfId}>
-                    <SelectTrigger className="w-32 h-7 text-[10px]" data-testid="select-bulk-shelf">
-                      <SelectValue placeholder="Select shelf" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {shelves.map((shelf: any) => (
-                        <SelectItem key={shelf.id} value={String(shelf.id)}>
-                          {shelf.aisleName ? `${shelf.aisleName} - ` : ''}{shelf.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Button 
-                    size="sm" 
-                    onClick={handleBulkAssign} 
-                    disabled={!bulkShelfId}
-                    data-testid="button-bulk-assign"
-                    className="text-[10px]"
-                  >
-                    Assign to Shelf
-                  </Button>
-                </>
-              )}
+              <Select value={bulkBinId} onValueChange={setBulkBinId}>
+                <SelectTrigger className="w-32 h-7 text-[10px]" data-testid="select-bulk-bin">
+                  <SelectValue placeholder="Select bin" />
+                </SelectTrigger>
+                <SelectContent>
+                  {bins.map((bin: any) => (
+                    <SelectItem key={bin.id} value={String(bin.id)}>
+                      {bin.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button 
+                size="sm" 
+                onClick={handleBulkAssign} 
+                disabled={!bulkBinId}
+                data-testid="button-bulk-assign"
+                className="text-[10px]"
+              >
+                {filter === 'assigned' ? 'Move to Bin' : 'Assign to Bin'}
+              </Button>
             </div>
           )}
 
@@ -685,15 +680,6 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                       data-testid={`checkbox-item-${item.id}`}
                     />
                   )}
-                  {activeView === 'bins' && !item.assigned && (
-                    <input
-                      type="checkbox"
-                      checked={selectedItems.has(item.id)}
-                      onChange={() => toggleItemSelection(item.id)}
-                      className="w-4 h-4 rounded"
-                      data-testid={`checkbox-item-${item.id}`}
-                    />
-                  )}
                   <div
                     className="flex-1 cursor-pointer"
                     onClick={() => {
@@ -709,7 +695,9 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                   >
                     {activeView === 'lots' && (
                       <>
-                        <div className="font-medium text-gray-300">{item.itemNo}</div>
+                        <div className="font-medium text-gray-300">
+                          {item.itemNo}{item.itemName && ` - ${item.itemName}`}
+                        </div>
                         <div className="text-[10px] text-gray-500">
                           {item.colorName} • {item.newOrUsed === 'N' ? 'New' : 'Used'} • Qty: {item.quantity}
                           {item.binName && ` • Bin: ${item.binName}`}

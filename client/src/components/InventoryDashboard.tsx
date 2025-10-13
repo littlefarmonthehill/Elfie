@@ -304,14 +304,14 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
 
       {/* Warehouse Management Drawer */}
       <Drawer open={activeDrawer === 'warehouse'} onOpenChange={(open) => !open && onDrawerChange(null)}>
-        <DrawerContent className="max-h-[95vh]">
+        <DrawerContent className="h-[90vh]">
           <DrawerHeader>
             <DrawerTitle className="flex items-center gap-2">
               <Warehouse className="w-5 h-5 text-blue-400" />
               Warehouse Management
             </DrawerTitle>
           </DrawerHeader>
-          <div className="overflow-y-auto px-4 pb-4">
+          <div className="overflow-y-auto px-4 pb-4 flex-1">
             <WarehouseManagement onItemClick={onItemClick} />
           </div>
         </DrawerContent>
