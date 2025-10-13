@@ -1091,6 +1091,17 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
         newOrUsed: string;
       }> = [];
       
+      // Extract orders for display
+      const ordersFound: Array<{
+        id: string;
+        orderNumber: string;
+        marketplace: string | null;
+        orderDate: string;
+        orderTotal: string;
+        customerUsername: string;
+        orderStatus: string;
+      }> = [];
+      
       // Re-extract items for frontend display using same search criteria
       // This ensures items shown to user match what AI is describing
       const partNumber = partNumberMatch ? partNumberMatch[1] : null;
@@ -1188,6 +1199,54 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
         }
       }
       
+      // Extract orders for frontend display based on keywords
+      const platformKeywords = ['ebay', 'amazon', 'bricklink', 'brickowl', 'www', 'unknown'];
+      const hasPlatformQuery = platformKeywords.some(p => lastUserMessage.includes(p));
+      const hasOrderQuery = lastUserMessage.includes('order') || lastUserMessage.includes('sale') || 
+                           lastUserMessage.includes('customer') || hasPlatformQuery;
+      
+      if (hasOrderQuery) {
+        let ordersQuery = db
+          .select({
+            id: orders.id,
+            orderNumber: orders.orderNumber,
+            marketplace: orders.marketplace,
+            orderDate: orders.orderDate,
+            orderTotal: orders.orderTotal,
+            customerUsername: orders.customerUsername,
+            orderStatus: orders.orderStatus,
+          })
+          .from(orders);
+        
+        const conditions: any[] = [];
+        
+        // Check for platform/marketplace filter
+        for (const platform of platformKeywords) {
+          if (lastUserMessage.includes(platform)) {
+            const marketplaceName = platform === 'bricklink' ? 'www' : platform;
+            conditions.push(eq(orders.marketplace, marketplaceName));
+          }
+        }
+        
+        // Check for customer name
+        const customerNameMatch = lastUserMessage.match(/\b(from |by |customer |user )([a-zA-Z0-9_-]+)\b/);
+        if (customerNameMatch) {
+          const customerName = customerNameMatch[2];
+          conditions.push(like(orders.customerUsername, `%${customerName}%`));
+        }
+        
+        // Apply conditions if any
+        if (conditions.length > 0) {
+          ordersQuery = ordersQuery.where(or(...conditions)) as any;
+        }
+        
+        const orderResults = await ordersQuery
+          .orderBy(desc(orders.orderDate))
+          .limit(20);
+        
+        ordersFound.push(...orderResults);
+      }
+      
       const assistantMessage = data.choices[0].message.content;
 
       // Save conversation to database for learning
@@ -1215,6 +1274,7 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
       res.json({
         message: assistantMessage,
         items: itemsFound,
+        orders: ordersFound, // Return orders for frontend display
         sessionId, // Return session ID for client to use
         bricklinkSearchSuggestion, // Return suggestion if item not found (frontend will render as button)
       });
