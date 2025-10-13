@@ -33,8 +33,10 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
   });
   
   const currentYear = new Date().getFullYear();
-  const [compareMode, setCompareMode] = useState(false);
+  const [compareMode, setCompareMode] = useState(true); // Start with comparison enabled
+  const [comparisonType, setComparisonType] = useState<'year' | 'platform'>('year'); // Toggle between year/platform
   const [selectedCompareYears, setSelectedCompareYears] = useState<number[]>([currentYear - 1, currentYear - 2]);
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
   
   const { data: orders = [], isLoading } = useQuery<Order[]>({
     queryKey: ['/api/orders'],
@@ -50,12 +52,27 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
     return Array.from(years).sort((a, b) => b - a);
   }, [orders]);
 
+  // Get available platforms from orders
+  const availablePlatforms = useMemo(() => {
+    const platforms = new Set<string>();
+    orders.forEach(order => {
+      const platform = order.marketplace || 'Unknown';
+      platforms.add(platform);
+    });
+    return Array.from(platforms).sort();
+  }, [orders]);
+
   // Filter selected years to only include years with actual data
   // This ensures UI, chart, and metrics only show years from availableYears
   const validCompareYears = useMemo(() => {
     const nonCurrentYears = availableYears.filter(y => y !== currentYear);
     return selectedCompareYears.filter(y => nonCurrentYears.includes(y));
   }, [selectedCompareYears, availableYears, currentYear]);
+
+  // Filter selected platforms to only include platforms with actual data
+  const validPlatforms = useMemo(() => {
+    return selectedPlatforms.filter(p => availablePlatforms.includes(p));
+  }, [selectedPlatforms, availablePlatforms]);
 
   const handlePlatformClick = (platform: string) => {
     setPlatformDrawer({ open: true, platform });
@@ -330,6 +347,111 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
     });
   };
 
+  // Platform comparison data generation - respects date range filter
+  const getPlatformComparisonData = () => {
+    const platforms = validPlatforms;
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    
+    // Determine the date range boundaries
+    let startDate: Date, endDate: Date;
+    const now = new Date();
+    
+    if (dateRange === 'mtd') {
+      startDate = startOfMonth(now);
+      endDate = now;
+    } else if (dateRange === '3months') {
+      startDate = startOfMonth(subMonths(now, 2));
+      endDate = now;
+    } else if (dateRange === '6months') {
+      startDate = startOfMonth(subMonths(now, 5));
+      endDate = now;
+    } else if (dateRange === '1year') {
+      startDate = startOfMonth(subMonths(now, 11));
+      endDate = now;
+    } else if (dateRange === '2years') {
+      startDate = startOfMonth(subMonths(now, 23));
+      endDate = now;
+    } else {
+      // 'all' - get oldest order date
+      const oldestOrder = orders.reduce((oldest, order) => {
+        const orderDate = parseISO(order.orderDate);
+        return !oldest || orderDate < oldest ? orderDate : oldest;
+      }, null as Date | null);
+      startDate = oldestOrder || subYears(now, 10);
+      endDate = now;
+    }
+    
+    // Create data structure for months within the date range
+    const comparisonData: Array<{
+      month: string;
+      monthIndex: number;
+      bucketDate: Date;
+      [key: string]: string | number | Date;
+    }> = [];
+    
+    // Generate month buckets from startDate to endDate
+    let currentDate = startOfMonth(startDate);
+    const endMonth = startOfMonth(endDate);
+    
+    // Initialize bucket with all platforms
+    const initialBucketData: Record<string, number> = {};
+    platforms.forEach(platform => {
+      initialBucketData[platform] = 0;
+    });
+    
+    while (currentDate <= endMonth) {
+      const monthIndex = currentDate.getMonth();
+      const monthYear = currentDate.getFullYear();
+      const monthLabel = dateRange === 'mtd' 
+        ? monthNames[monthIndex]
+        : `${monthNames[monthIndex]} ${monthYear.toString().slice(-2)}`;
+      
+      comparisonData.push({
+        month: monthLabel,
+        monthIndex,
+        bucketDate: new Date(currentDate), // Store full date for accurate matching
+        ...initialBucketData,
+      });
+      
+      currentDate = subMonths(currentDate, -1); // Add 1 month
+    }
+
+    // Aggregate orders by platform and month
+    filteredOrders.forEach(order => {
+      if (!order.orderTotal || isNaN(Number(order.orderTotal))) return;
+      
+      const platform = order.marketplace || 'Unknown';
+      if (!platforms.includes(platform)) return;
+      
+      const orderDate = parseISO(order.orderDate);
+      const orderMonth = startOfMonth(orderDate);
+      
+      const bucketIndex = comparisonData.findIndex(bucket => {
+        const bucketDateObj = bucket.bucketDate as Date;
+        return bucketDateObj.getTime() === orderMonth.getTime();
+      });
+      
+      if (bucketIndex !== -1) {
+        const monthData = comparisonData[bucketIndex];
+        const currentValue = monthData[platform] as number || 0;
+        monthData[platform] = currentValue + Number(order.orderTotal);
+      }
+    });
+
+    // Round values and return
+    return comparisonData.map(d => {
+      const roundedData: Record<string, any> = {
+        month: d.month,
+        monthIndex: d.monthIndex,
+        bucketDate: d.bucketDate,
+      };
+      platforms.forEach(platform => {
+        roundedData[platform] = Math.round((d[platform] as number) || 0);
+      });
+      return roundedData;
+    });
+  };
+
   // Get top revenue orders
   const topRevenueOrders = filteredOrders
     .filter(order => order.orderTotal && !isNaN(Number(order.orderTotal)))
@@ -361,8 +483,21 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
     );
   }
 
-  const comparisonData = compareMode ? getYearComparisonData() : [];
+  const comparisonData = compareMode 
+    ? (comparisonType === 'year' ? getYearComparisonData() : getPlatformComparisonData())
+    : [];
   const comparisonYears = [currentYear, ...validCompareYears];
+  
+  // Platform colors - matching PlatformPerformance component
+  const PLATFORM_COLORS: Record<string, string> = {
+    'BrickLink': '#FF8C00',
+    'eBay': '#E53238',
+    'Amazon': '#FF9900',
+    'Etsy': '#F1641E',
+    'Facebook': '#1877F2',
+    'Unknown': '#6B7280',
+    'Other': '#9CA3AF',
+  };
   
   // Colors for year lines in comparison chart - dynamic palette
   const colorPalette = [
@@ -385,7 +520,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
 
   return (
     <div className="p-2 space-y-1.5 bg-gradient-to-br from-lego-green/5 to-transparent rounded-lg border border-lego-green/10 shadow-[0_0_15px_rgba(34,197,94,0.1)]">
-      {/* Year Comparison Toggle */}
+      {/* Comparison Controls */}
       <div className="bg-gray-900/50 border border-lego-green/20 rounded-lg p-2">
         <div className="flex items-center gap-2 mb-2">
           <button
@@ -395,20 +530,48 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
                 ? 'bg-lego-orange text-white border border-lego-orange'
                 : 'bg-gray-900 text-gray-400 border border-gray-700 hover-elevate'
             }`}
-            data-testid="button-compare-years"
+            data-testid="button-compare-toggle"
           >
             <GitCompare className="w-3 h-3" />
-            <span>Compare Years</span>
+            <span>Compare</span>
           </button>
           
-          {compareMode && availableYears.length > 0 && (
+          {/* Mode Toggle - Year vs Platform */}
+          {compareMode && (
+            <div className="flex gap-1">
+              <button
+                onClick={() => setComparisonType('year')}
+                className={`text-[10px] px-2 py-1 rounded transition-all ${
+                  comparisonType === 'year'
+                    ? 'bg-purple-600 text-white border border-purple-500'
+                    : 'bg-gray-800 text-gray-400 border border-gray-700 hover-elevate'
+                }`}
+                data-testid="button-compare-year"
+              >
+                Years
+              </button>
+              <button
+                onClick={() => setComparisonType('platform')}
+                className={`text-[10px] px-2 py-1 rounded transition-all ${
+                  comparisonType === 'platform'
+                    ? 'bg-purple-600 text-white border border-purple-500'
+                    : 'bg-gray-800 text-gray-400 border border-gray-700 hover-elevate'
+                }`}
+                data-testid="button-compare-platform"
+              >
+                Platforms
+              </button>
+            </div>
+          )}
+          
+          {/* Year Selection */}
+          {compareMode && comparisonType === 'year' && availableYears.length > 0 && (
             <div className="flex items-center gap-1 flex-1 overflow-x-auto">
               <span className="text-[9px] text-gray-500 flex-shrink-0">vs</span>
               <div className="flex gap-1 flex-nowrap">
                 {(() => {
                   const nonCurrentYears = availableYears.filter(y => y !== currentYear);
                   // Sort years: selected first (descending), then unselected (descending)
-                  // validCompareYears is already filtered to only include years with data
                   const selectedYears = [...validCompareYears].sort((a, b) => b - a);
                   const unselectedYears = nonCurrentYears
                     .filter(y => !validCompareYears.includes(y))
@@ -443,6 +606,48 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
               </div>
             </div>
           )}
+          
+          {/* Platform Selection */}
+          {compareMode && comparisonType === 'platform' && availablePlatforms.length > 0 && (
+            <div className="flex items-center gap-1 flex-1 overflow-x-auto">
+              <span className="text-[9px] text-gray-500 flex-shrink-0">select</span>
+              <div className="flex gap-1 flex-nowrap">
+                {(() => {
+                  // Sort platforms: selected first (alphabetical), then unselected (alphabetical)
+                  const selectedItems = [...validPlatforms].sort((a, b) => a.localeCompare(b));
+                  const unselectedItems = availablePlatforms
+                    .filter(p => !validPlatforms.includes(p))
+                    .sort((a, b) => a.localeCompare(b));
+                  const sortedPlatforms = [...selectedItems, ...unselectedItems];
+                  
+                  return sortedPlatforms.map(platform => {
+                    const isSelected = selectedPlatforms.includes(platform);
+                    return (
+                      <button
+                        key={platform}
+                        onClick={() => {
+                          if (isSelected) {
+                            setSelectedPlatforms(selectedPlatforms.filter(p => p !== platform));
+                          } else {
+                            setSelectedPlatforms([...selectedPlatforms, platform].sort((a, b) => a.localeCompare(b)));
+                          }
+                        }}
+                        aria-pressed={isSelected}
+                        className={`text-[10px] px-2 py-0.5 rounded transition-all flex-shrink-0 ${
+                          isSelected
+                            ? 'bg-blue-600 text-white border border-blue-500'
+                            : 'bg-gray-800 text-gray-400 border border-gray-700 hover-elevate'
+                        }`}
+                        data-testid={`platform-toggle-${platform.toLowerCase().replace(/\s+/g, '-')}`}
+                      >
+                        {platform}
+                      </button>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -467,7 +672,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
               </LineChart>
             </ResponsiveContainer>
           </>
-        ) : (
+        ) : comparisonType === 'year' ? (
           <>
             <div className="mb-1 text-xs text-gray-400">
               <span className="text-lego-green font-semibold">Year-over-Year Comparison</span>
@@ -496,11 +701,40 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
               </LineChart>
             </ResponsiveContainer>
           </>
+        ) : (
+          <>
+            <div className="mb-1 text-xs text-gray-400">
+              <span className="text-lego-green font-semibold">Platform Comparison</span>
+            </div>
+            <ResponsiveContainer width="100%" height={140}>
+              <LineChart data={comparisonData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                <XAxis dataKey="month" stroke="#9CA3AF" style={{ fontSize: '10px' }} />
+                <YAxis stroke="#9CA3AF" style={{ fontSize: '10px' }} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151', borderRadius: '6px', fontSize: '12px' }}
+                  labelStyle={{ color: '#D1D5DB' }}
+                />
+                <Legend wrapperStyle={{ fontSize: '10px' }} />
+                {validPlatforms.map(platform => (
+                  <Line 
+                    key={platform}
+                    type="monotone" 
+                    dataKey={platform} 
+                    stroke={PLATFORM_COLORS[platform] || PLATFORM_COLORS['Other']} 
+                    strokeWidth={2} 
+                    dot={{ fill: PLATFORM_COLORS[platform] || PLATFORM_COLORS['Other'], r: 2 }}
+                    name={platform}
+                  />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          </>
         )}
       </div>
 
-      {/* Year-over-Year Growth Metrics */}
-      {compareMode && validCompareYears.length > 0 && (
+      {/* Comparison Metrics */}
+      {compareMode && comparisonType === 'year' && validCompareYears.length > 0 && (
         <div className="bg-gray-900/50 border border-purple-500/20 rounded-lg p-3" data-testid="section-yoy-metrics">
           <div className="flex items-center gap-2 mb-2">
             <TrendingUp className="w-3.5 h-3.5 text-purple-400" />
@@ -510,7 +744,6 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
             {(() => {
               // Calculate total revenue for each year using the same date range filter
               const yearTotals = comparisonYears.reduce((acc, year) => {
-                // Sum the comparison data for this year
                 const total = comparisonData.reduce((sum, monthData) => {
                   const value = monthData[`${year}`] as number || 0;
                   return sum + value;
@@ -534,6 +767,56 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
                     </div>
                     <div className="text-[9px] text-gray-400 mt-1">
                       ${Math.round(yearTotals[currentYear]).toLocaleString()} vs ${Math.round(yearTotals[compareYear]).toLocaleString()}
+                    </div>
+                  </div>
+                );
+              });
+            })()}
+          </div>
+        </div>
+      )}
+
+      {/* Platform Comparison Metrics */}
+      {compareMode && comparisonType === 'platform' && validPlatforms.length > 0 && (
+        <div className="bg-gray-900/50 border border-purple-500/20 rounded-lg p-3" data-testid="section-platform-metrics">
+          <div className="flex items-center gap-2 mb-2">
+            <TrendingUp className="w-3.5 h-3.5 text-purple-400" />
+            <h3 className="text-[10px] font-semibold text-purple-400 uppercase tracking-wide">Platform Performance</h3>
+          </div>
+          <div className={`grid gap-2 ${validPlatforms.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+            {(() => {
+              // Calculate total revenue for each platform using the same date range filter
+              const platformTotals = validPlatforms.reduce((acc, platform) => {
+                const total = comparisonData.reduce((sum, monthData) => {
+                  const value = monthData[platform] as number || 0;
+                  return sum + value;
+                }, 0);
+                acc[platform] = total;
+                return acc;
+              }, {} as Record<string, number>);
+
+              const totalRevenue = Object.values(platformTotals).reduce((sum, val) => sum + val, 0);
+
+              return validPlatforms.map(platform => {
+                const revenue = platformTotals[platform];
+                const percentage = totalRevenue > 0 ? (revenue / totalRevenue) * 100 : 0;
+
+                return (
+                  <div key={platform} className="bg-gray-800/50 rounded p-2">
+                    <div className="flex items-center gap-1 mb-1">
+                      <div 
+                        className="w-2 h-2 rounded-full" 
+                        style={{ backgroundColor: PLATFORM_COLORS[platform] || PLATFORM_COLORS['Other'] }}
+                      />
+                      <div className="text-[9px] text-gray-500">
+                        {platform}
+                      </div>
+                    </div>
+                    <div className="text-sm font-mono font-bold text-white">
+                      ${Math.round(revenue).toLocaleString()}
+                    </div>
+                    <div className="text-[9px] text-gray-400 mt-1">
+                      {percentage.toFixed(1)}% of total
                     </div>
                   </div>
                 );
