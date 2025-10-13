@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { format, subMonths, startOfMonth, parseISO } from "date-fns";
+import { format, subMonths, startOfMonth, parseISO, startOfDay } from "date-fns";
 import { TrendingUp, DollarSign, Target } from "lucide-react";
 import { DateRangeValue } from "./DateRangeSelector";
 import PlatformPerformance from "./PlatformPerformance";
@@ -25,7 +25,7 @@ interface Order {
   customerUsername: string;
 }
 
-export default function SalesDashboard({ period, dateRange = 'all', onItemClick }: SalesDashboardProps) {
+export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick }: SalesDashboardProps) {
   const [platformDrawer, setPlatformDrawer] = useState<{ open: boolean; platform: string }>({
     open: false,
     platform: '',
@@ -48,6 +48,15 @@ export default function SalesDashboard({ period, dateRange = 'all', onItemClick 
   const getFilteredOrders = () => {
     if (dateRange === 'all') {
       return orders;
+    }
+
+    if (dateRange === 'mtd') {
+      // Month-to-Date: from start of current month to today
+      const startOfCurrentMonth = startOfMonth(new Date());
+      return orders.filter(order => {
+        const orderDate = parseISO(order.orderDate);
+        return orderDate >= startOfCurrentMonth;
+      });
     }
 
     const monthsToShow = dateRange === '2years' ? 24 :
@@ -73,6 +82,39 @@ export default function SalesDashboard({ period, dateRange = 'all', onItemClick 
   const getSalesData = () => {
     if (filteredOrders.length === 0) {
       return [];
+    }
+
+    // For MTD, show daily data for current month
+    if (dateRange === 'mtd') {
+      const today = new Date();
+      const startOfCurrentMonth = startOfMonth(today);
+      const daysInMonth = today.getDate(); // Number of days from start to today
+      
+      const days = Array.from({ length: daysInMonth }, (_, i) => {
+        const dayDate = new Date(startOfCurrentMonth);
+        dayDate.setDate(i + 1);
+        return {
+          date: format(dayDate, 'MMM d'),
+          day: startOfDay(dayDate),
+          sales: 0,
+        };
+      });
+
+      // Aggregate orders into days
+      filteredOrders.forEach(order => {
+        if (order.orderTotal && !isNaN(Number(order.orderTotal))) {
+          const orderDay = startOfDay(parseISO(order.orderDate));
+          const dayData = days.find(d => d.day.getTime() === orderDay.getTime());
+          if (dayData) {
+            dayData.sales += Number(order.orderTotal);
+          }
+        }
+      });
+
+      return days.map(({ date, sales }) => ({
+        date,
+        sales: Math.round(sales),
+      }));
     }
 
     let months: Array<{ date: string; month: Date; sales: number }>;
