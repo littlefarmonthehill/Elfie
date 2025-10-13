@@ -229,14 +229,14 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       const aisleId = formData.get('aisleId') as string;
       createShelfMutation.mutate({ 
         name, 
-        aisleId: aisleId ? parseInt(aisleId) : undefined,
+        aisleId: (aisleId && aisleId !== '0') ? parseInt(aisleId) : undefined,
         description 
       });
     } else if (createType === 'bin') {
       const shelfId = formData.get('shelfId') as string;
       createBinMutation.mutate({ 
         name, 
-        shelfId: shelfId ? parseInt(shelfId) : undefined,
+        shelfId: (shelfId && shelfId !== '0') ? parseInt(shelfId) : undefined,
         description 
       });
     }
@@ -257,7 +257,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
         id: editItem.id,
         data: { 
           name, 
-          aisleId: editAisleId ? parseInt(editAisleId) : undefined,
+          aisleId: (editAisleId && editAisleId !== '0') ? parseInt(editAisleId) : undefined,
           description 
         }
       });
@@ -266,7 +266,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
         id: editItem.id,
         data: { 
           name, 
-          shelfId: editShelfId ? parseInt(editShelfId) : undefined,
+          shelfId: (editShelfId && editShelfId !== '0') ? parseInt(editShelfId) : undefined,
           description 
         }
       });
@@ -276,8 +276,8 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   const handleEdit = (type: 'aisle' | 'shelf' | 'bin', item: any) => {
     setEditType(type);
     setEditItem(item);
-    setEditAisleId(item.aisleId?.toString() || "");
-    setEditShelfId(item.shelfId?.toString() || "");
+    setEditAisleId(item.aisleId?.toString() || "0");
+    setEditShelfId(item.shelfId?.toString() || "0");
     setEditDialogOpen(true);
   };
 
@@ -378,7 +378,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   const filteredList = getFilteredList();
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 min-h-[60vh]">
       {/* Overview Stats */}
       <Card className="p-3">
         <div className="flex items-center gap-2 mb-3">
@@ -515,15 +515,17 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
               >
                 Assigned
               </Button>
-              <Button
-                size="sm"
-                variant={filter === 'unassigned' ? 'default' : 'ghost'}
-                onClick={() => setFilter('unassigned')}
-                data-testid="filter-unassigned"
-                className="text-[10px] py-1 px-2"
-              >
-                Unassigned
-              </Button>
+              {(activeView === 'lots' || activeView === 'bins') && (
+                <Button
+                  size="sm"
+                  variant={filter === 'unassigned' ? 'default' : 'ghost'}
+                  onClick={() => setFilter('unassigned')}
+                  data-testid="filter-unassigned"
+                  className="text-[10px] py-1 px-2"
+                >
+                  Unassigned
+                </Button>
+              )}
             </div>
             {(activeView === 'aisles' || activeView === 'shelves' || activeView === 'bins') && (
               <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
@@ -558,7 +560,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                             <SelectValue placeholder="Select aisle" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">None</SelectItem>
+                            <SelectItem value="0">None</SelectItem>
                             {aisles.map((aisle) => (
                               <SelectItem key={aisle.id} value={String(aisle.id)}>
                                 {aisle.name}
@@ -576,7 +578,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                             <SelectValue placeholder="Select shelf" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">None</SelectItem>
+                            <SelectItem value="0">None</SelectItem>
                             {shelves.map((shelf) => (
                               <SelectItem key={shelf.id} value={String(shelf.id)}>
                                 {shelf.aisleName ? `${shelf.aisleName} - ` : ''}{shelf.name}
@@ -600,7 +602,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
           </div>
 
           {/* Bulk Assignment Controls */}
-          {selectedItems.size > 0 && filter === 'unassigned' && (
+          {selectedItems.size > 0 && (activeView === 'lots' || (activeView === 'bins' && filter === 'unassigned')) && (
             <div className="flex items-center gap-2 mb-3 p-2 bg-blue-500/10 rounded">
               <span className="text-xs text-gray-400">{selectedItems.size} selected</span>
               {activeView === 'lots' && (
@@ -624,11 +626,11 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                     data-testid="button-bulk-assign"
                     className="text-[10px]"
                   >
-                    Assign to Bin
+                    {filter === 'assigned' ? 'Move to Bin' : 'Assign to Bin'}
                   </Button>
                 </>
               )}
-              {activeView === 'bins' && (
+              {activeView === 'bins' && filter === 'unassigned' && (
                 <>
                   <Select value={bulkShelfId} onValueChange={setBulkShelfId}>
                     <SelectTrigger className="w-32 h-7 text-[10px]" data-testid="select-bulk-shelf">
@@ -653,31 +655,6 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                   </Button>
                 </>
               )}
-              {activeView === 'shelves' && (
-                <>
-                  <Select value={bulkAisleId} onValueChange={setBulkAisleId}>
-                    <SelectTrigger className="w-32 h-7 text-[10px]" data-testid="select-bulk-aisle">
-                      <SelectValue placeholder="Select aisle" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {aisles.map((aisle: any) => (
-                        <SelectItem key={aisle.id} value={String(aisle.id)}>
-                          {aisle.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Button 
-                    size="sm" 
-                    onClick={handleBulkAssign} 
-                    disabled={!bulkAisleId}
-                    data-testid="button-bulk-assign"
-                    className="text-[10px]"
-                  >
-                    Assign to Aisle
-                  </Button>
-                </>
-              )}
             </div>
           )}
 
@@ -694,7 +671,16 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                   className="flex items-center gap-2 p-2 rounded hover-elevate text-xs"
                   data-testid={`list-item-${item.id}`}
                 >
-                  {!item.assigned && (
+                  {activeView === 'lots' && (
+                    <input
+                      type="checkbox"
+                      checked={selectedItems.has(item.id)}
+                      onChange={() => toggleItemSelection(item.id)}
+                      className="w-4 h-4 rounded"
+                      data-testid={`checkbox-item-${item.id}`}
+                    />
+                  )}
+                  {activeView === 'bins' && !item.assigned && (
                     <input
                       type="checkbox"
                       checked={selectedItems.has(item.id)}
@@ -786,7 +772,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                     <SelectValue placeholder="Select aisle" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value="0">None</SelectItem>
                     {aisles.map((aisle) => (
                       <SelectItem key={aisle.id} value={String(aisle.id)}>
                         {aisle.name}
@@ -804,7 +790,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                     <SelectValue placeholder="Select shelf" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value="0">None</SelectItem>
                     {shelves.map((shelf) => (
                       <SelectItem key={shelf.id} value={String(shelf.id)}>
                         {shelf.aisleName ? `${shelf.aisleName} - ` : ''}{shelf.name}
