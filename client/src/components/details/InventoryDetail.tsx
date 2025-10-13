@@ -1,7 +1,8 @@
-import { Package, DollarSign, Weight, Calendar, ExternalLink, TrendingUp, Sparkles, BarChart3, ShoppingCart, FileText, AlertCircle, Database, Tag, Box, Layers, Users, Clock, Zap, Info, Globe } from "lucide-react";
+import { Package, DollarSign, Weight, Calendar, ExternalLink, TrendingUp, Sparkles, BarChart3, ShoppingCart, FileText, AlertCircle, Database, Tag, Box, Layers, Users, Clock, Zap, Info, Globe, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 
 interface PriceOMagicData {
@@ -102,6 +103,7 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
   const [dateRange, setDateRange] = useState<'all' | '1year' | '2years' | '3months' | '6months'>('all');
+  const [showBrickLinkModal, setShowBrickLinkModal] = useState(false);
   const priceOMagic = data.priceOMagic;
 
   // Fetch analytics data
@@ -890,17 +892,48 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
             Updated <span className="font-bold text-white">{data.updatedAt ? new Date(data.updatedAt).toLocaleDateString() : 'N/A'}</span>
           </span>
         </div>
-        <a 
-          href={bricklinkUrl} 
-          target="_blank" 
-          rel="noopener noreferrer"
+        <button 
+          onClick={() => setShowBrickLinkModal(true)}
           className="flex items-center gap-1 text-[10px] font-bold text-lego-blue hover:text-lego-blue/80 transition-colors"
-          data-testid="link-bricklink"
+          data-testid="button-bricklink"
         >
           VIEW ON BRICKLINK
           <ExternalLink className="h-3.5 w-3.5" />
-        </a>
+        </button>
       </div>
+
+      {/* BrickLink Modal */}
+      <Dialog open={showBrickLinkModal} onOpenChange={setShowBrickLinkModal}>
+        <DialogContent className="max-w-4xl h-[80vh] p-0" aria-describedby="bricklink-description">
+          <DialogHeader className="p-4 border-b border-gray-700">
+            <div className="flex items-center justify-between">
+              <DialogTitle className="text-base flex items-center gap-2">
+                <Globe className="h-4 w-4 text-lego-blue" />
+                BrickLink Catalog
+              </DialogTitle>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => setShowBrickLinkModal(false)}
+                className="h-8 w-8"
+                data-testid="button-close-bricklink-modal"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <p id="bricklink-description" className="sr-only">
+              BrickLink catalog page for {itemName}
+            </p>
+          </DialogHeader>
+          <iframe
+            src={bricklinkUrl}
+            className="w-full h-full"
+            title={`BrickLink - ${itemName}`}
+            sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+            data-testid="iframe-bricklink"
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
