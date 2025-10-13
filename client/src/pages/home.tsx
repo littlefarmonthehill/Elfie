@@ -11,6 +11,9 @@ import PriceOMaticDashboard from "@/components/PriceOMaticDashboard";
 import ChatInterface from "@/components/ChatInterface";
 import DetailModal, { DetailData } from "@/components/DetailModal";
 import DateRangeSelector, { DateRangeValue } from "@/components/DateRangeSelector";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { ExternalLink, X } from "lucide-react";
 
 export default function Home() {
   const [activeDashboard, setActiveDashboard] = useState<DashboardType>('dashboard');
@@ -18,6 +21,7 @@ export default function Home() {
   const [salesPeriod, setSalesPeriod] = useState<'mtd' | 'ytd' | '1y' | '5y'>('ytd');
   const [dateRange, setDateRange] = useState<DateRangeValue>('all');
   const [chatMinimized, setChatMinimized] = useState(true);
+  const [brickLinkUrl, setBrickLinkUrl] = useState<string | null>(null);
   const [detailModal, setDetailModal] = useState<{ open: boolean; data: DetailData | null }>({
     open: false,
     data: null,
@@ -590,6 +594,8 @@ export default function Home() {
               onItemClick={handleItemClick}
               isMinimized={chatMinimized}
               onToggleMinimize={() => setChatMinimized(!chatMinimized)}
+              brickLinkUrl={brickLinkUrl}
+              onBrickLinkClick={setBrickLinkUrl}
             />
           </div>
         )}
@@ -611,6 +617,8 @@ export default function Home() {
             onItemClick={handleItemClick}
             isMinimized={chatMinimized}
             onToggleMinimize={() => setChatMinimized(!chatMinimized)}
+            brickLinkUrl={brickLinkUrl}
+            onBrickLinkClick={setBrickLinkUrl}
           />
         </div>
       )}
