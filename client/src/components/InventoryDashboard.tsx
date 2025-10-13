@@ -119,8 +119,11 @@ export default function InventoryDashboard({ onItemClick }: InventoryDashboardPr
   return (
     <div className="p-2 space-y-1.5 bg-gradient-to-br from-lego-blue/5 to-transparent rounded-lg border border-lego-blue/10 shadow-[0_0_15px_rgba(59,130,246,0.1)]">
       <div className="space-y-1.5">
-        <div>
-          <h3 className="text-xs text-gray-500 mb-0.5">Inventory Info</h3>
+        <div className="bg-gray-900/50 border border-blue-500/20 rounded-lg p-3" data-testid="section-inventory-info">
+          <div className="flex items-center gap-2 mb-2">
+            <Package className="w-3.5 h-3.5 text-blue-400" />
+            <h3 className="text-[10px] font-semibold text-blue-400 uppercase tracking-wide">Inventory Info</h3>
+          </div>
           <div className="grid grid-cols-4 gap-1.5">
             <MetricCard label="Lots" value={stats ? formatNumber(stats.totalLots) : '0'} color="blue" data-testid="metric-lots" />
             <MetricCard label="Parts" value={stats ? formatNumber(stats.totalParts) : '0'} color="blue" data-testid="metric-parts" />
@@ -129,9 +132,10 @@ export default function InventoryDashboard({ onItemClick }: InventoryDashboardPr
           </div>
         </div>
 
-        <div>
-          <div className="flex items-center gap-1 mb-0.5">
-            <h3 className="text-xs text-gray-500">Values</h3>
+        <div className="bg-gray-900/50 border border-cyan-500/20 rounded-lg p-3" data-testid="section-values">
+          <div className="flex items-center gap-2 mb-2">
+            <TrendingUp className="w-3.5 h-3.5 text-cyan-400" />
+            <h3 className="text-[10px] font-semibold text-cyan-400 uppercase tracking-wide">Values</h3>
             <Tooltip>
               <TooltipTrigger asChild>
                 <button className="text-gray-500 hover:text-gray-400" data-testid="button-cost-info">
