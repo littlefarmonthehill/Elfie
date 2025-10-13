@@ -7,7 +7,6 @@ import SalesDashboard from "@/components/SalesDashboard";
 import MarketingDashboard from "@/components/MarketingDashboard";
 import GeneralDashboard from "@/components/GeneralDashboard";
 import OrdersDashboard from "@/components/OrdersDashboard";
-import PriceOMaticDashboard from "@/components/PriceOMaticDashboard";
 import ChatInterface from "@/components/ChatInterface";
 import DetailModal, { DetailData } from "@/components/DetailModal";
 import DateRangeSelector, { DateRangeValue } from "@/components/DateRangeSelector";
@@ -204,8 +203,6 @@ export default function Home() {
         return <SalesDashboard period={salesPeriod} dateRange={dateRange} onItemClick={handleDashboardItemClick} />;
       case 'marketing':
         return <MarketingDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} />;
-      case 'priceomatic':
-        return <PriceOMaticDashboard onItemClick={handleDashboardItemClick} />;
       default:
         return <GeneralDashboard onItemClick={handleDashboardItemClick} />;
     }
@@ -221,14 +218,12 @@ export default function Home() {
         return 'Sales';
       case 'marketing':
         return 'Marketing';
-      case 'priceomatic':
-        return 'Price-o-Matic';
       default:
         return 'Business';
     }
   };
 
-  const getThemeColor = (): 'red' | 'blue' | 'yellow' | 'green' | 'orange' | 'purple' => {
+  const getThemeColor = (): 'red' | 'blue' | 'yellow' | 'green' | 'orange' => {
     switch (activeDashboard) {
       case 'inventory':
         return 'blue';
@@ -238,8 +233,6 @@ export default function Home() {
         return 'green';
       case 'marketing':
         return 'yellow';
-      case 'priceomatic':
-        return 'purple';
       default:
         return 'red';
     }
