@@ -1,12 +1,20 @@
+import { useState } from "react";
 import MetricCard from "./MetricCard";
 import { useQuery } from "@tanstack/react-query";
-import { InfoIcon, AlertCircle, Package, TrendingUp, Clock } from "lucide-react";
+import { InfoIcon, AlertCircle, Package, TrendingUp, Clock, Sparkles, Warehouse, RefreshCw } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
 import { formatDistanceToNow } from "date-fns";
+import PriceOMaticDashboard from "./PriceOMaticDashboard";
 
 interface InventoryStats {
   totalLots: number;
@@ -49,6 +57,8 @@ interface InventoryDashboardProps {
 }
 
 export default function InventoryDashboard({ onItemClick }: InventoryDashboardProps) {
+  const [activeDrawer, setActiveDrawer] = useState<'priceomatic' | 'warehouse' | 'sync' | null>(null);
+
   const { data: stats, isLoading } = useQuery<InventoryStats>({
     queryKey: ['/api/inventory/stats'],
   });
@@ -118,6 +128,36 @@ export default function InventoryDashboard({ onItemClick }: InventoryDashboardPr
 
   return (
     <div className="p-2 space-y-1.5 bg-gradient-to-br from-lego-blue/5 to-transparent rounded-lg border border-lego-blue/10 shadow-[0_0_15px_rgba(59,130,246,0.1)]">
+      {/* Action Buttons Row */}
+      <div className="bg-gray-900/50 border border-blue-500/20 rounded-lg p-2">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setActiveDrawer('priceomatic')}
+            className="flex items-center gap-1.5 text-[9px] font-bold py-1 px-2 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
+            data-testid="button-priceomatic"
+          >
+            <Sparkles className="w-3 h-3" />
+            <span>Price-O-Matic</span>
+          </button>
+          <button
+            onClick={() => setActiveDrawer('warehouse')}
+            className="flex items-center gap-1.5 text-[9px] font-bold py-1 px-2 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
+            data-testid="button-warehouse"
+          >
+            <Warehouse className="w-3 h-3" />
+            <span>Warehouse Management</span>
+          </button>
+          <button
+            onClick={() => setActiveDrawer('sync')}
+            className="flex items-center gap-1.5 text-[9px] font-bold py-1 px-2 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
+            data-testid="button-sync"
+          >
+            <RefreshCw className="w-3 h-3" />
+            <span>Platform Sync</span>
+          </button>
+        </div>
+      </div>
+
       <div className="space-y-1.5">
         <div className="bg-gray-900/50 border border-blue-500/20 rounded-lg p-3" data-testid="section-inventory-info">
           <div className="flex items-center gap-2 mb-2">
@@ -275,6 +315,59 @@ export default function InventoryDashboard({ onItemClick }: InventoryDashboardPr
           )}
         </div>
       </div>
+
+      {/* Price-O-Matic Drawer */}
+      <Drawer open={activeDrawer === 'priceomatic'} onOpenChange={(open) => !open && setActiveDrawer(null)}>
+        <DrawerContent className="max-h-[95vh]">
+          <DrawerHeader>
+            <DrawerTitle className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-lego-orange" />
+              Price-O-Matic Intelligence
+            </DrawerTitle>
+          </DrawerHeader>
+          <div className="overflow-y-auto px-4 pb-4">
+            <PriceOMaticDashboard onItemClick={onItemClick} />
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Warehouse Management Drawer */}
+      <Drawer open={activeDrawer === 'warehouse'} onOpenChange={(open) => !open && setActiveDrawer(null)}>
+        <DrawerContent className="max-h-[95vh]">
+          <DrawerHeader>
+            <DrawerTitle className="flex items-center gap-2">
+              <Warehouse className="w-5 h-5 text-blue-400" />
+              Warehouse Management
+            </DrawerTitle>
+          </DrawerHeader>
+          <div className="overflow-y-auto px-4 pb-4">
+            <div className="text-center py-12 text-gray-400">
+              <Warehouse className="w-12 h-12 mx-auto mb-3 opacity-50" />
+              <p className="text-sm">Coming Soon</p>
+              <p className="text-xs mt-2">Warehouse management features are in development</p>
+            </div>
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Platform Sync Drawer */}
+      <Drawer open={activeDrawer === 'sync'} onOpenChange={(open) => !open && setActiveDrawer(null)}>
+        <DrawerContent className="max-h-[95vh]">
+          <DrawerHeader>
+            <DrawerTitle className="flex items-center gap-2">
+              <RefreshCw className="w-5 h-5 text-green-400" />
+              Platform Sync
+            </DrawerTitle>
+          </DrawerHeader>
+          <div className="overflow-y-auto px-4 pb-4">
+            <div className="text-center py-12 text-gray-400">
+              <RefreshCw className="w-12 h-12 mx-auto mb-3 opacity-50" />
+              <p className="text-sm">Coming Soon</p>
+              <p className="text-xs mt-2">Platform synchronization features are in development</p>
+            </div>
+          </div>
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 }
