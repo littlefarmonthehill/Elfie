@@ -1,6 +1,6 @@
 import MetricCard from "./MetricCard";
 import { useQuery } from "@tanstack/react-query";
-import { TrendingDown, AlertCircle, TrendingUp, ShoppingCart, ClipboardList } from "lucide-react";
+import { TrendingDown, AlertCircle, TrendingUp, ShoppingCart, ClipboardList, Tag, Truck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Drawer,
@@ -52,8 +52,8 @@ interface InsightsData {
 
 interface GeneralDashboardProps {
   onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
-  activeDrawer: 'picklist' | null;
-  onDrawerChange: (drawer: 'picklist' | null) => void;
+  activeDrawer: 'listing' | 'picklist' | 'fulfillment' | null;
+  onDrawerChange: (drawer: 'listing' | 'picklist' | 'fulfillment' | null) => void;
 }
 
 export default function GeneralDashboard({ onItemClick, activeDrawer, onDrawerChange }: GeneralDashboardProps) {
@@ -263,6 +263,27 @@ export default function GeneralDashboard({ onItemClick, activeDrawer, onDrawerCh
         </div>
       </div>
 
+      {/* Listing Drawer */}
+      <Drawer open={activeDrawer === 'listing'} onOpenChange={(open) => !open && onDrawerChange(null)}>
+        <DrawerContent className="h-[90vh]">
+          <DrawerHeader>
+            <DrawerTitle className="flex items-center gap-2">
+              <Tag className="w-5 h-5 text-blue-400" />
+              Listing
+            </DrawerTitle>
+          </DrawerHeader>
+          <div className="overflow-y-auto px-4 pb-4 flex-1">
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center text-gray-400">
+                <Tag className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                <p className="text-sm">Listing functionality</p>
+                <p className="text-xs mt-1">Coming soon</p>
+              </div>
+            </div>
+          </div>
+        </DrawerContent>
+      </Drawer>
+
       {/* Picklist Drawer */}
       <Drawer open={activeDrawer === 'picklist'} onOpenChange={(open) => !open && onDrawerChange(null)}>
         <DrawerContent className="h-[90vh]">
@@ -274,6 +295,27 @@ export default function GeneralDashboard({ onItemClick, activeDrawer, onDrawerCh
           </DrawerHeader>
           <div className="overflow-y-auto px-4 pb-4 flex-1">
             <PicklistTool />
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Fulfillment Drawer */}
+      <Drawer open={activeDrawer === 'fulfillment'} onOpenChange={(open) => !open && onDrawerChange(null)}>
+        <DrawerContent className="h-[90vh]">
+          <DrawerHeader>
+            <DrawerTitle className="flex items-center gap-2">
+              <Truck className="w-5 h-5 text-green-400" />
+              Fulfillment
+            </DrawerTitle>
+          </DrawerHeader>
+          <div className="overflow-y-auto px-4 pb-4 flex-1">
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center text-gray-400">
+                <Truck className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                <p className="text-sm">Fulfillment functionality</p>
+                <p className="text-xs mt-1">Coming soon</p>
+              </div>
+            </div>
           </div>
         </DrawerContent>
       </Drawer>
