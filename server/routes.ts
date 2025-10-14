@@ -3095,6 +3095,119 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
     }
   });
 
+  // Fulfillment Stats - Count unfulfilled orders
+  app.get("/api/fulfillment/stats", async (req, res) => {
+    try {
+      // Count orders that are awaiting payment, awaiting fulfillment, or awaiting shipment
+      const unfulfilled = await db
+        .select({ count: sql<number>`count(DISTINCT ${orders.id})` })
+        .from(orders)
+        .where(
+          or(
+            eq(orders.orderStatus, 'awaiting_payment'),
+            eq(orders.orderStatus, 'awaiting_fulfillment'),
+            eq(orders.orderStatus, 'awaiting_shipment')
+          )
+        );
+      
+      res.json({ 
+        unfulfilled: Number(unfulfilled[0]?.count || 0)
+      });
+    } catch (error) {
+      console.error("Error fetching fulfillment stats:", error);
+      res.status(500).json({ error: "Failed to fetch fulfillment stats" });
+    }
+  });
+
+  // Get fulfillment data - orders awaiting fulfillment with items grouped by bin
+  app.get("/api/fulfillment", async (req, res) => {
+    try {
+      // Fetch orders that need fulfillment
+      const fulfillmentOrders = await db
+        .select()
+        .from(orders)
+        .where(
+          or(
+            eq(orders.orderStatus, 'awaiting_payment'),
+            eq(orders.orderStatus, 'awaiting_fulfillment'),
+            eq(orders.orderStatus, 'awaiting_shipment')
+          )
+        )
+        .orderBy(orders.orderNumber);
+      
+      if (fulfillmentOrders.length === 0) {
+        res.json({ orders: [], items: [] });
+        return;
+      }
+      
+      const orderIds = fulfillmentOrders.map(o => o.id);
+      
+      // Fetch order details with warehouse location info
+      const items = await db
+        .select({
+          id: orderDetails.id,
+          orderId: orderDetails.orderId,
+          orderNumber: orders.orderNumber,
+          sku: orderDetails.sku,
+          name: orderDetails.name,
+          quantity: orderDetails.quantity,
+          fulfilled: orderDetails.fulfilled,
+          binId: inventoryLocations.binId,
+          binName: whBins.name,
+          shelfId: whShelves.id,
+          shelfName: whShelves.name,
+          aisleId: whAisles.id,
+          aisleName: whAisles.name,
+        })
+        .from(orderDetails)
+        .innerJoin(orders, eq(orderDetails.orderId, orders.id))
+        .leftJoin(blInventory, eq(orderDetails.sku, blInventory.itemNo))
+        .leftJoin(inventoryLocations, eq(blInventory.id, inventoryLocations.inventoryId))
+        .leftJoin(whBins, eq(inventoryLocations.binId, whBins.id))
+        .leftJoin(whShelves, eq(whBins.shelfId, whShelves.id))
+        .leftJoin(whAisles, eq(whShelves.aisleId, whAisles.id))
+        .where(inArray(orderDetails.orderId, orderIds));
+      
+      res.json({ 
+        orders: fulfillmentOrders,
+        items 
+      });
+    } catch (error) {
+      console.error("Error fetching fulfillment data:", error);
+      res.status(500).json({ error: "Failed to fetch fulfillment data" });
+    }
+  });
+
+  // Update fulfilled status for an order detail item
+  app.put("/api/fulfillment/item/:itemId/fulfill", async (req, res) => {
+    try {
+      const itemId = req.params.itemId;
+      const { fulfilled } = req.body;
+      
+      const updateData: any = {
+        fulfilled: fulfilled === true,
+        updatedAt: sql`CURRENT_TIMESTAMP`
+      };
+      
+      // Set fulfilledAt timestamp when marking as fulfilled, clear when unmarking
+      if (fulfilled === true) {
+        updateData.fulfilledAt = sql`CURRENT_TIMESTAMP`;
+      } else {
+        updateData.fulfilledAt = null;
+      }
+      
+      await db
+        .update(orderDetails)
+        .set(updateData)
+        .where(eq(orderDetails.id, itemId));
+      
+      res.json({ success: true, itemId, fulfilled });
+    } catch (error) {
+      console.error("Error updating item fulfilled status:", error);
+      res.status(500).json({ error: "Failed to update item fulfilled status" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

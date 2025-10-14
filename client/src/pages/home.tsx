@@ -32,6 +32,12 @@ export default function Home() {
     enabled: activeDashboard === 'dashboard',
   });
 
+  // Fetch fulfillment stats for indicator
+  const { data: fulfillmentStats } = useQuery<{ unfulfilled: number }>({
+    queryKey: ['/api/fulfillment/stats'],
+    enabled: activeDashboard === 'dashboard',
+  });
+
   const handleDashboardItemClick = async (type: 'order' | 'inventory', id: number | string) => {
     // Check if this is a BrickLink catalog item
     const isBrickLinkCatalog = String(id).startsWith('bricklink-');
@@ -598,10 +604,15 @@ export default function Home() {
               </button>
               <button
                 onClick={() => setActiveDashboardDrawer('fulfillment')}
-                className="text-[9px] font-bold py-1 px-2 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
+                className="relative text-[9px] font-bold py-1 px-2 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
                 data-testid="button-fulfillment"
               >
                 Fulfillment
+                {fulfillmentStats && fulfillmentStats.unfulfilled > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-green-500 text-white text-[8px] font-bold rounded-full h-4 w-4 flex items-center justify-center">
+                    {fulfillmentStats.unfulfilled}
+                  </span>
+                )}
               </button>
             </div>
           </div>

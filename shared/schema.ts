@@ -142,6 +142,8 @@ export const orderDetails = pgTable("order_details", {
   taxAmount: decimal("tax_amount", { precision: 10, scale: 2 }),
   weight: decimal("weight", { precision: 10, scale: 2 }),
   weightUnits: text("weight_units"),
+  fulfilled: boolean("fulfilled").default(false).notNull(), // Track fulfillment status
+  fulfilledAt: timestamp("fulfilled_at"),
   syncedAt: timestamp("synced_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

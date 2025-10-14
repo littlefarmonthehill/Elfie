@@ -9,6 +9,7 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import PicklistTool from "./PicklistTool";
+import FulfillmentTool from "./FulfillmentTool";
 
 interface DashboardStats {
   totalOrders: number;
@@ -309,13 +310,7 @@ export default function GeneralDashboard({ onItemClick, activeDrawer, onDrawerCh
             </DrawerTitle>
           </DrawerHeader>
           <div className="overflow-y-auto px-4 pb-4 flex-1">
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center text-gray-400">
-                <Truck className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                <p className="text-sm">Fulfillment functionality</p>
-                <p className="text-xs mt-1">Coming soon</p>
-              </div>
-            </div>
+            <FulfillmentTool />
           </div>
         </DrawerContent>
       </Drawer>
