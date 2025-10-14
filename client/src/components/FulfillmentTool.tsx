@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -31,6 +32,8 @@ type FulfillmentData = {
 };
 
 export default function FulfillmentTool() {
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+
   const { data, isLoading } = useQuery<FulfillmentData>({
     queryKey: ['/api/fulfillment'],
   });
@@ -70,8 +73,13 @@ export default function FulfillmentTool() {
     a.orderNumber.localeCompare(b.orderNumber, undefined, { numeric: true })
   );
 
+  // Filter items based on selected order
+  const filteredItems = selectedOrderId 
+    ? data.items.filter(item => item.orderId === selectedOrderId)
+    : data.items;
+
   // Group items by bin
-  const itemsByBin = data.items.reduce((acc, item) => {
+  const itemsByBin = filteredItems.reduce((acc, item) => {
     const binKey = item.binId ? `${item.aisleName || 'No Aisle'}-${item.shelfName || 'No Shelf'}-${item.binName}` : 'Unassigned';
     if (!acc[binKey]) {
       acc[binKey] = {
@@ -86,24 +94,38 @@ export default function FulfillmentTool() {
     return acc;
   }, {} as Record<string, { binId: number | null; binName: string; aisleName: string | null; shelfName: string | null; items: FulfillmentItem[] }>);
 
+  const handleOrderToggle = (orderId: string) => {
+    setSelectedOrderId(prev => prev === orderId ? null : orderId);
+  };
+
   return (
     <div className="space-y-4">
-      {/* Orders Section - 4 columns */}
+      {/* Orders Section - Filter Toggles */}
       <div>
-        <h3 className="text-sm font-bold text-gray-300 mb-3">Orders</h3>
+        <h3 className="text-sm font-bold text-gray-300 mb-3">Order Filters</h3>
         <div className="grid grid-cols-4 gap-2">
-          {sortedOrders.map((order) => (
-            <div
-              key={order.id}
-              className="bg-gray-800/50 border border-gray-700 rounded-lg p-2 text-center"
-              data-testid={`order-${order.orderNumber}`}
-            >
-              <p className="text-xs font-mono font-semibold text-white">{order.orderNumber}</p>
-              {order.marketplace && (
-                <p className="text-[10px] text-gray-500 mt-0.5">{order.marketplace}</p>
-              )}
-            </div>
-          ))}
+          {sortedOrders.map((order) => {
+            const isSelected = selectedOrderId === order.id;
+            return (
+              <div
+                key={order.id}
+                onClick={() => handleOrderToggle(order.id)}
+                className={`border rounded-lg p-2 text-center cursor-pointer transition-colors ${
+                  isSelected 
+                    ? 'bg-purple-500/20 border-purple-500' 
+                    : 'bg-gray-800/50 border-gray-700 hover-elevate'
+                }`}
+                data-testid={`order-${order.orderNumber}`}
+              >
+                <p className={`text-xs font-mono font-semibold ${isSelected ? 'text-purple-300' : 'text-white'}`}>
+                  {order.orderNumber}
+                </p>
+                {order.marketplace && (
+                  <p className="text-[10px] text-gray-500 mt-0.5">{order.marketplace}</p>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -144,20 +166,12 @@ export default function FulfillmentTool() {
 
                     {/* Item Details */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm font-semibold text-white">{item.name}</p>
-                        {item.sku && (
-                          <Badge variant="outline" className="text-xs font-mono">
-                            {item.sku}
-                          </Badge>
-                        )}
-                        <Badge variant="outline" className="text-xs">
-                          Order: {item.orderNumber}
-                        </Badge>
-                        <Badge variant="outline" className="text-xs">
-                          Qty: {item.quantity}
-                        </Badge>
-                      </div>
+                      {item.sku && (
+                        <p className="text-sm font-medium text-white">{item.sku}</p>
+                      )}
+                      <p className="text-xs font-bold text-gray-300 mt-0.5">
+                        Qty {item.quantity} • {item.orderNumber}
+                      </p>
                     </div>
                   </div>
                 </div>
