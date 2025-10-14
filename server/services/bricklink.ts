@@ -661,7 +661,7 @@ function calculateSuggestedPriceWithSupply(
   stockAvgPrice: number | null,
   soldAvgPrice: number | null,
   stockTotalLots: number = 0,
-  basePremiumPercentage: number = 15,
+  basePremiumPercentage: number = 10,
   itemType: string = 'PART'
 ): number {
   // Use stock average as base, fall back to sold average
@@ -671,12 +671,12 @@ function calculateSuggestedPriceWithSupply(
     return 0;
   }
   
-  // Start with base premium (15% for fast turnaround and quality service)
+  // Start with base premium (10% for fast turnaround and quality service)
   let totalPremium = basePremiumPercentage;
   
-  // Minifigures: Reduce base premium by half (higher quality items need less markup)
+  // Minifigures: Reduce premium by half (higher quality items need less markup)
   if (itemType === 'MINIFIG' || itemType === 'M') {
-    totalPremium = totalPremium / 2; // Reduce to 7.5% for minifigures
+    totalPremium = totalPremium / 2; // Reduce to 5% for minifigures (10% - 5%)
   }
   
   // Add supply adjustment premium based on scarcity (increased weights for low supply)

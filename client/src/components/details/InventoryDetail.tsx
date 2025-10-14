@@ -496,7 +496,7 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
                     <div className="space-y-3 mt-4">
                       {(() => {
                         // Calculate pricing components
-                        const basePremium = priceOMagic.premiumPercentage || 15;
+                        const basePremium = priceOMagic.premiumPercentage || 10;
                         const stockLots = priceOMagic.stockTotalLots;
                         let scarcityBonus = 0;
                         
@@ -513,11 +513,11 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
                         
                         // Check if item is a minifigure (reduces premium by half)
                         const isMinifig = data.itemType === 'MINIFIG' || data.itemType === 'M';
-                        const effectivePremium = isMinifig ? basePremium / 2 : basePremium;
                         const minifigReduction = isMinifig ? basePremium / 2 : 0;
+                        const effectivePremium = isMinifig ? basePremium - minifigReduction : basePremium;
                         
                         const marketBase = stockAvgPrice !== null ? stockAvgPrice : 0;
-                        const planetBrickPremium = marketBase * (effectivePremium / 100);
+                        const planetBrickPremium = marketBase * (basePremium / 100);
                         const supplyAdjustment = marketBase * (scarcityBonus / 100);
                         const minifigAdjustment = marketBase * (minifigReduction / 100);
                         
@@ -561,7 +561,7 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
                               <div className="flex justify-between items-center">
                                 <span className="text-xs text-gray-400">PlanetBrick Premium:</span>
                                 <div className="text-right">
-                                  <span className="text-sm font-mono font-bold text-purple-400">+{effectivePremium}%</span>
+                                  <span className="text-sm font-mono font-bold text-purple-400">+{basePremium}%</span>
                                   <span className="text-[10px] text-gray-500 ml-2">${planetBrickPremium.toFixed(3)}</span>
                                 </div>
                               </div>
