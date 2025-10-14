@@ -9,7 +9,7 @@ import { Package, PackageCheck, Loader2 } from "lucide-react";
 type WarehouseLocation = {
   aisle: { id: number; name: string };
   shelf: { id: number; name: string };
-  bin: { id: number; name: string };
+  bin: { id: number; name: string; description: string | null };
 };
 
 type BinPicklistItem = {
@@ -50,9 +50,25 @@ export default function PicklistTool() {
     mutationFn: async ({ binId, pulled }: { binId: number; pulled: boolean }) => {
       return await apiRequest('PUT', `/api/picklist/bin/${binId}/pull`, { pulled });
     },
-    onSuccess: () => {
+    onMutate: async ({ binId, pulled }) => {
+      await queryClient.cancelQueries({ queryKey: ['/api/picklist'] });
+      const previousData = queryClient.getQueryData(['/api/picklist', filter]);
+      queryClient.setQueryData(['/api/picklist', filter], (old: any) => {
+        if (!old) return old;
+        return old.map((item: any) => 
+          item.binId === binId ? { ...item, pulled } : item
+        );
+      });
+      return { previousData };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(['/api/picklist', filter], context.previousData);
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/picklist'] });
-      refetch();
+      queryClient.invalidateQueries({ queryKey: ['/api/picklist/stats'] });
     },
   });
 
@@ -60,9 +76,25 @@ export default function PicklistTool() {
     mutationFn: async ({ binId, reshelved }: { binId: number; reshelved: boolean }) => {
       return await apiRequest('PUT', `/api/picklist/bin/${binId}/reshelve`, { reshelved });
     },
-    onSuccess: () => {
+    onMutate: async ({ binId, reshelved }) => {
+      await queryClient.cancelQueries({ queryKey: ['/api/picklist'] });
+      const previousData = queryClient.getQueryData(['/api/picklist', filter]);
+      queryClient.setQueryData(['/api/picklist', filter], (old: any) => {
+        if (!old) return old;
+        return old.map((item: any) => 
+          item.binId === binId ? { ...item, reshelved } : item
+        );
+      });
+      return { previousData };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(['/api/picklist', filter], context.previousData);
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/picklist'] });
-      refetch();
+      queryClient.invalidateQueries({ queryKey: ['/api/picklist/stats'] });
     },
   });
 
@@ -151,10 +183,10 @@ export default function PicklistTool() {
                       {bins.map((bin) => {
                         const binKey = bin.binId ?? 'none';
                         const binName = bin.warehouseLocation?.bin.name || 'Unassigned';
+                        const binDescription = bin.warehouseLocation?.bin.description;
                         const binLocation = bin.warehouseLocation 
                           ? `${bin.warehouseLocation.shelf.name} › ${bin.warehouseLocation.bin.name}`
                           : 'Unassigned';
-                        const binDescription = `${bin.itemCount} ${bin.itemCount === 1 ? 'item' : 'items'}`;
                         
                         return (
                           <div 
@@ -180,7 +212,9 @@ export default function PicklistTool() {
                             {/* Bin Info - Center */}
                             <div className="flex-1 min-w-0">
                               <div className="text-sm font-medium text-white truncate">{binLocation}</div>
-                              <div className="text-xs text-gray-400 mt-0.5">{binDescription}</div>
+                              {binDescription && (
+                                <div className="text-xs text-gray-400 mt-0.5 font-normal">{binDescription}</div>
+                              )}
                             </div>
 
                             {/* Reshelved Checkbox - Right */}

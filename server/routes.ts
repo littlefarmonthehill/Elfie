@@ -2950,7 +2950,7 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
                   warehouseLocation = {
                     aisle: { id: aisle.id, name: aisle.name },
                     shelf: { id: shelf.id, name: shelf.name },
-                    bin: { id: bin.id, name: bin.name },
+                    bin: { id: bin.id, name: bin.name, description: bin.description },
                   };
                 }
               }
@@ -2975,7 +2975,7 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
                 orderDetailId: item.orderDetailId,
                 orderId: item.orderId,
                 orderNumber: order?.orderNumber,
-                itemName: detail?.itemName,
+                itemName: detail?.name,
                 quantity: detail?.quantity,
                 sku: detail?.sku,
                 pulled: item.pulled,
