@@ -401,117 +401,114 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
 
   return (
     <div className="space-y-3 min-h-[60vh]">
-      {/* Overview Stats */}
-      <Card className="p-3">
-        <div className="flex items-center gap-2 mb-3">
-          <MapPin className="w-4 h-4 text-yellow-400" />
-          <h3 className="text-sm font-semibold">Warehouse Overview</h3>
-        </div>
-        <div className="grid grid-cols-4 gap-2">
-          <div>
-            <div className="text-[9px] text-gray-500 uppercase font-bold mb-1">Lots</div>
-            <div className="text-lg font-bold text-blue-400">{totalLots}</div>
-          </div>
-          <div>
-            <div className="text-[9px] text-gray-500 uppercase font-bold mb-1">Bins</div>
-            <div className="text-lg font-bold text-green-400">{bins.length}</div>
-          </div>
-          <div>
-            <div className="text-[9px] text-gray-500 uppercase font-bold mb-1">Shelves</div>
-            <div className="text-lg font-bold text-orange-400">{shelves.length}</div>
-          </div>
-          <div>
-            <div className="text-[9px] text-gray-500 uppercase font-bold mb-1">Aisles</div>
-            <div className="text-lg font-bold text-purple-400">{aisles.length}</div>
-          </div>
-        </div>
-      </Card>
-
       {/* Navigation Tabs */}
       <div className="flex gap-2 overflow-x-auto">
         <button
           onClick={() => { setActiveView('lots'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
-          className={`flex-1 flex flex-col items-center gap-1 p-3 rounded-lg text-xs hover-elevate ${
+          className={`flex-1 flex items-center justify-center gap-1.5 p-2.5 rounded-lg text-xs hover-elevate whitespace-nowrap ${
             activeView === 'lots' ? 'bg-blue-500/20 border-2 border-blue-500/40' : 'bg-gray-800/30 border-2 border-gray-700'
           }`}
           data-testid="button-view-lots"
         >
-          <div className="flex items-center gap-1.5">
-            <Package className="w-4 h-4 text-blue-400" />
-            <span className="font-semibold">Lots</span>
-          </div>
-          <div className="flex gap-1.5 text-[9px]">
-            <Badge variant="secondary" className="text-[8px] px-1.5 py-0.5">
-              Assigned: {assignedLots}
-            </Badge>
-            <Badge variant="secondary" className="text-[8px] px-1.5 py-0.5">
-              Unassigned: {unassignedLots}
-            </Badge>
-          </div>
+          <Package className="w-4 h-4 text-blue-400" />
+          <span className="font-semibold">Lots</span>
         </button>
 
         <button
           onClick={() => { setActiveView('bins'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
-          className={`flex-1 flex flex-col items-center gap-1 p-3 rounded-lg text-xs hover-elevate ${
+          className={`flex-1 flex items-center justify-center gap-1.5 p-2.5 rounded-lg text-xs hover-elevate whitespace-nowrap ${
             activeView === 'bins' ? 'bg-green-500/20 border-2 border-green-500/40' : 'bg-gray-800/30 border-2 border-gray-700'
           }`}
           data-testid="button-view-bins"
         >
-          <div className="flex items-center gap-1.5">
-            <Archive className="w-4 h-4 text-green-400" />
-            <span className="font-semibold">Bins</span>
-          </div>
-          <div className="flex gap-1.5 text-[9px]">
-            <Badge variant="secondary" className="text-[8px] px-1.5 py-0.5">
-              Assigned: {assignedBins}
-            </Badge>
-            <Badge variant="secondary" className="text-[8px] px-1.5 py-0.5">
-              Unassigned: {unassignedBins.length}
-            </Badge>
-          </div>
+          <Archive className="w-4 h-4 text-green-400" />
+          <span className="font-semibold">Bins</span>
         </button>
 
         <button
           onClick={() => { setActiveView('shelves'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
-          className={`flex-1 flex flex-col items-center gap-1 p-3 rounded-lg text-xs hover-elevate ${
+          className={`flex-1 flex items-center justify-center gap-1.5 p-2.5 rounded-lg text-xs hover-elevate whitespace-nowrap ${
             activeView === 'shelves' ? 'bg-orange-500/20 border-2 border-orange-500/40' : 'bg-gray-800/30 border-2 border-gray-700'
           }`}
           data-testid="button-view-shelves"
         >
-          <div className="flex items-center gap-1.5">
-            <Layers className="w-4 h-4 text-orange-400" />
-            <span className="font-semibold">Shelves</span>
-          </div>
-          <div className="flex gap-1.5 text-[9px]">
-            <Badge variant="secondary" className="text-[8px] px-1.5 py-0.5">
-              Assigned: {assignedShelves}
-            </Badge>
-            <Badge variant="secondary" className="text-[8px] px-1.5 py-0.5">
-              Unassigned: {unassignedShelves.length}
-            </Badge>
-          </div>
+          <Layers className="w-4 h-4 text-orange-400" />
+          <span className="font-semibold">Shelves</span>
         </button>
 
         <button
           onClick={() => { setActiveView('aisles'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
-          className={`flex-1 flex flex-col items-center gap-1 p-3 rounded-lg text-xs hover-elevate ${
+          className={`flex-1 flex items-center justify-center gap-1.5 p-2.5 rounded-lg text-xs hover-elevate whitespace-nowrap ${
             activeView === 'aisles' ? 'bg-purple-500/20 border-2 border-purple-500/40' : 'bg-gray-800/30 border-2 border-gray-700'
           }`}
           data-testid="button-view-aisles"
         >
-          <div className="flex items-center gap-1.5">
-            <MapPin className="w-4 h-4 text-purple-400" />
-            <span className="font-semibold">Aisles</span>
-          </div>
-          <Badge variant="secondary" className="text-[8px] px-1.5 py-0.5">
-            Total: {aisles.length}
-          </Badge>
+          <MapPin className="w-4 h-4 text-purple-400" />
+          <span className="font-semibold">Aisles</span>
         </button>
       </div>
 
       {/* List View */}
       {activeView && (
         <Card className="p-3">
+          {/* Counts Display */}
+          <div className="flex items-center gap-3 mb-3 text-xs">
+            {activeView === 'lots' && (
+              <>
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-400">Total:</span>
+                  <span className="font-bold text-blue-400">{totalLots}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-400">Assigned:</span>
+                  <span className="font-semibold text-white">{assignedLots}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-400">Unassigned:</span>
+                  <span className="font-semibold text-white">{unassignedLots}</span>
+                </div>
+              </>
+            )}
+            {activeView === 'bins' && (
+              <>
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-400">Total:</span>
+                  <span className="font-bold text-green-400">{bins.length}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-400">Assigned:</span>
+                  <span className="font-semibold text-white">{assignedBins}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-400">Unassigned:</span>
+                  <span className="font-semibold text-white">{unassignedBins.length}</span>
+                </div>
+              </>
+            )}
+            {activeView === 'shelves' && (
+              <>
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-400">Total:</span>
+                  <span className="font-bold text-orange-400">{shelves.length}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-400">Assigned:</span>
+                  <span className="font-semibold text-white">{assignedShelves}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-400">Unassigned:</span>
+                  <span className="font-semibold text-white">{unassignedShelves.length}</span>
+                </div>
+              </>
+            )}
+            {activeView === 'aisles' && (
+              <div className="flex items-center gap-1">
+                <span className="text-gray-400">Total:</span>
+                <span className="font-bold text-purple-400">{aisles.length}</span>
+              </div>
+            )}
+          </div>
+
           {/* Search (Lots only) */}
           {activeView === 'lots' && (
             <div className="mb-3">
