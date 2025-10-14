@@ -500,25 +500,26 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
                         const stockLots = priceOMagic.stockTotalLots;
                         let scarcityBonus = 0;
                         
-                        // Calculate scarcity bonus based on supply
+                        // Calculate scarcity bonus based on supply (increased weights)
                         if (stockLots !== null && stockLots !== undefined && typeof stockLots === 'number') {
                           if (stockLots < 50) {
-                            scarcityBonus = 10;
+                            scarcityBonus = 15; // Very scarce
                           } else if (stockLots < 200) {
-                            scarcityBonus = 5;
+                            scarcityBonus = 8; // Low availability
                           } else if (stockLots < 500) {
-                            scarcityBonus = 2;
+                            scarcityBonus = 3; // Moderate availability
                           }
                         }
                         
-                        // Check if item is a minifigure
+                        // Check if item is a minifigure (reduces premium by half)
                         const isMinifig = data.itemType === 'MINIFIG' || data.itemType === 'M';
-                        const minifigBonus = isMinifig ? 10 : 0;
+                        const effectivePremium = isMinifig ? basePremium / 2 : basePremium;
+                        const minifigReduction = isMinifig ? basePremium / 2 : 0;
                         
                         const marketBase = stockAvgPrice !== null ? stockAvgPrice : 0;
-                        const planetBrickPremium = marketBase * (basePremium / 100);
+                        const planetBrickPremium = marketBase * (effectivePremium / 100);
                         const supplyAdjustment = marketBase * (scarcityBonus / 100);
-                        const minifigAdjustment = marketBase * (minifigBonus / 100);
+                        const minifigAdjustment = marketBase * (minifigReduction / 100);
                         
                         return (
                           <>
@@ -560,10 +561,23 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
                               <div className="flex justify-between items-center">
                                 <span className="text-xs text-gray-400">PlanetBrick Premium:</span>
                                 <div className="text-right">
-                                  <span className="text-sm font-mono font-bold text-purple-400">+{basePremium}%</span>
+                                  <span className="text-sm font-mono font-bold text-purple-400">+{effectivePremium}%</span>
                                   <span className="text-[10px] text-gray-500 ml-2">${planetBrickPremium.toFixed(3)}</span>
                                 </div>
                               </div>
+                              
+                              {/* Minifigure Reduction */}
+                              {isMinifig && (
+                                <div className="flex justify-between items-center pl-4 border-l-2 border-yellow-500/30">
+                                  <span className="text-xs text-gray-400">Minifigure Adjustment:</span>
+                                  <div className="text-right">
+                                    <span className="text-sm font-mono font-bold text-yellow-400">
+                                      -{minifigReduction}%
+                                    </span>
+                                    <span className="text-[10px] text-gray-500 ml-2">-${minifigAdjustment.toFixed(3)}</span>
+                                  </div>
+                                </div>
+                              )}
                               
                               {/* Market Supply Impact */}
                               <div className="space-y-0.5">
@@ -582,24 +596,6 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
                                   </p>
                                 )}
                               </div>
-                              
-                              {/* Minifigure Item Type Impact */}
-                              {isMinifig && (
-                                <div className="space-y-0.5">
-                                  <div className="flex justify-between items-center">
-                                    <span className="text-xs text-gray-400">Minifigure Premium:</span>
-                                    <div className="text-right">
-                                      <span className="text-sm font-mono font-bold text-yellow-400">
-                                        +{minifigBonus}%
-                                      </span>
-                                      <span className="text-[10px] text-gray-500 ml-2">${minifigAdjustment.toFixed(3)}</span>
-                                    </div>
-                                  </div>
-                                  <p className="text-[9px] text-gray-500 pl-1">
-                                    Minifigures command higher prices
-                                  </p>
-                                </div>
-                              )}
                             </div>
                             
                             {/* Final Suggested Price with Range */}
@@ -615,7 +611,7 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
                               )}
                               <div className="pt-2 border-t border-purple-500/30">
                                 <p className="text-[9px] text-purple-300 font-mono">
-                                  Market Base + PlanetBrick Premium + Market Supply Impact{isMinifig ? ' + Minifigure Premium' : ''}
+                                  Market Base + PlanetBrick Premium{isMinifig ? ' (reduced for minifigs)' : ''} + Market Supply Impact
                                 </p>
                               </div>
                             </div>

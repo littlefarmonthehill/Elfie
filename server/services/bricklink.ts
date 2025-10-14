@@ -674,22 +674,22 @@ function calculateSuggestedPriceWithSupply(
   // Start with base premium (15% for fast turnaround and quality service)
   let totalPremium = basePremiumPercentage;
   
-  // Add supply adjustment premium based on scarcity
-  // Very low supply (< 50 lots): +10% premium
-  // Low supply (50-200 lots): +5% premium
-  // Medium supply (200-500 lots): +2% premium
-  // High supply (500+): no adjustment
-  if (stockTotalLots < 50) {
-    totalPremium += 10; // Very scarce
-  } else if (stockTotalLots < 200) {
-    totalPremium += 5; // Low availability
-  } else if (stockTotalLots < 500) {
-    totalPremium += 2; // Moderate availability
+  // Minifigures: Reduce base premium by half (higher quality items need less markup)
+  if (itemType === 'MINIFIG' || itemType === 'M') {
+    totalPremium = totalPremium / 2; // Reduce to 7.5% for minifigures
   }
   
-  // Add minifigure premium (minifigures command higher prices)
-  if (itemType === 'MINIFIG' || itemType === 'M') {
-    totalPremium += 10; // Minifigure premium
+  // Add supply adjustment premium based on scarcity (increased weights for low supply)
+  // Very low supply (< 50 lots): +15% premium (was 10%)
+  // Low supply (50-200 lots): +8% premium (was 5%)
+  // Medium supply (200-500 lots): +3% premium (was 2%)
+  // High supply (500+): no adjustment
+  if (stockTotalLots < 50) {
+    totalPremium += 15; // Very scarce - increased from 10%
+  } else if (stockTotalLots < 200) {
+    totalPremium += 8; // Low availability - increased from 5%
+  } else if (stockTotalLots < 500) {
+    totalPremium += 3; // Moderate availability - increased from 2%
   }
   
   // Apply total premium percentage
