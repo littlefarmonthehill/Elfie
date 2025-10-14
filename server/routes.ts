@@ -3155,7 +3155,11 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
           quantity: orderDetails.quantity,
           fulfilled: orderDetails.fulfilled,
           colorName: blInventory.colorName,
-          condition: blInventory.newOrUsed,
+          condition: sql<string>`CASE 
+            WHEN ${blInventory.newOrUsed} = 'N' THEN 'New'
+            WHEN ${blInventory.newOrUsed} = 'U' THEN 'Used'
+            ELSE ${blInventory.newOrUsed}
+          END`,
           binId: inventoryLocations.binId,
           binName: whBins.name,
           shelfId: whShelves.id,
@@ -3165,7 +3169,7 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
         })
         .from(orderDetails)
         .innerJoin(orders, eq(orderDetails.orderId, orders.id))
-        .leftJoin(blInventory, sql`${orderDetails.sku} = ${blInventory.itemNo} OR ${orderDetails.sku} = CONCAT('BL.', ${blInventory.itemNo})`)
+        .leftJoin(blInventory, sql`${orderDetails.sku} = ${blInventory.itemNo} AND ${blInventory.itemName} IS NOT NULL`)
         .leftJoin(inventoryLocations, eq(blInventory.id, inventoryLocations.inventoryId))
         .leftJoin(whBins, eq(inventoryLocations.binId, whBins.id))
         .leftJoin(whShelves, eq(whBins.shelfId, whShelves.id))
