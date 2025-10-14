@@ -9,7 +9,7 @@ Preferred communication style: Simple, everyday language.
 ## System Architecture
 
 ### UI/UX Decisions
-The frontend uses React 18+, TypeScript, Vite, Shadcn/ui, and Tailwind CSS, featuring a dark mode with a LEGO-themed color palette. It employs Inter/Roboto for UI and JetBrains Mono for metrics. The design includes modular dashboards with tab-based navigation, reusable metric cards, drawer-based detail modals, and a purple/violet themed AI chat interface. The application is responsive, with optimizations for mobile displays and iOS keyboard compatibility. Recent improvements include mobile-safe area fixes for the AI chat, enhanced date handling and high-value sales thresholds on the Sales Dashboard, distinct section backgrounds for the Inventory Dashboard, and a drawer-based Warehouse Management system.
+The frontend uses React 18+, TypeScript, Vite, Shadcn/ui, and Tailwind CSS, featuring a dark mode with a LEGO-themed color palette. It employs Inter/Roboto for UI and JetBrains Mono for metrics. The design includes modular dashboards with tab-based navigation, reusable metric cards, drawer-based detail modals, and a purple/violet themed AI chat interface. The application is responsive, with optimizations for mobile displays and iOS keyboard compatibility. Recent improvements include mobile-safe area fixes for the AI chat, enhanced date handling and high-value sales thresholds on the Sales Dashboard, distinct section backgrounds for the Inventory Dashboard, and a drawer-based Warehouse Management system with search, multi-select, and location tracking.
 
 ### Technical Implementations
 - **Frontend:** React 18+, TypeScript, Vite, Wouter, TanStack Query, Shadcn/ui, Tailwind CSS.
