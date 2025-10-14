@@ -5,7 +5,7 @@ import { syncBricklinkData, fetchPriceOMagicData, searchBricklinkCatalogItem, sy
 import { syncShipStationOrders } from "./services/shipstation";
 import { db } from "./db";
 import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema } from "@shared/schema";
-import { eq, desc, sql, inArray, like, or, and } from "drizzle-orm";
+import { eq, desc, sql, inArray, like, or, and, isNotNull } from "drizzle-orm";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -3142,10 +3142,9 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
       
       const orderIds = fulfillmentOrders.map(o => o.id);
       
-      // Fetch order details with warehouse location info
-      // Use DISTINCT to avoid duplicates from multiple inventory records with same itemNo
-      const items = await db
-        .selectDistinct({
+      // Get all potential items (with duplicates)
+      const allItems = await db
+        .select({
           id: orderDetails.id,
           orderId: orderDetails.orderId,
           orderNumber: orders.orderNumber,
@@ -3169,12 +3168,25 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
         })
         .from(orderDetails)
         .innerJoin(orders, eq(orderDetails.orderId, orders.id))
-        .leftJoin(blInventory, sql`${orderDetails.sku} = ${blInventory.itemNo} AND ${blInventory.itemName} IS NOT NULL`)
+        .leftJoin(blInventory, and(
+          eq(orderDetails.sku, blInventory.itemNo),
+          isNotNull(blInventory.itemName)
+        ))
         .leftJoin(inventoryLocations, eq(blInventory.id, inventoryLocations.inventoryId))
         .leftJoin(whBins, eq(inventoryLocations.binId, whBins.id))
         .leftJoin(whShelves, eq(whBins.shelfId, whShelves.id))
         .leftJoin(whAisles, eq(whShelves.aisleId, whAisles.id))
-        .where(inArray(orderDetails.orderId, orderIds));
+        .where(sql`${orderDetails.orderId} IN (${sql.raw(orderIds.map(id => `'${id}'`).join(', '))})`);
+      
+      // Manually deduplicate: keep first occurrence of each order_detail id
+      const seenIds = new Set<string>();
+      const items = allItems.filter(item => {
+        if (seenIds.has(item.id)) {
+          return false;
+        }
+        seenIds.add(item.id);
+        return true;
+      });
       
       res.json({ 
         orders: fulfillmentOrders,
