@@ -131,29 +131,6 @@ export default function GeneralDashboard({ onItemClick, activeDrawer, onDrawerCh
 
   return (
     <div className="p-4 space-y-4 bg-gradient-to-br from-lego-red/5 to-transparent rounded-lg border border-lego-red/10 shadow-[0_0_15px_rgba(239,68,68,0.1)]">
-      {/* Missions Section */}
-      <div className="mb-4">
-        <div className="flex items-center gap-2 mb-2">
-          <div className="flex items-center gap-1.5">
-            <ClipboardList className="h-3.5 w-3.5 text-gray-400" />
-            <span className="text-[10px] font-bold text-gray-400">MISSIONS</span>
-          </div>
-        </div>
-        <div className="flex gap-1.5">
-          <button
-            onClick={() => onDrawerChange('picklist')}
-            className="relative text-[9px] font-bold py-1 px-2 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
-            data-testid="button-picklist"
-          >
-            Picklist
-            {pendingBins > 0 && (
-              <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-[8px] font-bold rounded-full h-4 w-4 flex items-center justify-center">
-                {pendingBins}
-              </span>
-            )}
-          </button>
-        </div>
-      </div>
 
       {/* Key Metrics */}
       <div className="grid grid-cols-2 gap-3">

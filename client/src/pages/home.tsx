@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Package } from "lucide-react";
+import { Package, ClipboardList } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import Header from "@/components/Header";
 import DashboardNav, { DashboardType } from "@/components/DashboardNav";
 import SettingsModal from "@/components/SettingsModal";
@@ -23,6 +24,12 @@ export default function Home() {
   const [detailModal, setDetailModal] = useState<{ open: boolean; data: DetailData | null }>({
     open: false,
     data: null,
+  });
+
+  // Fetch picklist stats for indicator
+  const { data: picklistStats } = useQuery<{ toPull: number; toReshelve: number }>({
+    queryKey: ['/api/picklist/stats'],
+    enabled: activeDashboard === 'dashboard',
   });
 
   const handleDashboardItemClick = async (type: 'order' | 'inventory', id: number | string) => {
@@ -561,9 +568,35 @@ export default function Home() {
         </div>
       )}
       
+      {/* Missions Selector - Only show for default dashboard */}
+      {activeDashboard === 'dashboard' && (
+        <div className="px-4 py-2 bg-black border-b border-gray-800">
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
+              <ClipboardList className="h-3.5 w-3.5 text-gray-400" />
+              <span className="text-[10px] font-bold text-gray-400">MISSIONS</span>
+            </div>
+            <div className="flex gap-1.5">
+              <button
+                onClick={() => setActiveDashboardDrawer('picklist')}
+                className="relative text-[9px] font-bold py-1 px-2 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
+                data-testid="button-picklist"
+              >
+                Picklist
+                {picklistStats && (picklistStats.toPull + picklistStats.toReshelve) > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-[8px] font-bold rounded-full h-4 w-4 flex items-center justify-center">
+                    {picklistStats.toPull + picklistStats.toReshelve}
+                  </span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Tools Selector - Only show for inventory */}
       {activeDashboard === 'inventory' && (
-        <div className="px-4 py-2 border-b border-gray-800">
+        <div className="px-4 py-2 bg-black border-b border-gray-800">
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1.5">
               <Package className="h-3.5 w-3.5 text-gray-400" />
