@@ -53,19 +53,39 @@ export default function PicklistTool() {
 
   const pullMutation = useMutation({
     mutationFn: async ({ id, pulled }: { id: string; pulled: boolean }) => {
-      return apiRequest(`/api/picklist/${id}/pull`, 'PUT', { pulled });
+      console.log('[Pull Mutation] Starting:', { id, pulled });
+      const result = await apiRequest('PUT', `/api/picklist/${id}/pull`, { pulled });
+      console.log('[Pull Mutation] Success:', result);
+      return result;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('[Pull Mutation] onSuccess:', data);
+      // Invalidate all picklist queries regardless of filter
       queryClient.invalidateQueries({ queryKey: ['/api/picklist'] });
+      // Also refetch current query
+      refetch();
+    },
+    onError: (error) => {
+      console.error('[Pull Mutation] Error:', error);
     },
   });
 
   const reshelveMutation = useMutation({
     mutationFn: async ({ id, reshelved }: { id: string; reshelved: boolean }) => {
-      return apiRequest(`/api/picklist/${id}/reshelve`, 'PUT', { reshelved });
+      console.log('[Reshelve Mutation] Starting:', { id, reshelved });
+      const result = await apiRequest('PUT', `/api/picklist/${id}/reshelve`, { reshelved });
+      console.log('[Reshelve Mutation] Success:', result);
+      return result;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('[Reshelve Mutation] onSuccess:', data);
+      // Invalidate all picklist queries regardless of filter
       queryClient.invalidateQueries({ queryKey: ['/api/picklist'] });
+      // Also refetch current query
+      refetch();
+    },
+    onError: (error) => {
+      console.error('[Reshelve Mutation] Error:', error);
     },
   });
 
@@ -200,7 +220,10 @@ export default function PicklistTool() {
                                 <Checkbox
                                   data-testid={`checkbox-pull-${item.id}`}
                                   checked={item.pulled}
-                                  onCheckedChange={(checked) => pullMutation.mutate({ id: item.id, pulled: checked === true })}
+                                  onCheckedChange={(checked) => {
+                                    console.log('Pull checkbox changed:', item.id, 'checked:', checked);
+                                    pullMutation.mutate({ id: item.id, pulled: checked === true });
+                                  }}
                                   disabled={pullMutation.isPending}
                                 />
                                 {item.pulled ? (
@@ -226,7 +249,10 @@ export default function PicklistTool() {
                                 <Checkbox
                                   data-testid={`checkbox-reshelve-${item.id}`}
                                   checked={item.reshelved}
-                                  onCheckedChange={(checked) => reshelveMutation.mutate({ id: item.id, reshelved: checked === true })}
+                                  onCheckedChange={(checked) => {
+                                    console.log('Reshelve checkbox changed:', item.id, 'checked:', checked);
+                                    reshelveMutation.mutate({ id: item.id, reshelved: checked === true });
+                                  }}
                                   disabled={!item.pulled || reshelveMutation.isPending}
                                 />
                                 {item.reshelved ? (
