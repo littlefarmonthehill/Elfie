@@ -178,8 +178,13 @@ export default function FulfillmentTool() {
               {bin.items.map((item) => (
                 <div
                   key={item.id}
-                  className="ml-4 bg-gray-800/50 border border-gray-700 rounded-lg p-2.5 hover-elevate"
+                  className="ml-4 bg-gray-800/50 border border-gray-700 rounded-lg p-2.5 hover-elevate cursor-pointer"
                   data-testid={`fulfillment-item-${item.id}`}
+                  onClick={() => {
+                    if (!fulfillMutation.isPending) {
+                      fulfillMutation.mutate({ itemId: item.id, fulfilled: !item.fulfilled });
+                    }
+                  }}
                 >
                   <div className="flex items-center gap-3">
                     {/* Fulfill Checkbox */}
@@ -190,10 +195,11 @@ export default function FulfillmentTool() {
                         fulfillMutation.mutate({ itemId: item.id, fulfilled: checked === true });
                       }}
                       disabled={fulfillMutation.isPending}
+                      onClick={(e) => e.stopPropagation()}
                     />
 
                     {/* Item Details */}
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-0 pointer-events-none">
                       <p className="text-xs font-medium text-white">
                         {item.bricklinkPartNumber && `${item.bricklinkPartNumber} - `}{item.name}
                       </p>
