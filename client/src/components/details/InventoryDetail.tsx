@@ -511,9 +511,14 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
                           }
                         }
                         
+                        // Check if item is a minifigure
+                        const isMinifig = data.itemType === 'MINIFIG' || data.itemType === 'M';
+                        const minifigBonus = isMinifig ? 10 : 0;
+                        
                         const marketBase = stockAvgPrice !== null ? stockAvgPrice : 0;
                         const planetBrickPremium = marketBase * (basePremium / 100);
                         const supplyAdjustment = marketBase * (scarcityBonus / 100);
+                        const minifigAdjustment = marketBase * (minifigBonus / 100);
                         
                         return (
                           <>
@@ -577,6 +582,24 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
                                   </p>
                                 )}
                               </div>
+                              
+                              {/* Minifigure Item Type Impact */}
+                              {isMinifig && (
+                                <div className="space-y-0.5">
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-xs text-gray-400">Minifigure Premium:</span>
+                                    <div className="text-right">
+                                      <span className="text-sm font-mono font-bold text-yellow-400">
+                                        +{minifigBonus}%
+                                      </span>
+                                      <span className="text-[10px] text-gray-500 ml-2">${minifigAdjustment.toFixed(3)}</span>
+                                    </div>
+                                  </div>
+                                  <p className="text-[9px] text-gray-500 pl-1">
+                                    Minifigures command higher prices
+                                  </p>
+                                </div>
+                              )}
                             </div>
                             
                             {/* Final Suggested Price with Range */}
@@ -592,7 +615,7 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
                               )}
                               <div className="pt-2 border-t border-purple-500/30">
                                 <p className="text-[9px] text-purple-300 font-mono">
-                                  Market Base + PlanetBrick Premium + Market Supply Impact
+                                  Market Base + PlanetBrick Premium + Market Supply Impact{isMinifig ? ' + Minifigure Premium' : ''}
                                 </p>
                               </div>
                             </div>
