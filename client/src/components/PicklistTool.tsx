@@ -4,7 +4,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Package, PackageCheck, CheckCircle2, Circle, Loader2 } from "lucide-react";
+import { Package, PackageCheck, Loader2 } from "lucide-react";
 
 type WarehouseLocation = {
   aisle: { id: number; name: string };
@@ -154,62 +154,53 @@ export default function PicklistTool() {
                     return (
                       <div key={binKey} className="ml-4" data-testid={`bin-${binKey}`}>
                         <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 hover-elevate">
-                          <div className="flex items-center gap-3">
-                            {/* Pulled Checkbox */}
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-gray-500">Pulled</span>
-                              <Checkbox
-                                data-testid={`checkbox-pull-bin-${binKey}`}
-                                checked={bin.pulled}
-                                onCheckedChange={(checked) => {
-                                  if (bin.binId) {
-                                    pullMutation.mutate({ binId: bin.binId, pulled: checked === true });
-                                  }
-                                }}
-                                disabled={!bin.binId || pullMutation.isPending}
-                              />
-                              {bin.pulled ? (
-                                <CheckCircle2 className="h-4 w-4 text-green-400" />
-                              ) : (
-                                <Circle className="h-4 w-4 text-gray-600" />
-                              )}
-                            </div>
-
+                          <div className="flex flex-col gap-3">
                             {/* Bin Details */}
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <p className="text-sm font-semibold text-white">
-                                  Bin: {binDisplayName}
-                                </p>
-                                <Badge variant="outline" className="text-xs">
-                                  {bin.itemCount} {bin.itemCount === 1 ? 'item' : 'items'}
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="text-sm font-semibold text-white">
+                                {binDisplayName}
+                              </p>
+                              <Badge variant="outline" className="text-xs">
+                                {bin.itemCount} {bin.itemCount === 1 ? 'item' : 'items'}
+                              </Badge>
+                              {!bin.binId && (
+                                <Badge variant="outline" className="text-xs text-orange-400 border-orange-500/30">
+                                  Assign Location First
                                 </Badge>
-                                {!bin.binId && (
-                                  <Badge variant="outline" className="text-xs text-orange-400 border-orange-500/30">
-                                    Assign Location First
-                                  </Badge>
-                                )}
-                              </div>
+                              )}
                             </div>
 
-                            {/* Reshelved Checkbox */}
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-gray-500">Reshelved</span>
-                              <Checkbox
-                                data-testid={`checkbox-reshelve-bin-${binKey}`}
-                                checked={bin.reshelved}
-                                onCheckedChange={(checked) => {
-                                  if (bin.binId) {
-                                    reshelveMutation.mutate({ binId: bin.binId, reshelved: checked === true });
-                                  }
-                                }}
-                                disabled={!bin.binId || !bin.pulled || reshelveMutation.isPending}
-                              />
-                              {bin.reshelved ? (
-                                <CheckCircle2 className="h-4 w-4 text-green-400" />
-                              ) : (
-                                <Circle className="h-4 w-4 text-gray-600" />
-                              )}
+                            {/* Checkboxes Row */}
+                            <div className="flex items-center gap-6">
+                              {/* Pulled Checkbox */}
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <Checkbox
+                                  data-testid={`checkbox-pull-bin-${binKey}`}
+                                  checked={bin.pulled}
+                                  onCheckedChange={(checked) => {
+                                    if (bin.binId) {
+                                      pullMutation.mutate({ binId: bin.binId, pulled: checked === true });
+                                    }
+                                  }}
+                                  disabled={!bin.binId || pullMutation.isPending}
+                                />
+                                <span className="text-sm text-gray-300">Pulled</span>
+                              </label>
+
+                              {/* Reshelved Checkbox */}
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <Checkbox
+                                  data-testid={`checkbox-reshelve-bin-${binKey}`}
+                                  checked={bin.reshelved}
+                                  onCheckedChange={(checked) => {
+                                    if (bin.binId) {
+                                      reshelveMutation.mutate({ binId: bin.binId, reshelved: checked === true });
+                                    }
+                                  }}
+                                  disabled={!bin.binId || !bin.pulled || reshelveMutation.isPending}
+                                />
+                                <span className="text-sm text-gray-300">Reshelved</span>
+                              </label>
                             </div>
                           </div>
                         </div>
