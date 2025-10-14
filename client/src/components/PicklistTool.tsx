@@ -176,64 +176,69 @@ export default function PicklistTool() {
                   <h3 className="text-sm font-bold text-purple-400">{aisle}</h3>
                 </div>
 
-                {/* Bins within Aisle */}
-                <div className="space-y-1">
+                {/* Shelves within Aisle */}
+                <div className="space-y-2">
                   {Object.entries(shelves).map(([shelf, bins]) => (
                     <div key={shelf} className="space-y-1" data-testid={`shelf-group-${shelf}`}>
-                      {bins.map((bin) => {
-                        const binKey = bin.binId ?? 'none';
-                        const binName = bin.warehouseLocation?.bin.name || 'Unassigned';
-                        const binDescription = bin.warehouseLocation?.bin.description;
-                        const binLocation = bin.warehouseLocation 
-                          ? `${bin.warehouseLocation.shelf.name} › ${bin.warehouseLocation.bin.name}`
-                          : 'Unassigned';
-                        
-                        return (
-                          <div 
-                            key={binKey} 
-                            className="flex items-center gap-3 bg-gray-800/50 border border-gray-700 rounded px-3 py-2 hover-elevate"
-                            data-testid={`bin-${binKey}`}
-                          >
-                            {/* Pulled Checkbox - Left */}
-                            <div className="shrink-0">
-                              <Checkbox
-                                data-testid={`checkbox-pull-bin-${binKey}`}
-                                checked={bin.pulled}
-                                onCheckedChange={(checked) => {
-                                  if (bin.binId) {
-                                    pullMutation.mutate({ binId: bin.binId, pulled: checked === true });
-                                  }
-                                }}
-                                disabled={!bin.binId || pullMutation.isPending}
-                                className="touch-auto"
-                              />
-                            </div>
+                      {/* Shelf Header */}
+                      <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg px-3 py-1">
+                        <h4 className="text-xs font-bold text-blue-400">{shelf}</h4>
+                      </div>
 
-                            {/* Bin Info - Center */}
-                            <div className="flex-1 min-w-0">
-                              <div className="text-sm font-medium text-white truncate">{binLocation}</div>
-                              {binDescription && (
-                                <div className="text-xs text-gray-400 mt-0.5 font-normal">{binDescription}</div>
-                              )}
-                            </div>
+                      {/* Bins within Shelf */}
+                      <div className="space-y-1">
+                        {bins.map((bin) => {
+                          const binKey = bin.binId ?? 'none';
+                          const binName = bin.warehouseLocation?.bin.name || 'Unassigned';
+                          const binDescription = bin.warehouseLocation?.bin.description;
+                          
+                          return (
+                            <div 
+                              key={binKey} 
+                              className="flex items-center gap-3 bg-gray-800/50 border border-gray-700 rounded px-3 py-2 hover-elevate"
+                              data-testid={`bin-${binKey}`}
+                            >
+                              {/* Pulled Checkbox - Left */}
+                              <div className="shrink-0">
+                                <Checkbox
+                                  data-testid={`checkbox-pull-bin-${binKey}`}
+                                  checked={bin.pulled}
+                                  onCheckedChange={(checked) => {
+                                    if (bin.binId) {
+                                      pullMutation.mutate({ binId: bin.binId, pulled: checked === true });
+                                    }
+                                  }}
+                                  disabled={!bin.binId || pullMutation.isPending}
+                                  className="touch-auto"
+                                />
+                              </div>
 
-                            {/* Reshelved Checkbox - Right */}
-                            <div className="shrink-0">
-                              <Checkbox
-                                data-testid={`checkbox-reshelve-bin-${binKey}`}
-                                checked={bin.reshelved}
-                                onCheckedChange={(checked) => {
-                                  if (bin.binId) {
-                                    reshelveMutation.mutate({ binId: bin.binId, reshelved: checked === true });
-                                  }
-                                }}
-                                disabled={!bin.binId || !bin.pulled || reshelveMutation.isPending}
-                                className="touch-auto"
-                              />
+                              {/* Bin Info - Center */}
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-medium text-white truncate">{binName}</div>
+                                {binDescription && (
+                                  <div className="text-xs text-gray-400 mt-0.5 font-normal">{binDescription}</div>
+                                )}
+                              </div>
+
+                              {/* Reshelved Checkbox - Right */}
+                              <div className="shrink-0">
+                                <Checkbox
+                                  data-testid={`checkbox-reshelve-bin-${binKey}`}
+                                  checked={bin.reshelved}
+                                  onCheckedChange={(checked) => {
+                                    if (bin.binId) {
+                                      reshelveMutation.mutate({ binId: bin.binId, reshelved: checked === true });
+                                    }
+                                  }}
+                                  disabled={!bin.binId || !bin.pulled || reshelveMutation.isPending}
+                                  className="touch-auto"
+                                />
+                              </div>
                             </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
+                      </div>
                     </div>
                   ))}
                 </div>
