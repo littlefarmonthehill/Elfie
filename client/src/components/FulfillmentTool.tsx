@@ -36,6 +36,7 @@ type FulfillmentData = {
 
 export default function FulfillmentTool() {
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [pendingItemId, setPendingItemId] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery<FulfillmentData>({
     queryKey: ['/api/fulfillment'],
@@ -43,9 +44,36 @@ export default function FulfillmentTool() {
 
   const fulfillMutation = useMutation({
     mutationFn: async ({ itemId, fulfilled }: { itemId: string; fulfilled: boolean }) => {
+      setPendingItemId(itemId);
       return apiRequest(`/api/fulfillment/item/${itemId}/fulfill`, 'PUT', { fulfilled });
     },
-    onSuccess: () => {
+    onMutate: async ({ itemId, fulfilled }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['/api/fulfillment'] });
+      
+      // Snapshot previous value
+      const previousData = queryClient.getQueryData<FulfillmentData>(['/api/fulfillment']);
+      
+      // Optimistically update
+      if (previousData) {
+        queryClient.setQueryData<FulfillmentData>(['/api/fulfillment'], {
+          ...previousData,
+          items: previousData.items.map(item => 
+            item.id === itemId ? { ...item, fulfilled } : item
+          ),
+        });
+      }
+      
+      return { previousData };
+    },
+    onError: (err, variables, context) => {
+      // Rollback on error
+      if (context?.previousData) {
+        queryClient.setQueryData(['/api/fulfillment'], context.previousData);
+      }
+    },
+    onSettled: () => {
+      setPendingItemId(null);
       queryClient.invalidateQueries({ queryKey: ['/api/fulfillment'] });
       queryClient.invalidateQueries({ queryKey: ['/api/fulfillment/stats'] });
     },
@@ -163,7 +191,7 @@ export default function FulfillmentTool() {
                         onCheckedChange={(checked) => {
                           fulfillMutation.mutate({ itemId: item.id, fulfilled: checked === true });
                         }}
-                        disabled={fulfillMutation.isPending}
+                        disabled={pendingItemId === item.id}
                       />
                     </label>
 
