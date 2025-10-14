@@ -356,28 +356,40 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
                 <p className="text-[10px] font-bold text-blue-400">WAREHOUSE LOCATION</p>
               </div>
               {warehouseLocation && warehouseLocation.length > 0 ? (
-                <div className="text-xs">
-                  {(() => {
-                    // Take only the first location (duplicates are from DB query)
-                    const loc = warehouseLocation[0];
-                    return (
-                      <>
-                        <span className="text-gray-400">
-                          {loc.aisleName && `Aisle: ${loc.aisleName}`}
-                          {loc.aisleName && loc.shelfName && ' • '}
-                          {loc.shelfName && `Shelf: ${loc.shelfName}`}
-                          {(loc.aisleName || loc.shelfName) && loc.binName && ' • '}
-                        </span>
-                        <span className="text-white font-semibold">
-                          {loc.binName ? `Bin: ${loc.binName}` : 'No bin assigned'}
-                        </span>
-                        {loc.bagLabel && (
-                          <span className="text-gray-400"> • Bag: {loc.bagLabel}</span>
-                        )}
-                      </>
-                    );
-                  })()}
-                </div>
+                (() => {
+                  // Take only the first location (duplicates are from DB query)
+                  const loc = warehouseLocation[0];
+                  return (
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-2 text-center">
+                        <p className="text-[9px] text-purple-400 font-bold mb-1">AISLE</p>
+                        <p className="text-xs font-semibold text-white" data-testid="text-aisle">
+                          {loc.aisleName || '—'}
+                        </p>
+                      </div>
+                      <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-2 text-center">
+                        <p className="text-[9px] text-orange-400 font-bold mb-1">SHELF</p>
+                        <p className="text-xs font-semibold text-white" data-testid="text-shelf">
+                          {loc.shelfName || '—'}
+                        </p>
+                      </div>
+                      <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-2 text-center">
+                        <p className="text-[9px] text-green-400 font-bold mb-1">BIN</p>
+                        <p className="text-xs font-semibold text-white" data-testid="text-bin">
+                          {loc.binName || '—'}
+                        </p>
+                      </div>
+                      {loc.bagLabel && (
+                        <div className="col-span-3 bg-blue-500/10 border border-blue-500/30 rounded-lg p-2 text-center">
+                          <p className="text-[9px] text-blue-400 font-bold mb-1">BAG</p>
+                          <p className="text-xs font-semibold text-white" data-testid="text-bag">
+                            {loc.bagLabel}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()
               ) : (
                 <p className="text-[10px] text-gray-400 italic">
                   Not assigned to a warehouse location
