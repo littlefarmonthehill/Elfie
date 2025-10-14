@@ -361,26 +361,26 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
                   const loc = warehouseLocation[0];
                   return (
                     <div className="grid grid-cols-3 gap-2">
-                      <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-2 text-center">
+                      <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-2 text-center" data-testid="card-aisle">
                         <p className="text-[9px] text-purple-400 font-bold mb-1">AISLE</p>
                         <p className="text-xs font-semibold text-white" data-testid="text-aisle">
                           {loc.aisleName || '—'}
                         </p>
                       </div>
-                      <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-2 text-center">
+                      <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-2 text-center" data-testid="card-shelf">
                         <p className="text-[9px] text-orange-400 font-bold mb-1">SHELF</p>
                         <p className="text-xs font-semibold text-white" data-testid="text-shelf">
                           {loc.shelfName || '—'}
                         </p>
                       </div>
-                      <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-2 text-center">
+                      <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-2 text-center" data-testid="card-bin">
                         <p className="text-[9px] text-green-400 font-bold mb-1">BIN</p>
                         <p className="text-xs font-semibold text-white" data-testid="text-bin">
                           {loc.binName || '—'}
                         </p>
                       </div>
                       {loc.bagLabel && (
-                        <div className="col-span-3 bg-blue-500/10 border border-blue-500/30 rounded-lg p-2 text-center">
+                        <div className="col-span-3 bg-blue-500/10 border border-blue-500/30 rounded-lg p-2 text-center" data-testid="card-bag">
                           <p className="text-[9px] text-blue-400 font-bold mb-1">BAG</p>
                           <p className="text-xs font-semibold text-white" data-testid="text-bag">
                             {loc.bagLabel}
