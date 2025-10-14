@@ -52,8 +52,8 @@ export default function PicklistTool() {
   });
 
   const pullMutation = useMutation({
-    mutationFn: async (id: string) => {
-      return apiRequest(`/api/picklist/${id}/pull`, 'PUT', {});
+    mutationFn: async ({ id, pulled }: { id: string; pulled: boolean }) => {
+      return apiRequest(`/api/picklist/${id}/pull`, 'PUT', { pulled });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/picklist'] });
@@ -61,8 +61,8 @@ export default function PicklistTool() {
   });
 
   const reshelveMutation = useMutation({
-    mutationFn: async (id: string) => {
-      return apiRequest(`/api/picklist/${id}/reshelve`, 'PUT', {});
+    mutationFn: async ({ id, reshelved }: { id: string; reshelved: boolean }) => {
+      return apiRequest(`/api/picklist/${id}/reshelve`, 'PUT', { reshelved });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/picklist'] });
@@ -200,8 +200,8 @@ export default function PicklistTool() {
                                 <Checkbox
                                   data-testid={`checkbox-pull-${item.id}`}
                                   checked={item.pulled}
-                                  onCheckedChange={() => !item.pulled && pullMutation.mutate(item.id)}
-                                  disabled={item.pulled || pullMutation.isPending}
+                                  onCheckedChange={(checked) => pullMutation.mutate({ id: item.id, pulled: checked === true })}
+                                  disabled={pullMutation.isPending}
                                 />
                                 {item.pulled ? (
                                   <CheckCircle2 className="h-4 w-4 text-green-400" />
@@ -226,8 +226,8 @@ export default function PicklistTool() {
                                 <Checkbox
                                   data-testid={`checkbox-reshelve-${item.id}`}
                                   checked={item.reshelved}
-                                  onCheckedChange={() => !item.reshelved && reshelveMutation.mutate(item.id)}
-                                  disabled={!item.pulled || item.reshelved || reshelveMutation.isPending}
+                                  onCheckedChange={(checked) => reshelveMutation.mutate({ id: item.id, reshelved: checked === true })}
+                                  disabled={!item.pulled || reshelveMutation.isPending}
                                 />
                                 {item.reshelved ? (
                                   <CheckCircle2 className="h-4 w-4 text-green-400" />

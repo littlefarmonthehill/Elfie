@@ -1,5 +1,5 @@
 import { sql, relations } from "drizzle-orm";
-import { pgTable, text, varchar, integer, decimal, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, decimal, timestamp, boolean, index } from "drizzle-orm/pg-core";
 import { vector } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -463,7 +463,12 @@ export const picklistItems = pgTable("picklist_items", {
   reshelvedAt: timestamp("reshelved_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  orderIdPulledIdx: index("picklist_order_pulled_idx").on(table.orderId, table.pulled),
+  orderIdReshelvedIdx: index("picklist_order_reshelved_idx").on(table.orderId, table.reshelved),
+  binIdIdx: index("picklist_bin_idx").on(table.binId),
+  inventoryIdIdx: index("picklist_inventory_idx").on(table.inventoryId),
+}));
 
 export const insertPicklistItemSchema = createInsertSchema(picklistItems).omit({
   id: true,

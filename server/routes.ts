@@ -2946,17 +2946,27 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
     }
   });
 
-  // Mark item as pulled
+  // Update item pulled status (toggle on/off)
   app.put("/api/picklist/:id/pull", async (req, res) => {
     try {
       const id = req.params.id;
+      const { pulled } = req.body;
+      
+      const updateData: any = {
+        pulled: pulled === true,
+        updatedAt: sql`CURRENT_TIMESTAMP`
+      };
+      
+      // Set pulledAt timestamp when marking as pulled, clear when unmarking
+      if (pulled === true) {
+        updateData.pulledAt = sql`CURRENT_TIMESTAMP`;
+      } else {
+        updateData.pulledAt = null;
+      }
+      
       const [item] = await db
         .update(picklistItems)
-        .set({ 
-          pulled: true, 
-          pulledAt: sql`CURRENT_TIMESTAMP`,
-          updatedAt: sql`CURRENT_TIMESTAMP` 
-        })
+        .set(updateData)
         .where(eq(picklistItems.id, id))
         .returning();
       
@@ -2965,22 +2975,32 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
       }
       res.json(item);
     } catch (error) {
-      console.error("Error marking item as pulled:", error);
-      res.status(500).json({ error: "Failed to mark item as pulled" });
+      console.error("Error updating pulled status:", error);
+      res.status(500).json({ error: "Failed to update pulled status" });
     }
   });
 
-  // Mark item as reshelved
+  // Update item reshelved status (toggle on/off)
   app.put("/api/picklist/:id/reshelve", async (req, res) => {
     try {
       const id = req.params.id;
+      const { reshelved } = req.body;
+      
+      const updateData: any = {
+        reshelved: reshelved === true,
+        updatedAt: sql`CURRENT_TIMESTAMP`
+      };
+      
+      // Set reshelvedAt timestamp when marking as reshelved, clear when unmarking
+      if (reshelved === true) {
+        updateData.reshelvedAt = sql`CURRENT_TIMESTAMP`;
+      } else {
+        updateData.reshelvedAt = null;
+      }
+      
       const [item] = await db
         .update(picklistItems)
-        .set({ 
-          reshelved: true, 
-          reshelvedAt: sql`CURRENT_TIMESTAMP`,
-          updatedAt: sql`CURRENT_TIMESTAMP` 
-        })
+        .set(updateData)
         .where(eq(picklistItems.id, id))
         .returning();
       
@@ -2989,8 +3009,8 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
       }
       res.json(item);
     } catch (error) {
-      console.error("Error marking item as reshelved:", error);
-      res.status(500).json({ error: "Failed to mark item as reshelved" });
+      console.error("Error updating reshelved status:", error);
+      res.status(500).json({ error: "Failed to update reshelved status" });
     }
   });
 
