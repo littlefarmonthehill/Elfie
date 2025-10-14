@@ -44,36 +44,10 @@ export default function FulfillmentTool() {
 
   const fulfillMutation = useMutation({
     mutationFn: async ({ itemId, fulfilled }: { itemId: string; fulfilled: boolean }) => {
-      setPendingItemId(itemId);
-      return apiRequest(`/api/fulfillment/item/${itemId}/fulfill`, 'PUT', { fulfilled });
+      const result = await apiRequest('PUT', `/api/fulfillment/item/${itemId}/fulfill`, { fulfilled });
+      return result;
     },
-    onMutate: async ({ itemId, fulfilled }) => {
-      // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ['/api/fulfillment'] });
-      
-      // Snapshot previous value
-      const previousData = queryClient.getQueryData<FulfillmentData>(['/api/fulfillment']);
-      
-      // Optimistically update
-      if (previousData) {
-        queryClient.setQueryData<FulfillmentData>(['/api/fulfillment'], {
-          ...previousData,
-          items: previousData.items.map(item => 
-            item.id === itemId ? { ...item, fulfilled } : item
-          ),
-        });
-      }
-      
-      return { previousData };
-    },
-    onError: (err, variables, context) => {
-      // Rollback on error
-      if (context?.previousData) {
-        queryClient.setQueryData(['/api/fulfillment'], context.previousData);
-      }
-    },
-    onSettled: () => {
-      setPendingItemId(null);
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/fulfillment'] });
       queryClient.invalidateQueries({ queryKey: ['/api/fulfillment/stats'] });
     },
@@ -184,16 +158,14 @@ export default function FulfillmentTool() {
                 >
                   <div className="flex items-center gap-3">
                     {/* Fulfill Checkbox */}
-                    <label className="flex items-center gap-2 cursor-pointer shrink-0">
-                      <Checkbox
-                        data-testid={`checkbox-fulfill-${item.id}`}
-                        checked={item.fulfilled}
-                        onCheckedChange={(checked) => {
-                          fulfillMutation.mutate({ itemId: item.id, fulfilled: checked === true });
-                        }}
-                        disabled={pendingItemId === item.id}
-                      />
-                    </label>
+                    <Checkbox
+                      data-testid={`checkbox-fulfill-${item.id}`}
+                      checked={item.fulfilled}
+                      onCheckedChange={(checked) => {
+                        fulfillMutation.mutate({ itemId: item.id, fulfilled: checked === true });
+                      }}
+                      disabled={fulfillMutation.isPending}
+                    />
 
                     {/* Item Details */}
                     <div className="flex-1 min-w-0">
