@@ -123,8 +123,8 @@ export default function PicklistTool() {
         </Button>
       </div>
 
-      {/* Picklist Bins Grouped by Location */}
-      <div className="space-y-6" data-testid="picklist-bins-container">
+      {/* Picklist Bins - Condensed */}
+      <div className="space-y-1" data-testid="picklist-bins-container">
         {Object.keys(groupedBins).length === 0 ? (
           <div className="text-center py-12 text-gray-500">
             <Package className="h-12 w-12 mx-auto mb-3 opacity-50" />
@@ -133,74 +133,53 @@ export default function PicklistTool() {
           </div>
         ) : (
           Object.entries(groupedBins).map(([aisle, shelves]) => (
-            <div key={aisle} className="space-y-3" data-testid={`aisle-group-${aisle}`}>
-              {/* Aisle Header */}
-              <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-2">
-                <h3 className="text-sm font-bold text-purple-400">Aisle: {aisle}</h3>
-              </div>
-
-              {/* Shelves within Aisle */}
+            <div key={aisle} className="space-y-1" data-testid={`aisle-group-${aisle}`}>
               {Object.entries(shelves).map(([shelf, bins]) => (
-                <div key={shelf} className="ml-4 space-y-2" data-testid={`shelf-group-${shelf}`}>
-                  <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-2">
-                    <h4 className="text-xs font-bold text-blue-400">Shelf: {shelf}</h4>
-                  </div>
-
-                  {/* Bins within Shelf */}
+                <div key={shelf} className="space-y-1" data-testid={`shelf-group-${shelf}`}>
                   {bins.map((bin) => {
                     const binKey = bin.binId ?? 'none';
-                    const binDisplayName = bin.warehouseLocation?.bin.name || 'Unassigned';
+                    const binLocation = bin.warehouseLocation 
+                      ? `${bin.warehouseLocation.aisle.name} › ${bin.warehouseLocation.shelf.name} › ${bin.warehouseLocation.bin.name}`
+                      : 'Unassigned';
+                    const binDescription = `${bin.itemCount} ${bin.itemCount === 1 ? 'item' : 'items'}`;
                     
                     return (
-                      <div key={binKey} className="ml-4" data-testid={`bin-${binKey}`}>
-                        <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 hover-elevate">
-                          <div className="flex items-center gap-3">
-                            {/* Pulled Checkbox - Left */}
-                            <label className="flex items-center gap-1.5 cursor-pointer shrink-0">
-                              <Checkbox
-                                data-testid={`checkbox-pull-bin-${binKey}`}
-                                checked={bin.pulled}
-                                onCheckedChange={(checked) => {
-                                  if (bin.binId) {
-                                    pullMutation.mutate({ binId: bin.binId, pulled: checked === true });
-                                  }
-                                }}
-                                disabled={!bin.binId || pullMutation.isPending}
-                              />
-                              <span className="text-xs text-gray-400">Pulled</span>
-                            </label>
+                      <div 
+                        key={binKey} 
+                        className="flex items-center gap-2 bg-gray-800/50 border border-gray-700 rounded px-2 py-1.5 hover-elevate"
+                        data-testid={`bin-${binKey}`}
+                      >
+                        {/* Pulled Checkbox - Left */}
+                        <Checkbox
+                          data-testid={`checkbox-pull-bin-${binKey}`}
+                          checked={bin.pulled}
+                          onCheckedChange={(checked) => {
+                            if (bin.binId) {
+                              pullMutation.mutate({ binId: bin.binId, pulled: checked === true });
+                            }
+                          }}
+                          disabled={!bin.binId || pullMutation.isPending}
+                        />
 
-                            {/* Bin Details - Center */}
-                            <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
-                              <p className="text-sm font-semibold text-white">
-                                {binDisplayName}
-                              </p>
-                              <Badge variant="outline" className="text-xs shrink-0">
-                                {bin.itemCount} {bin.itemCount === 1 ? 'item' : 'items'}
-                              </Badge>
-                              {!bin.binId && (
-                                <Badge variant="outline" className="text-xs text-orange-400 border-orange-500/30 shrink-0">
-                                  Assign Location First
-                                </Badge>
-                              )}
-                            </div>
-
-                            {/* Reshelved Checkbox - Right */}
-                            <label className="flex items-center gap-1.5 cursor-pointer shrink-0">
-                              <Checkbox
-                                data-testid={`checkbox-reshelve-bin-${binKey}`}
-                                checked={bin.reshelved}
-                                onCheckedChange={(checked) => {
-                                  if (bin.binId) {
-                                    reshelveMutation.mutate({ binId: bin.binId, reshelved: checked === true });
-                                  }
-                                }}
-                                disabled={!bin.binId || !bin.pulled || reshelveMutation.isPending}
-                              />
-                              <span className="text-xs text-gray-400">Reshelved</span>
-                            </label>
+                        {/* Bin Info - Center */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-white truncate">{binLocation}</span>
+                            <span className="text-xs text-gray-400">• {binDescription}</span>
                           </div>
                         </div>
+
+                        {/* Reshelved Checkbox - Right */}
+                        <Checkbox
+                          data-testid={`checkbox-reshelve-bin-${binKey}`}
+                          checked={bin.reshelved}
+                          onCheckedChange={(checked) => {
+                            if (bin.binId) {
+                              reshelveMutation.mutate({ binId: bin.binId, reshelved: checked === true });
+                            }
+                          }}
+                          disabled={!bin.binId || !bin.pulled || reshelveMutation.isPending}
+                        />
                       </div>
                     );
                   })}
