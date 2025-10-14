@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { syncBricklinkData, fetchPriceOMagicData, searchBricklinkCatalogItem, syncPriceOMagicCache } from "./services/bricklink";
 import { syncShipStationOrders } from "./services/shipstation";
 import { db } from "./db";
-import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, whAisles, whShelves, whBins, inventoryLocations, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema } from "@shared/schema";
+import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema } from "@shared/schema";
 import { eq, desc, sql, inArray, like, or, and } from "drizzle-orm";
 import { z } from "zod";
 
@@ -2768,6 +2768,229 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
     } catch (error) {
       console.error("Error deleting location:", error);
       res.status(500).json({ error: "Failed to delete location" });
+    }
+  });
+
+  // Picklist Routes
+  // Get picklist items for active orders (awaiting payment, awaiting shipment, awaiting fulfillment)
+  app.get("/api/picklist", async (req, res) => {
+    try {
+      const filter = req.query.filter as string; // 'to_pull' | 'to_reshelve' | undefined
+      
+      // Get active orders
+      const activeOrders = await db
+        .select()
+        .from(orders)
+        .where(
+          or(
+            like(orders.orderStatus, '%awaiting_payment%'),
+            like(orders.orderStatus, '%awaiting_shipment%'),
+            like(orders.orderStatus, '%awaiting_fulfillment%')
+          )
+        );
+
+      if (activeOrders.length === 0) {
+        return res.json([]);
+      }
+
+      const orderIds = activeOrders.map(o => o.id);
+
+      // Get order details for active orders
+      const activeOrderDetails = await db
+        .select()
+        .from(orderDetails)
+        .where(inArray(orderDetails.orderId, orderIds));
+
+      // Get or create picklist items
+      const existingPicklistItems = await db
+        .select()
+        .from(picklistItems)
+        .where(inArray(picklistItems.orderId, orderIds));
+
+      // Create missing picklist items
+      const existingDetailIds = new Set(existingPicklistItems.map(p => p.orderDetailId));
+      const missingDetails = activeOrderDetails.filter(d => !existingDetailIds.has(d.id));
+
+      if (missingDetails.length > 0) {
+        // Try to match order details to inventory using SKU (itemNo)
+        for (const detail of missingDetails) {
+          let inventoryId = null;
+          let binId = null;
+
+          if (detail.sku) {
+            // Find inventory item by SKU
+            const [inventoryItem] = await db
+              .select()
+              .from(blInventory)
+              .where(eq(blInventory.itemNo, detail.sku))
+              .limit(1);
+
+            if (inventoryItem) {
+              inventoryId = inventoryItem.id;
+
+              // Find bin location for this inventory item
+              const [location] = await db
+                .select()
+                .from(inventoryLocations)
+                .where(eq(inventoryLocations.inventoryId, inventoryItem.id))
+                .limit(1);
+
+              if (location) {
+                binId = location.binId;
+              }
+            }
+          }
+
+          await db.insert(picklistItems).values({
+            orderDetailId: detail.id,
+            orderId: detail.orderId,
+            inventoryId,
+            binId,
+            pulled: false,
+            reshelved: false,
+          });
+        }
+
+        // Refresh picklist items
+        const refreshedPicklistItems = await db
+          .select()
+          .from(picklistItems)
+          .where(inArray(picklistItems.orderId, orderIds));
+        
+        existingPicklistItems.length = 0;
+        existingPicklistItems.push(...refreshedPicklistItems);
+      }
+
+      // Apply filters
+      let filteredItems = existingPicklistItems;
+      if (filter === 'to_pull') {
+        filteredItems = existingPicklistItems.filter(item => !item.pulled);
+      } else if (filter === 'to_reshelve') {
+        filteredItems = existingPicklistItems.filter(item => item.pulled && !item.reshelved);
+      }
+
+      // Remove completed items (both pulled and reshelved)
+      filteredItems = filteredItems.filter(item => !(item.pulled && item.reshelved));
+
+      // Get full details with warehouse locations
+      const picklistWithDetails = await Promise.all(
+        filteredItems.map(async (item) => {
+          const [detail] = await db
+            .select()
+            .from(orderDetails)
+            .where(eq(orderDetails.id, item.orderDetailId));
+
+          const [order] = await db
+            .select()
+            .from(orders)
+            .where(eq(orders.id, item.orderId));
+
+          let warehouseLocation = null;
+          if (item.binId) {
+            const [bin] = await db.select().from(whBins).where(eq(whBins.id, item.binId));
+            if (bin && bin.shelfId) {
+              const [shelf] = await db.select().from(whShelves).where(eq(whShelves.id, bin.shelfId));
+              if (shelf && shelf.aisleId) {
+                const [aisle] = await db.select().from(whAisles).where(eq(whAisles.id, shelf.aisleId));
+                if (aisle) {
+                  warehouseLocation = {
+                    aisle: { id: aisle.id, name: aisle.name },
+                    shelf: { id: shelf.id, name: shelf.name },
+                    bin: { id: bin.id, name: bin.name },
+                  };
+                }
+              }
+            }
+          }
+
+          return {
+            ...item,
+            orderDetail: detail,
+            order,
+            warehouseLocation,
+          };
+        })
+      );
+
+      // Sort by aisle (desc), shelf (asc), bin (asc)
+      picklistWithDetails.sort((a, b) => {
+        if (!a.warehouseLocation && !b.warehouseLocation) return 0;
+        if (!a.warehouseLocation) return 1;
+        if (!b.warehouseLocation) return -1;
+
+        const aisleA = a.warehouseLocation.aisle.name;
+        const aisleB = b.warehouseLocation.aisle.name;
+        
+        // Aisle descending (using localeCompare with numeric option)
+        const aisleCompare = aisleB.localeCompare(aisleA, undefined, { numeric: true });
+        if (aisleCompare !== 0) return aisleCompare;
+
+        const shelfA = a.warehouseLocation.shelf.name;
+        const shelfB = b.warehouseLocation.shelf.name;
+        
+        // Shelf ascending
+        const shelfCompare = shelfA.localeCompare(shelfB, undefined, { numeric: true });
+        if (shelfCompare !== 0) return shelfCompare;
+
+        const binA = a.warehouseLocation.bin.name;
+        const binB = b.warehouseLocation.bin.name;
+        
+        // Bin ascending
+        return binA.localeCompare(binB, undefined, { numeric: true });
+      });
+
+      res.json(picklistWithDetails);
+    } catch (error) {
+      console.error("Error fetching picklist:", error);
+      res.status(500).json({ error: "Failed to fetch picklist" });
+    }
+  });
+
+  // Mark item as pulled
+  app.put("/api/picklist/:id/pull", async (req, res) => {
+    try {
+      const id = req.params.id;
+      const [item] = await db
+        .update(picklistItems)
+        .set({ 
+          pulled: true, 
+          pulledAt: sql`CURRENT_TIMESTAMP`,
+          updatedAt: sql`CURRENT_TIMESTAMP` 
+        })
+        .where(eq(picklistItems.id, id))
+        .returning();
+      
+      if (!item) {
+        return res.status(404).json({ error: "Picklist item not found" });
+      }
+      res.json(item);
+    } catch (error) {
+      console.error("Error marking item as pulled:", error);
+      res.status(500).json({ error: "Failed to mark item as pulled" });
+    }
+  });
+
+  // Mark item as reshelved
+  app.put("/api/picklist/:id/reshelve", async (req, res) => {
+    try {
+      const id = req.params.id;
+      const [item] = await db
+        .update(picklistItems)
+        .set({ 
+          reshelved: true, 
+          reshelvedAt: sql`CURRENT_TIMESTAMP`,
+          updatedAt: sql`CURRENT_TIMESTAMP` 
+        })
+        .where(eq(picklistItems.id, id))
+        .returning();
+      
+      if (!item) {
+        return res.status(404).json({ error: "Picklist item not found" });
+      }
+      res.json(item);
+    } catch (error) {
+      console.error("Error marking item as reshelved:", error);
+      res.status(500).json({ error: "Failed to mark item as reshelved" });
     }
   });
 
