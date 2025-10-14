@@ -4,12 +4,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Package, PackageCheck, CheckCircle2, Circle, Loader2, ChevronDown, ChevronRight } from "lucide-react";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+import { Package, PackageCheck, CheckCircle2, Circle, Loader2 } from "lucide-react";
 
 type WarehouseLocation = {
   aisle: { id: number; name: string };
@@ -40,7 +35,6 @@ type BinPicklist = {
 
 export default function PicklistTool() {
   const [filter, setFilter] = useState<'all' | 'to_pull' | 'to_reshelve'>('all');
-  const [expandedBins, setExpandedBins] = useState<Set<number>>(new Set());
 
   const { data: picklistData = [], isLoading, refetch } = useQuery<BinPicklist[]>({
     queryKey: ['/api/picklist', filter],
@@ -72,18 +66,6 @@ export default function PicklistTool() {
     },
   });
 
-  const toggleBinExpansion = (binId: number) => {
-    setExpandedBins(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(binId)) {
-        newSet.delete(binId);
-      } else {
-        newSet.add(binId);
-      }
-      return newSet;
-    });
-  };
-
   // Group bins by aisle and shelf
   const groupedBins = picklistData.reduce((acc, bin) => {
     const aisleKey = bin.warehouseLocation?.aisle.name || 'No Location';
@@ -101,10 +83,6 @@ export default function PicklistTool() {
     return acc;
   }, {} as Record<string, Record<string, BinPicklist[]>>);
 
-  const totalBins = picklistData.length;
-  const pulledBins = picklistData.filter(bin => bin.pulled && !bin.reshelved).length;
-  const toPullBins = picklistData.filter(bin => !bin.pulled).length;
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -115,49 +93,30 @@ export default function PicklistTool() {
 
   return (
     <div className="space-y-4">
-      {/* Header with Stats */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-bold text-white">Picklist</h2>
-          <p className="text-sm text-gray-400">Active orders awaiting fulfillment</p>
-        </div>
-        <div className="flex gap-2">
-          <Badge variant="outline" className="bg-blue-500/10 border-blue-500/30 text-blue-400">
-            {totalBins} bins
-          </Badge>
-          <Badge variant="outline" className="bg-orange-500/10 border-orange-500/30 text-orange-400">
-            {toPullBins} to pull
-          </Badge>
-          <Badge variant="outline" className="bg-green-500/10 border-green-500/30 text-green-400">
-            {pulledBins} pulled
-          </Badge>
-        </div>
-      </div>
-
-      {/* Filters */}
+      {/* Filter Buttons */}
       <div className="flex gap-2">
         <Button
-          data-testid="button-filter-all"
-          size="sm"
           variant={filter === 'all' ? 'default' : 'outline'}
+          size="sm"
           onClick={() => setFilter('all')}
+          data-testid="button-filter-all"
         >
           All Bins
         </Button>
         <Button
-          data-testid="button-filter-to-pull"
-          size="sm"
           variant={filter === 'to_pull' ? 'default' : 'outline'}
+          size="sm"
           onClick={() => setFilter('to_pull')}
+          data-testid="button-filter-to-pull"
         >
           <Package className="h-4 w-4 mr-1" />
           To Pull
         </Button>
         <Button
-          data-testid="button-filter-to-reshelve"
-          size="sm"
           variant={filter === 'to_reshelve' ? 'default' : 'outline'}
+          size="sm"
           onClick={() => setFilter('to_reshelve')}
+          data-testid="button-filter-to-reshelve"
         >
           <PackageCheck className="h-4 w-4 mr-1" />
           To Reshelve
@@ -190,7 +149,6 @@ export default function PicklistTool() {
                   {/* Bins within Shelf */}
                   {bins.map((bin) => {
                     const binKey = bin.binId ?? 'none';
-                    const isExpanded = expandedBins.has(binKey as number);
                     const binDisplayName = bin.warehouseLocation?.bin.name || 'Unassigned';
                     
                     return (
@@ -252,40 +210,7 @@ export default function PicklistTool() {
                                 )}
                               </div>
                             )}
-
-                            {/* Expand/Collapse Button */}
-                            <Button
-                              data-testid={`button-expand-bin-${binKey}`}
-                              size="icon"
-                              variant="ghost"
-                              onClick={() => toggleBinExpansion(binKey as number)}
-                              className="h-8 w-8"
-                            >
-                              {isExpanded ? (
-                                <ChevronDown className="h-4 w-4" />
-                              ) : (
-                                <ChevronRight className="h-4 w-4" />
-                              )}
-                            </Button>
                           </div>
-
-                          {/* Expandable Item Details */}
-                          {isExpanded && (
-                            <div className="mt-3 pt-3 border-t border-gray-700 space-y-2">
-                              {bin.items.map((item, idx) => (
-                                <div
-                                  key={item.picklistItemId}
-                                  data-testid={`bin-item-${binKey}-${idx}`}
-                                  className="text-xs text-gray-400 pl-8"
-                                >
-                                  <p className="text-white font-medium">{item.itemName}</p>
-                                  <p className="text-gray-500">
-                                    SKU: {item.sku} • Qty: {item.quantity} • Order: {item.orderNumber}
-                                  </p>
-                                </div>
-                              ))}
-                            </div>
-                          )}
                         </div>
                       </div>
                     );
