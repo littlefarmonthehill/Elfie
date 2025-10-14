@@ -66,7 +66,7 @@ export default function PicklistTool() {
     },
   });
 
-  // Group bins by aisle and shelf
+  // Group bins by aisle and shelf, sort descending by aisle
   const groupedBins = picklistData.reduce((acc, bin) => {
     const aisleKey = bin.warehouseLocation?.aisle.name || 'No Location';
     const shelfKey = bin.warehouseLocation?.shelf.name || 'No Shelf';
@@ -82,6 +82,9 @@ export default function PicklistTool() {
 
     return acc;
   }, {} as Record<string, Record<string, BinPicklist[]>>);
+
+  // Sort aisles descending
+  const sortedAisles = Object.keys(groupedBins).sort((a, b) => b.localeCompare(a));
 
   if (isLoading) {
     return (
@@ -123,70 +126,86 @@ export default function PicklistTool() {
         </Button>
       </div>
 
-      {/* Picklist Bins - Condensed */}
-      <div className="space-y-1" data-testid="picklist-bins-container">
-        {Object.keys(groupedBins).length === 0 ? (
+      {/* Picklist Bins - Grouped by Aisle */}
+      <div className="space-y-3" data-testid="picklist-bins-container">
+        {sortedAisles.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
             <Package className="h-12 w-12 mx-auto mb-3 opacity-50" />
             <p>No bins in picklist</p>
             <p className="text-sm">Bins will appear here when orders are awaiting fulfillment</p>
           </div>
         ) : (
-          Object.entries(groupedBins).map(([aisle, shelves]) => (
-            <div key={aisle} className="space-y-1" data-testid={`aisle-group-${aisle}`}>
-              {Object.entries(shelves).map(([shelf, bins]) => (
-                <div key={shelf} className="space-y-1" data-testid={`shelf-group-${shelf}`}>
-                  {bins.map((bin) => {
-                    const binKey = bin.binId ?? 'none';
-                    const binLocation = bin.warehouseLocation 
-                      ? `${bin.warehouseLocation.aisle.name} › ${bin.warehouseLocation.shelf.name} › ${bin.warehouseLocation.bin.name}`
-                      : 'Unassigned';
-                    const binDescription = `${bin.itemCount} ${bin.itemCount === 1 ? 'item' : 'items'}`;
-                    
-                    return (
-                      <div 
-                        key={binKey} 
-                        className="flex items-center gap-2 bg-gray-800/50 border border-gray-700 rounded px-2 py-1.5 hover-elevate"
-                        data-testid={`bin-${binKey}`}
-                      >
-                        {/* Pulled Checkbox - Left */}
-                        <Checkbox
-                          data-testid={`checkbox-pull-bin-${binKey}`}
-                          checked={bin.pulled}
-                          onCheckedChange={(checked) => {
-                            if (bin.binId) {
-                              pullMutation.mutate({ binId: bin.binId, pulled: checked === true });
-                            }
-                          }}
-                          disabled={!bin.binId || pullMutation.isPending}
-                        />
-
-                        {/* Bin Info - Center */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-white truncate">{binLocation}</span>
-                            <span className="text-xs text-gray-400">• {binDescription}</span>
-                          </div>
-                        </div>
-
-                        {/* Reshelved Checkbox - Right */}
-                        <Checkbox
-                          data-testid={`checkbox-reshelve-bin-${binKey}`}
-                          checked={bin.reshelved}
-                          onCheckedChange={(checked) => {
-                            if (bin.binId) {
-                              reshelveMutation.mutate({ binId: bin.binId, reshelved: checked === true });
-                            }
-                          }}
-                          disabled={!bin.binId || !bin.pulled || reshelveMutation.isPending}
-                        />
-                      </div>
-                    );
-                  })}
+          sortedAisles.map((aisle) => {
+            const shelves = groupedBins[aisle];
+            return (
+              <div key={aisle} className="space-y-2" data-testid={`aisle-group-${aisle}`}>
+                {/* Aisle Header */}
+                <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg px-3 py-1.5">
+                  <h3 className="text-sm font-bold text-purple-400">{aisle}</h3>
                 </div>
-              ))}
-            </div>
-          ))
+
+                {/* Bins within Aisle */}
+                <div className="space-y-1">
+                  {Object.entries(shelves).map(([shelf, bins]) => (
+                    <div key={shelf} className="space-y-1" data-testid={`shelf-group-${shelf}`}>
+                      {bins.map((bin) => {
+                        const binKey = bin.binId ?? 'none';
+                        const binName = bin.warehouseLocation?.bin.name || 'Unassigned';
+                        const binLocation = bin.warehouseLocation 
+                          ? `${bin.warehouseLocation.shelf.name} › ${bin.warehouseLocation.bin.name}`
+                          : 'Unassigned';
+                        const binDescription = `${bin.itemCount} ${bin.itemCount === 1 ? 'item' : 'items'}`;
+                        
+                        return (
+                          <div 
+                            key={binKey} 
+                            className="flex items-center gap-3 bg-gray-800/50 border border-gray-700 rounded px-3 py-2 hover-elevate"
+                            data-testid={`bin-${binKey}`}
+                          >
+                            {/* Pulled Checkbox - Left */}
+                            <div className="shrink-0">
+                              <Checkbox
+                                data-testid={`checkbox-pull-bin-${binKey}`}
+                                checked={bin.pulled}
+                                onCheckedChange={(checked) => {
+                                  if (bin.binId) {
+                                    pullMutation.mutate({ binId: bin.binId, pulled: checked === true });
+                                  }
+                                }}
+                                disabled={!bin.binId || pullMutation.isPending}
+                                className="touch-auto"
+                              />
+                            </div>
+
+                            {/* Bin Info - Center */}
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-medium text-white truncate">{binLocation}</div>
+                              <div className="text-xs text-gray-400 mt-0.5">{binDescription}</div>
+                            </div>
+
+                            {/* Reshelved Checkbox - Right */}
+                            <div className="shrink-0">
+                              <Checkbox
+                                data-testid={`checkbox-reshelve-bin-${binKey}`}
+                                checked={bin.reshelved}
+                                onCheckedChange={(checked) => {
+                                  if (bin.binId) {
+                                    reshelveMutation.mutate({ binId: bin.binId, reshelved: checked === true });
+                                  }
+                                }}
+                                disabled={!bin.binId || !bin.pulled || reshelveMutation.isPending}
+                                className="touch-auto"
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })
         )}
       </div>
     </div>
