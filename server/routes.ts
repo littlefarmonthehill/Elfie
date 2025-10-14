@@ -3143,8 +3143,9 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
       const orderIds = fulfillmentOrders.map(o => o.id);
       
       // Fetch order details with warehouse location info
+      // Use DISTINCT to avoid duplicates from multiple inventory records with same itemNo
       const items = await db
-        .select({
+        .selectDistinct({
           id: orderDetails.id,
           orderId: orderDetails.orderId,
           orderNumber: orders.orderNumber,
