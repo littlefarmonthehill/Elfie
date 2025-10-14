@@ -2772,6 +2772,58 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
   });
 
   // Picklist Routes
+  
+  // Get picklist stats (number of pending bins)
+  app.get("/api/picklist/stats", async (req, res) => {
+    try {
+      // Get active orders
+      const activeOrders = await db
+        .select()
+        .from(orders)
+        .where(
+          or(
+            like(orders.orderStatus, '%awaiting_payment%'),
+            like(orders.orderStatus, '%awaiting_shipment%'),
+            like(orders.orderStatus, '%awaiting_fulfillment%')
+          )
+        );
+
+      if (activeOrders.length === 0) {
+        return res.json({ toPull: 0, toReshelve: 0 });
+      }
+
+      const orderIds = activeOrders.map(o => o.id);
+
+      // Get picklist items for active orders
+      const picklistItemsData = await db
+        .select()
+        .from(picklistItems)
+        .where(inArray(picklistItems.orderId, orderIds));
+
+      // Filter out completed items (both pulled and reshelved)
+      const activeItems = picklistItemsData.filter(item => !(item.pulled && item.reshelved));
+
+      // Count unique bins that need to be pulled (not yet pulled)
+      const binsToPull = new Set(
+        activeItems
+          .filter(item => item.binId && !item.pulled)
+          .map(item => item.binId)
+      ).size;
+
+      // Count unique bins that need to be reshelved (pulled but not reshelved)
+      const binsToReshelve = new Set(
+        activeItems
+          .filter(item => item.binId && item.pulled && !item.reshelved)
+          .map(item => item.binId)
+      ).size;
+
+      res.json({ toPull: binsToPull, toReshelve: binsToReshelve });
+    } catch (error) {
+      console.error("Error fetching picklist stats:", error);
+      res.status(500).json({ error: "Failed to fetch picklist stats" });
+    }
+  });
+  
   // Get picklist items for active orders (awaiting payment, awaiting shipment, awaiting fulfillment)
   app.get("/api/picklist", async (req, res) => {
     try {
@@ -2872,22 +2924,24 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
       // Remove completed items (both pulled and reshelved)
       filteredItems = filteredItems.filter(item => !(item.pulled && item.reshelved));
 
-      // Get full details with warehouse locations
-      const picklistWithDetails = await Promise.all(
-        filteredItems.map(async (item) => {
-          const [detail] = await db
-            .select()
-            .from(orderDetails)
-            .where(eq(orderDetails.id, item.orderDetailId));
+      // Group items by bin
+      const binGroups = new Map<number | null, typeof filteredItems>();
+      
+      for (const item of filteredItems) {
+        const binId = item.binId;
+        if (!binGroups.has(binId)) {
+          binGroups.set(binId, []);
+        }
+        binGroups.get(binId)!.push(item);
+      }
 
-          const [order] = await db
-            .select()
-            .from(orders)
-            .where(eq(orders.id, item.orderId));
-
+      // Build bin-level picklist with item details
+      const binPicklist = await Promise.all(
+        Array.from(binGroups.entries()).map(async ([binId, items]) => {
           let warehouseLocation = null;
-          if (item.binId) {
-            const [bin] = await db.select().from(whBins).where(eq(whBins.id, item.binId));
+          
+          if (binId) {
+            const [bin] = await db.select().from(whBins).where(eq(whBins.id, binId));
             if (bin && bin.shelfId) {
               const [shelf] = await db.select().from(whShelves).where(eq(whShelves.id, bin.shelfId));
               if (shelf && shelf.aisleId) {
@@ -2903,17 +2957,50 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
             }
           }
 
+          // Get item details for this bin
+          const itemDetails = await Promise.all(
+            items.map(async (item) => {
+              const [detail] = await db
+                .select()
+                .from(orderDetails)
+                .where(eq(orderDetails.id, item.orderDetailId));
+
+              const [order] = await db
+                .select()
+                .from(orders)
+                .where(eq(orders.id, item.orderId));
+
+              return {
+                picklistItemId: item.id,
+                orderDetailId: item.orderDetailId,
+                orderId: item.orderId,
+                orderNumber: order?.orderNumber,
+                itemName: detail?.itemName,
+                quantity: detail?.quantity,
+                sku: detail?.sku,
+                pulled: item.pulled,
+                reshelved: item.reshelved,
+              };
+            })
+          );
+
+          // Bin status: pulled if ALL items pulled, reshelved if ALL items reshelved
+          const allPulled = items.every(item => item.pulled);
+          const allReshelved = items.every(item => item.reshelved);
+
           return {
-            ...item,
-            orderDetail: detail,
-            order,
+            binId,
             warehouseLocation,
+            itemCount: items.length,
+            items: itemDetails,
+            pulled: allPulled,
+            reshelved: allReshelved,
           };
         })
       );
 
       // Sort by aisle (desc), shelf (asc), bin (asc)
-      picklistWithDetails.sort((a, b) => {
+      binPicklist.sort((a, b) => {
         if (!a.warehouseLocation && !b.warehouseLocation) return 0;
         if (!a.warehouseLocation) return 1;
         if (!b.warehouseLocation) return -1;
@@ -2939,17 +3026,17 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
         return binA.localeCompare(binB, undefined, { numeric: true });
       });
 
-      res.json(picklistWithDetails);
+      res.json(binPicklist);
     } catch (error) {
       console.error("Error fetching picklist:", error);
       res.status(500).json({ error: "Failed to fetch picklist" });
     }
   });
 
-  // Update item pulled status (toggle on/off)
-  app.put("/api/picklist/:id/pull", async (req, res) => {
+  // Update bin pulled status (all items in bin)
+  app.put("/api/picklist/bin/:binId/pull", async (req, res) => {
     try {
-      const id = req.params.id;
+      const binId = parseInt(req.params.binId);
       const { pulled } = req.body;
       
       const updateData: any = {
@@ -2964,26 +3051,23 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
         updateData.pulledAt = null;
       }
       
-      const [item] = await db
+      // Update all items in this bin
+      await db
         .update(picklistItems)
         .set(updateData)
-        .where(eq(picklistItems.id, id))
-        .returning();
+        .where(eq(picklistItems.binId, binId));
       
-      if (!item) {
-        return res.status(404).json({ error: "Picklist item not found" });
-      }
-      res.json(item);
+      res.json({ success: true, binId, pulled });
     } catch (error) {
-      console.error("Error updating pulled status:", error);
-      res.status(500).json({ error: "Failed to update pulled status" });
+      console.error("Error updating bin pulled status:", error);
+      res.status(500).json({ error: "Failed to update bin pulled status" });
     }
   });
 
-  // Update item reshelved status (toggle on/off)
-  app.put("/api/picklist/:id/reshelve", async (req, res) => {
+  // Update bin reshelved status (all items in bin)
+  app.put("/api/picklist/bin/:binId/reshelve", async (req, res) => {
     try {
-      const id = req.params.id;
+      const binId = parseInt(req.params.binId);
       const { reshelved } = req.body;
       
       const updateData: any = {
@@ -2998,19 +3082,16 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
         updateData.reshelvedAt = null;
       }
       
-      const [item] = await db
+      // Update all items in this bin
+      await db
         .update(picklistItems)
         .set(updateData)
-        .where(eq(picklistItems.id, id))
-        .returning();
+        .where(eq(picklistItems.binId, binId));
       
-      if (!item) {
-        return res.status(404).json({ error: "Picklist item not found" });
-      }
-      res.json(item);
+      res.json({ success: true, binId, reshelved });
     } catch (error) {
-      console.error("Error updating reshelved status:", error);
-      res.status(500).json({ error: "Failed to update reshelved status" });
+      console.error("Error updating bin reshelved status:", error);
+      res.status(500).json({ error: "Failed to update bin reshelved status" });
     }
   });
 
