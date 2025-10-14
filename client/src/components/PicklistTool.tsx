@@ -189,66 +189,76 @@ export default function PicklistTool() {
 
                   {/* Bins within Shelf */}
                   {bins.map((bin) => {
-                    if (!bin.binId) return null;
-                    const isExpanded = expandedBins.has(bin.binId);
+                    const binKey = bin.binId ?? 'none';
+                    const isExpanded = expandedBins.has(binKey as number);
+                    const binDisplayName = bin.warehouseLocation?.bin.name || 'Unassigned';
                     
                     return (
-                      <div key={bin.binId} className="ml-4" data-testid={`bin-${bin.binId}`}>
+                      <div key={binKey} className="ml-4" data-testid={`bin-${binKey}`}>
                         <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 hover-elevate">
                           <div className="flex items-center gap-3">
-                            {/* Pull Checkbox */}
-                            <div className="flex items-center gap-2">
-                              <Checkbox
-                                data-testid={`checkbox-pull-bin-${bin.binId}`}
-                                checked={bin.pulled}
-                                onCheckedChange={(checked) => {
-                                  pullMutation.mutate({ binId: bin.binId!, pulled: checked === true });
-                                }}
-                                disabled={pullMutation.isPending}
-                              />
-                              {bin.pulled ? (
-                                <CheckCircle2 className="h-4 w-4 text-green-400" />
-                              ) : (
-                                <Circle className="h-4 w-4 text-gray-600" />
-                              )}
-                            </div>
+                            {/* Pull Checkbox - Only show if bin has location */}
+                            {bin.binId && (
+                              <div className="flex items-center gap-2">
+                                <Checkbox
+                                  data-testid={`checkbox-pull-bin-${binKey}`}
+                                  checked={bin.pulled}
+                                  onCheckedChange={(checked) => {
+                                    pullMutation.mutate({ binId: bin.binId!, pulled: checked === true });
+                                  }}
+                                  disabled={pullMutation.isPending}
+                                />
+                                {bin.pulled ? (
+                                  <CheckCircle2 className="h-4 w-4 text-green-400" />
+                                ) : (
+                                  <Circle className="h-4 w-4 text-gray-600" />
+                                )}
+                              </div>
+                            )}
 
                             {/* Bin Details */}
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2">
                                 <p className="text-sm font-semibold text-white">
-                                  Bin: {bin.warehouseLocation?.bin.name}
+                                  Bin: {binDisplayName}
                                 </p>
                                 <Badge variant="outline" className="text-xs">
                                   {bin.itemCount} {bin.itemCount === 1 ? 'item' : 'items'}
                                 </Badge>
+                                {!bin.binId && (
+                                  <Badge variant="outline" className="text-xs text-orange-400 border-orange-500/30">
+                                    No Location
+                                  </Badge>
+                                )}
                               </div>
                             </div>
 
-                            {/* Reshelve Checkbox */}
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-gray-500">Reshelve</span>
-                              <Checkbox
-                                data-testid={`checkbox-reshelve-bin-${bin.binId}`}
-                                checked={bin.reshelved}
-                                onCheckedChange={(checked) => {
-                                  reshelveMutation.mutate({ binId: bin.binId!, reshelved: checked === true });
-                                }}
-                                disabled={!bin.pulled || reshelveMutation.isPending}
-                              />
-                              {bin.reshelved ? (
-                                <CheckCircle2 className="h-4 w-4 text-green-400" />
-                              ) : (
-                                <Circle className="h-4 w-4 text-gray-600" />
-                              )}
-                            </div>
+                            {/* Reshelve Checkbox - Only show if bin has location */}
+                            {bin.binId && (
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-gray-500">Reshelve</span>
+                                <Checkbox
+                                  data-testid={`checkbox-reshelve-bin-${binKey}`}
+                                  checked={bin.reshelved}
+                                  onCheckedChange={(checked) => {
+                                    reshelveMutation.mutate({ binId: bin.binId!, reshelved: checked === true });
+                                  }}
+                                  disabled={!bin.pulled || reshelveMutation.isPending}
+                                />
+                                {bin.reshelved ? (
+                                  <CheckCircle2 className="h-4 w-4 text-green-400" />
+                                ) : (
+                                  <Circle className="h-4 w-4 text-gray-600" />
+                                )}
+                              </div>
+                            )}
 
                             {/* Expand/Collapse Button */}
                             <Button
-                              data-testid={`button-expand-bin-${bin.binId}`}
+                              data-testid={`button-expand-bin-${binKey}`}
                               size="icon"
                               variant="ghost"
-                              onClick={() => toggleBinExpansion(bin.binId!)}
+                              onClick={() => toggleBinExpansion(binKey as number)}
                               className="h-8 w-8"
                             >
                               {isExpanded ? (
@@ -265,7 +275,7 @@ export default function PicklistTool() {
                               {bin.items.map((item, idx) => (
                                 <div
                                   key={item.picklistItemId}
-                                  data-testid={`bin-item-${bin.binId}-${idx}`}
+                                  data-testid={`bin-item-${binKey}-${idx}`}
                                   className="text-xs text-gray-400 pl-8"
                                 >
                                   <p className="text-white font-medium">{item.itemName}</p>
