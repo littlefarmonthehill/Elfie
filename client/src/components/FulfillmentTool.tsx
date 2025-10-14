@@ -36,7 +36,6 @@ type FulfillmentData = {
 
 export default function FulfillmentTool() {
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
-  const [pendingItemId, setPendingItemId] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery<FulfillmentData>({
     queryKey: ['/api/fulfillment'],
@@ -47,8 +46,34 @@ export default function FulfillmentTool() {
       const result = await apiRequest('PUT', `/api/fulfillment/item/${itemId}/fulfill`, { fulfilled });
       return result;
     },
+    onMutate: async ({ itemId, fulfilled }) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['/api/fulfillment'] });
+      
+      // Snapshot the previous value
+      const previousData = queryClient.getQueryData<FulfillmentData>(['/api/fulfillment']);
+      
+      // Optimistically update the cache
+      if (previousData) {
+        queryClient.setQueryData<FulfillmentData>(['/api/fulfillment'], {
+          ...previousData,
+          items: previousData.items.map(item => 
+            item.id === itemId ? { ...item, fulfilled } : item
+          ),
+        });
+      }
+      
+      // Return context with snapshot
+      return { previousData };
+    },
+    onError: (err, variables, context) => {
+      // Rollback to previous data on error
+      if (context?.previousData) {
+        queryClient.setQueryData(['/api/fulfillment'], context.previousData);
+      }
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/fulfillment'] });
+      // Only update stats, don't refetch the main data
       queryClient.invalidateQueries({ queryKey: ['/api/fulfillment/stats'] });
     },
   });
