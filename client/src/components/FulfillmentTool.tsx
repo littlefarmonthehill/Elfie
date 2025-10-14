@@ -20,6 +20,8 @@ type FulfillmentItem = {
   name: string;
   quantity: number;
   fulfilled: boolean;
+  colorName: string | null;
+  condition: string | null;
   binId: number | null;
   binName: string | null;
   shelfName: string | null;
@@ -148,7 +150,7 @@ export default function FulfillmentTool() {
               {bin.items.map((item) => (
                 <div
                   key={item.id}
-                  className="ml-4 bg-gray-800/50 border border-gray-700 rounded-lg p-3 hover-elevate"
+                  className="ml-4 bg-gray-800/50 border border-gray-700 rounded-lg p-2.5 hover-elevate"
                   data-testid={`fulfillment-item-${item.id}`}
                 >
                   <div className="flex items-center gap-3">
@@ -166,10 +168,12 @@ export default function FulfillmentTool() {
 
                     {/* Item Details */}
                     <div className="flex-1 min-w-0">
-                      {item.sku && (
-                        <p className="text-sm font-medium text-white">{item.sku}</p>
-                      )}
+                      <p className="text-xs font-medium text-white">
+                        {item.sku && `${item.sku} - `}{item.name}
+                      </p>
                       <p className="text-xs font-bold text-gray-300 mt-0.5">
+                        {item.colorName && `${item.colorName} • `}
+                        {item.condition && `${item.condition} • `}
                         Qty {item.quantity} • {item.orderNumber}
                       </p>
                     </div>

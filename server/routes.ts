@@ -3153,6 +3153,8 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
           name: orderDetails.name,
           quantity: orderDetails.quantity,
           fulfilled: orderDetails.fulfilled,
+          colorName: blInventory.colorName,
+          condition: blInventory.newOrUsed,
           binId: inventoryLocations.binId,
           binName: whBins.name,
           shelfId: whShelves.id,
