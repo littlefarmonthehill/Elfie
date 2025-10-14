@@ -18,7 +18,7 @@ export default function Home() {
   const [salesPeriod, setSalesPeriod] = useState<'mtd' | 'ytd' | '1y' | '5y'>('ytd');
   const [dateRange, setDateRange] = useState<DateRangeValue>('mtd');
   const [chatMinimized, setChatMinimized] = useState(true);
-  const [activeInventoryDrawer, setActiveInventoryDrawer] = useState<'priceomatic' | 'warehouse' | 'sync' | null>(null);
+  const [activeInventoryDrawer, setActiveInventoryDrawer] = useState<'priceomatic' | 'warehouse' | 'sync' | 'picklist' | null>(null);
   const [detailModal, setDetailModal] = useState<{ open: boolean; data: DetailData | null }>({
     open: false,
     data: null,
@@ -589,6 +589,13 @@ export default function Home() {
                 data-testid="button-sync"
               >
                 Platform Sync
+              </button>
+              <button
+                onClick={() => setActiveInventoryDrawer('picklist')}
+                className="text-[9px] font-bold py-1 px-2 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
+                data-testid="button-picklist"
+              >
+                Picklist
               </button>
             </div>
           </div>
