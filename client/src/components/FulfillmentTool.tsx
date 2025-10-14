@@ -17,6 +17,7 @@ type FulfillmentItem = {
   orderId: string;
   orderNumber: string;
   sku: string | null;
+  bricklinkPartNumber: string | null;
   name: string;
   quantity: number;
   fulfilled: boolean;
@@ -169,7 +170,7 @@ export default function FulfillmentTool() {
                     {/* Item Details */}
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-medium text-white">
-                        {item.sku && `${item.sku} - `}{item.name}
+                        {item.bricklinkPartNumber && `${item.bricklinkPartNumber} - `}{item.name}
                       </p>
                       <p className="text-xs font-bold text-gray-300 mt-0.5">
                         {item.colorName && `${item.colorName} • `}

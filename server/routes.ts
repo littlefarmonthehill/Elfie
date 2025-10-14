@@ -3150,6 +3150,7 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
           orderId: orderDetails.orderId,
           orderNumber: orders.orderNumber,
           sku: orderDetails.sku,
+          bricklinkPartNumber: blInventory.itemNo,
           name: orderDetails.name,
           quantity: orderDetails.quantity,
           fulfilled: orderDetails.fulfilled,
