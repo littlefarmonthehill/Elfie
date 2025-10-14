@@ -230,14 +230,14 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       const aisleId = formData.get('aisleId') as string;
       createShelfMutation.mutate({ 
         name, 
-        aisleId: (aisleId && aisleId !== '0') ? parseInt(aisleId) : undefined,
+        aisleId: parseInt(aisleId),
         description 
       });
     } else if (createType === 'bin') {
       const shelfId = formData.get('shelfId') as string;
       createBinMutation.mutate({ 
         name, 
-        shelfId: (shelfId && shelfId !== '0') ? parseInt(shelfId) : undefined,
+        shelfId: parseInt(shelfId),
         description 
       });
     }
@@ -258,7 +258,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
         id: editItem.id,
         data: { 
           name, 
-          aisleId: (editAisleId && editAisleId !== '0') ? parseInt(editAisleId) : undefined,
+          aisleId: parseInt(editAisleId),
           description 
         }
       });
@@ -267,7 +267,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
         id: editItem.id,
         data: { 
           name, 
-          shelfId: (editShelfId && editShelfId !== '0') ? parseInt(editShelfId) : undefined,
+          shelfId: parseInt(editShelfId),
           description 
         }
       });
@@ -277,8 +277,8 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   const handleEdit = (type: 'aisle' | 'shelf' | 'bin', item: any) => {
     setEditType(type);
     setEditItem(item);
-    setEditAisleId(item.aisleId?.toString() || "0");
-    setEditShelfId(item.shelfId?.toString() || "0");
+    setEditAisleId(item.aisleId?.toString() || "");
+    setEditShelfId(item.shelfId?.toString() || "");
     setEditDialogOpen(true);
   };
 
@@ -334,6 +334,12 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   const getFilteredList = () => {
     if (!activeView) return [];
 
+    const alphaNumericSort = (a: any, b: any) => {
+      const aName = a.itemNo || a.name || '';
+      const bName = b.itemNo || b.name || '';
+      return aName.localeCompare(bName, undefined, { numeric: true, sensitivity: 'base' });
+    };
+
     if (activeView === 'lots') {
       // Deduplicate assigned lots by inventory ID (keep last occurrence)
       const assignedMap = new Map();
@@ -363,29 +369,29 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
         );
       }
       
-      return items;
+      return items.sort(alphaNumericSort);
     }
 
     if (activeView === 'bins') {
       const assigned = bins.filter(bin => bin.shelfId).map(bin => ({ ...bin, assigned: true }));
       const unassigned = unassignedBins.map(bin => ({ ...bin, assigned: false }));
       
-      if (filter === 'assigned') return assigned;
-      if (filter === 'unassigned') return unassigned;
-      return [...assigned, ...unassigned];
+      if (filter === 'assigned') return assigned.sort(alphaNumericSort);
+      if (filter === 'unassigned') return unassigned.sort(alphaNumericSort);
+      return [...assigned, ...unassigned].sort(alphaNumericSort);
     }
 
     if (activeView === 'shelves') {
       const assigned = shelves.filter(shelf => shelf.aisleId).map(shelf => ({ ...shelf, assigned: true }));
       const unassigned = unassignedShelves.map(shelf => ({ ...shelf, assigned: false }));
       
-      if (filter === 'assigned') return assigned;
-      if (filter === 'unassigned') return unassigned;
-      return [...assigned, ...unassigned];
+      if (filter === 'assigned') return assigned.sort(alphaNumericSort);
+      if (filter === 'unassigned') return unassigned.sort(alphaNumericSort);
+      return [...assigned, ...unassigned].sort(alphaNumericSort);
     }
 
     if (activeView === 'aisles') {
-      return aisles.map(aisle => ({ ...aisle, assigned: true }));
+      return aisles.map(aisle => ({ ...aisle, assigned: true })).sort(alphaNumericSort);
     }
 
     return [];
@@ -421,91 +427,87 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
         </div>
       </Card>
 
-      {/* Navigation Links */}
-      <Card className="p-3">
-        <div className="space-y-2">
-          <button
-            onClick={() => { setActiveView('lots'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
-            className={`w-full flex items-center justify-between p-2 rounded text-xs hover-elevate ${
-              activeView === 'lots' ? 'bg-blue-500/20' : ''
-            }`}
-            data-testid="button-view-lots"
-          >
-            <div className="flex items-center gap-2">
-              <Package className="w-4 h-4 text-blue-400" />
-              <span className="font-medium">Lots</span>
-            </div>
-            <div className="flex gap-2">
-              <Badge variant="secondary" className="text-[9px]">
-                Assigned: {assignedLots}
-              </Badge>
-              <Badge variant="secondary" className="text-[9px]">
-                Unassigned: {unassignedLots}
-              </Badge>
-            </div>
-          </button>
+      {/* Navigation Tabs */}
+      <div className="flex gap-2 overflow-x-auto">
+        <button
+          onClick={() => { setActiveView('lots'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
+          className={`flex-1 flex flex-col items-center gap-1 p-3 rounded-lg text-xs hover-elevate ${
+            activeView === 'lots' ? 'bg-blue-500/20 border-2 border-blue-500/40' : 'bg-gray-800/30 border-2 border-gray-700'
+          }`}
+          data-testid="button-view-lots"
+        >
+          <div className="flex items-center gap-1.5">
+            <Package className="w-4 h-4 text-blue-400" />
+            <span className="font-semibold">Lots</span>
+          </div>
+          <div className="flex gap-1.5 text-[9px]">
+            <Badge variant="secondary" className="text-[8px] px-1.5 py-0.5">
+              Assigned: {assignedLots}
+            </Badge>
+            <Badge variant="secondary" className="text-[8px] px-1.5 py-0.5">
+              Unassigned: {unassignedLots}
+            </Badge>
+          </div>
+        </button>
 
-          <button
-            onClick={() => { setActiveView('bins'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
-            className={`w-full flex items-center justify-between p-2 rounded text-xs hover-elevate ${
-              activeView === 'bins' ? 'bg-green-500/20' : ''
-            }`}
-            data-testid="button-view-bins"
-          >
-            <div className="flex items-center gap-2">
-              <Archive className="w-4 h-4 text-green-400" />
-              <span className="font-medium">Bins</span>
-            </div>
-            <div className="flex gap-2">
-              <Badge variant="secondary" className="text-[9px]">
-                Assigned: {assignedBins}
-              </Badge>
-              <Badge variant="secondary" className="text-[9px]">
-                Unassigned: {unassignedBins.length}
-              </Badge>
-            </div>
-          </button>
+        <button
+          onClick={() => { setActiveView('bins'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
+          className={`flex-1 flex flex-col items-center gap-1 p-3 rounded-lg text-xs hover-elevate ${
+            activeView === 'bins' ? 'bg-green-500/20 border-2 border-green-500/40' : 'bg-gray-800/30 border-2 border-gray-700'
+          }`}
+          data-testid="button-view-bins"
+        >
+          <div className="flex items-center gap-1.5">
+            <Archive className="w-4 h-4 text-green-400" />
+            <span className="font-semibold">Bins</span>
+          </div>
+          <div className="flex gap-1.5 text-[9px]">
+            <Badge variant="secondary" className="text-[8px] px-1.5 py-0.5">
+              Assigned: {assignedBins}
+            </Badge>
+            <Badge variant="secondary" className="text-[8px] px-1.5 py-0.5">
+              Unassigned: {unassignedBins.length}
+            </Badge>
+          </div>
+        </button>
 
-          <button
-            onClick={() => { setActiveView('shelves'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
-            className={`w-full flex items-center justify-between p-2 rounded text-xs hover-elevate ${
-              activeView === 'shelves' ? 'bg-orange-500/20' : ''
-            }`}
-            data-testid="button-view-shelves"
-          >
-            <div className="flex items-center gap-2">
-              <Layers className="w-4 h-4 text-orange-400" />
-              <span className="font-medium">Shelves</span>
-            </div>
-            <div className="flex gap-2">
-              <Badge variant="secondary" className="text-[9px]">
-                Assigned: {assignedShelves}
-              </Badge>
-              <Badge variant="secondary" className="text-[9px]">
-                Unassigned: {unassignedShelves.length}
-              </Badge>
-            </div>
-          </button>
+        <button
+          onClick={() => { setActiveView('shelves'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
+          className={`flex-1 flex flex-col items-center gap-1 p-3 rounded-lg text-xs hover-elevate ${
+            activeView === 'shelves' ? 'bg-orange-500/20 border-2 border-orange-500/40' : 'bg-gray-800/30 border-2 border-gray-700'
+          }`}
+          data-testid="button-view-shelves"
+        >
+          <div className="flex items-center gap-1.5">
+            <Layers className="w-4 h-4 text-orange-400" />
+            <span className="font-semibold">Shelves</span>
+          </div>
+          <div className="flex gap-1.5 text-[9px]">
+            <Badge variant="secondary" className="text-[8px] px-1.5 py-0.5">
+              Assigned: {assignedShelves}
+            </Badge>
+            <Badge variant="secondary" className="text-[8px] px-1.5 py-0.5">
+              Unassigned: {unassignedShelves.length}
+            </Badge>
+          </div>
+        </button>
 
-          <button
-            onClick={() => { setActiveView('aisles'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
-            className={`w-full flex items-center justify-between p-2 rounded text-xs hover-elevate ${
-              activeView === 'aisles' ? 'bg-purple-500/20' : ''
-            }`}
-            data-testid="button-view-aisles"
-          >
-            <div className="flex items-center gap-2">
-              <MapPin className="w-4 h-4 text-purple-400" />
-              <span className="font-medium">Aisles</span>
-            </div>
-            <div className="flex gap-2">
-              <Badge variant="secondary" className="text-[9px]">
-                Total: {aisles.length}
-              </Badge>
-            </div>
-          </button>
-        </div>
-      </Card>
+        <button
+          onClick={() => { setActiveView('aisles'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
+          className={`flex-1 flex flex-col items-center gap-1 p-3 rounded-lg text-xs hover-elevate ${
+            activeView === 'aisles' ? 'bg-purple-500/20 border-2 border-purple-500/40' : 'bg-gray-800/30 border-2 border-gray-700'
+          }`}
+          data-testid="button-view-aisles"
+        >
+          <div className="flex items-center gap-1.5">
+            <MapPin className="w-4 h-4 text-purple-400" />
+            <span className="font-semibold">Aisles</span>
+          </div>
+          <Badge variant="secondary" className="text-[8px] px-1.5 py-0.5">
+            Total: {aisles.length}
+          </Badge>
+        </button>
+      </div>
 
       {/* List View */}
       {activeView && (
@@ -583,13 +585,12 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                     </div>
                     {createType === 'shelf' && (
                       <div>
-                        <Label>Aisle (Optional)</Label>
-                        <Select name="aisleId">
+                        <Label>Aisle *</Label>
+                        <Select name="aisleId" required>
                           <SelectTrigger data-testid="select-create-aisle">
                             <SelectValue placeholder="Select aisle" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="0">None</SelectItem>
                             {aisles.map((aisle) => (
                               <SelectItem key={aisle.id} value={String(aisle.id)}>
                                 {aisle.name}
@@ -601,13 +602,12 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                     )}
                     {createType === 'bin' && (
                       <div>
-                        <Label>Shelf (Optional)</Label>
-                        <Select name="shelfId">
+                        <Label>Shelf *</Label>
+                        <Select name="shelfId" required>
                           <SelectTrigger data-testid="select-create-shelf">
                             <SelectValue placeholder="Select shelf" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="0">None</SelectItem>
                             {shelves.map((shelf) => (
                               <SelectItem key={shelf.id} value={String(shelf.id)}>
                                 {shelf.aisleName ? `${shelf.aisleName} - ` : ''}{shelf.name}
@@ -759,13 +759,12 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
             </div>
             {editType === 'shelf' && (
               <div>
-                <Label>Aisle (Optional)</Label>
-                <Select value={editAisleId} onValueChange={setEditAisleId}>
+                <Label>Aisle *</Label>
+                <Select value={editAisleId} onValueChange={setEditAisleId} required>
                   <SelectTrigger data-testid="select-edit-aisle">
                     <SelectValue placeholder="Select aisle" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="0">None</SelectItem>
                     {aisles.map((aisle) => (
                       <SelectItem key={aisle.id} value={String(aisle.id)}>
                         {aisle.name}
@@ -777,13 +776,12 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
             )}
             {editType === 'bin' && (
               <div>
-                <Label>Shelf (Optional)</Label>
-                <Select value={editShelfId} onValueChange={setEditShelfId}>
+                <Label>Shelf *</Label>
+                <Select value={editShelfId} onValueChange={setEditShelfId} required>
                   <SelectTrigger data-testid="select-edit-shelf">
                     <SelectValue placeholder="Select shelf" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="0">None</SelectItem>
                     {shelves.map((shelf) => (
                       <SelectItem key={shelf.id} value={String(shelf.id)}>
                         {shelf.aisleName ? `${shelf.aisleName} - ` : ''}{shelf.name}

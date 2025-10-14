@@ -356,23 +356,27 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
                 <p className="text-[10px] font-bold text-blue-400">WAREHOUSE LOCATION</p>
               </div>
               {warehouseLocation && warehouseLocation.length > 0 ? (
-                <div className="space-y-1">
-                  {warehouseLocation.map((loc: any, index: number) => (
-                    <div key={index} className="text-xs">
-                      <span className="text-gray-400">
-                        {loc.aisleName && `Aisle: ${loc.aisleName}`}
-                        {loc.aisleName && loc.shelfName && ' • '}
-                        {loc.shelfName && `Shelf: ${loc.shelfName}`}
-                        {(loc.aisleName || loc.shelfName) && loc.binName && ' • '}
-                      </span>
-                      <span className="text-white font-semibold">
-                        {loc.binName ? `Bin: ${loc.binName}` : 'No bin assigned'}
-                      </span>
-                      {loc.bagLabel && (
-                        <span className="text-gray-400"> • Bag: {loc.bagLabel}</span>
-                      )}
-                    </div>
-                  ))}
+                <div className="text-xs">
+                  {(() => {
+                    // Take only the first location (duplicates are from DB query)
+                    const loc = warehouseLocation[0];
+                    return (
+                      <>
+                        <span className="text-gray-400">
+                          {loc.aisleName && `Aisle: ${loc.aisleName}`}
+                          {loc.aisleName && loc.shelfName && ' • '}
+                          {loc.shelfName && `Shelf: ${loc.shelfName}`}
+                          {(loc.aisleName || loc.shelfName) && loc.binName && ' • '}
+                        </span>
+                        <span className="text-white font-semibold">
+                          {loc.binName ? `Bin: ${loc.binName}` : 'No bin assigned'}
+                        </span>
+                        {loc.bagLabel && (
+                          <span className="text-gray-400"> • Bag: {loc.bagLabel}</span>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               ) : (
                 <p className="text-[10px] text-gray-400 italic">
