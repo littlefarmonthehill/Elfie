@@ -1,6 +1,6 @@
 import MetricCard from "./MetricCard";
 import { useQuery } from "@tanstack/react-query";
-import { InfoIcon, AlertCircle, Package, TrendingUp, Clock, Sparkles, Warehouse, RefreshCw, ClipboardList } from "lucide-react";
+import { InfoIcon, AlertCircle, Package, TrendingUp, Clock, Sparkles, Warehouse, RefreshCw } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -15,7 +15,6 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import PriceOMaticDashboard from "./PriceOMaticDashboard";
 import WarehouseManagement from "./WarehouseManagement";
-import PicklistTool from "./PicklistTool";
 
 interface InventoryStats {
   totalLots: number;
@@ -55,8 +54,8 @@ interface RecentInventoryItem {
 
 interface InventoryDashboardProps {
   onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
-  activeDrawer: 'priceomatic' | 'warehouse' | 'sync' | 'picklist' | null;
-  onDrawerChange: (drawer: 'priceomatic' | 'warehouse' | 'sync' | 'picklist' | null) => void;
+  activeDrawer: 'priceomatic' | 'warehouse' | 'sync' | null;
+  onDrawerChange: (drawer: 'priceomatic' | 'warehouse' | 'sync' | null) => void;
 }
 
 export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawerChange }: InventoryDashboardProps) {
@@ -333,21 +332,6 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               <p className="text-sm">Coming Soon</p>
               <p className="text-xs mt-2">Platform synchronization features are in development</p>
             </div>
-          </div>
-        </DrawerContent>
-      </Drawer>
-
-      {/* Picklist Drawer */}
-      <Drawer open={activeDrawer === 'picklist'} onOpenChange={(open) => !open && onDrawerChange(null)}>
-        <DrawerContent className="h-[90vh]">
-          <DrawerHeader>
-            <DrawerTitle className="flex items-center gap-2">
-              <ClipboardList className="w-5 h-5 text-orange-400" />
-              Tools Picklist
-            </DrawerTitle>
-          </DrawerHeader>
-          <div className="overflow-y-auto px-4 pb-4 flex-1">
-            <PicklistTool />
           </div>
         </DrawerContent>
       </Drawer>

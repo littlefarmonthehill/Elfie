@@ -1,7 +1,14 @@
 import MetricCard from "./MetricCard";
 import { useQuery } from "@tanstack/react-query";
-import { TrendingDown, AlertCircle, TrendingUp, ShoppingCart } from "lucide-react";
+import { TrendingDown, AlertCircle, TrendingUp, ShoppingCart, ClipboardList } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
+import PicklistTool from "./PicklistTool";
 
 interface DashboardStats {
   totalOrders: number;
@@ -45,15 +52,27 @@ interface InsightsData {
 
 interface GeneralDashboardProps {
   onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
+  activeDrawer: 'picklist' | null;
+  onDrawerChange: (drawer: 'picklist' | null) => void;
 }
 
-export default function GeneralDashboard({ onItemClick }: GeneralDashboardProps) {
+export default function GeneralDashboard({ onItemClick, activeDrawer, onDrawerChange }: GeneralDashboardProps) {
   // Fetch dashboard stats (all-time)
   const { data: stats } = useQuery<DashboardStats>({
     queryKey: ['/api/dashboard/stats'],
     queryFn: async () => {
       const response = await fetch('/api/dashboard/stats');
       if (!response.ok) throw new Error('Failed to fetch stats');
+      return response.json();
+    }
+  });
+
+  // Fetch picklist stats for indicator
+  const { data: picklistStats } = useQuery<{ toPull: number; toReshelve: number }>({
+    queryKey: ['/api/picklist/stats'],
+    queryFn: async () => {
+      const response = await fetch('/api/picklist/stats');
+      if (!response.ok) throw new Error('Failed to fetch picklist stats');
       return response.json();
     }
   });
@@ -108,8 +127,34 @@ export default function GeneralDashboard({ onItemClick }: GeneralDashboardProps)
     }).format(num);
   };
 
+  const pendingBins = (picklistStats?.toPull || 0) + (picklistStats?.toReshelve || 0);
+
   return (
     <div className="p-4 space-y-4 bg-gradient-to-br from-lego-red/5 to-transparent rounded-lg border border-lego-red/10 shadow-[0_0_15px_rgba(239,68,68,0.1)]">
+      {/* Missions Section */}
+      <div className="mb-4">
+        <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-1.5">
+            <ClipboardList className="h-3.5 w-3.5 text-gray-400" />
+            <span className="text-[10px] font-bold text-gray-400">MISSIONS</span>
+          </div>
+        </div>
+        <div className="flex gap-1.5">
+          <button
+            onClick={() => onDrawerChange('picklist')}
+            className="relative text-[9px] font-bold py-1 px-2 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
+            data-testid="button-picklist"
+          >
+            Picklist
+            {pendingBins > 0 && (
+              <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-[8px] font-bold rounded-full h-4 w-4 flex items-center justify-center">
+                {pendingBins}
+              </span>
+            )}
+          </button>
+        </div>
+      </div>
+
       {/* Key Metrics */}
       <div className="grid grid-cols-2 gap-3">
         <MetricCard 
@@ -240,6 +285,21 @@ export default function GeneralDashboard({ onItemClick }: GeneralDashboardProps)
           )}
         </div>
       </div>
+
+      {/* Picklist Drawer */}
+      <Drawer open={activeDrawer === 'picklist'} onOpenChange={(open) => !open && onDrawerChange(null)}>
+        <DrawerContent className="h-[90vh]">
+          <DrawerHeader>
+            <DrawerTitle className="flex items-center gap-2">
+              <ClipboardList className="w-5 h-5 text-orange-400" />
+              Picklist
+            </DrawerTitle>
+          </DrawerHeader>
+          <div className="overflow-y-auto px-4 pb-4 flex-1">
+            <PicklistTool />
+          </div>
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 }
