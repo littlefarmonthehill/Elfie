@@ -449,3 +449,47 @@ export const inventoryLocationsRelations = relations(inventoryLocations, ({ one 
     references: [whBins.id],
   }),
 }));
+
+// Picklist Items - Track pulled/reshelved status for warehouse picking
+export const picklistItems = pgTable("picklist_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderDetailId: varchar("order_detail_id").notNull().references(() => orderDetails.id, { onDelete: 'cascade' }),
+  orderId: varchar("order_id").notNull().references(() => orders.id, { onDelete: 'cascade' }),
+  inventoryId: integer("inventory_id").references(() => blInventory.id, { onDelete: 'set null' }),
+  binId: integer("bin_id").references(() => whBins.id, { onDelete: 'set null' }),
+  pulled: boolean("pulled").default(false).notNull(),
+  reshelved: boolean("reshelved").default(false).notNull(),
+  pulledAt: timestamp("pulled_at"),
+  reshelvedAt: timestamp("reshelved_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertPicklistItemSchema = createInsertSchema(picklistItems).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertPicklistItem = z.infer<typeof insertPicklistItemSchema>;
+export type PicklistItem = typeof picklistItems.$inferSelect;
+
+// Relations for picklist
+export const picklistItemsRelations = relations(picklistItems, ({ one }) => ({
+  orderDetail: one(orderDetails, {
+    fields: [picklistItems.orderDetailId],
+    references: [orderDetails.id],
+  }),
+  order: one(orders, {
+    fields: [picklistItems.orderId],
+    references: [orders.id],
+  }),
+  inventory: one(blInventory, {
+    fields: [picklistItems.inventoryId],
+    references: [blInventory.id],
+  }),
+  bin: one(whBins, {
+    fields: [picklistItems.binId],
+    references: [whBins.id],
+  }),
+}));
