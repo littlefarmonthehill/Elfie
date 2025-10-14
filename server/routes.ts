@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { syncBricklinkData, fetchPriceOMagicData, searchBricklinkCatalogItem, syncPriceOMagicCache } from "./services/bricklink";
 import { syncShipStationOrders } from "./services/shipstation";
 import { db } from "./db";
-import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema } from "@shared/schema";
+import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema } from "@shared/schema";
 import { eq, desc, sql, inArray, like, or, and } from "drizzle-orm";
 import { z } from "zod";
 
@@ -3183,7 +3183,10 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
   app.put("/api/fulfillment/item/:itemId/fulfill", async (req, res) => {
     try {
       const itemId = req.params.itemId;
-      const { fulfilled } = req.body;
+      
+      // Validate request body
+      const validatedData = updateFulfillmentSchema.parse(req.body);
+      const { fulfilled } = validatedData;
       
       const updateData: any = {
         fulfilled: fulfilled === true,
@@ -3205,6 +3208,9 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
       res.json({ success: true, itemId, fulfilled });
     } catch (error) {
       console.error("Error updating item fulfilled status:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid request body", details: error.errors });
+      }
       res.status(500).json({ error: "Failed to update item fulfilled status" });
     }
   });

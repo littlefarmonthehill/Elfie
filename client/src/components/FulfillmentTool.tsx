@@ -37,13 +37,7 @@ export default function FulfillmentTool() {
 
   const fulfillMutation = useMutation({
     mutationFn: async ({ itemId, fulfilled }: { itemId: string; fulfilled: boolean }) => {
-      const response = await fetch(`/api/fulfillment/item/${itemId}/fulfill`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fulfilled }),
-      });
-      if (!response.ok) throw new Error('Failed to update fulfilled status');
-      return response.json();
+      return apiRequest(`/api/fulfillment/item/${itemId}/fulfill`, 'PUT', { fulfilled });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/fulfillment'] });

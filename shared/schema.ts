@@ -154,8 +154,14 @@ export const insertOrderDetailSchema = createInsertSchema(orderDetails).omit({
   updatedAt: true,
 });
 
+// Schema for updating fulfillment status
+export const updateFulfillmentSchema = z.object({
+  fulfilled: z.boolean(),
+});
+
 export type InsertOrderDetail = z.infer<typeof insertOrderDetailSchema>;
 export type OrderDetail = typeof orderDetails.$inferSelect;
+export type UpdateFulfillment = z.infer<typeof updateFulfillmentSchema>;
 
 // Relations
 export const ordersRelations = relations(orders, ({ many }) => ({
