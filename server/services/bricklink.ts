@@ -661,7 +661,8 @@ function calculateSuggestedPriceWithSupply(
   stockAvgPrice: number | null,
   soldAvgPrice: number | null,
   stockTotalLots: number = 0,
-  basePremiumPercentage: number = 15
+  basePremiumPercentage: number = 15,
+  itemType: string = 'PART'
 ): number {
   // Use stock average as base, fall back to sold average
   const basePrice = stockAvgPrice || soldAvgPrice || 0;
@@ -684,6 +685,11 @@ function calculateSuggestedPriceWithSupply(
     totalPremium += 5; // Low availability
   } else if (stockTotalLots < 500) {
     totalPremium += 2; // Moderate availability
+  }
+  
+  // Add minifigure premium (minifigures command higher prices)
+  if (itemType === 'MINIFIG' || itemType === 'M') {
+    totalPremium += 10; // Minifigure premium
   }
   
   // Apply total premium percentage
@@ -877,7 +883,7 @@ export async function fetchPriceOMagicData(
     const stockAvgPrice = stockPriceData?.avg_price ? parseFloat(stockPriceData.avg_price) : null;
     const soldAvgPrice = soldPriceData?.avg_price ? parseFloat(soldPriceData.avg_price) : null;
     const stockTotalLots = stockPriceData?.unit_quantity ? parseInt(stockPriceData.unit_quantity.toString()) : 0; // Number of lots/listings
-    const suggestedPrice = calculateSuggestedPriceWithSupply(stockAvgPrice, soldAvgPrice, stockTotalLots, premiumPercentage);
+    const suggestedPrice = calculateSuggestedPriceWithSupply(stockAvgPrice, soldAvgPrice, stockTotalLots, premiumPercentage, apiItemType);
 
     // Merge and store data
     const mergedData = {
