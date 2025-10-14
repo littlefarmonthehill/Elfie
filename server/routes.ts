@@ -3165,7 +3165,7 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
         })
         .from(orderDetails)
         .innerJoin(orders, eq(orderDetails.orderId, orders.id))
-        .leftJoin(blInventory, eq(orderDetails.sku, blInventory.itemNo))
+        .leftJoin(blInventory, sql`${orderDetails.sku} = ${blInventory.itemNo} OR ${orderDetails.sku} = CONCAT('BL.', ${blInventory.itemNo})`)
         .leftJoin(inventoryLocations, eq(blInventory.id, inventoryLocations.inventoryId))
         .leftJoin(whBins, eq(inventoryLocations.binId, whBins.id))
         .leftJoin(whShelves, eq(whBins.shelfId, whShelves.id))
