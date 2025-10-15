@@ -96,6 +96,49 @@ export default function PlatformSyncTool() {
     syncMutation.mutate({ platform: 'BrickOwl', limit: 10 });
   };
 
+  // Sync unsynced mutation
+  const syncUnsyncedMutation = useMutation({
+    mutationFn: async ({ limit }: { limit: number }) => {
+      console.log('[Platform Sync] Syncing unsynced items with limit:', limit);
+      const response = await apiRequest('POST', '/api/platform-sync/sync-unsynced', { platform: 'BrickOwl', limit });
+      const data = await response.json();
+      console.log('[Platform Sync] Unsynced response:', data);
+      return data;
+    },
+    onSuccess: (data: {
+      success: boolean;
+      platform: string;
+      result: {
+        lotsCreated: number;
+        lotsUpdated: number;
+        lotsSkipped: number;
+        errors: string[];
+        totalApiCalls: number;
+      };
+    }) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/platform-sync/status'] });
+      toast({
+        title: "Unsynced Items Sync Complete",
+        description: `${data.result.lotsCreated} lots created, ${data.result.lotsUpdated} updated, ${data.result.lotsSkipped} skipped`,
+      });
+      setSyncingPlatform(null);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Unsynced Sync Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+      setSyncingPlatform(null);
+    },
+  });
+
+  const handleSyncUnsynced = async (limit: number = 5) => {
+    console.log('[Platform Sync] handleSyncUnsynced called with limit:', limit);
+    setSyncingPlatform('unsynced');
+    syncUnsyncedMutation.mutate({ limit });
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -156,25 +199,47 @@ export default function PlatformSyncTool() {
             <ArrowRight className="w-4 h-4 text-blue-400" />
             Selling Platforms
           </h3>
-          <Button
-            size="sm"
-            onClick={handleSyncAll}
-            disabled={syncingPlatform !== null}
-            className="text-xs"
-            data-testid="button-sync-all"
-          >
-            {syncingPlatform === 'all' ? (
-              <>
-                <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />
-                Syncing All...
-              </>
-            ) : (
-              <>
-                <RefreshCw className="w-3 h-3 mr-1.5" />
-                Sync All
-              </>
-            )}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleSyncUnsynced(5)}
+              disabled={syncingPlatform !== null}
+              className="text-xs"
+              data-testid="button-sync-unsynced"
+            >
+              {syncingPlatform === 'unsynced' ? (
+                <>
+                  <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />
+                  Syncing...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-3 h-3 mr-1.5" />
+                  Sync Unsynced (5)
+                </>
+              )}
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleSyncAll}
+              disabled={syncingPlatform !== null}
+              className="text-xs"
+              data-testid="button-sync-all"
+            >
+              {syncingPlatform === 'all' ? (
+                <>
+                  <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />
+                  Syncing All...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-3 h-3 mr-1.5" />
+                  Sync All
+                </>
+              )}
+            </Button>
+          </div>
         </div>
 
         <div className="space-y-3">

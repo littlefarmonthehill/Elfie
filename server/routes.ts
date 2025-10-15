@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { syncBricklinkData, fetchPriceOMagicData, searchBricklinkCatalogItem, syncPriceOMagicCache } from "./services/bricklink";
 import { syncShipStationOrders } from "./services/shipstation";
-import { syncBrickLinkToBrickOwl } from "./services/brickowl";
+import { syncBrickLinkToBrickOwl, syncUnsyncedItems, findUnsyncedItems } from "./services/brickowl";
 import { db } from "./db";
 import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema } from "@shared/schema";
 import { eq, desc, sql, inArray, like, or, and, isNotNull } from "drizzle-orm";
@@ -1798,6 +1798,67 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
       res.status(500).json({
         success: false,
         error: error instanceof Error ? error.message : "Failed to sync platform",
+      });
+    }
+  });
+
+  // Sync only unsynced BrickLink items to BrickOwl
+  app.post("/api/platform-sync/sync-unsynced", async (req, res) => {
+    try {
+      const { platform, limit = 5 } = req.body;
+
+      if (platform !== 'BrickOwl') {
+        return res.status(400).json({ 
+          success: false,
+          error: `Platform ${platform} is not supported yet. Only BrickOwl is available.` 
+        });
+      }
+
+      console.log(`[Platform Sync] Finding and syncing ${limit} unsynced BrickLink items to BrickOwl...`);
+      
+      const result = await syncUnsyncedItems(limit);
+      
+      console.log(`[Platform Sync] Unsynced sync complete: ${result.lotsCreated} created, ${result.lotsUpdated} updated, ${result.lotsSkipped} skipped`);
+
+      res.json({
+        success: true,
+        platform,
+        result,
+      });
+    } catch (error) {
+      console.error("Unsynced platform sync error:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to sync unsynced items",
+      });
+    }
+  });
+
+  // Get list of unsynced items (for preview)
+  app.get("/api/platform-sync/unsynced-preview", async (req, res) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 5;
+      
+      const unsyncedItems = await findUnsyncedItems(limit);
+      
+      res.json({
+        success: true,
+        count: unsyncedItems.length,
+        items: unsyncedItems.map(item => ({
+          id: item.id,
+          itemNo: item.itemNo,
+          itemName: item.itemName,
+          colorName: item.colorName,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          newOrUsed: item.newOrUsed,
+        })),
+      });
+    } catch (error) {
+      console.error("Error fetching unsynced items:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to fetch unsynced items",
       });
     }
   });
