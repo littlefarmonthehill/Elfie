@@ -240,9 +240,10 @@ export async function syncInventoryItem(blItem: typeof blInventory.$inferSelect)
       : (existingResponse.inventory || []);
 
     // Map BrickLink condition to BrickOwl condition
-    // Business logic: BrickLink "New" maps to BrickOwl "used (good)" per user's inventory policy
-    // BrickOwl has 3 used conditions: used (good), used (acceptable), used (poor)
-    const condition = blItem.newOrUsed === 'N' ? 'used (good)' : 'used (acceptable)';
+    // Business logic per user's inventory policy:
+    // - BrickLink "New" → BrickOwl "new"
+    // - BrickLink "Used" → BrickOwl "used (good)"
+    const condition = blItem.newOrUsed === 'N' ? 'new' : 'used (good)';
 
     if (existingLots.length > 0) {
       // Update existing lot
