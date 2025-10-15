@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { syncBricklinkData, fetchPriceOMagicData, searchBricklinkCatalogItem, syncPriceOMagicCache } from "./services/bricklink";
 import { syncShipStationOrders } from "./services/shipstation";
+import { syncBrickLinkToBrickOwl } from "./services/brickowl";
 import { db } from "./db";
 import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema } from "@shared/schema";
 import { eq, desc, sql, inArray, like, or, and, isNotNull } from "drizzle-orm";
@@ -1701,6 +1702,10 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
         lastSyncedAt: new Date().toISOString(),
       };
 
+      // Check if BrickOwl API key is configured
+      const [settings] = await db.select().from(appSettings).limit(1);
+      const brickowlEnabled = !!settings?.brickowlApiKey;
+
       // TODO: Get actual stats from target platforms
       const platformSyncStatus = {
         source: {
@@ -1710,7 +1715,7 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
         targets: [
           {
             name: 'BrickOwl',
-            enabled: false,
+            enabled: brickowlEnabled,
             stats: {
               totalLots: 0,
               totalParts: 0,
@@ -1762,6 +1767,38 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
     } catch (error) {
       console.error("Error fetching platform sync status:", error);
       res.status(500).json({ error: "Failed to fetch platform sync status" });
+    }
+  });
+
+  // Sync BrickLink inventory to platform
+  app.post("/api/platform-sync/sync", async (req, res) => {
+    try {
+      const { platform, limit } = req.body;
+
+      if (platform !== 'BrickOwl') {
+        return res.status(400).json({ 
+          success: false,
+          error: `Platform ${platform} is not supported yet. Only BrickOwl is available.` 
+        });
+      }
+
+      console.log(`[Platform Sync] Starting BrickLink → BrickOwl sync${limit ? ` (limit: ${limit})` : ''}...`);
+      
+      const result = await syncBrickLinkToBrickOwl(limit);
+      
+      console.log(`[Platform Sync] Complete: ${result.lotsCreated} created, ${result.lotsUpdated} updated, ${result.lotsSkipped} skipped`);
+
+      res.json({
+        success: true,
+        platform,
+        result,
+      });
+    } catch (error) {
+      console.error("Platform sync error:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to sync platform",
+      });
     }
   });
 

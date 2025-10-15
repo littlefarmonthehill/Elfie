@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { RefreshCw, Loader2, CheckCircle2, AlertTriangle, ArrowRight, Info } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 type SyncStatus = 'idle' | 'syncing' | 'success' | 'error';
 
@@ -35,26 +37,56 @@ type PlatformSyncData = {
 
 export default function PlatformSyncTool() {
   const [syncingPlatform, setSyncingPlatform] = useState<string | null>(null);
+  const { toast } = useToast();
 
   // Fetch platform sync status
   const { data, isLoading } = useQuery<PlatformSyncData>({
     queryKey: ['/api/platform-sync/status'],
   });
 
+  // Sync mutation
+  const syncMutation = useMutation({
+    mutationFn: async ({ platform, limit }: { platform: string; limit?: number }) => {
+      const response = await apiRequest('POST', '/api/platform-sync/sync', { platform, limit });
+      return await response.json();
+    },
+    onSuccess: (data: {
+      success: boolean;
+      platform: string;
+      result: {
+        lotsCreated: number;
+        lotsUpdated: number;
+        lotsSkipped: number;
+        errors: string[];
+        totalApiCalls: number;
+      };
+    }) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/platform-sync/status'] });
+      toast({
+        title: "Sync Complete",
+        description: `${data.result.lotsCreated} lots created, ${data.result.lotsUpdated} updated, ${data.result.lotsSkipped} skipped`,
+      });
+      setSyncingPlatform(null);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Sync Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+      setSyncingPlatform(null);
+    },
+  });
+
   const handleSync = async (platformName: string) => {
     setSyncingPlatform(platformName);
-    // TODO: Implement sync API call
-    setTimeout(() => {
-      setSyncingPlatform(null);
-    }, 2000);
+    syncMutation.mutate({ platform: platformName });
   };
 
   const handleSyncAll = async () => {
     setSyncingPlatform('all');
-    // TODO: Implement sync all API call
-    setTimeout(() => {
-      setSyncingPlatform(null);
-    }, 2000);
+    // For now, just sync BrickOwl (when more platforms are available, loop through them)
+    syncMutation.mutate({ platform: 'BrickOwl' });
   };
 
   if (isLoading) {
