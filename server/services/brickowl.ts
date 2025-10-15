@@ -208,14 +208,14 @@ export async function mapColorId(bricklinkColorId: number): Promise<number | nul
   console.log(`[Color Map] Looking up BrickOwl color for BrickLink color ${bricklinkColorId} (${blColor.name})`);
   
   try {
-    // Use BrickOwl's catalog/id_lookup to find color ID by name
+    // Use BrickOwl's catalog/id_lookup to find color ID by BrickLink ID
     const result = await brickowlGet('/catalog/id_lookup', {
-      id: blColor.name,
+      id: bricklinkColorId.toString(),
       type: 'Color',
-      id_type: 'name',
+      id_type: 'bl_id',
     });
     
-    console.log(`[Color Map] BrickOwl color lookup result for "${blColor.name}":`, JSON.stringify(result).substring(0, 200));
+    console.log(`[Color Map] BrickOwl color lookup result for BrickLink ID ${bricklinkColorId}:`, JSON.stringify(result).substring(0, 200));
     
     // Extract color ID from response
     let colorIds: string[] = [];
