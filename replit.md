@@ -8,6 +8,11 @@ Preferred communication style: Simple, everyday language.
 
 ## System Architecture
 
+### Data Flow Architecture
+**BrickLink** serves as the single source of truth for catalog, product, and inventory data. Inventory is synced FROM BrickLink TO multiple selling platforms (BrickOwl, eBay, BigCommerce, etc.). Orders from these selling platforms flow into **ShipStation**, which aggregates all orders and feeds them into this application for fulfillment tracking and analytics.
+
+**Flow:** BrickLink (catalog/inventory) → Selling Platforms (BrickOwl, eBay, etc.) → Orders → ShipStation → This App
+
 ### UI/UX Decisions
 The frontend uses React 18+, TypeScript, Vite, Shadcn/ui, and Tailwind CSS, featuring a dark mode with a LEGO-themed color palette. It employs Inter/Roboto for UI and JetBrains Mono for metrics. The design includes modular dashboards with tab-based navigation, reusable metric cards, drawer-based detail modals, and a purple/violet themed AI chat interface. The application is responsive, with optimizations for mobile displays and iOS keyboard compatibility. Recent improvements include mobile-safe area fixes for the AI chat, enhanced date handling and high-value sales thresholds on the Sales Dashboard, distinct section backgrounds for the Inventory Dashboard, and a drawer-based Warehouse Management system with horizontal tab navigation, alpha-numeric sorting, search, multi-select, location tracking, and enforced hierarchical relationships (aisles required for shelves, shelves required for bins). The Missions section on the Default Dashboard features black background styling with a line separator, matching the visual treatment of Inventory tools for consistent UI patterns.
 
