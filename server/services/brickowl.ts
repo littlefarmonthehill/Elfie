@@ -156,17 +156,24 @@ export async function lookupBoid(blItemNo: string, type: string = 'Part'): Promi
   try {
     const normalizedType = normalizeBrickLinkItemType(type);
     
+    console.log(`Looking up BOID for ${blItemNo} (type: ${type} → ${normalizedType})`);
+    
     const result = await brickowlGet('/catalog/id_lookup', {
       id: blItemNo,
       type: normalizedType,
       id_type: 'bl_item_no',
     });
     
+    console.log(`BOID lookup result for ${blItemNo}:`, JSON.stringify(result).substring(0, 200));
+    
     // Result is an array of possible BOIDs
     if (Array.isArray(result) && result.length > 0) {
-      return result[0].boid || result[0];
+      const boid = result[0].boid || result[0];
+      console.log(`✓ Found BOID for ${blItemNo}: ${boid}`);
+      return boid;
     }
     
+    console.log(`✗ No BOID found for ${blItemNo}`);
     return null;
   } catch (error) {
     console.error(`Failed to lookup BOID for ${blItemNo}:`, error);
@@ -272,17 +279,26 @@ export async function syncInventoryItem(blItem: typeof blInventory.$inferSelect)
 // Find BrickLink items that are NOT in BrickOwl
 export async function findUnsyncedItems(limit: number = 5): Promise<(typeof blInventory.$inferSelect)[]> {
   try {
-    // Get all BrickOwl inventory with external_id_1 (BrickLink IDs)
+    // Get all BrickOwl inventory
     const brickowlInventory = await getBrickOwlInventory(false); // Get all, not just active
     
-    // Extract BrickLink IDs that are already in BrickOwl
-    const syncedBlIds = brickowlInventory
-      .filter(lot => lot.external_lot_ids && lot.external_lot_ids.length > 0)
-      .flatMap(lot => lot.external_lot_ids || [])
-      .map(id => parseInt(id))
-      .filter(id => !isNaN(id));
+    console.log(`BrickOwl returned ${brickowlInventory.length} lots`);
+    console.log(`Sample lot:`, brickowlInventory[0] ? JSON.stringify(brickowlInventory[0]).substring(0, 200) : 'none');
     
-    console.log(`Found ${syncedBlIds.length} BrickLink items already in BrickOwl`);
+    // Extract BrickLink IDs from BrickOwl's external_id_1 field
+    // BrickOwl stores our BrickLink inventory ID in external_id_1
+    const syncedBlIds = brickowlInventory
+      .map(lot => {
+        // Try multiple possible fields where external ID might be stored
+        const externalId = (lot as any).external_id_1 || (lot as any).external_id || (lot as any).externalId;
+        return externalId ? parseInt(externalId) : null;
+      })
+      .filter((id): id is number => id !== null && !isNaN(id));
+    
+    console.log(`Found ${syncedBlIds.length} BrickLink items already in BrickOwl (via external_id_1)`);
+    if (syncedBlIds.length > 0) {
+      console.log(`Sample synced IDs:`, syncedBlIds.slice(0, 5));
+    }
     
     // Get BrickLink items that are NOT in the synced list
     const unsyncedItems = await db
