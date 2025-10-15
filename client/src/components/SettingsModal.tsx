@@ -62,6 +62,9 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   const [bricklinkTokenValue, setBricklinkTokenValue] = useState("");
   const [bricklinkTokenSecret, setBricklinkTokenSecret] = useState("");
 
+  // BrickOwl Settings
+  const [brickowlApiKey, setBrickowlApiKey] = useState("");
+
   // Automation Settings
   const [inventorySyncEnabled, setInventorySyncEnabled] = useState(false);
   const [inventorySyncTime, setInventorySyncTime] = useState("02:00");
@@ -101,6 +104,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
       setBricklinkConsumerSecret(settings.bricklinkConsumerSecret || "");
       setBricklinkTokenValue(settings.bricklinkTokenValue || "");
       setBricklinkTokenSecret(settings.bricklinkTokenSecret || "");
+      setBrickowlApiKey(settings.brickowlApiKey || "");
       setInventorySyncEnabled(settings.inventorySyncEnabled || false);
       setInventorySyncTime(settings.inventorySyncTime || "02:00");
       setPriceOMaticEnabled(settings.priceOMaticEnabled || false);
@@ -532,6 +536,13 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                         type="password"
                         placeholder="Enter BrickOwl API Key"
                         className="text-xs"
+                        value={brickowlApiKey}
+                        onChange={(e) => setBrickowlApiKey(e.target.value)}
+                        onBlur={() => {
+                          updateSettingsMutation.mutate({
+                            brickowlApiKey: brickowlApiKey || null,
+                          });
+                        }}
                         data-testid="input-brickowl-key"
                       />
                     </div>

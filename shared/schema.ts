@@ -195,6 +195,7 @@ export const appSettings = pgTable("app_settings", {
   bricklinkConsumerSecret: text("bricklink_consumer_secret"),
   bricklinkTokenValue: text("bricklink_token_value"),
   bricklinkTokenSecret: text("bricklink_token_secret"),
+  brickowlApiKey: text("brickowl_api_key"),
   // Automation & Scheduling
   inventorySyncEnabled: boolean("inventory_sync_enabled").default(false).notNull(),
   inventorySyncTime: text("inventory_sync_time").default('02:00'), // Time of day (HH:MM format)
