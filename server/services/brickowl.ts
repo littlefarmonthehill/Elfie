@@ -253,8 +253,8 @@ export async function syncInventoryItem(blItem: typeof blInventory.$inferSelect)
     // Map BrickLink condition to BrickOwl condition
     // Business logic per user's inventory policy:
     // - BrickLink "New" → BrickOwl "new"
-    // - BrickLink "Used" → BrickOwl "used (good)"
-    const condition = blItem.newOrUsed === 'N' ? 'new' : 'used (good)';
+    // - BrickLink "Used" → BrickOwl "used" (BrickOwl only accepts: new, used)
+    const condition = blItem.newOrUsed === 'N' ? 'new' : 'used';
 
     if (existingLots.length > 0) {
       // Update existing lot
@@ -269,9 +269,11 @@ export async function syncInventoryItem(blItem: typeof blInventory.$inferSelect)
       return { success: true, action: 'updated' };
     } else {
       // Create new lot
+      // Note: Not sending color_id for now because BrickLink and BrickOwl use different color ID systems
+      // TODO: Implement proper color mapping table between BrickLink and BrickOwl
       await createBrickOwlLot({
         boid,
-        color_id: colorId || undefined,
+        // color_id: colorId !== null ? colorId : undefined, // Disabled - needs proper mapping
         quantity: blItem.quantity,
         price: blItem.unitPrice ? parseFloat(blItem.unitPrice) : 0,
         condition,
