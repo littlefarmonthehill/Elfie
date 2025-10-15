@@ -378,11 +378,16 @@ export async function syncShipStationOrders(fullSync: boolean = false): Promise<
       for (const item of items) {
         const lineItemKey = item.lineItemKey || `${orderId}-${item.sku}`;
         const options = item.options || [];
+        const description = item.description || null;
         
-        // Log options for first 3 items to see what BrickLink sends (debug mode)
-        if (allItems.length < 3 && options.length > 0) {
-          console.log(`\n📦 DEBUG: ShipStation Item Options for ${item.name}:`);
-          console.log(JSON.stringify(options, null, 2));
+        // Debug logging for first 3 items to see what data is available
+        if (allItems.length < 3) {
+          console.log(`\n📦 DEBUG: ShipStation Item Data for "${item.name}":`);
+          console.log(`   Description: ${description || 'none'}`);
+          console.log(`   Options: ${options.length > 0 ? JSON.stringify(options) : 'none'}`);
+          console.log(`   Custom Field 1: ${item.customField1 || 'none'}`);
+          console.log(`   Custom Field 2: ${item.customField2 || 'none'}`);
+          console.log(`   Custom Field 3: ${item.customField3 || 'none'}`);
         }
         
         const brickLinkData = extractBrickLinkData(options);
@@ -394,7 +399,11 @@ export async function syncShipStationOrders(fullSync: boolean = false): Promise<
           name: item.name,
           quantity: item.quantity,
           unitPrice: item.unitPrice?.toString() || '0',
+          description,
           options: options.length > 0 ? JSON.stringify(options) : null,
+          customField1: item.customField1 || null,
+          customField2: item.customField2 || null,
+          customField3: item.customField3 || null,
           bricklinkInventoryId: brickLinkData.inventoryId,
           colorId: brickLinkData.colorId,
           condition: brickLinkData.condition,

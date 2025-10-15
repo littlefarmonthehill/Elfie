@@ -142,10 +142,14 @@ export const orderDetails = pgTable("order_details", {
   taxAmount: decimal("tax_amount", { precision: 10, scale: 2 }),
   weight: decimal("weight", { precision: 10, scale: 2 }),
   weightUnits: text("weight_units"),
+  description: text("description"), // ShipStation item description (may contain color/condition)
   options: text("options"), // JSON: ShipStation options array (where BrickLink stores metadata)
-  bricklinkInventoryId: integer("bricklink_inventory_id"), // BrickLink inventory ID (from options)
-  colorId: integer("color_id"), // BrickLink color ID (from options)
-  condition: text("condition"), // New/Used (from options)
+  customField1: text("custom_field_1"), // ShipStation custom field 1
+  customField2: text("custom_field_2"), // ShipStation custom field 2
+  customField3: text("custom_field_3"), // ShipStation custom field 3
+  bricklinkInventoryId: integer("bricklink_inventory_id"), // BrickLink inventory ID (from options/description)
+  colorId: integer("color_id"), // BrickLink color ID (from options/description)
+  condition: text("condition"), // New/Used (from options/description)
   fulfilled: boolean("fulfilled").default(false).notNull(), // Track fulfillment status
   fulfilledAt: timestamp("fulfilled_at"),
   syncedAt: timestamp("synced_at").defaultNow().notNull(),
