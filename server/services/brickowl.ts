@@ -104,7 +104,7 @@ export async function createBrickOwlLot(data: {
   return brickowlPost('/inventory/create', {
     ...(data.boid && { boid: data.boid }),
     ...(data.bl_item_no && { bl_item_no: data.bl_item_no }),
-    ...(data.color_id && { color_id: data.color_id.toString() }),
+    ...(data.color_id !== undefined && { color_id: data.color_id.toString() }),
     quantity: data.quantity.toString(),
     price: data.price.toFixed(3),
     ...(data.condition && { condition: data.condition }),
