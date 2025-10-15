@@ -229,17 +229,21 @@ export async function syncInventoryItem(blItem: typeof blInventory.$inferSelect)
     }
 
     // Map color ID (colorId can be 0 for "Not Applicable")
+    console.log(`[Sync] Item ${blItem.itemNo} has colorId: ${blItem.colorId}, type: ${blItem.itemType}`);
     const colorId = blItem.colorId !== null && blItem.colorId !== undefined 
       ? await mapColorId(blItem.colorId) 
       : null;
+    console.log(`[Sync] Mapped colorId for ${blItem.itemNo}: ${colorId}`);
     
     if (colorId === null && blItem.itemType === 'PART') {
+      console.log(`[Sync] Skipping ${blItem.itemNo} - no color mapped`);
       return {
         success: false,
         action: 'skipped',
         error: `Could not map color ID ${blItem.colorId} for item ${blItem.itemNo}`,
       };
     }
+    console.log(`[Sync] Item ${blItem.itemNo} passed color check, proceeding to sync...`);
 
     // Check if lot already exists on BrickOwl (using BrickLink inventory ID as external_id_1)
     const existingResponse = await brickowlGet('/inventory/list', {
