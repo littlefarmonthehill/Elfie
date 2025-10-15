@@ -239,6 +239,7 @@ export async function syncInventoryItem(blItem: typeof blInventory.$inferSelect)
         external_id_1: blItem.id.toString(),
         absolute_quantity: blItem.quantity,
         price: blItem.unitPrice ? parseFloat(blItem.unitPrice) : 0,
+        condition,
         for_sale: 1,
       });
       
