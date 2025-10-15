@@ -257,22 +257,10 @@ export async function syncInventoryItem(blItem: typeof blInventory.$inferSelect)
       };
     }
 
-    // Map color ID (colorId can be 0 for "Not Applicable")
+    // Note: BrickOwl's BOID already includes both part AND color information
+    // So we don't need to send color_id separately - the BOID is sufficient
     console.log(`[Sync] Item ${blItem.itemNo} has colorId: ${blItem.colorId}, type: ${blItem.itemType}`);
-    const colorId = blItem.colorId !== null && blItem.colorId !== undefined 
-      ? await mapColorId(blItem.colorId) 
-      : null;
-    console.log(`[Sync] Mapped colorId for ${blItem.itemNo}: ${colorId}`);
-    
-    if (colorId === null && blItem.itemType === 'PART') {
-      console.log(`[Sync] Skipping ${blItem.itemNo} - no color mapped`);
-      return {
-        success: false,
-        action: 'skipped',
-        error: `Could not map color ID ${blItem.colorId} for item ${blItem.itemNo}`,
-      };
-    }
-    console.log(`[Sync] Item ${blItem.itemNo} passed color check, proceeding to sync...`);
+    console.log(`[Sync] Item ${blItem.itemNo} using BOID ${boid} (BOID includes color info)`);
 
     // Skip checking if lot exists - BrickOwl's inventory/list endpoint with external_id_1
     // filter returns "You must provide an ID" error. Just try to create and let BrickOwl
@@ -298,9 +286,9 @@ export async function syncInventoryItem(blItem: typeof blInventory.$inferSelect)
       return { success: true, action: 'updated' };
     } else {
       // Create new lot
+      // Note: Not sending color_id because BOID already contains color information
       await createBrickOwlLot({
         boid,
-        color_id: colorId !== null ? colorId : undefined,
         quantity: blItem.quantity,
         price: blItem.unitPrice ? parseFloat(blItem.unitPrice) : 0,
         condition,
