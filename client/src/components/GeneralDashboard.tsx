@@ -1,16 +1,7 @@
 import MetricCard from "./MetricCard";
 import { useQuery } from "@tanstack/react-query";
-import { TrendingDown, AlertCircle, TrendingUp, ShoppingCart, ClipboardList, Tag, Truck, RefreshCw } from "lucide-react";
+import { TrendingDown, AlertCircle, TrendingUp, ShoppingCart } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import {
-  Drawer,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle,
-} from "@/components/ui/drawer";
-import PicklistTool from "./PicklistTool";
-import FulfillmentTool from "./FulfillmentTool";
-import PlatformSyncTool from "./PlatformSyncTool";
 
 interface DashboardStats {
   totalOrders: number;
@@ -54,27 +45,15 @@ interface InsightsData {
 
 interface GeneralDashboardProps {
   onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
-  activeDrawer: 'listing' | 'picklist' | 'fulfillment' | 'platformsync' | null;
-  onDrawerChange: (drawer: 'listing' | 'picklist' | 'fulfillment' | 'platformsync' | null) => void;
 }
 
-export default function GeneralDashboard({ onItemClick, activeDrawer, onDrawerChange }: GeneralDashboardProps) {
+export default function GeneralDashboard({ onItemClick }: GeneralDashboardProps) {
   // Fetch dashboard stats (all-time)
   const { data: stats } = useQuery<DashboardStats>({
     queryKey: ['/api/dashboard/stats'],
     queryFn: async () => {
       const response = await fetch('/api/dashboard/stats');
       if (!response.ok) throw new Error('Failed to fetch stats');
-      return response.json();
-    }
-  });
-
-  // Fetch picklist stats for indicator
-  const { data: picklistStats } = useQuery<{ toPull: number; toReshelve: number }>({
-    queryKey: ['/api/picklist/stats'],
-    queryFn: async () => {
-      const response = await fetch('/api/picklist/stats');
-      if (!response.ok) throw new Error('Failed to fetch picklist stats');
       return response.json();
     }
   });
@@ -128,8 +107,6 @@ export default function GeneralDashboard({ onItemClick, activeDrawer, onDrawerCh
       maximumFractionDigits: 3,
     }).format(num);
   };
-
-  const pendingBins = (picklistStats?.toPull || 0) + (picklistStats?.toReshelve || 0);
 
   return (
     <div className="p-4 space-y-4 bg-gradient-to-br from-lego-red/5 to-transparent rounded-lg border border-lego-red/10 shadow-[0_0_15px_rgba(239,68,68,0.1)]">
@@ -264,72 +241,6 @@ export default function GeneralDashboard({ onItemClick, activeDrawer, onDrawerCh
           )}
         </div>
       </div>
-
-      {/* Listing Drawer */}
-      <Drawer open={activeDrawer === 'listing'} onOpenChange={(open) => !open && onDrawerChange(null)}>
-        <DrawerContent className="h-[90vh]">
-          <DrawerHeader>
-            <DrawerTitle className="flex items-center gap-2">
-              <Tag className="w-5 h-5 text-blue-400" />
-              Listing
-            </DrawerTitle>
-          </DrawerHeader>
-          <div className="overflow-y-auto px-4 pb-4 flex-1">
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center text-gray-400">
-                <Tag className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                <p className="text-sm">Listing functionality</p>
-                <p className="text-xs mt-1">Coming soon</p>
-              </div>
-            </div>
-          </div>
-        </DrawerContent>
-      </Drawer>
-
-      {/* Picklist Drawer */}
-      <Drawer open={activeDrawer === 'picklist'} onOpenChange={(open) => !open && onDrawerChange(null)}>
-        <DrawerContent className="h-[90vh]">
-          <DrawerHeader>
-            <DrawerTitle className="flex items-center gap-2">
-              <ClipboardList className="w-5 h-5 text-orange-400" />
-              Picklist
-            </DrawerTitle>
-          </DrawerHeader>
-          <div className="overflow-y-auto px-4 pb-4 flex-1">
-            <PicklistTool />
-          </div>
-        </DrawerContent>
-      </Drawer>
-
-      {/* Fulfillment Drawer */}
-      <Drawer open={activeDrawer === 'fulfillment'} onOpenChange={(open) => !open && onDrawerChange(null)}>
-        <DrawerContent className="h-[90vh]">
-          <DrawerHeader>
-            <DrawerTitle className="flex items-center gap-2">
-              <Truck className="w-5 h-5 text-green-400" />
-              Fulfillment
-            </DrawerTitle>
-          </DrawerHeader>
-          <div className="overflow-y-auto px-4 pb-4 flex-1">
-            <FulfillmentTool />
-          </div>
-        </DrawerContent>
-      </Drawer>
-
-      {/* Platform Sync Drawer */}
-      <Drawer open={activeDrawer === 'platformsync'} onOpenChange={(open) => !open && onDrawerChange(null)}>
-        <DrawerContent className="h-[90vh]">
-          <DrawerHeader>
-            <DrawerTitle className="flex items-center gap-2">
-              <RefreshCw className="w-5 h-5 text-purple-400" />
-              Platform Sync
-            </DrawerTitle>
-          </DrawerHeader>
-          <div className="overflow-y-auto px-4 pb-4 flex-1">
-            <PlatformSyncTool />
-          </div>
-        </DrawerContent>
-      </Drawer>
     </div>
   );
 }

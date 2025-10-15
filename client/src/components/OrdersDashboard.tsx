@@ -1,8 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { format, subDays, startOfDay, startOfMonth } from "date-fns";
-import { AlertCircle, ShoppingCart, TrendingUp, Package } from "lucide-react";
-import { DateRangeValue } from "./DateRangeSelector";
+import { AlertCircle, ShoppingCart, Package, TrendingUp, ClipboardList, Truck } from "lucide-react";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
+import PicklistTool from "./PicklistTool";
+import FulfillmentTool from "./FulfillmentTool";
 
 interface Order {
   id: string;
@@ -15,134 +20,20 @@ interface Order {
 }
 
 interface OrdersDashboardProps {
-  dateRange?: DateRangeValue;
   onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
+  activeDrawer: 'picklist' | 'fulfillment' | null;
+  onDrawerChange: (drawer: 'picklist' | 'fulfillment' | null) => void;
 }
 
-export default function OrdersDashboard({ dateRange = 'mtd', onItemClick }: OrdersDashboardProps) {
+export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerChange }: OrdersDashboardProps) {
   const { data: orders = [], isLoading } = useQuery<Order[]>({
-    queryKey: ['/api/orders', dateRange],
+    queryKey: ['/api/orders'],
     queryFn: async () => {
-      const url = dateRange === 'all' ? '/api/orders' : `/api/orders?range=${dateRange}`;
-      const response = await fetch(url);
+      const response = await fetch('/api/orders');
       if (!response.ok) throw new Error('Failed to fetch orders');
       return response.json();
     }
   });
-
-  // Process orders into trend data based on date range
-  const getTrendData = () => {
-    if (orders.length === 0) {
-      return [];
-    }
-
-    // For MTD, show daily data for current month
-    if (dateRange === 'mtd') {
-      const today = new Date();
-      const startOfCurrentMonth = startOfMonth(today);
-      const daysInMonth = today.getDate();
-      
-      const days = Array.from({ length: daysInMonth }, (_, i) => {
-        const dayDate = new Date(startOfCurrentMonth);
-        dayDate.setDate(i + 1);
-        return {
-          date: format(dayDate, 'MMM d'),
-          fullDate: startOfDay(dayDate),
-          bricklink: 0,
-          brickowl: 0,
-          other: 0,
-        };
-      });
-
-      // Aggregate orders into days
-      orders.forEach(order => {
-        const orderDate = startOfDay(new Date(order.orderDate));
-        const dayData = days.find(day => 
-          orderDate.getTime() === day.fullDate.getTime()
-        );
-        
-        if (dayData) {
-          if (order.orderNumber.toLowerCase().includes('bl') || 
-              order.orderNumber.toLowerCase().includes('bricklink')) {
-            dayData.bricklink++;
-          } else if (order.orderNumber.toLowerCase().includes('bo') || 
-                     order.orderNumber.toLowerCase().includes('brickowl')) {
-            dayData.brickowl++;
-          } else {
-            dayData.other++;
-          }
-        }
-      });
-
-      return days.map(({ date, bricklink, brickowl, other }) => ({
-        date,
-        bricklink,
-        brickowl,
-        other,
-      }));
-    }
-
-    // Find the most recent order date to base the chart on
-    const mostRecentOrderDate = orders.reduce((latest, order) => {
-      const orderDate = new Date(order.orderDate);
-      return orderDate > latest ? orderDate : latest;
-    }, new Date(orders[0].orderDate));
-
-    // Determine number of days to show based on date range
-    const daysToShow = dateRange === '2years' ? 60 :  // Show ~2 months of days for 2 years
-                      dateRange === '1year' ? 30 :     // Show 1 month of days for 1 year
-                      dateRange === '6months' ? 30 :   // Show 1 month of days for 6 months
-                      dateRange === '3months' ? 30 :   // Show 1 month of days for 3 months
-                      30;  // Default to 30 days for 'all'
-
-    // Create array of days ending at the most recent order date
-    const days = Array.from({ length: daysToShow }, (_, i) => {
-      const date = subDays(mostRecentOrderDate, daysToShow - 1 - i);
-      return {
-        date: format(date, 'MMM d'),  // Format like "Jan 15"
-        fullDate: startOfDay(date),
-        bricklink: 0,
-        brickowl: 0,
-        other: 0,
-      };
-    });
-
-    // Aggregate orders into days
-    orders.forEach(order => {
-      const orderDate = startOfDay(new Date(order.orderDate));
-      const dayData = days.find(day => 
-        orderDate.getTime() === day.fullDate.getTime()
-      );
-      
-      if (dayData) {
-        if (order.orderNumber.toLowerCase().includes('bl') || 
-            order.orderNumber.toLowerCase().includes('bricklink')) {
-          dayData.bricklink++;
-        } else if (order.orderNumber.toLowerCase().includes('bo') || 
-                   order.orderNumber.toLowerCase().includes('brickowl')) {
-          dayData.brickowl++;
-        } else {
-          dayData.other++;
-        }
-      }
-    });
-
-    return days.map(({ date, bricklink, brickowl, other }) => ({
-      date,
-      bricklink,
-      brickowl,
-      other,
-    }));
-  };
-
-  // Get today's total
-  const getTodayTotal = () => {
-    const today = startOfDay(new Date());
-    return orders.filter(order => {
-      const orderDate = startOfDay(new Date(order.orderDate));
-      return orderDate.getTime() === today.getTime();
-    }).length;
-  };
 
   // Get pending orders (action items)
   const pendingOrders = orders
@@ -164,9 +55,6 @@ export default function OrdersDashboard({ dateRange = 'mtd', onItemClick }: Orde
     .sort((a, b) => Number(b.orderTotal) - Number(a.orderTotal))
     .slice(0, 5);
 
-  const trendData = getTrendData();
-  const todayTotal = getTodayTotal();
-
   if (isLoading) {
     return (
       <div className="p-2 space-y-1.5 bg-gradient-to-br from-lego-orange/5 to-transparent rounded-lg border border-lego-orange/10 shadow-[0_0_15px_rgba(251,146,60,0.1)]">
@@ -179,28 +67,6 @@ export default function OrdersDashboard({ dateRange = 'mtd', onItemClick }: Orde
 
   return (
     <div className="p-2 space-y-1.5 bg-gradient-to-br from-lego-orange/5 to-transparent rounded-lg border border-lego-orange/10 shadow-[0_0_15px_rgba(251,146,60,0.1)]">
-      {/* Chart */}
-      <div className="bg-gray-900/50 border border-lego-orange/20 rounded-lg p-2">
-        <div className="mb-1 text-xs text-gray-400">
-          Today's Total: <span className="text-lego-orange font-mono font-semibold">{todayTotal} orders</span>
-          <span className="ml-2 text-gray-500">({orders.length} total)</span>
-        </div>
-        <ResponsiveContainer width="100%" height={120}>
-          <LineChart data={trendData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-            <XAxis dataKey="date" stroke="#9CA3AF" style={{ fontSize: '10px' }} />
-            <YAxis stroke="#9CA3AF" style={{ fontSize: '10px' }} />
-            <Tooltip
-              contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151', borderRadius: '6px', fontSize: '12px' }}
-              labelStyle={{ color: '#D1D5DB' }}
-            />
-            <Line type="monotone" dataKey="bricklink" stroke="hsl(25 95% 55%)" strokeWidth={2} name="BrickLink" />
-            <Line type="monotone" dataKey="brickowl" stroke="hsl(25 70% 45%)" strokeWidth={2} name="BrickOwl" />
-            <Line type="monotone" dataKey="other" stroke="hsl(25 50% 35%)" strokeWidth={2} name="Other" />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-
       {/* Action Items - Pending Orders */}
       <div className="bg-gray-900/50 border border-orange-500/20 rounded-lg p-3" data-testid="section-pending-orders">
         <div className="flex items-center gap-2 mb-2">
@@ -299,6 +165,36 @@ export default function OrdersDashboard({ dateRange = 'mtd', onItemClick }: Orde
           )}
         </div>
       </div>
+
+      {/* Picklist Drawer */}
+      <Drawer open={activeDrawer === 'picklist'} onOpenChange={(open) => !open && onDrawerChange(null)}>
+        <DrawerContent className="h-[90vh]">
+          <DrawerHeader>
+            <DrawerTitle className="flex items-center gap-2">
+              <ClipboardList className="w-5 h-5 text-orange-400" />
+              Picklist
+            </DrawerTitle>
+          </DrawerHeader>
+          <div className="overflow-y-auto px-4 pb-4 flex-1">
+            <PicklistTool />
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Fulfillment Drawer */}
+      <Drawer open={activeDrawer === 'fulfillment'} onOpenChange={(open) => !open && onDrawerChange(null)}>
+        <DrawerContent className="h-[90vh]">
+          <DrawerHeader>
+            <DrawerTitle className="flex items-center gap-2">
+              <Truck className="w-5 h-5 text-green-400" />
+              Fulfillment
+            </DrawerTitle>
+          </DrawerHeader>
+          <div className="overflow-y-auto px-4 pb-4 flex-1">
+            <FulfillmentTool />
+          </div>
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 }

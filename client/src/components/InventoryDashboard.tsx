@@ -1,6 +1,6 @@
 import MetricCard from "./MetricCard";
 import { useQuery } from "@tanstack/react-query";
-import { InfoIcon, AlertCircle, Package, TrendingUp, Clock, Sparkles, Warehouse, RefreshCw } from "lucide-react";
+import { InfoIcon, AlertCircle, Package, TrendingUp, Clock, Sparkles, Warehouse, RefreshCw, Tag } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -15,6 +15,7 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import PriceOMaticDashboard from "./PriceOMaticDashboard";
 import WarehouseManagement from "./WarehouseManagement";
+import PlatformSyncTool from "./PlatformSyncTool";
 
 interface InventoryStats {
   totalLots: number;
@@ -54,8 +55,8 @@ interface RecentInventoryItem {
 
 interface InventoryDashboardProps {
   onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
-  activeDrawer: 'priceomatic' | 'warehouse' | 'sync' | null;
-  onDrawerChange: (drawer: 'priceomatic' | 'warehouse' | 'sync' | null) => void;
+  activeDrawer: 'priceomatic' | 'warehouse' | 'listing' | 'platformsync' | null;
+  onDrawerChange: (drawer: 'priceomatic' | 'warehouse' | 'listing' | 'platformsync' | null) => void;
 }
 
 export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawerChange }: InventoryDashboardProps) {
@@ -317,21 +318,38 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
         </DrawerContent>
       </Drawer>
 
-      {/* Platform Sync Drawer */}
-      <Drawer open={activeDrawer === 'sync'} onOpenChange={(open) => !open && onDrawerChange(null)}>
-        <DrawerContent className="max-h-[95vh]">
+      {/* Listing Drawer */}
+      <Drawer open={activeDrawer === 'listing'} onOpenChange={(open) => !open && onDrawerChange(null)}>
+        <DrawerContent className="h-[90vh]">
           <DrawerHeader>
             <DrawerTitle className="flex items-center gap-2">
-              <RefreshCw className="w-5 h-5 text-green-400" />
+              <Tag className="w-5 h-5 text-blue-400" />
+              Listing
+            </DrawerTitle>
+          </DrawerHeader>
+          <div className="overflow-y-auto px-4 pb-4 flex-1">
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center text-gray-400">
+                <Tag className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                <p className="text-sm">Listing functionality</p>
+                <p className="text-xs mt-1">Coming soon</p>
+              </div>
+            </div>
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Platform Sync Drawer */}
+      <Drawer open={activeDrawer === 'platformsync'} onOpenChange={(open) => !open && onDrawerChange(null)}>
+        <DrawerContent className="h-[90vh]">
+          <DrawerHeader>
+            <DrawerTitle className="flex items-center gap-2">
+              <RefreshCw className="w-5 h-5 text-purple-400" />
               Platform Sync
             </DrawerTitle>
           </DrawerHeader>
-          <div className="overflow-y-auto px-4 pb-4">
-            <div className="text-center py-12 text-gray-400">
-              <RefreshCw className="w-12 h-12 mx-auto mb-3 opacity-50" />
-              <p className="text-sm">Coming Soon</p>
-              <p className="text-xs mt-2">Platform synchronization features are in development</p>
-            </div>
+          <div className="overflow-y-auto px-4 pb-4 flex-1">
+            <PlatformSyncTool />
           </div>
         </DrawerContent>
       </Drawer>

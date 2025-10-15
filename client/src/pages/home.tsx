@@ -17,10 +17,9 @@ export default function Home() {
   const [activeDashboard, setActiveDashboard] = useState<DashboardType>('dashboard');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [salesPeriod, setSalesPeriod] = useState<'mtd' | 'ytd' | '1y' | '5y'>('ytd');
-  const [dateRange, setDateRange] = useState<DateRangeValue>('mtd');
   const [chatMinimized, setChatMinimized] = useState(true);
-  const [activeInventoryDrawer, setActiveInventoryDrawer] = useState<'priceomatic' | 'warehouse' | 'sync' | null>(null);
-  const [activeDashboardDrawer, setActiveDashboardDrawer] = useState<'listing' | 'picklist' | 'fulfillment' | 'platformsync' | null>(null);
+  const [activeInventoryDrawer, setActiveInventoryDrawer] = useState<'priceomatic' | 'warehouse' | 'listing' | 'platformsync' | null>(null);
+  const [activeOrdersDrawer, setActiveOrdersDrawer] = useState<'picklist' | 'fulfillment' | null>(null);
   const [detailModal, setDetailModal] = useState<{ open: boolean; data: DetailData | null }>({
     open: false,
     data: null,
@@ -29,13 +28,13 @@ export default function Home() {
   // Fetch picklist stats for indicator
   const { data: picklistStats } = useQuery<{ toPull: number; toReshelve: number }>({
     queryKey: ['/api/picklist/stats'],
-    enabled: activeDashboard === 'dashboard',
+    enabled: activeDashboard === 'orders',
   });
 
   // Fetch fulfillment stats for indicator
   const { data: fulfillmentStats } = useQuery<{ unfulfilled: number }>({
     queryKey: ['/api/fulfillment/stats'],
-    enabled: activeDashboard === 'dashboard',
+    enabled: activeDashboard === 'orders',
   });
 
   const handleDashboardItemClick = async (type: 'order' | 'inventory', id: number | string) => {
@@ -214,13 +213,13 @@ export default function Home() {
       case 'inventory':
         return <InventoryDashboard onItemClick={handleDashboardItemClick} activeDrawer={activeInventoryDrawer} onDrawerChange={setActiveInventoryDrawer} />;
       case 'orders':
-        return <OrdersDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} />;
+        return <OrdersDashboard onItemClick={handleDashboardItemClick} activeDrawer={activeOrdersDrawer} onDrawerChange={setActiveOrdersDrawer} />;
       case 'sales':
-        return <SalesDashboard period={salesPeriod} dateRange={dateRange} onItemClick={handleDashboardItemClick} />;
+        return <SalesDashboard period={salesPeriod} onItemClick={handleDashboardItemClick} />;
       case 'marketing':
-        return <MarketingDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} />;
+        return <MarketingDashboard onItemClick={handleDashboardItemClick} />;
       default:
-        return <GeneralDashboard onItemClick={handleDashboardItemClick} activeDrawer={activeDashboardDrawer} onDrawerChange={setActiveDashboardDrawer} />;
+        return <GeneralDashboard onItemClick={handleDashboardItemClick} />;
     }
   };
 
@@ -567,64 +566,6 @@ export default function Home() {
       <Header onSettingsClick={() => setSettingsOpen(true)} />
       <DashboardNav active={activeDashboard} onSelect={setActiveDashboard} />
       
-      {/* Date Range Selector - Only show for orders, sales, and marketing */}
-      {(activeDashboard === 'orders' || activeDashboard === 'sales' || activeDashboard === 'marketing') && (
-        <div className="px-4 py-2 border-b border-gray-800">
-          <DateRangeSelector value={dateRange} onChange={setDateRange} />
-        </div>
-      )}
-      
-      {/* Missions Selector - Only show for default dashboard */}
-      {activeDashboard === 'dashboard' && (
-        <div className="px-4 py-2 bg-black border-b border-gray-800">
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5">
-              <ClipboardList className="h-3.5 w-3.5 text-gray-400" />
-              <span className="text-[10px] font-bold text-gray-400">MISSIONS</span>
-            </div>
-            <div className="flex gap-1.5">
-              <button
-                onClick={() => setActiveDashboardDrawer('listing')}
-                className="text-[9px] font-bold py-1 px-2 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
-                data-testid="button-listing"
-              >
-                Listing
-              </button>
-              <button
-                onClick={() => setActiveDashboardDrawer('picklist')}
-                className="relative text-[9px] font-bold py-1 px-2 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
-                data-testid="button-picklist"
-              >
-                Picklist
-                {picklistStats && (picklistStats.toPull + picklistStats.toReshelve) > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-[8px] font-bold rounded-full h-4 w-4 flex items-center justify-center">
-                    {picklistStats.toPull + picklistStats.toReshelve}
-                  </span>
-                )}
-              </button>
-              <button
-                onClick={() => setActiveDashboardDrawer('fulfillment')}
-                className="relative text-[9px] font-bold py-1 px-2 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
-                data-testid="button-fulfillment"
-              >
-                Fulfillment
-                {fulfillmentStats && fulfillmentStats.unfulfilled > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-green-500 text-white text-[8px] font-bold rounded-full h-4 w-4 flex items-center justify-center">
-                    {fulfillmentStats.unfulfilled}
-                  </span>
-                )}
-              </button>
-              <button
-                onClick={() => setActiveDashboardDrawer('platformsync')}
-                className="text-[9px] font-bold py-1 px-2 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
-                data-testid="button-platformsync"
-              >
-                Platform Sync
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Tools Selector - Only show for inventory */}
       {activeDashboard === 'inventory' && (
@@ -635,6 +576,13 @@ export default function Home() {
               <span className="text-[10px] font-bold text-gray-400">TOOLS</span>
             </div>
             <div className="flex gap-1.5">
+              <button
+                onClick={() => setActiveInventoryDrawer('listing')}
+                className="text-[9px] font-bold py-1 px-2 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
+                data-testid="button-listing"
+              >
+                Listing
+              </button>
               <button
                 onClick={() => setActiveInventoryDrawer('priceomatic')}
                 className="text-[9px] font-bold py-1 px-2 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
@@ -650,11 +598,49 @@ export default function Home() {
                 Warehouse
               </button>
               <button
-                onClick={() => setActiveInventoryDrawer('sync')}
+                onClick={() => setActiveInventoryDrawer('platformsync')}
                 className="text-[9px] font-bold py-1 px-2 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
-                data-testid="button-sync"
+                data-testid="button-platformsync"
               >
                 Platform Sync
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tools Selector - Only show for orders */}
+      {activeDashboard === 'orders' && (
+        <div className="px-4 py-2 bg-black border-b border-gray-800">
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
+              <ClipboardList className="h-3.5 w-3.5 text-gray-400" />
+              <span className="text-[10px] font-bold text-gray-400">TOOLS</span>
+            </div>
+            <div className="flex gap-1.5">
+              <button
+                onClick={() => setActiveOrdersDrawer('picklist')}
+                className="relative text-[9px] font-bold py-1 px-2 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
+                data-testid="button-picklist"
+              >
+                Picklist
+                {picklistStats && (picklistStats.toPull + picklistStats.toReshelve) > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-[8px] font-bold rounded-full h-4 w-4 flex items-center justify-center">
+                    {picklistStats.toPull + picklistStats.toReshelve}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => setActiveOrdersDrawer('fulfillment')}
+                className="relative text-[9px] font-bold py-1 px-2 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
+                data-testid="button-fulfillment"
+              >
+                Fulfillment
+                {fulfillmentStats && fulfillmentStats.unfulfilled > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-green-500 text-white text-[8px] font-bold rounded-full h-4 w-4 flex items-center justify-center">
+                    {fulfillmentStats.unfulfilled}
+                  </span>
+                )}
               </button>
             </div>
           </div>
