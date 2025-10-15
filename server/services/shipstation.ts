@@ -361,6 +361,20 @@ export async function syncShipStationOrders(fullSync: boolean = false): Promise<
       // Progress update every 500 orders
       if ((i + 1) % 500 === 0 || i === ordersToCheck.length - 1) {
         console.log(`⏳ Checking orders: ${i + 1}/${ordersToCheck.length} (${ordersUpdated} updated so far)`);
+        
+        // Update progress in metadata for UI polling
+        await db.update(syncMetadata)
+          .set({
+            errorMessage: JSON.stringify({
+              phase: 'orders',
+              current: i + 1,
+              total: ordersToCheck.length,
+              updated: ordersUpdated,
+              apiCalls: apiCalls,
+            }),
+            updatedAt: new Date(),
+          })
+          .where(eq(syncMetadata.id, syncId));
       }
     }
     console.log(`✅ Updated ${ordersUpdated} orders${fullSync ? ' (full sync mode)' : ' with status changes'}`);
@@ -454,6 +468,21 @@ export async function syncShipStationOrders(fullSync: boolean = false): Promise<
       // Progress update every 1000 items
       if ((i + 1) % 1000 === 0 || i === detailsToCheck.length - 1) {
         console.log(`⏳ Checking items: ${i + 1}/${detailsToCheck.length} (${detailsUpdated} updated so far)`);
+        
+        // Update progress in metadata for UI polling
+        await db.update(syncMetadata)
+          .set({
+            errorMessage: JSON.stringify({
+              phase: 'items',
+              current: i + 1,
+              total: detailsToCheck.length,
+              updated: detailsUpdated,
+              added: orderDetailsAdded,
+              apiCalls: apiCalls,
+            }),
+            updatedAt: new Date(),
+          })
+          .where(eq(syncMetadata.id, syncId));
       }
     }
     console.log(`✅ Updated ${detailsUpdated} order details with quantity/price changes`);
@@ -468,7 +497,7 @@ export async function syncShipStationOrders(fullSync: boolean = false): Promise<
         lastSyncStatus: 'success',
         recordsAdded: ordersAdded,
         recordsUpdated: ordersUpdated,
-        errorMessage: null,
+        errorMessage: null, // Clear progress data
         updatedAt: now,
       })
       .where(eq(syncMetadata.id, syncId));

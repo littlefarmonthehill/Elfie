@@ -2050,6 +2050,33 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
     }
   });
 
+  // Get ShipStation sync progress (for real-time UI updates)
+  app.get("/api/sync/shipstation/orders/progress", async (req, res) => {
+    try {
+      const [metadata] = await db
+        .select()
+        .from(syncMetadata)
+        .where(eq(syncMetadata.id, 'shipstation_orders'))
+        .limit(1);
+      
+      if (!metadata) {
+        res.json({ status: 'idle', progress: null });
+        return;
+      }
+      
+      res.json({
+        status: metadata.lastSyncStatus,
+        progress: metadata.errorMessage ? JSON.parse(metadata.errorMessage) : null,
+        lastSync: metadata.lastSyncTime,
+        recordsAdded: metadata.recordsAdded,
+        recordsUpdated: metadata.recordsUpdated,
+      });
+    } catch (error) {
+      console.error("Error fetching sync progress:", error);
+      res.status(500).json({ error: "Failed to fetch sync progress" });
+    }
+  });
+
   app.post("/api/sync/shipstation/orders", async (req, res) => {
     try {
       // Check for fullSync query parameter
