@@ -3209,15 +3209,7 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
         })
         .from(orderDetails)
         .innerJoin(orders, eq(orderDetails.orderId, orders.id))
-        .leftJoin(blInventory, and(
-          sql`(
-            ${orderDetails.sku} = ${blInventory.itemNo} OR 
-            ${blInventory.itemNo} = SUBSTRING(${orderDetails.sku} FROM '.LGO-(.+)$') OR
-            ${blInventory.itemNo} = TRIM(SUBSTRING(${orderDetails.name} FROM 'LEGO-([^ ]+)')) OR
-            ${blInventory.itemNo} = TRIM(SUBSTRING(${orderDetails.name} FROM 'Part ([^ ]+)'))
-          )`,
-          isNotNull(blInventory.itemName)
-        ))
+        .leftJoin(blInventory, eq(sql`CAST(${blInventory.id} AS TEXT)`, orderDetails.sku))
         .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
         .leftJoin(inventoryLocations, eq(blInventory.id, inventoryLocations.inventoryId))
         .leftJoin(whBins, eq(inventoryLocations.binId, whBins.id))
