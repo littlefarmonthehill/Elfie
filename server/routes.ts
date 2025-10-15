@@ -1706,7 +1706,29 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
       const [settings] = await db.select().from(appSettings).limit(1);
       const brickowlEnabled = !!settings?.brickowlApiKey;
 
-      // TODO: Get actual stats from target platforms
+      // Get actual BrickOwl inventory stats if enabled
+      let brickowlStats = {
+        totalLots: 0,
+        totalParts: 0,
+        lastSyncedAt: null as string | null,
+      };
+
+      if (brickowlEnabled) {
+        try {
+          const { getBrickOwlInventory } = await import('./services/brickowl');
+          const brickowlInventory = await getBrickOwlInventory(false); // Get all, not just active
+          
+          brickowlStats.totalLots = brickowlInventory.length;
+          brickowlStats.totalParts = brickowlInventory.reduce((sum: number, lot: any) => {
+            const qty = parseInt(lot.qty || lot.quantity || '0');
+            return sum + qty;
+          }, 0);
+          brickowlStats.lastSyncedAt = new Date().toISOString();
+        } catch (error) {
+          console.error('Failed to fetch BrickOwl inventory stats:', error);
+        }
+      }
+
       const platformSyncStatus = {
         source: {
           name: 'BrickLink',
@@ -1716,14 +1738,10 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
           {
             name: 'BrickOwl',
             enabled: brickowlEnabled,
-            stats: {
-              totalLots: 0,
-              totalParts: 0,
-              lastSyncedAt: null,
-            },
+            stats: brickowlStats,
             discrepancies: {
-              missingLots: brickLinkStats.totalLots,
-              missingParts: brickLinkStats.totalParts,
+              missingLots: Math.max(0, brickLinkStats.totalLots - brickowlStats.totalLots),
+              missingParts: Math.max(0, brickLinkStats.totalParts - brickowlStats.totalParts),
               priceDifferences: 0,
               quantityDifferences: 0,
             },

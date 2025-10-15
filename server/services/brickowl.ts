@@ -166,9 +166,17 @@ export async function lookupBoid(blItemNo: string, type: string = 'Part'): Promi
     
     console.log(`BOID lookup result for ${blItemNo}:`, JSON.stringify(result).substring(0, 200));
     
-    // Result is an array of possible BOIDs
-    if (Array.isArray(result) && result.length > 0) {
-      const boid = result[0].boid || result[0];
+    // BrickOwl returns: {"boids": ["123456"]} or sometimes an array directly
+    let boids: string[] = [];
+    
+    if (result.boids && Array.isArray(result.boids)) {
+      boids = result.boids;
+    } else if (Array.isArray(result)) {
+      boids = result.map((item: any) => item.boid || item);
+    }
+    
+    if (boids.length > 0) {
+      const boid = boids[0];
       console.log(`✓ Found BOID for ${blItemNo}: ${boid}`);
       return boid;
     }
