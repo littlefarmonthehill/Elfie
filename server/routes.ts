@@ -3169,7 +3169,10 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
         .from(orderDetails)
         .innerJoin(orders, eq(orderDetails.orderId, orders.id))
         .leftJoin(blInventory, and(
-          eq(orderDetails.sku, blInventory.itemNo),
+          sql`(
+            ${orderDetails.sku} = ${blInventory.itemNo} OR 
+            ${blInventory.itemNo} = SUBSTRING(${orderDetails.sku} FROM '.LGO-(.+)$')
+          )`,
           isNotNull(blInventory.itemName)
         ))
         .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
