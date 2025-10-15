@@ -20,7 +20,7 @@ export default function Home() {
   const [dateRange, setDateRange] = useState<DateRangeValue>('mtd');
   const [chatMinimized, setChatMinimized] = useState(true);
   const [activeInventoryDrawer, setActiveInventoryDrawer] = useState<'priceomatic' | 'warehouse' | 'sync' | null>(null);
-  const [activeDashboardDrawer, setActiveDashboardDrawer] = useState<'listing' | 'picklist' | 'fulfillment' | null>(null);
+  const [activeDashboardDrawer, setActiveDashboardDrawer] = useState<'listing' | 'picklist' | 'fulfillment' | 'platformsync' | null>(null);
   const [detailModal, setDetailModal] = useState<{ open: boolean; data: DetailData | null }>({
     open: false,
     data: null,
@@ -613,6 +613,13 @@ export default function Home() {
                     {fulfillmentStats.unfulfilled}
                   </span>
                 )}
+              </button>
+              <button
+                onClick={() => setActiveDashboardDrawer('platformsync')}
+                className="text-[9px] font-bold py-1 px-2 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
+                data-testid="button-platformsync"
+              >
+                Platform Sync
               </button>
             </div>
           </div>

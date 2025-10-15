@@ -1,6 +1,6 @@
 import MetricCard from "./MetricCard";
 import { useQuery } from "@tanstack/react-query";
-import { TrendingDown, AlertCircle, TrendingUp, ShoppingCart, ClipboardList, Tag, Truck } from "lucide-react";
+import { TrendingDown, AlertCircle, TrendingUp, ShoppingCart, ClipboardList, Tag, Truck, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Drawer,
@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/drawer";
 import PicklistTool from "./PicklistTool";
 import FulfillmentTool from "./FulfillmentTool";
+import PlatformSyncTool from "./PlatformSyncTool";
 
 interface DashboardStats {
   totalOrders: number;
@@ -53,8 +54,8 @@ interface InsightsData {
 
 interface GeneralDashboardProps {
   onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
-  activeDrawer: 'listing' | 'picklist' | 'fulfillment' | null;
-  onDrawerChange: (drawer: 'listing' | 'picklist' | 'fulfillment' | null) => void;
+  activeDrawer: 'listing' | 'picklist' | 'fulfillment' | 'platformsync' | null;
+  onDrawerChange: (drawer: 'listing' | 'picklist' | 'fulfillment' | 'platformsync' | null) => void;
 }
 
 export default function GeneralDashboard({ onItemClick, activeDrawer, onDrawerChange }: GeneralDashboardProps) {
@@ -311,6 +312,21 @@ export default function GeneralDashboard({ onItemClick, activeDrawer, onDrawerCh
           </DrawerHeader>
           <div className="overflow-y-auto px-4 pb-4 flex-1">
             <FulfillmentTool />
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Platform Sync Drawer */}
+      <Drawer open={activeDrawer === 'platformsync'} onOpenChange={(open) => !open && onDrawerChange(null)}>
+        <DrawerContent className="h-[90vh]">
+          <DrawerHeader>
+            <DrawerTitle className="flex items-center gap-2">
+              <RefreshCw className="w-5 h-5 text-purple-400" />
+              Platform Sync
+            </DrawerTitle>
+          </DrawerHeader>
+          <div className="overflow-y-auto px-4 pb-4 flex-1">
+            <PlatformSyncTool />
           </div>
         </DrawerContent>
       </Drawer>
