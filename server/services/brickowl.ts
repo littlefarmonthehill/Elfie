@@ -228,10 +228,12 @@ export async function syncInventoryItem(blItem: typeof blInventory.$inferSelect)
       };
     }
 
-    // Map color ID
-    const colorId = blItem.colorId ? await mapColorId(blItem.colorId) : null;
+    // Map color ID (colorId can be 0 for "Not Applicable")
+    const colorId = blItem.colorId !== null && blItem.colorId !== undefined 
+      ? await mapColorId(blItem.colorId) 
+      : null;
     
-    if (!colorId && blItem.itemType === 'Part') {
+    if (colorId === null && blItem.itemType === 'PART') {
       return {
         success: false,
         action: 'skipped',
