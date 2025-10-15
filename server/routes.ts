@@ -3171,7 +3171,9 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
         .leftJoin(blInventory, and(
           sql`(
             ${orderDetails.sku} = ${blInventory.itemNo} OR 
-            ${blInventory.itemNo} = SUBSTRING(${orderDetails.sku} FROM '.LGO-(.+)$')
+            ${blInventory.itemNo} = SUBSTRING(${orderDetails.sku} FROM '.LGO-(.+)$') OR
+            ${blInventory.itemNo} = TRIM(SUBSTRING(${orderDetails.name} FROM 'LEGO-([^ ]+)')) OR
+            ${blInventory.itemNo} = TRIM(SUBSTRING(${orderDetails.name} FROM 'Part ([^ ]+)'))
           )`,
           isNotNull(blInventory.itemName)
         ))
