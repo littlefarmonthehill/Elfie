@@ -101,7 +101,7 @@ export async function createBrickOwlLot(data: {
   for_sale?: number;
   external_id_1?: string;
 }): Promise<any> {
-  return brickowlPost('/inventory/create', {
+  const payload = {
     ...(data.boid && { boid: data.boid }),
     ...(data.bl_item_no && { bl_item_no: data.bl_item_no }),
     ...(data.color_id !== undefined && { color_id: data.color_id.toString() }),
@@ -110,7 +110,9 @@ export async function createBrickOwlLot(data: {
     ...(data.condition && { condition: data.condition }),
     ...(data.for_sale !== undefined && { for_sale: data.for_sale.toString() }),
     ...(data.external_id_1 && { external_id_1: data.external_id_1 }),
-  });
+  };
+  console.log('[BrickOwl] Creating lot with payload:', JSON.stringify(payload));
+  return brickowlPost('/inventory/create', payload);
 }
 
 // Update an existing lot on BrickOwl
