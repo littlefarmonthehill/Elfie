@@ -47,8 +47,11 @@ export default function PlatformSyncTool() {
   // Sync mutation
   const syncMutation = useMutation({
     mutationFn: async ({ platform, limit }: { platform: string; limit?: number }) => {
+      console.log('[Platform Sync] Mutation triggered with platform:', platform, 'limit:', limit);
       const response = await apiRequest('POST', '/api/platform-sync/sync', { platform, limit });
-      return await response.json();
+      const data = await response.json();
+      console.log('[Platform Sync] Response:', data);
+      return data;
     },
     onSuccess: (data: {
       success: boolean;
@@ -79,14 +82,18 @@ export default function PlatformSyncTool() {
   });
 
   const handleSync = async (platformName: string) => {
+    console.log('[Platform Sync] handleSync called with platform:', platformName);
     setSyncingPlatform(platformName);
-    syncMutation.mutate({ platform: platformName });
+    console.log('[Platform Sync] Calling syncMutation.mutate...');
+    // Use a limit of 10 items for testing to prevent long-running sync
+    syncMutation.mutate({ platform: platformName, limit: 10 });
   };
 
   const handleSyncAll = async () => {
     setSyncingPlatform('all');
     // For now, just sync BrickOwl (when more platforms are available, loop through them)
-    syncMutation.mutate({ platform: 'BrickOwl' });
+    // Use a limit of 10 items for testing to prevent long-running sync
+    syncMutation.mutate({ platform: 'BrickOwl', limit: 10 });
   };
 
   if (isLoading) {
