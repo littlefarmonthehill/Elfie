@@ -51,6 +51,7 @@ The frontend uses React 18+, TypeScript, Vite, Shadcn/ui, and Tailwind CSS, feat
 ## External Dependencies
 
 -   **BrickLink API:** Core data source for LEGO inventory, categories, colors, and market data.
+-   **BrickOwl API:** For multi-platform inventory synchronization from BrickLink to BrickOwl.
 -   **ShipStation API:** For order management and fulfillment.
 -   **OpenRouter API:** Powers the E.L.F.I.E. AI chat assistant.
 -   **OpenAI API:** For generating vector embeddings (text-embedding-3-small).
