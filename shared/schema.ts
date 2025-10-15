@@ -142,6 +142,10 @@ export const orderDetails = pgTable("order_details", {
   taxAmount: decimal("tax_amount", { precision: 10, scale: 2 }),
   weight: decimal("weight", { precision: 10, scale: 2 }),
   weightUnits: text("weight_units"),
+  options: text("options"), // JSON: ShipStation options array (where BrickLink stores metadata)
+  bricklinkInventoryId: integer("bricklink_inventory_id"), // BrickLink inventory ID (from options)
+  colorId: integer("color_id"), // BrickLink color ID (from options)
+  condition: text("condition"), // New/Used (from options)
   fulfilled: boolean("fulfilled").default(false).notNull(), // Track fulfillment status
   fulfilledAt: timestamp("fulfilled_at"),
   syncedAt: timestamp("synced_at").defaultNow().notNull(),

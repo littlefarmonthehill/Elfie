@@ -172,6 +172,42 @@ function extractMarketplace(order: any, debug: boolean = false): string | null {
   return null;
 }
 
+// Helper function to extract BrickLink data from ShipStation options
+function extractBrickLinkData(options: any[]) {
+  const result: { inventoryId?: number; colorId?: number; condition?: string } = {};
+  
+  if (!options || !Array.isArray(options)) return result;
+  
+  for (const option of options) {
+    const name = option.name?.toLowerCase() || '';
+    const value = option.value?.toString().trim() || '';
+    
+    // Try to find inventory ID
+    if (name.includes('inventory') && !isNaN(parseInt(value))) {
+      result.inventoryId = parseInt(value);
+    }
+    
+    // Try to find color ID
+    if (name.includes('color') && !isNaN(parseInt(value))) {
+      result.colorId = parseInt(value);
+    }
+    
+    // Try to find condition
+    if (name.includes('condition') || name.includes('new') || name.includes('used')) {
+      // Normalize to "New" or "Used"
+      if (value.toLowerCase() === 'n' || value.toLowerCase() === 'new') {
+        result.condition = 'New';
+      } else if (value.toLowerCase() === 'u' || value.toLowerCase() === 'used') {
+        result.condition = 'Used';
+      } else {
+        result.condition = value;
+      }
+    }
+  }
+  
+  return result;
+}
+
 export async function syncShipStationOrders(fullSync: boolean = false): Promise<ShipStationSyncResult> {
   const syncId = 'shipstation_orders';
   
@@ -334,6 +370,16 @@ export async function syncShipStationOrders(fullSync: boolean = false): Promise<
       
       for (const item of items) {
         const lineItemKey = item.lineItemKey || `${orderId}-${item.sku}`;
+        const options = item.options || [];
+        
+        // Log options for first 3 items to see what BrickLink sends (debug mode)
+        if (allItems.length < 3 && options.length > 0) {
+          console.log(`\n📦 DEBUG: ShipStation Item Options for ${item.name}:`);
+          console.log(JSON.stringify(options, null, 2));
+        }
+        
+        const brickLinkData = extractBrickLinkData(options);
+        
         allItems.push({
           orderId,
           lineItemKey,
@@ -341,6 +387,10 @@ export async function syncShipStationOrders(fullSync: boolean = false): Promise<
           name: item.name,
           quantity: item.quantity,
           unitPrice: item.unitPrice?.toString() || '0',
+          options: options.length > 0 ? JSON.stringify(options) : null,
+          bricklinkInventoryId: brickLinkData.inventoryId,
+          colorId: brickLinkData.colorId,
+          condition: brickLinkData.condition,
         });
       }
     }
