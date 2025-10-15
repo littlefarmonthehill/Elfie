@@ -201,13 +201,42 @@ export async function mapColorId(bricklinkColorId: number): Promise<number | nul
     .limit(1);
   
   if (!blColor) {
+    console.log(`[Color Map] BrickLink color ${bricklinkColorId} not found in database`);
     return null;
   }
 
-  // BrickOwl color mapping (simplified - may need full mapping table)
-  // For now, return the same ID (many colors have same IDs on both platforms)
-  // TODO: Implement full color mapping table if needed
-  return bricklinkColorId;
+  console.log(`[Color Map] Looking up BrickOwl color for BrickLink color ${bricklinkColorId} (${blColor.name})`);
+  
+  try {
+    // Use BrickOwl's catalog/id_lookup to find color ID by name
+    const result = await brickowlGet('/catalog/id_lookup', {
+      id: blColor.name,
+      type: 'Color',
+      id_type: 'name',
+    });
+    
+    console.log(`[Color Map] BrickOwl color lookup result for "${blColor.name}":`, JSON.stringify(result).substring(0, 200));
+    
+    // Extract color ID from response
+    let colorIds: string[] = [];
+    if (result.boids && Array.isArray(result.boids)) {
+      colorIds = result.boids;
+    } else if (Array.isArray(result)) {
+      colorIds = result.map((item: any) => item.boid || item);
+    }
+    
+    if (colorIds.length > 0) {
+      const brickOwlColorId = parseInt(colorIds[0]);
+      console.log(`[Color Map] ✓ Mapped BrickLink color ${bricklinkColorId} (${blColor.name}) → BrickOwl color ${brickOwlColorId}`);
+      return brickOwlColorId;
+    }
+    
+    console.log(`[Color Map] ✗ No BrickOwl color found for "${blColor.name}"`);
+    return null;
+  } catch (error) {
+    console.error(`[Color Map] Error mapping color ${bricklinkColorId}:`, error);
+    return null;
+  }
 }
 
 // Sync a single inventory item from BrickLink to BrickOwl
@@ -269,11 +298,9 @@ export async function syncInventoryItem(blItem: typeof blInventory.$inferSelect)
       return { success: true, action: 'updated' };
     } else {
       // Create new lot
-      // Note: Not sending color_id for now because BrickLink and BrickOwl use different color ID systems
-      // TODO: Implement proper color mapping table between BrickLink and BrickOwl
       await createBrickOwlLot({
         boid,
-        // color_id: colorId !== null ? colorId : undefined, // Disabled - needs proper mapping
+        color_id: colorId !== null ? colorId : undefined,
         quantity: blItem.quantity,
         price: blItem.unitPrice ? parseFloat(blItem.unitPrice) : 0,
         condition,
