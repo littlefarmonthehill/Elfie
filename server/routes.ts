@@ -1820,6 +1820,48 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
     }
   });
 
+  // Verify BrickOwl lots endpoint
+  app.post('/api/platform-sync/verify-lots', async (req, res) => {
+    try {
+      const { externalIds } = req.body;
+      
+      if (!externalIds || !Array.isArray(externalIds)) {
+        return res.status(400).json({ error: 'externalIds array required' });
+      }
+
+      // Fetch all BrickOwl inventory
+      const { getBrickOwlInventory } = await import('./services/brickowl');
+      const brickowlInventory = await getBrickOwlInventory(false);
+      
+      // Filter for the specific lots
+      const verifiedLots = brickowlInventory
+        .filter((lot: any) => externalIds.includes(lot.external_id_1))
+        .map((lot: any) => ({
+          external_id_1: lot.external_id_1,
+          boid: lot.boid,
+          name: lot.name,
+          color: lot.col_name || 'N/A',
+          condition: lot.full_con || lot.con,
+          quantity: lot.qty,
+          price: lot.price,
+          lot_id: lot.lot_id,
+          url: lot.url,
+        }));
+
+      const response = {
+        success: true,
+        lots: verifiedLots,
+        total: verifiedLots.length,
+      };
+      
+      console.log('[Verify Lots] Returning response:', JSON.stringify(response).substring(0, 200));
+      return res.json(response);
+    } catch (error: any) {
+      console.error('[Verify Lots] Error:', error);
+      return res.status(500).json({ error: error.message });
+    }
+  });
+
   // Sync only unsynced BrickLink items to BrickOwl
   app.post("/api/platform-sync/sync-unsynced", async (req, res) => {
     try {
