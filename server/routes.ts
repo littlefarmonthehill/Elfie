@@ -3153,7 +3153,7 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
           name: orderDetails.name,
           quantity: orderDetails.quantity,
           fulfilled: orderDetails.fulfilled,
-          colorName: blInventory.colorName,
+          colorName: blColors.name,
           condition: sql<string>`CASE 
             WHEN ${blInventory.newOrUsed} = 'N' THEN 'New'
             WHEN ${blInventory.newOrUsed} = 'U' THEN 'Used'
@@ -3172,6 +3172,7 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
           eq(orderDetails.sku, blInventory.itemNo),
           isNotNull(blInventory.itemName)
         ))
+        .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
         .leftJoin(inventoryLocations, eq(blInventory.id, inventoryLocations.inventoryId))
         .leftJoin(whBins, eq(inventoryLocations.binId, whBins.id))
         .leftJoin(whShelves, eq(whBins.shelfId, whShelves.id))
