@@ -331,7 +331,8 @@ export async function syncShipStationOrders(fullSync: boolean = false): Promise<
     }
 
     // Update orders where status changed, marketplace is missing, or during full sync
-    for (const order of ordersToCheck) {
+    for (let i = 0; i < ordersToCheck.length; i++) {
+      const order = ordersToCheck[i];
       const orderId = order.orderId.toString();
       const existing = existingOrdersMap.get(orderId);
       const marketplace = extractMarketplace(order);
@@ -356,8 +357,14 @@ export async function syncShipStationOrders(fullSync: boolean = false): Promise<
           .where(eq(orders.id, orderId));
         ordersUpdated++;
       }
+      
+      // Progress update every 500 orders
+      if ((i + 1) % 500 === 0 || i === ordersToCheck.length - 1) {
+        console.log(`⏳ Checking orders: ${i + 1}/${ordersToCheck.length} (${ordersUpdated} updated so far)`);
+      }
     }
-    console.log(`Updated ${ordersUpdated} orders${fullSync ? ' (full sync mode)' : ' with status changes'}`);
+    console.log(`✅ Updated ${ordersUpdated} orders${fullSync ? ' (full sync mode)' : ' with status changes'}`);
+
 
     // Process order details for all orders
     const allItems: any[] = [];
@@ -420,7 +427,8 @@ export async function syncShipStationOrders(fullSync: boolean = false): Promise<
     
     // Update order details that changed
     let detailsUpdated = 0;
-    for (const item of detailsToCheck) {
+    for (let i = 0; i < detailsToCheck.length; i++) {
+      const item = detailsToCheck[i];
       const existing = existingDetailsMap.get(item.lineItemKey);
       
       if (existing && (existing.quantity !== item.quantity || existing.unitPrice !== item.unitPrice)) {
@@ -433,8 +441,13 @@ export async function syncShipStationOrders(fullSync: boolean = false): Promise<
           .where(eq(orderDetails.lineItemKey, item.lineItemKey));
         detailsUpdated++;
       }
+      
+      // Progress update every 1000 items
+      if ((i + 1) % 1000 === 0 || i === detailsToCheck.length - 1) {
+        console.log(`⏳ Checking items: ${i + 1}/${detailsToCheck.length} (${detailsUpdated} updated so far)`);
+      }
     }
-    console.log(`Updated ${detailsUpdated} order details with quantity/price changes`);
+    console.log(`✅ Updated ${detailsUpdated} order details with quantity/price changes`);
 
     console.log(`ShipStation sync complete: ${ordersAdded} orders added, ${ordersUpdated} orders updated, ${orderDetailsAdded} items added`);
 
