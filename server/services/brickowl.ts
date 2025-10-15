@@ -245,15 +245,10 @@ export async function syncInventoryItem(blItem: typeof blInventory.$inferSelect)
     }
     console.log(`[Sync] Item ${blItem.itemNo} passed color check, proceeding to sync...`);
 
-    // Check if lot already exists on BrickOwl (using BrickLink inventory ID as external_id_1)
-    const existingResponse = await brickowlGet('/inventory/list', {
-      external_id_1: blItem.id.toString(),
-    });
-
-    // BrickOwl API returns { inventory: [...] } or sometimes just an array
-    const existingLots = Array.isArray(existingResponse) 
-      ? existingResponse 
-      : (existingResponse.inventory || []);
+    // Skip checking if lot exists - BrickOwl's inventory/list endpoint with external_id_1
+    // filter returns "You must provide an ID" error. Just try to create and let BrickOwl
+    // handle duplicates if they exist.
+    const existingLots: any[] = [];
 
     // Map BrickLink condition to BrickOwl condition
     // Business logic per user's inventory policy:
