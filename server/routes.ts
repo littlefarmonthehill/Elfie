@@ -3142,22 +3142,32 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
       
       const orderIds = fulfillmentOrders.map(o => o.id);
       
-      // Get all potential items (with duplicates)
+      // Get all potential items - extract color/condition directly from order name
       const allItems = await db
         .select({
           id: orderDetails.id,
           orderId: orderDetails.orderId,
           orderNumber: orders.orderNumber,
           sku: orderDetails.sku,
-          bricklinkPartNumber: blInventory.itemNo,
+          bricklinkPartNumber: sql<string>`COALESCE(
+            ${blInventory.itemNo},
+            TRIM(SUBSTRING(${orderDetails.sku} FROM '.LGO-(.+)$')),
+            TRIM(SUBSTRING(${orderDetails.name} FROM 'LEGO-([^ ]+)')),
+            TRIM(SUBSTRING(${orderDetails.name} FROM 'Part ([^ ]+)'))
+          )`,
           name: orderDetails.name,
           quantity: orderDetails.quantity,
           fulfilled: orderDetails.fulfilled,
-          colorName: blColors.name,
+          colorName: sql<string>`COALESCE(
+            ${blColors.name},
+            (SELECT bc.name FROM bl_colors bc WHERE order_details.name ILIKE '%' || bc.name || '%' ORDER BY LENGTH(bc.name) DESC LIMIT 1)
+          )`,
           condition: sql<string>`CASE 
+            WHEN ${orderDetails.name} LIKE '%(Used)%' THEN 'Used'
+            WHEN ${orderDetails.name} LIKE '%(New)%' THEN 'New'
             WHEN ${blInventory.newOrUsed} = 'N' THEN 'New'
             WHEN ${blInventory.newOrUsed} = 'U' THEN 'Used'
-            ELSE ${blInventory.newOrUsed}
+            ELSE NULL
           END`,
           binId: inventoryLocations.binId,
           binName: whBins.name,
