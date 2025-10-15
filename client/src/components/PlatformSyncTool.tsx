@@ -65,68 +65,15 @@ export default function PlatformSyncTool() {
     );
   }
 
-  // Mock data for UI design
-  const mockData: PlatformSyncData = {
-    source: {
-      name: 'BrickLink',
-      stats: {
-        totalLots: 2847,
-        totalParts: 51720,
-        lastSyncedAt: new Date().toISOString(),
-      },
-    },
-    targets: [
-      {
-        name: 'BrickOwl',
-        enabled: false,
-        stats: {
-          totalLots: 0,
-          totalParts: 0,
-          lastSyncedAt: null,
-        },
-        discrepancies: {
-          missingLots: 2847,
-          missingParts: 51720,
-          priceDifferences: 0,
-          quantityDifferences: 0,
-        },
-      },
-      {
-        name: 'eBay',
-        enabled: false,
-        stats: {
-          totalLots: 0,
-          totalParts: 0,
-          lastSyncedAt: null,
-        },
-        discrepancies: {
-          missingLots: 0,
-          missingParts: 0,
-          priceDifferences: 0,
-          quantityDifferences: 0,
-        },
-      },
-      {
-        name: 'BigCommerce',
-        enabled: false,
-        stats: {
-          totalLots: 0,
-          totalParts: 0,
-          lastSyncedAt: null,
-        },
-        discrepancies: {
-          missingLots: 0,
-          missingParts: 0,
-          priceDifferences: 0,
-          quantityDifferences: 0,
-        },
-      },
-    ],
-    lastSyncStatus: 'idle',
-    lastSyncMessage: null,
-  };
+  if (!data) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-gray-500">No platform sync data available</p>
+      </div>
+    );
+  }
 
-  const displayData = data || mockData;
+  const displayData = data;
 
   return (
     <div className="space-y-4">

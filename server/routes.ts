@@ -1684,6 +1684,87 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
     }
   });
 
+  // Get Platform Sync Status
+  app.get("/api/platform-sync/status", async (req, res) => {
+    try {
+      // Get BrickLink inventory stats (source of truth)
+      const blStats = await db
+        .select({
+          totalLots: sql<number>`COUNT(*)`,
+          totalParts: sql<number>`SUM(${blInventory.quantity})`,
+        })
+        .from(blInventory);
+
+      const brickLinkStats = {
+        totalLots: Number(blStats[0]?.totalLots) || 0,
+        totalParts: Number(blStats[0]?.totalParts) || 0,
+        lastSyncedAt: new Date().toISOString(),
+      };
+
+      // TODO: Get actual stats from target platforms
+      const platformSyncStatus = {
+        source: {
+          name: 'BrickLink',
+          stats: brickLinkStats,
+        },
+        targets: [
+          {
+            name: 'BrickOwl',
+            enabled: false,
+            stats: {
+              totalLots: 0,
+              totalParts: 0,
+              lastSyncedAt: null,
+            },
+            discrepancies: {
+              missingLots: brickLinkStats.totalLots,
+              missingParts: brickLinkStats.totalParts,
+              priceDifferences: 0,
+              quantityDifferences: 0,
+            },
+          },
+          {
+            name: 'eBay',
+            enabled: false,
+            stats: {
+              totalLots: 0,
+              totalParts: 0,
+              lastSyncedAt: null,
+            },
+            discrepancies: {
+              missingLots: 0,
+              missingParts: 0,
+              priceDifferences: 0,
+              quantityDifferences: 0,
+            },
+          },
+          {
+            name: 'BigCommerce',
+            enabled: false,
+            stats: {
+              totalLots: 0,
+              totalParts: 0,
+              lastSyncedAt: null,
+            },
+            discrepancies: {
+              missingLots: 0,
+              missingParts: 0,
+              priceDifferences: 0,
+              quantityDifferences: 0,
+            },
+          },
+        ],
+        lastSyncStatus: 'idle' as const,
+        lastSyncMessage: null,
+      };
+
+      res.json(platformSyncStatus);
+    } catch (error) {
+      console.error("Error fetching platform sync status:", error);
+      res.status(500).json({ error: "Failed to fetch platform sync status" });
+    }
+  });
+
   // Get Recently Updated/Added Inventory Items (MUST be before /api/inventory/:id)
   app.get("/api/inventory/recent-updates", async (req, res) => {
     try {
