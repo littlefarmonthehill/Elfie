@@ -119,6 +119,7 @@ export async function updateBrickOwlLot(data: {
   external_id_1?: string;
   absolute_quantity?: number;
   price?: number;
+  condition?: string;
   for_sale?: number;
 }): Promise<any> {
   const updateData: Record<string, string> = {};
@@ -127,6 +128,7 @@ export async function updateBrickOwlLot(data: {
   if (data.external_id_1) updateData.external_id_1 = data.external_id_1;
   if (data.absolute_quantity !== undefined) updateData.absolute_quantity = data.absolute_quantity.toString();
   if (data.price !== undefined) updateData.price = data.price.toFixed(3);
+  if (data.condition) updateData.condition = data.condition;
   if (data.for_sale !== undefined) updateData.for_sale = data.for_sale.toString();
   
   return brickowlPost('/inventory/update', updateData);
