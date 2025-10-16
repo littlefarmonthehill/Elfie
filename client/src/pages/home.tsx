@@ -642,6 +642,13 @@ export default function Home() {
                   </span>
                 )}
               </button>
+              <button
+                onClick={() => setActiveOrdersDrawer('ordersync')}
+                className="text-[9px] font-bold py-1 px-2 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
+                data-testid="button-ordersync"
+              >
+                Order Sync Tester
+              </button>
             </div>
           </div>
         </div>

@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/drawer";
 import PicklistTool from "./PicklistTool";
 import FulfillmentTool from "./FulfillmentTool";
+import OrderSyncTester from "./OrderSyncTester";
 
 interface Order {
   id: string;
@@ -21,8 +22,8 @@ interface Order {
 
 interface OrdersDashboardProps {
   onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
-  activeDrawer: 'picklist' | 'fulfillment' | null;
-  onDrawerChange: (drawer: 'picklist' | 'fulfillment' | null) => void;
+  activeDrawer: 'picklist' | 'fulfillment' | 'ordersync' | null;
+  onDrawerChange: (drawer: 'picklist' | 'fulfillment' | 'ordersync' | null) => void;
 }
 
 export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerChange }: OrdersDashboardProps) {
@@ -195,6 +196,12 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
           </div>
         </DrawerContent>
       </Drawer>
+
+      {/* Order Sync Tester Drawer */}
+      <OrderSyncTester
+        open={activeDrawer === 'ordersync'}
+        onOpenChange={(open) => !open && onDrawerChange(null)}
+      />
     </div>
   );
 }
