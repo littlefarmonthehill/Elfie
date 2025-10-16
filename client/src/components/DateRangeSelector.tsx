@@ -1,6 +1,6 @@
 import { Calendar } from "lucide-react";
 
-export type DateRangeValue = 'mtd' | '3months' | '6months' | '1year' | '2years' | 'all';
+export type DateRangeValue = 'mtd' | 'lastmonth' | '3months' | '6months' | '1year' | '2years' | 'all';
 
 interface DateRangeSelectorProps {
   value: DateRangeValue;
@@ -11,6 +11,7 @@ interface DateRangeSelectorProps {
 export default function DateRangeSelector({ value, onChange, className = "" }: DateRangeSelectorProps) {
   const options: { label: string; value: DateRangeValue }[] = [
     { label: 'MTD', value: 'mtd' },
+    { label: 'Last Month', value: 'lastmonth' },
     { label: '3M', value: '3months' },
     { label: '6M', value: '6months' },
     { label: '1Y', value: '1year' },
