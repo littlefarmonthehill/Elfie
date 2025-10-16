@@ -2,6 +2,7 @@ import { db } from "../db";
 import { blInventory, orders, orderDetails } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
 import { shouldAdjustInventory } from "../config/order-status-mapping";
+import { syncMultipleItemsAcrossPlatforms } from "./cross-platform-sync";
 
 /**
  * Adjust inventory based on order status change
@@ -100,12 +101,46 @@ export async function adjustInventoryForOrder(orderId: string) {
     }
   }
 
-  console.log(`Inventory adjustment complete for order ${orderId}:`, {
+  console.log(`📦 Inventory adjusted for order ${orderId}:`, {
     statusChange: `${order.previousStatus || 'new'} → ${order.orderStatus}`,
     impact,
     adjustments: adjustments.length,
     errors: errors.length
   });
+
+  // Trigger cross-platform inventory sync for all adjusted items
+  // Fire-and-forget async - don't block order processing
+  if (adjustments.length > 0) {
+    (async () => {
+      try {
+        // Fetch updated quantities from database
+        const itemsToSync: Array<{ inventoryId: string; newQuantity: number }> = [];
+        
+        for (const adjustment of adjustments) {
+          const [inventoryItem] = await db
+            .select()
+            .from(blInventory)
+            .where(eq(blInventory.id, adjustment.inventoryId))
+            .limit(1);
+          
+          if (inventoryItem) {
+            itemsToSync.push({
+              inventoryId: inventoryItem.id.toString(),
+              newQuantity: inventoryItem.quantity,
+            });
+          }
+        }
+        
+        // Sync to all platforms (BrickOwl, eBay, BigCommerce, Amazon, etc.)
+        if (itemsToSync.length > 0) {
+          await syncMultipleItemsAcrossPlatforms(itemsToSync);
+        }
+      } catch (error) {
+        console.error(`⚠️ Cross-platform sync failed for order ${orderId}:`, error);
+        // Don't throw - sync failures should not block order processing
+      }
+    })();
+  }
 
   return {
     adjusted: true,
