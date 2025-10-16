@@ -17,6 +17,7 @@ export default function Home() {
   const [activeDashboard, setActiveDashboard] = useState<DashboardType>('dashboard');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [salesPeriod, setSalesPeriod] = useState<'mtd' | 'ytd' | '1y' | '5y'>('ytd');
+  const [dateRange, setDateRange] = useState<DateRangeValue>('all');
   const [chatMinimized, setChatMinimized] = useState(true);
   const [activeInventoryDrawer, setActiveInventoryDrawer] = useState<'priceomatic' | 'warehouse' | 'listing' | 'platformsync' | null>(null);
   const [activeOrdersDrawer, setActiveOrdersDrawer] = useState<'picklist' | 'fulfillment' | null>(null);
@@ -215,9 +216,9 @@ export default function Home() {
       case 'orders':
         return <OrdersDashboard onItemClick={handleDashboardItemClick} activeDrawer={activeOrdersDrawer} onDrawerChange={setActiveOrdersDrawer} />;
       case 'sales':
-        return <SalesDashboard period={salesPeriod} onItemClick={handleDashboardItemClick} />;
+        return <SalesDashboard period={salesPeriod} dateRange={dateRange} onItemClick={handleDashboardItemClick} />;
       case 'marketing':
-        return <MarketingDashboard onItemClick={handleDashboardItemClick} />;
+        return <MarketingDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} />;
       default:
         return <GeneralDashboard onItemClick={handleDashboardItemClick} />;
     }
@@ -650,6 +651,16 @@ export default function Home() {
                 Order Sync Tester
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Date Range Selector - Only show for sales and marketing */}
+      {(activeDashboard === 'sales' || activeDashboard === 'marketing') && (
+        <div className="px-4 py-2 bg-black border-b border-gray-800">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold text-gray-400">DATE RANGE</span>
+            <DateRangeSelector value={dateRange} onChange={setDateRange} />
           </div>
         </div>
       )}
