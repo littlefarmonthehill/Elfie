@@ -6,16 +6,15 @@ import { updateBrickOwlLot, getBrickOwlInventory } from './brickowl';
 /**
  * Cross-Platform Inventory Synchronization Service
  * 
- * Industry standard: Item-by-item asynchronous updates across all selling platforms
+ * Industry standard: Item-by-item asynchronous updates across selling platforms
  * when BrickLink inventory changes (via order shipments, cancellations, manual adjustments)
  * 
+ * BrickLink is the source of truth - all inventory changes update BrickLink first,
+ * then propagate to other platforms.
+ * 
  * Supported Platforms:
- * - BrickOwl (implemented)
- * - eBay (pending credentials)
- * - BigCommerce (pending credentials)
- * - Amazon (pending credentials)
- * - Etsy (pending credentials)
- * - Facebook Marketplace (pending credentials)
+ * - BrickOwl (active)
+ * - eBay, BigCommerce, Amazon, Etsy, Facebook (future - TBD)
  */
 
 export interface PlatformSyncResult {
@@ -72,54 +71,38 @@ async function updateBrickOwlQuantity(
 
 /**
  * Update a single inventory item's quantity on eBay
- * TODO: Implement when eBay credentials are configured
+ * TODO: Implement when eBay integration is needed
  */
 async function updateEbayQuantity(
   inventoryId: string,
   newQuantity: number
-): Promise<{ success: boolean; error?: string }> {
-  // Check if eBay credentials are configured
-  if (!process.env.EBAY_API_KEY) {
-    return { success: false, error: 'eBay credentials not configured' };
-  }
-  
-  // TODO: Implement eBay inventory update API call
-  console.log(`⏭ eBay: Skipping (not implemented) - inventory ${inventoryId} → ${newQuantity}`);
-  return { success: false, error: 'eBay sync not implemented' };
+): Promise<{ success: boolean; skipped?: boolean; error?: string }> {
+  // eBay sync not yet implemented - skip gracefully
+  return { success: true, skipped: true };
 }
 
 /**
  * Update a single inventory item's quantity on BigCommerce
- * TODO: Implement when BigCommerce credentials are configured
+ * TODO: Implement when BigCommerce integration is needed
  */
 async function updateBigCommerceQuantity(
   inventoryId: string,
   newQuantity: number
-): Promise<{ success: boolean; error?: string }> {
-  if (!process.env.BIGCOMMERCE_API_KEY) {
-    return { success: false, error: 'BigCommerce credentials not configured' };
-  }
-  
-  // TODO: Implement BigCommerce inventory update API call
-  console.log(`⏭ BigCommerce: Skipping (not implemented) - inventory ${inventoryId} → ${newQuantity}`);
-  return { success: false, error: 'BigCommerce sync not implemented' };
+): Promise<{ success: boolean; skipped?: boolean; error?: string }> {
+  // BigCommerce sync not yet implemented - skip gracefully
+  return { success: true, skipped: true };
 }
 
 /**
  * Update a single inventory item's quantity on Amazon
- * TODO: Implement when Amazon credentials are configured
+ * TODO: Implement when Amazon integration is needed
  */
 async function updateAmazonQuantity(
   inventoryId: string,
   newQuantity: number
-): Promise<{ success: boolean; error?: string }> {
-  if (!process.env.AMAZON_API_KEY) {
-    return { success: false, error: 'Amazon credentials not configured' };
-  }
-  
-  // TODO: Implement Amazon inventory update API call
-  console.log(`⏭ Amazon: Skipping (not implemented) - inventory ${inventoryId} → ${newQuantity}`);
-  return { success: false, error: 'Amazon sync not implemented' };
+): Promise<{ success: boolean; skipped?: boolean; error?: string }> {
+  // Amazon sync not yet implemented - skip gracefully
+  return { success: true, skipped: true };
 }
 
 /**
