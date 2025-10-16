@@ -39,9 +39,32 @@ export async function syncBrickOwlOrders(
   try {
     console.log(`\n🦉 Starting BrickOwl order sync...`);
     
+    // Check if incremental sync should be used
+    let orderTime: number | undefined = undefined;
+    
+    if (!options.fullSync) {
+      // Check for previous sync
+      const [previousSync] = await db
+        .select()
+        .from(syncMetadata)
+        .where(eq(syncMetadata.id, syncId))
+        .limit(1);
+      
+      if (previousSync?.lastSyncTime) {
+        // BrickOwl API expects Unix timestamp
+        orderTime = Math.floor(previousSync.lastSyncTime.getTime() / 1000);
+        console.log(`📅 Incremental sync: fetching orders modified since ${previousSync.lastSyncTime.toISOString()} (timestamp: ${orderTime})`);
+      } else {
+        console.log(`🔄 No previous sync found - performing full sync`);
+      }
+    } else {
+      console.log(`🔄 Full sync requested`);
+    }
+    
     // Fetch orders from BrickOwl API
     const boOrders = await getBrickOwlOrders(apiKey, {
       limit: options.limit,
+      orderTime: orderTime,
     });
     
     result.totalOrders = boOrders.length;

@@ -345,7 +345,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
           <DrawerHeader>
             <DrawerTitle className="flex items-center gap-2">
               <RefreshCw className="w-5 h-5 text-purple-400" />
-              Platform Sync
+              Sync Inventory
             </DrawerTitle>
           </DrawerHeader>
           <div className="overflow-y-auto px-4 pb-4 flex-1">

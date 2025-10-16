@@ -603,7 +603,7 @@ export default function Home() {
                 className="text-[9px] font-bold py-1 px-2 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
                 data-testid="button-platformsync"
               >
-                Platform Sync
+                Sync Inventory
               </button>
             </div>
           </div>

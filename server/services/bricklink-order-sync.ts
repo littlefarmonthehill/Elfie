@@ -43,24 +43,48 @@ export async function syncBrickLinkOrders(
   try {
     console.log(`\n📦 Starting BrickLink order sync...`);
     
+    // Check if incremental sync should be used
+    let filedDate: Date | undefined = undefined;
+    
+    if (!options.fullSync) {
+      // Check for previous sync
+      const [previousSync] = await db
+        .select()
+        .from(syncMetadata)
+        .where(eq(syncMetadata.id, syncId))
+        .limit(1);
+      
+      if (previousSync?.lastSyncTime) {
+        filedDate = previousSync.lastSyncTime;
+        console.log(`📅 Incremental sync: fetching orders modified since ${filedDate.toISOString()}`);
+      } else {
+        console.log(`🔄 No previous sync found - performing full sync`);
+      }
+    } else {
+      console.log(`🔄 Full sync requested`);
+    }
+    
     // Fetch orders from BrickLink API
     // Status options: PENDING (awaiting payment/shipment), COMPLETED (shipped), PURGED (cancelled/deleted)
     const pendingOrders = await getBrickLinkOrders(consumerKey, consumerSecret, tokenValue, tokenSecret, {
       direction: 'in', // Incoming orders (purchases)
       status: 'PENDING',
       limit: options.limit,
+      filed: filedDate,
     });
     
     const completedOrders = await getBrickLinkOrders(consumerKey, consumerSecret, tokenValue, tokenSecret, {
       direction: 'in',
       status: 'COMPLETED',
       limit: options.limit,
+      filed: filedDate,
     });
     
     const purgedOrders = await getBrickLinkOrders(consumerKey, consumerSecret, tokenValue, tokenSecret, {
       direction: 'in',
       status: 'PURGED',
       limit: options.limit,
+      filed: filedDate,
     });
     
     const allOrders = [...pendingOrders, ...completedOrders, ...purgedOrders];
