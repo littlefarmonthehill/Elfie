@@ -24,7 +24,8 @@ export interface BrickOwlInventoryLot {
     other?: string;
     external_id_1?: string;
   };
-  personal_note?: string;
+  personal_note?: string; // Internal notes (BrickLink remarks)
+  public_note?: string;   // Public notes (BrickLink description)
 }
 
 // Make a BrickOwl API GET request
@@ -124,6 +125,7 @@ export async function createBrickOwlLot(data: {
   for_sale?: number;
   external_id_1?: string;
   personal_note?: string;
+  public_note?: string;
 }): Promise<any> {
   const payload = {
     ...(data.boid && { boid: data.boid }),
@@ -135,6 +137,7 @@ export async function createBrickOwlLot(data: {
     ...(data.for_sale !== undefined && { for_sale: data.for_sale.toString() }),
     ...(data.external_id_1 && { external_id_1: data.external_id_1 }),
     ...(data.personal_note && { personal_note: data.personal_note }),
+    ...(data.public_note && { public_note: data.public_note }),
   };
   console.log('[BrickOwl] Creating lot with payload:', JSON.stringify(payload));
   return brickowlPost('/inventory/create', payload);
@@ -149,6 +152,7 @@ export async function updateBrickOwlLot(data: {
   condition?: string;
   for_sale?: number;
   personal_note?: string;
+  public_note?: string;
 }): Promise<any> {
   const updateData: Record<string, string> = {};
   
@@ -159,6 +163,7 @@ export async function updateBrickOwlLot(data: {
   if (data.condition) updateData.condition = data.condition;
   if (data.for_sale !== undefined) updateData.for_sale = data.for_sale.toString();
   if (data.personal_note !== undefined) updateData.personal_note = data.personal_note;
+  if (data.public_note !== undefined) updateData.public_note = data.public_note;
   
   return brickowlPost('/inventory/update', updateData);
 }
@@ -302,9 +307,10 @@ export async function syncInventoryItem(
       const qtyChanged = existingQty !== blItem.quantity;
       const priceChanged = Math.abs(existingPrice - newPrice) > 0.001;
       const remarksChanged = (existingLot.personal_note || '') !== (blItem.remarks || '');
+      const descriptionChanged = (existingLot.public_note || '') !== (blItem.description || '');
       
-      if (qtyChanged || priceChanged || remarksChanged) {
-        console.log(`[Sync] Updating ${blItem.itemNo} (BL inv ${blItem.id}): Qty ${existingQty} → ${blItem.quantity}, Price $${existingPrice} → $${newPrice}, Remarks: ${remarksChanged ? 'changed' : 'same'}`);
+      if (qtyChanged || priceChanged || remarksChanged || descriptionChanged) {
+        console.log(`[Sync] Updating ${blItem.itemNo} (BL inv ${blItem.id}): Qty ${existingQty} → ${blItem.quantity}, Price $${existingPrice} → $${newPrice}, Remarks: ${remarksChanged ? 'changed' : 'same'}, Description: ${descriptionChanged ? 'changed' : 'same'}`);
         
         await updateBrickOwlLot({
           lot_id: existingLot.lot_id,
@@ -313,6 +319,7 @@ export async function syncInventoryItem(
           condition,
           for_sale: 1,
           personal_note: blItem.remarks || undefined,
+          public_note: blItem.description || undefined,
         });
         
         return { success: true, action: 'updated' };
@@ -341,7 +348,8 @@ export async function syncInventoryItem(
         condition,
         for_sale: 1,
         external_id_1: blItem.id.toString(), // Store BrickLink inventory ID
-        personal_note: blItem.remarks || undefined,
+        personal_note: blItem.remarks || undefined,      // Internal notes (bin location, etc.)
+        public_note: blItem.description || undefined,    // Public notes (condition, etc.)
       });
       
       return { success: true, action: 'created' };
