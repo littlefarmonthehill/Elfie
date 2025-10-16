@@ -3745,6 +3745,218 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
     }
   });
 
+  // Dry-Run Order Sync Tester - Test with historical orders
+  app.post("/api/orders/dry-run-test", async (req, res) => {
+    try {
+      const { platform, limit = 5 } = req.body;
+      
+      // Get API credentials
+      const [settings] = await db.select().from(appSettings).limit(1);
+      if (!settings) {
+        return res.status(400).json({ error: "API credentials not configured" });
+      }
+
+      const results: any[] = [];
+
+      // Test BrickLink orders
+      if (platform === 'bricklink' || platform === 'both') {
+        if (!settings.bricklinkConsumerKey || !settings.bricklinkConsumerSecret || 
+            !settings.bricklinkTokenValue || !settings.bricklinkTokenSecret) {
+          return res.status(400).json({ error: "BrickLink API credentials not configured" });
+        }
+
+        const { getBrickLinkOrders, getBrickLinkOrderItems, mapBrickLinkStatus, mapBrickLinkCondition } = 
+          await import('./services/bricklink-orders');
+
+        // Fetch recent completed orders
+        const blOrders = await getBrickLinkOrders(
+          settings.bricklinkConsumerKey,
+          settings.bricklinkConsumerSecret,
+          settings.bricklinkTokenValue,
+          settings.bricklinkTokenSecret,
+          { direction: 'in', status: 'COMPLETED', limit }
+        );
+
+        for (const blOrder of blOrders) {
+          // Fetch order items
+          const items = await getBrickLinkOrderItems(
+            blOrder.order_id,
+            settings.bricklinkConsumerKey,
+            settings.bricklinkConsumerSecret,
+            settings.bricklinkTokenValue,
+            settings.bricklinkTokenSecret
+          );
+
+          // Check if corresponding ShipStation order exists
+          const ssOrder = await db.select().from(orders)
+            .where(and(
+              eq(orders.orderNumber, blOrder.order_id.toString()),
+              eq(orders.marketplace, 'BrickLink')
+            ))
+            .limit(1);
+
+          // Map to our schema
+          const mappedOrder = {
+            id: `bl-${blOrder.order_id}`,
+            orderNumber: blOrder.order_id.toString(),
+            marketplace: 'BrickLink',
+            orderDate: blOrder.date_ordered,
+            orderStatus: mapBrickLinkStatus(blOrder.status),
+            customerUsername: blOrder.buyer_name,
+            customerEmail: blOrder.buyer_email,
+            orderTotal: blOrder.cost?.grand_total || '0',
+            shippingAmount: blOrder.cost?.shipping || '0',
+            shipDate: blOrder.shipping?.date_shipped || null,
+            trackingNumber: blOrder.shipping?.tracking_no || null,
+          };
+
+          // Map items
+          const mappedItems = items.map((item: any) => ({
+            sku: item.inventory_id.toString(), // ⭐ BrickLink inventory ID
+            name: `${item.item.name} (${item.color_name})`,
+            quantity: item.quantity,
+            unitPrice: item.unit_price_final,
+            bricklinkInventoryId: item.inventory_id,
+            colorId: item.color_id,
+            condition: mapBrickLinkCondition(item.new_or_used),
+          }));
+
+          // Check warehouse bin mapping
+          const itemsWithBins = await Promise.all(mappedItems.map(async (item: any) => {
+            const binInfo = await db
+              .select({
+                aisleId: whAisles.id,
+                aisleName: whAisles.name,
+                shelfId: whShelves.id,
+                shelfName: whShelves.name,
+                binId: whBins.id,
+                binName: whBins.name,
+              })
+              .from(inventoryLocations)
+              .leftJoin(whBins, eq(inventoryLocations.binId, whBins.id))
+              .leftJoin(whShelves, eq(whBins.shelfId, whShelves.id))
+              .leftJoin(whAisles, eq(whShelves.aisleId, whAisles.id))
+              .where(eq(inventoryLocations.inventoryId, item.bricklinkInventoryId))
+              .limit(1);
+
+            return {
+              ...item,
+              warehouseBin: binInfo[0] || null,
+            };
+          }));
+
+          results.push({
+            platform: 'BrickLink',
+            order: mappedOrder,
+            items: itemsWithBins,
+            comparison: ssOrder[0] || null,
+            issues: [],
+          });
+        }
+      }
+
+      // Test BrickOwl orders
+      if (platform === 'brickowl' || platform === 'both') {
+        if (!settings.brickowlApiKey) {
+          return res.status(400).json({ error: "BrickOwl API key not configured" });
+        }
+
+        const { getBrickOwlOrders, getBrickOwlOrderDetails, mapBrickOwlStatus, mapBrickOwlCondition } = 
+          await import('./services/brickowl-orders');
+
+        // Fetch recent orders
+        const boOrderList = await getBrickOwlOrders(settings.brickowlApiKey, { limit });
+
+        for (const boOrderSummary of boOrderList) {
+          // Fetch full order details
+          const boOrder = await getBrickOwlOrderDetails(settings.brickowlApiKey, boOrderSummary.order_id);
+
+          // Check if corresponding ShipStation order exists
+          const ssOrder = await db.select().from(orders)
+            .where(and(
+              eq(orders.orderNumber, boOrder.order_id.toString()),
+              eq(orders.marketplace, 'BrickOwl')
+            ))
+            .limit(1);
+
+          // Map to our schema
+          const mappedOrder = {
+            id: `bo-${boOrder.order_id}`,
+            orderNumber: boOrder.order_id.toString(),
+            marketplace: 'BrickOwl',
+            orderDate: new Date(boOrder.order_time * 1000).toISOString(),
+            orderStatus: mapBrickOwlStatus(boOrder.status_id),
+            customerUsername: boOrder.buyer_name,
+            customerEmail: boOrder.buyer_email,
+            orderTotal: boOrder.base_order_total || '0',
+            shippingAmount: 'Combined in total', // BrickOwl doesn't separate shipping
+            trackingNumber: boOrder.tracking_no || null,
+          };
+
+          // Map items
+          const issues: string[] = [];
+          const mappedItems = (boOrder.items || []).map((item: any) => {
+            const externalId = item.external_lot_ids?.other;
+            if (!externalId) {
+              issues.push(`Item ${item.item_name} missing external_lot_ids.other`);
+            }
+            
+            return {
+              sku: externalId || null, // ⭐ BrickLink inventory ID from external_lot_ids.other
+              name: `${item.item_name} (${item.color_name})`,
+              quantity: item.quantity,
+              unitPrice: item.price,
+              bricklinkInventoryId: externalId ? parseInt(externalId) : null,
+              colorId: item.color_id,
+              condition: mapBrickOwlCondition(item.condition),
+            };
+          });
+
+          // Check warehouse bin mapping
+          const itemsWithBins = await Promise.all(mappedItems.map(async (item: any) => {
+            if (!item.bricklinkInventoryId) {
+              return { ...item, warehouseBin: null };
+            }
+
+            const binInfo = await db
+              .select({
+                aisleId: whAisles.id,
+                aisleName: whAisles.name,
+                shelfId: whShelves.id,
+                shelfName: whShelves.name,
+                binId: whBins.id,
+                binName: whBins.name,
+              })
+              .from(inventoryLocations)
+              .leftJoin(whBins, eq(inventoryLocations.binId, whBins.id))
+              .leftJoin(whShelves, eq(whBins.shelfId, whShelves.id))
+              .leftJoin(whAisles, eq(whShelves.aisleId, whAisles.id))
+              .where(eq(inventoryLocations.inventoryId, item.bricklinkInventoryId))
+              .limit(1);
+
+            return {
+              ...item,
+              warehouseBin: binInfo[0] || null,
+            };
+          }));
+
+          results.push({
+            platform: 'BrickOwl',
+            order: mappedOrder,
+            items: itemsWithBins,
+            comparison: ssOrder[0] || null,
+            issues,
+          });
+        }
+      }
+
+      res.json({ success: true, results });
+    } catch (error: any) {
+      console.error("Error in dry-run test:", error);
+      res.status(500).json({ error: error.message || "Failed to run order sync test" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
