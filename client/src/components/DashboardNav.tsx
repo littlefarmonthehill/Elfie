@@ -9,7 +9,7 @@ interface DashboardNavProps {
 
 const dashboards = [
   { id: 'dashboard' as const, label: 'Dashboard', color: 'lego-red' },
-  { id: 'inventory' as const, label: 'Inventory', color: 'lego-blue' },
+  { id: 'inventory' as const, label: 'Product', color: 'lego-blue' },
   { id: 'orders' as const, label: 'Orders', color: 'lego-orange' },
   { id: 'marketing' as const, label: 'Marketing', color: 'lego-yellow' },
   { id: 'sales' as const, label: 'Sales', color: 'lego-green' },
