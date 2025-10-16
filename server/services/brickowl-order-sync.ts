@@ -64,6 +64,7 @@ export async function syncBrickOwlOrders(
       lastSyncStatus: 'success',
       recordsAdded: result.ordersAdded,
       recordsUpdated: result.ordersUpdated,
+      errorMessage: null,
     }).onConflictDoUpdate({
       target: syncMetadata.id,
       set: {
@@ -71,6 +72,7 @@ export async function syncBrickOwlOrders(
         lastSyncStatus: 'success',
         recordsAdded: result.ordersAdded,
         recordsUpdated: result.ordersUpdated,
+        errorMessage: null,
       },
     });
     

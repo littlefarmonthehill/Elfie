@@ -2644,6 +2644,86 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
     }
   });
 
+  // BrickLink order sync endpoint
+  app.post("/api/sync/bricklink/orders", async (req, res) => {
+    try {
+      const { limit, fullSync } = req.body;
+      
+      // Get BrickLink credentials from settings
+      const [settings] = await db
+        .select()
+        .from(appSettings)
+        .limit(1);
+      
+      if (!settings?.bricklinkConsumerKey || !settings?.bricklinkConsumerSecret || 
+          !settings?.bricklinkTokenValue || !settings?.bricklinkTokenSecret) {
+        return res.status(400).json({
+          success: false,
+          error: "BrickLink API credentials not configured",
+        });
+      }
+      
+      const { syncBrickLinkOrders } = await import("./services/bricklink-order-sync");
+      
+      const result = await syncBrickLinkOrders(
+        settings.bricklinkConsumerKey,
+        settings.bricklinkConsumerSecret,
+        settings.bricklinkTokenValue,
+        settings.bricklinkTokenSecret,
+        { limit, fullSync }
+      );
+      
+      res.json({
+        success: true,
+        data: result,
+      });
+    } catch (error: any) {
+      console.error("BrickLink order sync error:", error);
+      res.status(500).json({
+        success: false,
+        error: error.message || "Failed to sync BrickLink orders",
+      });
+    }
+  });
+
+  // BrickOwl order sync endpoint
+  app.post("/api/sync/brickowl/orders", async (req, res) => {
+    try {
+      const { limit, fullSync } = req.body;
+      
+      // Get BrickOwl API key from settings
+      const [settings] = await db
+        .select()
+        .from(appSettings)
+        .limit(1);
+      
+      if (!settings?.brickowlApiKey) {
+        return res.status(400).json({
+          success: false,
+          error: "BrickOwl API key not configured",
+        });
+      }
+      
+      const { syncBrickOwlOrders } = await import("./services/brickowl-order-sync");
+      
+      const result = await syncBrickOwlOrders(
+        settings.brickowlApiKey,
+        { limit, fullSync }
+      );
+      
+      res.json({
+        success: true,
+        data: result,
+      });
+    } catch (error: any) {
+      console.error("BrickOwl order sync error:", error);
+      res.status(500).json({
+        success: false,
+        error: error.message || "Failed to sync BrickOwl orders",
+      });
+    }
+  });
+
   // Marketplace diagnostic endpoint
   app.get("/api/orders/marketplace-diagnostic", async (req, res) => {
     try {

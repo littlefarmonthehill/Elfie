@@ -44,7 +44,7 @@ export async function syncBrickLinkOrders(
     console.log(`\n📦 Starting BrickLink order sync...`);
     
     // Fetch orders from BrickLink API
-    // Status options: PENDING (awaiting payment/shipment), COMPLETED (shipped)
+    // Status options: PENDING (awaiting payment/shipment), COMPLETED (shipped), PURGED (cancelled/deleted)
     const pendingOrders = await getBrickLinkOrders(consumerKey, consumerSecret, tokenValue, tokenSecret, {
       direction: 'in', // Incoming orders (purchases)
       status: 'PENDING',
@@ -57,10 +57,16 @@ export async function syncBrickLinkOrders(
       limit: options.limit,
     });
     
-    const allOrders = [...pendingOrders, ...completedOrders];
+    const purgedOrders = await getBrickLinkOrders(consumerKey, consumerSecret, tokenValue, tokenSecret, {
+      direction: 'in',
+      status: 'PURGED',
+      limit: options.limit,
+    });
+    
+    const allOrders = [...pendingOrders, ...completedOrders, ...purgedOrders];
     result.totalOrders = allOrders.length;
     
-    console.log(`📦 Fetched ${result.totalOrders} orders from BrickLink (${pendingOrders.length} pending, ${completedOrders.length} completed)`);
+    console.log(`📦 Fetched ${result.totalOrders} orders from BrickLink (${pendingOrders.length} pending, ${completedOrders.length} completed, ${purgedOrders.length} purged)`);
     
     // Process each order
     for (const blOrder of allOrders) {
@@ -79,6 +85,7 @@ export async function syncBrickLinkOrders(
       lastSyncStatus: 'success',
       recordsAdded: result.ordersAdded,
       recordsUpdated: result.ordersUpdated,
+      errorMessage: null,
     }).onConflictDoUpdate({
       target: syncMetadata.id,
       set: {
@@ -86,6 +93,7 @@ export async function syncBrickLinkOrders(
         lastSyncStatus: 'success',
         recordsAdded: result.ordersAdded,
         recordsUpdated: result.ordersUpdated,
+        errorMessage: null,
       },
     });
     
