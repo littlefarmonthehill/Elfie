@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { AlertCircle, ShoppingCart, Package, TrendingUp, ClipboardList, Truck, RefreshCw } from "lucide-react";
+import { AlertCircle, ShoppingCart, Package, TrendingUp, ClipboardList, Truck, RefreshCw, Ship } from "lucide-react";
 import {
   Drawer,
   DrawerContent,
@@ -8,7 +8,6 @@ import {
 } from "@/components/ui/drawer";
 import PicklistTool from "./PicklistTool";
 import FulfillmentTool from "./FulfillmentTool";
-import OrderSyncTester from "./OrderSyncTester";
 import OrderPlatformSyncTool from "./OrderPlatformSyncTool";
 
 interface Order {
@@ -23,8 +22,8 @@ interface Order {
 
 interface OrdersDashboardProps {
   onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
-  activeDrawer: 'picklist' | 'fulfillment' | 'ordersync' | 'platformsync' | null;
-  onDrawerChange: (drawer: 'picklist' | 'fulfillment' | 'ordersync' | 'platformsync' | null) => void;
+  activeDrawer: 'picklist' | 'fulfillment' | 'platformsync' | 'shipping' | null;
+  onDrawerChange: (drawer: 'picklist' | 'fulfillment' | 'platformsync' | 'shipping' | null) => void;
 }
 
 export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerChange }: OrdersDashboardProps) {
@@ -181,12 +180,6 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
         </DrawerContent>
       </Drawer>
 
-      {/* Order Sync Tester Drawer */}
-      <OrderSyncTester
-        open={activeDrawer === 'ordersync'}
-        onOpenChange={(open) => !open && onDrawerChange(null)}
-      />
-
       {/* Platform Order Sync Drawer */}
       <Drawer open={activeDrawer === 'platformsync'} onOpenChange={(open) => !open && onDrawerChange(null)}>
         <DrawerContent className="h-[90vh]">
@@ -198,6 +191,21 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
           </DrawerHeader>
           <div className="overflow-y-auto px-4 pb-4 flex-1">
             <OrderPlatformSyncTool />
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Shipping Drawer */}
+      <Drawer open={activeDrawer === 'shipping'} onOpenChange={(open) => !open && onDrawerChange(null)}>
+        <DrawerContent className="h-[90vh]">
+          <DrawerHeader>
+            <DrawerTitle className="flex items-center gap-2">
+              <Ship className="w-5 h-5 text-blue-400" />
+              Shipping
+            </DrawerTitle>
+          </DrawerHeader>
+          <div className="overflow-y-auto px-4 pb-4 flex-1">
+            <div className="text-sm text-gray-400">Shipping functionality coming soon...</div>
           </div>
         </DrawerContent>
       </Drawer>
