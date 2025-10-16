@@ -282,24 +282,24 @@ export async function syncInventoryItem(
     console.log(`[Sync] Item ${blItem.itemNo} has colorId: ${blItem.colorId}, type: ${blItem.itemType}`);
     console.log(`[Sync] Item ${blItem.itemNo} using BOID ${boid} (BOID includes color info)`);
 
-    // Check if lot already exists in BrickOwl
-    // If inventory not provided, fetch it (for backwards compatibility)
-    if (!brickowlInventory) {
-      brickowlInventory = await getBrickOwlInventory(false);
-    }
-    
-    // BrickOwl stores external IDs in "external_lot_ids" object: { external_id_1: "value", ... }
-    const existingLots = brickowlInventory.filter((lot: any) => {
-      const externalIds = lot.external_lot_ids || {};
-      return externalIds.external_id_1 === blItem.id.toString();
-    });
-
     // Map BrickLink condition to BrickOwl condition
     // Business logic per user's inventory policy:
     // - BrickLink "New" → BrickOwl "new"
     // - BrickLink "Used" → BrickOwl "usedg" (Used Good)
     const condition = blItem.newOrUsed === 'N' ? 'new' : 'usedg';
     const newPrice = blItem.unitPrice ? parseFloat(blItem.unitPrice) : 0;
+
+    // Check if lot already exists in BrickOwl
+    // If inventory not provided, fetch it (for backwards compatibility)
+    if (!brickowlInventory) {
+      brickowlInventory = await getBrickOwlInventory(false);
+    }
+    
+    // BrickOwl identifies lots by: Part ID + Color ID + Condition
+    // BOID contains part + color, so match by BOID + condition
+    const existingLots = brickowlInventory.filter((lot: any) => {
+      return lot.boid === boid && lot.full_con === condition;
+    });
 
     if (existingLots.length > 0) {
       const existingLot = existingLots[0];
@@ -359,29 +359,15 @@ export async function findUnsyncedItems(limit: number = 5): Promise<(typeof blIn
     console.log(`BrickOwl returned ${brickowlInventory.length} lots`);
     console.log(`Sample lot:`, brickowlInventory[0] ? JSON.stringify(brickowlInventory[0]).substring(0, 200) : 'none');
     
-    // Extract BrickLink IDs from BrickOwl's external_lot_ids object
-    // BrickOwl stores external IDs in: { external_lot_ids: { external_id_1: "value" } }
-    const syncedBlIds = brickowlInventory
-      .map(lot => {
-        const externalIds = (lot as any).external_lot_ids || {};
-        const externalId = externalIds.external_id_1;
-        return externalId ? parseInt(externalId) : null;
-      })
-      .filter((id): id is number => id !== null && !isNaN(id));
-    
-    console.log(`Found ${syncedBlIds.length} BrickLink items already in BrickOwl (via external_lot_ids.external_id_1)`);
-    if (syncedBlIds.length > 0) {
-      console.log(`Sample synced IDs:`, syncedBlIds.slice(0, 5));
-    }
-    
-    // Get BrickLink items that are NOT in the synced list
+    // Note: With BOID+condition matching, we can't efficiently pre-determine "unsynced" items
+    // because we'd need to lookup BOID for every BrickLink item (29k+ API calls!)
+    // Instead, just return first N items and let syncInventoryItem determine create vs update
     const unsyncedItems = await db
       .select()
       .from(blInventory)
-      .where(sql`${blInventory.id} NOT IN (${sql.join(syncedBlIds.length > 0 ? syncedBlIds : [-1], sql`, `)})`)
       .limit(limit);
     
-    console.log(`Found ${unsyncedItems.length} unsynced BrickLink items (limit: ${limit})`);
+    console.log(`Selected ${unsyncedItems.length} BrickLink items to sync (limit: ${limit})`);
     
     return unsyncedItems;
   } catch (error) {
