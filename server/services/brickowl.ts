@@ -117,6 +117,7 @@ export async function createBrickOwlLot(data: {
   condition?: string;
   for_sale?: number;
   external_id_1?: string;
+  personal_note?: string;
 }): Promise<any> {
   const payload = {
     ...(data.boid && { boid: data.boid }),
@@ -127,6 +128,7 @@ export async function createBrickOwlLot(data: {
     ...(data.condition && { condition: data.condition }),
     ...(data.for_sale !== undefined && { for_sale: data.for_sale.toString() }),
     ...(data.external_id_1 && { external_id_1: data.external_id_1 }),
+    ...(data.personal_note && { personal_note: data.personal_note }),
   };
   console.log('[BrickOwl] Creating lot with payload:', JSON.stringify(payload));
   return brickowlPost('/inventory/create', payload);
@@ -313,9 +315,9 @@ export async function syncInventoryItem(
       if (qtyChanged || priceChanged) {
         console.log(`[Sync] Updating ${blItem.itemNo}: Qty ${existingQty} → ${blItem.quantity}, Price $${existingPrice} → $${newPrice}`);
         
-        // Update existing lot
+        // Update existing lot using lot_id (BrickOwl requires this for updates)
         await updateBrickOwlLot({
-          external_id_1: blItem.id.toString(),
+          lot_id: existingLot.lot_id,
           absolute_quantity: blItem.quantity,
           price: newPrice,
           condition,
@@ -328,7 +330,7 @@ export async function syncInventoryItem(
         return { success: true, action: 'skipped' };
       }
     } else {
-      // Create new lot
+      // Create new lot with description/remarks for BrickOwl's duplicate detection
       console.log(`[Sync] Creating new lot for ${blItem.itemNo}`);
       await createBrickOwlLot({
         boid,
@@ -337,6 +339,7 @@ export async function syncInventoryItem(
         condition,
         for_sale: 1,
         external_id_1: blItem.id.toString(),
+        personal_note: blItem.remarks || undefined,
       });
       
       return { success: true, action: 'created' };
