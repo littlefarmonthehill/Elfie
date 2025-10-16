@@ -3770,9 +3770,10 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
           const { getBrickLinkOrders, getBrickLinkOrderItems, mapBrickLinkStatus, mapBrickLinkCondition } = 
             await import('./services/bricklink-orders');
 
-          // Fetch recent orders - try multiple statuses
+          // Fetch recent orders - try multiple valid statuses
           console.log('Fetching BrickLink orders...');
           
+          // Try COMPLETED first (shipped orders)
           let blOrders = await getBrickLinkOrders(
             settings.bricklinkConsumerKey,
             settings.bricklinkConsumerSecret,
@@ -3782,41 +3783,29 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
           );
           console.log(`BrickLink COMPLETED orders: ${blOrders.length}`);
 
-        // If no completed orders, try pending
-        if (blOrders.length === 0) {
-          blOrders = await getBrickLinkOrders(
-            settings.bricklinkConsumerKey,
-            settings.bricklinkConsumerSecret,
-            settings.bricklinkTokenValue,
-            settings.bricklinkTokenSecret,
-            { direction: 'in', status: 'PENDING', limit }
-          );
-          console.log(`BrickLink PENDING orders: ${blOrders.length}`);
-        }
+          // If no completed orders, try pending
+          if (blOrders.length === 0) {
+            blOrders = await getBrickLinkOrders(
+              settings.bricklinkConsumerKey,
+              settings.bricklinkConsumerSecret,
+              settings.bricklinkTokenValue,
+              settings.bricklinkTokenSecret,
+              { direction: 'in', status: 'PENDING', limit }
+            );
+            console.log(`BrickLink PENDING orders: ${blOrders.length}`);
+          }
 
-        // If still none, try PAID
-        if (blOrders.length === 0) {
-          blOrders = await getBrickLinkOrders(
-            settings.bricklinkConsumerKey,
-            settings.bricklinkConsumerSecret,
-            settings.bricklinkTokenValue,
-            settings.bricklinkTokenSecret,
-            { direction: 'in', status: 'PAID', limit }
-          );
-          console.log(`BrickLink PAID orders: ${blOrders.length}`);
-        }
-
-        // If still none, try SHIPPED
-        if (blOrders.length === 0) {
-          blOrders = await getBrickLinkOrders(
-            settings.bricklinkConsumerKey,
-            settings.bricklinkConsumerSecret,
-            settings.bricklinkTokenValue,
-            settings.bricklinkTokenSecret,
-            { direction: 'in', status: 'SHIPPED', limit }
-          );
-          console.log(`BrickLink SHIPPED orders: ${blOrders.length}`);
-        }
+          // If still none, try without status filter (get any orders)
+          if (blOrders.length === 0) {
+            blOrders = await getBrickLinkOrders(
+              settings.bricklinkConsumerKey,
+              settings.bricklinkConsumerSecret,
+              settings.bricklinkTokenValue,
+              settings.bricklinkTokenSecret,
+              { direction: 'in', limit }
+            );
+            console.log(`BrickLink ALL orders: ${blOrders.length}`);
+          }
 
         for (const blOrder of blOrders) {
           // Fetch order items
@@ -3927,11 +3916,7 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
           // Fetch full order details with items
           const boOrder = await getBrickOwlOrderDetails(settings.brickowlApiKey, boOrderSummary.order_id);
           
-          console.log(`BrickOwl Order ${boOrder.order_id}:`, JSON.stringify({
-            itemCount: boOrder.items?.length || 0,
-            sampleItem: boOrder.items?.[0] || null,
-            keys: Object.keys(boOrder).slice(0, 20) // First 20 keys only
-          }));
+          console.log(`BrickOwl Order ${boOrder.order_id} - Full response:`, JSON.stringify(boOrder, null, 2).slice(0, 500));
 
           // Check if corresponding ShipStation order exists
           // Note: ShipStation stores BrickOwl order numbers with "BO." prefix (e.g., "BO.7439152")
