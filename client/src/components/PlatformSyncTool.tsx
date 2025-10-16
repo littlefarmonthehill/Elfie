@@ -63,6 +63,7 @@ export default function PlatformSyncTool() {
     type: string;
     title: string;
   }>({ open: false, platform: '', type: '', title: '' });
+  const [itemsToShow, setItemsToShow] = useState(20); // Show 20 items initially
   const { toast } = useToast();
 
   // Fetch platform sync status
@@ -173,6 +174,7 @@ export default function PlatformSyncTool() {
 
   const handleDiscrepancyClick = (platform: string, type: string, title: string) => {
     setDiscrepancyDrawer({ open: true, platform, type, title });
+    setItemsToShow(20); // Reset to initial count when opening new drawer
   };
 
   const displayData = data;
@@ -482,7 +484,7 @@ export default function PlatformSyncTool() {
               </div>
             ) : discrepancyData?.discrepancies && discrepancyData.discrepancies.length > 0 ? (
               <div className="space-y-2">
-                {discrepancyData.discrepancies.map((item, idx) => (
+                {discrepancyData.discrepancies.slice(0, itemsToShow).map((item, idx) => (
                   <Card key={idx} className="p-3 bg-gray-800/50 border-gray-700">
                     <div className="space-y-2">
                       {/* Item Header */}
@@ -554,7 +556,27 @@ export default function PlatformSyncTool() {
                     </div>
                   </Card>
                 ))}
-                {discrepancyData.total > discrepancyData.discrepancies.length && (
+                
+                {/* Show More Button and Count */}
+                {discrepancyData.discrepancies.length > itemsToShow && (
+                  <div className="flex flex-col items-center gap-2 pt-2">
+                    <p className="text-xs text-gray-400">
+                      Showing {itemsToShow} of {discrepancyData.discrepancies.length} discrepancies
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setItemsToShow(prev => Math.min(prev + 20, discrepancyData.discrepancies.length))}
+                      className="text-xs"
+                      data-testid="button-show-more"
+                    >
+                      Show More ({Math.min(20, discrepancyData.discrepancies.length - itemsToShow)})
+                    </Button>
+                  </div>
+                )}
+                
+                {/* All items shown message */}
+                {discrepancyData.discrepancies.length <= itemsToShow && discrepancyData.total > discrepancyData.discrepancies.length && (
                   <p className="text-xs text-gray-400 text-center py-2">
                     Showing first {discrepancyData.discrepancies.length} of {discrepancyData.total} discrepancies
                   </p>
