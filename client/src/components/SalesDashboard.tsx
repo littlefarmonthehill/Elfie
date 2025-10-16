@@ -38,8 +38,19 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
   const [selectedCompareYears, setSelectedCompareYears] = useState<number[]>([currentYear - 1, currentYear - 2]);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
   
+  // Build query URL with date range parameter
+  const buildQueryUrl = (baseUrl: string) => {
+    if (dateRange === 'all') return baseUrl;
+    return `${baseUrl}?range=${dateRange}`;
+  };
+
   const { data: orders = [], isLoading } = useQuery<Order[]>({
-    queryKey: ['/api/orders'],
+    queryKey: ['/api/orders', dateRange],
+    queryFn: async () => {
+      const response = await fetch(buildQueryUrl('/api/orders'));
+      if (!response.ok) throw new Error('Failed to fetch orders');
+      return response.json();
+    }
   });
 
   // Get available years from orders
