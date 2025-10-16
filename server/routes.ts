@@ -3814,7 +3814,11 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
             .from(orders)
             .where(and(
               eq(orders.marketplace, 'BrickLink'),
-              eq(orders.orderStatus, 'awaiting_shipment')
+              or(
+                eq(orders.orderStatus, 'awaiting_payment'),
+                eq(orders.orderStatus, 'awaiting_fulfillment'),
+                eq(orders.orderStatus, 'awaiting_shipment')
+              )
             ))
             .orderBy(desc(orders.orderDate))
             .limit(limit);
@@ -3958,7 +3962,11 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
           .from(orders)
           .where(and(
             eq(orders.marketplace, 'BrickOwl'),
-            eq(orders.orderStatus, 'awaiting_shipment')
+            or(
+              eq(orders.orderStatus, 'awaiting_payment'),
+              eq(orders.orderStatus, 'awaiting_fulfillment'),
+              eq(orders.orderStatus, 'awaiting_shipment')
+            )
           ))
           .orderBy(desc(orders.orderDate))
           .limit(limit);
