@@ -86,8 +86,18 @@ export async function getBrickOwlInventory(activeOnly: boolean = true): Promise<
   const params = { active_only: activeOnly ? '1' : '0' };
   const response = await brickowlGet('/inventory/list', params);
   
-  // BrickOwl API returns { inventory: [...] }
-  return Array.isArray(response) ? response : (response.inventory || []);
+  // BrickOwl API returns array directly or { inventory: [...] }
+  const lots = Array.isArray(response) ? response : (response.inventory || []);
+  
+  // Debug: Check if external_id_1 is present
+  if (lots.length > 0) {
+    const firstLot = lots[0];
+    const hasExternalId = 'external_id_1' in firstLot;
+    console.log(`[BrickOwl Inventory] First lot keys: ${Object.keys(firstLot).join(', ')}`);
+    console.log(`[BrickOwl Inventory] Has external_id_1: ${hasExternalId}`);
+  }
+  
+  return lots;
 }
 
 // Create a new lot on BrickOwl
