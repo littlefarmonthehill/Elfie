@@ -23,7 +23,7 @@ export default function DateRangeSelector({ value, onChange, className = "" }: D
     <div className={`flex items-center gap-2 md:gap-3 lg:gap-4 ${className}`}>
       <div className="flex items-center gap-1.5 md:gap-2 lg:gap-2.5">
         <Calendar className="h-3.5 w-3.5 md:h-4 md:w-4 lg:h-5 lg:w-5 text-gray-400" />
-        <span className="text-[11px] md:text-sm lg:text-base font-bold text-gray-400">TIME RANGE</span>
+        <span className="text-[10px] md:text-sm lg:text-base font-bold text-gray-400">TIME RANGE</span>
       </div>
       <div className="flex gap-1.5 md:gap-2 lg:gap-2.5">
         {options.map((option) => (
