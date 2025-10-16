@@ -3853,9 +3853,10 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
             settings.bricklinkTokenValue,
             settings.bricklinkTokenSecret
           );
+          console.log(`BrickLink Order ${blOrder.order_id} - Fetched ${items.length} items`);
 
           // Check if corresponding ShipStation order exists
-          // Note: ShipStation stores BrickLink order numbers as-is (e.g., "2166")
+          // Note: ShipStation stores BrickLink order numbers without prefix (e.g., "2166")
           const ssOrder = await db.select().from(orders)
             .where(and(
               eq(orders.orderNumber, blOrder.order_id.toString()),
@@ -3990,7 +3991,10 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
 
           // Map items
           const issues: string[] = [];
-          const mappedItems = (boOrder.items || []).map((item: any) => {
+          const itemsArray = boOrder.items || [];
+          console.log(`BrickOwl Order ${boOrder.order_id} - Found ${itemsArray.length} items in response`);
+          
+          const mappedItems = itemsArray.map((item: any) => {
             const externalId = item.external_lot_ids?.other;
             if (!externalId) {
               issues.push(`Item ${item.item_name} missing external_lot_ids.other`);
