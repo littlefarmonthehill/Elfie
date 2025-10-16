@@ -1839,11 +1839,12 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
             }
             
             // Check for personal_note (remarks) differences
-            // Decode HTML entities from BrickLink before comparing
+            // Decode HTML entities from both sides before comparing and displaying
             const boRemarks = boLot.personal_note || '';
             const blRemarks = blItem.remarks || '';
             const blRemarksDecoded = decodeHtmlEntities(blRemarks);
-            if (boRemarks !== blRemarksDecoded) {
+            const boRemarksDecoded = decodeHtmlEntities(boRemarks);
+            if (boRemarksDecoded !== blRemarksDecoded) {
               remarksDifferencesCount++;
               remarksDiscrepancies.push({
                 itemNo: blItem.itemNo,
@@ -1855,16 +1856,17 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
                 boPrice,
                 difference: 'remarks',
                 blRemarks: blRemarksDecoded,
-                boRemarks,
+                boRemarks: boRemarksDecoded,
               });
             }
             
             // Check for public_note (description) differences
-            // Decode HTML entities from BrickLink before comparing
+            // Decode HTML entities from both sides before comparing and displaying
             const boDescription = boLot.public_note || '';
             const blDescription = blItem.description || '';
             const blDescriptionDecoded = decodeHtmlEntities(blDescription);
-            if (boDescription !== blDescriptionDecoded) {
+            const boDescriptionDecoded = decodeHtmlEntities(boDescription);
+            if (boDescriptionDecoded !== blDescriptionDecoded) {
               descriptionDifferencesCount++;
               descriptionDiscrepancies.push({
                 itemNo: blItem.itemNo,
@@ -1876,7 +1878,7 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
                 boPrice,
                 difference: 'description',
                 blDescription: blDescriptionDecoded,
-                boDescription,
+                boDescription: boDescriptionDecoded,
               });
             }
           }
