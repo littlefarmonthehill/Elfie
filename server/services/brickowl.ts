@@ -275,15 +275,17 @@ export async function syncInventoryItem(
     console.log(`[Sync] Item ${blItem.itemNo} has colorId: ${blItem.colorId}, type: ${blItem.itemType}`);
     console.log(`[Sync] Item ${blItem.itemNo} using BOID ${boid} (BOID includes color info)`);
 
-    // Check if lot already exists in BrickOwl by external_id_1
+    // Check if lot already exists in BrickOwl
     // If inventory not provided, fetch it (for backwards compatibility)
     if (!brickowlInventory) {
       brickowlInventory = await getBrickOwlInventory(false);
     }
     
-    const existingLots = brickowlInventory.filter(
-      (lot: any) => lot.external_id_1 === blItem.id.toString()
-    );
+    // BrickOwl stores external IDs in "external_lot_ids" object: { external_id_1: "value", ... }
+    const existingLots = brickowlInventory.filter((lot: any) => {
+      const externalIds = lot.external_lot_ids || {};
+      return externalIds.external_id_1 === blItem.id.toString();
+    });
 
     // Map BrickLink condition to BrickOwl condition
     // Business logic per user's inventory policy:
@@ -350,17 +352,17 @@ export async function findUnsyncedItems(limit: number = 5): Promise<(typeof blIn
     console.log(`BrickOwl returned ${brickowlInventory.length} lots`);
     console.log(`Sample lot:`, brickowlInventory[0] ? JSON.stringify(brickowlInventory[0]).substring(0, 200) : 'none');
     
-    // Extract BrickLink IDs from BrickOwl's external_id_1 field
-    // BrickOwl stores our BrickLink inventory ID in external_id_1
+    // Extract BrickLink IDs from BrickOwl's external_lot_ids object
+    // BrickOwl stores external IDs in: { external_lot_ids: { external_id_1: "value" } }
     const syncedBlIds = brickowlInventory
       .map(lot => {
-        // Try multiple possible fields where external ID might be stored
-        const externalId = (lot as any).external_id_1 || (lot as any).external_id || (lot as any).externalId;
+        const externalIds = (lot as any).external_lot_ids || {};
+        const externalId = externalIds.external_id_1;
         return externalId ? parseInt(externalId) : null;
       })
       .filter((id): id is number => id !== null && !isNaN(id));
     
-    console.log(`Found ${syncedBlIds.length} BrickLink items already in BrickOwl (via external_id_1)`);
+    console.log(`Found ${syncedBlIds.length} BrickLink items already in BrickOwl (via external_lot_ids.external_id_1)`);
     if (syncedBlIds.length > 0) {
       console.log(`Sample synced IDs:`, syncedBlIds.slice(0, 5));
     }
