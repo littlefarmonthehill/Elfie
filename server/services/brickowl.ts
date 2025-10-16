@@ -147,7 +147,7 @@ export async function createBrickOwlLot(data: {
   price: number;
   condition?: string;
   for_sale?: number;
-  external_id_1?: string;
+  external_id?: string;  // Use external_id (not external_id_1) to store as external_lot_ids.other
   personal_note?: string;
   public_note?: string;
 }): Promise<any> {
@@ -163,7 +163,7 @@ export async function createBrickOwlLot(data: {
     price: data.price.toFixed(3),
     ...(data.condition && { condition: data.condition }),
     ...(data.for_sale !== undefined && { for_sale: data.for_sale.toString() }),
-    ...(data.external_id_1 && { external_id_1: data.external_id_1 }),
+    ...(data.external_id && { external_id: data.external_id }),  // external_id becomes external_lot_ids.other
     ...(decodedPersonalNote && { personal_note: decodedPersonalNote }),
     ...(decodedPublicNote && { public_note: decodedPublicNote }),
   };
@@ -315,8 +315,8 @@ export async function syncInventoryItem(
   error?: string;
 }> {
   try {
-    // SIMPLIFIED APPROACH: Use BrickLink inventory ID stored in external_lot_ids.external_id_1
-    // If BrickOwl lot has external_lot_ids.external_id_1 = BrickLink inventory ID → UPDATE
+    // SIMPLIFIED APPROACH: Use BrickLink inventory ID stored in external_lot_ids.other
+    // If BrickOwl lot has external_lot_ids.other = BrickLink inventory ID → UPDATE
     // If not found → CREATE new lot
     
     // If inventory not provided, fetch it (for backwards compatibility)
@@ -324,10 +324,9 @@ export async function syncInventoryItem(
       brickowlInventory = await getBrickOwlInventory(false);
     }
     
-    // Find existing BrickOwl lot by BrickLink inventory ID
-    // We send external_id_1, so it should come back in external_lot_ids.external_id_1
+    // Find existing BrickOwl lot by BrickLink inventory ID stored in external_lot_ids.other
     const existingLot = brickowlInventory.find((lot: any) => 
-      lot.external_lot_ids?.external_id_1 === blItem.id.toString()
+      lot.external_lot_ids?.other === blItem.id.toString()
     );
 
     const newPrice = blItem.unitPrice ? parseFloat(blItem.unitPrice) : 0;
@@ -382,7 +381,7 @@ export async function syncInventoryItem(
         price: newPrice,
         condition,
         for_sale: 1,
-        external_id_1: blItem.id.toString(), // Store BrickLink inventory ID
+        external_id: blItem.id.toString(), // Store BrickLink inventory ID (becomes external_lot_ids.other)
         personal_note: blItem.remarks || undefined,      // Internal notes (bin location, etc.)
         public_note: blItem.description || undefined,    // Public notes (condition, etc.)
       });

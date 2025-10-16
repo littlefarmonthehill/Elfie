@@ -1768,8 +1768,8 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
           const remarksDiscrepancies: any[] = [];
           const descriptionDiscrepancies: any[] = [];
 
-          // SIMPLIFIED COMPARISON: Use external_lot_ids.external_id_1 (BrickLink inventory ID) for matching
-          console.log('[Status] Starting simplified comparison using external_lot_ids.external_id_1');
+          // SIMPLIFIED COMPARISON: Use external_lot_ids.other (BrickLink inventory ID) for matching
+          console.log('[Status] Starting simplified comparison using external_lot_ids.other');
           const blItemsMap = new Map<number, any>();
           const blItems = await db.select().from(blInventory);
           
@@ -1784,10 +1784,9 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
           
           // Compare each BrickOwl lot against BrickLink inventory
           for (const boLot of brickowlInventory) {
-            // Extract BrickLink inventory ID from external_lot_ids.external_id_1
-            // This is where we store the BrickLink inventory ID when creating lots
-            const blInventoryId = boLot.external_lot_ids?.external_id_1 ? 
-              parseInt(boLot.external_lot_ids.external_id_1) : null;
+            // Extract BrickLink inventory ID from external_lot_ids.other
+            const blInventoryId = boLot.external_lot_ids?.other ? 
+              parseInt(boLot.external_lot_ids.other) : null;
             
             if (!blInventoryId) {
               // No BrickLink inventory ID linked - skip
