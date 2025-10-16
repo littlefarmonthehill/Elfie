@@ -50,7 +50,10 @@ export async function getBrickOwlOrderDetails(
     throw new Error(`BrickOwl API error: ${response.statusText}`);
   }
 
-  return await response.json();
+  const text = await response.text();
+  console.log(`BrickOwl API raw response for order ${orderId}:`, text.slice(0, 3000));
+  
+  return JSON.parse(text);
 }
 
 // Map BrickOwl status ID to ShipStation status

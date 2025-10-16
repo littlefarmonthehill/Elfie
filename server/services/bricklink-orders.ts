@@ -115,10 +115,13 @@ export async function getBrickLinkOrderItems(
   });
 
   if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`BrickLink items API error for order ${orderId}:`, response.status, errorText);
     throw new Error(`BrickLink API error: ${response.statusText}`);
   }
 
   const data = await response.json();
+  console.log(`BrickLink items API response for order ${orderId}:`, JSON.stringify(data).slice(0, 500));
   return data.data || [];
 }
 

@@ -3807,12 +3807,15 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
           const { getBrickLinkOrders, getBrickLinkOrderItems, mapBrickLinkStatus, mapBrickLinkCondition } = 
             await import('./services/bricklink-orders');
 
-          // Fetch recent BrickLink orders from ShipStation database
-          // This ensures we test with orders that exist in both systems
-          console.log('Fetching recent BrickLink orders from ShipStation...');
+          // Fetch recent PENDING BrickLink orders from ShipStation database
+          // Note: BrickLink/BrickOwl APIs may not return items for shipped/completed orders
+          console.log('Fetching recent PENDING BrickLink orders from ShipStation...');
           const recentBLOrders = await db.select()
             .from(orders)
-            .where(eq(orders.marketplace, 'BrickLink'))
+            .where(and(
+              eq(orders.marketplace, 'BrickLink'),
+              eq(orders.orderStatus, 'awaiting_shipment')
+            ))
             .orderBy(desc(orders.orderDate))
             .limit(limit);
 
@@ -3948,105 +3951,123 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
         const { getBrickOwlOrders, getBrickOwlOrderDetails, mapBrickOwlStatus, mapBrickOwlCondition } = 
           await import('./services/brickowl-orders');
 
-        // Fetch recent orders
-        const boOrderList = await getBrickOwlOrders(settings.brickowlApiKey, { limit });
+        // Fetch recent PENDING BrickOwl orders from ShipStation database
+        // Note: BrickLink/BrickOwl APIs may not return items for shipped/completed orders
+        console.log('Fetching recent PENDING BrickOwl orders from ShipStation...');
+        const recentBOOrders = await db.select()
+          .from(orders)
+          .where(and(
+            eq(orders.marketplace, 'BrickOwl'),
+            eq(orders.orderStatus, 'awaiting_shipment')
+          ))
+          .orderBy(desc(orders.orderDate))
+          .limit(limit);
 
-        for (const boOrderSummary of boOrderList) {
-          // Fetch full order details with items
-          const boOrder = await getBrickOwlOrderDetails(settings.brickowlApiKey, boOrderSummary.order_id);
+        console.log(`Found ${recentBOOrders.length} recent BrickOwl orders in ShipStation`);
+
+        for (const ssOrder of recentBOOrders) {
+          // Remove "BO." prefix to get BrickOwl order ID
+          const orderId = ssOrder.orderNumber.replace('BO.', '');
           
-          console.log(`BrickOwl Order ${boOrder.order_id} - Full response:`, JSON.stringify(boOrder, null, 2).slice(0, 500));
-
-          // Check if corresponding ShipStation order exists
-          // Note: ShipStation stores BrickOwl order numbers with "BO." prefix (e.g., "BO.7439152")
-          const boOrderNumber = `BO.${boOrder.order_id}`;
-          const ssOrder = await db.select().from(orders)
-            .where(and(
-              eq(orders.orderNumber, boOrderNumber),
-              eq(orders.marketplace, 'BrickOwl')
-            ))
-            .limit(1);
-
-          // Map to our schema with shipping address (BrickOwl uses individual fields)
-          const mappedOrder = {
-            id: `bo-${boOrder.order_id}`,
-            orderNumber: boOrder.order_id.toString(),
-            marketplace: 'BrickOwl',
-            orderDate: new Date(boOrder.order_time * 1000).toISOString(),
-            orderStatus: mapBrickOwlStatus(boOrder.status_id),
-            customerUsername: boOrder.buyer_name || boOrder.customer_username,
-            customerEmail: boOrder.customer_email,
-            orderTotal: boOrder.base_order_total || '0',
-            shippingAmount: boOrder.ship_total || '0',
-            trackingNumber: boOrder.tracking_number || null,
-            shippingAddress: {
-              name: `${boOrder.ship_first_name || ''} ${boOrder.ship_last_name || ''}`.trim() || boOrder.buyer_name,
-              street1: boOrder.ship_street_1,
-              street2: boOrder.ship_street_2 || null,
-              city: boOrder.ship_city,
-              state: boOrder.ship_region,
-              postalCode: boOrder.ship_post_code,
-              country: boOrder.ship_country_code,
-            },
-          };
-
-          // Map items
-          const issues: string[] = [];
-          const itemsArray = boOrder.items || [];
-          console.log(`BrickOwl Order ${boOrder.order_id} - Found ${itemsArray.length} items in response`);
-          
-          const mappedItems = itemsArray.map((item: any) => {
-            const externalId = item.external_lot_ids?.other;
-            if (!externalId) {
-              issues.push(`Item ${item.item_name} missing external_lot_ids.other`);
-            }
+          try {
+            // Fetch full order details with items
+            const boOrder = await getBrickOwlOrderDetails(settings.brickowlApiKey, orderId);
             
-            return {
-              sku: externalId || null, // ⭐ BrickLink inventory ID from external_lot_ids.other
-              name: `${item.item_name} (${item.color_name})`,
-              quantity: item.quantity,
-              unitPrice: item.price,
-              bricklinkInventoryId: externalId ? parseInt(externalId) : null,
-              colorId: item.color_id,
-              condition: mapBrickOwlCondition(item.condition),
-            };
-          });
+            console.log(`BrickOwl Order ${boOrder.order_id} - Full response:`, JSON.stringify(boOrder, null, 2).slice(0, 2000));
 
-          // Check warehouse bin mapping
-          const itemsWithBins = await Promise.all(mappedItems.map(async (item: any) => {
-            if (!item.bricklinkInventoryId) {
-              return { ...item, warehouseBin: null };
-            }
-
-            const binInfo = await db
-              .select({
-                aisleId: whAisles.id,
-                aisleName: whAisles.name,
-                shelfId: whShelves.id,
-                shelfName: whShelves.name,
-                binId: whBins.id,
-                binName: whBins.name,
-              })
-              .from(inventoryLocations)
-              .leftJoin(whBins, eq(inventoryLocations.binId, whBins.id))
-              .leftJoin(whShelves, eq(whBins.shelfId, whShelves.id))
-              .leftJoin(whAisles, eq(whShelves.aisleId, whAisles.id))
-              .where(eq(inventoryLocations.inventoryId, item.bricklinkInventoryId))
+            // Check if corresponding ShipStation order exists
+            // Note: ShipStation stores BrickOwl order numbers with "BO." prefix (e.g., "BO.7439152")
+            const boOrderNumber = `BO.${boOrder.order_id}`;
+            const ssOrderCheck = await db.select().from(orders)
+              .where(and(
+                eq(orders.orderNumber, boOrderNumber),
+                eq(orders.marketplace, 'BrickOwl')
+              ))
               .limit(1);
 
-            return {
-              ...item,
-              warehouseBin: binInfo[0] || null,
+            // Map to our schema with shipping address (BrickOwl uses individual fields)
+            const mappedOrder = {
+              id: `bo-${boOrder.order_id}`,
+              orderNumber: boOrder.order_id.toString(),
+              marketplace: 'BrickOwl',
+              orderDate: new Date(boOrder.order_time * 1000).toISOString(),
+              orderStatus: mapBrickOwlStatus(boOrder.status_id),
+              customerUsername: boOrder.buyer_name || boOrder.customer_username,
+              customerEmail: boOrder.customer_email,
+              orderTotal: boOrder.base_order_total || '0',
+              shippingAmount: boOrder.ship_total || '0',
+              trackingNumber: boOrder.tracking_number || null,
+              shippingAddress: {
+                name: `${boOrder.ship_first_name || ''} ${boOrder.ship_last_name || ''}`.trim() || boOrder.buyer_name,
+                street1: boOrder.ship_street_1,
+                street2: boOrder.ship_street_2 || null,
+                city: boOrder.ship_city,
+                state: boOrder.ship_region,
+                postalCode: boOrder.ship_post_code,
+                country: boOrder.ship_country_code,
+              },
             };
-          }));
 
-          results.push({
-            platform: 'BrickOwl',
-            order: mappedOrder,
-            items: itemsWithBins,
-            comparison: ssOrder[0] || null,
-            issues,
-          });
+            // Map items
+            const issues: string[] = [];
+            const itemsArray = boOrder.items || [];
+            console.log(`BrickOwl Order ${boOrder.order_id} - Found ${itemsArray.length} items in response`);
+            
+            const mappedItems = itemsArray.map((item: any) => {
+              const externalId = item.external_lot_ids?.other;
+              if (!externalId) {
+                issues.push(`Item ${item.item_name} missing external_lot_ids.other`);
+              }
+              
+              return {
+                sku: externalId || null, // ⭐ BrickLink inventory ID from external_lot_ids.other
+                name: `${item.item_name} (${item.color_name})`,
+                quantity: item.quantity,
+                unitPrice: item.price,
+                bricklinkInventoryId: externalId ? parseInt(externalId) : null,
+                colorId: item.color_id,
+                condition: mapBrickOwlCondition(item.condition),
+              };
+            });
+
+            // Check warehouse bin mapping
+            const itemsWithBins = await Promise.all(mappedItems.map(async (item: any) => {
+              if (!item.bricklinkInventoryId) {
+                return { ...item, warehouseBin: null };
+              }
+
+              const binInfo = await db
+                .select({
+                  aisleId: whAisles.id,
+                  aisleName: whAisles.name,
+                  shelfId: whShelves.id,
+                  shelfName: whShelves.name,
+                  binId: whBins.id,
+                  binName: whBins.name,
+                })
+                .from(inventoryLocations)
+                .leftJoin(whBins, eq(inventoryLocations.binId, whBins.id))
+                .leftJoin(whShelves, eq(whBins.shelfId, whShelves.id))
+                .leftJoin(whAisles, eq(whShelves.aisleId, whAisles.id))
+                .where(eq(inventoryLocations.inventoryId, item.bricklinkInventoryId))
+                .limit(1);
+
+              return {
+                ...item,
+                warehouseBin: binInfo[0] || null,
+              };
+            }));
+
+            results.push({
+              platform: 'BrickOwl',
+              order: mappedOrder,
+              items: itemsWithBins,
+              comparison: ssOrderCheck[0] || null,
+              issues,
+            });
+          } catch (err: any) {
+            console.error(`Error fetching BrickOwl order ${orderId}:`, err.message);
+          }
         }
       }
 
