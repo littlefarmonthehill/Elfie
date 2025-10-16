@@ -46,7 +46,7 @@ export const ORDER_STATUS_MAPPINGS: Record<string, StatusMapping> = {
     brickOwl: [], // BrickOwl doesn't have this status
     ebay: ['AwaitingPayment'],
     amazon: ['Pending'],
-    inventoryImpact: 'reduce', // Reserve inventory when order placed
+    inventoryImpact: 'none', // Don't reduce inventory until shipped
     description: 'Order placed, waiting for payment confirmation'
   },
 
@@ -57,7 +57,7 @@ export const ORDER_STATUS_MAPPINGS: Record<string, StatusMapping> = {
     shipStation: ['awaiting_fulfillment'],
     brickLink: [], // BrickLink uses PENDING
     brickOwl: [], // BrickOwl uses Processing
-    inventoryImpact: 'none', // Already reduced at awaiting_payment
+    inventoryImpact: 'none', // Don't reduce inventory until shipped
     description: 'Payment received, ready to pick and pack'
   },
 
@@ -70,7 +70,7 @@ export const ORDER_STATUS_MAPPINGS: Record<string, StatusMapping> = {
     brickOwl: [1], // BrickOwl status_id 1 = Processing
     ebay: ['AwaitingShipment'],
     amazon: ['Unshipped'],
-    inventoryImpact: 'none', // Already reduced at awaiting_payment
+    inventoryImpact: 'none', // Don't reduce inventory until shipped
     description: 'Order picked/packed, waiting to ship'
   },
 
@@ -83,7 +83,7 @@ export const ORDER_STATUS_MAPPINGS: Record<string, StatusMapping> = {
     brickOwl: [2], // BrickOwl status_id 2 = Shipped
     ebay: ['Shipped'],
     amazon: ['Shipped'],
-    inventoryImpact: 'none', // Already reduced at awaiting_payment
+    inventoryImpact: 'reduce', // Reduce inventory when shipped
     description: 'Order shipped and in transit to customer'
   },
 
@@ -92,7 +92,7 @@ export const ORDER_STATUS_MAPPINGS: Record<string, StatusMapping> = {
     normalizedStatus: 'delivered',
     displayName: 'Delivered',
     shipStation: ['delivered'],
-    inventoryImpact: 'none', // Already reduced at awaiting_payment
+    inventoryImpact: 'none', // Already reduced at shipped
     description: 'Order successfully delivered to customer'
   },
 
@@ -124,7 +124,7 @@ export const ORDER_STATUS_MAPPINGS: Record<string, StatusMapping> = {
     displayName: 'On Hold',
     shipStation: ['on_hold'],
     ebay: ['OnHold'],
-    inventoryImpact: 'reduce', // Keep inventory reserved while on hold
+    inventoryImpact: 'none', // No inventory change while on hold
     description: 'Order on hold pending issue resolution'
   }
 };
