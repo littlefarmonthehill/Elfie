@@ -9,6 +9,30 @@ import { orders, orderDetails, blInventory, blCategories, blColors, appSettings,
 import { eq, desc, sql, inArray, like, or, and, isNotNull } from "drizzle-orm";
 import { z } from "zod";
 
+// Decode HTML entities from BrickLink notes for accurate comparison
+function decodeHtmlEntities(text: string | null | undefined): string {
+  if (!text) return '';
+  
+  const entityMap: Record<string, string> = {
+    '&#39;': "'",
+    '&#40;': '(',
+    '&#41;': ')',
+    '&quot;': '"',
+    '&amp;': '&',
+    '&lt;': '<',
+    '&gt;': '>',
+    '&#x27;': "'",
+    '&#x2F;': '/',
+  };
+  
+  let decoded = text;
+  for (const [entity, char] of Object.entries(entityMap)) {
+    decoded = decoded.replace(new RegExp(entity, 'g'), char);
+  }
+  
+  return decoded;
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Data Fetch Routes
   app.get("/api/orders", async (req, res) => {
@@ -1815,9 +1839,11 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
             }
             
             // Check for personal_note (remarks) differences
+            // Decode HTML entities from BrickLink before comparing
             const boRemarks = boLot.personal_note || '';
             const blRemarks = blItem.remarks || '';
-            if (boRemarks !== blRemarks) {
+            const blRemarksDecoded = decodeHtmlEntities(blRemarks);
+            if (boRemarks !== blRemarksDecoded) {
               remarksDifferencesCount++;
               remarksDiscrepancies.push({
                 itemNo: blItem.itemNo,
@@ -1828,15 +1854,17 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
                 boQuantity: boQty,
                 boPrice,
                 difference: 'remarks',
-                blRemarks,
+                blRemarks: blRemarksDecoded,
                 boRemarks,
               });
             }
             
             // Check for public_note (description) differences
+            // Decode HTML entities from BrickLink before comparing
             const boDescription = boLot.public_note || '';
             const blDescription = blItem.description || '';
-            if (boDescription !== blDescription) {
+            const blDescriptionDecoded = decodeHtmlEntities(blDescription);
+            if (boDescription !== blDescriptionDecoded) {
               descriptionDifferencesCount++;
               descriptionDiscrepancies.push({
                 itemNo: blItem.itemNo,
@@ -1847,7 +1875,7 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
                 boQuantity: boQty,
                 boPrice,
                 difference: 'description',
-                blDescription,
+                blDescription: blDescriptionDecoded,
                 boDescription,
               });
             }

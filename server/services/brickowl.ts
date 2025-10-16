@@ -2,6 +2,30 @@ import { db } from "../db";
 import { appSettings, blInventory, blColors } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
 
+// Decode HTML entities from BrickLink notes (&#39; → ', &#40; → (, &#41; → ), etc.)
+function decodeHtmlEntities(text: string | null | undefined): string {
+  if (!text) return '';
+  
+  const entityMap: Record<string, string> = {
+    '&#39;': "'",
+    '&#40;': '(',
+    '&#41;': ')',
+    '&quot;': '"',
+    '&amp;': '&',
+    '&lt;': '<',
+    '&gt;': '>',
+    '&#x27;': "'",
+    '&#x2F;': '/',
+  };
+  
+  let decoded = text;
+  for (const [entity, char] of Object.entries(entityMap)) {
+    decoded = decoded.replace(new RegExp(entity, 'g'), char);
+  }
+  
+  return decoded;
+}
+
 export interface BrickOwlSyncResult {
   lotsCreated: number;
   lotsUpdated: number;
@@ -127,6 +151,10 @@ export async function createBrickOwlLot(data: {
   personal_note?: string;
   public_note?: string;
 }): Promise<any> {
+  // Decode HTML entities from notes before sending to BrickOwl
+  const decodedPersonalNote = data.personal_note ? decodeHtmlEntities(data.personal_note) : undefined;
+  const decodedPublicNote = data.public_note ? decodeHtmlEntities(data.public_note) : undefined;
+  
   const payload = {
     ...(data.boid && { boid: data.boid }),
     ...(data.bl_item_no && { bl_item_no: data.bl_item_no }),
@@ -136,8 +164,8 @@ export async function createBrickOwlLot(data: {
     ...(data.condition && { condition: data.condition }),
     ...(data.for_sale !== undefined && { for_sale: data.for_sale.toString() }),
     ...(data.external_id_1 && { external_id_1: data.external_id_1 }),
-    ...(data.personal_note && { personal_note: data.personal_note }),
-    ...(data.public_note && { public_note: data.public_note }),
+    ...(decodedPersonalNote && { personal_note: decodedPersonalNote }),
+    ...(decodedPublicNote && { public_note: decodedPublicNote }),
   };
   console.log('[BrickOwl] Creating lot with payload:', JSON.stringify(payload));
   return brickowlPost('/inventory/create', payload);
@@ -162,8 +190,14 @@ export async function updateBrickOwlLot(data: {
   if (data.price !== undefined) updateData.price = data.price.toFixed(3);
   if (data.condition) updateData.condition = data.condition;
   if (data.for_sale !== undefined) updateData.for_sale = data.for_sale.toString();
-  if (data.personal_note !== undefined) updateData.personal_note = data.personal_note;
-  if (data.public_note !== undefined) updateData.public_note = data.public_note;
+  
+  // Decode HTML entities from notes before sending to BrickOwl
+  if (data.personal_note !== undefined) {
+    updateData.personal_note = decodeHtmlEntities(data.personal_note);
+  }
+  if (data.public_note !== undefined) {
+    updateData.public_note = decodeHtmlEntities(data.public_note);
+  }
   
   return brickowlPost('/inventory/update', updateData);
 }
