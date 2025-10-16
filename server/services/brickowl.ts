@@ -315,8 +315,8 @@ export async function syncInventoryItem(
   error?: string;
 }> {
   try {
-    // SIMPLIFIED APPROACH: Use BrickLink inventory ID stored in external_lot_ids.other
-    // If BrickOwl lot has external_lot_ids.other = BrickLink inventory ID → UPDATE
+    // SIMPLIFIED APPROACH: Use BrickLink inventory ID stored in external_lot_ids.external_id_1
+    // If BrickOwl lot has external_lot_ids.external_id_1 = BrickLink inventory ID → UPDATE
     // If not found → CREATE new lot
     
     // If inventory not provided, fetch it (for backwards compatibility)
@@ -325,8 +325,9 @@ export async function syncInventoryItem(
     }
     
     // Find existing BrickOwl lot by BrickLink inventory ID
+    // We send external_id_1, so it should come back in external_lot_ids.external_id_1
     const existingLot = brickowlInventory.find((lot: any) => 
-      lot.external_lot_ids?.other === blItem.id.toString()
+      lot.external_lot_ids?.external_id_1 === blItem.id.toString()
     );
 
     const newPrice = blItem.unitPrice ? parseFloat(blItem.unitPrice) : 0;
