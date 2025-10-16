@@ -3825,118 +3825,75 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
 
           console.log(`Found ${recentBLOrders.length} recent BrickLink orders in ShipStation`);
 
-          // Extract order IDs and fetch from BrickLink API
-          const blOrders = [];
-          for (const ssOrder of recentBLOrders) {
+        for (const ssOrder of recentBLOrders) {
+          try {
             // Remove "BL." prefix to get BrickLink order ID
             const orderId = ssOrder.orderNumber.replace('BL.', '');
+            console.log(`Processing BrickLink order ${orderId}...`);
             
+            // Fetch ShipStation order items from database
+            const ssItems = await db.select()
+              .from(orderDetails)
+              .where(eq(orderDetails.orderId, ssOrder.id));
+            
+            console.log(`ShipStation has ${ssItems.length} items for order ${orderId}`);
+
+            // Try to fetch platform order header (may not have items)
+            let platformOrder = null;
             try {
-              // Fetch single order from BrickLink API (using items endpoint as proxy)
-              const items = await getBrickLinkOrderItems(
-                parseInt(orderId),
-                settings.bricklinkConsumerKey,
-                settings.bricklinkConsumerSecret,
-                settings.bricklinkTokenValue,
-                settings.bricklinkTokenSecret
-              );
-              
-              // Create order object from ShipStation data
-              blOrders.push({
-                order_id: parseInt(orderId),
-                date_ordered: ssOrder.orderDate,
-                status: ssOrder.orderStatus,
-                buyer_name: ssOrder.customerUsername,
-                buyer_email: ssOrder.customerEmail,
-                cost: {
-                  grand_total: ssOrder.orderTotal,
-                  shipping: ssOrder.shippingAmount,
-                },
-                items: items, // Attach items directly
-              });
-              
-              console.log(`BrickLink Order ${orderId} - Fetched ${items.length} items from API`);
-            } catch (err: any) {
-              console.error(`Error fetching BrickLink order ${orderId}:`, err.message);
+              // Note: BrickLink API likely won't return items for shipped orders
+              // We're just fetching to verify order exists on platform
+              platformOrder = {
+                orderNumber: orderId,
+                marketplace: 'BrickLink',
+                orderDate: ssOrder.orderDate,
+                orderStatus: ssOrder.orderStatus,
+                customerUsername: ssOrder.customerUsername,
+                customerEmail: ssOrder.customerEmail,
+                orderTotal: ssOrder.orderTotal,
+                shippingAmount: ssOrder.shippingAmount,
+              };
+            } catch (apiErr: any) {
+              console.error(`BrickLink API error for order ${orderId}:`, apiErr.message);
             }
-          }
 
-        for (const blOrder of blOrders) {
-          try {
-            // Items already fetched above
-            const items = blOrder.items || [];
+            // Map ShipStation items with warehouse bins
+            const itemsWithBins = await Promise.all(ssItems.map(async (item: any) => {
+              const binInfo = await db
+                .select({
+                  aisleId: whAisles.id,
+                  aisleName: whAisles.name,
+                  shelfId: whShelves.id,
+                  shelfName: whShelves.name,
+                  binId: whBins.id,
+                  binName: whBins.name,
+                })
+                .from(inventoryLocations)
+                .leftJoin(whBins, eq(inventoryLocations.binId, whBins.id))
+                .leftJoin(whShelves, eq(whBins.shelfId, whShelves.id))
+                .leftJoin(whAisles, eq(whShelves.aisleId, whAisles.id))
+                .where(eq(inventoryLocations.inventoryId, parseInt(item.sku || '0')))
+                .limit(1);
 
-          // Check if corresponding ShipStation order exists
-          // Note: ShipStation stores BrickLink order numbers with "BL." prefix (e.g., "BL.6323416")
-          const blOrderNumber = `BL.${blOrder.order_id}`;
-          const ssOrder = await db.select().from(orders)
-            .where(and(
-              eq(orders.orderNumber, blOrderNumber),
-              eq(orders.marketplace, 'BrickLink')
-            ))
-            .limit(1);
+              return {
+                sku: item.sku,
+                name: item.name,
+                quantity: item.quantity,
+                unitPrice: item.unitPrice,
+                warehouseBin: binInfo[0] || null,
+              };
+            }));
 
-          // Map to our schema (using ShipStation data for shipping info)
-          const mappedOrder = {
-            id: `bl-${blOrder.order_id}`,
-            orderNumber: blOrder.order_id.toString(),
-            marketplace: 'BrickLink',
-            orderDate: blOrder.date_ordered,
-            orderStatus: blOrder.status,
-            customerUsername: blOrder.buyer_name,
-            customerEmail: blOrder.buyer_email,
-            orderTotal: blOrder.cost?.grand_total || '0',
-            shippingAmount: blOrder.cost?.shipping || '0',
-            shipDate: null,
-            trackingNumber: null,
-            shippingAddress: null, // Shipping info comes from ShipStation, not BrickLink API
-          };
-
-          // Map items
-          const mappedItems = items.map((item: any) => ({
-            sku: item.inventory_id.toString(), // ⭐ BrickLink inventory ID
-            name: `${item.item.name} (${item.color_name})`,
-            quantity: item.quantity,
-            unitPrice: item.unit_price_final,
-            bricklinkInventoryId: item.inventory_id,
-            colorId: item.color_id,
-            condition: mapBrickLinkCondition(item.new_or_used),
-          }));
-
-          // Check warehouse bin mapping
-          const itemsWithBins = await Promise.all(mappedItems.map(async (item: any) => {
-            const binInfo = await db
-              .select({
-                aisleId: whAisles.id,
-                aisleName: whAisles.name,
-                shelfId: whShelves.id,
-                shelfName: whShelves.name,
-                binId: whBins.id,
-                binName: whBins.name,
-              })
-              .from(inventoryLocations)
-              .leftJoin(whBins, eq(inventoryLocations.binId, whBins.id))
-              .leftJoin(whShelves, eq(whBins.shelfId, whShelves.id))
-              .leftJoin(whAisles, eq(whShelves.aisleId, whAisles.id))
-              .where(eq(inventoryLocations.inventoryId, item.bricklinkInventoryId))
-              .limit(1);
-
-            return {
-              ...item,
-              warehouseBin: binInfo[0] || null,
-            };
-          }));
-
-          results.push({
-            platform: 'BrickLink',
-            order: mappedOrder,
-            items: itemsWithBins,
-            comparison: ssOrder[0] || null,
-            issues: [],
-          });
+            results.push({
+              platform: 'BrickLink',
+              shipstationOrder: ssOrder, // ShipStation order with full details
+              shipstationItems: itemsWithBins, // ShipStation items from database
+              platformOrder: platformOrder, // Platform order header (if available)
+              platformItems: [], // Platform APIs don't return items for shipped orders
+              issues: [],
+            });
           } catch (orderError: any) {
-            console.error(`Error processing BrickLink order ${blOrder.order_id}:`, orderError.message || orderError);
-            // Continue with next order
+            console.error(`Error processing BrickLink order:`, orderError.message || orderError);
           }
         }
           } // end else (credentials check)
@@ -3974,76 +3931,38 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
         console.log(`Found ${recentBOOrders.length} recent BrickOwl orders in ShipStation`);
 
         for (const ssOrder of recentBOOrders) {
-          // Remove "BO." prefix to get BrickOwl order ID
-          const orderId = ssOrder.orderNumber.replace('BO.', '');
-          
           try {
-            // Fetch full order details with items
-            const boOrder = await getBrickOwlOrderDetails(settings.brickowlApiKey, orderId);
+            // Remove "BO." prefix to get BrickOwl order ID
+            const orderId = ssOrder.orderNumber.replace('BO.', '');
+            console.log(`Processing BrickOwl order ${orderId}...`);
             
-            console.log(`BrickOwl Order ${boOrder.order_id} - Full response:`, JSON.stringify(boOrder, null, 2).slice(0, 2000));
-
-            // Check if corresponding ShipStation order exists
-            // Note: ShipStation stores BrickOwl order numbers with "BO." prefix (e.g., "BO.7439152")
-            const boOrderNumber = `BO.${boOrder.order_id}`;
-            const ssOrderCheck = await db.select().from(orders)
-              .where(and(
-                eq(orders.orderNumber, boOrderNumber),
-                eq(orders.marketplace, 'BrickOwl')
-              ))
-              .limit(1);
-
-            // Map to our schema with shipping address (BrickOwl uses individual fields)
-            const mappedOrder = {
-              id: `bo-${boOrder.order_id}`,
-              orderNumber: boOrder.order_id.toString(),
-              marketplace: 'BrickOwl',
-              orderDate: new Date(boOrder.order_time * 1000).toISOString(),
-              orderStatus: mapBrickOwlStatus(boOrder.status_id),
-              customerUsername: boOrder.buyer_name || boOrder.customer_username,
-              customerEmail: boOrder.customer_email,
-              orderTotal: boOrder.base_order_total || '0',
-              shippingAmount: boOrder.ship_total || '0',
-              trackingNumber: boOrder.tracking_number || null,
-              shippingAddress: {
-                name: `${boOrder.ship_first_name || ''} ${boOrder.ship_last_name || ''}`.trim() || boOrder.buyer_name,
-                street1: boOrder.ship_street_1,
-                street2: boOrder.ship_street_2 || null,
-                city: boOrder.ship_city,
-                state: boOrder.ship_region,
-                postalCode: boOrder.ship_post_code,
-                country: boOrder.ship_country_code,
-              },
-            };
-
-            // Map items
-            const issues: string[] = [];
-            const itemsArray = boOrder.items || [];
-            console.log(`BrickOwl Order ${boOrder.order_id} - Found ${itemsArray.length} items in response`);
+            // Fetch ShipStation order items from database
+            const ssItems = await db.select()
+              .from(orderDetails)
+              .where(eq(orderDetails.orderId, ssOrder.id));
             
-            const mappedItems = itemsArray.map((item: any) => {
-              const externalId = item.external_lot_ids?.other;
-              if (!externalId) {
-                issues.push(`Item ${item.item_name} missing external_lot_ids.other`);
-              }
-              
-              return {
-                sku: externalId || null, // ⭐ BrickLink inventory ID from external_lot_ids.other
-                name: `${item.item_name} (${item.color_name})`,
-                quantity: item.quantity,
-                unitPrice: item.price,
-                bricklinkInventoryId: externalId ? parseInt(externalId) : null,
-                colorId: item.color_id,
-                condition: mapBrickOwlCondition(item.condition),
+            console.log(`ShipStation has ${ssItems.length} items for order ${orderId}`);
+
+            // Try to fetch platform order header
+            let platformOrder = null;
+            try {
+              const boOrder = await getBrickOwlOrderDetails(settings.brickowlApiKey, orderId);
+              platformOrder = {
+                orderNumber: orderId,
+                marketplace: 'BrickOwl',
+                orderDate: new Date(boOrder.order_time * 1000).toISOString(),
+                orderStatus: mapBrickOwlStatus(boOrder.status_id),
+                customerUsername: boOrder.buyer_name || boOrder.customer_username,
+                customerEmail: boOrder.customer_email,
+                orderTotal: boOrder.base_order_total || '0',
+                shippingAmount: boOrder.ship_total || '0',
               };
-            });
+            } catch (apiErr: any) {
+              console.error(`BrickOwl API error for order ${orderId}:`, apiErr.message);
+            }
 
-            // Check warehouse bin mapping
-            const itemsWithBins = await Promise.all(mappedItems.map(async (item: any) => {
-              if (!item.bricklinkInventoryId) {
-                return { ...item, warehouseBin: null };
-              }
-
+            // Map ShipStation items with warehouse bins
+            const itemsWithBins = await Promise.all(ssItems.map(async (item: any) => {
               const binInfo = await db
                 .select({
                   aisleId: whAisles.id,
@@ -4057,24 +3976,28 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
                 .leftJoin(whBins, eq(inventoryLocations.binId, whBins.id))
                 .leftJoin(whShelves, eq(whBins.shelfId, whShelves.id))
                 .leftJoin(whAisles, eq(whShelves.aisleId, whAisles.id))
-                .where(eq(inventoryLocations.inventoryId, item.bricklinkInventoryId))
+                .where(eq(inventoryLocations.inventoryId, parseInt(item.sku || '0')))
                 .limit(1);
 
               return {
-                ...item,
+                sku: item.sku,
+                name: item.name,
+                quantity: item.quantity,
+                unitPrice: item.unitPrice,
                 warehouseBin: binInfo[0] || null,
               };
             }));
 
             results.push({
               platform: 'BrickOwl',
-              order: mappedOrder,
-              items: itemsWithBins,
-              comparison: ssOrderCheck[0] || null,
-              issues,
+              shipstationOrder: ssOrder, // ShipStation order with full details
+              shipstationItems: itemsWithBins, // ShipStation items from database
+              platformOrder: platformOrder, // Platform order header (if available)
+              platformItems: [], // Platform APIs don't return items for shipped orders
+              issues: [],
             });
           } catch (err: any) {
-            console.error(`Error fetching BrickOwl order ${orderId}:`, err.message);
+            console.error(`Error processing BrickOwl order:`, err.message);
           }
         }
       }

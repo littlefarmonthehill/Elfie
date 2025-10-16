@@ -151,12 +151,12 @@ export default function OrderSyncTester({ open, onOpenChange }: OrderSyncTesterP
                               {result.platform}
                             </Badge>
                             <span className="font-mono text-sm font-bold">
-                              #{result.order.orderNumber}
+                              #{result.shipstationOrder?.orderNumber || result.platformOrder?.orderNumber || 'N/A'}
                             </span>
                           </div>
                         </div>
                         <div className="text-right">
-                          {result.comparison ? (
+                          {result.shipstationOrder ? (
                             <div className="flex items-center gap-2 text-green-600">
                               <CheckCircle className="h-4 w-4" />
                               <span className="text-xs font-medium">In ShipStation</span>
@@ -188,62 +188,62 @@ export default function OrderSyncTester({ open, onOpenChange }: OrderSyncTesterP
                                 <tbody className="divide-y">
                                   <tr>
                                     <td className="py-2">Order Number</td>
-                                    <td className="py-2 font-mono">{result.comparison?.orderNumber || '-'}</td>
-                                    <td className="py-2 font-mono">{result.order.orderNumber}</td>
+                                    <td className="py-2 font-mono">{result.shipstationOrder?.orderNumber || '-'}</td>
+                                    <td className="py-2 font-mono">{result.platformOrder?.orderNumber || '-'}</td>
                                   </tr>
                                   <tr>
                                     <td className="py-2">Customer</td>
-                                    <td className="py-2">{result.comparison?.customerUsername || '-'}</td>
-                                    <td className="py-2">{result.order.customerUsername}</td>
+                                    <td className="py-2">{result.shipstationOrder?.customerUsername || '-'}</td>
+                                    <td className="py-2">{result.platformOrder?.customerUsername || '-'}</td>
                                   </tr>
                                   <tr>
                                     <td className="py-2">Email</td>
-                                    <td className="py-2">{result.comparison?.customerEmail || '-'}</td>
-                                    <td className="py-2">{result.order.customerEmail || '-'}</td>
+                                    <td className="py-2">{result.shipstationOrder?.customerEmail || '-'}</td>
+                                    <td className="py-2">{result.platformOrder?.customerEmail || '-'}</td>
                                   </tr>
                                   <tr>
                                     <td className="py-2">Order Date</td>
-                                    <td className="py-2">{result.comparison?.orderDate ? new Date(result.comparison.orderDate).toLocaleDateString() : '-'}</td>
-                                    <td className="py-2">{new Date(result.order.orderDate).toLocaleDateString()}</td>
+                                    <td className="py-2">{result.shipstationOrder?.orderDate ? new Date(result.shipstationOrder.orderDate).toLocaleDateString() : '-'}</td>
+                                    <td className="py-2">{result.platformOrder?.orderDate ? new Date(result.platformOrder.orderDate).toLocaleDateString() : '-'}</td>
                                   </tr>
                                   <tr>
                                     <td className="py-2">Status</td>
-                                    <td className="py-2 capitalize">{result.comparison?.orderStatus?.replace(/_/g, ' ') || '-'}</td>
-                                    <td className="py-2 capitalize">{result.order.orderStatus.replace(/_/g, ' ')}</td>
+                                    <td className="py-2 capitalize">{result.shipstationOrder?.orderStatus?.replace(/_/g, ' ') || '-'}</td>
+                                    <td className="py-2 capitalize">{result.platformOrder?.orderStatus?.replace(/_/g, ' ') || '-'}</td>
                                   </tr>
                                   <tr>
                                     <td className="py-2">Total</td>
-                                    <td className="py-2">${result.comparison?.orderTotal || '0'}</td>
-                                    <td className="py-2">${result.order.orderTotal}</td>
+                                    <td className="py-2">${result.shipstationOrder?.orderTotal || '0'}</td>
+                                    <td className="py-2">${result.platformOrder?.orderTotal || '0'}</td>
                                   </tr>
                                   <tr>
                                     <td className="py-2">Ship Name</td>
-                                    <td className="py-2">{result.comparison?.shipTo?.name || '-'}</td>
-                                    <td className="py-2">{result.order.shippingAddress?.name || '-'}</td>
+                                    <td className="py-2">{result.shipstationOrder?.shipTo?.name || '-'}</td>
+                                    <td className="py-2">{result.platformOrder?.shippingAddress?.name || '-'}</td>
                                   </tr>
                                   <tr>
                                     <td className="py-2">Ship Address</td>
                                     <td className="py-2">
-                                      {result.comparison?.shipTo ? (
+                                      {result.shipstationOrder?.shipTo ? (
                                         <>
-                                          {result.comparison.shipTo.street1}
-                                          {result.comparison.shipTo.street2 && `, ${result.comparison.shipTo.street2}`}
+                                          {result.shipstationOrder.shipTo.street1}
+                                          {result.shipstationOrder.shipTo.street2 && `, ${result.shipstationOrder.shipTo.street2}`}
                                           <br />
-                                          {result.comparison.shipTo.city}, {result.comparison.shipTo.state} {result.comparison.shipTo.postalCode}
+                                          {result.shipstationOrder.shipTo.city}, {result.shipstationOrder.shipTo.state} {result.shipstationOrder.shipTo.postalCode}
                                           <br />
-                                          {result.comparison.shipTo.country}
+                                          {result.shipstationOrder.shipTo.country}
                                         </>
                                       ) : '-'}
                                     </td>
                                     <td className="py-2">
-                                      {result.order.shippingAddress ? (
+                                      {result.platformOrder?.shippingAddress ? (
                                         <>
-                                          {result.order.shippingAddress.street1}
-                                          {result.order.shippingAddress.street2 && `, ${result.order.shippingAddress.street2}`}
+                                          {result.platformOrder.shippingAddress.street1}
+                                          {result.platformOrder.shippingAddress.street2 && `, ${result.platformOrder.shippingAddress.street2}`}
                                           <br />
-                                          {result.order.shippingAddress.city}, {result.order.shippingAddress.state} {result.order.shippingAddress.postalCode}
+                                          {result.platformOrder.shippingAddress.city}, {result.platformOrder.shippingAddress.state} {result.platformOrder.shippingAddress.postalCode}
                                           <br />
-                                          {result.order.shippingAddress.country}
+                                          {result.platformOrder.shippingAddress.country}
                                         </>
                                       ) : '-'}
                                     </td>
@@ -254,44 +254,50 @@ export default function OrderSyncTester({ open, onOpenChange }: OrderSyncTesterP
                           </AccordionContent>
                         </AccordionItem>
 
-                        {/* Order Detail - Line Items */}
+                        {/* Order Detail - Line Items from ShipStation */}
                         <AccordionItem value="detail">
-                          <AccordionTrigger className="text-sm font-medium">Order Detail ({result.items.length} items)</AccordionTrigger>
+                          <AccordionTrigger className="text-sm font-medium">
+                            ShipStation Items ({result.shipstationItems?.length || 0} items)
+                          </AccordionTrigger>
                           <AccordionContent>
-                            <div className="overflow-x-auto">
-                              <table className="w-full text-xs">
-                                <thead>
-                                  <tr className="border-b">
-                                    <th className="text-left py-2 font-medium text-muted-foreground">Item Name</th>
-                                    <th className="text-left py-2 font-medium text-muted-foreground">SKU</th>
-                                    <th className="text-left py-2 font-medium text-muted-foreground">Qty</th>
-                                    <th className="text-left py-2 font-medium text-muted-foreground">Price</th>
-                                    <th className="text-left py-2 font-medium text-muted-foreground">Total</th>
-                                    <th className="text-left py-2 font-medium text-muted-foreground">Warehouse Bin</th>
-                                  </tr>
-                                </thead>
-                                <tbody className="divide-y">
-                                  {result.items.map((item: any, itemIdx: number) => (
-                                    <tr key={itemIdx}>
-                                      <td className="py-2">{item.name}</td>
-                                      <td className="py-2 font-mono text-[10px]">{item.sku || '-'}</td>
-                                      <td className="py-2">{item.quantity}</td>
-                                      <td className="py-2">${item.unitPrice}</td>
-                                      <td className="py-2">${(item.quantity * item.unitPrice).toFixed(2)}</td>
-                                      <td className="py-2">
-                                        {item.warehouseBin ? (
-                                          <span className="text-green-600 text-[10px]">
-                                            {item.warehouseBin.aisleName} › {item.warehouseBin.shelfName} › {item.warehouseBin.binName}
-                                          </span>
-                                        ) : (
-                                          <span className="text-orange-600 text-[10px]">Not assigned</span>
-                                        )}
-                                      </td>
+                            {result.shipstationItems && result.shipstationItems.length > 0 ? (
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-xs">
+                                  <thead>
+                                    <tr className="border-b">
+                                      <th className="text-left py-2 font-medium text-muted-foreground">Item Name</th>
+                                      <th className="text-left py-2 font-medium text-muted-foreground">SKU</th>
+                                      <th className="text-left py-2 font-medium text-muted-foreground">Qty</th>
+                                      <th className="text-left py-2 font-medium text-muted-foreground">Price</th>
+                                      <th className="text-left py-2 font-medium text-muted-foreground">Total</th>
+                                      <th className="text-left py-2 font-medium text-muted-foreground">Warehouse Bin</th>
                                     </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
+                                  </thead>
+                                  <tbody className="divide-y">
+                                    {result.shipstationItems.map((item: any, itemIdx: number) => (
+                                      <tr key={itemIdx}>
+                                        <td className="py-2">{item.name}</td>
+                                        <td className="py-2 font-mono text-[10px]">{item.sku || '-'}</td>
+                                        <td className="py-2">{item.quantity}</td>
+                                        <td className="py-2">${item.unitPrice}</td>
+                                        <td className="py-2">${(item.quantity * item.unitPrice).toFixed(2)}</td>
+                                        <td className="py-2">
+                                          {item.warehouseBin ? (
+                                            <span className="text-green-600 text-[10px]">
+                                              {item.warehouseBin.aisleName} › {item.warehouseBin.shelfName} › {item.warehouseBin.binName}
+                                            </span>
+                                          ) : (
+                                            <span className="text-orange-600 text-[10px]">Not assigned</span>
+                                          )}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            ) : (
+                              <p className="text-xs text-muted-foreground py-4">No items found in ShipStation</p>
+                            )}
                             
                             {/* Issues */}
                             {result.issues && result.issues.length > 0 && (
