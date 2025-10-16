@@ -142,6 +142,7 @@ export async function updateBrickOwlLot(data: {
   price?: number;
   condition?: string;
   for_sale?: number;
+  personal_note?: string;
 }): Promise<any> {
   const updateData: Record<string, string> = {};
   
@@ -151,6 +152,7 @@ export async function updateBrickOwlLot(data: {
   if (data.price !== undefined) updateData.price = data.price.toFixed(3);
   if (data.condition) updateData.condition = data.condition;
   if (data.for_sale !== undefined) updateData.for_sale = data.for_sale.toString();
+  if (data.personal_note !== undefined) updateData.personal_note = data.personal_note;
   
   return brickowlPost('/inventory/update', updateData);
 }
@@ -268,54 +270,36 @@ export async function syncInventoryItem(
   error?: string;
 }> {
   try {
-    // Lookup BOID from BrickLink item number
-    const boid = await lookupBoid(blItem.itemNo, blItem.itemType);
+    // SIMPLIFIED APPROACH: Use BrickLink inventory ID stored in external_lot_ids.other
+    // If BrickOwl lot has external_lot_ids.other = BrickLink inventory ID → UPDATE
+    // If not found → CREATE new lot
     
-    if (!boid) {
-      return {
-        success: false,
-        action: 'skipped',
-        error: `Could not find BOID for BrickLink item ${blItem.itemNo}`,
-      };
-    }
-
-    // Note: BrickOwl's BOID already includes both part AND color information
-    // So we don't need to send color_id separately - the BOID is sufficient
-    console.log(`[Sync] Item ${blItem.itemNo} has colorId: ${blItem.colorId}, type: ${blItem.itemType}`);
-    console.log(`[Sync] Item ${blItem.itemNo} using BOID ${boid} (BOID includes color info)`);
-
-    // Map BrickLink condition to BrickOwl condition
-    // Business logic per user's inventory policy:
-    // - BrickLink "New" → BrickOwl "new"
-    // - BrickLink "Used" → BrickOwl "usedg" (Used Good)
-    const condition = blItem.newOrUsed === 'N' ? 'new' : 'usedg';
-    const newPrice = blItem.unitPrice ? parseFloat(blItem.unitPrice) : 0;
-
-    // Check if lot already exists in BrickOwl
     // If inventory not provided, fetch it (for backwards compatibility)
     if (!brickowlInventory) {
       brickowlInventory = await getBrickOwlInventory(false);
     }
     
-    // BrickOwl identifies lots by: Part ID + Color ID + Condition
-    // BOID contains part + color, so match by BOID + condition
-    const existingLots = brickowlInventory.filter((lot: any) => {
-      return lot.boid === boid && lot.full_con === condition;
-    });
+    // Find existing BrickOwl lot by BrickLink inventory ID
+    const existingLot = brickowlInventory.find((lot: any) => 
+      lot.external_lot_ids?.other === blItem.id.toString()
+    );
 
-    if (existingLots.length > 0) {
-      const existingLot = existingLots[0];
+    const newPrice = blItem.unitPrice ? parseFloat(blItem.unitPrice) : 0;
+    const condition = blItem.newOrUsed === 'N' ? 'new' : 'usedg';
+
+    if (existingLot) {
+      // UPDATE existing lot
       const existingQty = parseInt(existingLot.qty);
       const existingPrice = parseFloat(existingLot.price);
       
-      // Check if quantity or price changed
+      // Check if anything changed
       const qtyChanged = existingQty !== blItem.quantity;
-      const priceChanged = Math.abs(existingPrice - newPrice) > 0.001; // Use small epsilon for float comparison
+      const priceChanged = Math.abs(existingPrice - newPrice) > 0.001;
+      const remarksChanged = (existingLot.personal_note || '') !== (blItem.remarks || '');
       
-      if (qtyChanged || priceChanged) {
-        console.log(`[Sync] Updating ${blItem.itemNo}: Qty ${existingQty} → ${blItem.quantity}, Price $${existingPrice} → $${newPrice}`);
+      if (qtyChanged || priceChanged || remarksChanged) {
+        console.log(`[Sync] Updating ${blItem.itemNo} (BL inv ${blItem.id}): Qty ${existingQty} → ${blItem.quantity}, Price $${existingPrice} → $${newPrice}`);
         
-        // Update existing lot using lot_id (BrickOwl requires this for updates)
         await updateBrickOwlLot({
           lot_id: existingLot.lot_id,
           absolute_quantity: blItem.quantity,
@@ -330,15 +314,26 @@ export async function syncInventoryItem(
         return { success: true, action: 'skipped' };
       }
     } else {
-      // Create new lot with description/remarks for BrickOwl's duplicate detection
-      console.log(`[Sync] Creating new lot for ${blItem.itemNo}`);
+      // CREATE new lot
+      // Lookup BOID only when creating new lots
+      const boid = await lookupBoid(blItem.itemNo, blItem.itemType);
+      
+      if (!boid) {
+        return {
+          success: false,
+          action: 'skipped',
+          error: `Could not find BOID for BrickLink item ${blItem.itemNo}`,
+        };
+      }
+
+      console.log(`[Sync] Creating new lot for ${blItem.itemNo} (BL inv ${blItem.id})`);
       await createBrickOwlLot({
         boid,
         quantity: blItem.quantity,
         price: newPrice,
         condition,
         for_sale: 1,
-        external_id_1: blItem.id.toString(),
+        external_id_1: blItem.id.toString(), // Store BrickLink inventory ID
         personal_note: blItem.remarks || undefined,
       });
       
