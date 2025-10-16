@@ -66,6 +66,9 @@ export async function syncBrickLinkOrders(
     
     // Fetch orders from BrickLink API
     // Status options: PENDING (awaiting payment/shipment), COMPLETED (shipped), PURGED (cancelled/deleted)
+    // Note: Skip PURGED orders for manual sync since they're old cancelled orders with no item data
+    const skipPurged = !options.fullSync; // Skip PURGED orders unless explicitly doing full sync
+    
     const pendingOrders = await getBrickLinkOrders(consumerKey, consumerSecret, tokenValue, tokenSecret, {
       direction: 'in', // Incoming orders (purchases)
       status: 'PENDING',
@@ -80,17 +83,24 @@ export async function syncBrickLinkOrders(
       filed: filedDate,
     });
     
-    const purgedOrders = await getBrickLinkOrders(consumerKey, consumerSecret, tokenValue, tokenSecret, {
-      direction: 'in',
-      status: 'PURGED',
-      limit: options.limit,
-      filed: filedDate,
-    });
+    let purgedOrders: any[] = [];
+    if (!skipPurged) {
+      purgedOrders = await getBrickLinkOrders(consumerKey, consumerSecret, tokenValue, tokenSecret, {
+        direction: 'in',
+        status: 'PURGED',
+        limit: options.limit,
+        filed: filedDate,
+      });
+    }
     
     const allOrders = [...pendingOrders, ...completedOrders, ...purgedOrders];
     result.totalOrders = allOrders.length;
     
-    console.log(`📦 Fetched ${result.totalOrders} orders from BrickLink (${pendingOrders.length} pending, ${completedOrders.length} completed, ${purgedOrders.length} purged)`);
+    if (skipPurged) {
+      console.log(`📦 Fetched ${result.totalOrders} orders from BrickLink (${pendingOrders.length} pending, ${completedOrders.length} completed, PURGED skipped for manual sync)`);
+    } else {
+      console.log(`📦 Fetched ${result.totalOrders} orders from BrickLink (${pendingOrders.length} pending, ${completedOrders.length} completed, ${purgedOrders.length} purged)`);
+    }
     
     // Process each order
     for (const blOrder of allOrders) {
