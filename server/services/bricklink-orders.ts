@@ -3,6 +3,9 @@ import crypto from 'crypto';
 
 const BRICKLINK_API_BASE = 'https://api.bricklink.com/api/store/v1';
 
+// Clean token values - remove any non-alphanumeric characters that may have been added
+const cleanToken = (value: string) => value.replace(/[^A-Z0-9]/gi, '');
+
 // OAuth signature method
 function getOAuthSignature() {
   return {
@@ -33,20 +36,27 @@ export async function getBrickLinkOrders(
     hash_function: getOAuthSignature().hash_function,
   });
 
-  const requestData = {
-    url: `${BRICKLINK_API_BASE}/orders`,
-    method: 'GET',
-  };
-
-  const token = { key: tokenValue, secret: tokenSecret };
-  const authHeader = oauth.toHeader(oauth.authorize(requestData, token));
-
-  // Build query params
+  // Build query params first
   const params = new URLSearchParams();
   if (options.direction) params.append('direction', options.direction);
   if (options.status) params.append('status', options.status);
   
-  const url = `${requestData.url}?${params.toString()}`;
+  // Build URL with query params - OAuth needs the full URL for signature
+  const url = params.toString() 
+    ? `${BRICKLINK_API_BASE}/orders?${params.toString()}`
+    : `${BRICKLINK_API_BASE}/orders`;
+
+  const requestData = {
+    url,
+    method: 'GET',
+  };
+
+  // Clean tokens before using them (removes any non-alphanumeric characters)
+  const token = { 
+    key: cleanToken(tokenValue), 
+    secret: cleanToken(tokenSecret) 
+  };
+  const authHeader = oauth.toHeader(oauth.authorize(requestData, token));
 
   const response = await fetch(url, {
     method: 'GET',
@@ -90,7 +100,11 @@ export async function getBrickLinkOrderItems(
     method: 'GET',
   };
 
-  const token = { key: tokenValue, secret: tokenSecret };
+  // Clean tokens before using them (removes any non-alphanumeric characters)
+  const token = { 
+    key: cleanToken(tokenValue), 
+    secret: cleanToken(tokenSecret) 
+  };
   const authHeader = oauth.toHeader(oauth.authorize(requestData, token));
 
   const response = await fetch(requestData.url, {
