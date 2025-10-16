@@ -3845,21 +3845,23 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
           }
 
         for (const blOrder of blOrders) {
-          // Fetch order items
-          const items = await getBrickLinkOrderItems(
-            blOrder.order_id,
-            settings.bricklinkConsumerKey,
-            settings.bricklinkConsumerSecret,
-            settings.bricklinkTokenValue,
-            settings.bricklinkTokenSecret
-          );
-          console.log(`BrickLink Order ${blOrder.order_id} - Fetched ${items.length} items`);
+          try {
+            // Fetch order items
+            const items = await getBrickLinkOrderItems(
+              blOrder.order_id,
+              settings.bricklinkConsumerKey,
+              settings.bricklinkConsumerSecret,
+              settings.bricklinkTokenValue,
+              settings.bricklinkTokenSecret
+            );
+            console.log(`BrickLink Order ${blOrder.order_id} - Fetched ${items.length} items`);
 
           // Check if corresponding ShipStation order exists
-          // Note: ShipStation stores BrickLink order numbers without prefix (e.g., "2166")
+          // Note: ShipStation stores BrickLink order numbers with "BL." prefix (e.g., "BL.6323416")
+          const blOrderNumber = `BL.${blOrder.order_id}`;
           const ssOrder = await db.select().from(orders)
             .where(and(
-              eq(orders.orderNumber, blOrder.order_id.toString()),
+              eq(orders.orderNumber, blOrderNumber),
               eq(orders.marketplace, 'BrickLink')
             ))
             .limit(1);
@@ -3930,6 +3932,10 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
             comparison: ssOrder[0] || null,
             issues: [],
           });
+          } catch (orderError: any) {
+            console.error(`Error processing BrickLink order ${blOrder.order_id}:`, orderError.message || orderError);
+            // Continue with next order
+          }
         }
           } // end else (credentials check)
         } catch (blError: any) {
