@@ -14,11 +14,17 @@ export interface BrickOwlInventoryLot {
   lot_id: string;
   boid: string;
   color_id: number;
-  quantity: number;
+  qty: string;
+  quantity?: number; // Alternative field name
   price: string;
   condition: string;
+  full_con?: string; // Full condition name
   for_sale: number;
-  external_lot_ids?: string[];
+  external_lot_ids?: {
+    other?: string;
+    external_id_1?: string;
+  };
+  personal_note?: string;
 }
 
 // Make a BrickOwl API GET request
@@ -306,6 +312,7 @@ export async function syncInventoryItem(
           price: newPrice,
           condition,
           for_sale: 1,
+          personal_note: blItem.remarks || undefined,
         });
         
         return { success: true, action: 'updated' };

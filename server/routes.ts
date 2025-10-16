@@ -1740,15 +1740,14 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
           const priceDiscrepancies: any[] = [];
           const quantityDiscrepancies: any[] = [];
 
-          // REVERSED COMPARISON: Compare FROM BrickOwl TO BrickLink (no BOID lookups needed!)
-          // BrickOwl lots have external_lot_ids.other containing BrickLink inventory ID
-          console.log('[Status] Starting REVERSED comparison (no BOID lookups!)');
+          // SIMPLIFIED COMPARISON: Use external_lot_ids.other (BrickLink inventory ID) for matching
+          console.log('[Status] Starting simplified comparison using external_lot_ids.other');
           const blItemsMap = new Map<number, any>();
           const blItems = await db.select().from(blInventory);
           
           // Build lookup map: BrickLink inventory ID -> BrickLink item
           for (const blItem of blItems) {
-            blItemsMap.set(blItem.inventoryId, blItem);
+            blItemsMap.set(blItem.id, blItem);
           }
           console.log(`[Status] Built BL map with ${blItemsMap.size} items`);
 
@@ -1815,7 +1814,7 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
           // Find missing items (BrickLink items not matched in BrickOwl)
           // Limit to 100 for display performance
           let missingCount = 0;
-          for (const [inventoryId, blItem] of blItemsMap) {
+          for (const [inventoryId, blItem] of Array.from(blItemsMap.entries())) {
             if (!matchedBlIds.has(inventoryId)) {
               if (missingCount < 100) {
                 const blPrice = blItem.unitPrice ? parseFloat(blItem.unitPrice) : 0;
