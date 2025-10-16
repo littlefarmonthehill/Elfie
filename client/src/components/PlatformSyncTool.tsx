@@ -30,6 +30,8 @@ type PlatformSyncData = {
       missingParts: number;
       priceDifferences: number;
       quantityDifferences: number;
+      remarksDifferences: number;
+      descriptionDifferences: number;
     };
   }[];
   lastSyncStatus: SyncStatus;
@@ -47,6 +49,10 @@ type DiscrepancyItem = {
   difference: string;
   priceDiff?: number;
   qtyDiff?: number;
+  blRemarks?: string;
+  boRemarks?: string;
+  blDescription?: string;
+  boDescription?: string;
 };
 
 export default function PlatformSyncTool() {
@@ -300,7 +306,9 @@ export default function PlatformSyncTool() {
               platform.discrepancies.missingLots > 0 || 
               platform.discrepancies.missingParts > 0 ||
               platform.discrepancies.priceDifferences > 0 ||
-              platform.discrepancies.quantityDifferences > 0;
+              platform.discrepancies.quantityDifferences > 0 ||
+              platform.discrepancies.remarksDifferences > 0 ||
+              platform.discrepancies.descriptionDifferences > 0;
 
             return (
               <Card 
@@ -400,6 +408,24 @@ export default function PlatformSyncTool() {
                               <span className="text-orange-400 font-bold">{platform.discrepancies.quantityDifferences}</span> qty diffs
                             </button>
                           )}
+                          {platform.discrepancies.remarksDifferences > 0 && (
+                            <button
+                              onClick={() => handleDiscrepancyClick(platform.name, 'remarks', `Personal Note (Remarks) Differences on ${platform.name}`)}
+                              className="text-left text-gray-300 hover:text-orange-400 transition-colors cursor-pointer hover-elevate rounded px-1 py-0.5"
+                              data-testid="button-discrepancy-remarks"
+                            >
+                              <span className="text-orange-400 font-bold">{platform.discrepancies.remarksDifferences}</span> remarks diffs
+                            </button>
+                          )}
+                          {platform.discrepancies.descriptionDifferences > 0 && (
+                            <button
+                              onClick={() => handleDiscrepancyClick(platform.name, 'description', `Public Note (Description) Differences on ${platform.name}`)}
+                              className="text-left text-gray-300 hover:text-orange-400 transition-colors cursor-pointer hover-elevate rounded px-1 py-0.5"
+                              data-testid="button-discrepancy-description"
+                            >
+                              <span className="text-orange-400 font-bold">{platform.discrepancies.descriptionDifferences}</span> description diffs
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -458,36 +484,73 @@ export default function PlatformSyncTool() {
               <div className="space-y-2">
                 {discrepancyData.discrepancies.map((item, idx) => (
                   <Card key={idx} className="p-3 bg-gray-800/50 border-gray-700">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1">
-                        <p className="text-sm font-bold text-white">{item.itemNo}</p>
-                        <p className="text-xs text-gray-400">{item.itemName || 'Unknown Item'}</p>
-                        {item.colorName && (
-                          <p className="text-xs text-gray-500">{item.colorName}</p>
-                        )}
-                      </div>
-                      <div className="grid grid-cols-2 gap-3 text-xs">
-                        <div className="text-right">
-                          <p className="text-gray-400 text-[10px]">BrickLink</p>
-                          <p className="text-white font-mono">Qty: {item.blQuantity}</p>
-                          <p className="text-white font-mono">${item.blPrice.toFixed(2)}</p>
+                    <div className="space-y-2">
+                      {/* Item Header */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1">
+                          <p className="text-sm font-bold text-white">{item.itemNo}</p>
+                          <p className="text-xs text-gray-400">{item.itemName || 'Unknown Item'}</p>
+                          {item.colorName && (
+                            <p className="text-xs text-gray-500">{item.colorName}</p>
+                          )}
                         </div>
-                        <div className="text-right">
-                          <p className="text-gray-400 text-[10px]">{discrepancyDrawer.platform}</p>
-                          <p className={`font-mono ${item.qtyDiff ? 'text-orange-400' : 'text-white'}`}>
-                            Qty: {item.boQuantity}
-                            {item.qtyDiff && item.qtyDiff !== 0 && (
-                              <span className="text-orange-400 ml-1">({item.qtyDiff > 0 ? '+' : ''}{item.qtyDiff})</span>
-                            )}
-                          </p>
-                          <p className={`font-mono ${item.priceDiff ? 'text-orange-400' : 'text-white'}`}>
-                            ${item.boPrice.toFixed(2)}
-                            {item.priceDiff && item.priceDiff !== 0 && (
-                              <span className="text-orange-400 ml-1">({item.priceDiff > 0 ? '+' : ''}{item.priceDiff.toFixed(2)})</span>
-                            )}
-                          </p>
+                        <div className="grid grid-cols-2 gap-3 text-xs">
+                          <div className="text-right">
+                            <p className="text-gray-400 text-[10px]">BrickLink</p>
+                            <p className="text-white font-mono">Qty: {item.blQuantity}</p>
+                            <p className="text-white font-mono">${item.blPrice.toFixed(2)}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-gray-400 text-[10px]">{discrepancyDrawer.platform}</p>
+                            <p className={`font-mono ${item.qtyDiff ? 'text-orange-400' : 'text-white'}`}>
+                              Qty: {item.boQuantity}
+                              {item.qtyDiff && item.qtyDiff !== 0 && (
+                                <span className="text-orange-400 ml-1">({item.qtyDiff > 0 ? '+' : ''}{item.qtyDiff})</span>
+                              )}
+                            </p>
+                            <p className={`font-mono ${item.priceDiff ? 'text-orange-400' : 'text-white'}`}>
+                              ${item.boPrice.toFixed(2)}
+                              {item.priceDiff && item.priceDiff !== 0 && (
+                                <span className="text-orange-400 ml-1">({item.priceDiff > 0 ? '+' : ''}{item.priceDiff.toFixed(2)})</span>
+                              )}
+                            </p>
+                          </div>
                         </div>
                       </div>
+                      
+                      {/* Remarks Difference */}
+                      {item.difference === 'remarks' && (
+                        <div className="border-t border-gray-700 pt-2">
+                          <p className="text-[10px] font-bold text-orange-400 mb-1">Personal Note (Internal)</p>
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            <div>
+                              <p className="text-gray-400 text-[10px]">BrickLink:</p>
+                              <p className="text-white font-mono break-words">{item.blRemarks || '(empty)'}</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-400 text-[10px]">{discrepancyDrawer.platform}:</p>
+                              <p className="text-white font-mono break-words">{item.boRemarks || '(empty)'}</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Description Difference */}
+                      {item.difference === 'description' && (
+                        <div className="border-t border-gray-700 pt-2">
+                          <p className="text-[10px] font-bold text-orange-400 mb-1">Public Note (Buyer Visible)</p>
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            <div>
+                              <p className="text-gray-400 text-[10px]">BrickLink:</p>
+                              <p className="text-white font-mono break-words">{item.blDescription || '(empty)'}</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-400 text-[10px]">{discrepancyDrawer.platform}:</p>
+                              <p className="text-white font-mono break-words">{item.boDescription || '(empty)'}</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </Card>
                 ))}

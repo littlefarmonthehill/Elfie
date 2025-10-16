@@ -1722,6 +1722,8 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
 
       let priceDifferencesCount = 0;
       let quantityDifferencesCount = 0;
+      let remarksDifferencesCount = 0;
+      let descriptionDifferencesCount = 0;
 
       if (brickowlEnabled) {
         try {
@@ -1739,6 +1741,8 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
           const missingItems: any[] = [];
           const priceDiscrepancies: any[] = [];
           const quantityDiscrepancies: any[] = [];
+          const remarksDiscrepancies: any[] = [];
+          const descriptionDiscrepancies: any[] = [];
 
           // SIMPLIFIED COMPARISON: Use external_lot_ids.other (BrickLink inventory ID) for matching
           console.log('[Status] Starting simplified comparison using external_lot_ids.other');
@@ -1809,6 +1813,44 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
                 priceDiff: boPrice - blPrice,
               });
             }
+            
+            // Check for personal_note (remarks) differences
+            const boRemarks = boLot.personal_note || '';
+            const blRemarks = blItem.remarks || '';
+            if (boRemarks !== blRemarks) {
+              remarksDifferencesCount++;
+              remarksDiscrepancies.push({
+                itemNo: blItem.itemNo,
+                itemName: blItem.itemName,
+                colorName: blItem.colorName,
+                blQuantity: blItem.quantity,
+                blPrice,
+                boQuantity: boQty,
+                boPrice,
+                difference: 'remarks',
+                blRemarks,
+                boRemarks,
+              });
+            }
+            
+            // Check for public_note (description) differences
+            const boDescription = boLot.public_note || '';
+            const blDescription = blItem.description || '';
+            if (boDescription !== blDescription) {
+              descriptionDifferencesCount++;
+              descriptionDiscrepancies.push({
+                itemNo: blItem.itemNo,
+                itemName: blItem.itemName,
+                colorName: blItem.colorName,
+                blQuantity: blItem.quantity,
+                blPrice,
+                boQuantity: boQty,
+                boPrice,
+                difference: 'description',
+                blDescription,
+                boDescription,
+              });
+            }
           }
 
           // Find missing items (BrickLink items not matched in BrickOwl)
@@ -1838,6 +1880,8 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
           discrepancyCache.set('BrickOwl:missing', { data: missingItems, timestamp: now });
           discrepancyCache.set('BrickOwl:price', { data: priceDiscrepancies, timestamp: now });
           discrepancyCache.set('BrickOwl:quantity', { data: quantityDiscrepancies, timestamp: now });
+          discrepancyCache.set('BrickOwl:remarks', { data: remarksDiscrepancies, timestamp: now });
+          discrepancyCache.set('BrickOwl:description', { data: descriptionDiscrepancies, timestamp: now });
         } catch (error) {
           console.error('Failed to fetch BrickOwl inventory stats:', error);
         }
@@ -1858,6 +1902,8 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
               missingParts: Math.max(0, brickLinkStats.totalParts - brickowlStats.totalParts),
               priceDifferences: priceDifferencesCount,
               quantityDifferences: quantityDifferencesCount,
+              remarksDifferences: remarksDifferencesCount,
+              descriptionDifferences: descriptionDifferencesCount,
             },
           },
           {
@@ -1873,6 +1919,8 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
               missingParts: 0,
               priceDifferences: 0,
               quantityDifferences: 0,
+              remarksDifferences: 0,
+              descriptionDifferences: 0,
             },
           },
           {
@@ -1888,6 +1936,8 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
               missingParts: 0,
               priceDifferences: 0,
               quantityDifferences: 0,
+              remarksDifferences: 0,
+              descriptionDifferences: 0,
             },
           },
         ],
