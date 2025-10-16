@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose } from "@/components/ui/drawer";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { X, PlayCircle, CheckCircle, AlertTriangle, Package, MapPin, CheckCircle2, XCircle } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -142,7 +143,7 @@ export default function OrderSyncTester({ open, onOpenChange }: OrderSyncTesterP
 
                 {testResults.results.map((result: any, idx: number) => (
                   <Card key={idx} className="border-l-4 border-l-primary">
-                    <CardHeader>
+                    <CardHeader className="pb-3">
                       <div className="flex items-start justify-between">
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
@@ -153,15 +154,12 @@ export default function OrderSyncTester({ open, onOpenChange }: OrderSyncTesterP
                               #{result.order.orderNumber}
                             </span>
                           </div>
-                          <p className="text-xs text-muted-foreground">
-                            {result.order.customerUsername} • {result.order.marketplace}
-                          </p>
                         </div>
                         <div className="text-right">
                           {result.comparison ? (
                             <div className="flex items-center gap-2 text-green-600">
                               <CheckCircle className="h-4 w-4" />
-                              <span className="text-xs font-medium">Exists in ShipStation</span>
+                              <span className="text-xs font-medium">In ShipStation</span>
                             </div>
                           ) : (
                             <div className="flex items-center gap-2 text-orange-600">
@@ -172,141 +170,180 @@ export default function OrderSyncTester({ open, onOpenChange }: OrderSyncTesterP
                         </div>
                       </div>
                     </CardHeader>
-                    <CardContent className="space-y-3">
-                      {/* Order Summary */}
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-                        <div>
-                          <p className="text-muted-foreground">Order Date</p>
-                          <p className="font-medium">
-                            {new Date(result.order.orderDate).toLocaleDateString()}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground">Status</p>
-                          <p className="font-medium capitalize">{result.order.orderStatus.replace(/_/g, ' ')}</p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground">Total</p>
-                          <p className="font-medium">${result.order.orderTotal}</p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground">Items</p>
-                          <p className="font-medium">{result.items.length}</p>
-                        </div>
-                      </div>
-
-                      {/* Shipping Address */}
-                      {result.order.shippingAddress && (
-                        <div className="bg-muted/30 rounded p-3">
-                          <p className="text-xs font-medium text-muted-foreground mb-2">Shipping Address</p>
-                          <div className="text-xs">
-                            <p className="font-medium">{result.order.shippingAddress.name}</p>
-                            <p>{result.order.shippingAddress.street1}</p>
-                            {result.order.shippingAddress.street2 && (
-                              <p>{result.order.shippingAddress.street2}</p>
-                            )}
-                            <p>
-                              {result.order.shippingAddress.city}, {result.order.shippingAddress.state} {result.order.shippingAddress.postalCode}
-                            </p>
-                            <p>{result.order.shippingAddress.country}</p>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* ShipStation Comparison */}
-                      <div className="bg-muted/30 rounded p-3">
-                        <p className="text-xs font-medium text-muted-foreground mb-2">ShipStation Status</p>
-                        {result.comparison ? (
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-2">
-                              <CheckCircle2 className="h-4 w-4 text-green-600" />
-                              <span className="text-xs text-green-600 font-medium">
-                                Found in ShipStation: {result.comparison.orderNumber}
-                              </span>
+                    <CardContent>
+                      <Accordion type="multiple" className="w-full">
+                        {/* Order Header */}
+                        <AccordionItem value="header">
+                          <AccordionTrigger className="text-sm font-medium">Order Header</AccordionTrigger>
+                          <AccordionContent>
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-xs">
+                                <thead>
+                                  <tr className="border-b">
+                                    <th className="text-left py-2 font-medium text-muted-foreground">Field</th>
+                                    <th className="text-left py-2 font-medium text-muted-foreground">ShipStation</th>
+                                    <th className="text-left py-2 font-medium text-muted-foreground">Field</th>
+                                    <th className="text-left py-2 font-medium text-muted-foreground">{result.platform}</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y">
+                                  <tr>
+                                    <td className="py-2">Order Number</td>
+                                    <td className="py-2 font-mono">{result.comparison?.orderNumber || '-'}</td>
+                                    <td className="py-2">Order Number</td>
+                                    <td className="py-2 font-mono">{result.order.orderNumber}</td>
+                                  </tr>
+                                  <tr>
+                                    <td className="py-2">Customer</td>
+                                    <td className="py-2">{result.comparison?.customerUsername || '-'}</td>
+                                    <td className="py-2">Customer</td>
+                                    <td className="py-2">{result.order.customerUsername}</td>
+                                  </tr>
+                                  <tr>
+                                    <td className="py-2">Email</td>
+                                    <td className="py-2">{result.comparison?.customerEmail || '-'}</td>
+                                    <td className="py-2">Email</td>
+                                    <td className="py-2">{result.order.customerEmail || '-'}</td>
+                                  </tr>
+                                  <tr>
+                                    <td className="py-2">Order Date</td>
+                                    <td className="py-2">{result.comparison?.orderDate ? new Date(result.comparison.orderDate).toLocaleDateString() : '-'}</td>
+                                    <td className="py-2">Order Date</td>
+                                    <td className="py-2">{new Date(result.order.orderDate).toLocaleDateString()}</td>
+                                  </tr>
+                                  <tr>
+                                    <td className="py-2">Status</td>
+                                    <td className="py-2 capitalize">{result.comparison?.orderStatus?.replace(/_/g, ' ') || '-'}</td>
+                                    <td className="py-2">Status</td>
+                                    <td className="py-2 capitalize">{result.order.orderStatus.replace(/_/g, ' ')}</td>
+                                  </tr>
+                                  <tr>
+                                    <td className="py-2">Total</td>
+                                    <td className="py-2">${result.comparison?.orderTotal || '0'}</td>
+                                    <td className="py-2">Total</td>
+                                    <td className="py-2">${result.order.orderTotal}</td>
+                                  </tr>
+                                </tbody>
+                              </table>
                             </div>
-                            <div className="grid grid-cols-2 gap-2 text-xs">
+                          </AccordionContent>
+                        </AccordionItem>
+
+                        {/* Order Detail */}
+                        <AccordionItem value="detail">
+                          <AccordionTrigger className="text-sm font-medium">Order Detail</AccordionTrigger>
+                          <AccordionContent>
+                            <div className="space-y-4">
+                              {/* Shipping Address Comparison */}
                               <div>
-                                <p className="text-muted-foreground">SS Customer</p>
-                                <p className="font-medium">{result.comparison.customerUsername}</p>
+                                <p className="text-xs font-medium text-muted-foreground mb-2">Shipping Address</p>
+                                <div className="overflow-x-auto">
+                                  <table className="w-full text-xs">
+                                    <thead>
+                                      <tr className="border-b">
+                                        <th className="text-left py-2 font-medium text-muted-foreground">Field</th>
+                                        <th className="text-left py-2 font-medium text-muted-foreground">ShipStation</th>
+                                        <th className="text-left py-2 font-medium text-muted-foreground">Field</th>
+                                        <th className="text-left py-2 font-medium text-muted-foreground">{result.platform}</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y">
+                                      <tr>
+                                        <td className="py-2">Name</td>
+                                        <td className="py-2">{result.comparison?.shipTo?.name || '-'}</td>
+                                        <td className="py-2">Name</td>
+                                        <td className="py-2">{result.order.shippingAddress?.name || '-'}</td>
+                                      </tr>
+                                      <tr>
+                                        <td className="py-2">Street 1</td>
+                                        <td className="py-2">{result.comparison?.shipTo?.street1 || '-'}</td>
+                                        <td className="py-2">Street 1</td>
+                                        <td className="py-2">{result.order.shippingAddress?.street1 || '-'}</td>
+                                      </tr>
+                                      <tr>
+                                        <td className="py-2">Street 2</td>
+                                        <td className="py-2">{result.comparison?.shipTo?.street2 || '-'}</td>
+                                        <td className="py-2">Street 2</td>
+                                        <td className="py-2">{result.order.shippingAddress?.street2 || '-'}</td>
+                                      </tr>
+                                      <tr>
+                                        <td className="py-2">City</td>
+                                        <td className="py-2">{result.comparison?.shipTo?.city || '-'}</td>
+                                        <td className="py-2">City</td>
+                                        <td className="py-2">{result.order.shippingAddress?.city || '-'}</td>
+                                      </tr>
+                                      <tr>
+                                        <td className="py-2">State</td>
+                                        <td className="py-2">{result.comparison?.shipTo?.state || '-'}</td>
+                                        <td className="py-2">State</td>
+                                        <td className="py-2">{result.order.shippingAddress?.state || '-'}</td>
+                                      </tr>
+                                      <tr>
+                                        <td className="py-2">Postal Code</td>
+                                        <td className="py-2">{result.comparison?.shipTo?.postalCode || '-'}</td>
+                                        <td className="py-2">Postal Code</td>
+                                        <td className="py-2">{result.order.shippingAddress?.postalCode || '-'}</td>
+                                      </tr>
+                                      <tr>
+                                        <td className="py-2">Country</td>
+                                        <td className="py-2">{result.comparison?.shipTo?.country || '-'}</td>
+                                        <td className="py-2">Country</td>
+                                        <td className="py-2">{result.order.shippingAddress?.country || '-'}</td>
+                                      </tr>
+                                    </tbody>
+                                  </table>
+                                </div>
                               </div>
+
+                              {/* Line Items */}
                               <div>
-                                <p className="text-muted-foreground">SS Total</p>
-                                <p className="font-medium">${result.comparison.orderTotal}</p>
-                              </div>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2">
-                            <XCircle className="h-4 w-4 text-orange-600" />
-                            <span className="text-xs text-orange-600">Not found in ShipStation</span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Issues */}
-                      {result.issues && result.issues.length > 0 && (
-                        <div className="bg-orange-500/10 border border-orange-500/30 rounded p-3">
-                          <p className="text-xs font-medium text-orange-600 mb-2">Issues Detected</p>
-                          <ul className="text-xs space-y-1">
-                            {result.issues.map((issue: string, i: number) => (
-                              <li key={i} className="text-orange-700">• {issue}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-
-                      {/* Items */}
-                      <div className="space-y-2">
-                        <p className="text-xs font-medium text-muted-foreground">Order Items</p>
-                        <div className="space-y-2">
-                          {result.items.map((item: any, itemIdx: number) => (
-                            <div
-                              key={itemIdx}
-                              className="bg-muted/30 rounded p-3 space-y-2"
-                            >
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="flex-1">
-                                  <p className="text-xs font-medium">{item.name}</p>
-                                  <div className="flex items-center gap-2 mt-1">
-                                    {item.sku ? (
-                                      <Badge variant="outline" className="text-[10px]">
-                                        SKU: {item.sku}
-                                      </Badge>
-                                    ) : (
-                                      <Badge variant="destructive" className="text-[10px]">
-                                        No SKU
-                                      </Badge>
-                                    )}
-                                    <span className="text-[10px] text-muted-foreground">
-                                      Qty: {item.quantity} • ${item.unitPrice}
-                                    </span>
-                                  </div>
+                                <p className="text-xs font-medium text-muted-foreground mb-2">Line Items ({result.items.length})</p>
+                                <div className="space-y-2">
+                                  {result.items.map((item: any, itemIdx: number) => (
+                                    <div key={itemIdx} className="bg-muted/30 rounded p-3">
+                                      <div className="flex items-start justify-between gap-2 mb-2">
+                                        <div className="flex-1">
+                                          <p className="text-xs font-medium">{item.name}</p>
+                                          <div className="flex items-center gap-2 mt-1">
+                                            {item.sku && (
+                                              <Badge variant="outline" className="text-[10px]">
+                                                SKU: {item.sku}
+                                              </Badge>
+                                            )}
+                                            <span className="text-[10px] text-muted-foreground">
+                                              Qty: {item.quantity} • ${item.unitPrice}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      </div>
+                                      {item.warehouseBin && (
+                                        <div className="flex items-center gap-2 text-xs text-green-600">
+                                          <MapPin className="h-3 w-3" />
+                                          <span className="font-medium">
+                                            {item.warehouseBin.aisleName} › {item.warehouseBin.shelfName} › {item.warehouseBin.binName}
+                                          </span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
                                 </div>
                               </div>
 
-                              {/* Warehouse Bin Status */}
-                              {item.warehouseBin ? (
-                                <div className="flex items-center gap-2 text-xs text-green-600">
-                                  <MapPin className="h-3 w-3" />
-                                  <span className="font-medium">
-                                    {item.warehouseBin.aisleName} › {item.warehouseBin.shelfName} › {item.warehouseBin.binName}
-                                  </span>
-                                </div>
-                              ) : item.bricklinkInventoryId ? (
-                                <div className="flex items-center gap-2 text-xs text-orange-600">
-                                  <Package className="h-3 w-3" />
-                                  <span>No warehouse bin assigned</span>
-                                </div>
-                              ) : (
-                                <div className="flex items-center gap-2 text-xs text-destructive">
-                                  <AlertTriangle className="h-3 w-3" />
-                                  <span>Cannot map - missing inventory ID</span>
+                              {/* Issues */}
+                              {result.issues && result.issues.length > 0 && (
+                                <div className="bg-orange-500/10 border border-orange-500/30 rounded p-3">
+                                  <p className="text-xs font-medium text-orange-600 mb-2">Issues Detected</p>
+                                  <ul className="text-xs space-y-1">
+                                    {result.issues.map((issue: string, i: number) => (
+                                      <li key={i} className="text-orange-700">• {issue}</li>
+                                    ))}
+                                  </ul>
                                 </div>
                               )}
                             </div>
-                          ))}
-                        </div>
-                      </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                      </Accordion>
                     </CardContent>
                   </Card>
                 ))}
