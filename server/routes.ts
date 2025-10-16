@@ -3763,9 +3763,9 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
         try {
           if (!settings.bricklinkConsumerKey || !settings.bricklinkConsumerSecret || 
               !settings.bricklinkTokenValue || !settings.bricklinkTokenSecret) {
-            console.log('BrickLink API credentials missing');
-            return res.status(400).json({ error: "BrickLink API credentials not configured" });
-          }
+            console.log('BrickLink API credentials missing - skipping BrickLink');
+            // Don't return error - just skip BrickLink if credentials missing
+          } else {
 
           const { getBrickLinkOrders, getBrickLinkOrderItems, mapBrickLinkStatus, mapBrickLinkCondition } = 
             await import('./services/bricklink-orders');
@@ -3904,6 +3904,7 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
             issues: [],
           });
         }
+          } // end else (credentials check)
         } catch (blError: any) {
           console.error('BrickLink API error:', blError.message || blError);
           // Continue with BrickOwl if "both" is selected
@@ -3923,13 +3924,13 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
         const boOrderList = await getBrickOwlOrders(settings.brickowlApiKey, { limit });
 
         for (const boOrderSummary of boOrderList) {
-          // Fetch full order details
+          // Fetch full order details with items
           const boOrder = await getBrickOwlOrderDetails(settings.brickowlApiKey, boOrderSummary.order_id);
           
           console.log(`BrickOwl Order ${boOrder.order_id}:`, JSON.stringify({
             itemCount: boOrder.items?.length || 0,
-            hasShipTo: !!boOrder.ship_to,
-            keys: Object.keys(boOrder)
+            sampleItem: boOrder.items?.[0] || null,
+            keys: Object.keys(boOrder).slice(0, 20) // First 20 keys only
           }));
 
           // Check if corresponding ShipStation order exists
