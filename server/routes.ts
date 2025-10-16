@@ -3807,54 +3807,57 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
           const { getBrickLinkOrders, getBrickLinkOrderItems, mapBrickLinkStatus, mapBrickLinkCondition } = 
             await import('./services/bricklink-orders');
 
-          // Fetch recent orders - try multiple valid statuses
-          console.log('Fetching BrickLink orders...');
-          
-          // Try COMPLETED first (shipped orders)
-          let blOrders = await getBrickLinkOrders(
-            settings.bricklinkConsumerKey,
-            settings.bricklinkConsumerSecret,
-            settings.bricklinkTokenValue,
-            settings.bricklinkTokenSecret,
-            { direction: 'in', status: 'COMPLETED', limit }
-          );
-          console.log(`BrickLink COMPLETED orders: ${blOrders.length}`);
+          // Fetch recent BrickLink orders from ShipStation database
+          // This ensures we test with orders that exist in both systems
+          console.log('Fetching recent BrickLink orders from ShipStation...');
+          const recentBLOrders = await db.select()
+            .from(orders)
+            .where(eq(orders.marketplace, 'BrickLink'))
+            .orderBy(desc(orders.orderDate))
+            .limit(limit);
 
-          // If no completed orders, try pending
-          if (blOrders.length === 0) {
-            blOrders = await getBrickLinkOrders(
-              settings.bricklinkConsumerKey,
-              settings.bricklinkConsumerSecret,
-              settings.bricklinkTokenValue,
-              settings.bricklinkTokenSecret,
-              { direction: 'in', status: 'PENDING', limit }
-            );
-            console.log(`BrickLink PENDING orders: ${blOrders.length}`);
-          }
+          console.log(`Found ${recentBLOrders.length} recent BrickLink orders in ShipStation`);
 
-          // If still none, try without status filter (get any orders)
-          if (blOrders.length === 0) {
-            blOrders = await getBrickLinkOrders(
-              settings.bricklinkConsumerKey,
-              settings.bricklinkConsumerSecret,
-              settings.bricklinkTokenValue,
-              settings.bricklinkTokenSecret,
-              { direction: 'in', limit }
-            );
-            console.log(`BrickLink ALL orders: ${blOrders.length}`);
+          // Extract order IDs and fetch from BrickLink API
+          const blOrders = [];
+          for (const ssOrder of recentBLOrders) {
+            // Remove "BL." prefix to get BrickLink order ID
+            const orderId = ssOrder.orderNumber.replace('BL.', '');
+            
+            try {
+              // Fetch single order from BrickLink API (using items endpoint as proxy)
+              const items = await getBrickLinkOrderItems(
+                parseInt(orderId),
+                settings.bricklinkConsumerKey,
+                settings.bricklinkConsumerSecret,
+                settings.bricklinkTokenValue,
+                settings.bricklinkTokenSecret
+              );
+              
+              // Create order object from ShipStation data
+              blOrders.push({
+                order_id: parseInt(orderId),
+                date_ordered: ssOrder.orderDate,
+                status: ssOrder.orderStatus,
+                buyer_name: ssOrder.customerUsername,
+                buyer_email: ssOrder.customerEmail,
+                cost: {
+                  grand_total: ssOrder.orderTotal,
+                  shipping: ssOrder.shippingAmount,
+                },
+                items: items, // Attach items directly
+              });
+              
+              console.log(`BrickLink Order ${orderId} - Fetched ${items.length} items from API`);
+            } catch (err: any) {
+              console.error(`Error fetching BrickLink order ${orderId}:`, err.message);
+            }
           }
 
         for (const blOrder of blOrders) {
           try {
-            // Fetch order items
-            const items = await getBrickLinkOrderItems(
-              blOrder.order_id,
-              settings.bricklinkConsumerKey,
-              settings.bricklinkConsumerSecret,
-              settings.bricklinkTokenValue,
-              settings.bricklinkTokenSecret
-            );
-            console.log(`BrickLink Order ${blOrder.order_id} - Fetched ${items.length} items`);
+            // Items already fetched above
+            const items = blOrder.items || [];
 
           // Check if corresponding ShipStation order exists
           // Note: ShipStation stores BrickLink order numbers with "BL." prefix (e.g., "BL.6323416")
@@ -3866,28 +3869,20 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
             ))
             .limit(1);
 
-          // Map to our schema with shipping address
+          // Map to our schema (using ShipStation data for shipping info)
           const mappedOrder = {
             id: `bl-${blOrder.order_id}`,
             orderNumber: blOrder.order_id.toString(),
             marketplace: 'BrickLink',
             orderDate: blOrder.date_ordered,
-            orderStatus: mapBrickLinkStatus(blOrder.status),
+            orderStatus: blOrder.status,
             customerUsername: blOrder.buyer_name,
             customerEmail: blOrder.buyer_email,
             orderTotal: blOrder.cost?.grand_total || '0',
             shippingAmount: blOrder.cost?.shipping || '0',
-            shipDate: blOrder.shipping?.date_shipped || null,
-            trackingNumber: blOrder.shipping?.tracking_no || null,
-            shippingAddress: blOrder.shipping?.address ? {
-              name: blOrder.shipping.address.name?.full || blOrder.buyer_name,
-              street1: blOrder.shipping.address.address1,
-              street2: blOrder.shipping.address.address2 || null,
-              city: blOrder.shipping.address.city,
-              state: blOrder.shipping.address.state,
-              postalCode: blOrder.shipping.address.postal_code,
-              country: blOrder.shipping.address.country_code,
-            } : null,
+            shipDate: null,
+            trackingNumber: null,
+            shippingAddress: null, // Shipping info comes from ShipStation, not BrickLink API
           };
 
           // Map items
