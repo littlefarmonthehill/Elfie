@@ -180,53 +180,45 @@ export default function OrderSyncTester({ open, onOpenChange }: OrderSyncTesterP
                               <table className="w-full text-xs">
                                 <thead>
                                   <tr className="border-b">
-                                    <th className="text-left py-2 font-medium text-muted-foreground w-1/4">Field</th>
-                                    <th className="text-left py-2 font-medium text-muted-foreground w-1/4">ShipStation</th>
-                                    <th className="text-left py-2 font-medium text-muted-foreground w-1/4">Field</th>
-                                    <th className="text-left py-2 font-medium text-muted-foreground w-1/4">{result.platform}</th>
+                                    <th className="text-left py-2 font-medium text-muted-foreground w-1/3">Field</th>
+                                    <th className="text-left py-2 font-medium text-muted-foreground w-1/3">ShipStation</th>
+                                    <th className="text-left py-2 font-medium text-muted-foreground w-1/3">{result.platform}</th>
                                   </tr>
                                 </thead>
                                 <tbody className="divide-y">
                                   <tr>
                                     <td className="py-2">Order Number</td>
                                     <td className="py-2 font-mono">{result.comparison?.orderNumber || '-'}</td>
-                                    <td className="py-2">Order Number</td>
                                     <td className="py-2 font-mono">{result.order.orderNumber}</td>
                                   </tr>
                                   <tr>
                                     <td className="py-2">Customer</td>
                                     <td className="py-2">{result.comparison?.customerUsername || '-'}</td>
-                                    <td className="py-2">Customer</td>
                                     <td className="py-2">{result.order.customerUsername}</td>
                                   </tr>
                                   <tr>
                                     <td className="py-2">Email</td>
                                     <td className="py-2">{result.comparison?.customerEmail || '-'}</td>
-                                    <td className="py-2">Email</td>
                                     <td className="py-2">{result.order.customerEmail || '-'}</td>
                                   </tr>
                                   <tr>
                                     <td className="py-2">Order Date</td>
                                     <td className="py-2">{result.comparison?.orderDate ? new Date(result.comparison.orderDate).toLocaleDateString() : '-'}</td>
-                                    <td className="py-2">Order Date</td>
                                     <td className="py-2">{new Date(result.order.orderDate).toLocaleDateString()}</td>
                                   </tr>
                                   <tr>
                                     <td className="py-2">Status</td>
                                     <td className="py-2 capitalize">{result.comparison?.orderStatus?.replace(/_/g, ' ') || '-'}</td>
-                                    <td className="py-2">Status</td>
                                     <td className="py-2 capitalize">{result.order.orderStatus.replace(/_/g, ' ')}</td>
                                   </tr>
                                   <tr>
                                     <td className="py-2">Total</td>
                                     <td className="py-2">${result.comparison?.orderTotal || '0'}</td>
-                                    <td className="py-2">Total</td>
                                     <td className="py-2">${result.order.orderTotal}</td>
                                   </tr>
                                   <tr>
                                     <td className="py-2">Ship Name</td>
                                     <td className="py-2">{result.comparison?.shipTo?.name || '-'}</td>
-                                    <td className="py-2">Ship Name</td>
                                     <td className="py-2">{result.order.shippingAddress?.name || '-'}</td>
                                   </tr>
                                   <tr>
@@ -243,7 +235,6 @@ export default function OrderSyncTester({ open, onOpenChange }: OrderSyncTesterP
                                         </>
                                       ) : '-'}
                                     </td>
-                                    <td className="py-2">Ship Address</td>
                                     <td className="py-2">
                                       {result.order.shippingAddress ? (
                                         <>
