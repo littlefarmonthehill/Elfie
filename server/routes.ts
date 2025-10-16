@@ -1740,79 +1740,97 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
           const priceDiscrepancies: any[] = [];
           const quantityDiscrepancies: any[] = [];
 
-          // Compare prices and quantities for ALL items using cached BOID lookups
+          // REVERSED COMPARISON: Compare FROM BrickOwl TO BrickLink (no BOID lookups needed!)
+          // BrickOwl lots have external_lot_ids.other containing BrickLink inventory ID
+          console.log('[Status] Starting REVERSED comparison (no BOID lookups!)');
+          const blItemsMap = new Map<number, any>();
           const blItems = await db.select().from(blInventory);
           
+          // Build lookup map: BrickLink inventory ID -> BrickLink item
           for (const blItem of blItems) {
-            // Use cached BOID lookup to avoid repeated API calls
-            const cacheKey = `${blItem.itemNo}:${blItem.itemType}`;
-            let boid = boidLookupCache.get(cacheKey);
+            blItemsMap.set(blItem.inventoryId, blItem);
+          }
+          console.log(`[Status] Built BL map with ${blItemsMap.size} items`);
+
+          // Track matched BrickLink inventory IDs
+          const matchedBlIds = new Set<number>();
+          
+          // Compare each BrickOwl lot against BrickLink inventory
+          for (const boLot of brickowlInventory) {
+            // Extract BrickLink inventory ID from external_lot_ids
+            const blInventoryId = boLot.external_lot_ids?.other ? 
+              parseInt(boLot.external_lot_ids.other) : null;
             
-            if (boid === undefined) {
-              // Not in cache - do lookup and cache result
-              boid = await lookupBoid(blItem.itemNo, blItem.itemType);
-              boidLookupCache.set(cacheKey, boid);
+            if (!blInventoryId) {
+              // No BrickLink inventory ID linked - skip
+              continue;
             }
             
-            if (!boid) continue;
+            const blItem = blItemsMap.get(blInventoryId);
             
-            // Map condition inline
-            const condition = blItem.newOrUsed === 'N' ? 'new' : 'usedg';
+            if (!blItem) {
+              // BrickOwl lot references non-existent BrickLink item - skip
+              continue;
+            }
             
-            // Find matching BrickOwl lot
-            const matchingLots = brickowlInventory.filter((lot: any) => 
-              lot.boid === boid && lot.full_con === condition
-            );
+            matchedBlIds.add(blInventoryId);
             
+            const boQty = parseInt(boLot.qty || '0');
+            const boPrice = parseFloat(boLot.price || '0');
             const blPrice = blItem.unitPrice ? parseFloat(blItem.unitPrice) : 0;
-
-            if (matchingLots.length === 0) {
-              missingItems.push({
+            
+            // Check for quantity differences
+            if (boQty !== blItem.quantity) {
+              quantityDifferencesCount++;
+              quantityDiscrepancies.push({
                 itemNo: blItem.itemNo,
                 itemName: blItem.itemName,
                 colorName: blItem.colorName,
                 blQuantity: blItem.quantity,
                 blPrice,
-                boQuantity: 0,
-                boPrice: 0,
-                difference: 'missing',
+                boQuantity: boQty,
+                boPrice,
+                difference: 'quantity',
+                qtyDiff: boQty - blItem.quantity,
               });
-            } else {
-              const boLot = matchingLots[0];
-              const boQty = parseInt(boLot.qty || '0');
-              const boPrice = parseFloat(boLot.price || '0');
-              
-              // Check for quantity differences
-              if (boQty !== blItem.quantity) {
-                quantityDifferencesCount++;
-                quantityDiscrepancies.push({
+            }
+            
+            // Check for price differences (use small epsilon for float comparison)
+            if (Math.abs(boPrice - blPrice) > 0.001) {
+              priceDifferencesCount++;
+              priceDiscrepancies.push({
+                itemNo: blItem.itemNo,
+                itemName: blItem.itemName,
+                colorName: blItem.colorName,
+                blQuantity: blItem.quantity,
+                blPrice,
+                boQuantity: boQty,
+                boPrice,
+                difference: 'price',
+                priceDiff: boPrice - blPrice,
+              });
+            }
+          }
+
+          // Find missing items (BrickLink items not matched in BrickOwl)
+          // Limit to 100 for display performance
+          let missingCount = 0;
+          for (const [inventoryId, blItem] of blItemsMap) {
+            if (!matchedBlIds.has(inventoryId)) {
+              if (missingCount < 100) {
+                const blPrice = blItem.unitPrice ? parseFloat(blItem.unitPrice) : 0;
+                missingItems.push({
                   itemNo: blItem.itemNo,
                   itemName: blItem.itemName,
                   colorName: blItem.colorName,
                   blQuantity: blItem.quantity,
                   blPrice,
-                  boQuantity: boQty,
-                  boPrice,
-                  difference: 'quantity',
-                  qtyDiff: boQty - blItem.quantity,
+                  boQuantity: 0,
+                  boPrice: 0,
+                  difference: 'missing',
                 });
               }
-              
-              // Check for price differences (use small epsilon for float comparison)
-              if (Math.abs(boPrice - blPrice) > 0.001) {
-                priceDifferencesCount++;
-                priceDiscrepancies.push({
-                  itemNo: blItem.itemNo,
-                  itemName: blItem.itemName,
-                  colorName: blItem.colorName,
-                  blQuantity: blItem.quantity,
-                  blPrice,
-                  boQuantity: boQty,
-                  boPrice,
-                  difference: 'price',
-                  priceDiff: boPrice - blPrice,
-                });
-              }
+              missingCount++;
             }
           }
 
