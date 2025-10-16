@@ -56,8 +56,9 @@ export async function getBrickOwlOrderDetails(
   return JSON.parse(text);
 }
 
-// Map BrickOwl status ID to ShipStation status
+// Map BrickOwl status ID to normalized status
 export function mapBrickOwlStatus(statusId: number): string {
+  // Use hardcoded mapping for synchronous operation
   switch (statusId) {
     case 1: // Processing
       return 'awaiting_shipment';
@@ -65,6 +66,8 @@ export function mapBrickOwlStatus(statusId: number): string {
       return 'shipped';
     case 3: // Cancelled
       return 'cancelled';
+    case 5: // Shipped (alternate ID)
+      return 'shipped';
     default:
       return 'awaiting_shipment';
   }

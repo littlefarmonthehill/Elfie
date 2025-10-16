@@ -125,8 +125,28 @@ export async function getBrickLinkOrderItems(
   return data.data || [];
 }
 
-// Map BrickLink status to ShipStation status
+// Map BrickLink status to normalized status
 export function mapBrickLinkStatus(blStatus: string): string {
+  // Import dynamically to avoid circular dependencies
+  return import('../config/order-status-mapping.js').then(module => 
+    module.mapPlatformStatus('bricklink', blStatus)
+  ).catch(() => {
+    // Fallback to hardcoded mapping if import fails
+    switch (blStatus) {
+      case 'PENDING':
+        return 'awaiting_shipment';
+      case 'COMPLETED':
+        return 'shipped';
+      case 'PURGED':
+        return 'cancelled';
+      default:
+        return 'awaiting_shipment';
+    }
+  });
+}
+
+// Synchronous version using hardcoded mapping
+export function mapBrickLinkStatusSync(blStatus: string): string {
   switch (blStatus) {
     case 'PENDING':
       return 'awaiting_shipment';
