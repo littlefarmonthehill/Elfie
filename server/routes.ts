@@ -3807,7 +3807,7 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
             ))
             .limit(1);
 
-          // Map to our schema
+          // Map to our schema with shipping address
           const mappedOrder = {
             id: `bl-${blOrder.order_id}`,
             orderNumber: blOrder.order_id.toString(),
@@ -3820,6 +3820,15 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
             shippingAmount: blOrder.cost?.shipping || '0',
             shipDate: blOrder.shipping?.date_shipped || null,
             trackingNumber: blOrder.shipping?.tracking_no || null,
+            shippingAddress: blOrder.shipping?.address ? {
+              name: blOrder.shipping.address.name?.full || blOrder.buyer_name,
+              street1: blOrder.shipping.address.address1,
+              street2: blOrder.shipping.address.address2 || null,
+              city: blOrder.shipping.address.city,
+              state: blOrder.shipping.address.state,
+              postalCode: blOrder.shipping.address.postal_code,
+              country: blOrder.shipping.address.country_code,
+            } : null,
           };
 
           // Map items
@@ -3882,6 +3891,12 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
         for (const boOrderSummary of boOrderList) {
           // Fetch full order details
           const boOrder = await getBrickOwlOrderDetails(settings.brickowlApiKey, boOrderSummary.order_id);
+          
+          console.log(`BrickOwl Order ${boOrder.order_id}:`, JSON.stringify({
+            itemCount: boOrder.items?.length || 0,
+            hasShipTo: !!boOrder.ship_to,
+            keys: Object.keys(boOrder)
+          }));
 
           // Check if corresponding ShipStation order exists
           // Note: ShipStation stores BrickOwl order numbers with "BO." prefix (e.g., "BO.7439152")
@@ -3893,7 +3908,7 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
             ))
             .limit(1);
 
-          // Map to our schema
+          // Map to our schema with shipping address
           const mappedOrder = {
             id: `bo-${boOrder.order_id}`,
             orderNumber: boOrder.order_id.toString(),
@@ -3905,6 +3920,15 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
             orderTotal: boOrder.base_order_total || '0',
             shippingAmount: 'Combined in total', // BrickOwl doesn't separate shipping
             trackingNumber: boOrder.tracking_no || null,
+            shippingAddress: boOrder.ship_to ? {
+              name: boOrder.ship_to.name,
+              street1: boOrder.ship_to.address1,
+              street2: boOrder.ship_to.address2 || null,
+              city: boOrder.ship_to.city,
+              state: boOrder.ship_to.state,
+              postalCode: boOrder.ship_to.post_code,
+              country: boOrder.ship_to.country_code,
+            } : null,
           };
 
           // Map items

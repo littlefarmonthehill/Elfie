@@ -195,6 +195,24 @@ export default function OrderSyncTester({ open, onOpenChange }: OrderSyncTesterP
                         </div>
                       </div>
 
+                      {/* Shipping Address */}
+                      {result.order.shippingAddress && (
+                        <div className="bg-muted/30 rounded p-3">
+                          <p className="text-xs font-medium text-muted-foreground mb-2">Shipping Address</p>
+                          <div className="text-xs">
+                            <p className="font-medium">{result.order.shippingAddress.name}</p>
+                            <p>{result.order.shippingAddress.street1}</p>
+                            {result.order.shippingAddress.street2 && (
+                              <p>{result.order.shippingAddress.street2}</p>
+                            )}
+                            <p>
+                              {result.order.shippingAddress.city}, {result.order.shippingAddress.state} {result.order.shippingAddress.postalCode}
+                            </p>
+                            <p>{result.order.shippingAddress.country}</p>
+                          </div>
+                        </div>
+                      )}
+
                       {/* Issues */}
                       {result.issues && result.issues.length > 0 && (
                         <div className="bg-orange-500/10 border border-orange-500/30 rounded p-3">
