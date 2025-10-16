@@ -4,8 +4,9 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { RefreshCw, Loader2, CheckCircle2, AlertTriangle, ArrowRight, Info } from "lucide-react";
+import { RefreshCw, Loader2, CheckCircle2, AlertTriangle, ArrowRight, Info, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose } from "@/components/ui/drawer";
 
 type SyncStatus = 'idle' | 'syncing' | 'success' | 'error';
 
@@ -35,8 +36,27 @@ type PlatformSyncData = {
   lastSyncMessage: string | null;
 };
 
+type DiscrepancyItem = {
+  itemNo: string;
+  itemName: string | null;
+  colorName: string | null;
+  blQuantity: number;
+  blPrice: number;
+  boQuantity: number;
+  boPrice: number;
+  difference: string;
+  priceDiff?: number;
+  qtyDiff?: number;
+};
+
 export default function PlatformSyncTool() {
   const [syncingPlatform, setSyncingPlatform] = useState<string | null>(null);
+  const [discrepancyDrawer, setDiscrepancyDrawer] = useState<{
+    open: boolean;
+    platform: string;
+    type: string;
+    title: string;
+  }>({ open: false, platform: '', type: '', title: '' });
   const { toast } = useToast();
 
   // Fetch platform sync status
@@ -137,6 +157,16 @@ export default function PlatformSyncTool() {
     console.log('[Platform Sync] handleSyncUnsynced called with limit:', limit);
     setSyncingPlatform('unsynced');
     syncUnsyncedMutation.mutate({ limit });
+  };
+
+  // Fetch discrepancy details
+  const { data: discrepancyData, isLoading: discrepancyLoading } = useQuery<{ discrepancies: DiscrepancyItem[]; total: number }>({
+    queryKey: ['/api/platform-sync/discrepancies', discrepancyDrawer.platform, discrepancyDrawer.type],
+    enabled: discrepancyDrawer.open && !!discrepancyDrawer.platform && !!discrepancyDrawer.type,
+  });
+
+  const handleDiscrepancyClick = (platform: string, type: string, title: string) => {
+    setDiscrepancyDrawer({ open: true, platform, type, title });
   };
 
   if (isLoading) {
@@ -318,9 +348,13 @@ export default function PlatformSyncTool() {
                         <p className="text-[10px] font-bold text-orange-400 mb-1">Discrepancies Found</p>
                         <div className="grid grid-cols-2 gap-1.5 text-[10px]">
                           {platform.discrepancies.missingLots > 0 && (
-                            <div className="text-gray-300">
+                            <button
+                              onClick={() => handleDiscrepancyClick(platform.name, 'missing', `Missing Lots on ${platform.name}`)}
+                              className="text-left text-gray-300 hover:text-orange-400 transition-colors cursor-pointer hover-elevate rounded px-1 py-0.5"
+                              data-testid="button-discrepancy-missing"
+                            >
                               <span className="text-orange-400 font-bold">{platform.discrepancies.missingLots}</span> missing lots
-                            </div>
+                            </button>
                           )}
                           {platform.discrepancies.missingParts > 0 && (
                             <div className="text-gray-300">
@@ -328,14 +362,22 @@ export default function PlatformSyncTool() {
                             </div>
                           )}
                           {platform.discrepancies.priceDifferences > 0 && (
-                            <div className="text-gray-300">
+                            <button
+                              onClick={() => handleDiscrepancyClick(platform.name, 'price', `Price Differences on ${platform.name}`)}
+                              className="text-left text-gray-300 hover:text-orange-400 transition-colors cursor-pointer hover-elevate rounded px-1 py-0.5"
+                              data-testid="button-discrepancy-price"
+                            >
                               <span className="text-orange-400 font-bold">{platform.discrepancies.priceDifferences}</span> price diffs
-                            </div>
+                            </button>
                           )}
                           {platform.discrepancies.quantityDifferences > 0 && (
-                            <div className="text-gray-300">
+                            <button
+                              onClick={() => handleDiscrepancyClick(platform.name, 'quantity', `Quantity Differences on ${platform.name}`)}
+                              className="text-left text-gray-300 hover:text-orange-400 transition-colors cursor-pointer hover-elevate rounded px-1 py-0.5"
+                              data-testid="button-discrepancy-quantity"
+                            >
                               <span className="text-orange-400 font-bold">{platform.discrepancies.quantityDifferences}</span> qty diffs
-                            </div>
+                            </button>
                           )}
                         </div>
                       </div>
@@ -371,6 +413,75 @@ export default function PlatformSyncTool() {
           </div>
         </div>
       </Card>
+
+      {/* Discrepancy Details Drawer */}
+      <Drawer open={discrepancyDrawer.open} onOpenChange={(open) => setDiscrepancyDrawer({ ...discrepancyDrawer, open })}>
+        <DrawerContent className="max-h-[85vh]">
+          <DrawerHeader className="border-b border-gray-800">
+            <div className="flex items-center justify-between">
+              <DrawerTitle className="text-white">{discrepancyDrawer.title}</DrawerTitle>
+              <DrawerClose asChild>
+                <Button variant="ghost" size="icon" data-testid="button-close-discrepancy">
+                  <X className="h-4 w-4" />
+                </Button>
+              </DrawerClose>
+            </div>
+          </DrawerHeader>
+          
+          <div className="overflow-auto p-4">
+            {discrepancyLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-purple-400" />
+              </div>
+            ) : discrepancyData?.discrepancies && discrepancyData.discrepancies.length > 0 ? (
+              <div className="space-y-2">
+                {discrepancyData.discrepancies.map((item, idx) => (
+                  <Card key={idx} className="p-3 bg-gray-800/50 border-gray-700">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1">
+                        <p className="text-sm font-bold text-white">{item.itemNo}</p>
+                        <p className="text-xs text-gray-400">{item.itemName || 'Unknown Item'}</p>
+                        {item.colorName && (
+                          <p className="text-xs text-gray-500">{item.colorName}</p>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 text-xs">
+                        <div className="text-right">
+                          <p className="text-gray-400 text-[10px]">BrickLink</p>
+                          <p className="text-white font-mono">Qty: {item.blQuantity}</p>
+                          <p className="text-white font-mono">${item.blPrice.toFixed(2)}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-gray-400 text-[10px]">{discrepancyDrawer.platform}</p>
+                          <p className={`font-mono ${item.qtyDiff ? 'text-orange-400' : 'text-white'}`}>
+                            Qty: {item.boQuantity}
+                            {item.qtyDiff && item.qtyDiff !== 0 && (
+                              <span className="text-orange-400 ml-1">({item.qtyDiff > 0 ? '+' : ''}{item.qtyDiff})</span>
+                            )}
+                          </p>
+                          <p className={`font-mono ${item.priceDiff ? 'text-orange-400' : 'text-white'}`}>
+                            ${item.boPrice.toFixed(2)}
+                            {item.priceDiff && item.priceDiff !== 0 && (
+                              <span className="text-orange-400 ml-1">({item.priceDiff > 0 ? '+' : ''}{item.priceDiff.toFixed(2)})</span>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+                {discrepancyData.total > discrepancyData.discrepancies.length && (
+                  <p className="text-xs text-gray-400 text-center py-2">
+                    Showing first {discrepancyData.discrepancies.length} of {discrepancyData.total} discrepancies
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-gray-400 text-center py-8">No discrepancies found</p>
+            )}
+          </div>
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 }

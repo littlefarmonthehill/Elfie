@@ -1685,6 +1685,13 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
     }
   });
 
+  // In-memory cache for discrepancies (expires after 5 minutes)
+  const discrepancyCache = new Map<string, { data: any[]; timestamp: number }>();
+  const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+  // Persistent BOID lookup cache (never expires - reduces API calls)
+  const boidLookupCache = new Map<string, string | null>();
+
   // Get Platform Sync Status
   app.get("/api/platform-sync/status", async (req, res) => {
     try {
@@ -1728,12 +1735,25 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
           }, 0);
           brickowlStats.lastSyncedAt = new Date().toISOString();
 
-          // Compare prices and quantities for matching items
+          // Cache arrays for detailed discrepancies
+          const missingItems: any[] = [];
+          const priceDiscrepancies: any[] = [];
+          const quantityDiscrepancies: any[] = [];
+
+          // Compare prices and quantities for ALL items using cached BOID lookups
           const blItems = await db.select().from(blInventory);
           
           for (const blItem of blItems) {
-            // Get BOID for matching
-            const boid = await lookupBoid(blItem.itemNo, blItem.itemType);
+            // Use cached BOID lookup to avoid repeated API calls
+            const cacheKey = `${blItem.itemNo}:${blItem.itemType}`;
+            let boid = boidLookupCache.get(cacheKey);
+            
+            if (boid === undefined) {
+              // Not in cache - do lookup and cache result
+              boid = await lookupBoid(blItem.itemNo, blItem.itemType);
+              boidLookupCache.set(cacheKey, boid);
+            }
+            
             if (!boid) continue;
             
             // Map condition inline
@@ -1744,23 +1764,63 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
               lot.boid === boid && lot.full_con === condition
             );
             
-            if (matchingLots.length > 0) {
+            const blPrice = blItem.unitPrice ? parseFloat(blItem.unitPrice) : 0;
+
+            if (matchingLots.length === 0) {
+              missingItems.push({
+                itemNo: blItem.itemNo,
+                itemName: blItem.itemName,
+                colorName: blItem.colorName,
+                blQuantity: blItem.quantity,
+                blPrice,
+                boQuantity: 0,
+                boPrice: 0,
+                difference: 'missing',
+              });
+            } else {
               const boLot = matchingLots[0];
               const boQty = parseInt(boLot.qty || '0');
               const boPrice = parseFloat(boLot.price || '0');
-              const blPrice = blItem.unitPrice ? parseFloat(blItem.unitPrice) : 0;
               
               // Check for quantity differences
               if (boQty !== blItem.quantity) {
                 quantityDifferencesCount++;
+                quantityDiscrepancies.push({
+                  itemNo: blItem.itemNo,
+                  itemName: blItem.itemName,
+                  colorName: blItem.colorName,
+                  blQuantity: blItem.quantity,
+                  blPrice,
+                  boQuantity: boQty,
+                  boPrice,
+                  difference: 'quantity',
+                  qtyDiff: boQty - blItem.quantity,
+                });
               }
               
               // Check for price differences (use small epsilon for float comparison)
               if (Math.abs(boPrice - blPrice) > 0.001) {
                 priceDifferencesCount++;
+                priceDiscrepancies.push({
+                  itemNo: blItem.itemNo,
+                  itemName: blItem.itemName,
+                  colorName: blItem.colorName,
+                  blQuantity: blItem.quantity,
+                  blPrice,
+                  boQuantity: boQty,
+                  boPrice,
+                  difference: 'price',
+                  priceDiff: boPrice - blPrice,
+                });
               }
             }
           }
+
+          // Cache the detailed discrepancies
+          const now = Date.now();
+          discrepancyCache.set('BrickOwl:missing', { data: missingItems, timestamp: now });
+          discrepancyCache.set('BrickOwl:price', { data: priceDiscrepancies, timestamp: now });
+          discrepancyCache.set('BrickOwl:quantity', { data: quantityDiscrepancies, timestamp: now });
         } catch (error) {
           console.error('Failed to fetch BrickOwl inventory stats:', error);
         }
@@ -1822,6 +1882,45 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
     } catch (error) {
       console.error("Error fetching platform sync status:", error);
       res.status(500).json({ error: "Failed to fetch platform sync status" });
+    }
+  });
+
+  // Get detailed discrepancies for a specific platform and type
+  app.get("/api/platform-sync/discrepancies/:platform/:type", async (req, res) => {
+    try {
+      const { platform, type } = req.params;
+      const limit = parseInt(req.query.limit as string) || 50;
+
+      if (platform !== 'BrickOwl') {
+        return res.status(400).json({ error: `Platform ${platform} is not supported yet` });
+      }
+
+      const [settings] = await db.select().from(appSettings).limit(1);
+      const brickowlEnabled = !!settings?.brickowlApiKey;
+
+      if (!brickowlEnabled) {
+        return res.status(400).json({ error: 'BrickOwl API key not configured' });
+      }
+
+      // Check cache first
+      const cacheKey = `${platform}:${type}`;
+      const cached = discrepancyCache.get(cacheKey);
+      
+      if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
+        // Return cached data
+        const discrepancies = cached.data.slice(0, limit);
+        return res.json({ discrepancies, total: cached.data.length });
+      }
+
+      // Cache miss or expired - return empty for now (should call status endpoint first)
+      res.json({ 
+        discrepancies: [], 
+        total: 0,
+        message: 'Cache expired. Please refresh the platform sync status first.' 
+      });
+    } catch (error) {
+      console.error("Error fetching discrepancies:", error);
+      res.status(500).json({ error: "Failed to fetch discrepancies" });
     }
   });
 
