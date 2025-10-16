@@ -89,12 +89,19 @@ export async function getBrickOwlInventory(activeOnly: boolean = true): Promise<
   // BrickOwl API returns array directly or { inventory: [...] }
   const lots = Array.isArray(response) ? response : (response.inventory || []);
   
-  // Debug: Check if external_id_1 is present
+  // Debug: Check external_lot_ids structure
   if (lots.length > 0) {
     const firstLot = lots[0];
-    const hasExternalId = 'external_id_1' in firstLot;
     console.log(`[BrickOwl Inventory] First lot keys: ${Object.keys(firstLot).join(', ')}`);
-    console.log(`[BrickOwl Inventory] Has external_id_1: ${hasExternalId}`);
+    console.log(`[BrickOwl Inventory] external_lot_ids:`, JSON.stringify(firstLot.external_lot_ids || null));
+    
+    // Find a lot that has external_id_1 set
+    const lotWithExternal = lots.find((lot: any) => lot.external_lot_ids?.external_id_1);
+    if (lotWithExternal) {
+      console.log(`[BrickOwl Inventory] Sample lot WITH external_id_1:`, JSON.stringify(lotWithExternal.external_lot_ids));
+    } else {
+      console.log(`[BrickOwl Inventory] No lots found with external_id_1 set!`);
+    }
   }
   
   return lots;
