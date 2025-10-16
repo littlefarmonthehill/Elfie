@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { startOrderSyncScheduler } from "./services/order-sync-scheduler";
 
 const app = express();
 app.use(express.json());
@@ -67,6 +68,11 @@ app.use((req, res, next) => {
       host: "0.0.0.0",
     }, () => {
       log(`serving on port ${port}`);
+      
+      // Start automatic order sync scheduler
+      startOrderSyncScheduler().catch(error => {
+        console.error('Failed to start order sync scheduler:', error);
+      });
     });
   } catch (error) {
     console.error("Failed to start server:", error);
