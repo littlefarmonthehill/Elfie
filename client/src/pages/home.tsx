@@ -665,10 +665,7 @@ export default function Home() {
       {/* Date Range Selector - Only show for sales and marketing */}
       {(activeDashboard === 'sales' || activeDashboard === 'marketing') && (
         <div className="px-4 md:px-6 lg:px-8 py-2 md:py-3 lg:py-4 bg-black border-b border-gray-800">
-          <div className="flex items-center gap-2 md:gap-3 lg:gap-4">
-            <span className="text-[10px] md:text-sm lg:text-base font-bold text-gray-400">DATE RANGE</span>
-            <DateRangeSelector value={dateRange} onChange={setDateRange} />
-          </div>
+          <DateRangeSelector value={dateRange} onChange={setDateRange} />
         </div>
       )}
       
