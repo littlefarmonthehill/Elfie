@@ -33,7 +33,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
   });
   
   const currentYear = new Date().getFullYear();
-  const [compareMode, setCompareMode] = useState(true); // Start with comparison enabled
+  const [compareMode, setCompareMode] = useState(false); // Start with comparison disabled
   const [comparisonType, setComparisonType] = useState<'year' | 'platform'>('year'); // Toggle between year/platform
   const [selectedCompareYears, setSelectedCompareYears] = useState<number[]>([currentYear - 1, currentYear - 2]);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
