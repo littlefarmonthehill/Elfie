@@ -83,6 +83,16 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
       });
     }
 
+    if (dateRange === 'lastmonth') {
+      // Last Month: entire previous calendar month
+      const startOfLastMonth = startOfMonth(subMonths(new Date(), 1));
+      const startOfCurrentMonth = startOfMonth(new Date());
+      return orders.filter(order => {
+        const orderDate = parseISO(order.orderDate);
+        return orderDate >= startOfLastMonth && orderDate < startOfCurrentMonth;
+      });
+    }
+
     const monthsToShow = dateRange === '2years' ? 24 :
                         dateRange === '1year' ? 12 :
                         dateRange === '6months' ? 6 : 3;

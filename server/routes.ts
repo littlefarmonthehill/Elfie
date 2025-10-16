@@ -40,6 +40,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Parse date range parameter
       const range = req.query.range as string;
       let dateFilter: Date | null = null;
+      let endDateFilter: Date | null = null;
       
       if (range) {
         const now = new Date();
@@ -47,6 +48,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           case 'mtd':
             // Month-to-Date: start of current month
             dateFilter = new Date(now.getFullYear(), now.getMonth(), 1);
+            break;
+          case 'lastmonth':
+            // Last Month: entire previous calendar month
+            dateFilter = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            endDateFilter = new Date(now.getFullYear(), now.getMonth(), 1);
             break;
           case '3months':
             dateFilter = new Date(now.setMonth(now.getMonth() - 3));
@@ -65,9 +71,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Fetch orders with optional date filter
       const allOrders = dateFilter
-        ? await db.select().from(orders)
-            .where(sql`${orders.orderDate} >= ${dateFilter.toISOString()}`)
-            .orderBy(desc(orders.orderDate))
+        ? endDateFilter
+          ? await db.select().from(orders)
+              .where(sql`${orders.orderDate} >= ${dateFilter.toISOString()} AND ${orders.orderDate} < ${endDateFilter.toISOString()}`)
+              .orderBy(desc(orders.orderDate))
+          : await db.select().from(orders)
+              .where(sql`${orders.orderDate} >= ${dateFilter.toISOString()}`)
+              .orderBy(desc(orders.orderDate))
         : await db.select().from(orders).orderBy(desc(orders.orderDate));
       
       if (allOrders.length === 0) {
@@ -280,6 +290,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Parse date range parameter
       const range = req.query.range as string;
       let dateFilter: Date | null = null;
+      let endDateFilter: Date | null = null;
       
       if (range) {
         const now = new Date();
@@ -287,6 +298,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           case 'mtd':
             // Month-to-Date: start of current month
             dateFilter = new Date(now.getFullYear(), now.getMonth(), 1);
+            break;
+          case 'lastmonth':
+            // Last Month: entire previous calendar month
+            dateFilter = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            endDateFilter = new Date(now.getFullYear(), now.getMonth(), 1);
             break;
           case '3months':
             dateFilter = new Date(now.setMonth(now.getMonth() - 3));
@@ -305,8 +321,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Get total orders count with date filter
       const orderCount = dateFilter
-        ? await db.select({ count: sql<number>`count(*)` }).from(orders)
-            .where(sql`${orders.orderDate} >= ${dateFilter.toISOString()}`)
+        ? endDateFilter
+          ? await db.select({ count: sql<number>`count(*)` }).from(orders)
+              .where(sql`${orders.orderDate} >= ${dateFilter.toISOString()} AND ${orders.orderDate} < ${endDateFilter.toISOString()}`)
+          : await db.select({ count: sql<number>`count(*)` }).from(orders)
+              .where(sql`${orders.orderDate} >= ${dateFilter.toISOString()}`)
         : await db.select({ count: sql<number>`count(*)` }).from(orders);
       
       // Get total inventory items count (not date-filtered - inventory is current state)
@@ -320,9 +339,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get total sales from orders with date filter
       // orderTotal is already decimal type, so just sum it (COALESCE handles nulls)
       const totalSales = dateFilter
-        ? await db.select({
-            total: sql<number>`COALESCE(sum(${orders.orderTotal}), 0)`
-          }).from(orders).where(sql`${orders.orderDate} >= ${dateFilter.toISOString()}`)
+        ? endDateFilter
+          ? await db.select({
+              total: sql<number>`COALESCE(sum(${orders.orderTotal}), 0)`
+            }).from(orders).where(sql`${orders.orderDate} >= ${dateFilter.toISOString()} AND ${orders.orderDate} < ${endDateFilter.toISOString()}`)
+          : await db.select({
+              total: sql<number>`COALESCE(sum(${orders.orderTotal}), 0)`
+            }).from(orders).where(sql`${orders.orderDate} >= ${dateFilter.toISOString()}`)
         : await db.select({
             total: sql<number>`COALESCE(sum(${orders.orderTotal}), 0)`
           }).from(orders);
