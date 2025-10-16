@@ -3760,24 +3760,29 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
 
       // Test BrickLink orders
       if (platform === 'bricklink' || platform === 'both') {
-        if (!settings.bricklinkConsumerKey || !settings.bricklinkConsumerSecret || 
-            !settings.bricklinkTokenValue || !settings.bricklinkTokenSecret) {
-          return res.status(400).json({ error: "BrickLink API credentials not configured" });
-        }
+        try {
+          if (!settings.bricklinkConsumerKey || !settings.bricklinkConsumerSecret || 
+              !settings.bricklinkTokenValue || !settings.bricklinkTokenSecret) {
+            console.log('BrickLink API credentials missing');
+            return res.status(400).json({ error: "BrickLink API credentials not configured" });
+          }
 
-        const { getBrickLinkOrders, getBrickLinkOrderItems, mapBrickLinkStatus, mapBrickLinkCondition } = 
-          await import('./services/bricklink-orders');
+          const { getBrickLinkOrders, getBrickLinkOrderItems, mapBrickLinkStatus, mapBrickLinkCondition } = 
+            await import('./services/bricklink-orders');
 
-        // Fetch recent orders - try COMPLETED first, then PENDING if none found
-        let blOrders = await getBrickLinkOrders(
-          settings.bricklinkConsumerKey,
-          settings.bricklinkConsumerSecret,
-          settings.bricklinkTokenValue,
-          settings.bricklinkTokenSecret,
-          { direction: 'in', status: 'COMPLETED', limit }
-        );
+          // Fetch recent orders - try multiple statuses
+          console.log('Fetching BrickLink orders...');
+          
+          let blOrders = await getBrickLinkOrders(
+            settings.bricklinkConsumerKey,
+            settings.bricklinkConsumerSecret,
+            settings.bricklinkTokenValue,
+            settings.bricklinkTokenSecret,
+            { direction: 'in', status: 'COMPLETED', limit }
+          );
+          console.log(`BrickLink COMPLETED orders: ${blOrders.length}`);
 
-        // If no completed orders, try pending orders
+        // If no completed orders, try pending
         if (blOrders.length === 0) {
           blOrders = await getBrickLinkOrders(
             settings.bricklinkConsumerKey,
@@ -3786,6 +3791,31 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
             settings.bricklinkTokenSecret,
             { direction: 'in', status: 'PENDING', limit }
           );
+          console.log(`BrickLink PENDING orders: ${blOrders.length}`);
+        }
+
+        // If still none, try PAID
+        if (blOrders.length === 0) {
+          blOrders = await getBrickLinkOrders(
+            settings.bricklinkConsumerKey,
+            settings.bricklinkConsumerSecret,
+            settings.bricklinkTokenValue,
+            settings.bricklinkTokenSecret,
+            { direction: 'in', status: 'PAID', limit }
+          );
+          console.log(`BrickLink PAID orders: ${blOrders.length}`);
+        }
+
+        // If still none, try SHIPPED
+        if (blOrders.length === 0) {
+          blOrders = await getBrickLinkOrders(
+            settings.bricklinkConsumerKey,
+            settings.bricklinkConsumerSecret,
+            settings.bricklinkTokenValue,
+            settings.bricklinkTokenSecret,
+            { direction: 'in', status: 'SHIPPED', limit }
+          );
+          console.log(`BrickLink SHIPPED orders: ${blOrders.length}`);
         }
 
         for (const blOrder of blOrders) {
@@ -3873,6 +3903,10 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
             comparison: ssOrder[0] || null,
             issues: [],
           });
+        }
+        } catch (blError: any) {
+          console.error('BrickLink API error:', blError.message || blError);
+          // Continue with BrickOwl if "both" is selected
         }
       }
 
