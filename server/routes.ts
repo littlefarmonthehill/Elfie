@@ -236,6 +236,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update order status and trigger inventory adjustment
+  app.post("/api/orders/:id/status", async (req, res) => {
+    try {
+      const orderId = req.params.id;
+      const { status } = req.body;
+
+      if (!status) {
+        return res.status(400).json({ error: "Status is required" });
+      }
+
+      const { updateOrderStatus } = await import('./services/inventory-adjustment');
+      const result = await updateOrderStatus(orderId, status);
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error updating order status:", error);
+      res.status(500).json({ 
+        error: error instanceof Error ? error.message : "Failed to update order status" 
+      });
+    }
+  });
+
+  // Manual inventory adjustment endpoint (for testing/admin use)
+  app.post("/api/orders/:id/adjust-inventory", async (req, res) => {
+    try {
+      const orderId = req.params.id;
+
+      const { adjustInventoryForOrder } = await import('./services/inventory-adjustment');
+      const result = await adjustInventoryForOrder(orderId);
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error adjusting inventory:", error);
+      res.status(500).json({ 
+        error: error instanceof Error ? error.message : "Failed to adjust inventory" 
+      });
+    }
+  });
+
   app.get("/api/dashboard/stats", async (req, res) => {
     try {
       // Parse date range parameter

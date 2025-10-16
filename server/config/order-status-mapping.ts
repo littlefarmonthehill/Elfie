@@ -239,5 +239,5 @@ export function getPlatformStatuses(platform: string): Array<string | number> {
     }
   }
   
-  return [...new Set(statuses)]; // Remove duplicates
+  return Array.from(new Set(statuses)); // Remove duplicates
 }

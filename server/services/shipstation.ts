@@ -346,15 +346,35 @@ export async function syncShipStationOrders(fullSync: boolean = false): Promise<
       );
       
       if (shouldUpdate) {
+        // Store previous status for inventory adjustment logic
+        const previousStatus = existing.orderStatus;
+        const newStatus = order.orderStatus;
+        
         await db.update(orders)
           .set({ 
-            orderStatus: order.orderStatus,
+            previousStatus: previousStatus, // Track previous status for inventory logic
+            orderStatus: newStatus,
             marketplace: marketplace || existing.marketplace,
             customerUsername: order.shipTo?.name || order.customerUsername || existing.customerUsername || 'Unknown Customer',
             customerEmail: order.customerEmail || existing.customerEmail,
             updatedAt: new Date() 
           })
           .where(eq(orders.id, orderId));
+        
+        // Trigger inventory adjustment if status changed
+        if (previousStatus !== newStatus) {
+          try {
+            const { adjustInventoryForOrder } = await import('./inventory-adjustment');
+            const result = await adjustInventoryForOrder(orderId);
+            if (result.adjusted) {
+              console.log(`📦 Inventory adjusted for order ${orderId}: ${previousStatus} → ${newStatus} (${result.impact})`);
+            }
+          } catch (invError) {
+            console.error(`⚠️  Failed to adjust inventory for order ${orderId}:`, invError);
+            // Don't fail the sync if inventory adjustment fails - log and continue
+          }
+        }
+        
         ordersUpdated++;
       }
       

@@ -102,6 +102,7 @@ export const orders = pgTable("orders", {
   marketplace: text("marketplace"), // Selling platform (BrickLink, eBay, Amazon, etc.)
   orderDate: timestamp("order_date").notNull(),
   orderStatus: text("order_status").notNull(),
+  previousStatus: text("previous_status"), // Track previous status for inventory adjustment logic
   customerUsername: text("customer_username"),
   customerEmail: text("customer_email"),
   shipTo: text("ship_to").notNull(),
@@ -366,7 +367,6 @@ export const whAisles = pgTable("wh_aisles", {
 });
 
 export const insertWhAisleSchema = createInsertSchema(whAisles).omit({
-  id: true,
   createdAt: true,
   updatedAt: true,
 });
@@ -386,7 +386,6 @@ export const whShelves = pgTable("wh_shelves", {
 });
 
 export const insertWhShelfSchema = createInsertSchema(whShelves).omit({
-  id: true,
   createdAt: true,
   updatedAt: true,
 });
@@ -406,7 +405,6 @@ export const whBins = pgTable("wh_bins", {
 });
 
 export const insertWhBinSchema = createInsertSchema(whBins).omit({
-  id: true,
   createdAt: true,
   updatedAt: true,
 });
@@ -427,7 +425,6 @@ export const inventoryLocations = pgTable("inventory_locations", {
 });
 
 export const insertInventoryLocationSchema = createInsertSchema(inventoryLocations).omit({
-  id: true,
   createdAt: true,
   updatedAt: true,
 });
