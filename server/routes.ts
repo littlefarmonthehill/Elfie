@@ -3908,27 +3908,27 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
             ))
             .limit(1);
 
-          // Map to our schema with shipping address
+          // Map to our schema with shipping address (BrickOwl uses individual fields)
           const mappedOrder = {
             id: `bo-${boOrder.order_id}`,
             orderNumber: boOrder.order_id.toString(),
             marketplace: 'BrickOwl',
             orderDate: new Date(boOrder.order_time * 1000).toISOString(),
             orderStatus: mapBrickOwlStatus(boOrder.status_id),
-            customerUsername: boOrder.buyer_name,
-            customerEmail: boOrder.buyer_email,
+            customerUsername: boOrder.buyer_name || boOrder.customer_username,
+            customerEmail: boOrder.customer_email,
             orderTotal: boOrder.base_order_total || '0',
-            shippingAmount: 'Combined in total', // BrickOwl doesn't separate shipping
-            trackingNumber: boOrder.tracking_no || null,
-            shippingAddress: boOrder.ship_to ? {
-              name: boOrder.ship_to.name,
-              street1: boOrder.ship_to.address1,
-              street2: boOrder.ship_to.address2 || null,
-              city: boOrder.ship_to.city,
-              state: boOrder.ship_to.state,
-              postalCode: boOrder.ship_to.post_code,
-              country: boOrder.ship_to.country_code,
-            } : null,
+            shippingAmount: boOrder.ship_total || '0',
+            trackingNumber: boOrder.tracking_number || null,
+            shippingAddress: {
+              name: `${boOrder.ship_first_name || ''} ${boOrder.ship_last_name || ''}`.trim() || boOrder.buyer_name,
+              street1: boOrder.ship_street_1,
+              street2: boOrder.ship_street_2 || null,
+              city: boOrder.ship_city,
+              state: boOrder.ship_region,
+              postalCode: boOrder.ship_post_code,
+              country: boOrder.ship_country_code,
+            },
           };
 
           // Map items

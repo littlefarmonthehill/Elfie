@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose } from "@/components/ui/drawer";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { X, PlayCircle, CheckCircle, AlertTriangle, Package, MapPin } from "lucide-react";
+import { X, PlayCircle, CheckCircle, AlertTriangle, Package, MapPin, CheckCircle2, XCircle } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
 interface OrderSyncTesterProps {
@@ -212,6 +212,36 @@ export default function OrderSyncTester({ open, onOpenChange }: OrderSyncTesterP
                           </div>
                         </div>
                       )}
+
+                      {/* ShipStation Comparison */}
+                      <div className="bg-muted/30 rounded p-3">
+                        <p className="text-xs font-medium text-muted-foreground mb-2">ShipStation Status</p>
+                        {result.comparison ? (
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <CheckCircle2 className="h-4 w-4 text-green-600" />
+                              <span className="text-xs text-green-600 font-medium">
+                                Found in ShipStation: {result.comparison.orderNumber}
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                              <div>
+                                <p className="text-muted-foreground">SS Customer</p>
+                                <p className="font-medium">{result.comparison.customerUsername}</p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground">SS Total</p>
+                                <p className="font-medium">${result.comparison.orderTotal}</p>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <XCircle className="h-4 w-4 text-orange-600" />
+                            <span className="text-xs text-orange-600">Not found in ShipStation</span>
+                          </div>
+                        )}
+                      </div>
 
                       {/* Issues */}
                       {result.issues && result.issues.length > 0 && (

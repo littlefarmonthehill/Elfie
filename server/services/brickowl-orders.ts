@@ -39,6 +39,7 @@ export async function getBrickOwlOrderDetails(
   const params = new URLSearchParams({
     key: apiKey,
     order_id: orderId,
+    include_items: '1', // ⭐ Required to get order items!
   });
 
   const url = `${BRICKOWL_API_BASE}/order/view?${params.toString()}`;
