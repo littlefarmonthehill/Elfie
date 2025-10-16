@@ -19,17 +19,17 @@ export default function DateRangeSelector({ value, onChange, className = "" }: D
   ];
 
   return (
-    <div className={`flex items-center gap-2 ${className}`}>
-      <div className="flex items-center gap-1.5">
-        <Calendar className="h-3.5 w-3.5 text-gray-400" />
-        <span className="text-[10px] font-bold text-gray-400">TIME RANGE</span>
+    <div className={`flex items-center gap-2 md:gap-3 lg:gap-4 ${className}`}>
+      <div className="flex items-center gap-1.5 md:gap-2 lg:gap-2.5">
+        <Calendar className="h-3.5 w-3.5 md:h-4 md:w-4 lg:h-5 lg:w-5 text-gray-400" />
+        <span className="text-[10px] md:text-xs lg:text-sm font-bold text-gray-400">TIME RANGE</span>
       </div>
-      <div className="flex gap-1.5">
+      <div className="flex gap-1.5 md:gap-2 lg:gap-2.5">
         {options.map((option) => (
           <button
             key={option.value}
             onClick={() => onChange(option.value)}
-            className={`text-[9px] font-bold py-1 px-2 rounded transition-all ${
+            className={`text-[9px] md:text-xs lg:text-sm font-bold py-1 md:py-1.5 lg:py-2 px-2 md:px-3 lg:px-4 rounded transition-all ${
               value === option.value
                 ? 'bg-lego-orange text-white border border-lego-orange'
                 : 'bg-gray-900 text-gray-400 border border-gray-700 hover-elevate'
