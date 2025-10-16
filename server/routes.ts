@@ -1713,9 +1713,12 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
         lastSyncedAt: null as string | null,
       };
 
+      let priceDifferencesCount = 0;
+      let quantityDifferencesCount = 0;
+
       if (brickowlEnabled) {
         try {
-          const { getBrickOwlInventory } = await import('./services/brickowl');
+          const { getBrickOwlInventory, lookupBoid } = await import('./services/brickowl');
           const brickowlInventory = await getBrickOwlInventory(false); // Get all, not just active
           
           brickowlStats.totalLots = brickowlInventory.length;
@@ -1724,6 +1727,40 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
             return sum + qty;
           }, 0);
           brickowlStats.lastSyncedAt = new Date().toISOString();
+
+          // Compare prices and quantities for matching items
+          const blItems = await db.select().from(blInventory);
+          
+          for (const blItem of blItems) {
+            // Get BOID for matching
+            const boid = await lookupBoid(blItem.itemNo, blItem.itemType);
+            if (!boid) continue;
+            
+            // Map condition inline
+            const condition = blItem.newOrUsed === 'N' ? 'new' : 'usedg';
+            
+            // Find matching BrickOwl lot
+            const matchingLots = brickowlInventory.filter((lot: any) => 
+              lot.boid === boid && lot.full_con === condition
+            );
+            
+            if (matchingLots.length > 0) {
+              const boLot = matchingLots[0];
+              const boQty = parseInt(boLot.qty || '0');
+              const boPrice = parseFloat(boLot.price || '0');
+              const blPrice = blItem.unitPrice ? parseFloat(blItem.unitPrice) : 0;
+              
+              // Check for quantity differences
+              if (boQty !== blItem.quantity) {
+                quantityDifferencesCount++;
+              }
+              
+              // Check for price differences (use small epsilon for float comparison)
+              if (Math.abs(boPrice - blPrice) > 0.001) {
+                priceDifferencesCount++;
+              }
+            }
+          }
         } catch (error) {
           console.error('Failed to fetch BrickOwl inventory stats:', error);
         }
@@ -1742,8 +1779,8 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
             discrepancies: {
               missingLots: Math.max(0, brickLinkStats.totalLots - brickowlStats.totalLots),
               missingParts: Math.max(0, brickLinkStats.totalParts - brickowlStats.totalParts),
-              priceDifferences: 0,
-              quantityDifferences: 0,
+              priceDifferences: priceDifferencesCount,
+              quantityDifferences: quantityDifferencesCount,
             },
           },
           {
