@@ -3859,10 +3859,10 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
               const { getBrickLinkOrderItems } = await import('./services/bricklink-orders');
               const blItems = await getBrickLinkOrderItems(
                 parseInt(orderId),
-                settings.blConsumerKey!,
-                settings.blConsumerSecret!,
-                settings.blTokenValue!,
-                settings.blTokenSecret!
+                settings.bricklinkConsumerKey!,
+                settings.bricklinkConsumerSecret!,
+                settings.bricklinkTokenValue!,
+                settings.bricklinkTokenSecret!
               );
               
               console.log(`BrickLink API returned ${blItems.length} items for order ${orderId}`);
