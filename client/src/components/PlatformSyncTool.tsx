@@ -169,22 +169,6 @@ export default function PlatformSyncTool() {
     setDiscrepancyDrawer({ open: true, platform, type, title });
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-purple-400" />
-      </div>
-    );
-  }
-
-  if (!data) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-gray-500">No platform sync data available</p>
-      </div>
-    );
-  }
-
   const displayData = data;
 
   return (
@@ -194,15 +178,22 @@ export default function PlatformSyncTool() {
         <h3 className="text-xs font-bold text-gray-300 mb-2 flex items-center gap-1.5">
           <Info className="w-3.5 h-3.5 text-purple-400" />
           Source of Truth
+          {isLoading && <Loader2 className="w-3 h-3 animate-spin text-purple-400" />}
         </h3>
         <Card className="bg-gray-800/50 border-purple-500/30 p-3">
           <div className="flex items-center justify-between mb-2">
             <div>
-              <p className="text-xs font-bold text-white">{displayData.source.name}</p>
+              <p className="text-xs font-bold text-white">
+                {isLoading ? <span className="inline-block bg-gray-700 h-3 w-20 rounded animate-pulse" /> : displayData?.source.name || 'BrickLink'}
+              </p>
               <p className="text-[10px] text-gray-400">
-                {displayData.source.stats.lastSyncedAt 
-                  ? `Last synced: ${new Date(displayData.source.stats.lastSyncedAt).toLocaleString()}`
-                  : 'Never synced'}
+                {isLoading ? (
+                  <span className="inline-block bg-gray-700 h-2 w-32 rounded animate-pulse" />
+                ) : (
+                  displayData?.source.stats.lastSyncedAt 
+                    ? `Last synced: ${new Date(displayData.source.stats.lastSyncedAt).toLocaleString()}`
+                    : 'Never synced'
+                )}
               </p>
             </div>
             <Badge variant="outline" className="bg-purple-500/10 border-purple-500/30 text-purple-400 text-[10px]">
@@ -212,11 +203,23 @@ export default function PlatformSyncTool() {
           <div className="grid grid-cols-2 gap-2">
             <div className="bg-gray-900/50 rounded-lg p-2 border border-gray-700">
               <p className="text-[10px] text-gray-400 mb-0.5">Total Lots</p>
-              <p className="text-sm font-bold text-white font-mono">{displayData.source.stats.totalLots.toLocaleString()}</p>
+              <p className="text-sm font-bold text-white font-mono">
+                {isLoading ? (
+                  <span className="inline-block bg-gray-700 h-4 w-16 rounded animate-pulse" />
+                ) : (
+                  displayData?.source.stats.totalLots.toLocaleString() || '0'
+                )}
+              </p>
             </div>
             <div className="bg-gray-900/50 rounded-lg p-2 border border-gray-700">
               <p className="text-[10px] text-gray-400 mb-0.5">Total Parts</p>
-              <p className="text-sm font-bold text-white font-mono">{displayData.source.stats.totalParts.toLocaleString()}</p>
+              <p className="text-sm font-bold text-white font-mono">
+                {isLoading ? (
+                  <span className="inline-block bg-gray-700 h-4 w-16 rounded animate-pulse" />
+                ) : (
+                  displayData?.source.stats.totalParts.toLocaleString() || '0'
+                )}
+              </p>
             </div>
           </div>
         </Card>
@@ -273,7 +276,25 @@ export default function PlatformSyncTool() {
         </div>
 
         <div className="space-y-2">
-          {displayData.targets.map((platform) => {
+          {isLoading ? (
+            // Skeleton loading for platforms
+            <Card className="bg-gray-800/50 border-gray-700 p-3">
+              <div className="flex items-center justify-between mb-2">
+                <span className="inline-block bg-gray-700 h-4 w-24 rounded animate-pulse" />
+                <span className="inline-block bg-gray-700 h-7 w-16 rounded animate-pulse" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="bg-gray-900/50 rounded-lg p-1.5 border border-gray-700">
+                  <span className="inline-block bg-gray-700 h-2 w-12 rounded animate-pulse mb-1" />
+                  <span className="inline-block bg-gray-700 h-3 w-16 rounded animate-pulse" />
+                </div>
+                <div className="bg-gray-900/50 rounded-lg p-1.5 border border-gray-700">
+                  <span className="inline-block bg-gray-700 h-2 w-12 rounded animate-pulse mb-1" />
+                  <span className="inline-block bg-gray-700 h-3 w-16 rounded animate-pulse" />
+                </div>
+              </div>
+            </Card>
+          ) : displayData?.targets.map((platform) => {
             const isSyncing = syncingPlatform === platform.name;
             const hasDiscrepancies = 
               platform.discrepancies.missingLots > 0 || 
@@ -408,7 +429,7 @@ export default function PlatformSyncTool() {
             <p className="text-[10px] font-bold text-blue-400 mb-0.5">Platform Configuration</p>
             <p className="text-[10px] text-gray-300">
               Configure API credentials in Settings → API Credentials to enable platform sync.
-              Once configured, platforms will automatically sync inventory from {displayData.source.name}.
+              Once configured, platforms will automatically sync inventory from {displayData?.source.name || 'BrickLink'}.
             </p>
           </div>
         </div>
