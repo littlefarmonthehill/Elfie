@@ -240,7 +240,10 @@ export async function mapColorId(bricklinkColorId: number): Promise<number | nul
 }
 
 // Sync a single inventory item from BrickLink to BrickOwl
-export async function syncInventoryItem(blItem: typeof blInventory.$inferSelect): Promise<{
+export async function syncInventoryItem(
+  blItem: typeof blInventory.$inferSelect,
+  brickowlInventory?: any[]
+): Promise<{
   success: boolean;
   action: 'created' | 'updated' | 'skipped';
   error?: string;
@@ -262,35 +265,56 @@ export async function syncInventoryItem(blItem: typeof blInventory.$inferSelect)
     console.log(`[Sync] Item ${blItem.itemNo} has colorId: ${blItem.colorId}, type: ${blItem.itemType}`);
     console.log(`[Sync] Item ${blItem.itemNo} using BOID ${boid} (BOID includes color info)`);
 
-    // Skip checking if lot exists - BrickOwl's inventory/list endpoint with external_id_1
-    // filter returns "You must provide an ID" error. Just try to create and let BrickOwl
-    // handle duplicates if they exist.
-    const existingLots: any[] = [];
+    // Check if lot already exists in BrickOwl by external_id_1
+    // If inventory not provided, fetch it (for backwards compatibility)
+    if (!brickowlInventory) {
+      brickowlInventory = await getBrickOwlInventory(false);
+    }
+    
+    const existingLots = brickowlInventory.filter(
+      (lot: any) => lot.external_id_1 === blItem.id.toString()
+    );
 
     // Map BrickLink condition to BrickOwl condition
     // Business logic per user's inventory policy:
     // - BrickLink "New" → BrickOwl "new"
     // - BrickLink "Used" → BrickOwl "usedg" (Used Good)
     const condition = blItem.newOrUsed === 'N' ? 'new' : 'usedg';
+    const newPrice = blItem.unitPrice ? parseFloat(blItem.unitPrice) : 0;
 
     if (existingLots.length > 0) {
-      // Update existing lot
-      await updateBrickOwlLot({
-        external_id_1: blItem.id.toString(),
-        absolute_quantity: blItem.quantity,
-        price: blItem.unitPrice ? parseFloat(blItem.unitPrice) : 0,
-        condition,
-        for_sale: 1,
-      });
+      const existingLot = existingLots[0];
+      const existingQty = parseInt(existingLot.qty);
+      const existingPrice = parseFloat(existingLot.price);
       
-      return { success: true, action: 'updated' };
+      // Check if quantity or price changed
+      const qtyChanged = existingQty !== blItem.quantity;
+      const priceChanged = Math.abs(existingPrice - newPrice) > 0.001; // Use small epsilon for float comparison
+      
+      if (qtyChanged || priceChanged) {
+        console.log(`[Sync] Updating ${blItem.itemNo}: Qty ${existingQty} → ${blItem.quantity}, Price $${existingPrice} → $${newPrice}`);
+        
+        // Update existing lot
+        await updateBrickOwlLot({
+          external_id_1: blItem.id.toString(),
+          absolute_quantity: blItem.quantity,
+          price: newPrice,
+          condition,
+          for_sale: 1,
+        });
+        
+        return { success: true, action: 'updated' };
+      } else {
+        console.log(`[Sync] Skipping ${blItem.itemNo} - no changes detected`);
+        return { success: true, action: 'skipped' };
+      }
     } else {
       // Create new lot
-      // Note: Not sending color_id because BOID already contains color information
+      console.log(`[Sync] Creating new lot for ${blItem.itemNo}`);
       await createBrickOwlLot({
         boid,
         quantity: blItem.quantity,
-        price: blItem.unitPrice ? parseFloat(blItem.unitPrice) : 0,
+        price: newPrice,
         condition,
         for_sale: 1,
         external_id_1: blItem.id.toString(),
@@ -368,9 +392,13 @@ export async function syncBrickLinkToBrickOwl(limit?: number): Promise<BrickOwlS
   
   console.log(`Syncing ${blItems.length} items from BrickLink to BrickOwl...`);
 
+  // Fetch BrickOwl inventory once for efficiency
+  const brickowlInventory = await getBrickOwlInventory(false);
+  console.log(`Fetched ${brickowlInventory.length} lots from BrickOwl for comparison`);
+
   // Sync each item
   for (const item of blItems) {
-    const syncResult = await syncInventoryItem(item);
+    const syncResult = await syncInventoryItem(item, brickowlInventory);
     result.totalApiCalls += 2; // Estimate: lookup + create/update
     
     if (syncResult.success) {
@@ -378,6 +406,8 @@ export async function syncBrickLinkToBrickOwl(limit?: number): Promise<BrickOwlS
         result.lotsCreated++;
       } else if (syncResult.action === 'updated') {
         result.lotsUpdated++;
+      } else if (syncResult.action === 'skipped') {
+        result.lotsSkipped++;
       }
     } else {
       result.lotsSkipped++;
@@ -414,9 +444,12 @@ export async function syncUnsyncedItems(limit: number = 5): Promise<BrickOwlSync
   console.log(`Syncing ${unsyncedItems.length} unsynced items from BrickLink to BrickOwl...`);
   console.log('Items to sync:', unsyncedItems.map(item => `${item.itemNo} (ID: ${item.id})`).join(', '));
 
+  // Fetch BrickOwl inventory once for efficiency (to detect updates vs creates)
+  const brickowlInventory = await getBrickOwlInventory(false);
+
   // Sync each item
   for (const item of unsyncedItems) {
-    const syncResult = await syncInventoryItem(item);
+    const syncResult = await syncInventoryItem(item, brickowlInventory);
     result.totalApiCalls += 2; // Estimate: lookup + create/update
     
     if (syncResult.success) {
@@ -426,6 +459,9 @@ export async function syncUnsyncedItems(limit: number = 5): Promise<BrickOwlSync
       } else if (syncResult.action === 'updated') {
         result.lotsUpdated++;
         console.log(`✓ Updated: ${item.itemNo} (${item.colorName || 'N/A'}) - ID: ${item.id}`);
+      } else if (syncResult.action === 'skipped') {
+        result.lotsSkipped++;
+        console.log(`○ No changes: ${item.itemNo} (${item.colorName || 'N/A'}) - ID: ${item.id}`);
       }
     } else {
       result.lotsSkipped++;
