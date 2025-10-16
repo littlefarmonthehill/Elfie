@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { AlertCircle, ShoppingCart, Package, TrendingUp, ClipboardList, Truck } from "lucide-react";
+import { AlertCircle, ShoppingCart, Package, TrendingUp, ClipboardList, Truck, RefreshCw } from "lucide-react";
 import {
   Drawer,
   DrawerContent,
@@ -9,6 +9,7 @@ import {
 import PicklistTool from "./PicklistTool";
 import FulfillmentTool from "./FulfillmentTool";
 import OrderSyncTester from "./OrderSyncTester";
+import OrderPlatformSyncTool from "./OrderPlatformSyncTool";
 
 interface Order {
   id: string;
@@ -22,8 +23,8 @@ interface Order {
 
 interface OrdersDashboardProps {
   onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
-  activeDrawer: 'picklist' | 'fulfillment' | 'ordersync' | null;
-  onDrawerChange: (drawer: 'picklist' | 'fulfillment' | 'ordersync' | null) => void;
+  activeDrawer: 'picklist' | 'fulfillment' | 'ordersync' | 'platformsync' | null;
+  onDrawerChange: (drawer: 'picklist' | 'fulfillment' | 'ordersync' | 'platformsync' | null) => void;
 }
 
 export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerChange }: OrdersDashboardProps) {
@@ -185,6 +186,21 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
         open={activeDrawer === 'ordersync'}
         onOpenChange={(open) => !open && onDrawerChange(null)}
       />
+
+      {/* Platform Order Sync Drawer */}
+      <Drawer open={activeDrawer === 'platformsync'} onOpenChange={(open) => !open && onDrawerChange(null)}>
+        <DrawerContent className="h-[90vh]">
+          <DrawerHeader>
+            <DrawerTitle className="flex items-center gap-2">
+              <RefreshCw className="w-5 h-5 text-blue-400" />
+              Sync Orders
+            </DrawerTitle>
+          </DrawerHeader>
+          <div className="overflow-y-auto px-4 pb-4 flex-1">
+            <OrderPlatformSyncTool />
+          </div>
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 }

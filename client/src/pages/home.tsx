@@ -20,7 +20,7 @@ export default function Home() {
   const [dateRange, setDateRange] = useState<DateRangeValue>('all');
   const [chatMinimized, setChatMinimized] = useState(true);
   const [activeInventoryDrawer, setActiveInventoryDrawer] = useState<'priceomatic' | 'warehouse' | 'listing' | 'platformsync' | null>(null);
-  const [activeOrdersDrawer, setActiveOrdersDrawer] = useState<'picklist' | 'fulfillment' | null>(null);
+  const [activeOrdersDrawer, setActiveOrdersDrawer] = useState<'picklist' | 'fulfillment' | 'ordersync' | 'platformsync' | null>(null);
   const [detailModal, setDetailModal] = useState<{ open: boolean; data: DetailData | null }>({
     open: false,
     data: null,
@@ -649,6 +649,13 @@ export default function Home() {
                 data-testid="button-ordersync"
               >
                 Order Sync Tester
+              </button>
+              <button
+                onClick={() => setActiveOrdersDrawer('platformsync')}
+                className="text-[9px] font-bold py-1 px-2 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
+                data-testid="button-platformsync"
+              >
+                Sync Orders
               </button>
             </div>
           </div>
