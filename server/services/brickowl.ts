@@ -304,7 +304,7 @@ export async function syncInventoryItem(
       const remarksChanged = (existingLot.personal_note || '') !== (blItem.remarks || '');
       
       if (qtyChanged || priceChanged || remarksChanged) {
-        console.log(`[Sync] Updating ${blItem.itemNo} (BL inv ${blItem.id}): Qty ${existingQty} → ${blItem.quantity}, Price $${existingPrice} → $${newPrice}`);
+        console.log(`[Sync] Updating ${blItem.itemNo} (BL inv ${blItem.id}): Qty ${existingQty} → ${blItem.quantity}, Price $${existingPrice} → $${newPrice}, Remarks: ${remarksChanged ? 'changed' : 'same'}`);
         
         await updateBrickOwlLot({
           lot_id: existingLot.lot_id,
