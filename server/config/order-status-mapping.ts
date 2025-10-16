@@ -32,9 +32,13 @@ export interface StatusMapping {
  * Master status mapping configuration
  * 
  * Inventory Impact Rules:
- * - 'reduce': Decrease inventory quantity by order line item quantities
- * - 'restore': Increase inventory quantity by order line item quantities
+ * - 'reduce': Decrease inventory quantity by order line item quantities (only when shipped)
+ * - 'restore': Increase inventory quantity by order line item quantities (only if previously shipped)
  * - 'none': No change to inventory
+ * 
+ * IMPORTANT: 'restore' should only be applied if the order was previously 'shipped'.
+ * If an order is cancelled before shipping, no inventory adjustment is needed.
+ * Implementation must check previous status before applying restore logic.
  */
 export const ORDER_STATUS_MAPPINGS: Record<string, StatusMapping> = {
   // Order placed but payment not yet received
@@ -178,18 +182,35 @@ export function getInventoryImpact(normalizedStatus: string): InventoryImpact {
 
 /**
  * Check if status transition requires inventory adjustment
+ * 
+ * Critical Logic:
+ * - Reduce inventory ONLY when order ships (any status → 'shipped')
+ * - Restore inventory ONLY when shipped order is cancelled/returned ('shipped' → 'cancelled'/'returned')
+ * - No adjustment for cancelled orders that were never shipped (e.g., 'awaiting_shipment' → 'cancelled')
  */
 export function shouldAdjustInventory(
   fromStatus: string | null,
   toStatus: string
 ): { shouldAdjust: boolean; impact: InventoryImpact } {
-  const fromImpact = fromStatus ? getInventoryImpact(fromStatus) : 'none';
   const toImpact = getInventoryImpact(toStatus);
   
-  // Only adjust if impact changes
-  const shouldAdjust = fromImpact !== toImpact && toImpact !== 'none';
+  // Case 1: Order is being shipped → Reduce inventory
+  if (toStatus === 'shipped') {
+    return { shouldAdjust: true, impact: 'reduce' };
+  }
   
-  return { shouldAdjust, impact: toImpact };
+  // Case 2: Order is cancelled or returned
+  if (toStatus === 'cancelled' || toStatus === 'returned') {
+    // Only restore if order was previously shipped
+    if (fromStatus === 'shipped') {
+      return { shouldAdjust: true, impact: 'restore' };
+    }
+    // If cancelled before shipping, no adjustment needed
+    return { shouldAdjust: false, impact: 'none' };
+  }
+  
+  // Case 3: All other status changes (delivered, on_hold, etc.)
+  return { shouldAdjust: false, impact: 'none' };
 }
 
 /**
