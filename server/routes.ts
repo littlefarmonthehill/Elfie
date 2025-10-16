@@ -3768,14 +3768,25 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
         const { getBrickLinkOrders, getBrickLinkOrderItems, mapBrickLinkStatus, mapBrickLinkCondition } = 
           await import('./services/bricklink-orders');
 
-        // Fetch recent completed orders
-        const blOrders = await getBrickLinkOrders(
+        // Fetch recent orders - try COMPLETED first, then PENDING if none found
+        let blOrders = await getBrickLinkOrders(
           settings.bricklinkConsumerKey,
           settings.bricklinkConsumerSecret,
           settings.bricklinkTokenValue,
           settings.bricklinkTokenSecret,
           { direction: 'in', status: 'COMPLETED', limit }
         );
+
+        // If no completed orders, try pending orders
+        if (blOrders.length === 0) {
+          blOrders = await getBrickLinkOrders(
+            settings.bricklinkConsumerKey,
+            settings.bricklinkConsumerSecret,
+            settings.bricklinkTokenValue,
+            settings.bricklinkTokenSecret,
+            { direction: 'in', status: 'PENDING', limit }
+          );
+        }
 
         for (const blOrder of blOrders) {
           // Fetch order items
@@ -3788,6 +3799,7 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
           );
 
           // Check if corresponding ShipStation order exists
+          // Note: ShipStation stores BrickLink order numbers as-is (e.g., "2166")
           const ssOrder = await db.select().from(orders)
             .where(and(
               eq(orders.orderNumber, blOrder.order_id.toString()),
@@ -3872,9 +3884,11 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
           const boOrder = await getBrickOwlOrderDetails(settings.brickowlApiKey, boOrderSummary.order_id);
 
           // Check if corresponding ShipStation order exists
+          // Note: ShipStation stores BrickOwl order numbers with "BO." prefix (e.g., "BO.7439152")
+          const boOrderNumber = `BO.${boOrder.order_id}`;
           const ssOrder = await db.select().from(orders)
             .where(and(
-              eq(orders.orderNumber, boOrder.order_id.toString()),
+              eq(orders.orderNumber, boOrderNumber),
               eq(orders.marketplace, 'BrickOwl')
             ))
             .limit(1);
