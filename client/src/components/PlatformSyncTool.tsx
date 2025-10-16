@@ -263,6 +263,7 @@ export default function PlatformSyncTool() {
             </Button>
             <Button
               size="sm"
+              variant="outline"
               onClick={handleSyncAll}
               disabled={syncingPlatform !== null}
               className="text-xs"
@@ -334,7 +335,7 @@ export default function PlatformSyncTool() {
                   </div>
                   <Button
                     size="sm"
-                    variant={hasDiscrepancies ? "default" : "outline"}
+                    variant="outline"
                     onClick={() => handleSync(platform.name)}
                     disabled={!platform.enabled || isSyncing}
                     className="text-xs"
