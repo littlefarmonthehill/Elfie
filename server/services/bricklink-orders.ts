@@ -125,8 +125,8 @@ export async function getBrickLinkOrderItems(
   return data.data || [];
 }
 
-// Map BrickLink status to normalized status
-export function mapBrickLinkStatus(blStatus: string): string {
+// Map BrickLink status to normalized status (async version)
+export async function mapBrickLinkStatus(blStatus: string): Promise<string> {
   // Import dynamically to avoid circular dependencies
   return import('../config/order-status-mapping.js').then(module => 
     module.mapPlatformStatus('bricklink', blStatus)

@@ -9,9 +9,10 @@ Preferred communication style: Simple, everyday language.
 ## System Architecture
 
 ### Data Flow Architecture
-**BrickLink** serves as the single source of truth for catalog, product, and inventory data. Inventory is synced FROM BrickLink TO multiple selling platforms (BrickOwl, eBay, BigCommerce, etc.). Orders from these selling platforms flow into **ShipStation**, which aggregates all orders and feeds them into this application for fulfillment tracking and analytics.
+**BrickLink** serves as the source of truth for product catalog data (items, categories, colors). **This application** is the source of truth for inventory quantities. When inventory changes in this app (via order shipment, cancellation, or manual adjustment), the new quantities sync to BrickLink and BrickOwl. Orders are pulled directly from BrickLink and BrickOwl APIs (in addition to ShipStation for historical data), written to the orders table, and trigger automatic inventory adjustments and cross-platform synchronization.
 
-**Flow:** BrickLink (catalog/inventory) → Selling Platforms (BrickOwl, eBay, etc.) → Orders → ShipStation → This App
+**Inventory Flow:** Order ships → This App reduces quantity → Syncs to BrickLink & BrickOwl  
+**Order Flow:** BrickLink/BrickOwl/ShipStation APIs → This App → Inventory Adjustment → Cross-Platform Sync
 
 **Important Note:** BrickLink orders in ShipStation do not use the ShipStation `options` array to store item metadata (color ID, inventory ID, condition). Instead, all relevant data is embedded in the item `name` and `sku` fields, which the application parses to extract BrickLink part numbers, colors, and conditions for fulfillment display.
 
