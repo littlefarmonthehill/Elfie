@@ -132,7 +132,7 @@ export default function GeneralDashboard({ onItemClick }: GeneralDashboardProps)
         <div className="bg-gray-900/50 border border-orange-500/20 rounded-lg p-2 md:p-4 lg:p-5" data-testid="section-action-items">
           <div className="flex items-center gap-1.5 md:gap-2 lg:gap-2.5 mb-2 md:mb-3 lg:mb-4">
             <AlertCircle className="w-3 h-3 md:w-4 md:h-4 lg:w-5 lg:h-5 text-orange-400" />
-            <h3 className="text-xs md:text-sm lg:text-base font-semibold text-orange-400 uppercase tracking-wide">Action Items - Orders to Fulfill</h3>
+            <h3 className="text-[11px] md:text-sm lg:text-base font-semibold text-orange-400 uppercase tracking-wide">Action Items - Orders to Fulfill</h3>
           </div>
           <div className="space-y-1.5">
             {pendingOrders.length > 0 ? (
@@ -161,7 +161,7 @@ export default function GeneralDashboard({ onItemClick }: GeneralDashboardProps)
         <div className="bg-gray-900/50 border border-purple-500/20 rounded-lg p-2 md:p-4 lg:p-5" data-testid="section-pricing-opportunities">
           <div className="flex items-center gap-1.5 md:gap-2 lg:gap-2.5 mb-2 md:mb-3 lg:mb-4">
             <TrendingDown className="w-3 h-3 md:w-4 md:h-4 lg:w-5 lg:h-5 text-purple-400" />
-            <h3 className="text-xs md:text-sm lg:text-base font-semibold text-purple-400 uppercase tracking-wide">Top Pricing Opportunities</h3>
+            <h3 className="text-[11px] md:text-sm lg:text-base font-semibold text-purple-400 uppercase tracking-wide">Top Pricing Opportunities</h3>
           </div>
           <div className="space-y-1.5">
             {pricingOpportunities.length > 0 ? (
