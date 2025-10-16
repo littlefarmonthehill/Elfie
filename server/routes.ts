@@ -3838,8 +3838,9 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
             
             console.log(`ShipStation has ${ssItems.length} items for order ${orderId}`);
 
-            // Try to fetch platform order header (may not have items)
+            // Try to fetch platform order header and items
             let platformOrder = null;
+            let platformItems: any[] = [];
             try {
               // Note: BrickLink API likely won't return items for shipped orders
               // We're just fetching to verify order exists on platform
@@ -3853,6 +3854,46 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
                 orderTotal: ssOrder.orderTotal,
                 shippingAmount: ssOrder.shippingAmount,
               };
+
+              // Try to fetch items from BrickLink API
+              const { getBrickLinkOrderItems } = await import('./services/bricklink-orders');
+              const blItems = await getBrickLinkOrderItems(
+                parseInt(orderId),
+                settings.blConsumerKey!,
+                settings.blConsumerSecret!,
+                settings.blTokenValue!,
+                settings.blTokenSecret!
+              );
+              
+              console.log(`BrickLink API returned ${blItems.length} items for order ${orderId}`);
+
+              // Map BrickLink items to common format with warehouse bins
+              platformItems = await Promise.all(blItems.map(async (blItem: any) => {
+                const inventoryId = blItem.inventory_id;
+                const binInfo = await db
+                  .select({
+                    aisleId: whAisles.id,
+                    aisleName: whAisles.name,
+                    shelfId: whShelves.id,
+                    shelfName: whShelves.name,
+                    binId: whBins.id,
+                    binName: whBins.name,
+                  })
+                  .from(inventoryLocations)
+                  .leftJoin(whBins, eq(inventoryLocations.binId, whBins.id))
+                  .leftJoin(whShelves, eq(whBins.shelfId, whShelves.id))
+                  .leftJoin(whAisles, eq(whShelves.aisleId, whAisles.id))
+                  .where(eq(inventoryLocations.inventoryId, parseInt(inventoryId || '0')))
+                  .limit(1);
+
+                return {
+                  sku: inventoryId?.toString(),
+                  name: `${blItem.item?.no || ''} ${blItem.color_name || ''} ${blItem.new_or_used || ''}`.trim(),
+                  quantity: blItem.quantity || 0,
+                  unitPrice: parseFloat(blItem.unit_price || '0'),
+                  warehouseBin: binInfo[0] || null,
+                };
+              }));
             } catch (apiErr: any) {
               console.error(`BrickLink API error for order ${orderId}:`, apiErr.message);
             }
@@ -3889,7 +3930,7 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
               shipstationOrder: ssOrder, // ShipStation order with full details
               shipstationItems: itemsWithBins, // ShipStation items from database
               platformOrder: platformOrder, // Platform order header (if available)
-              platformItems: [], // Platform APIs don't return items for shipped orders
+              platformItems: platformItems, // Platform items from API (may be empty for shipped orders)
               issues: [],
             });
           } catch (orderError: any) {
@@ -3943,8 +3984,9 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
             
             console.log(`ShipStation has ${ssItems.length} items for order ${orderId}`);
 
-            // Try to fetch platform order header
+            // Try to fetch platform order header and items
             let platformOrder = null;
+            let platformItems: any[] = [];
             try {
               const boOrder = await getBrickOwlOrderDetails(settings.brickowlApiKey, orderId);
               platformOrder = {
@@ -3957,6 +3999,38 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
                 orderTotal: boOrder.base_order_total || '0',
                 shippingAmount: boOrder.ship_total || '0',
               };
+
+              // Map BrickOwl items to common format with warehouse bins
+              if (boOrder.items && Array.isArray(boOrder.items)) {
+                console.log(`BrickOwl API returned ${boOrder.items.length} items for order ${orderId}`);
+                
+                platformItems = await Promise.all(boOrder.items.map(async (boItem: any) => {
+                  const inventoryId = boItem.external_lot_ids?.other;
+                  const binInfo = await db
+                    .select({
+                      aisleId: whAisles.id,
+                      aisleName: whAisles.name,
+                      shelfId: whShelves.id,
+                      shelfName: whShelves.name,
+                      binId: whBins.id,
+                      binName: whBins.name,
+                    })
+                    .from(inventoryLocations)
+                    .leftJoin(whBins, eq(inventoryLocations.binId, whBins.id))
+                    .leftJoin(whShelves, eq(whBins.shelfId, whShelves.id))
+                    .leftJoin(whAisles, eq(whShelves.aisleId, whAisles.id))
+                    .where(eq(inventoryLocations.inventoryId, parseInt(inventoryId || '0')))
+                    .limit(1);
+
+                  return {
+                    sku: inventoryId?.toString(),
+                    name: `${boItem.boid || ''} ${boItem.color_name || ''} ${boItem.condition || ''}`.trim(),
+                    quantity: boItem.ordered_quantity || 0,
+                    unitPrice: parseFloat(boItem.base_price || '0'),
+                    warehouseBin: binInfo[0] || null,
+                  };
+                }));
+              }
             } catch (apiErr: any) {
               console.error(`BrickOwl API error for order ${orderId}:`, apiErr.message);
             }
@@ -3993,7 +4067,7 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
               shipstationOrder: ssOrder, // ShipStation order with full details
               shipstationItems: itemsWithBins, // ShipStation items from database
               platformOrder: platformOrder, // Platform order header (if available)
-              platformItems: [], // Platform APIs don't return items for shipped orders
+              platformItems: platformItems, // Platform items from API (may be empty for shipped orders)
               issues: [],
             });
           } catch (err: any) {

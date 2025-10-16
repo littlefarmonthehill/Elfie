@@ -254,50 +254,107 @@ export default function OrderSyncTester({ open, onOpenChange }: OrderSyncTesterP
                           </AccordionContent>
                         </AccordionItem>
 
-                        {/* Order Detail - Line Items from ShipStation */}
+                        {/* Order Detail - Line Items */}
                         <AccordionItem value="detail">
                           <AccordionTrigger className="text-sm font-medium">
-                            ShipStation Items ({result.shipstationItems?.length || 0} items)
+                            Order Detail (SS: {result.shipstationItems?.length || 0} items, {result.platform}: {result.platformItems?.length || 0} items)
                           </AccordionTrigger>
                           <AccordionContent>
-                            {result.shipstationItems && result.shipstationItems.length > 0 ? (
-                              <div className="overflow-x-auto">
-                                <table className="w-full text-xs">
-                                  <thead>
-                                    <tr className="border-b">
-                                      <th className="text-left py-2 font-medium text-muted-foreground">Item Name</th>
-                                      <th className="text-left py-2 font-medium text-muted-foreground">SKU</th>
-                                      <th className="text-left py-2 font-medium text-muted-foreground">Qty</th>
-                                      <th className="text-left py-2 font-medium text-muted-foreground">Price</th>
-                                      <th className="text-left py-2 font-medium text-muted-foreground">Total</th>
-                                      <th className="text-left py-2 font-medium text-muted-foreground">Warehouse Bin</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody className="divide-y">
-                                    {result.shipstationItems.map((item: any, itemIdx: number) => (
-                                      <tr key={itemIdx}>
-                                        <td className="py-2">{item.name}</td>
-                                        <td className="py-2 font-mono text-[10px]">{item.sku || '-'}</td>
-                                        <td className="py-2">{item.quantity}</td>
-                                        <td className="py-2">${item.unitPrice}</td>
-                                        <td className="py-2">${(item.quantity * item.unitPrice).toFixed(2)}</td>
-                                        <td className="py-2">
-                                          {item.warehouseBin ? (
-                                            <span className="text-green-600 text-[10px]">
-                                              {item.warehouseBin.aisleName} › {item.warehouseBin.shelfName} › {item.warehouseBin.binName}
-                                            </span>
-                                          ) : (
-                                            <span className="text-orange-600 text-[10px]">Not assigned</span>
-                                          )}
-                                        </td>
+                            {/* ShipStation Items */}
+                            <div className="mb-6">
+                              <h4 className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-2">
+                                <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-2 py-0.5 rounded">
+                                  ShipStation Items ({result.shipstationItems?.length || 0})
+                                </span>
+                              </h4>
+                              {result.shipstationItems && result.shipstationItems.length > 0 ? (
+                                <div className="overflow-x-auto">
+                                  <table className="w-full text-xs">
+                                    <thead>
+                                      <tr className="border-b">
+                                        <th className="text-left py-2 font-medium text-muted-foreground">Item Name</th>
+                                        <th className="text-left py-2 font-medium text-muted-foreground">SKU</th>
+                                        <th className="text-left py-2 font-medium text-muted-foreground">Qty</th>
+                                        <th className="text-left py-2 font-medium text-muted-foreground">Price</th>
+                                        <th className="text-left py-2 font-medium text-muted-foreground">Total</th>
+                                        <th className="text-left py-2 font-medium text-muted-foreground">Warehouse Bin</th>
                                       </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              </div>
-                            ) : (
-                              <p className="text-xs text-muted-foreground py-4">No items found in ShipStation</p>
-                            )}
+                                    </thead>
+                                    <tbody className="divide-y">
+                                      {result.shipstationItems.map((item: any, itemIdx: number) => (
+                                        <tr key={itemIdx}>
+                                          <td className="py-2">{item.name}</td>
+                                          <td className="py-2 font-mono text-[10px]">{item.sku || '-'}</td>
+                                          <td className="py-2">{item.quantity}</td>
+                                          <td className="py-2">${item.unitPrice}</td>
+                                          <td className="py-2">${(item.quantity * item.unitPrice).toFixed(2)}</td>
+                                          <td className="py-2">
+                                            {item.warehouseBin ? (
+                                              <span className="text-green-600 text-[10px]">
+                                                {item.warehouseBin.aisleName} › {item.warehouseBin.shelfName} › {item.warehouseBin.binName}
+                                              </span>
+                                            ) : (
+                                              <span className="text-orange-600 text-[10px]">Not assigned</span>
+                                            )}
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              ) : (
+                                <p className="text-xs text-muted-foreground py-4">No items found in ShipStation</p>
+                              )}
+                            </div>
+
+                            {/* Platform Items */}
+                            <div>
+                              <h4 className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-2">
+                                <span className="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 px-2 py-0.5 rounded">
+                                  {result.platform} Items ({result.platformItems?.length || 0})
+                                </span>
+                              </h4>
+                              {result.platformItems && result.platformItems.length > 0 ? (
+                                <div className="overflow-x-auto">
+                                  <table className="w-full text-xs">
+                                    <thead>
+                                      <tr className="border-b">
+                                        <th className="text-left py-2 font-medium text-muted-foreground">Item Name</th>
+                                        <th className="text-left py-2 font-medium text-muted-foreground">SKU</th>
+                                        <th className="text-left py-2 font-medium text-muted-foreground">Qty</th>
+                                        <th className="text-left py-2 font-medium text-muted-foreground">Price</th>
+                                        <th className="text-left py-2 font-medium text-muted-foreground">Total</th>
+                                        <th className="text-left py-2 font-medium text-muted-foreground">Warehouse Bin</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y">
+                                      {result.platformItems.map((item: any, itemIdx: number) => (
+                                        <tr key={itemIdx}>
+                                          <td className="py-2">{item.name}</td>
+                                          <td className="py-2 font-mono text-[10px]">{item.sku || '-'}</td>
+                                          <td className="py-2">{item.quantity}</td>
+                                          <td className="py-2">${item.unitPrice}</td>
+                                          <td className="py-2">${(item.quantity * item.unitPrice).toFixed(2)}</td>
+                                          <td className="py-2">
+                                            {item.warehouseBin ? (
+                                              <span className="text-green-600 text-[10px]">
+                                                {item.warehouseBin.aisleName} › {item.warehouseBin.shelfName} › {item.warehouseBin.binName}
+                                              </span>
+                                            ) : (
+                                              <span className="text-orange-600 text-[10px]">Not assigned</span>
+                                            )}
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              ) : (
+                                <p className="text-xs text-muted-foreground py-4">
+                                  No items returned from {result.platform} API (items may only be available for pending orders)
+                                </p>
+                              )}
+                            </div>
                             
                             {/* Issues */}
                             {result.issues && result.issues.length > 0 && (
