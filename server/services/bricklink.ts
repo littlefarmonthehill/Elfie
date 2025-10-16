@@ -69,7 +69,7 @@ async function trackApiCall(endpoint: string, success: boolean = true): Promise<
   });
 }
 
-// Make a BrickLink API request with rate limiting
+// Make a BrickLink API request with rate limiting (GET)
 async function bricklinkRequest(endpoint: string, queryParams?: Record<string, string>): Promise<{ data: any; apiCalls: number }> {
   // Get credentials from database settings (with fallback to env vars)
   const [settings] = await db.select().from(appSettings).limit(1);
@@ -162,6 +162,99 @@ async function bricklinkRequest(endpoint: string, queryParams?: Record<string, s
   } finally {
     // Track the API call exactly once, regardless of success or failure
     await trackApiCall(endpoint, success);
+  }
+}
+
+// Make a BrickLink API PUT request (for updating inventory)
+async function bricklinkPutRequest(endpoint: string, body: any): Promise<{ data: any; apiCalls: number }> {
+  // Get credentials from database settings (with fallback to env vars)
+  const [settings] = await db.select().from(appSettings).limit(1);
+  
+  const consumerKey = settings?.bricklinkConsumerKey || process.env.BRICKLINK_CONSUMER_KEY || '';
+  const consumerSecret = settings?.bricklinkConsumerSecret || process.env.BRICKLINK_CONSUMER_SECRET || '';
+  const tokenValue = settings?.bricklinkTokenValue || process.env.BRICKLINK_TOKEN_VALUE || '';
+  const tokenSecret = settings?.bricklinkTokenSecret || process.env.BRICKLINK_TOKEN_SECRET || '';
+  
+  if (!consumerKey || !consumerSecret || !tokenValue || !tokenSecret) {
+    throw new Error('BrickLink credentials not configured. Please add them in Settings.');
+  }
+
+  // Check rate limit before making request
+  const rateLimit = await checkRateLimit();
+  if (!rateLimit.allowed) {
+    throw new Error(rateLimit.warning || 'API rate limit exceeded');
+  }
+
+  // Create OAuth client
+  const oauth = new OAuth({
+    consumer: { key: consumerKey, secret: consumerSecret },
+    signature_method: 'HMAC-SHA1',
+    hash_function(baseString, key) {
+      return crypto.createHmac('sha1', key).update(baseString).digest('base64');
+    },
+  });
+
+  const token = {
+    key: cleanToken(tokenValue),
+    secret: cleanToken(tokenSecret),
+  };
+
+  const url = `https://api.bricklink.com/api/store/v1${endpoint}`;
+  const requestData = { url, method: 'PUT', body: JSON.stringify(body) };
+  const authHeader = oauth.toHeader(oauth.authorize(requestData, token));
+  
+  let success = false;
+  try {
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        ...authHeader,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`BrickLink PUT error (${response.status}):`, errorText);
+      throw new Error(`BrickLink API error: ${response.statusText}`);
+    }
+
+    const json = await response.json();
+    
+    if (json.meta && json.meta.code !== 200) {
+      console.error(`BrickLink PUT error (meta.code ${json.meta.code}):`, json.meta.description || json.meta.message);
+      throw new Error(`BrickLink API error: ${json.meta.description || json.meta.message}`);
+    }
+    
+    success = true;
+    return { data: json.data, apiCalls: 1 };
+  } finally {
+    await trackApiCall(endpoint, success);
+  }
+}
+
+/**
+ * Update BrickLink inventory quantity
+ * @param inventoryId - BrickLink inventory ID (numeric from bl_inventory.id)
+ * @param newQuantity - New quantity to set
+ */
+export async function updateBrickLinkInventoryQuantity(
+  inventoryId: number,
+  newQuantity: number
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    console.log(`Updating BrickLink inventory ${inventoryId} to quantity ${newQuantity}...`);
+    
+    await bricklinkPutRequest(`/inventories/${inventoryId}`, {
+      quantity: newQuantity,
+    });
+    
+    console.log(`✓ BrickLink: Updated inventory ${inventoryId} to quantity ${newQuantity}`);
+    return { success: true };
+  } catch (error: any) {
+    console.error(`✗ BrickLink update failed for inventory ${inventoryId}:`, error);
+    return { success: false, error: error.message || 'Unknown error' };
   }
 }
 

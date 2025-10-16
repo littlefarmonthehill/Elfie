@@ -2,6 +2,7 @@ import { db } from '../db';
 import { blInventory } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import { updateBrickOwlLot, getBrickOwlInventory } from './brickowl';
+import { updateBrickLinkInventoryQuantity } from './bricklink';
 
 /**
  * Cross-Platform Inventory Synchronization Service
@@ -106,10 +107,33 @@ async function updateAmazonQuantity(
 }
 
 /**
+ * Update a single inventory item's quantity on BrickLink
+ */
+async function updateBrickLinkQuantity(
+  inventoryId: string,
+  newQuantity: number
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    // BrickLink inventory ID is numeric
+    const numericId = parseInt(inventoryId, 10);
+    if (isNaN(numericId)) {
+      return { success: false, error: `Invalid BrickLink inventory ID: ${inventoryId}` };
+    }
+    
+    const result = await updateBrickLinkInventoryQuantity(numericId, newQuantity);
+    return result;
+  } catch (error: any) {
+    console.error(`✗ BrickLink sync error for inventory ${inventoryId}:`, error);
+    return { success: false, error: error.message || 'Unknown error' };
+  }
+}
+
+/**
  * Synchronize a single inventory item's quantity across all selling platforms
  * 
- * Called after BrickLink inventory changes (order shipment, cancellation, manual adjustment)
- * Runs asynchronously - does not block order processing
+ * This app is the source of truth for inventory quantities.
+ * When inventory changes here (via order shipment, cancellation, manual adjustment),
+ * the new quantity propagates to BrickLink and BrickOwl.
  * 
  * @param inventoryId - BrickLink inventory ID
  * @param newQuantity - New quantity to set on all platforms
@@ -122,6 +146,18 @@ export async function syncInventoryItemAcrossPlatforms(
   
   const platformResults: PlatformSyncResult[] = [];
   
+  // BrickLink sync (source of truth for catalog, but this app controls quantity)
+  const bricklinkResult = await updateBrickLinkQuantity(inventoryId, newQuantity);
+  platformResults.push({
+    platform: 'BrickLink',
+    success: bricklinkResult.success,
+    itemsUpdated: bricklinkResult.success ? 1 : 0,
+    errors: bricklinkResult.error ? [bricklinkResult.error] : [],
+  });
+  
+  // Add delay between platform API calls to avoid rate limits
+  await new Promise(resolve => setTimeout(resolve, 150));
+  
   // BrickOwl sync
   const brickowlResult = await updateBrickOwlQuantity(inventoryId, newQuantity);
   platformResults.push({
@@ -129,40 +165,6 @@ export async function syncInventoryItemAcrossPlatforms(
     success: brickowlResult.success,
     itemsUpdated: brickowlResult.success ? 1 : 0,
     errors: brickowlResult.error ? [brickowlResult.error] : [],
-  });
-  
-  // Add delays between platform API calls to avoid rate limits
-  await new Promise(resolve => setTimeout(resolve, 100));
-  
-  // eBay sync
-  const ebayResult = await updateEbayQuantity(inventoryId, newQuantity);
-  platformResults.push({
-    platform: 'eBay',
-    success: ebayResult.success,
-    itemsUpdated: ebayResult.success ? 1 : 0,
-    errors: ebayResult.error ? [ebayResult.error] : [],
-  });
-  
-  await new Promise(resolve => setTimeout(resolve, 100));
-  
-  // BigCommerce sync
-  const bigcommerceResult = await updateBigCommerceQuantity(inventoryId, newQuantity);
-  platformResults.push({
-    platform: 'BigCommerce',
-    success: bigcommerceResult.success,
-    itemsUpdated: bigcommerceResult.success ? 1 : 0,
-    errors: bigcommerceResult.error ? [bigcommerceResult.error] : [],
-  });
-  
-  await new Promise(resolve => setTimeout(resolve, 100));
-  
-  // Amazon sync
-  const amazonResult = await updateAmazonQuantity(inventoryId, newQuantity);
-  platformResults.push({
-    platform: 'Amazon',
-    success: amazonResult.success,
-    itemsUpdated: amazonResult.success ? 1 : 0,
-    errors: amazonResult.error ? [amazonResult.error] : [],
   });
   
   const totalItemsUpdated = platformResults.reduce((sum, r) => sum + r.itemsUpdated, 0);
