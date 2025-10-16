@@ -56,10 +56,13 @@ export async function getBrickLinkOrders(
   });
 
   if (!response.ok) {
-    throw new Error(`BrickLink API error: ${response.statusText}`);
+    const errorText = await response.text();
+    console.error(`BrickLink API error: ${response.status} ${response.statusText}`, errorText);
+    throw new Error(`BrickLink API error: ${response.status} ${response.statusText}`);
   }
 
   const data = await response.json();
+  console.log(`BrickLink API response for status=${options.status}:`, JSON.stringify(data).slice(0, 300));
   
   // BrickLink returns { meta: {...}, data: [...] }
   const orders = data.data || [];

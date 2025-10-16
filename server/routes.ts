@@ -103,6 +103,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Optimized endpoint for Orders Dashboard - only fetches what's needed
+  app.get("/api/orders/dashboard", async (req, res) => {
+    try {
+      // Fetch top 5 pending orders (awaiting_payment or awaiting_shipment)
+      const pendingOrders = await db.select()
+        .from(orders)
+        .where(
+          sql`${orders.orderStatus} IN ('awaiting_payment', 'awaiting_shipment')`
+        )
+        .orderBy(desc(orders.orderDate))
+        .limit(5);
+
+      // Fetch top 5 recent shipments (shipped status, sorted by date)
+      const recentShipments = await db.select()
+        .from(orders)
+        .where(eq(orders.orderStatus, 'shipped'))
+        .orderBy(desc(orders.orderDate))
+        .limit(5);
+
+      // Fetch top 5 high value orders (all statuses, sorted by total)
+      const highValueOrders = await db.select()
+        .from(orders)
+        .where(sql`${orders.orderTotal} IS NOT NULL`)
+        .orderBy(sql`CAST(${orders.orderTotal} AS DECIMAL) DESC`)
+        .limit(5);
+
+      res.json({
+        pending: pendingOrders,
+        recentShipments,
+        highValue: highValueOrders,
+      });
+    } catch (error) {
+      console.error("Error fetching dashboard orders:", error);
+      res.status(500).json({ error: "Failed to fetch dashboard orders" });
+    }
+  });
+
   // Fetch single order by ID with full details
   app.get("/api/orders/:id", async (req, res) => {
     try {

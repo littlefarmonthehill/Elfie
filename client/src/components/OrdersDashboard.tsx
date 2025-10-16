@@ -27,34 +27,17 @@ interface OrdersDashboardProps {
 }
 
 export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerChange }: OrdersDashboardProps) {
-  const { data: orders = [], isLoading } = useQuery<Order[]>({
-    queryKey: ['/api/orders'],
-    queryFn: async () => {
-      const response = await fetch('/api/orders');
-      if (!response.ok) throw new Error('Failed to fetch orders');
-      return response.json();
-    }
+  const { data, isLoading } = useQuery<{
+    pending: Order[];
+    recentShipments: Order[];
+    highValue: Order[];
+  }>({
+    queryKey: ['/api/orders/dashboard'],
   });
 
-  // Get pending orders (action items)
-  const pendingOrders = orders
-    .filter(order => 
-      order.orderStatus === 'awaiting_payment' || 
-      order.orderStatus === 'awaiting_shipment'
-    )
-    .slice(0, 5);
-
-  // Get recently shipped orders (recent activity)
-  const recentShipments = orders
-    .filter(order => order.orderStatus === 'shipped')
-    .sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime())
-    .slice(0, 5);
-
-  // Get high value orders (highlights)
-  const highValueOrders = orders
-    .filter(order => order.orderTotal && !isNaN(Number(order.orderTotal)))
-    .sort((a, b) => Number(b.orderTotal) - Number(a.orderTotal))
-    .slice(0, 5);
+  const pendingOrders = data?.pending || [];
+  const recentShipments = data?.recentShipments || [];
+  const highValueOrders = data?.highValue || [];
 
   if (isLoading) {
     return (
