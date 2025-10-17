@@ -5,7 +5,7 @@ import { syncBricklinkData, fetchPriceOMagicData, searchBricklinkCatalogItem, sy
 import { syncShipStationOrders } from "./services/shipstation";
 import { syncBrickLinkToBrickOwl, syncUnsyncedItems, findUnsyncedItems } from "./services/brickowl";
 import { db } from "./db";
-import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema } from "@shared/schema";
+import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments } from "@shared/schema";
 import { eq, desc, sql, inArray, like, or, and, isNotNull } from "drizzle-orm";
 import { z } from "zod";
 
@@ -4273,6 +4273,56 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
     } catch (error) {
       console.error("Error fetching packing slip data:", error);
       res.status(500).json({ error: "Failed to fetch packing slip data" });
+    }
+  });
+
+  // Get shipped orders with search functionality
+  app.get("/api/orders/shipped", async (req, res) => {
+    try {
+      const searchQuery = req.query.search as string;
+      
+      // Build base query conditions
+      let whereConditions = eq(orders.orderStatus, 'shipped');
+      
+      // Add search filter if provided
+      if (searchQuery && searchQuery.trim()) {
+        const search = searchQuery.trim();
+        const searchConditions = or(
+          sql`${orders.orderNumber} ILIKE ${`%${search}%`}`,
+          sql`${orders.customerUsername} ILIKE ${`%${search}%`}`,
+          sql`${orders.customerEmail} ILIKE ${`%${search}%`}`,
+          sql`${shipments.trackingNumber} ILIKE ${`%${search}%`}`
+        );
+        whereConditions = and(whereConditions, searchConditions)!;
+      }
+      
+      // Execute query for shipped orders
+      const shippedOrders = await db
+        .select({
+          id: orders.id,
+          orderNumber: orders.orderNumber,
+          orderDate: orders.orderDate,
+          shipDate: orders.shipDate,
+          customerUsername: orders.customerUsername,
+          customerEmail: orders.customerEmail,
+          orderTotal: orders.orderTotal,
+          marketplace: orders.marketplace,
+          shipTo: orders.shipTo,
+          orderStatus: orders.orderStatus,
+          trackingNumber: shipments.trackingNumber,
+          carrier: shipments.carrier,
+          service: shipments.service,
+          labelUrl: shipments.labelUrl,
+        })
+        .from(orders)
+        .leftJoin(shipments, eq(orders.id, shipments.orderId))
+        .where(whereConditions)
+        .orderBy(desc(orders.shipDate));
+      
+      res.json(shippedOrders);
+    } catch (error) {
+      console.error("Error fetching shipped orders:", error);
+      res.status(500).json({ error: "Failed to fetch shipped orders" });
     }
   });
 

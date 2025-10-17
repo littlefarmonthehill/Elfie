@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { AlertCircle, ShoppingCart, Package, TrendingUp, ClipboardList, Truck, RefreshCw } from "lucide-react";
+import { AlertCircle, ShoppingCart, Package, TrendingUp, ClipboardList, Truck, RefreshCw, PackageCheck } from "lucide-react";
 import {
   Drawer,
   DrawerContent,
@@ -9,6 +9,7 @@ import {
 import PicklistTool from "./PicklistTool";
 import FulfillmentTool from "./FulfillmentTool";
 import OrderPlatformSyncTool from "./OrderPlatformSyncTool";
+import ShippedOrdersTool from "./ShippedOrdersTool";
 
 interface Order {
   id: string;
@@ -22,8 +23,8 @@ interface Order {
 
 interface OrdersDashboardProps {
   onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
-  activeDrawer: 'picklist' | 'fulfillment' | 'platformsync' | null;
-  onDrawerChange: (drawer: 'picklist' | 'fulfillment' | 'platformsync' | null) => void;
+  activeDrawer: 'picklist' | 'fulfillment' | 'platformsync' | 'shipped' | null;
+  onDrawerChange: (drawer: 'picklist' | 'fulfillment' | 'platformsync' | 'shipped' | null) => void;
 }
 
 export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerChange }: OrdersDashboardProps) {
@@ -179,6 +180,21 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
           </DrawerHeader>
           <div className="overflow-y-auto px-4 pb-4 flex-1">
             <OrderPlatformSyncTool />
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Shipped Orders Drawer */}
+      <Drawer open={activeDrawer === 'shipped'} onOpenChange={(open) => !open && onDrawerChange(null)}>
+        <DrawerContent className="h-[90vh]">
+          <DrawerHeader>
+            <DrawerTitle className="flex items-center gap-2">
+              <PackageCheck className="w-5 h-5 text-green-400" />
+              Shipped Orders
+            </DrawerTitle>
+          </DrawerHeader>
+          <div className="overflow-y-auto px-4 pb-4 flex-1">
+            <ShippedOrdersTool />
           </div>
         </DrawerContent>
       </Drawer>
