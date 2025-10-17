@@ -31,7 +31,7 @@ export default function PlatformOrdersDrawer({
       <DrawerContent className="bg-gray-900 border-gray-700 h-[85vh] flex flex-col">
         <DrawerHeader className="border-b border-gray-700 py-2 flex-shrink-0">
           <div className="flex items-center justify-between">
-            <DrawerTitle className="text-sm md:text-base lg:text-lg font-black text-white uppercase tracking-wide">
+            <DrawerTitle className="text-xs md:text-base lg:text-lg font-black text-white uppercase tracking-wide">
               📦 {platform} Orders
             </DrawerTitle>
             <button

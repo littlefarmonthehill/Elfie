@@ -132,8 +132,8 @@ export default function GeneralDashboard({ onItemClick }: GeneralDashboardProps)
         {/* Action Items - Pending Orders */}
         <div className="bg-gray-900/50 border border-orange-500/20 rounded-lg p-2 md:p-4 lg:p-5" data-testid="section-action-items">
           <div className="flex items-center gap-1.5 md:gap-2 lg:gap-2.5 mb-2 md:mb-3 lg:mb-4">
-            <AlertCircle className="w-4 h-4 md:w-5 md:h-5 lg:w-6 lg:h-6 text-orange-400" />
-            <h3 className="text-sm md:text-base lg:text-lg font-semibold text-orange-400 uppercase tracking-wide">Action Items - Orders to Fulfill</h3>
+            <AlertCircle className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-orange-400" />
+            <h3 className="text-xs md:text-base lg:text-lg font-semibold text-orange-400 uppercase tracking-wide">Action Items - Orders to Fulfill</h3>
           </div>
           <div className="space-y-1.5">
             {pendingOrders.length > 0 ? (
@@ -141,19 +141,19 @@ export default function GeneralDashboard({ onItemClick }: GeneralDashboardProps)
                 <div 
                   key={order.id} 
                   onClick={() => onItemClick?.('order', order.id)}
-                  className="flex justify-between items-center text-sm md:text-base lg:text-lg hover-elevate rounded px-2 py-1 cursor-pointer"
+                  className="flex justify-between items-center text-xs md:text-base lg:text-lg hover-elevate rounded px-2 py-1 cursor-pointer"
                   data-testid={`action-order-${order.id}`}
                 >
                   <div className="flex items-center gap-2">
-                    <ShoppingCart className="w-4 h-4 md:w-5 md:h-5 lg:w-6 lg:h-6 text-orange-400" />
+                    <ShoppingCart className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-orange-400" />
                     <span className="text-gray-200 font-mono">#{order.orderNumber}</span>
-                    <span className="text-gray-400 text-xs md:text-sm lg:text-base">{order.customerUsername}</span>
+                    <span className="text-gray-400 text-[11px] md:text-sm lg:text-base">{order.customerUsername}</span>
                   </div>
                   <span className="text-lego-green font-mono font-medium">${Number(order.orderTotal || 0).toFixed(2)}</span>
                 </div>
               ))
             ) : (
-              <div className="text-xs md:text-sm lg:text-base text-gray-500 italic">No pending orders</div>
+              <div className="text-[11px] md:text-sm lg:text-base text-gray-500 italic">No pending orders</div>
             )}
           </div>
         </div>
@@ -161,8 +161,8 @@ export default function GeneralDashboard({ onItemClick }: GeneralDashboardProps)
         {/* Top Pricing Opportunities */}
         <div className="bg-gray-900/50 border border-purple-500/20 rounded-lg p-2 md:p-4 lg:p-5" data-testid="section-pricing-opportunities">
           <div className="flex items-center gap-1.5 md:gap-2 lg:gap-2.5 mb-2 md:mb-3 lg:mb-4">
-            <TrendingDown className="w-4 h-4 md:w-5 md:h-5 lg:w-6 lg:h-6 text-purple-400" />
-            <h3 className="text-sm md:text-base lg:text-lg font-semibold text-purple-400 uppercase tracking-wide">Top Pricing Opportunities</h3>
+            <TrendingDown className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-purple-400" />
+            <h3 className="text-xs md:text-base lg:text-lg font-semibold text-purple-400 uppercase tracking-wide">Top Pricing Opportunities</h3>
           </div>
           <div className="space-y-1.5">
             {pricingOpportunities.length > 0 ? (
@@ -174,15 +174,15 @@ export default function GeneralDashboard({ onItemClick }: GeneralDashboardProps)
                   data-testid={`pricing-item-${item.inventoryId}`}
                 >
                   <div className="flex gap-2 flex-1 min-w-0">
-                    <TrendingDown className="w-4 h-4 md:w-5 md:h-5 lg:w-6 lg:h-6 text-purple-400 flex-shrink-0 mt-0.5" />
+                    <TrendingDown className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-purple-400 flex-shrink-0 mt-0.5" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="text-gray-200 font-mono text-sm md:text-base lg:text-lg font-medium flex-shrink-0">{item.itemNo}</span>
+                        <span className="text-gray-200 font-mono text-xs md:text-base lg:text-lg font-medium flex-shrink-0">{item.itemNo}</span>
                         {item.itemName && (
-                          <span className="text-white text-sm md:text-base lg:text-lg truncate">{item.itemName}</span>
+                          <span className="text-white text-xs md:text-base lg:text-lg truncate">{item.itemName}</span>
                         )}
                       </div>
-                      <div className="flex gap-1.5 text-xs md:text-sm lg:text-base text-gray-400 mt-0.5">
+                      <div className="flex gap-1.5 text-[11px] md:text-sm lg:text-base text-gray-400 mt-0.5">
                         {item.colorName && <span>{item.colorName}</span>}
                         {item.colorName && <span>•</span>}
                         <span>{item.condition === 'N' ? 'New' : 'Used'}</span>
@@ -196,17 +196,17 @@ export default function GeneralDashboard({ onItemClick }: GeneralDashboardProps)
                 </div>
               ))
             ) : (
-              <div className="text-xs md:text-sm lg:text-base text-gray-500 italic">Run Price-o-Matic to see opportunities</div>
+              <div className="text-[11px] md:text-sm lg:text-base text-gray-500 italic">Run Price-o-Matic to see opportunities</div>
             )}
           </div>
         </div>
       </div>
 
       {/* Recent Activity - High Value Sales */}
-      <div className="bg-gray-900/50 border border-green-500/20 rounded-lg p-4 md:p-5 lg:p-6" data-testid="section-recent-activity">
+      <div className="bg-gray-900/50 border border-green-500/20 rounded-lg p-3 md:p-5 lg:p-6" data-testid="section-recent-activity">
         <div className="flex items-center gap-1.5 md:gap-2 lg:gap-2.5 mb-2 md:mb-3 lg:mb-4">
-          <TrendingUp className="w-4 h-4 md:w-5 md:h-5 lg:w-6 lg:h-6 text-green-400" />
-          <h3 className="text-sm md:text-base lg:text-lg font-semibold text-green-400 uppercase tracking-wide">Recent Activity - Latest Sales</h3>
+          <TrendingUp className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-green-400" />
+          <h3 className="text-xs md:text-base lg:text-lg font-semibold text-green-400 uppercase tracking-wide">Recent Activity - Latest Sales</h3>
         </div>
         <div className="space-y-1.5">
           {recentSales.length > 0 ? (
@@ -224,21 +224,21 @@ export default function GeneralDashboard({ onItemClick }: GeneralDashboardProps)
                     'bg-gray-400'
                   }`} />
                   <div className="flex-1 min-w-0">
-                    <div className="text-gray-200 font-mono text-sm md:text-base lg:text-lg font-medium">
+                    <div className="text-gray-200 font-mono text-xs md:text-base lg:text-lg font-medium">
                       #{order.orderNumber}
                     </div>
-                    <div className="flex gap-1.5 text-xs md:text-sm lg:text-base text-gray-400 mt-0.5">
+                    <div className="flex gap-1.5 text-[11px] md:text-sm lg:text-base text-gray-400 mt-0.5">
                       <span>{order.customerUsername}</span>
                       <span>•</span>
                       <span>{new Date(order.orderDate).toLocaleDateString()}</span>
                     </div>
                   </div>
                 </div>
-                <span className="text-lego-green font-mono font-medium text-sm md:text-base lg:text-lg ml-2 flex-shrink-0">${Number(order.orderTotal || 0).toFixed(2)}</span>
+                <span className="text-lego-green font-mono font-medium text-xs md:text-base lg:text-lg ml-2 flex-shrink-0">${Number(order.orderTotal || 0).toFixed(2)}</span>
               </div>
             ))
           ) : (
-            <div className="text-xs md:text-sm lg:text-base text-gray-500 italic">No recent sales</div>
+            <div className="text-[11px] md:text-sm lg:text-base text-gray-500 italic">No recent sales</div>
           )}
         </div>
       </div>

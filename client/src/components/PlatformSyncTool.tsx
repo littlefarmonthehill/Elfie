@@ -183,15 +183,15 @@ export default function PlatformSyncTool() {
     <div className="space-y-3">
       {/* Source Platform */}
       <div>
-        <h3 className="text-sm md:text-base lg:text-lg font-bold text-gray-300 mb-2 flex items-center gap-1.5">
-          <Info className="w-4 h-4 md:w-5 md:h-5 lg:w-6 lg:h-6 text-purple-400" />
+        <h3 className="text-xs md:text-base lg:text-lg font-bold text-gray-300 mb-2 flex items-center gap-1.5">
+          <Info className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-purple-400" />
           Source of Truth
           {isLoading && <Loader2 className="w-3 h-3 md:w-3.5 md:h-3.5 animate-spin text-purple-400" />}
         </h3>
         <Card className="bg-gray-800/50 border-purple-500/30 p-3">
           <div className="flex items-center justify-between mb-2">
             <div>
-              <p className="text-sm md:text-base lg:text-lg font-bold text-white">
+              <p className="text-xs md:text-base lg:text-lg font-bold text-white">
                 {isLoading ? <span className="inline-block bg-gray-700 h-3 w-20 rounded animate-pulse" /> : displayData?.source.name || 'BrickLink'}
               </p>
               <p className="text-[10px] md:text-xs text-gray-400">
@@ -236,8 +236,8 @@ export default function PlatformSyncTool() {
       {/* Target Platforms */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <h3 className="text-sm md:text-base lg:text-lg font-bold text-gray-300 flex items-center gap-1.5">
-            <ArrowRight className="w-4 h-4 md:w-5 md:h-5 lg:w-6 lg:h-6 text-blue-400" />
+          <h3 className="text-xs md:text-base lg:text-lg font-bold text-gray-300 flex items-center gap-1.5">
+            <ArrowRight className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-blue-400" />
             Selling Platforms
           </h3>
           <div className="flex gap-2">
@@ -246,7 +246,7 @@ export default function PlatformSyncTool() {
               variant="outline"
               onClick={() => handleSyncUnsynced(5)}
               disabled={syncingPlatform !== null}
-              className="text-sm md:text-base lg:text-lg"
+              className="text-xs md:text-base lg:text-lg"
               data-testid="button-sync-unsynced"
             >
               {syncingPlatform === 'unsynced' ? (
@@ -266,7 +266,7 @@ export default function PlatformSyncTool() {
               variant="outline"
               onClick={handleSyncAll}
               disabled={syncingPlatform !== null}
-              className="text-sm md:text-base lg:text-lg"
+              className="text-xs md:text-base lg:text-lg"
               data-testid="button-sync-all"
             >
               {syncingPlatform === 'all' ? (
@@ -326,7 +326,7 @@ export default function PlatformSyncTool() {
                 {/* Platform Header */}
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-1.5">
-                    <p className="text-sm md:text-base lg:text-lg font-bold text-white">{platform.name}</p>
+                    <p className="text-xs md:text-base lg:text-lg font-bold text-white">{platform.name}</p>
                     {!platform.enabled && (
                       <Badge variant="outline" className="text-[10px] text-gray-500 border-gray-600">
                         Not Configured
@@ -338,7 +338,7 @@ export default function PlatformSyncTool() {
                     variant="outline"
                     onClick={() => handleSync(platform.name)}
                     disabled={!platform.enabled || isSyncing}
-                    className="text-sm md:text-base lg:text-lg"
+                    className="text-xs md:text-base lg:text-lg"
                     data-testid={`button-sync-${platform.name.toLowerCase()}`}
                   >
                     {isSyncing ? (
@@ -359,13 +359,13 @@ export default function PlatformSyncTool() {
                 <div className="grid grid-cols-2 gap-2 mb-2">
                   <div className="bg-gray-900/50 rounded-lg p-1.5 border border-gray-700">
                     <p className="text-[10px] md:text-xs text-gray-400 mb-0.5">Lots</p>
-                    <p className="text-sm md:text-base lg:text-lg font-bold text-white font-mono">
+                    <p className="text-xs md:text-base lg:text-lg font-bold text-white font-mono">
                       {platform.enabled ? platform.stats.totalLots.toLocaleString() : '—'}
                     </p>
                   </div>
                   <div className="bg-gray-900/50 rounded-lg p-1.5 border border-gray-700">
                     <p className="text-[10px] md:text-xs text-gray-400 mb-0.5">Parts</p>
-                    <p className="text-sm md:text-base lg:text-lg font-bold text-white font-mono">
+                    <p className="text-xs md:text-base lg:text-lg font-bold text-white font-mono">
                       {platform.enabled ? platform.stats.totalParts.toLocaleString() : '—'}
                     </p>
                   </div>
@@ -492,12 +492,12 @@ export default function PlatformSyncTool() {
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1">
                           <p className="text-sm md:text-base font-bold text-white">{item.itemNo}</p>
-                          <p className="text-sm md:text-base lg:text-lg text-gray-400">{item.itemName || 'Unknown Item'}</p>
+                          <p className="text-xs md:text-base lg:text-lg text-gray-400">{item.itemName || 'Unknown Item'}</p>
                           {item.colorName && (
-                            <p className="text-sm md:text-base lg:text-lg text-gray-500">{item.colorName}</p>
+                            <p className="text-xs md:text-base lg:text-lg text-gray-500">{item.colorName}</p>
                           )}
                         </div>
-                        <div className="grid grid-cols-2 gap-3 text-sm md:text-base lg:text-lg">
+                        <div className="grid grid-cols-2 gap-3 text-xs md:text-base lg:text-lg">
                           <div className="text-right">
                             <p className="text-gray-400 text-[10px] md:text-xs">BrickLink</p>
                             <p className="text-white font-mono">Qty: {item.blQuantity}</p>
