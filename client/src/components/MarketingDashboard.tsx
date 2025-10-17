@@ -191,8 +191,8 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick }: M
                   <Users className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
                   <span className="text-gray-200 text-xs font-medium">{customer.customerUsername}</span>
                   <span className="text-gray-400 text-[11px]">{customer.orderCount}x buyer</span>
-                  <span className="text-gray-400 text-[11px]">${customer.totalRevenue.toFixed(2)}</span>
                 </div>
+                <span className="text-lego-green font-mono font-medium text-xs ml-2 flex-shrink-0">${customer.totalRevenue.toFixed(2)}</span>
               </div>
             ))
           ) : (
@@ -223,8 +223,8 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick }: M
                   <div className="w-2 h-2 rounded-full bg-purple-400 flex-shrink-0" />
                   <span className="text-gray-200 text-xs font-medium">{customer.customerUsername}</span>
                   <span className="text-gray-400 text-[11px]">{new Date(customer.lastOrderDate).toLocaleDateString()}</span>
-                  <span className="text-gray-400 text-[11px]">${customer.totalRevenue.toFixed(2)}</span>
                 </div>
+                <span className="text-lego-green font-mono font-medium text-xs ml-2 flex-shrink-0">${customer.totalRevenue.toFixed(2)}</span>
               </div>
             ))
           ) : (
