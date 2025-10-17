@@ -110,8 +110,9 @@ export default function PackingSlip({ orders }: PackingSlipProps) {
                   <div key={idx} className="slip-item">
                     <div className="slip-item-line1">
                       <span className="slip-sku">{item.inventoryId || '-'}</span>
-                      <span className="slip-part">{item.bricklinkPartNumber || '-'}</span>
-                      <span className="slip-name">{item.name}</span>
+                      <span className="slip-part-name">
+                        {item.bricklinkPartNumber || '-'}: {item.name}
+                      </span>
                       <span className="slip-qty">Qty: {item.quantity}</span>
                     </div>
                     <div className="slip-item-line2">
@@ -257,15 +258,8 @@ export default function PackingSlip({ orders }: PackingSlipProps) {
           font-size: 7pt;
         }
 
-        .slip-part {
-          font-family: 'Courier New', monospace;
-          min-width: 0.6in;
-          font-size: 7pt;
-        }
-
-        .slip-name {
+        .slip-part-name {
           flex: 1;
-          font-weight: 500;
           font-size: 7pt;
         }
 
@@ -278,7 +272,7 @@ export default function PackingSlip({ orders }: PackingSlipProps) {
         .slip-item-line2 {
           font-size: 6pt;
           color: #666;
-          padding-left: 0.08in;
+          padding-left: 0.56in;
         }
 
         .slip-footer {
