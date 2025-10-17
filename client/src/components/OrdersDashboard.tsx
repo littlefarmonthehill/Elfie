@@ -55,32 +55,35 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
       <div className="bg-gray-900/50 border border-orange-500/20 rounded-lg p-3" data-testid="section-pending-orders">
         <div className="flex items-center gap-2 mb-2">
           <AlertCircle className="w-3.5 h-3.5 text-orange-400" />
-          <h3 className="text-[10px] font-semibold text-orange-400 uppercase tracking-wide">Action Items - Pending Orders</h3>
+          <h3 className="text-xs font-semibold text-orange-400 uppercase tracking-wide">Action Items - Pending Orders</h3>
         </div>
-        <div className="space-y-1">
+        <div className="space-y-1.5">
           {pendingOrders.length > 0 ? (
             pendingOrders.map((order) => (
               <div 
                 key={order.id} 
                 onClick={() => onItemClick?.('order', order.id)}
-                className="flex justify-between items-center text-[10px] hover-elevate rounded px-2 py-0.5 cursor-pointer"
+                className="flex justify-between items-start hover-elevate rounded px-2 py-1 cursor-pointer"
                 data-testid={`pending-order-${order.id}`}
               >
-                <div className="flex items-center gap-1.5">
-                  <ShoppingCart className="w-3 h-3 text-orange-400 flex-shrink-0" />
-                  <span className="text-gray-300 font-mono">#{order.orderNumber}</span>
-                  <span className="text-gray-500 text-[9px]">{order.customerUsername}</span>
-                  <span className={`text-[9px] px-1.5 py-0.5 rounded whitespace-nowrap ${
-                    order.orderStatus === 'awaiting_payment' ? 'bg-red-500/20 text-red-400' : 'bg-orange-500/20 text-orange-400'
-                  }`}>
-                    {order.orderStatus === 'awaiting_payment' ? 'payment' : order.orderStatus === 'awaiting_shipment' ? 'shipment' : order.orderStatus.replace('_', ' ')}
-                  </span>
+                <div className="flex gap-2 flex-1 min-w-0">
+                  <ShoppingCart className="w-3.5 h-3.5 text-orange-400 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-gray-200 font-mono text-xs font-medium">
+                      #{order.orderNumber}
+                    </div>
+                    <div className="flex gap-1.5 text-[11px] text-gray-400 mt-0.5">
+                      <span>{order.customerUsername}</span>
+                      <span>•</span>
+                      <span>{order.orderStatus === 'awaiting_payment' ? 'awaiting payment' : order.orderStatus === 'awaiting_shipment' ? 'awaiting shipment' : order.orderStatus.replace('_', ' ')}</span>
+                    </div>
+                  </div>
                 </div>
-                <span className="text-lego-green font-mono ml-2">${Number(order.orderTotal || 0).toFixed(2)}</span>
+                <span className="text-lego-green font-mono font-medium text-xs ml-2 flex-shrink-0">${Number(order.orderTotal || 0).toFixed(2)}</span>
               </div>
             ))
           ) : (
-            <div className="text-[9px] text-gray-500 italic">No pending orders</div>
+            <div className="text-[11px] text-gray-500 italic">No pending orders</div>
           )}
         </div>
       </div>
@@ -89,28 +92,35 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
       <div className="bg-gray-900/50 border border-blue-500/20 rounded-lg p-3" data-testid="section-recent-shipments">
         <div className="flex items-center gap-2 mb-2">
           <Package className="w-3.5 h-3.5 text-blue-400" />
-          <h3 className="text-[10px] font-semibold text-blue-400 uppercase tracking-wide">Recent Activity - Shipped Orders</h3>
+          <h3 className="text-xs font-semibold text-blue-400 uppercase tracking-wide">Recent Activity - Shipped Orders</h3>
         </div>
-        <div className="space-y-1">
+        <div className="space-y-1.5">
           {recentShipments.length > 0 ? (
             recentShipments.map((order) => (
               <div 
                 key={order.id} 
                 onClick={() => onItemClick?.('order', order.id)}
-                className="flex justify-between items-center text-[10px] hover-elevate rounded px-2 py-0.5 cursor-pointer"
+                className="flex justify-between items-start hover-elevate rounded px-2 py-1 cursor-pointer"
                 data-testid={`shipped-order-${order.id}`}
               >
-                <div className="flex items-center gap-1.5">
-                  <div className="w-1.5 h-1.5 rounded-full bg-green-400 flex-shrink-0" />
-                  <span className="text-gray-300 font-mono">#{order.orderNumber}</span>
-                  <span className="text-gray-500 text-[9px]">{order.customerUsername}</span>
-                  <span className="text-gray-600 text-[9px]">{new Date(order.orderDate).toLocaleDateString()}</span>
+                <div className="flex gap-2 flex-1 min-w-0">
+                  <div className="w-2 h-2 rounded-full bg-green-400 flex-shrink-0 mt-1" />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-gray-200 font-mono text-xs font-medium">
+                      #{order.orderNumber}
+                    </div>
+                    <div className="flex gap-1.5 text-[11px] text-gray-400 mt-0.5">
+                      <span>{order.customerUsername}</span>
+                      <span>•</span>
+                      <span>{new Date(order.orderDate).toLocaleDateString()}</span>
+                    </div>
+                  </div>
                 </div>
-                <span className="text-lego-green font-mono ml-2">${Number(order.orderTotal || 0).toFixed(2)}</span>
+                <span className="text-lego-green font-mono font-medium text-xs ml-2 flex-shrink-0">${Number(order.orderTotal || 0).toFixed(2)}</span>
               </div>
             ))
           ) : (
-            <div className="text-[9px] text-gray-500 italic">No recent shipments</div>
+            <div className="text-[11px] text-gray-500 italic">No recent shipments</div>
           )}
         </div>
       </div>
@@ -119,33 +129,35 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
       <div className="bg-gray-900/50 border border-green-500/20 rounded-lg p-3" data-testid="section-high-value-orders">
         <div className="flex items-center gap-2 mb-2">
           <TrendingUp className="w-3.5 h-3.5 text-green-400" />
-          <h3 className="text-[10px] font-semibold text-green-400 uppercase tracking-wide">Highlights - Top Value Orders</h3>
+          <h3 className="text-xs font-semibold text-green-400 uppercase tracking-wide">Highlights - Top Value Orders</h3>
         </div>
-        <div className="space-y-1">
+        <div className="space-y-1.5">
           {highValueOrders.length > 0 ? (
             highValueOrders.map((order) => (
               <div 
                 key={order.id} 
                 onClick={() => onItemClick?.('order', order.id)}
-                className="flex justify-between items-center text-[10px] hover-elevate rounded px-2 py-0.5 cursor-pointer"
+                className="flex justify-between items-start hover-elevate rounded px-2 py-1 cursor-pointer"
                 data-testid={`high-value-order-${order.id}`}
               >
-                <div className="flex items-center gap-1.5">
-                  <span className="text-gray-300 font-mono">#{order.orderNumber}</span>
-                  <span className="text-gray-500 text-[9px]">{order.customerUsername}</span>
-                  <span className={`text-[9px] px-1.5 py-0.5 rounded whitespace-nowrap ${
-                    order.orderStatus === 'shipped' ? 'bg-green-500/20 text-green-400' : 
-                    order.orderStatus === 'awaiting_shipment' ? 'bg-orange-500/20 text-orange-400' : 
-                    'bg-gray-500/20 text-gray-400'
-                  }`}>
-                    {order.orderStatus === 'awaiting_payment' ? 'payment' : order.orderStatus === 'awaiting_shipment' ? 'shipment' : order.orderStatus === 'shipped' ? 'shipped' : order.orderStatus.replace('_', ' ')}
-                  </span>
+                <div className="flex gap-2 flex-1 min-w-0">
+                  <TrendingUp className="w-3.5 h-3.5 text-green-400 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-gray-200 font-mono text-xs font-medium">
+                      #{order.orderNumber}
+                    </div>
+                    <div className="flex gap-1.5 text-[11px] text-gray-400 mt-0.5">
+                      <span>{order.customerUsername}</span>
+                      <span>•</span>
+                      <span>{order.orderStatus === 'awaiting_payment' ? 'awaiting payment' : order.orderStatus === 'awaiting_shipment' ? 'awaiting shipment' : order.orderStatus === 'shipped' ? 'shipped' : order.orderStatus.replace('_', ' ')}</span>
+                    </div>
+                  </div>
                 </div>
-                <span className="text-lego-green font-mono text-xs ml-2">${Number(order.orderTotal).toFixed(2)}</span>
+                <span className="text-lego-green font-mono font-medium text-xs ml-2 flex-shrink-0">${Number(order.orderTotal).toFixed(2)}</span>
               </div>
             ))
           ) : (
-            <div className="text-[9px] text-gray-500 italic">No orders to display</div>
+            <div className="text-[11px] text-gray-500 italic">No orders to display</div>
           )}
         </div>
       </div>
