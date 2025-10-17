@@ -51,6 +51,7 @@ export default function DashboardNotifications() {
     dismissMutation.mutate({ id, status });
   };
 
+  // Don't show notification section if there are no issues
   if (issues.length === 0) return null;
 
   // Group issues by severity
