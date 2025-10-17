@@ -4235,6 +4235,12 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
           console.error('Error parsing shipTo:', e);
         }
         
+        const orderItems = itemsByOrder[order.id] || [];
+        console.log(`📄 Packing slip data for ${order.orderNumber}:`, {
+          itemCount: orderItems.length,
+          firstItem: orderItems[0],
+        });
+        
         return {
           orderNumber: order.orderNumber,
           orderDate: order.orderDate,
@@ -4242,7 +4248,7 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
           customerUsername: order.customerUsername,
           marketplace: order.marketplace,
           shipTo,
-          items: itemsByOrder[order.id] || [],
+          items: orderItems,
         };
       });
       

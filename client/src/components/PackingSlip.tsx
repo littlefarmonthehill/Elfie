@@ -30,92 +30,143 @@ interface PackingSlipProps {
   orders: PackingSlipOrder[];
 }
 
+// Extract part number from item name (format: "LEGO-PARTNUMBER Description")
+function extractPartNumber(name: string): string {
+  const match = name.match(/LEGO-([^\s]+)/);
+  return match ? match[1] : '';
+}
+
+// Extract condition from item name (looks for "(Used)" or "(New)")
+function extractCondition(name: string): string {
+  if (name.includes('(Used)')) return 'Used';
+  if (name.includes('(New)')) return 'New';
+  return '';
+}
+
+// Clean item name by removing LEGO prefix and condition
+function cleanItemName(name: string): string {
+  return name
+    .replace(/LEGO-[^\s]+\s*/, '') // Remove LEGO-PARTNUMBER
+    .replace(/\s*\((Used|New)\)\s*$/, '') // Remove condition at end
+    .trim();
+}
+
+// Split items across pages (max 12 items per page for 4x5)
+function paginateItems(items: any[], itemsPerPage: number = 12) {
+  const pages = [];
+  for (let i = 0; i < items.length; i += itemsPerPage) {
+    pages.push(items.slice(i, i + itemsPerPage));
+  }
+  return pages;
+}
+
 export default function PackingSlip({ orders }: PackingSlipProps) {
+  console.log('🖨️ PackingSlip rendering with orders:', orders.map(o => ({
+    orderNumber: o.orderNumber,
+    itemCount: o.items?.length,
+    firstItem: o.items?.[0]
+  })));
+
   return (
     <div className="print-container">
-      {orders.map((order, index) => (
-        <div 
-          key={order.orderNumber}
-          className="packing-slip"
-          style={{
-            pageBreakAfter: index < orders.length - 1 ? 'always' : 'auto'
-          }}
-        >
-          {/* Header with Logo */}
-          <div className="slip-header">
-            <img 
-              src={planetLogo} 
-              alt="PlanetBrick" 
-              className="slip-logo"
-            />
-            <div className="slip-title">
-              <h1>PACKING SLIP</h1>
-            </div>
-          </div>
-
-          {/* Order Info */}
-          <div className="slip-section">
-            <div className="slip-info-row">
-              <div>
-                <span className="slip-label">Order:</span>
-                <span className="slip-value">{order.orderNumber}</span>
-              </div>
-              <div>
-                <span className="slip-label">Ship Date:</span>
-                <span className="slip-value">
-                  {order.shipDate ? new Date(order.shipDate).toLocaleDateString() : 'Pending'}
-                </span>
+      {orders.flatMap((order) => {
+        const pages = paginateItems(order.items);
+        return pages.map((pageItems, pageIndex) => (
+          <div 
+            key={`${order.orderNumber}-page-${pageIndex}`}
+            className="packing-slip"
+            style={{
+              pageBreakAfter: 'always'
+            }}
+          >
+            {/* Header with Logo */}
+            <div className="slip-header">
+              <img 
+                src={planetLogo} 
+                alt="PlanetBrick" 
+                className="slip-logo"
+              />
+              <div className="slip-title">
+                <h1>PACKING SLIP</h1>
               </div>
             </div>
-          </div>
 
-          {/* Ship To Address */}
-          <div className="slip-section">
-            <div className="slip-label-header">SHIP TO:</div>
-            <div className="slip-address">
-              {order.shipTo.name && <div>{order.shipTo.name}</div>}
-              {order.shipTo.company && <div>{order.shipTo.company}</div>}
-              {order.shipTo.street1 && <div>{order.shipTo.street1}</div>}
-              {order.shipTo.street2 && <div>{order.shipTo.street2}</div>}
-              <div>
-                {order.shipTo.city && `${order.shipTo.city}, `}
-                {order.shipTo.state && `${order.shipTo.state} `}
-                {order.shipTo.postalCode}
-              </div>
-              {order.shipTo.country && <div>{order.shipTo.country}</div>}
-            </div>
-          </div>
-
-          {/* Items List */}
-          <div className="slip-section slip-items">
-            <div className="slip-label-header">ITEMS:</div>
-            <div className="slip-items-list">
-              {order.items.map((item, idx) => (
-                <div key={idx} className="slip-item">
-                  <div className="slip-item-line1">
-                    <span className="slip-sku">{item.inventoryId || '-'}</span>
-                    <span className="slip-part">{item.bricklinkPartNumber || '-'}</span>
-                    <span className="slip-name">{item.name}</span>
-                    <span className="slip-qty">Qty: {item.quantity}</span>
-                  </div>
-                  <div className="slip-item-line2">
-                    {item.colorName && <span>{item.colorName}</span>}
-                    {item.colorName && item.condition && <span> • </span>}
-                    {item.condition && <span>{item.condition}</span>}
-                  </div>
+            {/* Order Info */}
+            <div className="slip-section">
+              <div className="slip-info-row">
+                <div>
+                  <span className="slip-label">Order:</span>
+                  <span className="slip-value">{order.orderNumber}</span>
                 </div>
-              ))}
+                <div>
+                  <span className="slip-label">Ship Date:</span>
+                  <span className="slip-value">
+                    {order.shipDate ? new Date(order.shipDate).toLocaleDateString() : 'Pending'}
+                  </span>
+                </div>
+              </div>
+              {pages.length > 1 && (
+                <div className="slip-page-info">
+                  Page {pageIndex + 1} of {pages.length}
+                </div>
+              )}
+            </div>
+
+            {/* Ship To Address */}
+            <div className="slip-section">
+              <div className="slip-label-header">SHIP TO:</div>
+              <div className="slip-address">
+                {order.shipTo.name && <div>{order.shipTo.name}</div>}
+                {order.shipTo.company && <div>{order.shipTo.company}</div>}
+                {order.shipTo.street1 && <div>{order.shipTo.street1}</div>}
+                {order.shipTo.street2 && <div>{order.shipTo.street2}</div>}
+                <div>
+                  {order.shipTo.city && `${order.shipTo.city}, `}
+                  {order.shipTo.state && `${order.shipTo.state} `}
+                  {order.shipTo.postalCode}
+                </div>
+                {order.shipTo.country && <div>{order.shipTo.country}</div>}
+              </div>
+            </div>
+
+            {/* Items List */}
+            <div className="slip-section slip-items">
+              <div className="slip-label-header">ITEMS:</div>
+              <div className="slip-items-list">
+                {pageItems.map((item, idx) => {
+                  const partNumber = item.bricklinkPartNumber || extractPartNumber(item.name);
+                  const condition = item.condition || extractCondition(item.name);
+                  const cleanName = cleanItemName(item.name);
+                  const inventoryId = item.inventoryId || (item.bricklinkPartNumber ? item.bricklinkPartNumber : '-');
+                  
+                  return (
+                    <div key={idx} className="slip-item">
+                      <div className="slip-item-line1">
+                        <span className="slip-sku">{inventoryId}</span>
+                        <span className="slip-part">{partNumber}</span>
+                        <span className="slip-name">{cleanName}</span>
+                        <span className="slip-qty">Qty: {item.quantity}</span>
+                      </div>
+                      <div className="slip-item-line2">
+                        {item.colorName && <span>{item.colorName}</span>}
+                        {item.colorName && condition && <span> • </span>}
+                        {condition && <span>{condition}</span>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="slip-footer">
+              <div>Thank you for your order!</div>
+              <div className="slip-company">PlanetBrick.com</div>
+              <div className="slip-company-address">PO Box 202, Lanesboro, MN 55949</div>
             </div>
           </div>
-
-          {/* Footer */}
-          <div className="slip-footer">
-            <div>Thank you for your order!</div>
-            <div className="slip-company">PlanetBrick.com</div>
-            <div className="slip-company-address">PO Box 202, Lanesboro, MN 55949</div>
-          </div>
-        </div>
-      ))}
+        ));
+      })}
 
       <style>{`
         @media print {
@@ -151,7 +202,7 @@ export default function PackingSlip({ orders }: PackingSlipProps) {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          margin-bottom: 0.15in;
+          margin-bottom: 0.12in;
           padding-bottom: 0.08in;
           border-bottom: 2px solid #000;
         }
@@ -168,13 +219,20 @@ export default function PackingSlip({ orders }: PackingSlipProps) {
         }
 
         .slip-section {
-          margin-bottom: 0.12in;
+          margin-bottom: 0.1in;
         }
 
         .slip-info-row {
           display: flex;
           justify-content: space-between;
           font-size: 9pt;
+        }
+
+        .slip-page-info {
+          text-align: center;
+          font-size: 8pt;
+          color: #666;
+          margin-top: 0.03in;
         }
 
         .slip-label {
@@ -189,12 +247,12 @@ export default function PackingSlip({ orders }: PackingSlipProps) {
         .slip-label-header {
           font-weight: bold;
           font-size: 9pt;
-          margin-bottom: 0.05in;
+          margin-bottom: 0.04in;
         }
 
         .slip-address {
-          font-size: 9pt;
-          line-height: 1.3;
+          font-size: 8pt;
+          line-height: 1.25;
         }
 
         .slip-items {
@@ -209,8 +267,8 @@ export default function PackingSlip({ orders }: PackingSlipProps) {
         }
 
         .slip-item {
-          margin-bottom: 0.08in;
-          padding-bottom: 0.06in;
+          margin-bottom: 0.06in;
+          padding-bottom: 0.05in;
           border-bottom: 1px solid #ddd;
         }
 
@@ -221,34 +279,38 @@ export default function PackingSlip({ orders }: PackingSlipProps) {
         .slip-item-line1 {
           display: flex;
           align-items: baseline;
-          gap: 0.08in;
-          font-size: 8pt;
+          gap: 0.06in;
+          font-size: 7pt;
           margin-bottom: 0.02in;
         }
 
         .slip-sku {
           font-family: 'Courier New', monospace;
           font-weight: bold;
-          min-width: 0.4in;
+          min-width: 0.5in;
+          font-size: 7pt;
         }
 
         .slip-part {
           font-family: 'Courier New', monospace;
-          min-width: 0.5in;
+          min-width: 0.6in;
+          font-size: 7pt;
         }
 
         .slip-name {
           flex: 1;
-          font-weight: 600;
+          font-weight: 500;
+          font-size: 7pt;
         }
 
         .slip-qty {
           font-weight: bold;
           white-space: nowrap;
+          font-size: 7pt;
         }
 
         .slip-item-line2 {
-          font-size: 7pt;
+          font-size: 6pt;
           color: #666;
           padding-left: 0.08in;
         }
