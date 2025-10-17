@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
-import { AlertCircle, ShoppingCart, Package, TrendingUp, ClipboardList, Truck, RefreshCw, PackageCheck } from "lucide-react";
+import { AlertCircle, ShoppingCart, Package, TrendingUp, ClipboardList, Truck, RefreshCw, PackageCheck, X } from "lucide-react";
 import {
   Drawer,
+  DrawerClose,
   DrawerContent,
   DrawerHeader,
   DrawerTitle,
@@ -142,11 +143,15 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
       {/* Picklist Drawer */}
       <Drawer open={activeDrawer === 'picklist'} onOpenChange={(open) => !open && onDrawerChange(null)}>
         <DrawerContent className="h-[90vh]">
-          <DrawerHeader>
+          <DrawerHeader className="relative">
             <DrawerTitle className="flex items-center gap-2">
               <ClipboardList className="w-5 h-5 text-orange-400" />
               Picklist
             </DrawerTitle>
+            <DrawerClose className="absolute right-4 top-4" data-testid="button-close-picklist">
+              <X className="h-4 w-4" />
+              <span className="sr-only">Close</span>
+            </DrawerClose>
           </DrawerHeader>
           <div className="overflow-y-auto px-4 pb-4 flex-1">
             <PicklistTool />
@@ -157,11 +162,15 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
       {/* Fulfillment Drawer */}
       <Drawer open={activeDrawer === 'fulfillment'} onOpenChange={(open) => !open && onDrawerChange(null)}>
         <DrawerContent className="h-[90vh]">
-          <DrawerHeader>
+          <DrawerHeader className="relative">
             <DrawerTitle className="flex items-center gap-2">
               <Truck className="w-5 h-5 text-green-400" />
               Fulfillment and Shipping
             </DrawerTitle>
+            <DrawerClose className="absolute right-4 top-4" data-testid="button-close-fulfillment">
+              <X className="h-4 w-4" />
+              <span className="sr-only">Close</span>
+            </DrawerClose>
           </DrawerHeader>
           <div className="overflow-y-auto px-4 pb-4 flex-1">
             <FulfillmentTool />
@@ -172,11 +181,15 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
       {/* Platform Order Sync Drawer */}
       <Drawer open={activeDrawer === 'platformsync'} onOpenChange={(open) => !open && onDrawerChange(null)}>
         <DrawerContent className="h-[90vh]">
-          <DrawerHeader>
+          <DrawerHeader className="relative">
             <DrawerTitle className="flex items-center gap-2">
               <RefreshCw className="w-5 h-5 text-blue-400" />
               Sync Orders
             </DrawerTitle>
+            <DrawerClose className="absolute right-4 top-4" data-testid="button-close-platformsync">
+              <X className="h-4 w-4" />
+              <span className="sr-only">Close</span>
+            </DrawerClose>
           </DrawerHeader>
           <div className="overflow-y-auto px-4 pb-4 flex-1">
             <OrderPlatformSyncTool />
@@ -187,11 +200,15 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
       {/* Shipped Orders Drawer */}
       <Drawer open={activeDrawer === 'shipped'} onOpenChange={(open) => !open && onDrawerChange(null)}>
         <DrawerContent className="h-[90vh]">
-          <DrawerHeader>
+          <DrawerHeader className="relative">
             <DrawerTitle className="flex items-center gap-2">
               <PackageCheck className="w-5 h-5 text-green-400" />
               Shipped Orders
             </DrawerTitle>
+            <DrawerClose className="absolute right-4 top-4" data-testid="button-close-shipped">
+              <X className="h-4 w-4" />
+              <span className="sr-only">Close</span>
+            </DrawerClose>
           </DrawerHeader>
           <div className="overflow-y-auto px-4 pb-4 flex-1">
             <ShippedOrdersTool />
