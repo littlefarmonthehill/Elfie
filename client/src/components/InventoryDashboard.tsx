@@ -225,24 +225,19 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                       <div 
                         key={item.id} 
                         onClick={() => onItemClick?.('inventory', item.inventoryId)}
-                        className="flex justify-between items-start text-[10px] hover-elevate rounded px-2 py-1 cursor-pointer"
+                        className="flex justify-between items-center hover-elevate rounded px-2 py-1 cursor-pointer"
                         data-testid={`new-item-${item.id}`}
                       >
-                        <div className="flex gap-2 flex-1 min-w-0">
-                          <Package className="w-3.5 h-3.5 text-green-400 flex-shrink-0 mt-0.5" />
-                          <div className="flex-1 min-w-0">
-                            <div className="text-gray-200 truncate text-xs font-medium">
-                              {item.itemNo} {item.itemName && `- ${item.itemName}`}
-                            </div>
-                            <div className="flex gap-1.5 text-[11px] text-gray-400 mt-0.5">
-                              <span>{item.colorName || 'N/A'}</span>
-                              <span>•</span>
-                              <span>{item.newOrUsed === 'N' ? 'New' : 'Used'}</span>
-                              <span>•</span>
-                              <span>{safeFormatDate(item.syncedAt)}</span>
-                            </div>
-                          </div>
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <Package className="w-3.5 h-3.5 text-green-400 flex-shrink-0" />
+                          <span className="text-gray-200 font-mono text-xs font-medium flex-shrink-0">{item.itemNo}</span>
+                          {item.itemName && (
+                            <span className="text-white text-xs truncate">{item.itemName}</span>
+                          )}
+                          <span className="text-gray-400 text-[11px]">{item.colorName || 'N/A'}</span>
+                          <span className="text-gray-400 text-[11px]">{item.newOrUsed === 'N' ? 'New' : 'Used'}</span>
                         </div>
+                        <span className="text-gray-400 text-[11px] ml-2 flex-shrink-0">{safeFormatDate(item.syncedAt)}</span>
                       </div>
                     ))}
                   </div>

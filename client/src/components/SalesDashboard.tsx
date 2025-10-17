@@ -852,27 +852,27 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
       <div className="bg-gray-900/50 border border-green-500/20 rounded-lg p-3" data-testid="section-top-revenue">
         <div className="flex items-center gap-2 mb-2">
           <TrendingUp className="w-3.5 h-3.5 text-green-400" />
-          <h3 className="text-[10px] font-semibold text-green-400 uppercase tracking-wide">Highlights - Top Revenue Orders</h3>
+          <h3 className="text-xs font-semibold text-green-400 uppercase tracking-wide">Highlights - Top Revenue Orders</h3>
         </div>
-        <div className="space-y-1">
+        <div className="space-y-1.5">
           {topRevenueOrders.length > 0 ? (
             topRevenueOrders.map((order) => (
               <div 
                 key={order.id} 
                 onClick={() => onItemClick?.('order', order.id)}
-                className="flex justify-between items-center text-[10px] hover-elevate rounded px-2 py-0.5 cursor-pointer"
+                className="flex justify-between items-center hover-elevate rounded px-2 py-1 cursor-pointer"
                 data-testid={`top-revenue-${order.id}`}
               >
-                <div className="flex items-center gap-1.5">
-                  <DollarSign className="w-3 h-3 text-green-400 flex-shrink-0" />
-                  <span className="text-gray-300 font-mono">#{order.orderNumber}</span>
-                  <span className="text-gray-500 text-[9px]">{order.customerUsername}</span>
+                <div className="flex items-center gap-2">
+                  <DollarSign className="w-3.5 h-3.5 text-green-400 flex-shrink-0" />
+                  <span className="text-gray-200 font-mono text-xs font-medium">#{order.orderNumber}</span>
+                  <span className="text-gray-400 text-[11px]">{order.customerUsername}</span>
                 </div>
-                <span className="text-lego-green font-mono text-xs ml-2">${Number(order.orderTotal).toFixed(2)}</span>
+                <span className="text-lego-green font-mono font-medium text-xs ml-2 flex-shrink-0">${Number(order.orderTotal).toFixed(2)}</span>
               </div>
             ))
           ) : (
-            <div className="text-[9px] text-gray-500 italic">No revenue data available</div>
+            <div className="text-[11px] text-gray-500 italic">No revenue data available</div>
           )}
         </div>
       </div>
@@ -881,28 +881,28 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
       <div className="bg-gray-900/50 border border-blue-500/20 rounded-lg p-3" data-testid="section-recent-high-value">
         <div className="flex items-center gap-2 mb-2">
           <Target className="w-3.5 h-3.5 text-blue-400" />
-          <h3 className="text-[10px] font-semibold text-blue-400 uppercase tracking-wide">Recent Activity - High Value Sales ($100+)</h3>
+          <h3 className="text-xs font-semibold text-blue-400 uppercase tracking-wide">Recent Activity - High Value Sales ($100+)</h3>
         </div>
-        <div className="space-y-1">
+        <div className="space-y-1.5">
           {recentHighValueSales.length > 0 ? (
             recentHighValueSales.map((order) => (
               <div 
                 key={order.id} 
                 onClick={() => onItemClick?.('order', order.id)}
-                className="flex justify-between items-center text-[10px] hover-elevate rounded px-2 py-0.5 cursor-pointer"
+                className="flex justify-between items-center hover-elevate rounded px-2 py-1 cursor-pointer"
                 data-testid={`high-value-sale-${order.id}`}
               >
-                <div className="flex items-center gap-1.5">
-                  <div className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />
-                  <span className="text-gray-300 font-mono">#{order.orderNumber}</span>
-                  <span className="text-gray-500 text-[9px]">{order.customerUsername}</span>
-                  <span className="text-gray-600 text-[9px]">{new Date(order.orderDate).toLocaleDateString()}</span>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0" />
+                  <span className="text-gray-200 font-mono text-xs font-medium">#{order.orderNumber}</span>
+                  <span className="text-gray-400 text-[11px]">{order.customerUsername}</span>
+                  <span className="text-gray-400 text-[11px]">{new Date(order.orderDate).toLocaleDateString()}</span>
                 </div>
-                <span className="text-lego-green font-mono ml-2">${Number(order.orderTotal).toFixed(2)}</span>
+                <span className="text-lego-green font-mono font-medium text-xs ml-2 flex-shrink-0">${Number(order.orderTotal).toFixed(2)}</span>
               </div>
             ))
           ) : (
-            <div className="text-[9px] text-gray-500 italic">No high value sales</div>
+            <div className="text-[11px] text-gray-500 italic">No high value sales</div>
           )}
         </div>
       </div>

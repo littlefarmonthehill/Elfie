@@ -152,19 +152,13 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick }: M
                   const orderId = getCustomerOrderId(customer.customerUsername);
                   if (orderId) onItemClick?.('order', orderId);
                 }}
-                className="flex justify-between items-start hover-elevate rounded px-2 py-1 cursor-pointer"
+                className="flex justify-between items-center hover-elevate rounded px-2 py-1 cursor-pointer"
                 data-testid={`top-customer-${idx}`}
               >
-                <div className="flex gap-2 flex-1 min-w-0">
-                  <Star className="w-3.5 h-3.5 text-green-400 flex-shrink-0 mt-0.5" />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-gray-200 text-xs font-medium">
-                      {customer.customerUsername}
-                    </div>
-                    <div className="flex gap-1.5 text-[11px] text-gray-400 mt-0.5">
-                      <span>{customer.orderCount} {customer.orderCount === 1 ? 'order' : 'orders'}</span>
-                    </div>
-                  </div>
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <Star className="w-3.5 h-3.5 text-green-400 flex-shrink-0" />
+                  <span className="text-gray-200 text-xs font-medium">{customer.customerUsername}</span>
+                  <span className="text-gray-400 text-[11px]">{customer.orderCount} {customer.orderCount === 1 ? 'order' : 'orders'}</span>
                 </div>
                 <span className="text-lego-green font-mono font-medium text-xs ml-2 flex-shrink-0">${customer.totalRevenue.toFixed(2)}</span>
               </div>
@@ -190,21 +184,14 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick }: M
                   const orderId = getCustomerOrderId(customer.customerUsername);
                   if (orderId) onItemClick?.('order', orderId);
                 }}
-                className="flex justify-between items-start hover-elevate rounded px-2 py-1 cursor-pointer"
+                className="flex justify-between items-center hover-elevate rounded px-2 py-1 cursor-pointer"
                 data-testid={`repeat-customer-${idx}`}
               >
-                <div className="flex gap-2 flex-1 min-w-0">
-                  <Users className="w-3.5 h-3.5 text-blue-400 flex-shrink-0 mt-0.5" />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-gray-200 text-xs font-medium">
-                      {customer.customerUsername}
-                    </div>
-                    <div className="flex gap-1.5 text-[11px] text-gray-400 mt-0.5">
-                      <span>{customer.orderCount}x buyer</span>
-                      <span>•</span>
-                      <span>${customer.totalRevenue.toFixed(2)} total</span>
-                    </div>
-                  </div>
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <Users className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
+                  <span className="text-gray-200 text-xs font-medium">{customer.customerUsername}</span>
+                  <span className="text-gray-400 text-[11px]">{customer.orderCount}x buyer</span>
+                  <span className="text-gray-400 text-[11px]">${customer.totalRevenue.toFixed(2)}</span>
                 </div>
               </div>
             ))
@@ -229,21 +216,14 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick }: M
                   const orderId = getCustomerOrderId(customer.customerUsername);
                   if (orderId) onItemClick?.('order', orderId);
                 }}
-                className="flex justify-between items-start hover-elevate rounded px-2 py-1 cursor-pointer"
+                className="flex justify-between items-center hover-elevate rounded px-2 py-1 cursor-pointer"
                 data-testid={`new-customer-${idx}`}
               >
-                <div className="flex gap-2 flex-1 min-w-0">
-                  <div className="w-2 h-2 rounded-full bg-purple-400 flex-shrink-0 mt-1" />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-gray-200 text-xs font-medium">
-                      {customer.customerUsername}
-                    </div>
-                    <div className="flex gap-1.5 text-[11px] text-gray-400 mt-0.5">
-                      <span>{new Date(customer.lastOrderDate).toLocaleDateString()}</span>
-                      <span>•</span>
-                      <span>${customer.totalRevenue.toFixed(2)}</span>
-                    </div>
-                  </div>
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <div className="w-2 h-2 rounded-full bg-purple-400 flex-shrink-0" />
+                  <span className="text-gray-200 text-xs font-medium">{customer.customerUsername}</span>
+                  <span className="text-gray-400 text-[11px]">{new Date(customer.lastOrderDate).toLocaleDateString()}</span>
+                  <span className="text-gray-400 text-[11px]">${customer.totalRevenue.toFixed(2)}</span>
                 </div>
               </div>
             ))
