@@ -35,7 +35,6 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   const [clearDataDialog, setClearDataDialog] = useState<'inventory' | 'orders' | null>(null);
   const [syncEnabled, setSyncEnabled] = useState({
     bricklinkInventory: false,
-    shipstationOrders: false,
   });
   const [syncProgress, setSyncProgress] = useState<SyncProgress>({
     active: false,
@@ -64,6 +63,9 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
 
   // BrickOwl Settings
   const [brickowlApiKey, setBrickowlApiKey] = useState("");
+
+  // EasyPost Settings
+  const [easypostApiKey, setEasypostApiKey] = useState("");
 
   // Automation Settings
   const [inventorySyncEnabled, setInventorySyncEnabled] = useState(false);
@@ -105,6 +107,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
       setBricklinkTokenValue(settings.bricklinkTokenValue || "");
       setBricklinkTokenSecret(settings.bricklinkTokenSecret || "");
       setBrickowlApiKey(settings.brickowlApiKey || "");
+      setEasypostApiKey(settings.easypostApiKey || "");
       setInventorySyncEnabled(settings.inventorySyncEnabled || false);
       setInventorySyncTime(settings.inventorySyncTime || "02:00");
       setPriceOMaticEnabled(settings.priceOMaticEnabled || false);
@@ -252,88 +255,6 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
         queryClient.invalidateQueries({ queryKey: ['/api/inventory'] });
         queryClient.invalidateQueries({ queryKey: ['/api/inventory/stats'] });
         queryClient.invalidateQueries({ queryKey: ['/api/bricklink/rate-limit'] });
-      } else {
-        throw new Error(result.error);
-      }
-    } catch (error) {
-      console.error('Sync failed:', error);
-      setSyncProgress(prev => ({
-        ...prev,
-        stage: 'Failed - Check console',
-        progress: 0,
-      }));
-    }
-
-    // Reset after showing summary
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    setSyncProgress({
-      active: false,
-      type: null,
-      stage: '',
-      progress: 0,
-      apiCalls: 0,
-      recordsAdded: 0,
-      recordsUpdated: 0,
-    });
-  };
-
-  const handleSyncOrders = async (fullSync: boolean = false) => {
-    setSyncProgress({
-      active: true,
-      type: 'orders',
-      stage: 'Connecting to ShipStation API...',
-      progress: 20,
-      apiCalls: 0,
-      recordsAdded: 0,
-      recordsUpdated: 0,
-    });
-
-    await new Promise(resolve => setTimeout(resolve, 300));
-    setSyncProgress(prev => ({
-      ...prev,
-      stage: fullSync 
-        ? 'Performing FULL sync (all orders from last 10 years)...' 
-        : 'Checking for new/updated orders (incremental sync)...',
-      progress: 40,
-    }));
-
-    await new Promise(resolve => setTimeout(resolve, 400));
-    setSyncProgress(prev => ({
-      ...prev,
-      stage: 'Processing orders & extracting marketplace data...',
-      progress: 60,
-    }));
-
-    try {
-      const response = await fetch(`/api/sync/shipstation/orders?fullSync=${fullSync}`, {
-        method: 'POST',
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        // Build detailed completion message
-        const details = [];
-        if (result.data.ordersAdded > 0) {
-          details.push(`${result.data.ordersAdded} orders added`);
-        }
-        if (result.data.ordersUpdated > 0) {
-          details.push(`${result.data.ordersUpdated} orders updated`);
-        }
-        if (result.data.orderDetailsAdded > 0) {
-          details.push(`${result.data.orderDetailsAdded} items added`);
-        }
-        const detailsText = details.length > 0 ? details.join(', ') : 'All orders up to date';
-        
-        setSyncProgress({
-          active: true,
-          type: 'orders',
-          stage: detailsText,
-          progress: 100,
-          apiCalls: result.data.totalApiCalls,
-          recordsAdded: result.data.ordersAdded + result.data.orderDetailsAdded,
-          recordsUpdated: result.data.ordersUpdated,
-        });
       } else {
         throw new Error(result.error);
       }
@@ -550,29 +471,27 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                     </AccordionContent>
                   </AccordionItem>
 
-                  <AccordionItem value="shipstation" className="border border-gray-700 rounded-lg px-4">
+                  <AccordionItem value="easypost" className="border border-gray-700 rounded-lg px-4">
                     <AccordionTrigger className="text-sm font-medium text-gray-300 hover:no-underline">
-                      ShipStation
+                      EasyPost
                     </AccordionTrigger>
                     <AccordionContent>
                       <div className="space-y-3 pt-2">
                     <div className="space-y-2">
-                      <Label htmlFor="shipstation-key" className="text-xs text-gray-400">API Key</Label>
+                      <Label htmlFor="easypost-key" className="text-xs text-gray-400">API Key</Label>
                       <Input
-                        id="shipstation-key"
-                        placeholder="Enter ShipStation API Key"
-                        className="text-xs"
-                        data-testid="input-shipstation-key"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="shipstation-secret" className="text-xs text-gray-400">API Secret</Label>
-                      <Input
-                        id="shipstation-secret"
+                        id="easypost-key"
                         type="password"
-                        placeholder="Enter ShipStation API Secret"
+                        placeholder="Enter EasyPost API Key"
                         className="text-xs"
-                        data-testid="input-shipstation-secret"
+                        value={easypostApiKey}
+                        onChange={(e) => setEasypostApiKey(e.target.value)}
+                        onBlur={() => {
+                          updateSettingsMutation.mutate({
+                            easypostApiKey: easypostApiKey || null,
+                          });
+                        }}
+                        data-testid="input-easypost-key"
                       />
                     </div>
                       </div>
@@ -650,28 +569,6 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                       <RefreshCw className={`h-3 w-3 mr-2 ${syncProgress.active && syncProgress.type === 'inventory' ? 'animate-spin' : ''}`} />
                       Sync BrickLink Inventory (Categories, Colors, Items)
                     </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="w-full justify-start text-xs" 
-                      onClick={() => handleSyncOrders(false)}
-                      disabled={syncProgress.active}
-                      data-testid="button-sync-shipstation-orders"
-                    >
-                      <RefreshCw className={`h-3 w-3 mr-2 ${syncProgress.active && syncProgress.type === 'orders' ? 'animate-spin' : ''}`} />
-                      Sync ShipStation Orders (Incremental)
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="w-full justify-start text-xs" 
-                      onClick={() => handleSyncOrders(true)}
-                      disabled={syncProgress.active}
-                      data-testid="button-sync-shipstation-orders-full"
-                    >
-                      <RefreshCw className={`h-3 w-3 mr-2 ${syncProgress.active && syncProgress.type === 'orders' ? 'animate-spin' : ''}`} />
-                      Full Sync (Re-extract Marketplace)
-                    </Button>
                   </div>
                 </div>
 
@@ -691,18 +588,6 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                         checked={syncEnabled.bricklinkInventory}
                         onCheckedChange={(checked) => setSyncEnabled({ ...syncEnabled, bricklinkInventory: checked })}
                         data-testid="switch-sync-bricklink-inventory"
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label className="text-xs text-gray-300">ShipStation Orders</Label>
-                        <p className="text-xs text-gray-500">Sync every hour</p>
-                      </div>
-                      <Switch
-                        checked={syncEnabled.shipstationOrders}
-                        onCheckedChange={(checked) => setSyncEnabled({ ...syncEnabled, shipstationOrders: checked })}
-                        data-testid="switch-sync-shipstation-orders"
                       />
                     </div>
                   </div>

@@ -10,28 +10,9 @@ export interface ShipStationSyncResult {
 }
 
 async function shipStationRequest(endpoint: string): Promise<any> {
-  const apiKey = process.env.SHIPSTATION_API_KEY || '';
-  const apiSecret = process.env.SHIPSTATION_API_SECRET || '';
-  
-  if (!apiKey || !apiSecret) {
-    throw new Error('ShipStation credentials not configured. Please add them in Settings.');
-  }
-  
-  const auth = Buffer.from(`${apiKey}:${apiSecret}`).toString('base64');
-  
-  const response = await fetch(`https://ssapi.shipstation.com${endpoint}`, {
-    method: 'GET',
-    headers: {
-      'Authorization': `Basic ${auth}`,
-      'Content-Type': 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`ShipStation API error: ${response.statusText}`);
-  }
-
-  return await response.json();
+  // ShipStation is legacy - being phased out in favor of EasyPost
+  // Credentials would need to be added to app_settings if needed
+  throw new Error('ShipStation integration is deprecated. Please use EasyPost for shipping.');
 }
 
 // Helper function to extract marketplace/platform from ShipStation order data
