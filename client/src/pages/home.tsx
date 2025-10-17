@@ -38,6 +38,21 @@ export default function Home() {
     enabled: activeDashboard === 'orders',
   });
 
+  // Fetch platform sync status for indicator
+  const { data: syncStatus } = useQuery<any>({
+    queryKey: ['/api/platform-sync/status'],
+    enabled: activeDashboard === 'inventory',
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
+
+  // Calculate total discrepancies across all platforms
+  const totalDiscrepancies = syncStatus?.targets?.reduce((total: number, platform: any) => {
+    return total + 
+      (platform.discrepancies?.missingLots || 0) +
+      (platform.discrepancies?.priceDifferences || 0) +
+      (platform.discrepancies?.quantityDifferences || 0);
+  }, 0) || 0;
+
   const handleDashboardItemClick = async (type: 'order' | 'inventory', id: number | string) => {
     // Check if this is a BrickLink catalog item
     const isBrickLinkCatalog = String(id).startsWith('bricklink-');
@@ -596,11 +611,16 @@ export default function Home() {
             </div>
             <button
               onClick={() => setActiveInventoryDrawer('platformsync')}
-              className="flex items-center gap-1 md:gap-1.5 text-[10px] md:text-sm lg:text-base text-gray-400 hover:text-gray-300 transition-colors"
+              className="relative flex items-center gap-1 md:gap-1.5 text-[10px] md:text-sm lg:text-base text-gray-400 hover:text-gray-300 transition-colors"
               data-testid="button-platformsync"
             >
               <RefreshCw className="h-3.5 w-3.5 md:h-4 md:w-4 lg:h-5 lg:w-5" />
               <span className="font-medium">Sync</span>
+              {totalDiscrepancies > 0 && (
+                <span className="absolute -top-1 -right-1 md:-top-1.5 md:-right-1.5 bg-yellow-500 text-black text-[9px] md:text-[11px] lg:text-xs font-bold rounded-full h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6 flex items-center justify-center">
+                  {totalDiscrepancies}
+                </span>
+              )}
             </button>
           </div>
         </div>

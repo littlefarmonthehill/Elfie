@@ -497,6 +497,19 @@ export default function PlatformSyncTool() {
                             <p className="text-xs md:text-base lg:text-lg text-gray-500">{item.colorName}</p>
                           )}
                         </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            // TODO: Implement individual item sync
+                            console.log('Sync item:', item);
+                          }}
+                          className="text-xs shrink-0"
+                          data-testid={`button-sync-item-${idx}`}
+                        >
+                          <RefreshCw className="w-3 h-3 mr-1" />
+                          Sync
+                        </Button>
                         <div className="grid grid-cols-2 gap-3 text-xs md:text-base lg:text-lg">
                           <div className="text-right">
                             <p className="text-gray-400 text-[10px] md:text-xs">BrickLink</p>
