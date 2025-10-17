@@ -94,7 +94,7 @@ export const insertBlInventorySchema = createInsertSchema(blInventory).omit({
 export type InsertBlInventory = z.infer<typeof insertBlInventorySchema>;
 export type BlInventory = typeof blInventory.$inferSelect;
 
-// ShipStation Orders
+// Orders (from platforms and locally created splits)
 export const orders = pgTable("orders", {
   id: varchar("id").primaryKey(),
   orderNumber: text("order_number").notNull(),
@@ -119,6 +119,8 @@ export const orders = pgTable("orders", {
   packageCode: text("package_code"),
   confirmation: text("confirmation"),
   shipDate: timestamp("ship_date"),
+  localOnly: boolean("local_only").default(false).notNull(), // True for split orders that don't sync to platforms
+  parentOrderId: varchar("parent_order_id"), // Reference to parent order if this is a split
   syncedAt: timestamp("synced_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -172,14 +174,89 @@ export type InsertOrderDetail = z.infer<typeof insertOrderDetailSchema>;
 export type OrderDetail = typeof orderDetails.$inferSelect;
 export type UpdateFulfillment = z.infer<typeof updateFulfillmentSchema>;
 
+// Order Splits - Track order splitting for partial shipments
+export const orderSplits = pgTable("order_splits", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  parentOrderId: varchar("parent_order_id").notNull(), // Original order that was split
+  splitOrderId: varchar("split_order_id").notNull(), // New order created from split
+  splitSuffix: text("split_suffix").notNull(), // e.g., "-1", "-2"
+  reason: text("reason"), // Why the order was split (e.g., "partial shipment", "backorder")
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertOrderSplitSchema = createInsertSchema(orderSplits).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertOrderSplit = z.infer<typeof insertOrderSplitSchema>;
+export type OrderSplit = typeof orderSplits.$inferSelect;
+
+// Order Split Items - Track which items moved to which split
+export const orderSplitItems = pgTable("order_split_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  splitId: varchar("split_id").notNull(), // Reference to order_splits.id
+  orderDetailId: varchar("order_detail_id").notNull(), // Reference to order_details.id
+  quantityAssigned: integer("quantity_assigned").notNull(), // How many of this item went to the split
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertOrderSplitItemSchema = createInsertSchema(orderSplitItems).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertOrderSplitItem = z.infer<typeof insertOrderSplitItemSchema>;
+export type OrderSplitItem = typeof orderSplitItems.$inferSelect;
+
+// Shipments - Track shipping labels, tracking, and costs
+export const shipments = pgTable("shipments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id").notNull(), // Reference to orders.id
+  vendorCode: text("vendor_code").notNull(), // e.g., "easypost"
+  vendorShipmentId: text("vendor_shipment_id"), // External shipment ID from vendor
+  carrier: text("carrier"), // e.g., "USPS", "UPS", "FedEx"
+  service: text("service"), // e.g., "Priority", "Ground"
+  trackingNumber: text("tracking_number"),
+  labelUrl: text("label_url"), // URL to download shipping label
+  labelFormat: text("label_format").default('PNG'), // PNG, PDF, ZPL
+  cost: decimal("cost", { precision: 10, scale: 2 }), // Shipping cost
+  currency: text("currency").default('USD'),
+  status: text("status").default('pending').notNull(), // pending, purchased, voided, delivered
+  metadata: text("metadata"), // JSON: Vendor-specific data
+  errorMessage: text("error_message"), // If label creation failed
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  purchasedAt: timestamp("purchased_at"),
+  voidedAt: timestamp("voided_at"),
+  deliveredAt: timestamp("delivered_at"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertShipmentSchema = createInsertSchema(shipments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertShipment = z.infer<typeof insertShipmentSchema>;
+export type Shipment = typeof shipments.$inferSelect;
+
 // Relations
 export const ordersRelations = relations(orders, ({ many }) => ({
   items: many(orderDetails),
+  shipments: many(shipments),
 }));
 
 export const orderDetailsRelations = relations(orderDetails, ({ one }) => ({
   order: one(orders, {
     fields: [orderDetails.orderId],
+    references: [orders.id],
+  }),
+}));
+
+export const shipmentsRelations = relations(shipments, ({ one }) => ({
+  order: one(orders, {
+    fields: [shipments.orderId],
     references: [orders.id],
   }),
 }));
@@ -197,6 +274,7 @@ export const appSettings = pgTable("app_settings", {
   bricklinkTokenValue: text("bricklink_token_value"),
   bricklinkTokenSecret: text("bricklink_token_secret"),
   brickowlApiKey: text("brickowl_api_key"),
+  easypostApiKey: text("easypost_api_key"),
   // Automation & Scheduling
   inventorySyncEnabled: boolean("inventory_sync_enabled").default(false).notNull(),
   inventorySyncTime: text("inventory_sync_time").default('02:00'), // Time of day (HH:MM format)

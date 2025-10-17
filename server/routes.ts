@@ -4090,6 +4090,108 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
     }
   });
 
+  // Shipping Routes
+  
+  // Preview shipment - check if order will need to be split
+  app.post("/api/shipments/preview", async (req, res) => {
+    try {
+      const { orderId, itemIdsToShip } = req.body;
+      
+      if (!orderId || !itemIdsToShip || !Array.isArray(itemIdsToShip)) {
+        return res.status(400).json({ error: "orderId and itemIdsToShip array are required" });
+      }
+      
+      const { previewShipment } = await import('./services/order-shipping');
+      const preview = await previewShipment(orderId, itemIdsToShip);
+      
+      res.json(preview);
+    } catch (error: any) {
+      console.error("Error previewing shipment:", error);
+      res.status(500).json({ error: error.message || "Failed to preview shipment" });
+    }
+  });
+  
+  // Split an order
+  app.post("/api/orders/:orderId/split", async (req, res) => {
+    try {
+      const { orderId } = req.params;
+      const { itemIdsToKeep } = req.body;
+      
+      if (!itemIdsToKeep || !Array.isArray(itemIdsToKeep)) {
+        return res.status(400).json({ error: "itemIdsToKeep array is required" });
+      }
+      
+      const { splitOrder } = await import('./services/order-shipping');
+      const result = await splitOrder(orderId, itemIdsToKeep);
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error splitting order:", error);
+      res.status(500).json({ error: error.message || "Failed to split order" });
+    }
+  });
+  
+  // Create shipment and get rates
+  app.post("/api/shipments/create", async (req, res) => {
+    try {
+      const { orderId, fromAddress, parcel, itemIdsToShip } = req.body;
+      
+      if (!orderId || !fromAddress || !parcel) {
+        return res.status(400).json({ error: "orderId, fromAddress, and parcel are required" });
+      }
+      
+      const { createShipment } = await import('./services/order-shipping');
+      const result = await createShipment({
+        orderId,
+        itemIdsToShip: itemIdsToShip || [],
+        fromAddress,
+        parcel,
+      });
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error creating shipment:", error);
+      res.status(500).json({ error: error.message || "Failed to create shipment" });
+    }
+  });
+  
+  // Purchase shipping label
+  app.post("/api/shipments/purchase", async (req, res) => {
+    try {
+      const { orderId, shipmentId, rateId, insurance } = req.body;
+      
+      if (!orderId || !shipmentId || !rateId) {
+        return res.status(400).json({ error: "orderId, shipmentId, and rateId are required" });
+      }
+      
+      const { purchaseLabel } = await import('./services/order-shipping');
+      const result = await purchaseLabel(orderId, shipmentId, rateId, insurance);
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error purchasing label:", error);
+      res.status(500).json({ error: error.message || "Failed to purchase label" });
+    }
+  });
+  
+  // Get shipments for an order
+  app.get("/api/shipments/:orderId", async (req, res) => {
+    try {
+      const { orderId } = req.params;
+      
+      const { shipments } = await import('@shared/schema');
+      const orderShipments = await db.select()
+        .from(shipments)
+        .where(eq(shipments.orderId, orderId))
+        .orderBy(desc(shipments.createdAt));
+      
+      res.json(orderShipments);
+    } catch (error: any) {
+      console.error("Error fetching shipments:", error);
+      res.status(500).json({ error: "Failed to fetch shipments" });
+    }
+  });
+
   // Dry-Run Order Sync Tester - Test with historical orders
   app.post("/api/orders/dry-run-test", async (req, res) => {
     try {

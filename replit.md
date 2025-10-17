@@ -19,9 +19,10 @@ The frontend uses React 18+, TypeScript, Vite, Shadcn/ui, and Tailwind CSS, feat
 - **Backend:** Express.js with TypeScript and Node.js (ESM modules).
 - **Database:** Drizzle ORM with Neon serverless PostgreSQL, including `pgvector`.
 - **API:** RESTful endpoints for data and integrations.
-- **Data Schema:** Includes tables for `users`, `bl_categories`, `bl_colors`, `bl_inventory`, `orders`, `order_details`, `sync_metadata`, `app_settings`, `inventory_embeddings`, `order_embeddings`, warehouse management (`wh_aisles`, `wh_shelves`, `wh_bins`, `inventory_locations`), and `picklist_items`.
+- **Data Schema:** Includes tables for `users`, `bl_categories`, `bl_colors`, `bl_inventory`, `orders`, `order_details`, `sync_metadata`, `app_settings`, `inventory_embeddings`, `order_embeddings`, warehouse management (`wh_aisles`, `wh_shelves`, `wh_bins`, `inventory_locations`), `picklist_items`, and shipping (`order_splits`, `order_split_items`, `shipments`).
 - **Authentication:** Basic username/password.
 - **Order Status & Inventory Automation:** Centralized configuration maps platform-specific statuses and defines inventory impact. Inventory is reduced upon shipping and restored upon cancellation/return of shipped orders. Supports BrickLink, BrickOwl, ShipStation, eBay, and Amazon platforms.
+- **Shipping System:** Vendor-agnostic shipping abstraction layer with EasyPost implementation. Supports order splitting for partial shipments, automatic label generation, tracking integration, and platform status synchronization. Split orders are marked local-only and don't sync to sales platforms.
 
 ### Feature Specifications
 - **AI Assistant (E.L.F.I.E.):** Uses OpenRouter (default GPT-4o-mini) with `localStorage` and a `conversations` table for memory, leveraging RAG with PostgreSQL `pgvector` embeddings and OpenAI `text-embedding-3-small`.
@@ -39,7 +40,8 @@ The frontend uses React 18+, TypeScript, Vite, Shadcn/ui, and Tailwind CSS, feat
 
 -   **BrickLink API:** LEGO inventory, categories, colors, and market data.
 -   **BrickOwl API:** Multi-platform inventory synchronization.
--   **ShipStation API:** Order management and fulfillment.
+-   **ShipStation API:** Legacy order management (being phased out).
+-   **EasyPost API:** Multi-carrier shipping label generation, rate shopping, and tracking.
 -   **OpenRouter API:** Powers the E.L.F.I.E. AI chat assistant.
 -   **OpenAI API:** Generates vector embeddings.
 -   **Neon:** Serverless PostgreSQL database with `pgvector` extension.
