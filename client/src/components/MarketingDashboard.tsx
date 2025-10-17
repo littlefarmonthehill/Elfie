@@ -141,9 +141,9 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick }: M
       <div className="bg-gray-900/50 border border-green-500/20 rounded-lg p-3" data-testid="section-top-customers">
         <div className="flex items-center gap-2 mb-2">
           <Star className="w-3.5 h-3.5 text-green-400" />
-          <h3 className="text-[10px] font-semibold text-green-400 uppercase tracking-wide">Highlights - Top Customers by Revenue</h3>
+          <h3 className="text-xs font-semibold text-green-400 uppercase tracking-wide">Highlights - Top Customers by Revenue</h3>
         </div>
-        <div className="space-y-1">
+        <div className="space-y-1.5">
           {topCustomers.length > 0 ? (
             topCustomers.map((customer, idx) => (
               <div 
@@ -152,19 +152,25 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick }: M
                   const orderId = getCustomerOrderId(customer.customerUsername);
                   if (orderId) onItemClick?.('order', orderId);
                 }}
-                className="flex justify-between items-center text-[10px] hover-elevate rounded px-2 py-0.5 cursor-pointer"
+                className="flex justify-between items-start hover-elevate rounded px-2 py-1 cursor-pointer"
                 data-testid={`top-customer-${idx}`}
               >
-                <div className="flex items-center gap-1.5">
-                  <span className="text-gray-500 text-[9px] w-3">{idx + 1}.</span>
-                  <span className="text-gray-300">{customer.customerUsername}</span>
-                  <span className="text-gray-600 text-[9px]">{customer.orderCount} orders</span>
+                <div className="flex gap-2 flex-1 min-w-0">
+                  <Star className="w-3.5 h-3.5 text-green-400 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-gray-200 text-xs font-medium">
+                      {customer.customerUsername}
+                    </div>
+                    <div className="flex gap-1.5 text-[11px] text-gray-400 mt-0.5">
+                      <span>{customer.orderCount} {customer.orderCount === 1 ? 'order' : 'orders'}</span>
+                    </div>
+                  </div>
                 </div>
-                <span className="text-lego-green font-mono ml-2">${customer.totalRevenue.toFixed(2)}</span>
+                <span className="text-lego-green font-mono font-medium text-xs ml-2 flex-shrink-0">${customer.totalRevenue.toFixed(2)}</span>
               </div>
             ))
           ) : (
-            <div className="text-[9px] text-gray-500 italic">No customer data available</div>
+            <div className="text-[11px] text-gray-500 italic">No customer data available</div>
           )}
         </div>
       </div>
@@ -173,9 +179,9 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick }: M
       <div className="bg-gray-900/50 border border-blue-500/20 rounded-lg p-3" data-testid="section-repeat-customers">
         <div className="flex items-center gap-2 mb-2">
           <TrendingUp className="w-3.5 h-3.5 text-blue-400" />
-          <h3 className="text-[10px] font-semibold text-blue-400 uppercase tracking-wide">Action Items - Engage Repeat Customers</h3>
+          <h3 className="text-xs font-semibold text-blue-400 uppercase tracking-wide">Action Items - Engage Repeat Customers</h3>
         </div>
-        <div className="space-y-1">
+        <div className="space-y-1.5">
           {repeatCustomers.length > 0 ? (
             repeatCustomers.map((customer, idx) => (
               <div 
@@ -184,19 +190,26 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick }: M
                   const orderId = getCustomerOrderId(customer.customerUsername);
                   if (orderId) onItemClick?.('order', orderId);
                 }}
-                className="flex justify-between items-center text-[10px] hover-elevate rounded px-2 py-0.5 cursor-pointer"
+                className="flex justify-between items-start hover-elevate rounded px-2 py-1 cursor-pointer"
                 data-testid={`repeat-customer-${idx}`}
               >
-                <div className="flex items-center gap-1.5">
-                  <Users className="w-3 h-3 text-blue-400 flex-shrink-0" />
-                  <span className="text-gray-300">{customer.customerUsername}</span>
-                  <span className="text-blue-400 text-[9px] font-semibold">{customer.orderCount}x buyer</span>
+                <div className="flex gap-2 flex-1 min-w-0">
+                  <Users className="w-3.5 h-3.5 text-blue-400 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-gray-200 text-xs font-medium">
+                      {customer.customerUsername}
+                    </div>
+                    <div className="flex gap-1.5 text-[11px] text-gray-400 mt-0.5">
+                      <span>{customer.orderCount}x buyer</span>
+                      <span>•</span>
+                      <span>${customer.totalRevenue.toFixed(2)} total</span>
+                    </div>
+                  </div>
                 </div>
-                <span className="text-gray-500 font-mono text-[9px] ml-2">${customer.totalRevenue.toFixed(2)}</span>
               </div>
             ))
           ) : (
-            <div className="text-[9px] text-gray-500 italic">No repeat customers yet</div>
+            <div className="text-[11px] text-gray-500 italic">No repeat customers yet</div>
           )}
         </div>
       </div>
@@ -205,9 +218,9 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick }: M
       <div className="bg-gray-900/50 border border-purple-500/20 rounded-lg p-3" data-testid="section-new-customers">
         <div className="flex items-center gap-2 mb-2">
           <Target className="w-3.5 h-3.5 text-purple-400" />
-          <h3 className="text-[10px] font-semibold text-purple-400 uppercase tracking-wide">Recent Activity - New Customers (Last 30 Days)</h3>
+          <h3 className="text-xs font-semibold text-purple-400 uppercase tracking-wide">Recent Activity - New Customers (Last 30 Days)</h3>
         </div>
-        <div className="space-y-1">
+        <div className="space-y-1.5">
           {recentNewCustomers.length > 0 ? (
             recentNewCustomers.map((customer, idx) => (
               <div 
@@ -216,19 +229,26 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick }: M
                   const orderId = getCustomerOrderId(customer.customerUsername);
                   if (orderId) onItemClick?.('order', orderId);
                 }}
-                className="flex justify-between items-center text-[10px] hover-elevate rounded px-2 py-0.5 cursor-pointer"
+                className="flex justify-between items-start hover-elevate rounded px-2 py-1 cursor-pointer"
                 data-testid={`new-customer-${idx}`}
               >
-                <div className="flex items-center gap-1.5">
-                  <div className="w-1.5 h-1.5 rounded-full bg-purple-400 flex-shrink-0" />
-                  <span className="text-gray-300">{customer.customerUsername}</span>
-                  <span className="text-gray-600 text-[9px]">{new Date(customer.lastOrderDate).toLocaleDateString()}</span>
+                <div className="flex gap-2 flex-1 min-w-0">
+                  <div className="w-2 h-2 rounded-full bg-purple-400 flex-shrink-0 mt-1" />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-gray-200 text-xs font-medium">
+                      {customer.customerUsername}
+                    </div>
+                    <div className="flex gap-1.5 text-[11px] text-gray-400 mt-0.5">
+                      <span>{new Date(customer.lastOrderDate).toLocaleDateString()}</span>
+                      <span>•</span>
+                      <span>${customer.totalRevenue.toFixed(2)}</span>
+                    </div>
+                  </div>
                 </div>
-                <span className="text-lego-green font-mono text-[9px] ml-2">${customer.totalRevenue.toFixed(2)}</span>
               </div>
             ))
           ) : (
-            <div className="text-[9px] text-gray-500 italic">No new customers in last 30 days</div>
+            <div className="text-[11px] text-gray-500 italic">No new customers in last 30 days</div>
           )}
         </div>
       </div>

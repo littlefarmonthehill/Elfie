@@ -174,29 +174,35 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
         <div className="bg-gray-900/50 border border-green-500/20 rounded-lg p-3" data-testid="section-top-value">
           <div className="flex items-center gap-2 mb-2">
             <TrendingUp className="w-3.5 h-3.5 text-green-400" />
-            <h3 className="text-[10px] font-semibold text-green-400 uppercase tracking-wide">Highlights - Highest Value Items</h3>
+            <h3 className="text-xs font-semibold text-green-400 uppercase tracking-wide">Highlights - Highest Value Items</h3>
           </div>
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             {topValueItems.length > 0 ? (
               topValueItems.map((item) => (
                 <div 
                   key={item.id} 
                   onClick={() => onItemClick?.('inventory', item.inventoryId)}
-                  className="flex justify-between items-center text-[10px] hover-elevate rounded px-2 py-0.5 cursor-pointer"
+                  className="flex justify-between items-start hover-elevate rounded px-2 py-1 cursor-pointer"
                   data-testid={`top-value-${item.id}`}
                 >
-                  <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                    <span className="text-gray-400 font-mono flex-shrink-0">{item.item.no}</span>
-                    <span className="text-gray-500 truncate text-[9px]">{item.colorName}</span>
+                  <div className="flex gap-2 flex-1 min-w-0">
+                    <TrendingUp className="w-3.5 h-3.5 text-green-400 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-gray-200 font-mono text-xs font-medium">
+                        {item.item.no}
+                      </div>
+                      <div className="flex gap-1.5 text-[11px] text-gray-400 mt-0.5">
+                        <span>{item.colorName}</span>
+                        <span>•</span>
+                        <span>Qty: {item.quantity}</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1.5 ml-2 flex-shrink-0">
-                    <span className="text-gray-500 text-[9px]">Qty: {item.quantity}</span>
-                    <span className="text-lego-green font-mono">@${Number(item.unitPrice).toFixed(2)}</span>
-                  </div>
+                  <span className="text-lego-green font-mono font-medium text-xs ml-2 flex-shrink-0">@${Number(item.unitPrice).toFixed(2)}</span>
                 </div>
               ))
             ) : (
-              <div className="text-[9px] text-gray-500 italic">No items to display</div>
+              <div className="text-[11px] text-gray-500 italic">No items to display</div>
             )}
           </div>
         </div>
@@ -205,7 +211,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
         <div className="bg-gray-900/50 border border-blue-500/20 rounded-lg p-3" data-testid="section-recent-updates">
           <div className="flex items-center gap-2 mb-3">
             <Clock className="w-3.5 h-3.5 text-blue-400" />
-            <h3 className="text-[10px] font-semibold text-blue-400 uppercase tracking-wide">Recent Activity</h3>
+            <h3 className="text-xs font-semibold text-blue-400 uppercase tracking-wide">Recent Activity</h3>
           </div>
           
           {newItems.length > 0 || updatedItems.length > 0 ? (
@@ -222,23 +228,20 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                         className="flex justify-between items-start text-[10px] hover-elevate rounded px-2 py-1 cursor-pointer"
                         data-testid={`new-item-${item.id}`}
                       >
-                        <div className="flex gap-1.5 flex-1 min-w-0">
-                          <Package className="w-3 h-3 text-green-400 flex-shrink-0 mt-0.5" />
+                        <div className="flex gap-2 flex-1 min-w-0">
+                          <Package className="w-3.5 h-3.5 text-green-400 flex-shrink-0 mt-0.5" />
                           <div className="flex-1 min-w-0">
-                            <div className="text-gray-300 truncate text-[10px] font-medium">
+                            <div className="text-gray-200 truncate text-xs font-medium">
                               {item.itemNo} {item.itemName && `- ${item.itemName}`}
                             </div>
-                            <div className="flex gap-1.5 text-[9px] text-gray-500 mt-0.5">
+                            <div className="flex gap-1.5 text-[11px] text-gray-400 mt-0.5">
                               <span>{item.colorName || 'N/A'}</span>
                               <span>•</span>
                               <span>{item.newOrUsed === 'N' ? 'New' : 'Used'}</span>
+                              <span>•</span>
+                              <span>{safeFormatDate(item.syncedAt)}</span>
                             </div>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-1.5 ml-2 flex-shrink-0">
-                          <span className="text-gray-600 text-[9px]">
-                            {safeFormatDate(item.syncedAt)}
-                          </span>
                         </div>
                       </div>
                     ))}
@@ -258,23 +261,20 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                         className="flex justify-between items-start text-[10px] hover-elevate rounded px-2 py-1 cursor-pointer"
                         data-testid={`recent-update-${item.id}`}
                       >
-                        <div className="flex gap-1.5 flex-1 min-w-0">
-                          <div className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0 mt-1.5" />
+                        <div className="flex gap-2 flex-1 min-w-0">
+                          <div className="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0 mt-1" />
                           <div className="flex-1 min-w-0">
-                            <div className="text-gray-300 truncate text-[10px] font-medium">
+                            <div className="text-gray-200 truncate text-xs font-medium">
                               {item.itemNo} {item.itemName && `- ${item.itemName}`}
                             </div>
-                            <div className="flex gap-1.5 text-[9px] text-gray-500 mt-0.5">
+                            <div className="flex gap-1.5 text-[11px] text-gray-400 mt-0.5">
                               <span>{item.colorName || 'N/A'}</span>
                               <span>•</span>
                               <span>{item.newOrUsed === 'N' ? 'New' : 'Used'}</span>
+                              <span>•</span>
+                              <span>{safeFormatDate(item.updatedAt)}</span>
                             </div>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-1.5 ml-2 flex-shrink-0">
-                          <span className="text-gray-600 text-[9px]">
-                            {safeFormatDate(item.updatedAt)}
-                          </span>
                         </div>
                       </div>
                     ))}
