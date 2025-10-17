@@ -4206,6 +4206,7 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
       // Fetch order items with color names
       const items = await db.select({
         orderId: orderDetails.orderId,
+        inventoryId: orderDetails.bricklinkInventoryId,
         bricklinkPartNumber: orderDetails.sku,
         name: orderDetails.name,
         quantity: orderDetails.quantity,
@@ -4237,6 +4238,7 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
         return {
           orderNumber: order.orderNumber,
           orderDate: order.orderDate,
+          shipDate: order.shipDate,
           customerUsername: order.customerUsername,
           marketplace: order.marketplace,
           shipTo,

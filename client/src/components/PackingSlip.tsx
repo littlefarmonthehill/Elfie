@@ -3,6 +3,7 @@ import planetLogo from "@assets/PlanetBrick_dotcom_with_planet_and_robot_400_176
 type PackingSlipOrder = {
   orderNumber: string;
   orderDate: string;
+  shipDate: string | null;
   customerUsername: string | null;
   marketplace: string | null;
   shipTo: {
@@ -16,6 +17,7 @@ type PackingSlipOrder = {
     country?: string;
   };
   items: Array<{
+    inventoryId: number | null;
     bricklinkPartNumber: string | null;
     name: string;
     quantity: number;
@@ -53,21 +55,17 @@ export default function PackingSlip({ orders }: PackingSlipProps) {
 
           {/* Order Info */}
           <div className="slip-section">
-            <div className="slip-info-grid">
+            <div className="slip-info-row">
               <div>
-                <span className="slip-label">Order Number:</span>
+                <span className="slip-label">Order:</span>
                 <span className="slip-value">{order.orderNumber}</span>
               </div>
               <div>
-                <span className="slip-label">Date:</span>
-                <span className="slip-value">{new Date(order.orderDate).toLocaleDateString()}</span>
+                <span className="slip-label">Ship Date:</span>
+                <span className="slip-value">
+                  {order.shipDate ? new Date(order.shipDate).toLocaleDateString() : 'Pending'}
+                </span>
               </div>
-              {order.marketplace && (
-                <div>
-                  <span className="slip-label">Marketplace:</span>
-                  <span className="slip-value">{order.marketplace}</span>
-                </div>
-              )}
             </div>
           </div>
 
@@ -88,43 +86,33 @@ export default function PackingSlip({ orders }: PackingSlipProps) {
             </div>
           </div>
 
-          {/* Items Table */}
-          <div className="slip-section">
+          {/* Items List */}
+          <div className="slip-section slip-items">
             <div className="slip-label-header">ITEMS:</div>
-            <table className="slip-table">
-              <thead>
-                <tr>
-                  <th style={{ width: '80px' }}>SKU</th>
-                  <th>Item</th>
-                  <th className="text-center" style={{ width: '40px' }}>Qty</th>
-                </tr>
-              </thead>
-              <tbody>
-                {order.items.map((item, idx) => (
-                  <tr key={idx}>
-                    <td className="slip-sku">
-                      {item.bricklinkPartNumber || '-'}
-                    </td>
-                    <td>
-                      <div className="slip-item-name">
-                        {item.name}
-                      </div>
-                      <div className="slip-item-details">
-                        {item.colorName && <div>{item.colorName}</div>}
-                        {item.condition && <div>{item.condition}</div>}
-                      </div>
-                    </td>
-                    <td className="text-center slip-qty">{item.quantity}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="slip-items-list">
+              {order.items.map((item, idx) => (
+                <div key={idx} className="slip-item">
+                  <div className="slip-item-line1">
+                    <span className="slip-sku">{item.inventoryId || '-'}</span>
+                    <span className="slip-part">{item.bricklinkPartNumber || '-'}</span>
+                    <span className="slip-name">{item.name}</span>
+                    <span className="slip-qty">Qty: {item.quantity}</span>
+                  </div>
+                  <div className="slip-item-line2">
+                    {item.colorName && <span>{item.colorName}</span>}
+                    {item.colorName && item.condition && <span> • </span>}
+                    {item.condition && <span>{item.condition}</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Footer */}
           <div className="slip-footer">
             <div>Thank you for your order!</div>
-            <div>PlanetBrick.com</div>
+            <div className="slip-company">PlanetBrick.com</div>
+            <div className="slip-company-address">PO Box 202, Lanesboro, MN 55949</div>
           </div>
         </div>
       ))}
@@ -133,7 +121,7 @@ export default function PackingSlip({ orders }: PackingSlipProps) {
         @media print {
           @page {
             size: 4in 5in portrait;
-            margin: 0.25in;
+            margin: 0.2in;
           }
           
           body {
@@ -150,7 +138,7 @@ export default function PackingSlip({ orders }: PackingSlipProps) {
         .packing-slip {
           width: 4in;
           height: 5in;
-          padding: 0.25in;
+          padding: 0.2in;
           background: white;
           color: black;
           font-family: Arial, sans-serif;
@@ -163,37 +151,35 @@ export default function PackingSlip({ orders }: PackingSlipProps) {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          margin-bottom: 0.2in;
-          padding-bottom: 0.1in;
-          border-bottom: 2px solid #333;
+          margin-bottom: 0.15in;
+          padding-bottom: 0.08in;
+          border-bottom: 2px solid #000;
         }
 
         .slip-logo {
-          height: 0.4in;
+          height: 0.35in;
           width: auto;
         }
 
         .slip-title h1 {
           margin: 0;
-          font-size: 16pt;
+          font-size: 14pt;
           font-weight: bold;
-          text-align: right;
         }
 
         .slip-section {
-          margin-bottom: 0.15in;
+          margin-bottom: 0.12in;
         }
 
-        .slip-info-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 0.05in;
+        .slip-info-row {
+          display: flex;
+          justify-content: space-between;
           font-size: 9pt;
         }
 
         .slip-label {
           font-weight: bold;
-          margin-right: 0.1in;
+          margin-right: 0.08in;
         }
 
         .slip-value {
@@ -202,73 +188,88 @@ export default function PackingSlip({ orders }: PackingSlipProps) {
 
         .slip-label-header {
           font-weight: bold;
-          font-size: 10pt;
+          font-size: 9pt;
           margin-bottom: 0.05in;
-          text-decoration: underline;
         }
 
         .slip-address {
-          font-size: 10pt;
+          font-size: 9pt;
           line-height: 1.3;
         }
 
-        .slip-table {
-          width: 100%;
-          border-collapse: collapse;
-          font-size: 8pt;
+        .slip-items {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
         }
 
-        .slip-table th {
-          border-bottom: 1px solid #333;
-          padding: 0.05in 0.05in;
-          text-align: left;
-          font-weight: bold;
+        .slip-items-list {
+          flex: 1;
+          overflow: hidden;
         }
 
-        .slip-table td {
-          padding: 0.05in 0.05in;
+        .slip-item {
+          margin-bottom: 0.08in;
+          padding-bottom: 0.06in;
           border-bottom: 1px solid #ddd;
-          vertical-align: top;
+        }
+
+        .slip-item:last-child {
+          border-bottom: none;
+        }
+
+        .slip-item-line1 {
+          display: flex;
+          align-items: baseline;
+          gap: 0.08in;
+          font-size: 8pt;
+          margin-bottom: 0.02in;
         }
 
         .slip-sku {
           font-family: 'Courier New', monospace;
-          font-size: 8pt;
           font-weight: bold;
-          vertical-align: top;
+          min-width: 0.4in;
         }
 
-        .slip-item-name {
+        .slip-part {
+          font-family: 'Courier New', monospace;
+          min-width: 0.5in;
+        }
+
+        .slip-name {
+          flex: 1;
           font-weight: 600;
-          margin-bottom: 0.03in;
-        }
-
-        .slip-item-details {
-          font-size: 7pt;
-          color: #666;
-          line-height: 1.4;
-        }
-
-        .slip-item-details div {
-          margin: 0.01in 0;
         }
 
         .slip-qty {
           font-weight: bold;
-          font-size: 10pt;
+          white-space: nowrap;
+        }
+
+        .slip-item-line2 {
+          font-size: 7pt;
+          color: #666;
+          padding-left: 0.08in;
         }
 
         .slip-footer {
           margin-top: auto;
-          padding-top: 0.1in;
+          padding-top: 0.08in;
           border-top: 1px solid #ddd;
           text-align: center;
-          font-size: 8pt;
+          font-size: 7pt;
           line-height: 1.4;
         }
 
-        .text-center {
-          text-align: center;
+        .slip-company {
+          font-weight: bold;
+          font-size: 8pt;
+          margin-top: 0.02in;
+        }
+
+        .slip-company-address {
+          color: #666;
         }
       `}</style>
     </div>
