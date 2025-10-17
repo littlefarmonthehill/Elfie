@@ -58,7 +58,7 @@ export default function OrderSyncTester({ open, onOpenChange }: OrderSyncTesterP
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <label className="text-xs md:text-sm font-medium text-muted-foreground mb-1 block">
+                    <label className="text-xs md:text-sm lg:text-base font-medium text-muted-foreground mb-1 block">
                       Platform
                     </label>
                     <Select value={platform} onValueChange={setPlatform}>
@@ -74,7 +74,7 @@ export default function OrderSyncTester({ open, onOpenChange }: OrderSyncTesterP
                   </div>
 
                   <div>
-                    <label className="text-xs md:text-sm font-medium text-muted-foreground mb-1 block">
+                    <label className="text-xs md:text-sm lg:text-base font-medium text-muted-foreground mb-1 block">
                       Orders to Test
                     </label>
                     <Select value={limit.toString()} onValueChange={(v) => setLimit(parseInt(v))}>
@@ -103,7 +103,7 @@ export default function OrderSyncTester({ open, onOpenChange }: OrderSyncTesterP
                   </div>
                 </div>
 
-                <div className="text-xs md:text-sm text-muted-foreground bg-muted/30 p-3 rounded">
+                <div className="text-xs md:text-sm lg:text-base text-muted-foreground bg-muted/30 p-3 rounded">
                   <p className="font-medium mb-1">Dry-Run Testing Mode</p>
                   <p>
                     This test fetches historical orders from BrickLink/BrickOwl APIs and compares them

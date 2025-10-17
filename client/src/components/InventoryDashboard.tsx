@@ -173,8 +173,8 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
         {/* Highlights - Top Value Items */}
         <div className="bg-gray-900/50 border border-green-500/20 rounded-lg p-3 md:p-4" data-testid="section-top-value">
           <div className="flex items-center gap-2 mb-2">
-            <TrendingUp className="w-3.5 h-3.5 md:w-4 md:h-4 text-green-400" />
-            <h3 className="text-xs md:text-sm font-semibold text-green-400 uppercase tracking-wide">Highlights - Highest Value Items</h3>
+            <TrendingUp className="w-3.5 h-3.5 md:w-4 md:h-4 lg:w-5 lg:h-5 text-green-400" />
+            <h3 className="text-xs md:text-sm lg:text-base font-semibold text-green-400 uppercase tracking-wide">Highlights - Highest Value Items</h3>
           </div>
           <div className="space-y-1.5">
             {topValueItems.length > 0 ? (
@@ -186,19 +186,19 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                   data-testid={`top-value-${item.id}`}
                 >
                   <div className="flex gap-2 flex-1 min-w-0">
-                    <TrendingUp className="w-3.5 h-3.5 md:w-4 md:h-4 text-green-400 flex-shrink-0 mt-0.5" />
+                    <TrendingUp className="w-3.5 h-3.5 md:w-4 md:h-4 lg:w-5 lg:h-5 text-green-400 flex-shrink-0 mt-0.5" />
                     <div className="flex-1 min-w-0">
-                      <div className="text-gray-200 font-mono text-xs md:text-sm font-medium">
+                      <div className="text-gray-200 font-mono text-xs md:text-sm lg:text-base font-medium">
                         {item.item.no}
                       </div>
-                      <div className="flex gap-1.5 text-[11px] md:text-xs text-gray-400 mt-0.5">
+                      <div className="flex gap-1.5 text-[11px] md:text-xs lg:text-sm text-gray-400 mt-0.5">
                         <span>{item.colorName}</span>
                         <span>•</span>
                         <span>Qty: {item.quantity}</span>
                       </div>
                     </div>
                   </div>
-                  <span className="text-lego-green font-mono font-medium text-xs md:text-sm ml-2 flex-shrink-0">@${Number(item.unitPrice).toFixed(2)}</span>
+                  <span className="text-lego-green font-mono font-medium text-xs md:text-sm lg:text-base ml-2 flex-shrink-0">@${Number(item.unitPrice).toFixed(2)}</span>
                 </div>
               ))
             ) : (
@@ -210,8 +210,8 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
         {/* Recent Activity */}
         <div className="bg-gray-900/50 border border-blue-500/20 rounded-lg p-3 md:p-4" data-testid="section-recent-updates">
           <div className="flex items-center gap-2 mb-3">
-            <Clock className="w-3.5 h-3.5 md:w-4 md:h-4 text-blue-400" />
-            <h3 className="text-xs md:text-sm font-semibold text-blue-400 uppercase tracking-wide">Recent Activity</h3>
+            <Clock className="w-3.5 h-3.5 md:w-4 md:h-4 lg:w-5 lg:h-5 text-blue-400" />
+            <h3 className="text-xs md:text-sm lg:text-base font-semibold text-blue-400 uppercase tracking-wide">Recent Activity</h3>
           </div>
           
           {newItems.length > 0 || updatedItems.length > 0 ? (
@@ -229,12 +229,12 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                         data-testid={`new-item-${item.id}`}
                       >
                         <div className="flex gap-2 flex-1 min-w-0">
-                          <Package className="w-3.5 h-3.5 md:w-4 md:h-4 text-green-400 flex-shrink-0 mt-0.5" />
+                          <Package className="w-3.5 h-3.5 md:w-4 md:h-4 lg:w-5 lg:h-5 text-green-400 flex-shrink-0 mt-0.5" />
                           <div className="flex-1 min-w-0">
-                            <div className="text-gray-200 truncate text-xs md:text-sm font-medium">
+                            <div className="text-gray-200 truncate text-xs md:text-sm lg:text-base font-medium">
                               {item.itemNo} {item.itemName && `- ${item.itemName}`}
                             </div>
-                            <div className="flex gap-1.5 text-[11px] md:text-xs text-gray-400 mt-0.5">
+                            <div className="flex gap-1.5 text-[11px] md:text-xs lg:text-sm text-gray-400 mt-0.5">
                               <span>{item.colorName || 'N/A'}</span>
                               <span>•</span>
                               <span>{item.newOrUsed === 'N' ? 'New' : 'Used'}</span>
@@ -262,12 +262,12 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                         data-testid={`recent-update-${item.id}`}
                       >
                         <div className="flex gap-2 flex-1 min-w-0">
-                          <div className="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full bg-blue-400 flex-shrink-0 mt-1" />
+                          <div className="w-2 h-2 md:w-2.5 md:h-2.5 lg:w-3 lg:h-3 rounded-full bg-blue-400 flex-shrink-0 mt-1" />
                           <div className="flex-1 min-w-0">
-                            <div className="text-gray-200 truncate text-xs md:text-sm font-medium">
+                            <div className="text-gray-200 truncate text-xs md:text-sm lg:text-base font-medium">
                               {item.itemNo} {item.itemName && `- ${item.itemName}`}
                             </div>
-                            <div className="flex gap-1.5 text-[11px] md:text-xs text-gray-400 mt-0.5">
+                            <div className="flex gap-1.5 text-[11px] md:text-xs lg:text-sm text-gray-400 mt-0.5">
                               <span>{item.colorName || 'N/A'}</span>
                               <span>•</span>
                               <span>{item.newOrUsed === 'N' ? 'New' : 'Used'}</span>
