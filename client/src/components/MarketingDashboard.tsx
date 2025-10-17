@@ -121,7 +121,7 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick }: M
           <Users className="w-4 h-4 text-yellow-400" />
           <h3 className="text-xs font-semibold text-yellow-400 uppercase tracking-wide">Customer Metrics</h3>
         </div>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-3 gap-2">
           <div className="text-center">
             <div className="text-[11px] text-gray-400 mb-1">Total Customers</div>
             <div className="text-lg text-gray-200 font-mono font-semibold">{totalCustomers}</div>
@@ -131,7 +131,7 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick }: M
             <div className="text-lg text-lego-green font-mono font-semibold">{repeatCustomerRate}%</div>
           </div>
           <div className="text-center">
-            <div className="text-[11px] text-gray-400 mb-1">Avg Orders/Customer</div>
+            <div className="text-[11px] text-gray-400 mb-1 whitespace-nowrap">Avg Orders/Customer</div>
             <div className="text-lg text-gray-200 font-mono font-semibold">{averageOrdersPerCustomer}</div>
           </div>
         </div>
