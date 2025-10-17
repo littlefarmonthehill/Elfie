@@ -116,23 +116,23 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick }: M
   return (
     <div className="p-2 space-y-1.5 bg-gradient-to-br from-lego-yellow/5 to-transparent rounded-lg border border-lego-yellow/10 shadow-[0_0_15px_rgba(234,179,8,0.1)]">
       {/* Key Metrics */}
-      <div className="bg-gray-900/50 border border-yellow-500/20 rounded-lg p-3" data-testid="section-customer-metrics">
-        <div className="flex items-center gap-2 mb-2">
-          <Users className="w-3.5 h-3.5 text-yellow-400" />
-          <h3 className="text-[10px] font-semibold text-yellow-400 uppercase tracking-wide">Customer Metrics</h3>
+      <div className="bg-gray-900/50 border border-yellow-500/20 rounded-lg p-4" data-testid="section-customer-metrics">
+        <div className="flex items-center gap-2 mb-3">
+          <Users className="w-4 h-4 text-yellow-400" />
+          <h3 className="text-xs font-semibold text-yellow-400 uppercase tracking-wide">Customer Metrics</h3>
         </div>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-3 gap-4">
           <div className="text-center">
-            <div className="text-[9px] text-gray-500">Total Customers</div>
-            <div className="text-xs text-gray-300 font-mono">{totalCustomers}</div>
+            <div className="text-[11px] text-gray-400 mb-1">Total Customers</div>
+            <div className="text-lg text-gray-200 font-mono font-semibold">{totalCustomers}</div>
           </div>
           <div className="text-center">
-            <div className="text-[9px] text-gray-500">Repeat Rate</div>
-            <div className="text-xs text-lego-green font-mono">{repeatCustomerRate}%</div>
+            <div className="text-[11px] text-gray-400 mb-1">Repeat Rate</div>
+            <div className="text-lg text-lego-green font-mono font-semibold">{repeatCustomerRate}%</div>
           </div>
           <div className="text-center">
-            <div className="text-[9px] text-gray-500">Avg Orders/Customer</div>
-            <div className="text-xs text-gray-300 font-mono">{averageOrdersPerCustomer}</div>
+            <div className="text-[11px] text-gray-400 mb-1">Avg Orders/Customer</div>
+            <div className="text-lg text-gray-200 font-mono font-semibold">{averageOrdersPerCustomer}</div>
           </div>
         </div>
       </div>
