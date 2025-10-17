@@ -276,6 +276,7 @@ export const appSettings = pgTable("app_settings", {
   brickowlApiKey: text("brickowl_api_key"),
   easypostApiKey: text("easypost_api_key"),
   easypostTestApiKey: text("easypost_test_api_key"),
+  easypostKeyMode: text("easypost_key_mode").default('test').notNull(), // 'test' or 'production'
   // Automation & Scheduling
   inventorySyncEnabled: boolean("inventory_sync_enabled").default(false).notNull(),
   inventorySyncTime: text("inventory_sync_time").default('02:00'), // Time of day (HH:MM format)

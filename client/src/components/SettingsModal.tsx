@@ -67,6 +67,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   // EasyPost Settings
   const [easypostApiKey, setEasypostApiKey] = useState("");
   const [easypostTestApiKey, setEasypostTestApiKey] = useState("");
+  const [easypostKeyMode, setEasypostKeyMode] = useState<'test' | 'production'>('test');
 
   // Automation Settings
   const [inventorySyncEnabled, setInventorySyncEnabled] = useState(false);
@@ -110,6 +111,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
       setBrickowlApiKey(settings.brickowlApiKey || "");
       setEasypostApiKey(settings.easypostApiKey || "");
       setEasypostTestApiKey(settings.easypostTestApiKey || "");
+      setEasypostKeyMode((settings.easypostKeyMode as 'test' | 'production') || 'test');
       setInventorySyncEnabled(settings.inventorySyncEnabled || false);
       setInventorySyncTime(settings.inventorySyncTime || "02:00");
       setPriceOMaticEnabled(settings.priceOMaticEnabled || false);
@@ -479,6 +481,56 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                     </AccordionTrigger>
                     <AccordionContent>
                       <div className="space-y-3 pt-2">
+                    {/* Key Mode Selector */}
+                    <div className="space-y-2 pb-2 border-b border-gray-700">
+                      <Label className="text-xs text-gray-400">Active API Key</Label>
+                      <div className="flex gap-4">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="easypost-mode"
+                            value="test"
+                            checked={easypostKeyMode === 'test'}
+                            onChange={(e) => {
+                              setEasypostKeyMode('test');
+                              updateSettingsMutation.mutate({
+                                easypostKeyMode: 'test',
+                              });
+                            }}
+                            className="text-purple-500 focus:ring-purple-500"
+                            data-testid="radio-easypost-test"
+                          />
+                          <span className="text-xs text-gray-300">Test</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="easypost-mode"
+                            value="production"
+                            checked={easypostKeyMode === 'production'}
+                            onChange={(e) => {
+                              setEasypostKeyMode('production');
+                              updateSettingsMutation.mutate({
+                                easypostKeyMode: 'production',
+                              });
+                            }}
+                            className="text-purple-500 focus:ring-purple-500"
+                            data-testid="radio-easypost-production"
+                          />
+                          <span className="text-xs text-gray-300">Production</span>
+                        </label>
+                      </div>
+                      {easypostKeyMode === 'test' && (
+                        <p className="text-xs text-yellow-500/80 mt-1">
+                          ⚠️ Test mode - labels will use test tracking numbers
+                        </p>
+                      )}
+                      {easypostKeyMode === 'production' && (
+                        <p className="text-xs text-green-500/80 mt-1">
+                          ✓ Production mode - real shipping labels will be created
+                        </p>
+                      )}
+                    </div>
                     <div className="space-y-2">
                       <Label htmlFor="easypost-key" className="text-xs text-gray-400">Production API Key</Label>
                       <Input
