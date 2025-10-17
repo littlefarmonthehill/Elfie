@@ -233,6 +233,9 @@ export default function PlatformSyncTool() {
         </Card>
       </div>
 
+      {/* Sync Issues */}
+      <SyncIssuesSection />
+
       {/* Target Platforms */}
       <div>
         <div className="flex items-center justify-between mb-2">
@@ -602,6 +605,205 @@ export default function PlatformSyncTool() {
           </div>
         </DrawerContent>
       </Drawer>
+    </div>
+  );
+}
+
+// Sync Issues Section Component
+function SyncIssuesSection() {
+  const [issuesDrawerOpen, setIssuesDrawerOpen] = useState(false);
+  
+  // Fetch sync issues stats
+  const { data: issueStats } = useQuery<{ stats: { open: number; critical: number } }>({
+    queryKey: ['/api/sync-issues/stats'],
+    refetchInterval: 30000,
+  });
+
+  const openIssues = issueStats?.stats?.open || 0;
+  const criticalIssues = issueStats?.stats?.critical || 0;
+
+  if (openIssues === 0) return null; // Don't show if no issues
+
+  return (
+    <>
+      <div>
+        <h3 className="text-xs md:text-base lg:text-lg font-bold text-gray-300 mb-2 flex items-center gap-1.5">
+          <AlertTriangle className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-orange-400" />
+          Action Items
+        </h3>
+        <Card 
+          className="bg-orange-500/10 border-orange-500/30 p-3 cursor-pointer hover-elevate"
+          onClick={() => setIssuesDrawerOpen(true)}
+          data-testid="card-sync-issues"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs md:text-base lg:text-lg font-bold text-orange-400">
+                {openIssues} Open Issue{openIssues !== 1 ? 's' : ''}
+              </p>
+              {criticalIssues > 0 && (
+                <p className="text-[10px] md:text-xs text-orange-300">
+                  {criticalIssues} critical
+                </p>
+              )}
+              <p className="text-[10px] md:text-xs text-gray-400 mt-1">
+                Click to view and resolve sync issues
+              </p>
+            </div>
+            <Badge variant="outline" className="bg-orange-500/20 border-orange-500/50 text-orange-300 text-[10px]">
+              Review
+            </Badge>
+          </div>
+        </Card>
+      </div>
+
+      {/* Sync Issues Drawer */}
+      <Drawer open={issuesDrawerOpen} onOpenChange={setIssuesDrawerOpen}>
+        <DrawerContent className="max-h-[85vh]">
+          <DrawerHeader className="border-b border-gray-800">
+            <div className="flex items-center justify-between">
+              <DrawerTitle className="text-sm md:text-base text-white">Sync Action Items</DrawerTitle>
+              <DrawerClose asChild>
+                <Button variant="ghost" size="icon" data-testid="button-close-issues">
+                  <X className="h-4 w-4" />
+                </Button>
+              </DrawerClose>
+            </div>
+          </DrawerHeader>
+          
+          <SyncIssuesList />
+        </DrawerContent>
+      </Drawer>
+    </>
+  );
+}
+
+// Sync Issues List Component
+function SyncIssuesList() {
+  const { toast } = useToast();
+  const [filter, setFilter] = useState<'all' | 'critical' | 'high'>('all');
+
+  // Fetch sync issues
+  const { data: issuesData, isLoading } = useQuery<{ issues: any[]; count: number }>({
+    queryKey: ['/api/sync-issues', filter !== 'all' ? { severity: filter } : {}],
+  });
+
+  // Resolve issue mutation
+  const resolveMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      return apiRequest('PATCH', `/api/sync-issues/${id}`, { status });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/sync-issues'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/sync-issues/stats'] });
+      toast({
+        title: "Issue updated",
+        description: "Sync issue has been marked as resolved",
+      });
+    },
+  });
+
+  const getSeverityColor = (severity: string) => {
+    switch (severity) {
+      case 'critical': return 'text-red-400 bg-red-500/10 border-red-500/30';
+      case 'high': return 'text-orange-400 bg-orange-500/10 border-orange-500/30';
+      case 'medium': return 'text-yellow-400 bg-yellow-500/10 border-yellow-500/30';
+      default: return 'text-gray-400 bg-gray-500/10 border-gray-500/30';
+    }
+  };
+
+  return (
+    <div className="overflow-auto p-4">
+      {/* Filter Tabs */}
+      <div className="flex gap-2 mb-4">
+        <Button
+          size="sm"
+          variant={filter === 'all' ? 'default' : 'outline'}
+          onClick={() => setFilter('all')}
+          className="text-xs"
+        >
+          All Issues
+        </Button>
+        <Button
+          size="sm"
+          variant={filter === 'critical' ? 'default' : 'outline'}
+          onClick={() => setFilter('critical')}
+          className="text-xs"
+        >
+          Critical
+        </Button>
+        <Button
+          size="sm"
+          variant={filter === 'high' ? 'default' : 'outline'}
+          onClick={() => setFilter('high')}
+          className="text-xs"
+        >
+          High Priority
+        </Button>
+      </div>
+
+      {/* Issues List */}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="w-6 h-6 animate-spin text-purple-400" />
+        </div>
+      ) : issuesData?.issues && issuesData.issues.length > 0 ? (
+        <div className="space-y-2">
+          {issuesData.issues.map((issue) => (
+            <Card key={issue.id} className="p-3 bg-gray-800/50 border-gray-700">
+              <div className="space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Badge className={`text-[10px] ${getSeverityColor(issue.severity)}`}>
+                        {issue.severity}
+                      </Badge>
+                      <Badge variant="outline" className="text-[10px]">
+                        {issue.syncType}
+                      </Badge>
+                      <Badge variant="outline" className="text-[10px]">
+                        {issue.platform}
+                      </Badge>
+                    </div>
+                    <p className="text-sm md:text-base text-white font-medium">{issue.issueDescription}</p>
+                    {issue.itemNo && (
+                      <p className="text-xs text-gray-400 mt-1">Item: {issue.itemNo}</p>
+                    )}
+                    <p className="text-[10px] text-gray-500 mt-1">
+                      {new Date(issue.createdAt).toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="flex gap-1">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => resolveMutation.mutate({ id: issue.id, status: 'resolved' })}
+                      disabled={resolveMutation.isPending}
+                      className="text-xs"
+                      data-testid={`button-resolve-${issue.id}`}
+                    >
+                      <CheckCircle2 className="w-3 h-3 mr-1" />
+                      Resolve
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => resolveMutation.mutate({ id: issue.id, status: 'ignored' })}
+                      disabled={resolveMutation.isPending}
+                      className="text-xs"
+                      data-testid={`button-ignore-${issue.id}`}
+                    >
+                      Ignore
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <p className="text-gray-400 text-center py-8">No issues found</p>
+      )}
     </div>
   );
 }

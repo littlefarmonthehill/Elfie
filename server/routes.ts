@@ -5,7 +5,7 @@ import { syncBricklinkData, fetchPriceOMagicData, searchBricklinkCatalogItem, sy
 import { syncShipStationOrders } from "./services/shipstation";
 import { syncBrickLinkToBrickOwl, syncUnsyncedItems, findUnsyncedItems } from "./services/brickowl";
 import { db } from "./db";
-import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema } from "@shared/schema";
+import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema } from "@shared/schema";
 import { eq, desc, sql, inArray, like, or, and, isNotNull } from "drizzle-orm";
 import { z } from "zod";
 
@@ -2251,6 +2251,167 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
       res.status(500).json({
         success: false,
         error: error instanceof Error ? error.message : "Failed to fetch unsynced items",
+      });
+    }
+  });
+
+  // ============================================
+  // Sync Issues Routes
+  // ============================================
+  
+  // Get all sync issues (with optional filters)
+  app.get("/api/sync-issues", async (req, res) => {
+    try {
+      const { status, syncType, platform, severity } = req.query;
+      
+      const conditions = [];
+      
+      if (status) {
+        conditions.push(eq(syncIssues.status, status as string));
+      }
+      if (syncType) {
+        conditions.push(eq(syncIssues.syncType, syncType as string));
+      }
+      if (platform) {
+        conditions.push(eq(syncIssues.platform, platform as string));
+      }
+      if (severity) {
+        conditions.push(eq(syncIssues.severity, severity as string));
+      }
+      
+      let issues;
+      if (conditions.length > 0) {
+        issues = await db
+          .select()
+          .from(syncIssues)
+          .where(and(...conditions))
+          .orderBy(desc(syncIssues.createdAt))
+          .limit(100);
+      } else {
+        issues = await db
+          .select()
+          .from(syncIssues)
+          .orderBy(desc(syncIssues.createdAt))
+          .limit(100);
+      }
+      
+      res.json({
+        success: true,
+        issues,
+        count: issues.length,
+      });
+    } catch (error) {
+      console.error("Error fetching sync issues:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to fetch sync issues",
+      });
+    }
+  });
+  
+  // Get sync issue stats
+  app.get("/api/sync-issues/stats", async (req, res) => {
+    try {
+      const openIssues = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(syncIssues)
+        .where(eq(syncIssues.status, 'open'));
+      
+      const criticalIssues = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(syncIssues)
+        .where(and(eq(syncIssues.status, 'open'), eq(syncIssues.severity, 'critical')));
+      
+      res.json({
+        success: true,
+        stats: {
+          open: Number(openIssues[0]?.count || 0),
+          critical: Number(criticalIssues[0]?.count || 0),
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching sync issue stats:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to fetch stats",
+      });
+    }
+  });
+  
+  // Create a new sync issue
+  app.post("/api/sync-issues", async (req, res) => {
+    try {
+      const issue = insertSyncIssueSchema.parse(req.body);
+      
+      const [newIssue] = await db.insert(syncIssues).values(issue).returning();
+      
+      res.json({
+        success: true,
+        issue: newIssue,
+      });
+    } catch (error) {
+      console.error("Error creating sync issue:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to create sync issue",
+      });
+    }
+  });
+  
+  // Update sync issue (resolve, ignore, etc.)
+  app.patch("/api/sync-issues/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { status, resolvedBy } = req.body;
+      
+      const updates: any = { status };
+      
+      if (status === 'resolved' || status === 'ignored') {
+        updates.resolvedAt = new Date();
+        updates.resolvedBy = resolvedBy || 'user';
+      }
+      
+      const [updatedIssue] = await db
+        .update(syncIssues)
+        .set(updates)
+        .where(eq(syncIssues.id, id))
+        .returning();
+      
+      if (!updatedIssue) {
+        return res.status(404).json({
+          success: false,
+          error: "Issue not found",
+        });
+      }
+      
+      res.json({
+        success: true,
+        issue: updatedIssue,
+      });
+    } catch (error) {
+      console.error("Error updating sync issue:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to update issue",
+      });
+    }
+  });
+  
+  // Delete a sync issue
+  app.delete("/api/sync-issues/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      await db.delete(syncIssues).where(eq(syncIssues.id, id));
+      
+      res.json({
+        success: true,
+      });
+    } catch (error) {
+      console.error("Error deleting sync issue:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to delete issue",
       });
     }
   });

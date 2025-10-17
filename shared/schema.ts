@@ -346,6 +346,31 @@ export const insertSyncMetadataSchema = createInsertSchema(syncMetadata).omit({
 export type InsertSyncMetadata = z.infer<typeof insertSyncMetadataSchema>;
 export type SyncMetadata = typeof syncMetadata.$inferSelect;
 
+// Sync Issues - Track issues that arise during sync operations
+export const syncIssues = pgTable("sync_issues", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  syncType: text("sync_type").notNull(), // 'order_sync', 'inventory_sync'
+  platform: text("platform").notNull(), // 'bricklink', 'brickowl', 'shipstation', etc.
+  itemId: text("item_id"), // ID of the specific item/order with the issue
+  itemNo: text("item_no"), // Part/item number for context
+  issueType: text("issue_type").notNull(), // 'missing', 'quantity_mismatch', 'price_mismatch', 'api_error', etc.
+  issueDescription: text("issue_description").notNull(),
+  severity: text("severity").notNull(), // 'low', 'medium', 'high', 'critical'
+  status: text("status").notNull().default('open'), // 'open', 'resolved', 'ignored'
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  resolvedAt: timestamp("resolved_at"),
+  resolvedBy: text("resolved_by"), // User or 'system'
+  metadata: text("metadata"), // JSON string for additional context
+});
+
+export const insertSyncIssueSchema = createInsertSchema(syncIssues).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertSyncIssue = z.infer<typeof insertSyncIssueSchema>;
+export type SyncIssue = typeof syncIssues.$inferSelect;
+
 // Price-o-Matic Cache - Stores merged BrickLink item details and price guide data
 export const priceGuideCache = pgTable("price_guide_cache", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
