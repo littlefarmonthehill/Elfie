@@ -132,7 +132,7 @@ export default function PackingSlip({ orders }: PackingSlipProps) {
       <style>{`
         @media print {
           @page {
-            size: 4.25in 5.5in portrait;
+            size: 4in 5in portrait;
             margin: 0.25in;
           }
           
@@ -148,8 +148,8 @@ export default function PackingSlip({ orders }: PackingSlipProps) {
         }
 
         .packing-slip {
-          width: 4.25in;
-          height: 5.5in;
+          width: 4in;
+          height: 5in;
           padding: 0.25in;
           background: white;
           color: black;
