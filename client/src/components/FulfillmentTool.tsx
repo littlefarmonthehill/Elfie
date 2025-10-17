@@ -8,7 +8,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Truck, Loader2, Printer, CheckSquare, Square, Package, AlertTriangle } from "lucide-react";
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger,
+  DropdownMenuSeparator 
+} from "@/components/ui/dropdown-menu";
+import { Truck, Loader2, Printer, CheckSquare, Square, Package, AlertTriangle, ChevronDown, Tag } from "lucide-react";
 import PackingSlip from "./PackingSlip";
 import { useToast } from "@/hooks/use-toast";
 
@@ -47,6 +54,8 @@ export default function FulfillmentTool() {
   const [selectedOrdersForPrint, setSelectedOrdersForPrint] = useState<Set<string>>(new Set());
   const [showPackingSlipDialog, setShowPackingSlipDialog] = useState(false);
   const [packingSlipData, setPackingSlipData] = useState<any[]>([]);
+  const [showLotLabelsDialog, setShowLotLabelsDialog] = useState(false);
+  const [lotLabelsData, setLotLabelsData] = useState<any[]>([]);
   
   // Shipping state
   const [showShippingDialog, setShowShippingDialog] = useState(false);
@@ -195,6 +204,35 @@ export default function FulfillmentTool() {
     } catch (error) {
       console.error('Error fetching packing slip data:', error);
     }
+  };
+
+  const handlePrintLotLabels = async (orderIds: string[]) => {
+    if (orderIds.length === 0) return;
+    
+    toast({
+      title: "Lot Labels",
+      description: "Lot label printing will be implemented soon. This feature is coming in a future update.",
+    });
+    
+    // Placeholder for future implementation
+    // TODO: Implement lot labels API endpoint and printing logic
+    // try {
+    //   const response = await fetch('/api/fulfillment/lot-labels', {
+    //     method: 'POST',
+    //     headers: { 'Content-Type': 'application/json' },
+    //     body: JSON.stringify({ orderIds }),
+    //   });
+    //   
+    //   const data = await response.json();
+    //   setLotLabelsData(data);
+    //   setShowLotLabelsDialog(true);
+    //   
+    //   setTimeout(() => {
+    //     window.print();
+    //   }, 500);
+    // } catch (error) {
+    //   console.error('Error fetching lot labels data:', error);
+    // }
   };
 
   const handleInitiateShipping = async (orderId: string | null) => {
@@ -378,26 +416,57 @@ export default function FulfillmentTool() {
             )}
           </div>
           <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => handlePrintPackingSlips(Array.from(selectedOrdersForPrint))}
-              disabled={selectedOrdersForPrint.size === 0}
-              data-testid="button-print-selected"
-            >
-              <Printer className="w-3.5 h-3.5 mr-1.5" />
-              Packing Slips {selectedOrdersForPrint.size > 0 ? `(${selectedOrdersForPrint.size})` : ''}
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => handleInitiateShipping(selectedOrderId)}
-              disabled={!selectedOrderId}
-              data-testid="button-ship-order"
-            >
-              <Package className="w-3.5 h-3.5 mr-1.5" />
-              Ship It
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={selectedOrdersForPrint.size === 0 && !selectedOrderId}
+                  data-testid="button-actions-menu"
+                >
+                  <Printer className="w-3.5 h-3.5 mr-1.5" />
+                  Actions
+                  <ChevronDown className="w-3.5 h-3.5 ml-1.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem
+                  onClick={() => handlePrintPackingSlips(Array.from(selectedOrdersForPrint))}
+                  disabled={selectedOrdersForPrint.size === 0}
+                  data-testid="menu-print-packing-slips"
+                >
+                  <Printer className="w-4 h-4 mr-2" />
+                  Print Packing Slips
+                  {selectedOrdersForPrint.size > 0 && (
+                    <Badge variant="secondary" className="ml-auto text-xs">
+                      {selectedOrdersForPrint.size}
+                    </Badge>
+                  )}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => handlePrintLotLabels(Array.from(selectedOrdersForPrint))}
+                  disabled={selectedOrdersForPrint.size === 0}
+                  data-testid="menu-print-lot-labels"
+                >
+                  <Tag className="w-4 h-4 mr-2" />
+                  Print Lot Labels
+                  {selectedOrdersForPrint.size > 0 && (
+                    <Badge variant="secondary" className="ml-auto text-xs">
+                      {selectedOrdersForPrint.size}
+                    </Badge>
+                  )}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => handleInitiateShipping(selectedOrderId)}
+                  disabled={!selectedOrderId}
+                  data-testid="menu-ship-order"
+                >
+                  <Package className="w-4 h-4 mr-2" />
+                  Ship Selected Order
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
@@ -418,7 +487,7 @@ export default function FulfillmentTool() {
                   }`}
                   data-testid={`order-${order.orderNumber}`}
                 >
-                  <div className="flex items-start justify-between gap-1 mb-1">
+                  <div className="flex items-center gap-2 mb-1">
                     <Checkbox
                       checked={isPrintSelected}
                       onCheckedChange={() => handlePrintSelection(order.id)}
@@ -426,15 +495,6 @@ export default function FulfillmentTool() {
                       className="mt-0.5"
                       data-testid={`checkbox-print-${order.orderNumber}`}
                     />
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => handlePrintPackingSlips([order.id])}
-                      className="h-5 w-5 hover:bg-purple-500/20"
-                      data-testid={`button-print-${order.orderNumber}`}
-                    >
-                      <Printer className="w-3 h-3" />
-                    </Button>
                   </div>
                   <div
                     onClick={() => handleOrderToggle(order.id)}
@@ -519,6 +579,20 @@ export default function FulfillmentTool() {
             <DialogTitle>Packing Slips</DialogTitle>
           </DialogHeader>
           <PackingSlip orders={packingSlipData} />
+        </DialogContent>
+      </Dialog>
+
+      {/* Lot Labels Dialog - Placeholder for future implementation */}
+      <Dialog open={showLotLabelsDialog} onOpenChange={setShowLotLabelsDialog}>
+        <DialogContent className="max-w-none w-auto max-h-[90vh] overflow-y-auto print:max-w-none print:max-h-none">
+          <DialogHeader className="print:hidden">
+            <DialogTitle>Lot Labels</DialogTitle>
+          </DialogHeader>
+          <div className="p-8 text-center">
+            <Tag className="w-16 h-16 mx-auto mb-4 text-gray-400" />
+            <p className="text-gray-400">Lot label printing will be implemented soon.</p>
+            <p className="text-sm text-gray-500 mt-2">This feature is coming in a future update.</p>
+          </div>
         </DialogContent>
       </Dialog>
 
