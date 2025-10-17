@@ -253,11 +253,18 @@ export async function getShippingVendor(apiKey?: string): Promise<IShippingVendo
     
     const [settings] = await db.select().from(appSettings).limit(1);
     
-    // Use test API key in development, production key otherwise
-    const isDevelopment = process.env.NODE_ENV === 'development';
-    apiKey = isDevelopment 
-      ? (settings?.easypostTestApiKey || settings?.easypostApiKey || undefined)
+    // Use the selected key mode from settings (defaults to 'test' for safety)
+    const keyMode = settings?.easypostKeyMode || 'test';
+    apiKey = keyMode === 'test'
+      ? (settings?.easypostTestApiKey || undefined)
       : (settings?.easypostApiKey || undefined);
+    
+    console.log('🔑 EasyPost key selection:', {
+      keyMode,
+      hasTestKey: !!settings?.easypostTestApiKey,
+      hasProductionKey: !!settings?.easypostApiKey,
+      selectedKey: apiKey ? `${apiKey.substring(0, 10)}...` : 'none'
+    });
   }
 
   if (!apiKey) {

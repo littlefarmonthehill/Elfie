@@ -62,6 +62,11 @@ export default function FulfillmentTool() {
     queryKey: ['/api/fulfillment'],
   });
 
+  // Fetch settings to determine EasyPost key mode
+  const { data: settings } = useQuery<any>({
+    queryKey: ['/api/settings'],
+  });
+
   const fulfillMutation = useMutation({
     mutationFn: async ({ itemId, fulfilled }: { itemId: string; fulfilled: boolean }) => {
       const result = await apiRequest('PUT', `/api/fulfillment/item/${itemId}/fulfill`, { fulfilled });
@@ -251,13 +256,13 @@ export default function FulfillmentTool() {
       
       // Get shipping rates
       // TODO: Make fromAddress and parcel configurable in settings
-      // Use EasyPost test addresses in development mode
-      const isDevelopment = import.meta.env.MODE === 'development';
+      // Use EasyPost test addresses when test key mode is selected
+      const isTestMode = settings?.easypostKeyMode === 'test';
       const result: any = await apiRequest('POST', '/api/shipments/create', {
         orderId: selectedOrderForShipping,
         itemIdsToShip: fulfilledItemIds,
-        fromAddress: isDevelopment ? {
-          // EasyPost test address for development
+        fromAddress: isTestMode ? {
+          // EasyPost test address for test mode
           name: "EasyPost Test",
           company: "EasyPost",
           street1: "417 Montgomery Street",
@@ -269,7 +274,7 @@ export default function FulfillmentTool() {
           phone: "4155559999",
           email: "test@easypost.com"
         } : {
-          // Production address
+          // Production address for production mode
           name: "PlanetBrick Warehouse",
           company: "PlanetBrick",
           street1: "123 Brick Lane",
