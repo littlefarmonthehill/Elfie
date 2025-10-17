@@ -603,34 +603,38 @@ export default function FulfillmentTool() {
 
           {/* Step 2: Rate Selection */}
           {shippingStep === 'rates' && (
-            <div className="space-y-4">
-              {shippingRates.length === 0 ? (
-                <p className="text-sm text-gray-400">Loading rates...</p>
-              ) : (
-                <RadioGroup value={selectedRate || ''} onValueChange={setSelectedRate}>
-                  <div className="space-y-2">
-                    {shippingRates.map((rate: any) => (
-                      <div 
-                        key={rate.id} 
-                        className="flex items-center space-x-2 border border-gray-700 rounded-lg p-3 hover-elevate"
-                      >
-                        <RadioGroupItem value={rate.id} id={rate.id} data-testid={`radio-rate-${rate.id}`} />
-                        <Label htmlFor={rate.id} className="flex-1 cursor-pointer">
-                          <div className="flex justify-between items-center">
-                            <div>
-                              <p className="text-sm font-medium">{rate.service}</p>
-                              <p className="text-xs text-gray-400">{rate.carrier} • {rate.deliveryDays} days</p>
+            <div className="flex flex-col gap-4 max-h-[70vh]">
+              {/* Scrollable rates container */}
+              <div className="flex-1 overflow-y-auto min-h-0 pr-2">
+                {shippingRates.length === 0 ? (
+                  <p className="text-sm text-gray-400">Loading rates...</p>
+                ) : (
+                  <RadioGroup value={selectedRate || ''} onValueChange={setSelectedRate}>
+                    <div className="space-y-2">
+                      {shippingRates.map((rate: any) => (
+                        <div 
+                          key={rate.id} 
+                          className="flex items-center space-x-2 border border-gray-700 rounded-lg p-3 hover-elevate"
+                        >
+                          <RadioGroupItem value={rate.id} id={rate.id} data-testid={`radio-rate-${rate.id}`} />
+                          <Label htmlFor={rate.id} className="flex-1 cursor-pointer">
+                            <div className="flex justify-between items-center">
+                              <div>
+                                <p className="text-sm font-medium">{rate.service}</p>
+                                <p className="text-xs text-gray-400">{rate.carrier} • {rate.deliveryDays} days</p>
+                              </div>
+                              <p className="text-lg font-bold">${rate.rate}</p>
                             </div>
-                            <p className="text-lg font-bold">${rate.rate}</p>
-                          </div>
-                        </Label>
-                      </div>
-                    ))}
-                  </div>
-                </RadioGroup>
-              )}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  </RadioGroup>
+                )}
+              </div>
 
-              <div className="flex justify-end gap-2">
+              {/* Fixed buttons at bottom */}
+              <div className="flex justify-end gap-2 pt-2 border-t border-gray-700">
                 <Button 
                   variant="outline" 
                   onClick={() => setShowShippingDialog(false)}
