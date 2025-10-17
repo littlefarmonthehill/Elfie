@@ -119,19 +119,19 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick }: M
       <div className="bg-gray-900/50 border border-yellow-500/20 rounded-lg p-4 md:p-5" data-testid="section-customer-metrics">
         <div className="flex items-center gap-2 mb-3">
           <Users className="w-4 h-4 md:w-5 md:h-5 text-yellow-400" />
-          <h3 className="text-xs md:text-sm lg:text-base font-semibold text-yellow-400 uppercase tracking-wide">Customer Metrics</h3>
+          <h3 className="text-sm md:text-base lg:text-lg font-semibold text-yellow-400 uppercase tracking-wide">Customer Metrics</h3>
         </div>
         <div className="grid grid-cols-3 gap-2 md:gap-4">
           <div className="text-center">
-            <div className="text-[11px] md:text-xs lg:text-sm text-gray-400 mb-1">Total Customers</div>
+            <div className="text-xs md:text-sm lg:text-base text-gray-400 mb-1">Total Customers</div>
             <div className="text-lg md:text-xl text-gray-200 font-mono font-semibold">{totalCustomers}</div>
           </div>
           <div className="text-center">
-            <div className="text-[11px] md:text-xs lg:text-sm text-gray-400 mb-1">Repeat Rate</div>
+            <div className="text-xs md:text-sm lg:text-base text-gray-400 mb-1">Repeat Rate</div>
             <div className="text-lg md:text-xl text-lego-green font-mono font-semibold">{repeatCustomerRate}%</div>
           </div>
           <div className="text-center">
-            <div className="text-[11px] md:text-xs lg:text-sm text-gray-400 mb-1 whitespace-nowrap">Avg Orders/Customer</div>
+            <div className="text-xs md:text-sm lg:text-base text-gray-400 mb-1 whitespace-nowrap">Avg Orders/Customer</div>
             <div className="text-lg md:text-xl text-gray-200 font-mono font-semibold">{averageOrdersPerCustomer}</div>
           </div>
         </div>
@@ -140,8 +140,8 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick }: M
       {/* Highlights - Top Customers */}
       <div className="bg-gray-900/50 border border-green-500/20 rounded-lg p-3 md:p-4" data-testid="section-top-customers">
         <div className="flex items-center gap-2 mb-2">
-          <Star className="w-3.5 h-3.5 md:w-4 md:h-4 lg:w-5 lg:h-5 text-green-400" />
-          <h3 className="text-xs md:text-sm lg:text-base font-semibold text-green-400 uppercase tracking-wide">Highlights - Top Customers by Revenue</h3>
+          <Star className="w-4 h-4 md:w-5 md:h-5 lg:w-6 lg:h-6 text-green-400" />
+          <h3 className="text-sm md:text-base lg:text-lg font-semibold text-green-400 uppercase tracking-wide">Highlights - Top Customers by Revenue</h3>
         </div>
         <div className="space-y-1.5">
           {topCustomers.length > 0 ? (
@@ -156,11 +156,11 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick }: M
                 data-testid={`top-customer-${idx}`}
               >
                 <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <Star className="w-3.5 h-3.5 md:w-4 md:h-4 lg:w-5 lg:h-5 text-green-400 flex-shrink-0" />
-                  <span className="text-gray-200 text-xs md:text-sm lg:text-base font-medium">{customer.customerUsername}</span>
-                  <span className="text-gray-400 text-[11px] md:text-xs lg:text-sm">{customer.orderCount} {customer.orderCount === 1 ? 'order' : 'orders'}</span>
+                  <Star className="w-4 h-4 md:w-5 md:h-5 lg:w-6 lg:h-6 text-green-400 flex-shrink-0" />
+                  <span className="text-gray-200 text-sm md:text-base lg:text-lg font-medium">{customer.customerUsername}</span>
+                  <span className="text-gray-400 text-xs md:text-sm lg:text-base">{customer.orderCount} {customer.orderCount === 1 ? 'order' : 'orders'}</span>
                 </div>
-                <span className="text-lego-green font-mono font-medium text-xs md:text-sm lg:text-base ml-2 flex-shrink-0">${customer.totalRevenue.toFixed(2)}</span>
+                <span className="text-lego-green font-mono font-medium text-sm md:text-base lg:text-lg ml-2 flex-shrink-0">${customer.totalRevenue.toFixed(2)}</span>
               </div>
             ))
           ) : (
@@ -172,8 +172,8 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick }: M
       {/* Action Items - Repeat Customers */}
       <div className="bg-gray-900/50 border border-blue-500/20 rounded-lg p-3 md:p-4" data-testid="section-repeat-customers">
         <div className="flex items-center gap-2 mb-2">
-          <TrendingUp className="w-3.5 h-3.5 md:w-4 md:h-4 lg:w-5 lg:h-5 text-blue-400" />
-          <h3 className="text-xs md:text-sm lg:text-base font-semibold text-blue-400 uppercase tracking-wide">Action Items - Engage Repeat Customers</h3>
+          <TrendingUp className="w-4 h-4 md:w-5 md:h-5 lg:w-6 lg:h-6 text-blue-400" />
+          <h3 className="text-sm md:text-base lg:text-lg font-semibold text-blue-400 uppercase tracking-wide">Action Items - Engage Repeat Customers</h3>
         </div>
         <div className="space-y-1.5">
           {repeatCustomers.length > 0 ? (
@@ -188,11 +188,11 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick }: M
                 data-testid={`repeat-customer-${idx}`}
               >
                 <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <Users className="w-3.5 h-3.5 md:w-4 md:h-4 lg:w-5 lg:h-5 text-blue-400 flex-shrink-0" />
-                  <span className="text-gray-200 text-xs md:text-sm lg:text-base font-medium">{customer.customerUsername}</span>
-                  <span className="text-gray-400 text-[11px] md:text-xs lg:text-sm">{customer.orderCount}x buyer</span>
+                  <Users className="w-4 h-4 md:w-5 md:h-5 lg:w-6 lg:h-6 text-blue-400 flex-shrink-0" />
+                  <span className="text-gray-200 text-sm md:text-base lg:text-lg font-medium">{customer.customerUsername}</span>
+                  <span className="text-gray-400 text-xs md:text-sm lg:text-base">{customer.orderCount}x buyer</span>
                 </div>
-                <span className="text-lego-green font-mono font-medium text-xs md:text-sm lg:text-base ml-2 flex-shrink-0">${customer.totalRevenue.toFixed(2)}</span>
+                <span className="text-lego-green font-mono font-medium text-sm md:text-base lg:text-lg ml-2 flex-shrink-0">${customer.totalRevenue.toFixed(2)}</span>
               </div>
             ))
           ) : (
@@ -204,8 +204,8 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick }: M
       {/* Recent Activity - New Customers */}
       <div className="bg-gray-900/50 border border-purple-500/20 rounded-lg p-3 md:p-4" data-testid="section-new-customers">
         <div className="flex items-center gap-2 mb-2">
-          <Target className="w-3.5 h-3.5 md:w-4 md:h-4 lg:w-5 lg:h-5 text-purple-400" />
-          <h3 className="text-xs md:text-sm lg:text-base font-semibold text-purple-400 uppercase tracking-wide">Recent Activity - New Customers (Last 30 Days)</h3>
+          <Target className="w-4 h-4 md:w-5 md:h-5 lg:w-6 lg:h-6 text-purple-400" />
+          <h3 className="text-sm md:text-base lg:text-lg font-semibold text-purple-400 uppercase tracking-wide">Recent Activity - New Customers (Last 30 Days)</h3>
         </div>
         <div className="space-y-1.5">
           {recentNewCustomers.length > 0 ? (
@@ -220,11 +220,11 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick }: M
                 data-testid={`new-customer-${idx}`}
               >
                 <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <div className="w-2 h-2 md:w-2.5 md:h-2.5 lg:w-3 lg:h-3 rounded-full bg-purple-400 flex-shrink-0" />
-                  <span className="text-gray-200 text-xs md:text-sm lg:text-base font-medium">{customer.customerUsername}</span>
-                  <span className="text-gray-400 text-[11px] md:text-xs lg:text-sm">{new Date(customer.lastOrderDate).toLocaleDateString()}</span>
+                  <div className="w-2.5 h-2.5 md:w-3 md:h-3 lg:w-3.5 lg:h-3.5 rounded-full bg-purple-400 flex-shrink-0" />
+                  <span className="text-gray-200 text-sm md:text-base lg:text-lg font-medium">{customer.customerUsername}</span>
+                  <span className="text-gray-400 text-xs md:text-sm lg:text-base">{new Date(customer.lastOrderDate).toLocaleDateString()}</span>
                 </div>
-                <span className="text-lego-green font-mono font-medium text-xs md:text-sm lg:text-base ml-2 flex-shrink-0">${customer.totalRevenue.toFixed(2)}</span>
+                <span className="text-lego-green font-mono font-medium text-sm md:text-base lg:text-lg ml-2 flex-shrink-0">${customer.totalRevenue.toFixed(2)}</span>
               </div>
             ))
           ) : (
