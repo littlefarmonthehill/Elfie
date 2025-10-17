@@ -4024,6 +4024,71 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
     }
   });
 
+  // Get packing slip data for one or more orders
+  app.post("/api/fulfillment/packing-slip", async (req, res) => {
+    try {
+      const { orderIds } = req.body;
+      
+      if (!orderIds || !Array.isArray(orderIds) || orderIds.length === 0) {
+        return res.status(400).json({ error: "orderIds array is required" });
+      }
+      
+      // Fetch orders
+      const orderData = await db.select()
+        .from(orders)
+        .where(inArray(orders.id, orderIds));
+      
+      if (orderData.length === 0) {
+        return res.status(404).json({ error: "No orders found" });
+      }
+      
+      // Fetch order items
+      const items = await db.select({
+        orderId: orderDetails.orderId,
+        bricklinkPartNumber: orderDetails.sku,
+        name: orderDetails.name,
+        quantity: orderDetails.quantity,
+        colorName: orderDetails.lineItemOptions,
+        condition: orderDetails.unitPrice, // Store condition here temporarily
+      })
+        .from(orderDetails)
+        .where(inArray(orderDetails.orderId, orderIds));
+      
+      // Group items by order
+      const itemsByOrder = items.reduce((acc, item) => {
+        if (!acc[item.orderId]) {
+          acc[item.orderId] = [];
+        }
+        acc[item.orderId].push(item);
+        return acc;
+      }, {} as Record<string, typeof items>);
+      
+      // Format response
+      const packingSlips = orderData.map(order => {
+        let shipTo: any = {};
+        try {
+          shipTo = typeof order.shipTo === 'string' ? JSON.parse(order.shipTo) : order.shipTo;
+        } catch (e) {
+          console.error('Error parsing shipTo:', e);
+        }
+        
+        return {
+          orderNumber: order.orderNumber,
+          orderDate: order.orderDate,
+          customerUsername: order.customerUsername,
+          marketplace: order.marketplace,
+          shipTo,
+          items: itemsByOrder[order.id] || [],
+        };
+      });
+      
+      res.json(packingSlips);
+    } catch (error) {
+      console.error("Error fetching packing slip data:", error);
+      res.status(500).json({ error: "Failed to fetch packing slip data" });
+    }
+  });
+
   // Dry-Run Order Sync Tester - Test with historical orders
   app.post("/api/orders/dry-run-test", async (req, res) => {
     try {
