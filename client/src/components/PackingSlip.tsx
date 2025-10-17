@@ -1,4 +1,4 @@
-import planetLogo from "@assets/PlanetBrick_with_planet_1760672400950.png";
+import planetLogo from "@assets/PlanetBrick_dotcom_with_planet_and_robot_400_1760672362080.png";
 
 type PackingSlipOrder = {
   orderNumber: string;
@@ -94,20 +94,24 @@ export default function PackingSlip({ orders }: PackingSlipProps) {
             <table className="slip-table">
               <thead>
                 <tr>
+                  <th style={{ width: '80px' }}>SKU</th>
                   <th>Item</th>
-                  <th className="text-center">Qty</th>
+                  <th className="text-center" style={{ width: '40px' }}>Qty</th>
                 </tr>
               </thead>
               <tbody>
                 {order.items.map((item, idx) => (
                   <tr key={idx}>
+                    <td className="slip-sku">
+                      {item.bricklinkPartNumber || '-'}
+                    </td>
                     <td>
                       <div className="slip-item-name">
-                        {item.bricklinkPartNumber && `${item.bricklinkPartNumber} - `}{item.name}
+                        {item.name}
                       </div>
                       <div className="slip-item-details">
-                        {item.colorName && `${item.colorName} • `}
-                        {item.condition && item.condition}
+                        {item.colorName && <div>{item.colorName}</div>}
+                        {item.condition && <div>{item.condition}</div>}
                       </div>
                     </td>
                     <td className="text-center slip-qty">{item.quantity}</td>
@@ -227,14 +231,26 @@ export default function PackingSlip({ orders }: PackingSlipProps) {
           vertical-align: top;
         }
 
+        .slip-sku {
+          font-family: 'Courier New', monospace;
+          font-size: 8pt;
+          font-weight: bold;
+          vertical-align: top;
+        }
+
         .slip-item-name {
           font-weight: 600;
-          margin-bottom: 0.02in;
+          margin-bottom: 0.03in;
         }
 
         .slip-item-details {
           font-size: 7pt;
           color: #666;
+          line-height: 1.4;
+        }
+
+        .slip-item-details div {
+          margin: 0.01in 0;
         }
 
         .slip-qty {
