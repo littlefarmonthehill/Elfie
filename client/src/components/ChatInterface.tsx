@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { InventoryGroup } from "@/components/InventoryGroup";
 import { OrderGroup } from "@/components/OrderGroup";
+import elfieRobot from "@assets/PlanetBrick_good_robot_1760672362080.png";
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -561,7 +562,11 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
       >
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-2 px-2 py-1 rounded-full bg-purple-500/20 border border-purple-500/30">
-            <Bot className={`h-4 w-4 ${colors.icon}`} />
+            <img 
+              src={elfieRobot} 
+              alt="Elfie Robot" 
+              className="h-6 w-6 md:h-7 md:w-7 lg:h-8 lg:w-8 object-contain"
+            />
             <span className="text-sm font-bold text-purple-300">E.L.F.I.E.</span>
           </div>
           <span className="text-xs text-gray-400">AI Assistant</span>
@@ -595,9 +600,19 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
               {messages.map((message, i) => (
                 <div
                   key={i}
-                  className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                  className={`flex gap-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                   data-testid={`message-${message.role}-${i}`}
                 >
+                  {/* Show Elfie avatar for assistant messages */}
+                  {message.role === 'assistant' && (
+                    <div className="flex-shrink-0">
+                      <img 
+                        src={elfieRobot} 
+                        alt="Elfie" 
+                        className="h-8 w-8 md:h-9 md:w-9 lg:h-10 lg:w-10 object-contain"
+                      />
+                    </div>
+                  )}
                   <div
                     className={`max-w-[80%] rounded-lg text-xs ${
                       message.role === 'user'
