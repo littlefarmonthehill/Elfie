@@ -31,7 +31,7 @@ export default function PlatformOrdersDrawer({
       <DrawerContent className="bg-gray-900 border-gray-700 h-[85vh] flex flex-col">
         <DrawerHeader className="border-b border-gray-700 py-2 flex-shrink-0">
           <div className="flex items-center justify-between">
-            <DrawerTitle className="text-xs font-black text-white uppercase tracking-wide">
+            <DrawerTitle className="text-xs md:text-sm font-black text-white uppercase tracking-wide">
               📦 {platform} Orders
             </DrawerTitle>
             <button
@@ -66,21 +66,21 @@ export default function PlatformOrdersDrawer({
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-sm font-mono font-bold text-white">#{order.orderNumber}</span>
+                        <span className="text-sm md:text-base font-mono font-bold text-white">#{order.orderNumber}</span>
                         {order.marketplace && (
-                          <span className="text-[10px] text-gray-400 bg-gray-700/50 px-1.5 py-0.5 rounded">
+                          <span className="text-[10px] md:text-xs text-gray-400 bg-gray-700/50 px-1.5 py-0.5 rounded">
                             {order.marketplace}
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 text-[10px] text-gray-400">
+                      <div className="flex items-center gap-2 text-[10px] md:text-xs text-gray-400">
                         <span>{order.customerUsername}</span>
                         <span className="text-gray-600">•</span>
                         <span>{new Date(order.orderDate).toLocaleDateString()}</span>
                       </div>
                     </div>
                     <div className="text-right flex-shrink-0 ml-3">
-                      <div className="text-sm font-mono font-bold text-green-400">
+                      <div className="text-sm md:text-base font-mono font-bold text-green-400">
                         ${Number(order.orderTotal).toFixed(2)}
                       </div>
                       <div className="text-[9px] text-gray-500 mt-0.5">
