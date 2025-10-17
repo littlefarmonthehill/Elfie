@@ -52,10 +52,10 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
   return (
     <div className="p-2 space-y-1.5 bg-gradient-to-br from-lego-orange/5 to-transparent rounded-lg border border-lego-orange/10 shadow-[0_0_15px_rgba(251,146,60,0.1)]">
       {/* Action Items - Pending Orders */}
-      <div className="bg-gray-900/50 border border-orange-500/20 rounded-lg p-3" data-testid="section-pending-orders">
+      <div className="bg-gray-900/50 border border-orange-500/20 rounded-lg p-3 md:p-4" data-testid="section-pending-orders">
         <div className="flex items-center gap-2 mb-2">
-          <AlertCircle className="w-3.5 h-3.5 text-orange-400" />
-          <h3 className="text-xs font-semibold text-orange-400 uppercase tracking-wide">Action Items - Pending Orders</h3>
+          <AlertCircle className="w-3.5 h-3.5 md:w-4 md:h-4 text-orange-400" />
+          <h3 className="text-xs md:text-sm font-semibold text-orange-400 uppercase tracking-wide">Action Items - Pending Orders</h3>
         </div>
         <div className="space-y-1.5">
           {pendingOrders.length > 0 ? (
@@ -67,11 +67,11 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                 data-testid={`pending-order-${order.id}`}
               >
                 <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <ShoppingCart className="w-3.5 h-3.5 text-orange-400 flex-shrink-0" />
-                  <span className="text-gray-200 font-mono text-xs font-medium">#{order.orderNumber}</span>
-                  <span className="text-gray-400 text-[11px]">{order.customerUsername}</span>
+                  <ShoppingCart className="w-3.5 h-3.5 md:w-4 md:h-4 text-orange-400 flex-shrink-0" />
+                  <span className="text-gray-200 font-mono text-xs md:text-sm font-medium">#{order.orderNumber}</span>
+                  <span className="text-gray-400 text-[11px] md:text-xs">{order.customerUsername}</span>
                 </div>
-                <span className="text-lego-green font-mono font-medium text-xs ml-2 flex-shrink-0">${Number(order.orderTotal || 0).toFixed(2)}</span>
+                <span className="text-lego-green font-mono font-medium text-xs md:text-sm ml-2 flex-shrink-0">${Number(order.orderTotal || 0).toFixed(2)}</span>
               </div>
             ))
           ) : (
@@ -81,10 +81,10 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
       </div>
 
       {/* Recent Activity - Shipments */}
-      <div className="bg-gray-900/50 border border-blue-500/20 rounded-lg p-3" data-testid="section-recent-shipments">
+      <div className="bg-gray-900/50 border border-blue-500/20 rounded-lg p-3 md:p-4" data-testid="section-recent-shipments">
         <div className="flex items-center gap-2 mb-2">
-          <Package className="w-3.5 h-3.5 text-blue-400" />
-          <h3 className="text-xs font-semibold text-blue-400 uppercase tracking-wide">Recent Activity - Shipped Orders</h3>
+          <Package className="w-3.5 h-3.5 md:w-4 md:h-4 text-blue-400" />
+          <h3 className="text-xs md:text-sm font-semibold text-blue-400 uppercase tracking-wide">Recent Activity - Shipped Orders</h3>
         </div>
         <div className="space-y-1.5">
           {recentShipments.length > 0 ? (
@@ -96,11 +96,11 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                 data-testid={`shipped-order-${order.id}`}
               >
                 <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <div className="w-2 h-2 rounded-full bg-green-400 flex-shrink-0" />
-                  <span className="text-gray-200 font-mono text-xs font-medium">#{order.orderNumber}</span>
-                  <span className="text-gray-400 text-[11px]">{order.customerUsername}</span>
+                  <div className="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full bg-green-400 flex-shrink-0" />
+                  <span className="text-gray-200 font-mono text-xs md:text-sm font-medium">#{order.orderNumber}</span>
+                  <span className="text-gray-400 text-[11px] md:text-xs">{order.customerUsername}</span>
                 </div>
-                <span className="text-lego-green font-mono font-medium text-xs ml-2 flex-shrink-0">${Number(order.orderTotal || 0).toFixed(2)}</span>
+                <span className="text-lego-green font-mono font-medium text-xs md:text-sm ml-2 flex-shrink-0">${Number(order.orderTotal || 0).toFixed(2)}</span>
               </div>
             ))
           ) : (
@@ -110,10 +110,10 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
       </div>
 
       {/* Highlights - High Value Orders */}
-      <div className="bg-gray-900/50 border border-green-500/20 rounded-lg p-3" data-testid="section-high-value-orders">
+      <div className="bg-gray-900/50 border border-green-500/20 rounded-lg p-3 md:p-4" data-testid="section-high-value-orders">
         <div className="flex items-center gap-2 mb-2">
-          <TrendingUp className="w-3.5 h-3.5 text-green-400" />
-          <h3 className="text-xs font-semibold text-green-400 uppercase tracking-wide">Highlights - Top Value Orders</h3>
+          <TrendingUp className="w-3.5 h-3.5 md:w-4 md:h-4 text-green-400" />
+          <h3 className="text-xs md:text-sm font-semibold text-green-400 uppercase tracking-wide">Highlights - Top Value Orders</h3>
         </div>
         <div className="space-y-1.5">
           {highValueOrders.length > 0 ? (
@@ -125,11 +125,11 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                 data-testid={`high-value-order-${order.id}`}
               >
                 <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <TrendingUp className="w-3.5 h-3.5 text-green-400 flex-shrink-0" />
-                  <span className="text-gray-200 font-mono text-xs font-medium">#{order.orderNumber}</span>
-                  <span className="text-gray-400 text-[11px]">{order.customerUsername}</span>
+                  <TrendingUp className="w-3.5 h-3.5 md:w-4 md:h-4 text-green-400 flex-shrink-0" />
+                  <span className="text-gray-200 font-mono text-xs md:text-sm font-medium">#{order.orderNumber}</span>
+                  <span className="text-gray-400 text-[11px] md:text-xs">{order.customerUsername}</span>
                 </div>
-                <span className="text-lego-green font-mono font-medium text-xs ml-2 flex-shrink-0">${Number(order.orderTotal).toFixed(2)}</span>
+                <span className="text-lego-green font-mono font-medium text-xs md:text-sm ml-2 flex-shrink-0">${Number(order.orderTotal).toFixed(2)}</span>
               </div>
             ))
           ) : (
