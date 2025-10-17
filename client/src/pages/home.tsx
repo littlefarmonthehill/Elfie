@@ -633,7 +633,7 @@ export default function Home() {
                   className="relative text-[10px] md:text-sm lg:text-base font-bold py-1 md:py-1.5 lg:py-2 px-1.5 md:px-3 lg:px-4 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
                   data-testid="button-fulfillment"
                 >
-                  Fulfillment
+                  Fulfillment and Shipping
                   {fulfillmentStats && fulfillmentStats.unfulfilled > 0 && (
                     <span className="absolute -top-1 -right-1 md:-top-1.5 md:-right-1.5 bg-green-500 text-white text-[9px] md:text-[11px] lg:text-xs font-bold rounded-full h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6 flex items-center justify-center">
                       {fulfillmentStats.unfulfilled}

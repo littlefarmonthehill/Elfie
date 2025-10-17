@@ -159,7 +159,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
           <DrawerHeader>
             <DrawerTitle className="flex items-center gap-2">
               <Truck className="w-5 h-5 text-green-400" />
-              Fulfillment
+              Fulfillment and Shipping
             </DrawerTitle>
           </DrawerHeader>
           <div className="overflow-y-auto px-4 pb-4 flex-1">

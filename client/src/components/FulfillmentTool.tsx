@@ -332,22 +332,22 @@ export default function FulfillmentTool() {
           <div className="flex gap-2">
             <Button
               size="sm"
+              variant="outline"
               onClick={() => handlePrintPackingSlips(Array.from(selectedOrdersForPrint))}
               disabled={selectedOrdersForPrint.size === 0}
-              className="h-7 text-xs bg-purple-600 hover:bg-purple-700"
               data-testid="button-print-selected"
             >
-              <Printer className="w-3.5 h-3.5 md:w-4 md:h-4 lg:w-4 lg:w-4 mr-1.5" />
-              Print {selectedOrdersForPrint.size > 0 ? `(${selectedOrdersForPrint.size})` : 'Selected'}
+              <Printer className="w-3.5 h-3.5 mr-1.5" />
+              Packing Slips {selectedOrdersForPrint.size > 0 ? `(${selectedOrdersForPrint.size})` : ''}
             </Button>
             <Button
               size="sm"
+              variant="outline"
               onClick={() => handleInitiateShipping(selectedOrderId)}
               disabled={!selectedOrderId}
-              className="h-7 text-xs bg-blue-600 hover:bg-blue-700"
               data-testid="button-ship-order"
             >
-              <Package className="w-3.5 h-3.5 md:w-4 md:h-4 lg:w-4 lg:w-4 mr-1.5" />
+              <Package className="w-3.5 h-3.5 mr-1.5" />
               Ship Order
             </Button>
           </div>
@@ -355,7 +355,7 @@ export default function FulfillmentTool() {
 
         {/* Orders Section - Filter Toggles with Print Checkboxes */}
         <div>
-          <h3 className="text-xs md:text-base lg:text-lg font-bold text-gray-300 mb-3">Order Filters</h3>
+          <h3 className="text-xs md:text-base lg:text-lg font-bold text-gray-300 mb-3">Orders</h3>
           <div className="grid grid-cols-4 gap-2">
             {sortedOrders.map((order) => {
               const isSelected = selectedOrderId === order.id;
@@ -407,7 +407,7 @@ export default function FulfillmentTool() {
 
       {/* Fulfill Section - Grouped by bin */}
       <div>
-        <h3 className="text-sm font-bold text-gray-300 mb-3">Fulfill</h3>
+        <h3 className="text-sm font-bold text-gray-300 mb-3">Order Details</h3>
         <div className="space-y-3">
           {Object.entries(itemsByBin).map(([binKey, bin]) => (
             <div key={binKey} className="space-y-2" data-testid={`bin-group-${binKey}`}>
