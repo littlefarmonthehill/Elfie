@@ -19,7 +19,7 @@ export default function Home() {
   const [salesPeriod, setSalesPeriod] = useState<'mtd' | 'ytd' | '1y' | '5y'>('ytd');
   const [dateRange, setDateRange] = useState<DateRangeValue>('mtd');
   const [chatMinimized, setChatMinimized] = useState(true);
-  const [activeInventoryDrawer, setActiveInventoryDrawer] = useState<'priceomatic' | 'warehouse' | 'listing' | 'platformsync' | null>(null);
+  const [activeInventoryDrawer, setActiveInventoryDrawer] = useState<'priceomatic' | 'warehouse' | 'platformsync' | null>(null);
   const [activeOrdersDrawer, setActiveOrdersDrawer] = useState<'picklist' | 'fulfillment' | 'platformsync' | 'shipping' | null>(null);
   const [detailModal, setDetailModal] = useState<{ open: boolean; data: DetailData | null }>({
     open: false,
@@ -578,13 +578,6 @@ export default function Home() {
                 <span className="text-[10px] md:text-sm lg:text-base font-bold text-gray-400">TOOLS</span>
               </div>
               <div className="flex gap-1 md:gap-2 lg:gap-2.5">
-                <button
-                  onClick={() => setActiveInventoryDrawer('listing')}
-                  className="text-[10px] md:text-sm lg:text-base font-bold py-1 md:py-1.5 lg:py-2 px-1.5 md:px-3 lg:px-4 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
-                  data-testid="button-listing"
-                >
-                  Listing
-                </button>
                 <button
                   onClick={() => setActiveInventoryDrawer('priceomatic')}
                   className="text-[10px] md:text-sm lg:text-base font-bold py-1 md:py-1.5 lg:py-2 px-1.5 md:px-3 lg:px-4 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"

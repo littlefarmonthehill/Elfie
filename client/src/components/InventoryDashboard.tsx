@@ -1,6 +1,6 @@
 import MetricCard from "./MetricCard";
 import { useQuery } from "@tanstack/react-query";
-import { InfoIcon, AlertCircle, Package, TrendingUp, Clock, Sparkles, Warehouse, RefreshCw, Tag } from "lucide-react";
+import { InfoIcon, AlertCircle, Package, TrendingUp, Clock, Sparkles, Warehouse, RefreshCw } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -55,8 +55,8 @@ interface RecentInventoryItem {
 
 interface InventoryDashboardProps {
   onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
-  activeDrawer: 'priceomatic' | 'warehouse' | 'listing' | 'platformsync' | null;
-  onDrawerChange: (drawer: 'priceomatic' | 'warehouse' | 'listing' | 'platformsync' | null) => void;
+  activeDrawer: 'priceomatic' | 'warehouse' | 'platformsync' | null;
+  onDrawerChange: (drawer: 'priceomatic' | 'warehouse' | 'platformsync' | null) => void;
 }
 
 export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawerChange }: InventoryDashboardProps) {
@@ -314,27 +314,6 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
           </DrawerHeader>
           <div className="overflow-y-auto px-4 pb-4 flex-1">
             <WarehouseManagement onItemClick={onItemClick} />
-          </div>
-        </DrawerContent>
-      </Drawer>
-
-      {/* Listing Drawer */}
-      <Drawer open={activeDrawer === 'listing'} onOpenChange={(open) => !open && onDrawerChange(null)}>
-        <DrawerContent className="h-[90vh]">
-          <DrawerHeader>
-            <DrawerTitle className="flex items-center gap-2">
-              <Tag className="w-5 h-5 text-blue-400" />
-              Listing
-            </DrawerTitle>
-          </DrawerHeader>
-          <div className="overflow-y-auto px-4 pb-4 flex-1">
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center text-gray-400">
-                <Tag className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                <p className="text-sm">Listing functionality</p>
-                <p className="text-xs mt-1">Coming soon</p>
-              </div>
-            </div>
           </div>
         </DrawerContent>
       </Drawer>
