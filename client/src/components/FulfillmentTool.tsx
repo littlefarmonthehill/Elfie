@@ -5,8 +5,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Truck, Loader2, Printer, CheckSquare, Square } from "lucide-react";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Truck, Loader2, Printer, CheckSquare, Square, Package, AlertTriangle } from "lucide-react";
 import PackingSlip from "./PackingSlip";
+import { useToast } from "@/hooks/use-toast";
 
 type Order = {
   id: string;
@@ -38,10 +42,21 @@ type FulfillmentData = {
 };
 
 export default function FulfillmentTool() {
+  const { toast } = useToast();
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [selectedOrdersForPrint, setSelectedOrdersForPrint] = useState<Set<string>>(new Set());
   const [showPackingSlipDialog, setShowPackingSlipDialog] = useState(false);
   const [packingSlipData, setPackingSlipData] = useState<any[]>([]);
+  
+  // Shipping state
+  const [showShippingDialog, setShowShippingDialog] = useState(false);
+  const [shippingStep, setShippingStep] = useState<'preview' | 'rates' | 'label'>('preview');
+  const [selectedOrderForShipping, setSelectedOrderForShipping] = useState<string | null>(null);
+  const [shippingRates, setShippingRates] = useState<any[]>([]);
+  const [selectedRate, setSelectedRate] = useState<string | null>(null);
+  const [shipmentData, setShipmentData] = useState<any>(null);
+  const [splitPreview, setSplitPreview] = useState<any>(null);
+  const [isLoadingShipping, setIsLoadingShipping] = useState(false);
 
   const { data, isLoading } = useQuery<FulfillmentData>({
     queryKey: ['/api/fulfillment'],
@@ -177,10 +192,121 @@ export default function FulfillmentTool() {
     }
   };
 
+  const handleInitiateShipping = async (orderId: string | null) => {
+    if (!orderId || !data) return;
+    
+    // Get items for this order
+    const orderItems = data.items.filter(item => item.orderId === orderId);
+    const fulfilledItemIds = orderItems.filter(item => item.fulfilled).map(item => item.id);
+    
+    // Validate that at least one item is fulfilled
+    if (fulfilledItemIds.length === 0) {
+      toast({
+        title: "No Items Ready",
+        description: "Please check at least one item to fulfill before shipping.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setSelectedOrderForShipping(orderId);
+    setShippingStep('preview');
+    setShowShippingDialog(true);
+    setIsLoadingShipping(true);
+    
+    // Check if split is needed
+    try {
+      const result = await apiRequest('POST', '/api/shipments/preview', {
+        orderId,
+        itemIdsToShip: fulfilledItemIds
+      });
+      setSplitPreview(result);
+    } catch (error: any) {
+      console.error('Error previewing shipment:', error);
+      toast({
+        title: "Preview Failed",
+        description: error.message || "Failed to preview shipment. Please try again.",
+        variant: "destructive",
+      });
+      setShowShippingDialog(false);
+    } finally {
+      setIsLoadingShipping(false);
+    }
+  };
+
+  const handleGetShippingRates = async () => {
+    if (!selectedOrderForShipping || !data) return;
+    
+    const orderItems = data.items.filter(item => item.orderId === selectedOrderForShipping);
+    const fulfilledItemIds = orderItems.filter(item => item.fulfilled).map(item => item.id);
+    
+    setIsLoadingShipping(true);
+    try {
+      // If split is needed, perform split first
+      if (splitPreview?.needsSplit) {
+        await apiRequest('POST', `/api/orders/${selectedOrderForShipping}/split`, {
+          itemIdsToKeep: fulfilledItemIds
+        });
+      }
+      
+      // Get shipping rates
+      const result: any = await apiRequest('POST', '/api/shipments/create', {
+        orderId: selectedOrderForShipping,
+        itemIdsToShip: fulfilledItemIds
+      });
+      
+      setShipmentData(result);
+      setShippingRates(result.rates || []);
+      setShippingStep('rates');
+    } catch (error: any) {
+      console.error('Error getting shipping rates:', error);
+      toast({
+        title: "Rate Fetch Failed",
+        description: error.message || "Failed to get shipping rates. Please try again.",
+        variant: "destructive",
+      });
+      setShowShippingDialog(false);
+    } finally {
+      setIsLoadingShipping(false);
+    }
+  };
+
+  const handlePurchaseLabel = async () => {
+    if (!selectedRate || !shipmentData) return;
+    
+    setIsLoadingShipping(true);
+    try {
+      const result: any = await apiRequest('POST', '/api/shipments/purchase', {
+        shipmentId: shipmentData.shipmentId,
+        rateId: selectedRate
+      });
+      
+      setShipmentData(result.shipment);
+      setShippingStep('label');
+      
+      // Refresh fulfillment data
+      queryClient.invalidateQueries({ queryKey: ['/api/fulfillment'] });
+      
+      toast({
+        title: "Label Purchased",
+        description: "Shipping label generated successfully!",
+      });
+    } catch (error: any) {
+      console.error('Error purchasing label:', error);
+      toast({
+        title: "Purchase Failed",
+        description: error.message || "Failed to purchase label. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingShipping(false);
+    }
+  };
+
   return (
     <>
       <div className="space-y-4">
-        {/* Print Controls */}
+        {/* Print & Ship Controls */}
         <div className="flex items-center justify-between gap-2 pb-3 border-b border-gray-700">
           <div className="flex items-center gap-2">
             <Button
@@ -203,16 +329,28 @@ export default function FulfillmentTool() {
               </Badge>
             )}
           </div>
-          <Button
-            size="sm"
-            onClick={() => handlePrintPackingSlips(Array.from(selectedOrdersForPrint))}
-            disabled={selectedOrdersForPrint.size === 0}
-            className="h-7 text-xs bg-purple-600 hover:bg-purple-700"
-            data-testid="button-print-selected"
-          >
-            <Printer className="w-3.5 h-3.5 md:w-4 md:h-4 lg:w-4 lg:w-4 mr-1.5" />
-            Print {selectedOrdersForPrint.size > 0 ? `(${selectedOrdersForPrint.size})` : 'Selected'}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              onClick={() => handlePrintPackingSlips(Array.from(selectedOrdersForPrint))}
+              disabled={selectedOrdersForPrint.size === 0}
+              className="h-7 text-xs bg-purple-600 hover:bg-purple-700"
+              data-testid="button-print-selected"
+            >
+              <Printer className="w-3.5 h-3.5 md:w-4 md:h-4 lg:w-4 lg:w-4 mr-1.5" />
+              Print {selectedOrdersForPrint.size > 0 ? `(${selectedOrdersForPrint.size})` : 'Selected'}
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => handleInitiateShipping(selectedOrderId)}
+              disabled={!selectedOrderId}
+              className="h-7 text-xs bg-blue-600 hover:bg-blue-700"
+              data-testid="button-ship-order"
+            >
+              <Package className="w-3.5 h-3.5 md:w-4 md:h-4 lg:w-4 lg:w-4 mr-1.5" />
+              Ship Order
+            </Button>
+          </div>
         </div>
 
         {/* Orders Section - Filter Toggles with Print Checkboxes */}
@@ -333,6 +471,187 @@ export default function FulfillmentTool() {
             <DialogTitle>Packing Slips</DialogTitle>
           </DialogHeader>
           <PackingSlip orders={packingSlipData} />
+        </DialogContent>
+      </Dialog>
+
+      {/* Shipping Dialog */}
+      <Dialog open={showShippingDialog} onOpenChange={(open) => {
+        setShowShippingDialog(open);
+        if (!open) {
+          // Reset state when closing
+          setShippingStep('preview');
+          setSelectedOrderForShipping(null);
+          setShippingRates([]);
+          setSelectedRate(null);
+          setShipmentData(null);
+          setSplitPreview(null);
+          setIsLoadingShipping(false);
+        }
+      }}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>
+              {shippingStep === 'preview' && 'Ship Order'}
+              {shippingStep === 'rates' && 'Select Shipping Rate'}
+              {shippingStep === 'label' && 'Shipping Label'}
+            </DialogTitle>
+          </DialogHeader>
+
+          {/* Loading State */}
+          {shippingStep === 'preview' && !splitPreview && isLoadingShipping && (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+            </div>
+          )}
+
+          {/* Step 1: Preview & Split Warning */}
+          {shippingStep === 'preview' && splitPreview && (
+            <div className="space-y-4">
+              {splitPreview.needsSplit && (
+                <Alert className="bg-yellow-500/10 border-yellow-500/30">
+                  <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                  <AlertDescription className="text-yellow-200">
+                    <strong>Order will be split:</strong> {splitPreview.itemsToShip} item(s) will ship now. 
+                    {splitPreview.itemsToRemain} item(s) will be moved to a new order ({splitPreview.splitOrderNumber}).
+                  </AlertDescription>
+                </Alert>
+              )}
+              
+              <div className="space-y-2">
+                <p className="text-sm text-gray-400">
+                  {splitPreview.needsSplit 
+                    ? `Shipping ${splitPreview.itemsToShip} of ${splitPreview.totalItems} items` 
+                    : `Shipping all ${splitPreview.totalItems} item(s)`}
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowShippingDialog(false)}
+                  disabled={isLoadingShipping}
+                  data-testid="button-cancel-shipping"
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleGetShippingRates}
+                  disabled={isLoadingShipping}
+                  className="bg-blue-600 hover:bg-blue-700"
+                  data-testid="button-get-rates"
+                >
+                  {isLoadingShipping ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Loading...
+                    </>
+                  ) : (
+                    'Get Shipping Rates'
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 2: Rate Selection */}
+          {shippingStep === 'rates' && (
+            <div className="space-y-4">
+              {shippingRates.length === 0 ? (
+                <p className="text-sm text-gray-400">Loading rates...</p>
+              ) : (
+                <RadioGroup value={selectedRate || ''} onValueChange={setSelectedRate}>
+                  <div className="space-y-2">
+                    {shippingRates.map((rate: any) => (
+                      <div 
+                        key={rate.id} 
+                        className="flex items-center space-x-2 border border-gray-700 rounded-lg p-3 hover-elevate"
+                      >
+                        <RadioGroupItem value={rate.id} id={rate.id} data-testid={`radio-rate-${rate.id}`} />
+                        <Label htmlFor={rate.id} className="flex-1 cursor-pointer">
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <p className="text-sm font-medium">{rate.service}</p>
+                              <p className="text-xs text-gray-400">{rate.carrier} • {rate.deliveryDays} days</p>
+                            </div>
+                            <p className="text-lg font-bold">${rate.rate}</p>
+                          </div>
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                </RadioGroup>
+              )}
+
+              <div className="flex justify-end gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowShippingDialog(false)}
+                  disabled={isLoadingShipping}
+                  data-testid="button-cancel-rate-selection"
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handlePurchaseLabel}
+                  disabled={!selectedRate || isLoadingShipping}
+                  className="bg-green-600 hover:bg-green-700"
+                  data-testid="button-purchase-label"
+                >
+                  {isLoadingShipping ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Purchasing...
+                    </>
+                  ) : (
+                    'Purchase Label'
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Label Display */}
+          {shippingStep === 'label' && shipmentData && (
+            <div className="space-y-4">
+              <Alert className="bg-green-500/10 border-green-500/30">
+                <Package className="h-4 w-4 text-green-500" />
+                <AlertDescription className="text-green-200">
+                  Shipping label purchased successfully!
+                </AlertDescription>
+              </Alert>
+
+              <div className="space-y-3">
+                <div>
+                  <p className="text-xs text-gray-400">Tracking Number</p>
+                  <p className="text-sm font-mono font-bold">{shipmentData.trackingNumber}</p>
+                </div>
+                {shipmentData.labelUrl && (
+                  <div>
+                    <Button 
+                      asChild 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full"
+                      data-testid="button-download-label"
+                    >
+                      <a href={shipmentData.labelUrl} target="_blank" rel="noopener noreferrer">
+                        Download Label (PDF)
+                      </a>
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end">
+                <Button 
+                  onClick={() => setShowShippingDialog(false)}
+                  data-testid="button-close-shipping"
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </>

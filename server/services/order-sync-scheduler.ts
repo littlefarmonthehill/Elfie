@@ -1,6 +1,5 @@
 import { db } from "../db";
 import { appSettings } from "@shared/schema";
-import { syncShipStationOrders } from "./shipstation";
 import { syncBrickLinkOrders } from "./bricklink-order-sync";
 import { syncBrickOwlOrders } from "./brickowl-order-sync";
 
@@ -88,16 +87,9 @@ async function runAllPlatformSyncs(settings: any) {
   };
   
   try {
-    // 1. Sync ShipStation orders
-    try {
-      console.log('📦 Syncing ShipStation orders...');
-      await syncShipStationOrders(false); // Incremental sync
-      results.shipstation.success = true;
-      console.log('✅ ShipStation sync complete');
-    } catch (error: any) {
-      results.shipstation.error = error.message;
-      console.error('❌ ShipStation sync failed:', error.message);
-    }
+    // 1. Sync ShipStation orders (DEPRECATED - using EasyPost for shipping now)
+    // ShipStation is no longer used for order syncing
+    results.shipstation.success = true; // Mark as success (not used)
     
     // 2. Sync BrickLink orders (if credentials configured)
     if (settings.bricklinkConsumerKey && settings.bricklinkConsumerSecret && 
