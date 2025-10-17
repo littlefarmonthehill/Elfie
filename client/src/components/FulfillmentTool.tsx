@@ -348,7 +348,7 @@ export default function FulfillmentTool() {
               data-testid="button-ship-order"
             >
               <Package className="w-3.5 h-3.5 mr-1.5" />
-              Ship Order
+              Ship It
             </Button>
           </div>
         </div>
