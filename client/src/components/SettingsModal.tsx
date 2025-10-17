@@ -66,6 +66,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
 
   // EasyPost Settings
   const [easypostApiKey, setEasypostApiKey] = useState("");
+  const [easypostTestApiKey, setEasypostTestApiKey] = useState("");
 
   // Automation Settings
   const [inventorySyncEnabled, setInventorySyncEnabled] = useState(false);
@@ -108,6 +109,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
       setBricklinkTokenSecret(settings.bricklinkTokenSecret || "");
       setBrickowlApiKey(settings.brickowlApiKey || "");
       setEasypostApiKey(settings.easypostApiKey || "");
+      setEasypostTestApiKey(settings.easypostTestApiKey || "");
       setInventorySyncEnabled(settings.inventorySyncEnabled || false);
       setInventorySyncTime(settings.inventorySyncTime || "02:00");
       setPriceOMaticEnabled(settings.priceOMaticEnabled || false);
@@ -478,11 +480,11 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                     <AccordionContent>
                       <div className="space-y-3 pt-2">
                     <div className="space-y-2">
-                      <Label htmlFor="easypost-key" className="text-xs text-gray-400">API Key</Label>
+                      <Label htmlFor="easypost-key" className="text-xs text-gray-400">Production API Key</Label>
                       <Input
                         id="easypost-key"
                         type="password"
-                        placeholder="Enter EasyPost API Key"
+                        placeholder="Enter EasyPost Production API Key"
                         className="text-xs"
                         value={easypostApiKey}
                         onChange={(e) => setEasypostApiKey(e.target.value)}
@@ -492,6 +494,23 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                           });
                         }}
                         data-testid="input-easypost-key"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="easypost-test-key" className="text-xs text-gray-400">Test API Key</Label>
+                      <Input
+                        id="easypost-test-key"
+                        type="password"
+                        placeholder="Enter EasyPost Test API Key"
+                        className="text-xs"
+                        value={easypostTestApiKey}
+                        onChange={(e) => setEasypostTestApiKey(e.target.value)}
+                        onBlur={() => {
+                          updateSettingsMutation.mutate({
+                            easypostTestApiKey: easypostTestApiKey || null,
+                          });
+                        }}
+                        data-testid="input-easypost-test-key"
                       />
                     </div>
                       </div>
