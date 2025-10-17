@@ -70,10 +70,10 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                   <ShoppingCart className="w-3 h-3 text-orange-400 flex-shrink-0" />
                   <span className="text-gray-300 font-mono">#{order.orderNumber}</span>
                   <span className="text-gray-500 text-[9px]">{order.customerUsername}</span>
-                  <span className={`text-[9px] px-1.5 py-0.5 rounded ${
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded whitespace-nowrap ${
                     order.orderStatus === 'awaiting_payment' ? 'bg-red-500/20 text-red-400' : 'bg-orange-500/20 text-orange-400'
                   }`}>
-                    {order.orderStatus.replace('_', ' ')}
+                    {order.orderStatus === 'awaiting_payment' ? 'payment' : order.orderStatus === 'awaiting_shipment' ? 'shipment' : order.orderStatus.replace('_', ' ')}
                   </span>
                 </div>
                 <span className="text-lego-green font-mono ml-2">${Number(order.orderTotal || 0).toFixed(2)}</span>
@@ -133,12 +133,12 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                 <div className="flex items-center gap-1.5">
                   <span className="text-gray-300 font-mono">#{order.orderNumber}</span>
                   <span className="text-gray-500 text-[9px]">{order.customerUsername}</span>
-                  <span className={`text-[9px] px-1.5 py-0.5 rounded ${
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded whitespace-nowrap ${
                     order.orderStatus === 'shipped' ? 'bg-green-500/20 text-green-400' : 
                     order.orderStatus === 'awaiting_shipment' ? 'bg-orange-500/20 text-orange-400' : 
                     'bg-gray-500/20 text-gray-400'
                   }`}>
-                    {order.orderStatus.replace('_', ' ')}
+                    {order.orderStatus === 'awaiting_payment' ? 'payment' : order.orderStatus === 'awaiting_shipment' ? 'shipment' : order.orderStatus === 'shipped' ? 'shipped' : order.orderStatus.replace('_', ' ')}
                   </span>
                 </div>
                 <span className="text-lego-green font-mono text-xs ml-2">${Number(order.orderTotal).toFixed(2)}</span>
