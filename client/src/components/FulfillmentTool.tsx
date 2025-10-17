@@ -250,14 +250,56 @@ export default function FulfillmentTool() {
       }
       
       // Get shipping rates
+      // TODO: Make fromAddress and parcel configurable in settings
+      // Use EasyPost test addresses in development mode
+      const isDevelopment = import.meta.env.MODE === 'development';
       const result: any = await apiRequest('POST', '/api/shipments/create', {
         orderId: selectedOrderForShipping,
-        itemIdsToShip: fulfilledItemIds
+        itemIdsToShip: fulfilledItemIds,
+        fromAddress: isDevelopment ? {
+          // EasyPost test address for development
+          name: "EasyPost Test",
+          company: "EasyPost",
+          street1: "417 Montgomery Street",
+          street2: "Floor 5",
+          city: "San Francisco",
+          state: "CA",
+          zip: "94104",
+          country: "US",
+          phone: "4155559999",
+          email: "test@easypost.com"
+        } : {
+          // Production address
+          name: "PlanetBrick Warehouse",
+          company: "PlanetBrick",
+          street1: "123 Brick Lane",
+          city: "Denver",
+          state: "CO",
+          zip: "80202",
+          country: "US",
+          phone: "5551234567",
+          email: "shipping@planetbrick.com"
+        },
+        parcel: {
+          length: 6,
+          width: 4,
+          height: 2,
+          weight: 16
+        }
+      });
+      
+      console.log('📦 Frontend received result:', {
+        hasResult: !!result,
+        hasRates: !!result?.rates,
+        ratesCount: result?.rates?.length || 0,
+        result
       });
       
       setShipmentData(result);
       setShippingRates(result.rates || []);
       setShippingStep('rates');
+      
+      console.log('📦 State updated, shipping step:', 'rates', 'rates count:', result.rates?.length || 0);
     } catch (error: any) {
       console.error('Error getting shipping rates:', error);
       toast({
@@ -272,11 +314,12 @@ export default function FulfillmentTool() {
   };
 
   const handlePurchaseLabel = async () => {
-    if (!selectedRate || !shipmentData) return;
+    if (!selectedRate || !shipmentData || !selectedOrderForShipping) return;
     
     setIsLoadingShipping(true);
     try {
       const result: any = await apiRequest('POST', '/api/shipments/purchase', {
+        orderId: selectedOrderForShipping,
         shipmentId: shipmentData.shipmentId,
         rateId: selectedRate
       });

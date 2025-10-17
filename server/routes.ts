@@ -4148,6 +4148,12 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
         parcel,
       });
       
+      console.log('📦 Shipment created:', {
+        shipmentId: result.shipmentId,
+        ratesCount: result.rates?.length || 0,
+        rates: result.rates
+      });
+      
       res.json(result);
     } catch (error: any) {
       console.error("Error creating shipment:", error);

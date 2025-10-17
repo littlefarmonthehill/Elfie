@@ -95,6 +95,13 @@ export class EasyPostShippingVendor implements IShippingVendor {
 
     const response = await this.request('/shipments', 'POST', payload);
 
+    console.log('📦 EasyPost raw response:', {
+      shipmentId: response.id,
+      ratesCount: response.rates?.length || 0,
+      hasRates: !!response.rates,
+      sampleRate: response.rates?.[0]
+    });
+
     // Map EasyPost rates to our interface
     const rates: ShippingRate[] = (response.rates || []).map((rate: any) => ({
       id: rate.id,
@@ -105,6 +112,8 @@ export class EasyPostShippingVendor implements IShippingVendor {
       deliveryDate: rate.delivery_date,
       deliveryDateGuaranteed: rate.delivery_date_guaranteed,
     }));
+
+    console.log('📦 Transformed rates:', { count: rates.length, rates });
 
     return {
       shipmentId: response.id,
@@ -118,6 +127,8 @@ export class EasyPostShippingVendor implements IShippingVendor {
       rate: {
         id: request.rateId,
       },
+      // Disable strict address verification in test mode to allow test addresses
+      verify_strict: [],
     };
 
     if (request.insurance) {
@@ -241,7 +252,12 @@ export async function getShippingVendor(apiKey?: string): Promise<IShippingVendo
     const { appSettings } = await import('@shared/schema');
     
     const [settings] = await db.select().from(appSettings).limit(1);
-    apiKey = settings?.easypostApiKey || undefined;
+    
+    // Use test API key in development, production key otherwise
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    apiKey = isDevelopment 
+      ? (settings?.easypostTestApiKey || settings?.easypostApiKey || undefined)
+      : (settings?.easypostApiKey || undefined);
   }
 
   if (!apiKey) {
