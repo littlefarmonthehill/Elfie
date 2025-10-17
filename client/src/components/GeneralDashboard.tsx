@@ -173,23 +173,20 @@ export default function GeneralDashboard({ onItemClick }: GeneralDashboardProps)
                   className="flex justify-between items-start hover-elevate rounded px-2 py-1 cursor-pointer"
                   data-testid={`pricing-item-${item.inventoryId}`}
                 >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <TrendingDown className="w-3.5 h-3.5 text-purple-400 flex-shrink-0" />
-                      <span className="text-gray-300 font-mono text-xs flex-shrink-0">{item.itemNo}</span>
-                      {item.itemName && (
-                        <span className="text-white text-xs truncate">{item.itemName}</span>
-                      )}
-                    </div>
-                    <div className="ml-5 flex items-center gap-1.5">
-                      {item.colorName && (
-                        <Badge variant="outline" className="text-[9px] px-1.5 py-0 font-medium">
-                          {item.colorName}
-                        </Badge>
-                      )}
-                      <Badge variant="outline" className="text-[9px] px-1.5 py-0 font-medium">
-                        {item.condition === 'N' ? 'New' : 'Used'}
-                      </Badge>
+                  <div className="flex gap-2 flex-1 min-w-0">
+                    <TrendingDown className="w-3.5 h-3.5 text-purple-400 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-200 font-mono text-xs font-medium flex-shrink-0">{item.itemNo}</span>
+                        {item.itemName && (
+                          <span className="text-white text-xs truncate">{item.itemName}</span>
+                        )}
+                      </div>
+                      <div className="flex gap-1.5 text-[11px] text-gray-400 mt-0.5">
+                        {item.colorName && <span>{item.colorName}</span>}
+                        {item.colorName && <span>•</span>}
+                        <span>{item.condition === 'N' ? 'New' : 'Used'}</span>
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 ml-2 flex-shrink-0">
