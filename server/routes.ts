@@ -4203,18 +4203,39 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
         return res.status(404).json({ error: "No orders found" });
       }
       
-      // Fetch order items with color names
+      // Fetch order items with inventory data (part number, color, condition)
       const items = await db.select({
         orderId: orderDetails.orderId,
-        inventoryId: orderDetails.bricklinkInventoryId,
-        bricklinkPartNumber: orderDetails.sku,
+        inventoryId: sql<string>`COALESCE(
+          CAST(${orderDetails.bricklinkInventoryId} AS TEXT),
+          ${orderDetails.sku}
+        )`,
+        bricklinkPartNumber: sql<string>`COALESCE(
+          ${blInventory.itemNo},
+          TRIM(SUBSTRING(${orderDetails.sku} FROM '.LGO-(.+)$')),
+          TRIM(SUBSTRING(${orderDetails.name} FROM 'LEGO-([^ ]+)')),
+          ${orderDetails.sku}
+        )`,
         name: orderDetails.name,
         quantity: orderDetails.quantity,
-        colorName: blColors.name,
-        condition: orderDetails.condition,
+        colorName: sql<string>`COALESCE(
+          (SELECT bc.name FROM bl_colors bc WHERE bc.id = ${orderDetails.colorId} LIMIT 1),
+          ${blColors.name}
+        )`,
+        condition: sql<string>`COALESCE(
+          ${orderDetails.condition},
+          CASE 
+            WHEN ${blInventory.newOrUsed} = 'N' THEN 'New'
+            WHEN ${blInventory.newOrUsed} = 'U' THEN 'Used'
+            WHEN ${orderDetails.name} LIKE '%(Used)%' THEN 'Used'
+            WHEN ${orderDetails.name} LIKE '%(New)%' THEN 'New'
+            ELSE NULL
+          END
+        )`,
       })
         .from(orderDetails)
-        .leftJoin(blColors, eq(orderDetails.colorId, blColors.id))
+        .leftJoin(blInventory, eq(sql`CAST(${blInventory.id} AS TEXT)`, orderDetails.sku))
+        .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
         .where(inArray(orderDetails.orderId, orderIds));
       
       // Group items by order
@@ -4236,10 +4257,6 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
         }
         
         const orderItems = itemsByOrder[order.id] || [];
-        console.log(`📄 Packing slip data for ${order.orderNumber}:`, {
-          itemCount: orderItems.length,
-          firstItem: orderItems[0],
-        });
         
         return {
           orderNumber: order.orderNumber,

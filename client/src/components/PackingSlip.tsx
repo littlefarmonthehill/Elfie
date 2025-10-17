@@ -17,7 +17,7 @@ type PackingSlipOrder = {
     country?: string;
   };
   items: Array<{
-    inventoryId: number | null;
+    inventoryId: string | null;
     bricklinkPartNumber: string | null;
     name: string;
     quantity: number;
@@ -30,27 +30,6 @@ interface PackingSlipProps {
   orders: PackingSlipOrder[];
 }
 
-// Extract part number from item name (format: "LEGO-PARTNUMBER Description")
-function extractPartNumber(name: string): string {
-  const match = name.match(/LEGO-([^\s]+)/);
-  return match ? match[1] : '';
-}
-
-// Extract condition from item name (looks for "(Used)" or "(New)")
-function extractCondition(name: string): string {
-  if (name.includes('(Used)')) return 'Used';
-  if (name.includes('(New)')) return 'New';
-  return '';
-}
-
-// Clean item name by removing LEGO prefix and condition
-function cleanItemName(name: string): string {
-  return name
-    .replace(/LEGO-[^\s]+\s*/, '') // Remove LEGO-PARTNUMBER
-    .replace(/\s*\((Used|New)\)\s*$/, '') // Remove condition at end
-    .trim();
-}
-
 // Split items across pages (max 12 items per page for 4x5)
 function paginateItems(items: any[], itemsPerPage: number = 12) {
   const pages = [];
@@ -61,12 +40,6 @@ function paginateItems(items: any[], itemsPerPage: number = 12) {
 }
 
 export default function PackingSlip({ orders }: PackingSlipProps) {
-  console.log('🖨️ PackingSlip rendering with orders:', orders.map(o => ({
-    orderNumber: o.orderNumber,
-    itemCount: o.items?.length,
-    firstItem: o.items?.[0]
-  })));
-
   return (
     <div className="print-container">
       {orders.flatMap((order) => {
@@ -133,28 +106,21 @@ export default function PackingSlip({ orders }: PackingSlipProps) {
             <div className="slip-section slip-items">
               <div className="slip-label-header">ITEMS:</div>
               <div className="slip-items-list">
-                {pageItems.map((item, idx) => {
-                  const partNumber = item.bricklinkPartNumber || extractPartNumber(item.name);
-                  const condition = item.condition || extractCondition(item.name);
-                  const cleanName = cleanItemName(item.name);
-                  const inventoryId = item.inventoryId || (item.bricklinkPartNumber ? item.bricklinkPartNumber : '-');
-                  
-                  return (
-                    <div key={idx} className="slip-item">
-                      <div className="slip-item-line1">
-                        <span className="slip-sku">{inventoryId}</span>
-                        <span className="slip-part">{partNumber}</span>
-                        <span className="slip-name">{cleanName}</span>
-                        <span className="slip-qty">Qty: {item.quantity}</span>
-                      </div>
-                      <div className="slip-item-line2">
-                        {item.colorName && <span>{item.colorName}</span>}
-                        {item.colorName && condition && <span> • </span>}
-                        {condition && <span>{condition}</span>}
-                      </div>
+                {pageItems.map((item, idx) => (
+                  <div key={idx} className="slip-item">
+                    <div className="slip-item-line1">
+                      <span className="slip-sku">{item.inventoryId || '-'}</span>
+                      <span className="slip-part">{item.bricklinkPartNumber || '-'}</span>
+                      <span className="slip-name">{item.name}</span>
+                      <span className="slip-qty">Qty: {item.quantity}</span>
                     </div>
-                  );
-                })}
+                    <div className="slip-item-line2">
+                      {item.colorName && <span>{item.colorName}</span>}
+                      {item.colorName && item.condition && <span> • </span>}
+                      {item.condition && <span>{item.condition}</span>}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
 
