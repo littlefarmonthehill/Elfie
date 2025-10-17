@@ -63,21 +63,13 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
               <div 
                 key={order.id} 
                 onClick={() => onItemClick?.('order', order.id)}
-                className="flex justify-between items-start hover-elevate rounded px-2 py-1 cursor-pointer"
+                className="flex justify-between items-center hover-elevate rounded px-2 py-1 cursor-pointer"
                 data-testid={`pending-order-${order.id}`}
               >
-                <div className="flex gap-2 flex-1 min-w-0">
-                  <ShoppingCart className="w-3.5 h-3.5 text-orange-400 flex-shrink-0 mt-0.5" />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-gray-200 font-mono text-xs font-medium">
-                      #{order.orderNumber}
-                    </div>
-                    <div className="flex gap-1.5 text-[11px] text-gray-400 mt-0.5">
-                      <span>{order.customerUsername}</span>
-                      <span>•</span>
-                      <span>{order.orderStatus === 'awaiting_payment' ? 'awaiting payment' : order.orderStatus === 'awaiting_shipment' ? 'awaiting shipment' : order.orderStatus.replace('_', ' ')}</span>
-                    </div>
-                  </div>
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <ShoppingCart className="w-3.5 h-3.5 text-orange-400 flex-shrink-0" />
+                  <span className="text-gray-200 font-mono text-xs font-medium">#{order.orderNumber}</span>
+                  <span className="text-gray-400 text-[11px]">{order.customerUsername}</span>
                 </div>
                 <span className="text-lego-green font-mono font-medium text-xs ml-2 flex-shrink-0">${Number(order.orderTotal || 0).toFixed(2)}</span>
               </div>
@@ -100,21 +92,13 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
               <div 
                 key={order.id} 
                 onClick={() => onItemClick?.('order', order.id)}
-                className="flex justify-between items-start hover-elevate rounded px-2 py-1 cursor-pointer"
+                className="flex justify-between items-center hover-elevate rounded px-2 py-1 cursor-pointer"
                 data-testid={`shipped-order-${order.id}`}
               >
-                <div className="flex gap-2 flex-1 min-w-0">
-                  <div className="w-2 h-2 rounded-full bg-green-400 flex-shrink-0 mt-1" />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-gray-200 font-mono text-xs font-medium">
-                      #{order.orderNumber}
-                    </div>
-                    <div className="flex gap-1.5 text-[11px] text-gray-400 mt-0.5">
-                      <span>{order.customerUsername}</span>
-                      <span>•</span>
-                      <span>{new Date(order.orderDate).toLocaleDateString()}</span>
-                    </div>
-                  </div>
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <div className="w-2 h-2 rounded-full bg-green-400 flex-shrink-0" />
+                  <span className="text-gray-200 font-mono text-xs font-medium">#{order.orderNumber}</span>
+                  <span className="text-gray-400 text-[11px]">{order.customerUsername}</span>
                 </div>
                 <span className="text-lego-green font-mono font-medium text-xs ml-2 flex-shrink-0">${Number(order.orderTotal || 0).toFixed(2)}</span>
               </div>
@@ -137,21 +121,13 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
               <div 
                 key={order.id} 
                 onClick={() => onItemClick?.('order', order.id)}
-                className="flex justify-between items-start hover-elevate rounded px-2 py-1 cursor-pointer"
+                className="flex justify-between items-center hover-elevate rounded px-2 py-1 cursor-pointer"
                 data-testid={`high-value-order-${order.id}`}
               >
-                <div className="flex gap-2 flex-1 min-w-0">
-                  <TrendingUp className="w-3.5 h-3.5 text-green-400 flex-shrink-0 mt-0.5" />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-gray-200 font-mono text-xs font-medium">
-                      #{order.orderNumber}
-                    </div>
-                    <div className="flex gap-1.5 text-[11px] text-gray-400 mt-0.5">
-                      <span>{order.customerUsername}</span>
-                      <span>•</span>
-                      <span>{order.orderStatus === 'awaiting_payment' ? 'awaiting payment' : order.orderStatus === 'awaiting_shipment' ? 'awaiting shipment' : order.orderStatus === 'shipped' ? 'shipped' : order.orderStatus.replace('_', ' ')}</span>
-                    </div>
-                  </div>
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <TrendingUp className="w-3.5 h-3.5 text-green-400 flex-shrink-0" />
+                  <span className="text-gray-200 font-mono text-xs font-medium">#{order.orderNumber}</span>
+                  <span className="text-gray-400 text-[11px]">{order.customerUsername}</span>
                 </div>
                 <span className="text-lego-green font-mono font-medium text-xs ml-2 flex-shrink-0">${Number(order.orderTotal).toFixed(2)}</span>
               </div>
