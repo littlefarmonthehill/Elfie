@@ -20,7 +20,7 @@ export default function Home() {
   const [dateRange, setDateRange] = useState<DateRangeValue>('mtd');
   const [chatMinimized, setChatMinimized] = useState(true);
   const [activeInventoryDrawer, setActiveInventoryDrawer] = useState<'priceomatic' | 'warehouse' | 'platformsync' | null>(null);
-  const [activeOrdersDrawer, setActiveOrdersDrawer] = useState<'picklist' | 'fulfillment' | 'platformsync' | 'shipping' | null>(null);
+  const [activeOrdersDrawer, setActiveOrdersDrawer] = useState<'picklist' | 'fulfillment' | 'platformsync' | null>(null);
   const [detailModal, setDetailModal] = useState<{ open: boolean; data: DetailData | null }>({
     open: false,
     data: null,
@@ -639,13 +639,6 @@ export default function Home() {
                       {fulfillmentStats.unfulfilled}
                     </span>
                   )}
-                </button>
-                <button
-                  onClick={() => setActiveOrdersDrawer('shipping')}
-                  className="text-[10px] md:text-sm lg:text-base font-bold py-1 md:py-1.5 lg:py-2 px-1.5 md:px-3 lg:px-4 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
-                  data-testid="button-shipping"
-                >
-                  Shipping
                 </button>
               </div>
             </div>
