@@ -169,3 +169,89 @@ export function mapBrickLinkStatusSync(blStatus: string): string {
 export function mapBrickLinkCondition(newOrUsed: string): string {
   return newOrUsed === 'N' ? 'New' : 'Used';
 }
+
+/**
+ * Update BrickLink order status to SHIPPED with tracking information
+ */
+export async function updateBrickLinkOrderShipped(
+  orderId: string,
+  trackingNumber: string,
+  carrier: string,
+  consumerKey: string,
+  consumerSecret: string,
+  tokenValue: string,
+  tokenSecret: string
+): Promise<void> {
+  const oauth = new OAuth({
+    consumer: { key: consumerKey, secret: consumerSecret },
+    signature_method: 'HMAC-SHA1',
+    hash_function: getOAuthSignature().hash_function,
+  });
+
+  const token = { 
+    key: cleanToken(tokenValue), 
+    secret: cleanToken(tokenSecret) 
+  };
+
+  // Step 1: Update shipping details with tracking number
+  const updateUrl = `${BRICKLINK_API_BASE}/orders/${orderId}`;
+  const updateData = {
+    shipping: {
+      date_shipped: new Date().toISOString().split('T')[0], // BrickLink expects YYYY-MM-DD format
+      tracking_no: trackingNumber,
+    }
+  };
+
+  const updateRequest = {
+    url: updateUrl,
+    method: 'PUT',
+    body: updateData,
+  };
+
+  const updateAuthHeader = oauth.toHeader(oauth.authorize(updateRequest, token));
+
+  const updateResponse = await fetch(updateUrl, {
+    method: 'PUT',
+    headers: {
+      'Authorization': updateAuthHeader.Authorization,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(updateData),
+  });
+
+  if (!updateResponse.ok) {
+    const errorText = await updateResponse.text();
+    throw new Error(`BrickLink update order error: ${updateResponse.status} ${errorText}`);
+  }
+
+  // Step 2: Update order status to SHIPPED
+  const statusUrl = `${BRICKLINK_API_BASE}/orders/${orderId}/status`;
+  const statusData = {
+    field: 'status',
+    value: 'SHIPPED'
+  };
+
+  const statusRequest = {
+    url: statusUrl,
+    method: 'PUT',
+    body: statusData,
+  };
+
+  const statusAuthHeader = oauth.toHeader(oauth.authorize(statusRequest, token));
+
+  const statusResponse = await fetch(statusUrl, {
+    method: 'PUT',
+    headers: {
+      'Authorization': statusAuthHeader.Authorization,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(statusData),
+  });
+
+  if (!statusResponse.ok) {
+    const errorText = await statusResponse.text();
+    throw new Error(`BrickLink update status error: ${statusResponse.status} ${errorText}`);
+  }
+
+  console.log(`✅ BrickLink order ${orderId} updated to SHIPPED with tracking ${trackingNumber}`);
+}

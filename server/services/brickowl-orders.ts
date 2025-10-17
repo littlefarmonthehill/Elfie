@@ -77,3 +77,37 @@ export function mapBrickOwlStatus(statusId: number): string {
 export function mapBrickOwlCondition(condition: string): string {
   return condition === 'new' ? 'New' : 'Used';
 }
+
+/**
+ * Update BrickOwl order status to SHIPPED with tracking information
+ */
+export async function updateBrickOwlOrderShipped(
+  orderId: string,
+  trackingNumber: string,
+  apiKey: string
+): Promise<void> {
+  const url = `${BRICKOWL_API_BASE}/order/update`;
+
+  // BrickOwl requires application/x-www-form-urlencoded format
+  const params = new URLSearchParams({
+    key: apiKey,
+    order_id: orderId,
+    status_id: '2', // 2 = Shipped
+    tracking_no: trackingNumber,
+  });
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: params.toString(),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`BrickOwl update order error: ${response.status} ${errorText}`);
+  }
+
+  console.log(`✅ BrickOwl order ${orderId} updated to SHIPPED with tracking ${trackingNumber}`);
+}

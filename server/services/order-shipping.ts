@@ -6,7 +6,7 @@
 
 import { db } from '../db';
 import { orders, orderDetails, orderSplits, orderSplitItems, shipments } from '@shared/schema';
-import { eq, and, inArray } from 'drizzle-orm';
+import { eq, and, inArray, desc } from 'drizzle-orm';
 import { getShippingVendor } from './easypost';
 import type { CreateShipmentRequest, BuyLabelRequest, Address, Parcel } from './shipping-vendor';
 
@@ -337,14 +337,96 @@ async function syncOrderStatusToPlatform(order: any): Promise<void> {
     return;
   }
 
-  // This would integrate with BrickLink/BrickOwl APIs to update status
-  // For now, just log it
-  console.log(`📦 Would sync order ${order.orderNumber} status to ${order.marketplace}`);
-  
-  // TODO: Implement platform-specific status sync
-  // - BrickLink: Update order status via API
-  // - BrickOwl: Update order status via API
-  // - Use existing ORDER_STATUS_MAPPINGS to map our status to platform status
+  const marketplace = order.marketplace?.toLowerCase();
+  const trackingNumber = order.trackingNumber || '';
+  const carrier = order.carrierCode || '';
+
+  // Get shipment record to get tracking number
+  const [shipment] = await db
+    .select()
+    .from(shipments)
+    .where(eq(shipments.orderId, order.id))
+    .orderBy(desc(shipments.purchasedAt))
+    .limit(1);
+
+  const actualTrackingNumber = shipment?.trackingNumber || trackingNumber;
+
+  if (!actualTrackingNumber) {
+    console.log(`⚠️  No tracking number for order ${order.orderNumber}, skipping platform sync`);
+    return;
+  }
+
+  try {
+    if (marketplace === 'bricklink') {
+      await syncToBrickLink(order, actualTrackingNumber, carrier);
+    } else if (marketplace === 'brickowl') {
+      await syncToBrickOwl(order, actualTrackingNumber);
+    } else {
+      console.log(`📦 Platform sync not implemented for ${marketplace} (order ${order.orderNumber})`);
+    }
+  } catch (error: any) {
+    console.error(`❌ Error syncing order ${order.orderNumber} to ${marketplace}:`, error.message);
+    throw error;
+  }
+}
+
+/**
+ * Sync order to BrickLink
+ */
+async function syncToBrickLink(order: any, trackingNumber: string, carrier: string): Promise<void> {
+  // Get BrickLink API credentials from settings
+  const { appSettings } = await import('@shared/schema');
+  const [settings] = await db.select().from(appSettings).limit(1);
+
+  const consumerKey = settings?.bricklinkConsumerKey || process.env.BRICKLINK_CONSUMER_KEY || '';
+  const consumerSecret = settings?.bricklinkConsumerSecret || process.env.BRICKLINK_CONSUMER_SECRET || '';
+  const tokenValue = settings?.bricklinkTokenValue || process.env.BRICKLINK_TOKEN_VALUE || '';
+  const tokenSecret = settings?.bricklinkTokenSecret || process.env.BRICKLINK_TOKEN_SECRET || '';
+
+  if (!consumerKey || !consumerSecret || !tokenValue || !tokenSecret) {
+    console.log(`⚠️  BrickLink credentials not configured, skipping sync for order ${order.orderNumber}`);
+    return;
+  }
+
+  // Extract BrickLink order ID from order number (e.g., "BL.12345678" -> "12345678")
+  const blOrderId = order.orderNumber.replace(/^BL\./, '');
+
+  const { updateBrickLinkOrderShipped } = await import('./bricklink-orders');
+  await updateBrickLinkOrderShipped(
+    blOrderId,
+    trackingNumber,
+    carrier,
+    consumerKey,
+    consumerSecret,
+    tokenValue,
+    tokenSecret
+  );
+
+  console.log(`✅ Synced order ${order.orderNumber} to BrickLink`);
+}
+
+/**
+ * Sync order to BrickOwl
+ */
+async function syncToBrickOwl(order: any, trackingNumber: string): Promise<void> {
+  // Get BrickOwl API credentials from settings
+  const { appSettings } = await import('@shared/schema');
+  const [settings] = await db.select().from(appSettings).limit(1);
+
+  const apiKey = settings?.brickowlApiKey || process.env.BRICKOWL_API_KEY || '';
+
+  if (!apiKey) {
+    console.log(`⚠️  BrickOwl API key not configured, skipping sync for order ${order.orderNumber}`);
+    return;
+  }
+
+  // Extract BrickOwl order ID from order number (e.g., "BO.2801321" -> "2801321")
+  const boOrderId = order.orderNumber.replace(/^BO\./, '');
+
+  const { updateBrickOwlOrderShipped } = await import('./brickowl-orders');
+  await updateBrickOwlOrderShipped(boOrderId, trackingNumber, apiKey);
+
+  console.log(`✅ Synced order ${order.orderNumber} to BrickOwl`);
 }
 
 /**
