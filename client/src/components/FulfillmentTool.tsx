@@ -3,7 +3,10 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Truck, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Truck, Loader2, Printer, CheckSquare, Square } from "lucide-react";
+import PackingSlip from "./PackingSlip";
 
 type Order = {
   id: string;
@@ -36,6 +39,9 @@ type FulfillmentData = {
 
 export default function FulfillmentTool() {
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [selectedOrdersForPrint, setSelectedOrdersForPrint] = useState<Set<string>>(new Set());
+  const [showPackingSlipDialog, setShowPackingSlipDialog] = useState(false);
+  const [packingSlipData, setPackingSlipData] = useState<any[]>([]);
 
   const { data, isLoading } = useQuery<FulfillmentData>({
     queryKey: ['/api/fulfillment'],
@@ -128,36 +134,138 @@ export default function FulfillmentTool() {
     setSelectedOrderId(prev => prev === orderId ? null : orderId);
   };
 
+  const handlePrintSelection = (orderId: string) => {
+    setSelectedOrdersForPrint(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(orderId)) {
+        newSet.delete(orderId);
+      } else {
+        newSet.add(orderId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAllForPrint = () => {
+    if (selectedOrdersForPrint.size === sortedOrders.length) {
+      setSelectedOrdersForPrint(new Set());
+    } else {
+      setSelectedOrdersForPrint(new Set(sortedOrders.map(o => o.id)));
+    }
+  };
+
+  const handlePrintPackingSlips = async (orderIds: string[]) => {
+    if (orderIds.length === 0) return;
+    
+    try {
+      const response = await fetch('/api/fulfillment/packing-slip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderIds }),
+      });
+      
+      const data = await response.json();
+      setPackingSlipData(data);
+      setShowPackingSlipDialog(true);
+      
+      // Trigger print after a small delay to ensure dialog is rendered
+      setTimeout(() => {
+        window.print();
+      }, 500);
+    } catch (error) {
+      console.error('Error fetching packing slip data:', error);
+    }
+  };
+
   return (
-    <div className="space-y-4">
-      {/* Orders Section - Filter Toggles */}
-      <div>
-        <h3 className="text-sm font-bold text-gray-300 mb-3">Order Filters</h3>
-        <div className="grid grid-cols-4 gap-2">
-          {sortedOrders.map((order) => {
-            const isSelected = selectedOrderId === order.id;
-            return (
-              <div
-                key={order.id}
-                onClick={() => handleOrderToggle(order.id)}
-                className={`border rounded-lg p-2 text-center cursor-pointer transition-colors ${
-                  isSelected 
-                    ? 'bg-purple-500/20 border-purple-500' 
-                    : 'bg-gray-800/50 border-gray-700 hover-elevate'
-                }`}
-                data-testid={`order-${order.orderNumber}`}
-              >
-                <p className={`text-xs font-mono font-semibold ${isSelected ? 'text-purple-300' : 'text-white'}`}>
-                  {order.orderNumber}
-                </p>
-                {order.marketplace && (
-                  <p className="text-[10px] text-gray-500 mt-0.5">{order.marketplace}</p>
-                )}
-              </div>
-            );
-          })}
+    <>
+      <div className="space-y-4">
+        {/* Print Controls */}
+        <div className="flex items-center justify-between gap-2 pb-3 border-b border-gray-700">
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleSelectAllForPrint}
+              className="h-7 text-xs"
+              data-testid="button-select-all-print"
+            >
+              {selectedOrdersForPrint.size === sortedOrders.length ? (
+                <CheckSquare className="w-3.5 h-3.5 md:w-4 md:h-4 lg:w-4 lg:w-4 mr-1.5" />
+              ) : (
+                <Square className="w-3.5 h-3.5 md:w-4 md:h-4 lg:w-4 lg:w-4 mr-1.5" />
+              )}
+              {selectedOrdersForPrint.size === sortedOrders.length ? 'Deselect All' : 'Select All'}
+            </Button>
+            {selectedOrdersForPrint.size > 0 && (
+              <Badge variant="secondary" className="text-xs">
+                {selectedOrdersForPrint.size} selected
+              </Badge>
+            )}
+          </div>
+          <Button
+            size="sm"
+            onClick={() => handlePrintPackingSlips(Array.from(selectedOrdersForPrint))}
+            disabled={selectedOrdersForPrint.size === 0}
+            className="h-7 text-xs bg-purple-600 hover:bg-purple-700"
+            data-testid="button-print-selected"
+          >
+            <Printer className="w-3.5 h-3.5 md:w-4 md:h-4 lg:w-4 lg:w-4 mr-1.5" />
+            Print {selectedOrdersForPrint.size > 0 ? `(${selectedOrdersForPrint.size})` : 'Selected'}
+          </Button>
         </div>
-      </div>
+
+        {/* Orders Section - Filter Toggles with Print Checkboxes */}
+        <div>
+          <h3 className="text-xs md:text-base lg:text-lg font-bold text-gray-300 mb-3">Order Filters</h3>
+          <div className="grid grid-cols-4 gap-2">
+            {sortedOrders.map((order) => {
+              const isSelected = selectedOrderId === order.id;
+              const isPrintSelected = selectedOrdersForPrint.has(order.id);
+              return (
+                <div
+                  key={order.id}
+                  className={`border rounded-lg p-2 transition-colors ${
+                    isSelected 
+                      ? 'bg-purple-500/20 border-purple-500' 
+                      : 'bg-gray-800/50 border-gray-700 hover-elevate'
+                  }`}
+                  data-testid={`order-${order.orderNumber}`}
+                >
+                  <div className="flex items-start justify-between gap-1 mb-1">
+                    <Checkbox
+                      checked={isPrintSelected}
+                      onCheckedChange={() => handlePrintSelection(order.id)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="mt-0.5"
+                      data-testid={`checkbox-print-${order.orderNumber}`}
+                    />
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => handlePrintPackingSlips([order.id])}
+                      className="h-5 w-5 hover:bg-purple-500/20"
+                      data-testid={`button-print-${order.orderNumber}`}
+                    >
+                      <Printer className="w-3 h-3" />
+                    </Button>
+                  </div>
+                  <div
+                    onClick={() => handleOrderToggle(order.id)}
+                    className="cursor-pointer text-center"
+                  >
+                    <p className={`text-xs font-mono font-semibold ${isSelected ? 'text-purple-300' : 'text-white'}`}>
+                      {order.orderNumber}
+                    </p>
+                    {order.marketplace && (
+                      <p className="text-[10px] text-gray-500 mt-0.5">{order.marketplace}</p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
 
       {/* Fulfill Section - Grouped by bin */}
       <div>
@@ -217,5 +325,16 @@ export default function FulfillmentTool() {
         </div>
       </div>
     </div>
+
+      {/* Packing Slip Dialog */}
+      <Dialog open={showPackingSlipDialog} onOpenChange={setShowPackingSlipDialog}>
+        <DialogContent className="max-w-none w-auto max-h-[90vh] overflow-y-auto print:max-w-none print:max-h-none">
+          <DialogHeader className="print:hidden">
+            <DialogTitle>Packing Slips</DialogTitle>
+          </DialogHeader>
+          <PackingSlip orders={packingSlipData} />
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

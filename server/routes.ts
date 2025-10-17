@@ -4042,16 +4042,17 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
         return res.status(404).json({ error: "No orders found" });
       }
       
-      // Fetch order items
+      // Fetch order items with color names
       const items = await db.select({
         orderId: orderDetails.orderId,
         bricklinkPartNumber: orderDetails.sku,
         name: orderDetails.name,
         quantity: orderDetails.quantity,
-        colorName: orderDetails.lineItemOptions,
-        condition: orderDetails.unitPrice, // Store condition here temporarily
+        colorName: blColors.name,
+        condition: orderDetails.condition,
       })
         .from(orderDetails)
+        .leftJoin(blColors, eq(orderDetails.colorId, blColors.id))
         .where(inArray(orderDetails.orderId, orderIds));
       
       // Group items by order
