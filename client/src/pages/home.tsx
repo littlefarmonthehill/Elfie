@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Package, ClipboardList } from "lucide-react";
+import { Package, ClipboardList, RefreshCw } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import Header from "@/components/Header";
 import DashboardNav, { DashboardType } from "@/components/DashboardNav";
@@ -571,41 +571,44 @@ export default function Home() {
       {/* Tools Selector - Only show for inventory */}
       {activeDashboard === 'inventory' && (
         <div className="px-3 md:px-6 lg:px-8 py-2 md:py-3 lg:py-4 bg-black border-b border-gray-800">
-          <div className="flex items-center gap-1.5 md:gap-3 lg:gap-4">
-            <div className="flex items-center gap-1 md:gap-2 lg:gap-2.5">
-              <Package className="h-3.5 w-3.5 md:h-4 md:w-4 lg:h-5 lg:w-5 text-gray-400" />
-              <span className="text-[10px] md:text-sm lg:text-base font-bold text-gray-400">TOOLS</span>
+          <div className="flex items-center justify-between gap-1.5 md:gap-3 lg:gap-4">
+            <div className="flex items-center gap-1.5 md:gap-3 lg:gap-4">
+              <div className="flex items-center gap-1 md:gap-2 lg:gap-2.5">
+                <Package className="h-3.5 w-3.5 md:h-4 md:w-4 lg:h-5 lg:w-5 text-gray-400" />
+                <span className="text-[10px] md:text-sm lg:text-base font-bold text-gray-400">TOOLS</span>
+              </div>
+              <div className="flex gap-1 md:gap-2 lg:gap-2.5">
+                <button
+                  onClick={() => setActiveInventoryDrawer('listing')}
+                  className="text-[10px] md:text-sm lg:text-base font-bold py-1 md:py-1.5 lg:py-2 px-1.5 md:px-3 lg:px-4 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
+                  data-testid="button-listing"
+                >
+                  Listing
+                </button>
+                <button
+                  onClick={() => setActiveInventoryDrawer('priceomatic')}
+                  className="text-[10px] md:text-sm lg:text-base font-bold py-1 md:py-1.5 lg:py-2 px-1.5 md:px-3 lg:px-4 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
+                  data-testid="button-priceomatic"
+                >
+                  Price-O-Matic
+                </button>
+                <button
+                  onClick={() => setActiveInventoryDrawer('warehouse')}
+                  className="text-[10px] md:text-sm lg:text-base font-bold py-1 md:py-1.5 lg:py-2 px-1.5 md:px-3 lg:px-4 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
+                  data-testid="button-warehouse"
+                >
+                  Warehouse
+                </button>
+              </div>
             </div>
-            <div className="flex gap-1 md:gap-2 lg:gap-2.5">
-              <button
-                onClick={() => setActiveInventoryDrawer('listing')}
-                className="text-[10px] md:text-sm lg:text-base font-bold py-1 md:py-1.5 lg:py-2 px-1.5 md:px-3 lg:px-4 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
-                data-testid="button-listing"
-              >
-                Listing
-              </button>
-              <button
-                onClick={() => setActiveInventoryDrawer('priceomatic')}
-                className="text-[10px] md:text-sm lg:text-base font-bold py-1 md:py-1.5 lg:py-2 px-1.5 md:px-3 lg:px-4 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
-                data-testid="button-priceomatic"
-              >
-                Price-O-Matic
-              </button>
-              <button
-                onClick={() => setActiveInventoryDrawer('warehouse')}
-                className="text-[10px] md:text-sm lg:text-base font-bold py-1 md:py-1.5 lg:py-2 px-1.5 md:px-3 lg:px-4 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
-                data-testid="button-warehouse"
-              >
-                Warehouse
-              </button>
-              <button
-                onClick={() => setActiveInventoryDrawer('platformsync')}
-                className="text-[10px] md:text-sm lg:text-base font-bold py-1 md:py-1.5 lg:py-2 px-1.5 md:px-3 lg:px-4 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
-                data-testid="button-platformsync"
-              >
-                Sync Products
-              </button>
-            </div>
+            <button
+              onClick={() => setActiveInventoryDrawer('platformsync')}
+              className="flex items-center gap-1 md:gap-1.5 text-[10px] md:text-sm lg:text-base text-gray-400 hover:text-gray-300 transition-colors"
+              data-testid="button-platformsync"
+            >
+              <RefreshCw className="h-3.5 w-3.5 md:h-4 md:w-4 lg:h-5 lg:w-5" />
+              <span className="font-medium">Sync</span>
+            </button>
           </div>
         </div>
       )}
@@ -613,51 +616,54 @@ export default function Home() {
       {/* Tools Selector - Only show for orders */}
       {activeDashboard === 'orders' && (
         <div className="px-3 md:px-6 lg:px-8 py-2 md:py-3 lg:py-4 bg-black border-b border-gray-800">
-          <div className="flex items-center gap-1.5 md:gap-3 lg:gap-4">
-            <div className="flex items-center gap-1 md:gap-2 lg:gap-2.5">
-              <ClipboardList className="h-3.5 w-3.5 md:h-4 md:w-4 lg:h-5 lg:w-5 text-gray-400" />
-              <span className="text-[10px] md:text-sm lg:text-base font-bold text-gray-400">TOOLS</span>
+          <div className="flex items-center justify-between gap-1.5 md:gap-3 lg:gap-4">
+            <div className="flex items-center gap-1.5 md:gap-3 lg:gap-4">
+              <div className="flex items-center gap-1 md:gap-2 lg:gap-2.5">
+                <ClipboardList className="h-3.5 w-3.5 md:h-4 md:w-4 lg:h-5 lg:w-5 text-gray-400" />
+                <span className="text-[10px] md:text-sm lg:text-base font-bold text-gray-400">TOOLS</span>
+              </div>
+              <div className="flex gap-1 md:gap-2 lg:gap-2.5">
+                <button
+                  onClick={() => setActiveOrdersDrawer('picklist')}
+                  className="relative text-[10px] md:text-sm lg:text-base font-bold py-1 md:py-1.5 lg:py-2 px-1.5 md:px-3 lg:px-4 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
+                  data-testid="button-picklist"
+                >
+                  Picklist
+                  {picklistStats && (picklistStats.toPull + picklistStats.toReshelve) > 0 && (
+                    <span className="absolute -top-1 -right-1 md:-top-1.5 md:-right-1.5 bg-orange-500 text-white text-[9px] md:text-[11px] lg:text-xs font-bold rounded-full h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6 flex items-center justify-center">
+                      {picklistStats.toPull + picklistStats.toReshelve}
+                    </span>
+                  )}
+                </button>
+                <button
+                  onClick={() => setActiveOrdersDrawer('fulfillment')}
+                  className="relative text-[10px] md:text-sm lg:text-base font-bold py-1 md:py-1.5 lg:py-2 px-1.5 md:px-3 lg:px-4 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
+                  data-testid="button-fulfillment"
+                >
+                  Fulfillment
+                  {fulfillmentStats && fulfillmentStats.unfulfilled > 0 && (
+                    <span className="absolute -top-1 -right-1 md:-top-1.5 md:-right-1.5 bg-green-500 text-white text-[9px] md:text-[11px] lg:text-xs font-bold rounded-full h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6 flex items-center justify-center">
+                      {fulfillmentStats.unfulfilled}
+                    </span>
+                  )}
+                </button>
+                <button
+                  onClick={() => setActiveOrdersDrawer('shipping')}
+                  className="text-[10px] md:text-sm lg:text-base font-bold py-1 md:py-1.5 lg:py-2 px-1.5 md:px-3 lg:px-4 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
+                  data-testid="button-shipping"
+                >
+                  Shipping
+                </button>
+              </div>
             </div>
-            <div className="flex gap-1 md:gap-2 lg:gap-2.5">
-              <button
-                onClick={() => setActiveOrdersDrawer('picklist')}
-                className="relative text-[10px] md:text-sm lg:text-base font-bold py-1 md:py-1.5 lg:py-2 px-1.5 md:px-3 lg:px-4 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
-                data-testid="button-picklist"
-              >
-                Picklist
-                {picklistStats && (picklistStats.toPull + picklistStats.toReshelve) > 0 && (
-                  <span className="absolute -top-1 -right-1 md:-top-1.5 md:-right-1.5 bg-orange-500 text-white text-[9px] md:text-[11px] lg:text-xs font-bold rounded-full h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6 flex items-center justify-center">
-                    {picklistStats.toPull + picklistStats.toReshelve}
-                  </span>
-                )}
-              </button>
-              <button
-                onClick={() => setActiveOrdersDrawer('fulfillment')}
-                className="relative text-[10px] md:text-sm lg:text-base font-bold py-1 md:py-1.5 lg:py-2 px-1.5 md:px-3 lg:px-4 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
-                data-testid="button-fulfillment"
-              >
-                Fulfillment
-                {fulfillmentStats && fulfillmentStats.unfulfilled > 0 && (
-                  <span className="absolute -top-1 -right-1 md:-top-1.5 md:-right-1.5 bg-green-500 text-white text-[9px] md:text-[11px] lg:text-xs font-bold rounded-full h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6 flex items-center justify-center">
-                    {fulfillmentStats.unfulfilled}
-                  </span>
-                )}
-              </button>
-              <button
-                onClick={() => setActiveOrdersDrawer('platformsync')}
-                className="text-[10px] md:text-sm lg:text-base font-bold py-1 md:py-1.5 lg:py-2 px-1.5 md:px-3 lg:px-4 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
-                data-testid="button-platformsync"
-              >
-                Sync Orders
-              </button>
-              <button
-                onClick={() => setActiveOrdersDrawer('shipping')}
-                className="text-[10px] md:text-sm lg:text-base font-bold py-1 md:py-1.5 lg:py-2 px-1.5 md:px-3 lg:px-4 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
-                data-testid="button-shipping"
-              >
-                Shipping
-              </button>
-            </div>
+            <button
+              onClick={() => setActiveOrdersDrawer('platformsync')}
+              className="flex items-center gap-1 md:gap-1.5 text-[10px] md:text-sm lg:text-base text-gray-400 hover:text-gray-300 transition-colors"
+              data-testid="button-platformsync"
+            >
+              <RefreshCw className="h-3.5 w-3.5 md:h-4 md:w-4 lg:h-5 lg:w-5" />
+              <span className="font-medium">Sync</span>
+            </button>
           </div>
         </div>
       )}
