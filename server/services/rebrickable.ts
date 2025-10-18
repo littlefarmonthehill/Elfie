@@ -34,14 +34,15 @@ export async function syncRebrickableSetParts(): Promise<RebrickableSyncResult> 
     const LOG_INTERVAL = 10000;
     
     // Stream: download → gunzip → parse → batch insert
-    await new Promise<void>((resolve, reject) => {
-      const stream = downloadStream(csvUrl);
-      const gunzip = createGunzip();
-      const parser = parse({
-        columns: true,
-        skip_empty_lines: true,
-        trim: true,
-      });
+    await new Promise<void>(async (resolve, reject) => {
+      try {
+        const stream = await downloadStream(csvUrl);
+        const gunzip = createGunzip();
+        const parser = parse({
+          columns: true,
+          skip_empty_lines: true,
+          trim: true,
+        });
       
       parser.on('data', async (record) => {
         // Extract set number
@@ -119,6 +120,10 @@ export async function syncRebrickableSetParts(): Promise<RebrickableSyncResult> 
         console.error('[Rebrickable] Gunzip error:', error);
         reject(error);
       });
+      } catch (error) {
+        console.error('[Rebrickable] Setup error:', error);
+        reject(error);
+      }
     });
     
     // Get unique set count
@@ -139,40 +144,28 @@ export async function syncRebrickableSetParts(): Promise<RebrickableSyncResult> 
   }
 }
 
-// Helper function to create a download stream
-function downloadStream(url: string): Readable {
-  return new Readable({
-    read() {
-      https.get(url, (response) => {
-        if (response.statusCode === 302 || response.statusCode === 301) {
-          // Follow redirect
-          const redirectUrl = response.headers.location;
-          if (redirectUrl) {
-            const redirectedStream = downloadStream(redirectUrl);
-            redirectedStream.pipe(this);
-            return;
-          }
-        }
-        
-        if (response.statusCode !== 200) {
-          this.destroy(new Error(`Failed to download file: ${response.statusCode}`));
+// Helper function to create a download stream (follows redirects)
+function downloadStream(url: string): Promise<Readable> {
+  return new Promise((resolve, reject) => {
+    https.get(url, (response) => {
+      if (response.statusCode === 302 || response.statusCode === 301) {
+        // Follow redirect
+        const redirectUrl = response.headers.location;
+        if (redirectUrl) {
+          downloadStream(redirectUrl).then(resolve).catch(reject);
           return;
         }
-        
-        response.on('data', (chunk) => {
-          this.push(chunk);
-        });
-        
-        response.on('end', () => {
-          this.push(null); // Signal end of stream
-        });
-        
-        response.on('error', (error) => {
-          this.destroy(error);
-        });
-      }).on('error', (error) => {
-        this.destroy(error);
-      });
-    }
+      }
+      
+      if (response.statusCode !== 200) {
+        reject(new Error(`Failed to download file: ${response.statusCode}`));
+        return;
+      }
+      
+      // Return the response stream directly
+      resolve(response as Readable);
+    }).on('error', (error) => {
+      reject(error);
+    });
   });
 }
