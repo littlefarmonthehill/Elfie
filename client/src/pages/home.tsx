@@ -593,10 +593,10 @@ export default function Home() {
       setChatOpen(true);
     }, 1200);
     
-    // After pull animation completes, set to resting (will continue zigzag)
+    // After ALL animations complete (emerge 0.4 + flyDown 0.8 + pull 0.4 + 3 zigzags 1.5 = 3100ms), set to resting
     setTimeout(() => {
       setElfieResting(true);
-    }, 1600);
+    }, 3200);
   };
 
   const handleChatClose = () => {
