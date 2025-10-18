@@ -582,29 +582,31 @@ export default function Home() {
   };
 
   const handleElfieClick = () => {
-    // Start Elfie animation
+    // Start Elfie animation FIRST - let it complete fully
     setShowElfie(true);
     setElfieClosing(false);
     
-    // Open drawer after 800ms (let Elfie animate more before drawer appears)
+    // Open drawer AFTER Elfie completes full animation (1100ms)
     setTimeout(() => {
       setChatOpen(true);
-    }, 800);
+    }, 1100);
   };
 
   const handleChatClose = () => {
-    // Start closing animation
-    setElfieClosing(true);
-    setShowElfie(true);
-    
-    // Close drawer immediately
+    // Close drawer first
     setChatOpen(false);
     
-    // Hide Elfie after animation completes
+    // Brief delay, then show Elfie closing animation
+    setTimeout(() => {
+      setElfieClosing(true);
+      setShowElfie(true);
+    }, 100);
+    
+    // Hide Elfie after closing animation completes
     setTimeout(() => {
       setShowElfie(false);
       setElfieClosing(false);
-    }, 300);
+    }, 500);
   };
 
   return (
