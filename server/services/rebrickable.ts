@@ -22,8 +22,45 @@ export async function syncRebrickableSetParts(): Promise<RebrickableSyncResult> 
     await db.delete(setPartRelationships);
     console.log('[Rebrickable] Cleared existing set-part relationships');
     
-    // Step 1: Build inventory_id → set_num mapping from inventories.csv
-    console.log('[Rebrickable] Step 1: Downloading inventories.csv to map inventory IDs to sets...');
+    // Step 1: Build set_num → set_name mapping from sets.csv
+    console.log('[Rebrickable] Step 1: Downloading sets.csv to get set names...');
+    const setsUrl = 'https://cdn.rebrickable.com/media/downloads/sets.csv.gz';
+    const setNamesMap = new Map<string, string>(); // set_num → set_name
+    
+    await new Promise<void>(async (resolve, reject) => {
+      try {
+        const stream = await downloadStream(setsUrl);
+        const gunzip = createGunzip();
+        const parser = parse({
+          columns: true,
+          skip_empty_lines: true,
+          trim: true,
+        });
+        
+        let setCount = 0;
+        parser.on('data', (record) => {
+          if (record.set_num && record.name) {
+            setNamesMap.set(record.set_num, record.name);
+            setCount++;
+          }
+        });
+        
+        parser.on('end', () => {
+          console.log(`[Rebrickable] Loaded ${setCount} set names`);
+          resolve();
+        });
+        
+        parser.on('error', reject);
+        stream.pipe(gunzip).pipe(parser);
+        stream.on('error', reject);
+        gunzip.on('error', reject);
+      } catch (error) {
+        reject(error);
+      }
+    });
+    
+    // Step 2: Build inventory_id → set_num mapping from inventories.csv
+    console.log('[Rebrickable] Step 2: Downloading inventories.csv to map inventory IDs to sets...');
     const inventoriesUrl = 'https://cdn.rebrickable.com/media/downloads/inventories.csv.gz';
     const inventoryMap = new Map<string, string>(); // inventory_id → set_num
     
@@ -59,8 +96,8 @@ export async function syncRebrickableSetParts(): Promise<RebrickableSyncResult> 
       }
     });
     
-    // Step 2: Stream inventory_parts.csv and join with inventory map
-    console.log('[Rebrickable] Step 2: Downloading inventory_parts.csv and building set-part relationships...');
+    // Step 3: Stream inventory_parts.csv and join with inventory map
+    console.log('[Rebrickable] Step 3: Downloading inventory_parts.csv and building set-part relationships...');
     const partsUrl = 'https://cdn.rebrickable.com/media/downloads/inventory_parts.csv.gz';
     
     let partsProcessed = 0;
@@ -93,10 +130,13 @@ export async function syncRebrickableSetParts(): Promise<RebrickableSyncResult> 
           return;
         }
         
+        // Look up set name
+        const setName = setNamesMap.get(setNum) || null;
+        
         // Add to batch
         batch.push({
           setNum,
-          setName: null, // inventory_parts.csv doesn't include set names
+          setName,
           partNum,
           colorId: parseInt(record.color_id) || null,
           quantity: parseInt(record.quantity) || 0,

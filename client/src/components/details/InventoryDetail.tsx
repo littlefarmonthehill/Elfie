@@ -972,7 +972,7 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
             Updated <span className="font-bold text-white">{data.updatedAt ? new Date(data.updatedAt).toLocaleDateString() : 'N/A'}</span>
           </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           {/* View Sets Button */}
           <Dialog open={setsDialogOpen} onOpenChange={setSetsDialogOpen}>
             <DialogTrigger asChild>
@@ -983,75 +983,68 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
                 data-testid="button-view-sets"
               >
                 <Boxes className="h-3.5 w-3.5 mr-1" />
-                VIEW SETS
+                SETS
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto" aria-describedby="sets-dialog-description">
+            <DialogContent className="max-w-3xl max-h-[80vh]" aria-describedby="sets-dialog-description">
               <DialogHeader>
-                <DialogTitle className="text-lg font-bold text-lego-blue">
+                <DialogTitle className="text-base font-bold text-white">
                   Sets Containing {data.itemNo}
+                  {data.colorName && (
+                    <span className="ml-2 text-sm text-gray-400">
+                      ({data.colorName})
+                    </span>
+                  )}
                 </DialogTitle>
               </DialogHeader>
-              {data.colorName && (
-                <div id="sets-dialog-description" className="text-sm text-gray-400 flex items-center gap-2 mt-1">
-                  Color: {data.colorName}
-                  {data.colorRgb && (
-                    <div 
-                      className="w-4 h-4 rounded-full border border-gray-600"
-                      style={{ backgroundColor: `#${data.colorRgb}` }}
-                    />
-                  )}
-                </div>
-              )}
-              <div className="mt-4">
+              <div id="sets-dialog-description" className="mt-3 overflow-y-auto max-h-[calc(80vh-120px)]">
                 {loadingSets && (
-                  <div className="space-y-2">
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="h-16 bg-gray-800 rounded-lg animate-pulse" />
+                  <div className="space-y-1">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <div key={i} className="h-10 bg-gray-800/50 rounded animate-pulse" />
                     ))}
                   </div>
                 )}
                 {!loadingSets && setsData?.sets && setsData.sets.length > 0 && (
-                  <div className="space-y-2">
-                    {setsData.sets.map((set) => (
+                  <div className="space-y-0.5">
+                    {setsData.sets.map((set, index) => (
                       <div 
                         key={`${set.setNum}-${set.colorId}`}
-                        className="bg-gray-800 border border-gray-700 rounded-lg p-3 hover-elevate"
+                        className={`flex items-center justify-between gap-3 py-2 px-3 hover-elevate rounded ${
+                          index % 2 === 0 ? 'bg-gray-800/30' : 'bg-gray-800/50'
+                        }`}
+                        data-testid={`set-row-${set.setNum}`}
                       >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <h4 className="text-sm font-bold text-lego-blue font-mono">
-                                {set.setNum}
-                              </h4>
-                              <Badge className="bg-lego-yellow/20 text-lego-yellow border-lego-yellow/40 text-[9px] h-4 px-2">
-                                {set.quantity}x
-                              </Badge>
-                            </div>
-                            {set.setName && (
-                              <p className="text-xs text-gray-300">{set.setName}</p>
-                            )}
-                          </div>
-                          <a 
-                            href={`https://www.bricklink.com/v2/catalog/catalogitem.page?S=${set.setNum}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex-shrink-0 text-lego-blue hover:text-lego-blue/80 transition-colors"
-                            data-testid={`link-set-${set.setNum}`}
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                          </a>
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <span className="text-xs font-mono font-bold text-lego-blue whitespace-nowrap">
+                            {set.setNum}
+                          </span>
+                          <span className="text-xs text-gray-300 truncate flex-1">
+                            {set.setName || 'Unknown Set'}
+                          </span>
+                          <span className="text-[10px] text-lego-yellow font-bold whitespace-nowrap">
+                            {set.quantity}×
+                          </span>
                         </div>
+                        <a 
+                          href={`https://www.bricklink.com/v2/catalog/catalogitem.page?S=${set.setNum}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex-shrink-0 text-gray-400 hover:text-lego-blue transition-colors"
+                          data-testid={`link-set-${set.setNum}`}
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </a>
                       </div>
                     ))}
                   </div>
                 )}
                 {!loadingSets && setsData?.sets && setsData.sets.length === 0 && (
-                  <div className="text-center py-8">
-                    <Boxes className="h-12 w-12 text-gray-600 mx-auto mb-2" />
-                    <p className="text-sm text-gray-400">No sets found containing this part</p>
+                  <div className="text-center py-12">
+                    <Boxes className="h-10 w-10 text-gray-600 mx-auto mb-2" />
+                    <p className="text-sm text-gray-400">No sets found for this part</p>
                     <p className="text-xs text-gray-500 mt-1">
-                      Set data is synced from Rebrickable during BrickLink inventory sync
+                      Note: BrickLink and Rebrickable use different part numbering
                     </p>
                   </div>
                 )}
@@ -1063,10 +1056,10 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
             href={bricklinkUrl} 
             target="_blank" 
             rel="noopener noreferrer"
-            className="flex items-center gap-1 text-[10px] font-bold text-lego-blue hover:text-lego-blue/80 transition-colors"
+            className="flex items-center gap-1 text-[10px] font-bold text-lego-blue hover:text-lego-blue/80 transition-colors whitespace-nowrap"
             data-testid="link-bricklink"
           >
-            VIEW ON BRICKLINK
+            BRICKLINK
             <ExternalLink className="h-3.5 w-3.5" />
           </a>
         </div>
