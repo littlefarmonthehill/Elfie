@@ -57,6 +57,7 @@ type DiscrepancyItem = {
 
 export default function PlatformSyncTool() {
   const [syncingPlatform, setSyncingPlatform] = useState<string | null>(null);
+  const [syncingBrickLink, setSyncingBrickLink] = useState(false);
   const [discrepancyDrawer, setDiscrepancyDrawer] = useState<{
     open: boolean;
     platform: string;
@@ -69,6 +70,17 @@ export default function PlatformSyncTool() {
   // Fetch platform sync status
   const { data, isLoading } = useQuery<PlatformSyncData>({
     queryKey: ['/api/platform-sync/status'],
+  });
+
+  // Fetch BrickLink rate limit status
+  const { data: rateLimit } = useQuery<{
+    allowed: boolean;
+    callsLast24h: number;
+    warning?: string;
+    blocked?: boolean;
+  }>({
+    queryKey: ['/api/bricklink/rate-limit'],
+    refetchInterval: 30000, // Refresh every 30 seconds
   });
 
   // Sync mutation
@@ -166,6 +178,47 @@ export default function PlatformSyncTool() {
     syncUnsyncedMutation.mutate({ limit });
   };
 
+  // BrickLink inventory sync mutation
+  const bricklinkSyncMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch('/api/sync/bricklink/inventory', {
+        method: 'POST',
+      });
+      if (!response.ok) throw new Error('Sync failed');
+      return response.json();
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/platform-sync/status'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/bricklink/rate-limit'] });
+      toast({
+        title: "BrickLink Sync Complete",
+        description: `${result.data.inventoryAdded} added, ${result.data.inventoryUpdated} updated`,
+      });
+      setSyncingBrickLink(false);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "BrickLink Sync Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+      setSyncingBrickLink(false);
+    },
+  });
+
+  const handleSyncBrickLink = () => {
+    if (rateLimit?.blocked) {
+      toast({
+        title: "API Limit Reached",
+        description: "BrickLink API limit reached. Please wait before syncing again.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setSyncingBrickLink(true);
+    bricklinkSyncMutation.mutate();
+  };
+
   // Fetch discrepancy details
   const { data: discrepancyData, isLoading: discrepancyLoading } = useQuery<{ discrepancies: DiscrepancyItem[]; total: number }>({
     queryKey: ['/api/platform-sync/discrepancies', discrepancyDrawer.platform, discrepancyDrawer.type],
@@ -208,6 +261,53 @@ export default function PlatformSyncTool() {
               Active
             </Badge>
           </div>
+          
+          {/* Rate Limit Status */}
+          {rateLimit && (
+            <div className={`mb-2 p-2 rounded-lg border ${
+              rateLimit.blocked 
+                ? 'bg-red-500/10 border-red-500/30' 
+                : rateLimit.warning 
+                ? 'bg-yellow-500/10 border-yellow-500/30' 
+                : 'bg-blue-500/10 border-blue-500/30'
+            }`}>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-[10px] font-semibold text-gray-300">
+                  API Usage: {rateLimit.callsLast24h.toLocaleString()}/5,000 (24h)
+                </span>
+              </div>
+              {rateLimit.warning && (
+                <p className={`text-[10px] ${
+                  rateLimit.blocked ? 'text-red-400' : 'text-yellow-400'
+                }`}>
+                  {rateLimit.warning}
+                </p>
+              )}
+            </div>
+          )}
+          
+          {/* Sync Button */}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleSyncBrickLink}
+            disabled={syncingBrickLink || rateLimit?.blocked}
+            className="w-full text-xs mb-2"
+            data-testid="button-sync-bricklink"
+          >
+            {syncingBrickLink ? (
+              <>
+                <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />
+                Syncing...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="w-3 h-3 mr-1.5" />
+                Sync Inventory
+              </>
+            )}
+          </Button>
+          
           <div className="grid grid-cols-2 gap-2">
             <div className="bg-gray-900/50 rounded-lg p-2 border border-gray-700">
               <p className="text-[10px] md:text-xs text-gray-400 mb-0.5">Total Lots</p>
