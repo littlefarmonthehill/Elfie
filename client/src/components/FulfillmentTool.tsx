@@ -293,11 +293,17 @@ export default function FulfillmentTool() {
   };
 
   const handleExecuteSplit = async () => {
-    if (!selectedOrderId || selectedItemsForSplit.size === 0) return;
+    if (!selectedOrderId || selectedItemsForSplit.size === 0 || !data) return;
 
     try {
+      // Calculate itemIdsToKeep (all order items except the selected ones)
+      const orderItems = data.items.filter(item => item.orderId === selectedOrderId);
+      const itemIdsToKeep = orderItems
+        .filter(item => !selectedItemsForSplit.has(item.id))
+        .map(item => item.id);
+
       await apiRequest('POST', `/api/orders/${selectedOrderId}/split`, {
-        itemIdsToSplit: Array.from(selectedItemsForSplit)
+        itemIdsToKeep
       });
 
       toast({
