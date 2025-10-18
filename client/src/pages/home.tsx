@@ -586,10 +586,10 @@ export default function Home() {
     setShowElfie(true);
     setElfieClosing(false);
     
-    // Open drawer AFTER Elfie completes full animation (1100ms)
+    // Open drawer AFTER Elfie completes full animation (1300ms total: 400+400+200+300)
     setTimeout(() => {
       setChatOpen(true);
-    }, 1100);
+    }, 1300);
   };
 
   const handleChatClose = () => {

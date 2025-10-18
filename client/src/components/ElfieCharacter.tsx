@@ -15,17 +15,18 @@ export function ElfieCharacter({ onAnimationComplete, isClosing = false }: Elfie
       opacity: 0,
     },
     emerge: {
-      scale: 1,
-      y: -50,
-      x: 20,
+      scale: 1.5,
+      y: 100,
+      x: 50,
       opacity: 1,
       transition: {
-        duration: 0.3,
+        duration: 0.4,
         ease: "easeOut",
       },
     },
     pull: {
-      y: -30,
+      y: 80,
+      scale: 1.5,
       rotate: -15,
       transition: {
         duration: 0.4,
@@ -34,8 +35,9 @@ export function ElfieCharacter({ onAnimationComplete, isClosing = false }: Elfie
     },
     wave: {
       rotate: 0,
+      scale: 1.5,
       transition: {
-        duration: 0.15,
+        duration: 0.2,
       },
     },
     retreat: {
@@ -44,7 +46,7 @@ export function ElfieCharacter({ onAnimationComplete, isClosing = false }: Elfie
       x: 0,
       opacity: 0,
       transition: {
-        duration: 0.15,
+        duration: 0.3,
         ease: "easeIn",
       },
     },
@@ -53,14 +55,18 @@ export function ElfieCharacter({ onAnimationComplete, isClosing = false }: Elfie
   // Closing animation (just retreat)
   const closingVariants = {
     hidden: {
-      scale: 1,
+      scale: 1.5,
+      y: 80,
+      x: 50,
       opacity: 1,
     },
     retreat: {
       scale: 0,
+      y: 0,
+      x: 0,
       opacity: 0,
       transition: {
-        duration: 0.3,
+        duration: 0.4,
         ease: "easeIn",
       },
     },
