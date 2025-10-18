@@ -986,23 +986,23 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
                 VIEW SETS
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto" aria-describedby="sets-dialog-description">
               <DialogHeader>
                 <DialogTitle className="text-lg font-bold text-lego-blue">
                   Sets Containing {data.itemNo}
                 </DialogTitle>
-                {data.colorName && (
-                  <p className="text-sm text-gray-400 flex items-center gap-2 mt-1">
-                    Color: {data.colorName}
-                    {data.colorRgb && (
-                      <div 
-                        className="w-4 h-4 rounded-full border border-gray-600"
-                        style={{ backgroundColor: `#${data.colorRgb}` }}
-                      />
-                    )}
-                  </p>
-                )}
               </DialogHeader>
+              {data.colorName && (
+                <div id="sets-dialog-description" className="text-sm text-gray-400 flex items-center gap-2 mt-1">
+                  Color: {data.colorName}
+                  {data.colorRgb && (
+                    <div 
+                      className="w-4 h-4 rounded-full border border-gray-600"
+                      style={{ backgroundColor: `#${data.colorRgb}` }}
+                    />
+                  )}
+                </div>
+              )}
               <div className="mt-4">
                 {loadingSets && (
                   <div className="space-y-2">
