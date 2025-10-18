@@ -44,7 +44,15 @@ export async function syncRebrickableSetParts(): Promise<RebrickableSyncResult> 
           trim: true,
         });
       
+      let recordCount = 0;
       parser.on('data', async (record) => {
+        recordCount++;
+        
+        // Debug first few records
+        if (recordCount <= 3) {
+          console.log(`[Rebrickable Debug] Record ${recordCount}:`, JSON.stringify(record).substring(0, 200));
+        }
+        
         // Extract set number
         const setNum = record.set_num || record.inv_part_id?.split('-')[0];
         const partNum = record.part_num;
@@ -86,6 +94,7 @@ export async function syncRebrickableSetParts(): Promise<RebrickableSyncResult> 
       });
       
       parser.on('end', async () => {
+        console.log(`[Rebrickable] Parser ended. Total records seen: ${recordCount}`);
         // Insert remaining records in final batch
         if (batch.length > 0) {
           try {
