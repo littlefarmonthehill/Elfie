@@ -1488,25 +1488,62 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
   });
 
   // Get Sets Containing This Part
-  // Note: Rebrickable data is organized by part number only, not by color
-  // We group by set and sum quantities across all colors of this part in each set
+  // Returns sets with color breakdown showing which colors of this part appear in each set
   app.get("/api/inventory/:itemNo/:colorId/sets", async (req, res) => {
     try {
       const { itemNo } = req.params;
       const limit = parseInt(req.query.limit as string) || 100;
       
-      // Group by set_num and set_name, sum quantities across all colors
-      const sets = await db
+      // Get all set-part-color combinations
+      const rawData = await db
         .select({
           setNum: setPartRelationships.setNum,
           setName: setPartRelationships.setName,
-          quantity: sql<number>`SUM(${setPartRelationships.quantity})`.as('total_quantity'),
+          colorId: setPartRelationships.colorId,
+          quantity: setPartRelationships.quantity,
         })
         .from(setPartRelationships)
         .where(eq(setPartRelationships.partNum, itemNo))
-        .groupBy(setPartRelationships.setNum, setPartRelationships.setName)
-        .limit(limit)
         .orderBy(setPartRelationships.setNum);
+      
+      // Get color names for the color IDs
+      const colorIds = Array.from(new Set(rawData.map(r => r.colorId).filter(c => c !== null)));
+      const colors = colorIds.length > 0 
+        ? await db
+            .select({
+              id: blColors.id,
+              name: blColors.name,
+            })
+            .from(blColors)
+            .where(inArray(blColors.id, colorIds))
+        : [];
+      
+      const colorMap = new Map(colors.map(c => [c.id, c.name]));
+      
+      // Group by set and include color breakdown
+      const setsMap = new Map<string, any>();
+      
+      for (const row of rawData) {
+        if (!setsMap.has(row.setNum)) {
+          setsMap.set(row.setNum, {
+            setNum: row.setNum,
+            setName: row.setName,
+            totalQuantity: 0,
+            colors: [],
+          });
+        }
+        
+        const set = setsMap.get(row.setNum);
+        set.totalQuantity += row.quantity;
+        set.colors.push({
+          colorId: row.colorId,
+          colorName: row.colorId ? colorMap.get(row.colorId) || `Color ${row.colorId}` : 'Unknown',
+          quantity: row.quantity,
+        });
+      }
+      
+      // Convert to array and apply limit
+      const sets = Array.from(setsMap.values()).slice(0, limit);
       
       res.json({ sets });
     } catch (error) {

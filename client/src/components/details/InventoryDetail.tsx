@@ -114,7 +114,18 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
   });
 
   // Fetch sets containing this part
-  const { data: setsData, isLoading: loadingSets } = useQuery<{ sets: Array<{ setNum: string; setName: string | null; quantity: number; colorId: number | null }> }>({
+  const { data: setsData, isLoading: loadingSets } = useQuery<{ 
+    sets: Array<{ 
+      setNum: string; 
+      setName: string | null; 
+      totalQuantity: number; 
+      colors: Array<{ 
+        colorId: number | null; 
+        colorName: string; 
+        quantity: number 
+      }> 
+    }> 
+  }>({
     queryKey: [`/api/inventory/${data.itemNo}/${data.colorId || 0}/sets`],
     enabled: setsDialogOpen && !!data.itemNo,
   });
@@ -1001,35 +1012,57 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
                   </div>
                 )}
                 {!loadingSets && setsData?.sets && setsData.sets.length > 0 && (
-                  <div className="space-y-0.5">
+                  <div className="space-y-2">
                     {setsData.sets.map((set, index) => (
                       <div 
-                        key={`${set.setNum}-${set.colorId}`}
-                        className={`flex items-center justify-between gap-3 py-2 px-3 hover-elevate rounded ${
+                        key={set.setNum}
+                        className={`rounded px-3 py-2 ${
                           index % 2 === 0 ? 'bg-gray-800/30' : 'bg-gray-800/50'
                         }`}
                         data-testid={`set-row-${set.setNum}`}
                       >
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <span className="text-xs font-mono font-bold text-lego-blue whitespace-nowrap">
-                            {set.setNum}
-                          </span>
-                          <span className="text-xs text-gray-300 truncate flex-1">
-                            {set.setName || 'Unknown Set'}
-                          </span>
-                          <span className="text-[10px] text-lego-yellow font-bold whitespace-nowrap">
-                            {set.quantity}×
-                          </span>
+                        {/* Set header */}
+                        <div className="flex items-center justify-between gap-3 mb-1.5">
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <span className="text-xs font-mono font-bold text-lego-blue whitespace-nowrap">
+                              {set.setNum}
+                            </span>
+                            <span className="text-xs text-gray-300 truncate flex-1">
+                              {set.setName || 'Unknown Set'}
+                            </span>
+                            <span className="text-[10px] text-lego-yellow font-bold whitespace-nowrap">
+                              {set.totalQuantity}× total
+                            </span>
+                          </div>
+                          <a 
+                            href={`https://www.bricklink.com/v2/catalog/catalogitem.page?S=${set.setNum}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex-shrink-0 text-gray-400 hover:text-lego-blue transition-colors"
+                            data-testid={`link-set-${set.setNum}`}
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </a>
                         </div>
-                        <a 
-                          href={`https://www.bricklink.com/v2/catalog/catalogitem.page?S=${set.setNum}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex-shrink-0 text-gray-400 hover:text-lego-blue transition-colors"
-                          data-testid={`link-set-${set.setNum}`}
-                        >
-                          <ExternalLink className="h-3.5 w-3.5" />
-                        </a>
+                        
+                        {/* Color breakdown */}
+                        {set.colors && set.colors.length > 0 && (
+                          <div className="ml-4 space-y-0.5 border-l-2 border-gray-700 pl-3">
+                            {set.colors.map((color: any, colorIndex: number) => (
+                              <div 
+                                key={`${set.setNum}-${color.colorId}-${colorIndex}`}
+                                className="flex items-center justify-between gap-2"
+                              >
+                                <span className="text-[10px] text-gray-400">
+                                  {color.colorName}
+                                </span>
+                                <span className="text-[10px] text-gray-400 font-mono">
+                                  {color.quantity}×
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
