@@ -583,16 +583,20 @@ export default function Home() {
   };
 
   const handleElfieClick = () => {
-    // Start Elfie animation - zigzag flight to upper right
+    // Start Elfie animation - fly down, pull drawer, then zigzag to upper-right
     setShowElfie(true);
     setElfieClosing(false);
     setElfieResting(false);
     
-    // Open drawer after zigzag animation completes (emerge + 3 zigzags + flyToTopRight = ~2.9s)
+    // Open drawer when Elfie reaches bottom (emerge + flyDown = 1200ms)
     setTimeout(() => {
       setChatOpen(true);
-      setElfieResting(true); // Elfie stays visible in upper-right corner
-    }, 2900);
+    }, 1200);
+    
+    // After pull animation completes, set to resting (will continue zigzag)
+    setTimeout(() => {
+      setElfieResting(true);
+    }, 1600);
   };
 
   const handleChatClose = () => {

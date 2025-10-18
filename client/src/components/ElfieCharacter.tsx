@@ -24,48 +24,59 @@ export function ElfieCharacter({ onAnimationComplete, isClosing = false, isResti
         ease: "easeOut",
       },
     },
+    flyDown: {
+      scale: 1.4,
+      x: 0,
+      y: "calc(100vh - 200px)",
+      rotate: 0,
+      opacity: 1,
+      transition: {
+        duration: 0.8,
+        ease: "easeInOut",
+      },
+    },
+    pull: {
+      scale: 1.4,
+      x: 0,
+      y: "calc(100vh - 220px)",
+      rotate: 10,
+      opacity: 1,
+      transition: {
+        duration: 0.4,
+        ease: "easeInOut",
+      },
+    },
     zigzag1: {
       scale: 1.3,
-      x: 80,
-      y: "calc(20vh)",
+      x: 150,
+      y: "calc(60vh)",
       rotate: 15,
       opacity: 1,
       transition: {
-        duration: 0.6,
+        duration: 0.5,
         ease: "easeInOut",
       },
     },
     zigzag2: {
-      scale: 1.4,
-      x: -60,
-      y: "calc(40vh)",
+      scale: 1.2,
+      x: "calc(100vw - 300px)",
+      y: "calc(30vh)",
       rotate: -15,
       opacity: 1,
       transition: {
-        duration: 0.6,
+        duration: 0.5,
         ease: "easeInOut",
       },
     },
     zigzag3: {
-      scale: 1.5,
-      x: 100,
-      y: "calc(60vh)",
-      rotate: 20,
+      scale: 1.1,
+      x: "calc(100vw - 200px)",
+      y: 100,
+      rotate: 10,
       opacity: 1,
       transition: {
-        duration: 0.6,
+        duration: 0.5,
         ease: "easeInOut",
-      },
-    },
-    flyToTopRight: {
-      scale: 1.3,
-      x: "calc(100vw - 180px)",
-      y: 80,
-      rotate: 0,
-      opacity: 1,
-      transition: {
-        duration: 0.7,
-        ease: "easeOut",
       },
     },
     resting: {
@@ -119,7 +130,7 @@ export function ElfieCharacter({ onAnimationComplete, isClosing = false, isResti
           ? "retreat" 
           : isResting 
             ? "resting"
-            : ["emerge", "zigzag1", "zigzag2", "zigzag3", "flyToTopRight", "resting"]
+            : ["emerge", "flyDown", "pull", "zigzag1", "zigzag2", "zigzag3", "resting"]
       }
       variants={isClosing ? closingVariants : elfieVariants}
       onAnimationComplete={onAnimationComplete}
