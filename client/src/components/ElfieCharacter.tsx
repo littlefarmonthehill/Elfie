@@ -71,7 +71,7 @@ export function ElfieCharacter({ onAnimationComplete, isClosing = false, isResti
     zigzag3: {
       scale: 1.1,
       x: "calc(100vw - 200px)",
-      y: 100,
+      y: 30,
       rotate: 10,
       opacity: 1,
       transition: {
@@ -80,9 +80,9 @@ export function ElfieCharacter({ onAnimationComplete, isClosing = false, isResti
       },
     },
     resting: {
-      scale: 1.0,
-      x: "calc(100vw - 160px)",
-      y: 80,
+      scale: 0.9,
+      x: "calc(100vw - 150px)",
+      y: 20,
       rotate: 0,
       opacity: 1,
       transition: {
@@ -104,9 +104,9 @@ export function ElfieCharacter({ onAnimationComplete, isClosing = false, isResti
   // Closing animation - Elfie at top-right retreats
   const closingVariants = {
     hidden: {
-      scale: 1.0,
-      x: "calc(100vw - 160px)",
-      y: 80,
+      scale: 0.9,
+      x: "calc(100vw - 150px)",
+      y: 20,
       opacity: 1,
     },
     retreat: {
