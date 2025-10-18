@@ -120,8 +120,8 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
       setName: string | null; 
       totalQuantity: number; 
       colors: Array<{ 
-        colorId: number | null; 
-        colorName: string; 
+        name: string; 
+        rgb: string | null; 
         quantity: number 
       }> 
     }> 
@@ -1022,7 +1022,7 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
                         data-testid={`set-row-${set.setNum}`}
                       >
                         {/* Set header */}
-                        <div className="flex items-center justify-between gap-3 mb-1.5">
+                        <div className="flex items-center justify-between gap-3 mb-1">
                           <div className="flex items-center gap-3 flex-1 min-w-0">
                             <span className="text-xs font-mono font-bold text-lego-blue whitespace-nowrap">
                               {set.setNum}
@@ -1045,18 +1045,24 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
                           </a>
                         </div>
                         
-                        {/* Color breakdown */}
+                        {/* Color breakdown - inline with dots */}
                         {set.colors && set.colors.length > 0 && (
-                          <div className="ml-4 space-y-0.5 border-l-2 border-gray-700 pl-3">
+                          <div className="ml-4 flex flex-wrap items-center gap-x-3 gap-y-1">
                             {set.colors.map((color: any, colorIndex: number) => (
                               <div 
-                                key={`${set.setNum}-${color.colorId}-${colorIndex}`}
-                                className="flex items-center justify-between gap-2"
+                                key={`${set.setNum}-${colorIndex}`}
+                                className="flex items-center gap-1.5"
                               >
+                                <div 
+                                  className="w-2.5 h-2.5 rounded-full border border-gray-600"
+                                  style={{ 
+                                    backgroundColor: color.rgb ? `#${color.rgb}` : '#666'
+                                  }}
+                                />
                                 <span className="text-[10px] text-gray-400">
-                                  {color.colorName}
+                                  {color.name}
                                 </span>
-                                <span className="text-[10px] text-gray-400 font-mono">
+                                <span className="text-[10px] text-gray-500 font-mono">
                                   {color.quantity}×
                                 </span>
                               </div>

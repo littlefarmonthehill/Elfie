@@ -1506,21 +1506,22 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
         .where(eq(setPartRelationships.partNum, itemNo))
         .orderBy(setPartRelationships.setNum);
       
-      // Get color names for the color IDs
+      // Get color names and RGB values for the color IDs
       const colorIds = Array.from(new Set(rawData.map(r => r.colorId).filter(c => c !== null)));
       const colors = colorIds.length > 0 
         ? await db
             .select({
               id: blColors.id,
               name: blColors.name,
+              rgb: blColors.rgb,
             })
             .from(blColors)
             .where(inArray(blColors.id, colorIds))
         : [];
       
-      const colorMap = new Map(colors.map(c => [c.id, c.name]));
+      const colorMap = new Map(colors.map(c => [c.id, { name: c.name, rgb: c.rgb }]));
       
-      // Group by set and include color breakdown
+      // Group by set and aggregate color quantities
       const setsMap = new Map<string, any>();
       
       for (const row of rawData) {
@@ -1529,17 +1530,37 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
             setNum: row.setNum,
             setName: row.setName,
             totalQuantity: 0,
-            colors: [],
+            colorQuantities: new Map<number, { name: string; rgb: string | null; quantity: number }>(),
           });
         }
         
         const set = setsMap.get(row.setNum);
         set.totalQuantity += row.quantity;
-        set.colors.push({
-          colorId: row.colorId,
-          colorName: row.colorId ? colorMap.get(row.colorId) || `Color ${row.colorId}` : 'Unknown',
-          quantity: row.quantity,
-        });
+        
+        // Aggregate quantities for the same color
+        if (row.colorId) {
+          const colorInfo = colorMap.get(row.colorId);
+          const colorName = colorInfo?.name || `Color ${row.colorId}`;
+          const colorRgb = colorInfo?.rgb || null;
+          
+          if (set.colorQuantities.has(row.colorId)) {
+            const existing = set.colorQuantities.get(row.colorId);
+            existing.quantity += row.quantity;
+          } else {
+            set.colorQuantities.set(row.colorId, {
+              name: colorName,
+              rgb: colorRgb,
+              quantity: row.quantity,
+            });
+          }
+        }
+      }
+      
+      // Convert colorQuantities Map to array
+      const allSets = Array.from(setsMap.values());
+      for (const set of allSets) {
+        set.colors = Array.from(set.colorQuantities.values());
+        delete set.colorQuantities;
       }
       
       // Convert to array and apply limit
