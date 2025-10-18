@@ -44,11 +44,20 @@ export async function syncRebrickableSetParts(): Promise<RebrickableSyncResult> 
       });
       
       parser.on('data', async (record) => {
+        // Extract set number
+        const setNum = record.set_num || record.inv_part_id?.split('-')[0];
+        const partNum = record.part_num;
+        
+        // Skip records with missing critical data
+        if (!setNum || !partNum) {
+          return;
+        }
+        
         // Add to batch
         batch.push({
-          setNum: record.set_num || record.inv_part_id?.split('-')[0], // Fallback to parsing from ID
+          setNum,
           setName: null, // inventory_parts.csv doesn't include set names
-          partNum: record.part_num,
+          partNum,
           colorId: parseInt(record.color_id) || null,
           quantity: parseInt(record.quantity) || 0,
         });
