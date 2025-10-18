@@ -13,6 +13,7 @@ import ChatInterface from "@/components/ChatInterface";
 import DetailModal, { DetailData } from "@/components/DetailModal";
 import DateRangeSelector, { DateRangeValue } from "@/components/DateRangeSelector";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { ElfieCharacter } from "@/components/ElfieCharacter";
 
 export default function Home() {
   const [activeDashboard, setActiveDashboard] = useState<DashboardType>('dashboard');
@@ -20,6 +21,8 @@ export default function Home() {
   const [salesPeriod, setSalesPeriod] = useState<'mtd' | 'ytd' | '1y' | '5y'>('ytd');
   const [dateRange, setDateRange] = useState<DateRangeValue>('mtd');
   const [chatOpen, setChatOpen] = useState(false);
+  const [showElfie, setShowElfie] = useState(false);
+  const [elfieClosing, setElfieClosing] = useState(false);
   const [activeInventoryDrawer, setActiveInventoryDrawer] = useState<'priceomatic' | 'warehouse' | 'platformsync' | null>(null);
   const [activeOrdersDrawer, setActiveOrdersDrawer] = useState<'picklist' | 'fulfillment' | 'platformsync' | 'shipped' | null>(null);
   const [detailModal, setDetailModal] = useState<{ open: boolean; data: DetailData | null }>({
@@ -578,12 +581,51 @@ export default function Home() {
     }
   };
 
+  const handleElfieClick = () => {
+    // Start Elfie animation
+    setShowElfie(true);
+    setElfieClosing(false);
+    
+    // Open drawer after 400ms (when Elfie is "pulling")
+    setTimeout(() => {
+      setChatOpen(true);
+    }, 400);
+  };
+
+  const handleChatClose = () => {
+    // Start closing animation
+    setElfieClosing(true);
+    setShowElfie(true);
+    
+    // Close drawer immediately
+    setChatOpen(false);
+    
+    // Hide Elfie after animation completes
+    setTimeout(() => {
+      setShowElfie(false);
+      setElfieClosing(false);
+    }, 300);
+  };
+
   return (
     <div className="flex flex-col h-screen bg-background text-foreground">
       <Header 
         onSettingsClick={() => setSettingsOpen(true)} 
-        onElfieClick={() => setChatOpen(true)}
+        onElfieClick={handleElfieClick}
       />
+      
+      {/* Elfie Character Animation */}
+      {showElfie && (
+        <ElfieCharacter 
+          isClosing={elfieClosing}
+          onAnimationComplete={() => {
+            if (!elfieClosing) {
+              // Hide Elfie after opening animation completes
+              setShowElfie(false);
+            }
+          }}
+        />
+      )}
       <DashboardNav active={activeDashboard} onSelect={setActiveDashboard} />
       
 
@@ -705,13 +747,50 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Elfie Chat Drawer - Slides from bottom */}
-      <Sheet open={chatOpen} onOpenChange={setChatOpen}>
+      {/* Elfie Chat Drawer - Jetsons Style */}
+      <Sheet open={chatOpen} onOpenChange={handleChatClose}>
         <SheetContent 
           side="bottom" 
-          className="h-[85vh] p-0 border-t-4 border-purple-500/50 bg-gradient-to-br from-purple-950/90 to-black/90 backdrop-blur-lg"
+          className="h-[85vh] p-0 border-0 overflow-hidden"
+          style={{
+            background: 'linear-gradient(135deg, #1a0a2e 0%, #2d1b4e 50%, #0f0524 100%)',
+          }}
         >
-          <div className="h-full flex flex-col">
+          {/* Jetsons-style chrome border with scan lines */}
+          <div className="absolute inset-0 pointer-events-none">
+            {/* Top chrome trim */}
+            <div 
+              className="absolute top-0 left-0 right-0 h-2"
+              style={{
+                background: 'linear-gradient(to bottom, #e5e7eb 0%, #9ca3af 50%, #6b7280 100%)',
+                boxShadow: '0 2px 8px rgba(168, 85, 247, 0.4)',
+              }}
+            />
+            
+            {/* Atomic-age corner accents */}
+            <div className="absolute top-2 left-4 w-12 h-12 rounded-full border-2 border-purple-400/30" />
+            <div className="absolute top-2 right-4 w-12 h-12 rounded-full border-2 border-purple-400/30" />
+            <div className="absolute top-4 left-6 w-8 h-8 rounded-full border-2 border-cyan-400/30" />
+            <div className="absolute top-4 right-6 w-8 h-8 rounded-full border-2 border-cyan-400/30" />
+            
+            {/* Scan lines effect */}
+            <div 
+              className="absolute inset-0 opacity-10"
+              style={{
+                backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(168, 85, 247, 0.3) 2px, rgba(168, 85, 247, 0.3) 4px)',
+              }}
+            />
+            
+            {/* Retro glow overlay */}
+            <div 
+              className="absolute inset-0 opacity-20"
+              style={{
+                background: 'radial-gradient(ellipse at center top, rgba(168, 85, 247, 0.4) 0%, transparent 50%)',
+              }}
+            />
+          </div>
+
+          <div className="h-full flex flex-col relative z-10">
             <ChatInterface 
               dashboardContext={getChatContext()} 
               themeColor={getThemeColor()} 
@@ -719,7 +798,7 @@ export default function Home() {
               onPromptAction={handlePromptAction}
               onItemClick={handleItemClick}
               isMinimized={false}
-              onToggleMinimize={() => setChatOpen(false)}
+              onToggleMinimize={handleChatClose}
             />
           </div>
         </SheetContent>
