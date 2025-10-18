@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { AppSettings } from "@shared/schema";
-import { X, Download, Trash2, RefreshCw, Settings, Package, Sparkles, Database, Clock } from "lucide-react";
+import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { Progress } from "@/components/ui/progress";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { EmbeddingsManager } from "@/components/EmbeddingsManager";
@@ -21,30 +20,8 @@ interface SettingsModalProps {
   onClose: () => void;
 }
 
-interface SyncProgress {
-  active: boolean;
-  type: 'inventory' | 'orders' | null;
-  stage: string;
-  progress: number;
-  apiCalls: number;
-  recordsAdded: number;
-  recordsUpdated: number;
-}
-
 export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   const [clearDataDialog, setClearDataDialog] = useState<'inventory' | 'orders' | null>(null);
-  const [syncEnabled, setSyncEnabled] = useState({
-    bricklinkInventory: false,
-  });
-  const [syncProgress, setSyncProgress] = useState<SyncProgress>({
-    active: false,
-    type: null,
-    stage: '',
-    progress: 0,
-    apiCalls: 0,
-    recordsAdded: 0,
-    recordsUpdated: 0,
-  });
 
   // AI Settings
   const [aiEnabled, setAiEnabled] = useState(true);
@@ -168,18 +145,6 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
     'other': 'Other Models',
   };
 
-  // Rate limit state
-  const { data: rateLimit } = useQuery<{
-    allowed: boolean;
-    callsLast24h: number;
-    warning?: string;
-    blocked?: boolean;
-  }>({
-    queryKey: ['/api/bricklink/rate-limit'],
-    enabled: open,
-    refetchInterval: 30000, // Refresh every 30 seconds when modal is open
-  });
-
   const handleExport = (type: 'inventory' | 'orders', format: 'csv' | 'xml') => {
     // TODO: Implement export functionality
     console.log(`Exporting ${type} as ${format}`);
@@ -191,105 +156,11 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
     setClearDataDialog(null);
   };
 
-  const handleSyncInventory = async () => {
-    // Check rate limit before syncing
-    if (rateLimit?.blocked) {
-      return;
-    }
-    
-    setSyncProgress({
-      active: true,
-      type: 'inventory',
-      stage: 'Connecting to BrickLink API...',
-      progress: 10,
-      apiCalls: 0,
-      recordsAdded: 0,
-      recordsUpdated: 0,
-    });
-
-    await new Promise(resolve => setTimeout(resolve, 300));
-    setSyncProgress(prev => ({
-      ...prev,
-      stage: 'Fetching categories & colors from BrickLink...',
-      progress: 25,
-    }));
-
-    await new Promise(resolve => setTimeout(resolve, 400));
-    setSyncProgress(prev => ({
-      ...prev,
-      stage: 'Processing inventory data (this may take 30-60 seconds)...',
-      progress: 50,
-    }));
-
-    try {
-      const response = await fetch('/api/sync/bricklink/inventory', {
-        method: 'POST',
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        const totalAdded = result.data.categoriesAdded + result.data.colorsAdded + result.data.inventoryAdded;
-        const totalUpdated = result.data.categoriesUpdated + result.data.colorsUpdated + result.data.inventoryUpdated;
-        
-        // Build detailed completion message
-        const details = [];
-        if (result.data.categoriesAdded > 0 || result.data.categoriesUpdated > 0) {
-          details.push(`Categories: ${result.data.categoriesAdded} new, ${result.data.categoriesUpdated} updated`);
-        }
-        if (result.data.colorsAdded > 0 || result.data.colorsUpdated > 0) {
-          details.push(`Colors: ${result.data.colorsAdded} new, ${result.data.colorsUpdated} updated`);
-        }
-        if (result.data.inventoryAdded > 0 || result.data.inventoryUpdated > 0) {
-          details.push(`Inventory: ${result.data.inventoryAdded} new, ${result.data.inventoryUpdated} updated`);
-        }
-        const detailsText = details.length > 0 ? details.join(' • ') : 'All data up to date';
-        
-        setSyncProgress({
-          active: true,
-          type: 'inventory',
-          stage: result.data.rateLimitWarning ? `${detailsText} • ${result.data.rateLimitWarning}` : detailsText,
-          progress: 100,
-          apiCalls: result.data.totalApiCalls,
-          recordsAdded: totalAdded,
-          recordsUpdated: totalUpdated,
-        });
-
-        // Invalidate inventory and rate limit queries to refresh dashboard and limits
-        queryClient.invalidateQueries({ queryKey: ['/api/inventory'] });
-        queryClient.invalidateQueries({ queryKey: ['/api/inventory/stats'] });
-        queryClient.invalidateQueries({ queryKey: ['/api/bricklink/rate-limit'] });
-      } else {
-        throw new Error(result.error);
-      }
-    } catch (error) {
-      console.error('Sync failed:', error);
-      setSyncProgress(prev => ({
-        ...prev,
-        stage: 'Failed - Check console',
-        progress: 0,
-      }));
-    }
-
-    // Reset after showing summary
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    setSyncProgress({
-      active: false,
-      type: null,
-      stage: '',
-      progress: 0,
-      apiCalls: 0,
-      recordsAdded: 0,
-      recordsUpdated: 0,
-    });
-  };
-
-  const [activeSection, setActiveSection] = useState<'general' | 'platforms' | 'sync' | 'ai' | 'automation' | 'data'>('general');
+  const [activeSection, setActiveSection] = useState<'general' | 'platforms' | 'ai' | 'automation' | 'data'>('general');
 
   const navigationItems = [
     { id: 'general' as const, label: 'General', icon: Settings },
     { id: 'platforms' as const, label: 'Platforms', icon: Package },
-    { id: 'sync' as const, label: 'Data & Sync', icon: RefreshCw },
     { id: 'ai' as const, label: 'AI & Intelligence', icon: Sparkles },
     { id: 'automation' as const, label: 'Automation', icon: Clock },
     { id: 'data' as const, label: 'Backup & Clear', icon: Database },
@@ -569,101 +440,6 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                     </AccordionContent>
                   </AccordionItem>
                 </Accordion>
-              </div>
-            )}
-
-            {/* Data & Sync */}
-            {activeSection === 'sync' && (
-              <div className="space-y-4 min-h-[400px]">
-              <div className="space-y-4">
-                {/* Sync Progress */}
-                {syncProgress.active && (
-                  <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-sm font-medium text-purple-300">{syncProgress.stage}</h3>
-                      <RefreshCw className="h-4 w-4 text-purple-400 animate-spin" />
-                    </div>
-                    <Progress value={syncProgress.progress} className="mb-3" />
-                    <div className="grid grid-cols-3 gap-2 text-xs">
-                      <div className="bg-gray-800 rounded px-2 py-1">
-                        <span className="text-gray-400">API Calls:</span>
-                        <span className="text-purple-300 font-semibold ml-1">{syncProgress.apiCalls}</span>
-                      </div>
-                      <div className="bg-gray-800 rounded px-2 py-1">
-                        <span className="text-gray-400">Added:</span>
-                        <span className="text-green-400 font-semibold ml-1">{syncProgress.recordsAdded}</span>
-                      </div>
-                      <div className="bg-gray-800 rounded px-2 py-1">
-                        <span className="text-gray-400">Updated:</span>
-                        <span className="text-blue-400 font-semibold ml-1">{syncProgress.recordsUpdated}</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <div>
-                  <h3 className="text-sm font-medium text-gray-300 mb-3">Manual Sync</h3>
-                  
-                  {/* Rate Limit Status */}
-                  {rateLimit && (
-                    <div className={`mb-3 p-2 rounded-lg border ${
-                      rateLimit.blocked 
-                        ? 'bg-red-500/10 border-red-500/30' 
-                        : rateLimit.warning 
-                        ? 'bg-yellow-500/10 border-yellow-500/30' 
-                        : 'bg-blue-500/10 border-blue-500/30'
-                    }`}>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs font-semibold text-gray-300">
-                          BrickLink API Usage: {rateLimit.callsLast24h.toLocaleString()}/5,000 (24h)
-                        </span>
-                      </div>
-                      {rateLimit.warning && (
-                        <p className={`text-xs ${
-                          rateLimit.blocked ? 'text-red-400' : 'text-yellow-400'
-                        }`}>
-                          {rateLimit.warning}
-                        </p>
-                      )}
-                    </div>
-                  )}
-                  
-                  <div className="space-y-2">
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="w-full justify-start text-xs" 
-                      onClick={handleSyncInventory}
-                      disabled={syncProgress.active || rateLimit?.blocked}
-                      data-testid="button-sync-bricklink-inventory"
-                    >
-                      <RefreshCw className={`h-3 w-3 mr-2 ${syncProgress.active && syncProgress.type === 'inventory' ? 'animate-spin' : ''}`} />
-                      Sync BrickLink Inventory (Categories, Colors, Items)
-                    </Button>
-                  </div>
-                </div>
-
-                <Separator className="bg-gray-700" />
-
-                <div>
-                  <h3 className="text-sm font-medium text-gray-300 mb-3">Automatic Sync</h3>
-                  <p className="text-xs text-gray-400 mb-3">Enable automatic syncing at regular intervals</p>
-                  
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label className="text-xs text-gray-300">BrickLink Inventory</Label>
-                        <p className="text-xs text-gray-500">Sync every 6 hours (Categories, Colors, Items)</p>
-                      </div>
-                      <Switch
-                        checked={syncEnabled.bricklinkInventory}
-                        onCheckedChange={(checked) => setSyncEnabled({ ...syncEnabled, bricklinkInventory: checked })}
-                        data-testid="switch-sync-bricklink-inventory"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
               </div>
             )}
 
