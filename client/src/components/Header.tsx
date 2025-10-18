@@ -1,14 +1,43 @@
 import { Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import elfieRobot from "@assets/PlanetBrick_good_robot_1760672362080.png";
 
 interface HeaderProps {
   onSettingsClick: () => void;
+  onElfieClick: () => void;
 }
 
-export default function Header({ onSettingsClick }: HeaderProps) {
+export default function Header({ onSettingsClick, onElfieClick }: HeaderProps) {
   return (
-    <header className="h-14 md:h-16 lg:h-20 border-b border-gray-800 flex items-center justify-between px-4 md:px-6 lg:px-8 bg-gradient-to-r from-blue-950 to-black">
-      <h1 className="text-base md:text-lg lg:text-xl font-bold text-foreground">PlanetBrick</h1>
+    <header className="h-14 md:h-16 lg:h-20 border-b border-gray-800 flex items-center justify-between px-4 md:px-6 lg:px-8 bg-gradient-to-r from-blue-950 to-black relative">
+      {/* Elfie Icon - Left */}
+      <button
+        onClick={onElfieClick}
+        data-testid="button-elfie"
+        className="relative group cursor-pointer flex items-center justify-center"
+      >
+        {/* Glow effect */}
+        <div className="absolute inset-0 rounded-full bg-purple-500/30 blur-lg animate-pulse group-hover:bg-purple-400/40 transition-all duration-300" />
+        
+        {/* Robot icon */}
+        <div className="relative w-8 h-8 md:w-10 md:h-10 lg:w-12 lg:h-12 rounded-full bg-purple-500/20 border-2 border-purple-500/50 flex items-center justify-center group-hover:border-purple-400/70 group-hover:scale-110 transition-all duration-300">
+          <img 
+            src={elfieRobot} 
+            alt="E.L.F.I.E. AI Assistant" 
+            className="w-5 h-5 md:w-6 md:h-6 lg:w-7 lg:h-7 object-contain"
+          />
+        </div>
+        
+        {/* Ripple effect on hover */}
+        <div className="absolute inset-0 rounded-full border-2 border-purple-500/0 group-hover:border-purple-500/30 group-hover:scale-150 transition-all duration-500 opacity-0 group-hover:opacity-100" />
+      </button>
+
+      {/* App Name - Centered */}
+      <h1 className="absolute left-1/2 transform -translate-x-1/2 text-base md:text-lg lg:text-xl font-bold text-foreground">
+        PlanetBrick
+      </h1>
+
+      {/* Settings - Right */}
       <Button
         size="icon"
         variant="ghost"
