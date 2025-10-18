@@ -27,7 +27,7 @@ export function ElfieCharacter({ onAnimationComplete, isClosing = false, isResti
     flyDown: {
       scale: 1.4,
       x: 0,
-      y: "calc(100vh - 200px)",
+      y: "calc(100vh - 80px)",
       rotate: 0,
       opacity: 1,
       transition: {
@@ -38,7 +38,7 @@ export function ElfieCharacter({ onAnimationComplete, isClosing = false, isResti
     pull: {
       scale: 1.4,
       x: 0,
-      y: "calc(100vh - 220px)",
+      y: "calc(100vh - 100px)",
       rotate: 10,
       opacity: 1,
       transition: {
