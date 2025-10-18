@@ -990,11 +990,6 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
               <DialogHeader>
                 <DialogTitle className="text-base font-bold text-white">
                   Sets Containing {data.itemNo}
-                  {data.colorName && (
-                    <span className="ml-2 text-sm text-gray-400">
-                      ({data.colorName})
-                    </span>
-                  )}
                 </DialogTitle>
               </DialogHeader>
               <div id="sets-dialog-description" className="mt-3 overflow-y-auto max-h-[calc(80vh-120px)]">

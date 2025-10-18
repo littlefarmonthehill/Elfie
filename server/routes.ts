@@ -1489,21 +1489,22 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
 
   // Get Sets Containing This Part
   // Note: Rebrickable data is organized by part number only, not by color
-  // So we query by part number regardless of which color the user is viewing
+  // We group by set and sum quantities across all colors of this part in each set
   app.get("/api/inventory/:itemNo/:colorId/sets", async (req, res) => {
     try {
       const { itemNo } = req.params;
       const limit = parseInt(req.query.limit as string) || 100;
       
+      // Group by set_num and set_name, sum quantities across all colors
       const sets = await db
         .select({
           setNum: setPartRelationships.setNum,
           setName: setPartRelationships.setName,
-          quantity: setPartRelationships.quantity,
-          colorId: setPartRelationships.colorId,
+          quantity: sql<number>`SUM(${setPartRelationships.quantity})`.as('total_quantity'),
         })
         .from(setPartRelationships)
         .where(eq(setPartRelationships.partNum, itemNo))
+        .groupBy(setPartRelationships.setNum, setPartRelationships.setName)
         .limit(limit)
         .orderBy(setPartRelationships.setNum);
       
