@@ -15,7 +15,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator 
 } from "@/components/ui/dropdown-menu";
-import { Truck, Loader2, Printer, CheckSquare, Square, Package, AlertTriangle, ChevronDown, Tag } from "lucide-react";
+import { Truck, Loader2, Printer, CheckSquare, Square, Package, AlertTriangle, ChevronDown, Tag, MoreVertical, Scissors } from "lucide-react";
 import PackingSlip from "./PackingSlip";
 import { useToast } from "@/hooks/use-toast";
 
@@ -66,6 +66,12 @@ export default function FulfillmentTool() {
   const [shipmentData, setShipmentData] = useState<any>(null);
   const [splitPreview, setSplitPreview] = useState<any>(null);
   const [isLoadingShipping, setIsLoadingShipping] = useState(false);
+
+  // Split order state
+  const [isSplitMode, setIsSplitMode] = useState(false);
+  const [selectedItemsForSplit, setSelectedItemsForSplit] = useState<Set<string>>(new Set());
+  const [showSplitConfirmDialog, setShowSplitConfirmDialog] = useState(false);
+  const [splitOrderNumber, setSplitOrderNumber] = useState<string>("");
 
   const { data, isLoading } = useQuery<FulfillmentData>({
     queryKey: ['/api/fulfillment'],
@@ -235,22 +241,94 @@ export default function FulfillmentTool() {
     // }
   };
 
-  const handleInitiateShipping = async (orderId: string | null) => {
-    if (!orderId || !data) return;
-    
-    // Get items for this order
-    const orderItems = data.items.filter(item => item.orderId === orderId);
-    const fulfilledItemIds = orderItems.filter(item => item.fulfilled).map(item => item.id);
-    
-    // Validate that at least one item is fulfilled
-    if (fulfilledItemIds.length === 0) {
+  const handleInitiateSplit = () => {
+    if (!selectedOrderId) {
       toast({
-        title: "No Items Ready",
-        description: "Please check at least one item to fulfill before shipping.",
+        title: "No Order Selected",
+        description: "Please select an order to split.",
         variant: "destructive",
       });
       return;
     }
+    
+    setIsSplitMode(true);
+    setSelectedItemsForSplit(new Set());
+  };
+
+  const handleCancelSplit = () => {
+    setIsSplitMode(false);
+    setSelectedItemsForSplit(new Set());
+  };
+
+  const handleItemSplitToggle = (itemId: string) => {
+    setSelectedItemsForSplit(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(itemId)) {
+        newSet.delete(itemId);
+      } else {
+        newSet.add(itemId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleConfirmSplit = () => {
+    if (!selectedOrderId || selectedItemsForSplit.size === 0) {
+      toast({
+        title: "No Items Selected",
+        description: "Please select at least one item to split.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Get the current order number
+    const currentOrder = data?.orders.find(o => o.id === selectedOrderId);
+    if (!currentOrder) return;
+
+    // Generate new order number with -1 suffix
+    const newOrderNumber = `${currentOrder.orderNumber}-1`;
+    setSplitOrderNumber(newOrderNumber);
+    setShowSplitConfirmDialog(true);
+  };
+
+  const handleExecuteSplit = async () => {
+    if (!selectedOrderId || selectedItemsForSplit.size === 0) return;
+
+    try {
+      await apiRequest('POST', `/api/orders/${selectedOrderId}/split`, {
+        itemIdsToSplit: Array.from(selectedItemsForSplit)
+      });
+
+      toast({
+        title: "Order Split Successful",
+        description: `Items moved to order ${splitOrderNumber}`,
+      });
+
+      // Reset state
+      setShowSplitConfirmDialog(false);
+      setIsSplitMode(false);
+      setSelectedItemsForSplit(new Set());
+      
+      // Refresh data
+      queryClient.invalidateQueries({ queryKey: ['/api/fulfillment'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/fulfillment/stats'] });
+    } catch (error: any) {
+      console.error('Error splitting order:', error);
+      toast({
+        title: "Split Failed",
+        description: error.message || "Failed to split order. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleInitiateShipping = async (orderId: string | null) => {
+    if (!orderId || !data) return;
+    
+    // Get all items for this order - assume all items should ship together
+    const orderItems = data.items.filter(item => item.orderId === orderId);
+    const allItemIds = orderItems.map(item => item.id);
     
     setSelectedOrderForShipping(orderId);
     setShippingStep('preview');
@@ -261,7 +339,7 @@ export default function FulfillmentTool() {
     try {
       const result = await apiRequest('POST', '/api/shipments/preview', {
         orderId,
-        itemIdsToShip: fulfilledItemIds
+        itemIdsToShip: allItemIds
       });
       setSplitPreview(result);
     } catch (error: any) {
@@ -280,15 +358,16 @@ export default function FulfillmentTool() {
   const handleGetShippingRates = async () => {
     if (!selectedOrderForShipping || !data) return;
     
+    // Get all items for this order - assume all items should ship together
     const orderItems = data.items.filter(item => item.orderId === selectedOrderForShipping);
-    const fulfilledItemIds = orderItems.filter(item => item.fulfilled).map(item => item.id);
+    const allItemIds = orderItems.map(item => item.id);
     
     setIsLoadingShipping(true);
     try {
       // If split is needed, perform split first
       if (splitPreview?.needsSplit) {
         await apiRequest('POST', `/api/orders/${selectedOrderForShipping}/split`, {
-          itemIdsToKeep: fulfilledItemIds
+          itemIdsToKeep: allItemIds
         });
       }
       
@@ -298,7 +377,7 @@ export default function FulfillmentTool() {
       const isTestMode = settings?.easypostKeyMode === 'test';
       const result: any = await apiRequest('POST', '/api/shipments/create', {
         orderId: selectedOrderForShipping,
-        itemIdsToShip: fulfilledItemIds,
+        itemIdsToShip: allItemIds,
         fromAddress: isTestMode ? {
           // EasyPost test address for test mode
           name: "EasyPost Test",
@@ -416,57 +495,88 @@ export default function FulfillmentTool() {
             )}
           </div>
           <div className="flex gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
+            {isSplitMode && (
+              <>
                 <Button
                   size="sm"
                   variant="outline"
-                  disabled={selectedOrdersForPrint.size === 0 && !selectedOrderId}
-                  data-testid="button-actions-menu"
+                  onClick={handleCancelSplit}
+                  data-testid="button-cancel-split"
                 >
-                  <Printer className="w-3.5 h-3.5 mr-1.5" />
-                  Actions
-                  <ChevronDown className="w-3.5 h-3.5 ml-1.5" />
+                  Cancel Split
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuItem
-                  onClick={() => handlePrintPackingSlips(Array.from(selectedOrdersForPrint))}
-                  disabled={selectedOrdersForPrint.size === 0}
-                  data-testid="menu-print-packing-slips"
+                <Button
+                  size="sm"
+                  onClick={handleConfirmSplit}
+                  disabled={selectedItemsForSplit.size === 0}
+                  data-testid="button-confirm-split"
                 >
-                  <Printer className="w-4 h-4 mr-2" />
-                  Print Packing Slips
-                  {selectedOrdersForPrint.size > 0 && (
-                    <Badge variant="secondary" className="ml-auto text-xs">
-                      {selectedOrdersForPrint.size}
-                    </Badge>
-                  )}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => handlePrintLotLabels(Array.from(selectedOrdersForPrint))}
-                  disabled={selectedOrdersForPrint.size === 0}
-                  data-testid="menu-print-lot-labels"
-                >
-                  <Tag className="w-4 h-4 mr-2" />
-                  Print Lot Labels
-                  {selectedOrdersForPrint.size > 0 && (
-                    <Badge variant="secondary" className="ml-auto text-xs">
-                      {selectedOrdersForPrint.size}
-                    </Badge>
-                  )}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() => handleInitiateShipping(selectedOrderId)}
-                  disabled={!selectedOrderId}
-                  data-testid="menu-ship-order"
-                >
-                  <Package className="w-4 h-4 mr-2" />
-                  Ship Selected Order
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                  <Scissors className="w-3.5 h-3.5 mr-1.5" />
+                  Confirm Split ({selectedItemsForSplit.size})
+                </Button>
+              </>
+            )}
+            {!isSplitMode && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={selectedOrdersForPrint.size === 0 && !selectedOrderId}
+                    data-testid="button-actions-menu"
+                  >
+                    <MoreVertical className="w-3.5 h-3.5 mr-1.5" />
+                    Actions
+                    <ChevronDown className="w-3.5 h-3.5 ml-1.5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuItem
+                    onClick={() => handlePrintPackingSlips(Array.from(selectedOrdersForPrint))}
+                    disabled={selectedOrdersForPrint.size === 0}
+                    data-testid="menu-print-packing-slips"
+                  >
+                    <Printer className="w-4 h-4 mr-2" />
+                    Print Packing Slips
+                    {selectedOrdersForPrint.size > 0 && (
+                      <Badge variant="secondary" className="ml-auto text-xs">
+                        {selectedOrdersForPrint.size}
+                      </Badge>
+                    )}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handlePrintLotLabels(Array.from(selectedOrdersForPrint))}
+                    disabled={selectedOrdersForPrint.size === 0}
+                    data-testid="menu-print-lot-labels"
+                  >
+                    <Tag className="w-4 h-4 mr-2" />
+                    Print Lot Labels
+                    {selectedOrdersForPrint.size > 0 && (
+                      <Badge variant="secondary" className="ml-auto text-xs">
+                        {selectedOrdersForPrint.size}
+                      </Badge>
+                    )}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={handleInitiateSplit}
+                    disabled={!selectedOrderId}
+                    data-testid="menu-split-order"
+                  >
+                    <Scissors className="w-4 h-4 mr-2" />
+                    Split Order
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleInitiateShipping(selectedOrderId)}
+                    disabled={!selectedOrderId}
+                    data-testid="menu-ship-order"
+                  >
+                    <Package className="w-4 h-4 mr-2" />
+                    Ship Selected Order
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
         </div>
 
@@ -532,28 +642,21 @@ export default function FulfillmentTool() {
               {bin.items.map((item) => (
                 <div
                   key={item.id}
-                  className="ml-4 bg-gray-800/50 border border-gray-700 rounded-lg p-2.5 hover-elevate cursor-pointer"
+                  className="ml-4 bg-gray-800/50 border border-gray-700 rounded-lg p-2.5 hover-elevate"
                   data-testid={`fulfillment-item-${item.id}`}
-                  onClick={() => {
-                    if (!fulfillMutation.isPending) {
-                      fulfillMutation.mutate({ itemId: item.id, fulfilled: !item.fulfilled });
-                    }
-                  }}
                 >
                   <div className="flex items-center gap-3">
-                    {/* Fulfill Checkbox */}
-                    <Checkbox
-                      data-testid={`checkbox-fulfill-${item.id}`}
-                      checked={item.fulfilled}
-                      onCheckedChange={(checked) => {
-                        fulfillMutation.mutate({ itemId: item.id, fulfilled: checked === true });
-                      }}
-                      disabled={fulfillMutation.isPending}
-                      onClick={(e) => e.stopPropagation()}
-                    />
+                    {/* Split Checkbox - only show when in split mode */}
+                    {isSplitMode && (
+                      <Checkbox
+                        data-testid={`checkbox-split-${item.id}`}
+                        checked={selectedItemsForSplit.has(item.id)}
+                        onCheckedChange={() => handleItemSplitToggle(item.id)}
+                      />
+                    )}
 
                     {/* Item Details */}
-                    <div className="flex-1 min-w-0 pointer-events-none">
+                    <div className="flex-1 min-w-0">
                       <p className="text-xs font-medium text-white">
                         {item.bricklinkPartNumber && `${item.bricklinkPartNumber} - `}{item.name}
                       </p>
@@ -592,6 +695,68 @@ export default function FulfillmentTool() {
             <Tag className="w-16 h-16 mx-auto mb-4 text-gray-400" />
             <p className="text-gray-400">Lot label printing will be implemented soon.</p>
             <p className="text-sm text-gray-500 mt-2">This feature is coming in a future update.</p>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Split Order Confirmation Dialog */}
+      <Dialog open={showSplitConfirmDialog} onOpenChange={setShowSplitConfirmDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Scissors className="w-5 h-5 text-orange-500" />
+              Confirm Order Split
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Alert className="bg-orange-500/10 border-orange-500/30">
+              <AlertTriangle className="h-4 w-4 text-orange-500" />
+              <AlertDescription className="text-orange-200">
+                <p className="font-semibold mb-1">This action will split the order:</p>
+                <p className="text-sm">
+                  Current order: <span className="font-mono">{data?.orders.find(o => o.id === selectedOrderId)?.orderNumber}</span>
+                  <br />
+                  New order: <span className="font-mono">{splitOrderNumber}</span>
+                </p>
+              </AlertDescription>
+            </Alert>
+
+            <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3">
+              <p className="text-sm font-semibold text-gray-300 mb-2">
+                Items moving to {splitOrderNumber}:
+              </p>
+              <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
+                {data?.items
+                  .filter(item => selectedItemsForSplit.has(item.id))
+                  .map(item => (
+                    <div key={item.id} className="text-xs text-gray-400 bg-gray-900/50 rounded px-2 py-1">
+                      {item.bricklinkPartNumber && `${item.bricklinkPartNumber} - `}
+                      {item.name}
+                      {item.colorName && ` • ${item.colorName}`}
+                      {item.condition && ` • ${item.condition}`}
+                      {` • Qty ${item.quantity}`}
+                    </div>
+                  ))}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowSplitConfirmDialog(false)}
+                data-testid="button-cancel-split-confirm"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleExecuteSplit}
+                className="bg-orange-600 hover:bg-orange-700"
+                data-testid="button-execute-split"
+              >
+                <Scissors className="w-4 h-4 mr-2" />
+                Split Order
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
