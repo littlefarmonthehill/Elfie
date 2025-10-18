@@ -5,47 +5,86 @@ interface ElfieCharacterProps {
   isClosing?: boolean;
 }
 
-export function ElfieCharacter({ onAnimationComplete, isClosing = false }: ElfieCharacterProps) {
-  // Animation variants for Elfie's entrance - flies DOWN to bottom
+export function ElfieCharacter({ onAnimationComplete, isClosing = false, isResting = false }: ElfieCharacterProps & { isResting?: boolean }) {
+  // Animation variants for Elfie's entrance - flies DOWN in zigzag pattern
   const elfieVariants = {
     hidden: {
       scale: 0,
+      x: 0,
       y: 0,
       opacity: 0,
     },
     emerge: {
       scale: 1.2,
+      x: 0,
       y: 0,
       opacity: 1,
       transition: {
-        duration: 0.3,
+        duration: 0.4,
         ease: "easeOut",
       },
     },
-    flyToBottom: {
-      scale: 1.5,
-      y: "calc(100vh - 200px)", // Fly to bottom of screen
+    zigzag1: {
+      scale: 1.3,
+      x: 80,
+      y: "calc(20vh)",
+      rotate: 15,
       opacity: 1,
       transition: {
-        duration: 0.5,
+        duration: 0.6,
         ease: "easeInOut",
       },
     },
-    pull: {
-      y: "calc(100vh - 220px)", // Slight upward pull motion
+    zigzag2: {
+      scale: 1.4,
+      x: -60,
+      y: "calc(40vh)",
+      rotate: -15,
+      opacity: 1,
+      transition: {
+        duration: 0.6,
+        ease: "easeInOut",
+      },
+    },
+    zigzag3: {
       scale: 1.5,
-      rotate: 10, // Tilt like pulling
+      x: 100,
+      y: "calc(60vh)",
+      rotate: 20,
+      opacity: 1,
+      transition: {
+        duration: 0.6,
+        ease: "easeInOut",
+      },
+    },
+    flyToBottom: {
+      scale: 1.3,
+      x: 0,
+      y: "calc(100vh - 180px)",
+      rotate: 0,
+      opacity: 1,
+      transition: {
+        duration: 0.7,
+        ease: "easeOut",
+      },
+    },
+    resting: {
+      scale: 1.2,
+      x: 0,
+      y: "calc(100vh - 180px)",
+      rotate: 0,
+      opacity: 1,
       transition: {
         duration: 0.3,
-        ease: "easeInOut",
       },
     },
     retreat: {
       scale: 0,
+      x: 0,
       y: 0,
       opacity: 0,
       transition: {
-        duration: 0.4,
+        duration: 0.5,
         ease: "easeIn",
       },
     },
@@ -54,12 +93,14 @@ export function ElfieCharacter({ onAnimationComplete, isClosing = false }: Elfie
   // Closing animation - Elfie at bottom retreats up
   const closingVariants = {
     hidden: {
-      scale: 1.5,
-      y: "calc(100vh - 200px)",
+      scale: 1.2,
+      x: 0,
+      y: "calc(100vh - 180px)",
       opacity: 1,
     },
     retreat: {
       scale: 0,
+      x: 0,
       y: 0,
       opacity: 0,
       transition: {
@@ -73,10 +114,39 @@ export function ElfieCharacter({ onAnimationComplete, isClosing = false }: Elfie
     <motion.div
       className="fixed left-4 top-16 z-[200] pointer-events-none"
       initial="hidden"
-      animate={isClosing ? "retreat" : ["emerge", "flyToBottom", "pull"]}
+      animate={
+        isClosing 
+          ? "retreat" 
+          : isResting 
+            ? "resting"
+            : ["emerge", "zigzag1", "zigzag2", "zigzag3", "flyToBottom", "resting"]
+      }
       variants={isClosing ? closingVariants : elfieVariants}
       onAnimationComplete={onAnimationComplete}
     >
+      {/* Idle floating animation when resting */}
+      {isResting && (
+        <motion.div
+          animate={{
+            y: [0, -8, 0],
+          }}
+          transition={{
+            duration: 2.5,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+        >
+          <FloatingElfie isResting={isResting} />
+        </motion.div>
+      )}
+      {!isResting && <FloatingElfie isResting={isResting} />}
+    </motion.div>
+  );
+}
+
+function FloatingElfie({ isResting }: { isResting: boolean }) {
+  return (
+    <>
       {/* PlanetBrick trademarked robot character */}
       <svg
         width="100"
@@ -170,8 +240,12 @@ export function ElfieCharacter({ onAnimationComplete, isClosing = false }: Elfie
 
         {/* Left arm - mechanical */}
         <motion.g
-          animate={{ rotate: [0, -15, 0] }}
-          transition={{ duration: 1, times: [0, 0.5, 1], repeat: Infinity, delay: 0.3 }}
+          animate={isResting ? { rotate: [0, -10, 0, -5, 0] } : { rotate: [0, -15, 0] }}
+          transition={
+            isResting 
+              ? { duration: 3, times: [0, 0.3, 0.5, 0.7, 1], repeat: Infinity }
+              : { duration: 1, times: [0, 0.5, 1], repeat: Infinity, delay: 0.3 }
+          }
           style={{ originX: "26px", originY: "60px" }}
         >
           <rect x="24" y="56" width="6" height="16" rx="2" fill="#546E7A" stroke="#37474F" strokeWidth="1" />
@@ -180,8 +254,12 @@ export function ElfieCharacter({ onAnimationComplete, isClosing = false }: Elfie
 
         {/* Right arm - mechanical */}
         <motion.g
-          animate={{ rotate: [0, 15, 0] }}
-          transition={{ duration: 1, times: [0, 0.5, 1], repeat: Infinity, delay: 0.8 }}
+          animate={isResting ? { rotate: [0, 10, 0, 5, 0] } : { rotate: [0, 15, 0] }}
+          transition={
+            isResting 
+              ? { duration: 3, times: [0, 0.3, 0.5, 0.7, 1], repeat: Infinity, delay: 1 }
+              : { duration: 1, times: [0, 0.5, 1], repeat: Infinity, delay: 0.8 }
+          }
           style={{ originX: "70px", originY: "60px" }}
         >
           <rect x="70" y="56" width="6" height="16" rx="2" fill="#546E7A" stroke="#37474F" strokeWidth="1" />
@@ -215,6 +293,6 @@ export function ElfieCharacter({ onAnimationComplete, isClosing = false }: Elfie
         <line x1="71" y1="86" x2="71" y2="104" stroke="#37474F" strokeWidth="1" />
         <line x1="74" y1="88" x2="74" y2="102" stroke="#37474F" strokeWidth="1" />
       </svg>
-    </motion.div>
+    </>
   );
 }

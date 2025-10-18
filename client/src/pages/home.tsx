@@ -23,6 +23,7 @@ export default function Home() {
   const [chatOpen, setChatOpen] = useState(false);
   const [showElfie, setShowElfie] = useState(false);
   const [elfieClosing, setElfieClosing] = useState(false);
+  const [elfieResting, setElfieResting] = useState(false);
   const [activeInventoryDrawer, setActiveInventoryDrawer] = useState<'priceomatic' | 'warehouse' | 'platformsync' | null>(null);
   const [activeOrdersDrawer, setActiveOrdersDrawer] = useState<'picklist' | 'fulfillment' | 'platformsync' | 'shipped' | null>(null);
   const [detailModal, setDetailModal] = useState<{ open: boolean; data: DetailData | null }>({
@@ -582,38 +583,27 @@ export default function Home() {
   };
 
   const handleElfieClick = () => {
-    // Start Elfie animation - flies to bottom
+    // Start Elfie animation - zigzag flight down
     setShowElfie(true);
     setElfieClosing(false);
+    setElfieResting(false);
     
-    // Open drawer when Elfie reaches bottom and starts pulling (after emerge + flyToBottom = 800ms)
+    // Open drawer after zigzag animation completes (emerge + 3 zigzags + flyToBottom = ~2.9s)
     setTimeout(() => {
       setChatOpen(true);
-    }, 800);
-    
-    // After drawer is open, make Elfie retreat (1.5 seconds after opening)
-    setTimeout(() => {
-      setElfieClosing(true);
-    }, 2300);
-    
-    // Hide Elfie after retreat completes
-    setTimeout(() => {
-      setShowElfie(false);
-      setElfieClosing(false);
-    }, 2800);
+      setElfieResting(true); // Elfie stays visible in resting position
+    }, 2900);
   };
 
   const handleChatClose = () => {
     // Close drawer first
     setChatOpen(false);
+    setElfieResting(false);
     
-    // Brief delay, then show Elfie closing animation
-    setTimeout(() => {
-      setElfieClosing(true);
-      setShowElfie(true);
-    }, 100);
+    // Elfie is already visible, just trigger closing animation
+    setElfieClosing(true);
     
-    // Hide Elfie after closing animation completes
+    // Hide Elfie after retreat completes
     setTimeout(() => {
       setShowElfie(false);
       setElfieClosing(false);
@@ -631,6 +621,7 @@ export default function Home() {
       {showElfie && (
         <ElfieCharacter 
           isClosing={elfieClosing}
+          isResting={elfieResting}
         />
       )}
       <DashboardNav active={activeDashboard} onSelect={setActiveDashboard} />
