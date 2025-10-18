@@ -128,14 +128,12 @@ export function ElfieCharacter({ onAnimationComplete, isClosing = false, isResti
       animate={
         isClosing 
           ? "retreat" 
-          : isResting 
-            ? "resting"
-            : ["emerge", "flyDown", "pull", "zigzag1", "zigzag2", "zigzag3", "resting"]
+          : ["emerge", "flyDown", "pull", "zigzag1", "zigzag2", "zigzag3", "resting"]
       }
       variants={isClosing ? closingVariants : elfieVariants}
       onAnimationComplete={(definition) => {
-        // When opening animation completes, switch to resting mode
-        if (!isClosing && !isResting && definition === "resting") {
+        // When full sequence completes, notify parent
+        if (!isClosing && definition === "resting") {
           onAnimationComplete?.();
         }
       }}
