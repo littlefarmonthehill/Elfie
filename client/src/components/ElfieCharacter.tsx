@@ -133,7 +133,12 @@ export function ElfieCharacter({ onAnimationComplete, isClosing = false, isResti
             : ["emerge", "flyDown", "pull", "zigzag1", "zigzag2", "zigzag3", "resting"]
       }
       variants={isClosing ? closingVariants : elfieVariants}
-      onAnimationComplete={onAnimationComplete}
+      onAnimationComplete={(definition) => {
+        // When opening animation completes, switch to resting mode
+        if (!isClosing && !isResting && definition === "resting") {
+          onAnimationComplete?.();
+        }
+      }}
     >
       {/* Idle floating animation when resting */}
       {isResting && (

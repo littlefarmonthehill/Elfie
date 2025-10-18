@@ -592,11 +592,6 @@ export default function Home() {
     setTimeout(() => {
       setChatOpen(true);
     }, 1200);
-    
-    // After ALL animations complete (emerge 0.4 + flyDown 0.8 + pull 0.4 + 3 zigzags 1.5 = 3100ms), set to resting
-    setTimeout(() => {
-      setElfieResting(true);
-    }, 3200);
   };
 
   const handleChatClose = () => {
@@ -626,6 +621,12 @@ export default function Home() {
         <ElfieCharacter 
           isClosing={elfieClosing}
           isResting={elfieResting}
+          onAnimationComplete={() => {
+            if (!elfieClosing) {
+              // Opening animation complete, keep Elfie in resting state
+              setElfieResting(true);
+            }
+          }}
         />
       )}
       <DashboardNav active={activeDashboard} onSelect={setActiveDashboard} />
