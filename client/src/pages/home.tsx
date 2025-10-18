@@ -12,13 +12,14 @@ import OrdersDashboard from "@/components/OrdersDashboard";
 import ChatInterface from "@/components/ChatInterface";
 import DetailModal, { DetailData } from "@/components/DetailModal";
 import DateRangeSelector, { DateRangeValue } from "@/components/DateRangeSelector";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 
 export default function Home() {
   const [activeDashboard, setActiveDashboard] = useState<DashboardType>('dashboard');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [salesPeriod, setSalesPeriod] = useState<'mtd' | 'ytd' | '1y' | '5y'>('ytd');
   const [dateRange, setDateRange] = useState<DateRangeValue>('mtd');
-  const [chatMinimized, setChatMinimized] = useState(true);
+  const [chatOpen, setChatOpen] = useState(false);
   const [activeInventoryDrawer, setActiveInventoryDrawer] = useState<'priceomatic' | 'warehouse' | 'platformsync' | null>(null);
   const [activeOrdersDrawer, setActiveOrdersDrawer] = useState<'picklist' | 'fulfillment' | 'platformsync' | 'shipped' | null>(null);
   const [detailModal, setDetailModal] = useState<{ open: boolean; data: DetailData | null }>({
@@ -579,7 +580,10 @@ export default function Home() {
 
   return (
     <div className="flex flex-col h-screen bg-background text-foreground">
-      <Header onSettingsClick={() => setSettingsOpen(true)} />
+      <Header 
+        onSettingsClick={() => setSettingsOpen(true)} 
+        onElfieClick={() => setChatOpen(true)}
+      />
       <DashboardNav active={activeDashboard} onSelect={setActiveDashboard} />
       
 
@@ -688,54 +692,38 @@ export default function Home() {
         </div>
       )}
       
-      {/* Simple single-column layout for all devices */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <div className={`transition-all duration-300 overflow-y-auto border-b-2 ${
-          chatMinimized ? 'flex-1' : 'h-0'
-        } ${
-          activeDashboard === 'dashboard' ? 'bg-gradient-to-b from-lego-red/20 to-lego-red/5 border-lego-red/30' :
-          activeDashboard === 'inventory' ? 'bg-gradient-to-b from-lego-blue/20 to-lego-blue/5 border-lego-blue/30' :
-          activeDashboard === 'orders' ? 'bg-gradient-to-b from-lego-orange/20 to-lego-orange/5 border-lego-orange/30' :
-          activeDashboard === 'sales' ? 'bg-gradient-to-b from-lego-green/20 to-lego-green/5 border-lego-green/30' :
-          'bg-gradient-to-b from-lego-yellow/20 to-lego-yellow/5 border-lego-yellow/30'
+      {/* Dashboard - Full height now that chat is in drawer */}
+      <div className="flex-1 overflow-y-auto">
+        <div className={`h-full ${
+          activeDashboard === 'dashboard' ? 'bg-gradient-to-b from-lego-red/20 to-lego-red/5' :
+          activeDashboard === 'inventory' ? 'bg-gradient-to-b from-lego-blue/20 to-lego-blue/5' :
+          activeDashboard === 'orders' ? 'bg-gradient-to-b from-lego-orange/20 to-lego-orange/5' :
+          activeDashboard === 'sales' ? 'bg-gradient-to-b from-lego-green/20 to-lego-green/5' :
+          'bg-gradient-to-b from-lego-yellow/20 to-lego-yellow/5'
         }`}>
           {renderDashboard()}
         </div>
-        
-        {!chatMinimized && (
-          <div className="flex-1 flex flex-col overflow-hidden">
+      </div>
+
+      {/* Elfie Chat Drawer - Slides from bottom */}
+      <Sheet open={chatOpen} onOpenChange={setChatOpen}>
+        <SheetContent 
+          side="bottom" 
+          className="h-[85vh] p-0 border-t-4 border-purple-500/50 bg-gradient-to-br from-purple-950/90 to-black/90 backdrop-blur-lg"
+        >
+          <div className="h-full flex flex-col">
             <ChatInterface 
               dashboardContext={getChatContext()} 
               themeColor={getThemeColor()} 
               prompts={[]} 
               onPromptAction={handlePromptAction}
               onItemClick={handleItemClick}
-              isMinimized={chatMinimized}
-              onToggleMinimize={() => setChatMinimized(!chatMinimized)}
+              isMinimized={false}
+              onToggleMinimize={() => setChatOpen(false)}
             />
           </div>
-        )}
-      </div>
-      
-      {/* Fixed position chat when minimized - outside overflow container */}
-      {chatMinimized && (
-        <div 
-          className="fixed left-0 right-0 bottom-0 z-50"
-          style={{ 
-            paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-          }}
-        >
-          <ChatInterface 
-            dashboardContext={getChatContext()} 
-            themeColor={getThemeColor()} 
-            prompts={[]} 
-            onPromptAction={handlePromptAction}
-            onItemClick={handleItemClick}
-            isMinimized={chatMinimized}
-            onToggleMinimize={() => setChatMinimized(!chatMinimized)}
-          />
-        </div>
-      )}
+        </SheetContent>
+      </Sheet>
       
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       
