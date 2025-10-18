@@ -586,10 +586,10 @@ export default function Home() {
     setShowElfie(true);
     setElfieClosing(false);
     
-    // Open drawer after 400ms (when Elfie is "pulling")
+    // Open drawer after 800ms (let Elfie animate more before drawer appears)
     setTimeout(() => {
       setChatOpen(true);
-    }, 400);
+    }, 800);
   };
 
   const handleChatClose = () => {

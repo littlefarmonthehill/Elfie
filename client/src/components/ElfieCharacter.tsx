@@ -68,7 +68,7 @@ export function ElfieCharacter({ onAnimationComplete, isClosing = false }: Elfie
 
   return (
     <motion.div
-      className="fixed left-4 top-16 z-[100] pointer-events-none"
+      className="fixed left-4 top-16 z-[200] pointer-events-none"
       initial="hidden"
       animate={isClosing ? "retreat" : ["emerge", "pull", "wave", "retreat"]}
       variants={isClosing ? closingVariants : elfieVariants}
