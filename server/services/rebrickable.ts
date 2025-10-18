@@ -18,25 +18,60 @@ export async function syncRebrickableSetParts(): Promise<RebrickableSyncResult> 
   try {
     console.log('[Rebrickable] Starting set-part relationships sync...');
     
-    // Download URL from Rebrickable's downloads page
-    // https://rebrickable.com/downloads/
-    const csvUrl = 'https://cdn.rebrickable.com/media/downloads/inventory_parts.csv.gz';
-    
-    console.log('[Rebrickable] Downloading and streaming CSV...');
-    
     // Clear existing data before importing
     await db.delete(setPartRelationships);
     console.log('[Rebrickable] Cleared existing set-part relationships');
+    
+    // Step 1: Build inventory_id → set_num mapping from inventories.csv
+    console.log('[Rebrickable] Step 1: Downloading inventories.csv to map inventory IDs to sets...');
+    const inventoriesUrl = 'https://cdn.rebrickable.com/media/downloads/inventories.csv.gz';
+    const inventoryMap = new Map<string, string>(); // inventory_id → set_num
+    
+    await new Promise<void>(async (resolve, reject) => {
+      try {
+        const stream = await downloadStream(inventoriesUrl);
+        const gunzip = createGunzip();
+        const parser = parse({
+          columns: true,
+          skip_empty_lines: true,
+          trim: true,
+        });
+        
+        let invCount = 0;
+        parser.on('data', (record) => {
+          if (record.id && record.set_num) {
+            inventoryMap.set(record.id, record.set_num);
+            invCount++;
+          }
+        });
+        
+        parser.on('end', () => {
+          console.log(`[Rebrickable] Loaded ${invCount} inventory mappings`);
+          resolve();
+        });
+        
+        parser.on('error', reject);
+        stream.pipe(gunzip).pipe(parser);
+        stream.on('error', reject);
+        gunzip.on('error', reject);
+      } catch (error) {
+        reject(error);
+      }
+    });
+    
+    // Step 2: Stream inventory_parts.csv and join with inventory map
+    console.log('[Rebrickable] Step 2: Downloading inventory_parts.csv and building set-part relationships...');
+    const partsUrl = 'https://cdn.rebrickable.com/media/downloads/inventory_parts.csv.gz';
     
     let partsProcessed = 0;
     let batch: any[] = [];
     const BATCH_SIZE = 1000;
     const LOG_INTERVAL = 10000;
     
-    // Stream: download → gunzip → parse → batch insert
+    // Stream inventory_parts and join with inventory map
     await new Promise<void>(async (resolve, reject) => {
       try {
-        const stream = await downloadStream(csvUrl);
+        const stream = await downloadStream(partsUrl);
         const gunzip = createGunzip();
         const parser = parse({
           columns: true,
@@ -48,13 +83,9 @@ export async function syncRebrickableSetParts(): Promise<RebrickableSyncResult> 
       parser.on('data', async (record) => {
         recordCount++;
         
-        // Debug first few records
-        if (recordCount <= 3) {
-          console.log(`[Rebrickable Debug] Record ${recordCount}:`, JSON.stringify(record).substring(0, 200));
-        }
-        
-        // Extract set number
-        const setNum = record.set_num || record.inv_part_id?.split('-')[0];
+        // Look up set_num from inventory map
+        const inventoryId = record.inventory_id;
+        const setNum = inventoryMap.get(inventoryId);
         const partNum = record.part_num;
         
         // Skip records with missing critical data
