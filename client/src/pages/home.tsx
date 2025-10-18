@@ -583,15 +583,15 @@ export default function Home() {
   };
 
   const handleElfieClick = () => {
-    // Start Elfie animation - zigzag flight down
+    // Start Elfie animation - zigzag flight to upper right
     setShowElfie(true);
     setElfieClosing(false);
     setElfieResting(false);
     
-    // Open drawer after zigzag animation completes (emerge + 3 zigzags + flyToBottom = ~2.9s)
+    // Open drawer after zigzag animation completes (emerge + 3 zigzags + flyToTopRight = ~2.9s)
     setTimeout(() => {
       setChatOpen(true);
-      setElfieResting(true); // Elfie stays visible in resting position
+      setElfieResting(true); // Elfie stays visible in upper-right corner
     }, 2900);
   };
 

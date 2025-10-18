@@ -57,10 +57,10 @@ export function ElfieCharacter({ onAnimationComplete, isClosing = false, isResti
         ease: "easeInOut",
       },
     },
-    flyToBottom: {
+    flyToTopRight: {
       scale: 1.3,
-      x: 0,
-      y: "calc(100vh - 180px)",
+      x: "calc(100vw - 180px)",
+      y: 80,
       rotate: 0,
       opacity: 1,
       transition: {
@@ -69,9 +69,9 @@ export function ElfieCharacter({ onAnimationComplete, isClosing = false, isResti
       },
     },
     resting: {
-      scale: 1.2,
-      x: 0,
-      y: "calc(100vh - 180px)",
+      scale: 1.0,
+      x: "calc(100vw - 160px)",
+      y: 80,
       rotate: 0,
       opacity: 1,
       transition: {
@@ -90,12 +90,12 @@ export function ElfieCharacter({ onAnimationComplete, isClosing = false, isResti
     },
   };
 
-  // Closing animation - Elfie at bottom retreats up
+  // Closing animation - Elfie at top-right retreats
   const closingVariants = {
     hidden: {
-      scale: 1.2,
-      x: 0,
-      y: "calc(100vh - 180px)",
+      scale: 1.0,
+      x: "calc(100vw - 160px)",
+      y: 80,
       opacity: 1,
     },
     retreat: {
@@ -119,7 +119,7 @@ export function ElfieCharacter({ onAnimationComplete, isClosing = false, isResti
           ? "retreat" 
           : isResting 
             ? "resting"
-            : ["emerge", "zigzag1", "zigzag2", "zigzag3", "flyToBottom", "resting"]
+            : ["emerge", "zigzag1", "zigzag2", "zigzag3", "flyToTopRight", "resting"]
       }
       variants={isClosing ? closingVariants : elfieVariants}
       onAnimationComplete={onAnimationComplete}
