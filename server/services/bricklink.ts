@@ -3,6 +3,7 @@ import { blCategories, blColors, blInventory, blApiCalls, appSettings, priceGuid
 import { eq, gte, sql, inArray, and } from "drizzle-orm";
 import OAuth from "oauth-1.0a";
 import crypto from "crypto";
+import { syncRebrickableSetParts } from "./rebrickable";
 
 export interface BricklinkSyncResult {
   categoriesAdded: number;
@@ -13,6 +14,8 @@ export interface BricklinkSyncResult {
   inventoryUpdated: number;
   totalApiCalls: number;
   rateLimitWarning?: string;
+  rebrickableSets?: number;
+  rebrickableParts?: number;
 }
 
 export interface RateLimitStatus {
@@ -619,10 +622,20 @@ export async function syncBricklinkData(): Promise<BricklinkSyncResult> {
   // Check rate limit before starting sync
   const rateLimit = await checkRateLimit();
   
-  // Sync in order: categories, colors, then inventory
+  // Sync in order: categories, colors, inventory, and Rebrickable set-part relationships
   const categoriesResult = await syncBricklinkCategories();
   const colorsResult = await syncBricklinkColors();
   const inventoryResult = await syncBricklinkInventory();
+  
+  // Sync Rebrickable set-part relationships (doesn't use BrickLink API)
+  let rebrickableResult = { setsAdded: 0, partsProcessed: 0 };
+  try {
+    rebrickableResult = await syncRebrickableSetParts();
+    console.log(`Rebrickable sync complete: ${rebrickableResult.setsAdded} sets, ${rebrickableResult.partsProcessed} part relationships`);
+  } catch (error) {
+    console.error('Rebrickable sync failed (non-fatal):', error);
+    // Don't fail the entire sync if Rebrickable fails
+  }
 
   const totalApiCalls = categoriesResult.apiCalls + colorsResult.apiCalls + inventoryResult.apiCalls;
 
@@ -635,6 +648,8 @@ export async function syncBricklinkData(): Promise<BricklinkSyncResult> {
     inventoryUpdated: inventoryResult.updated,
     totalApiCalls,
     rateLimitWarning: rateLimit.warning,
+    rebrickableSets: rebrickableResult.setsAdded,
+    rebrickableParts: rebrickableResult.partsProcessed,
   };
 }
 

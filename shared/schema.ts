@@ -94,6 +94,27 @@ export const insertBlInventorySchema = createInsertSchema(blInventory).omit({
 export type InsertBlInventory = z.infer<typeof insertBlInventorySchema>;
 export type BlInventory = typeof blInventory.$inferSelect;
 
+// Set-Part Relationships (from Rebrickable)
+export const setPartRelationships = pgTable("set_part_relationships", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  setNum: text("set_num").notNull(), // e.g., "10179-1"
+  setName: text("set_name"), // e.g., "Millennium Falcon UCS"
+  partNum: text("part_num").notNull(), // BrickLink part number
+  colorId: integer("color_id"), // BrickLink color ID
+  quantity: integer("quantity").notNull(), // How many of this part in the set
+  syncedAt: timestamp("synced_at").defaultNow().notNull(),
+}, (table) => ({
+  partColorIdx: index("set_parts_part_color_idx").on(table.partNum, table.colorId),
+  setIdx: index("set_parts_set_idx").on(table.setNum),
+}));
+
+export const insertSetPartRelationshipSchema = createInsertSchema(setPartRelationships).omit({
+  syncedAt: true,
+});
+
+export type InsertSetPartRelationship = z.infer<typeof insertSetPartRelationshipSchema>;
+export type SetPartRelationship = typeof setPartRelationships.$inferSelect;
+
 // Orders (from platforms and locally created splits)
 export const orders = pgTable("orders", {
   id: varchar("id").primaryKey(),

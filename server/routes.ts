@@ -5,7 +5,7 @@ import { syncBricklinkData, fetchPriceOMagicData, searchBricklinkCatalogItem, sy
 import { syncShipStationOrders } from "./services/shipstation";
 import { syncBrickLinkToBrickOwl, syncUnsyncedItems, findUnsyncedItems } from "./services/brickowl";
 import { db } from "./db";
-import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments } from "@shared/schema";
+import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, setPartRelationships } from "@shared/schema";
 import { eq, desc, sql, inArray, like, or, and, isNotNull } from "drizzle-orm";
 import { z } from "zod";
 
@@ -1483,6 +1483,40 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
       console.error("Find similar items error:", error);
       res.status(500).json({ 
         error: error instanceof Error ? error.message : "Failed to find similar items" 
+      });
+    }
+  });
+
+  // Get Sets Containing This Part
+  app.get("/api/inventory/:itemNo/:colorId/sets", async (req, res) => {
+    try {
+      const { itemNo, colorId } = req.params;
+      const limit = parseInt(req.query.limit as string) || 50;
+      
+      const sets = await db
+        .select({
+          setNum: setPartRelationships.setNum,
+          setName: setPartRelationships.setName,
+          quantity: setPartRelationships.quantity,
+          colorId: setPartRelationships.colorId,
+        })
+        .from(setPartRelationships)
+        .where(
+          and(
+            eq(setPartRelationships.partNum, itemNo),
+            colorId === '0' || colorId === 'null' 
+              ? sql`1=1`  // Show all colors if colorId is 0 or null
+              : eq(setPartRelationships.colorId, parseInt(colorId))
+          )
+        )
+        .limit(limit)
+        .orderBy(setPartRelationships.setNum);
+      
+      res.json({ sets });
+    } catch (error) {
+      console.error("Get sets for part error:", error);
+      res.status(500).json({ 
+        error: error instanceof Error ? error.message : "Failed to get sets for part" 
       });
     }
   });

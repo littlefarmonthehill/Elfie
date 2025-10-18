@@ -19,7 +19,7 @@ The frontend uses React 18+, TypeScript, Vite, Shadcn/ui, and Tailwind CSS, feat
 - **Backend:** Express.js with TypeScript and Node.js (ESM modules).
 - **Database:** Drizzle ORM with Neon serverless PostgreSQL, including `pgvector`.
 - **API:** RESTful endpoints for data and integrations.
-- **Data Schema:** Includes tables for `users`, `bl_categories`, `bl_colors`, `bl_inventory`, `orders`, `order_details`, `sync_metadata`, `app_settings`, `inventory_embeddings`, `order_embeddings`, warehouse management (`wh_aisles`, `wh_shelves`, `wh_bins`, `inventory_locations`), `picklist_items`, `sync_issues`, and shipping (`order_splits`, `order_split_items`, `shipments`).
+- **Data Schema:** Includes tables for `users`, `bl_categories`, `bl_colors`, `bl_inventory`, `orders`, `order_details`, `sync_metadata`, `app_settings`, `inventory_embeddings`, `order_embeddings`, warehouse management (`wh_aisles`, `wh_shelves`, `wh_bins`, `inventory_locations`), `picklist_items`, `sync_issues`, shipping (`order_splits`, `order_split_items`, `shipments`), and `set_part_relationships` (Rebrickable data).
 - **Authentication:** Basic username/password.
 - **Order Status & Inventory Automation:** Centralized configuration maps platform-specific statuses and defines inventory impact. Inventory is reduced upon shipping and restored upon cancellation/return of shipped orders. Supports BrickLink, BrickOwl, ShipStation, eBay, and Amazon platforms.
 - **Shipping System:** Vendor-agnostic shipping abstraction layer with EasyPost implementation. Supports order splitting for partial shipments, automatic label generation, tracking integration, and automated platform status synchronization. When shipping labels are purchased, order status automatically updates to "shipped" on BrickLink (via OAuth 1.0a two-step API: PUT /orders/{id} for tracking, PUT /orders/{id}/status for status) and BrickOwl (via POST /order/update with status_id=2) with tracking numbers. Split orders are marked local-only and don't sync to sales platforms.
@@ -27,6 +27,7 @@ The frontend uses React 18+, TypeScript, Vite, Shadcn/ui, and Tailwind CSS, feat
 ### Feature Specifications
 - **AI Assistant (E.L.F.I.E.):** Uses OpenRouter (default GPT-4o-mini) with `localStorage` and a `conversations` table for memory, leveraging RAG with PostgreSQL `pgvector` embeddings and OpenAI `text-embedding-3-small`.
 - **Price-o-Matic:** Provides bulk pricing intelligence, including world supply analysis and item type pricing, with intelligent caching.
+- **Set-Part Relationships:** Integration with Rebrickable CSV data to show which LEGO sets contain specific parts. Data is synced during BrickLink inventory sync (avoiding BrickLink API limits). Item detail drawer includes "VIEW SETS" button that opens a dialog showing all sets containing that part, with set number, name, quantity, and direct BrickLink links.
 - **Dashboard Layout:** Features a default dashboard with dismissible notification system, plus dedicated Inventory, Orders, Sales, and Marketing dashboards. Inventory Tools include Listing, Price-o-Matic, Warehouse Management, and Platform Sync. Order Tools include Picklist, Fulfillment, Shipped Orders, and Order Sync Tester. Sales Dashboard offers Year-over-Year and Platform Comparison.
 - **Notification System:** Dismissible notification center on the default dashboard displays sync errors and issues from order/inventory synchronization. Notifications are grouped by severity (critical, high, medium, low) with color-coded badges, platform labels, and timestamps. Users can dismiss notifications to mark them as resolved, with auto-refresh every 30 seconds to show new issues.
 - **Platform Sync:** Multi-platform inventory synchronization system displaying BrickLink as the source of truth, with target platforms (BrickOwl, eBay, BigCommerce) and features discrepancy detection, and individual or bulk sync capabilities. Uses `external_lot_ids.other` for matching and supports BrickOwl sync with rate limiting.
@@ -42,6 +43,7 @@ The frontend uses React 18+, TypeScript, Vite, Shadcn/ui, and Tailwind CSS, feat
 
 -   **BrickLink API:** LEGO inventory, categories, colors, and market data.
 -   **BrickOwl API:** Multi-platform inventory synchronization.
+-   **Rebrickable CSV:** Set-part relationship data (synced during BrickLink inventory sync).
 -   **ShipStation API:** Legacy order management (being phased out).
 -   **EasyPost API:** Multi-carrier shipping label generation, rate shopping, and tracking.
 -   **OpenRouter API:** Powers the E.L.F.I.E. AI chat assistant.
