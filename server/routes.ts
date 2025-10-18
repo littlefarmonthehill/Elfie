@@ -1488,10 +1488,12 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
   });
 
   // Get Sets Containing This Part
+  // Note: Rebrickable data is organized by part number only, not by color
+  // So we query by part number regardless of which color the user is viewing
   app.get("/api/inventory/:itemNo/:colorId/sets", async (req, res) => {
     try {
-      const { itemNo, colorId } = req.params;
-      const limit = parseInt(req.query.limit as string) || 50;
+      const { itemNo } = req.params;
+      const limit = parseInt(req.query.limit as string) || 100;
       
       const sets = await db
         .select({
@@ -1501,14 +1503,7 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
           colorId: setPartRelationships.colorId,
         })
         .from(setPartRelationships)
-        .where(
-          and(
-            eq(setPartRelationships.partNum, itemNo),
-            colorId === '0' || colorId === 'null' 
-              ? sql`1=1`  // Show all colors if colorId is 0 or null
-              : eq(setPartRelationships.colorId, parseInt(colorId))
-          )
-        )
+        .where(eq(setPartRelationships.partNum, itemNo))
         .limit(limit)
         .orderBy(setPartRelationships.setNum);
       
