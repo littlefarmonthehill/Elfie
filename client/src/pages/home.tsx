@@ -582,14 +582,14 @@ export default function Home() {
   };
 
   const handleElfieClick = () => {
-    // Start Elfie animation FIRST - let it complete fully
+    // Start Elfie animation - flies to bottom
     setShowElfie(true);
     setElfieClosing(false);
     
-    // Open drawer AFTER Elfie completes full animation (1300ms total: 400+400+200+300)
+    // Open drawer when Elfie reaches bottom and starts pulling (after emerge + flyToBottom = 800ms)
     setTimeout(() => {
       setChatOpen(true);
-    }, 1300);
+    }, 800);
   };
 
   const handleChatClose = () => {

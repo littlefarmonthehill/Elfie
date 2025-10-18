@@ -6,67 +6,64 @@ interface ElfieCharacterProps {
 }
 
 export function ElfieCharacter({ onAnimationComplete, isClosing = false }: ElfieCharacterProps) {
-  // Animation variants for Elfie's entrance
+  // Animation variants for Elfie's entrance - flies DOWN to bottom
   const elfieVariants = {
     hidden: {
       scale: 0,
       y: 0,
-      x: 0,
       opacity: 0,
     },
     emerge: {
-      scale: 1.5,
-      y: 100,
-      x: 50,
+      scale: 1.2,
+      y: 0,
       opacity: 1,
       transition: {
-        duration: 0.4,
+        duration: 0.3,
         ease: "easeOut",
       },
     },
-    pull: {
-      y: 80,
+    flyToBottom: {
       scale: 1.5,
-      rotate: -15,
+      y: "calc(100vh - 200px)", // Fly to bottom of screen
+      opacity: 1,
       transition: {
-        duration: 0.4,
+        duration: 0.5,
         ease: "easeInOut",
       },
     },
-    wave: {
-      rotate: 0,
+    pull: {
+      y: "calc(100vh - 220px)", // Slight upward pull motion
       scale: 1.5,
+      rotate: 10, // Tilt like pulling
       transition: {
-        duration: 0.2,
+        duration: 0.3,
+        ease: "easeInOut",
       },
     },
     retreat: {
       scale: 0,
       y: 0,
-      x: 0,
       opacity: 0,
       transition: {
-        duration: 0.3,
+        duration: 0.4,
         ease: "easeIn",
       },
     },
   };
 
-  // Closing animation (just retreat)
+  // Closing animation - Elfie at bottom retreats up
   const closingVariants = {
     hidden: {
       scale: 1.5,
-      y: 80,
-      x: 50,
+      y: "calc(100vh - 200px)",
       opacity: 1,
     },
     retreat: {
       scale: 0,
       y: 0,
-      x: 0,
       opacity: 0,
       transition: {
-        duration: 0.4,
+        duration: 0.5,
         ease: "easeIn",
       },
     },
@@ -76,7 +73,7 @@ export function ElfieCharacter({ onAnimationComplete, isClosing = false }: Elfie
     <motion.div
       className="fixed left-4 top-16 z-[200] pointer-events-none"
       initial="hidden"
-      animate={isClosing ? "retreat" : ["emerge", "pull", "wave", "retreat"]}
+      animate={isClosing ? "retreat" : ["emerge", "flyToBottom", "pull", "retreat"]}
       variants={isClosing ? closingVariants : elfieVariants}
       onAnimationComplete={onAnimationComplete}
     >
