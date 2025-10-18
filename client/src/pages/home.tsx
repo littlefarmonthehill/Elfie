@@ -590,6 +590,17 @@ export default function Home() {
     setTimeout(() => {
       setChatOpen(true);
     }, 800);
+    
+    // After drawer is open, make Elfie retreat (1.5 seconds after opening)
+    setTimeout(() => {
+      setElfieClosing(true);
+    }, 2300);
+    
+    // Hide Elfie after retreat completes
+    setTimeout(() => {
+      setShowElfie(false);
+      setElfieClosing(false);
+    }, 2800);
   };
 
   const handleChatClose = () => {
@@ -620,12 +631,6 @@ export default function Home() {
       {showElfie && (
         <ElfieCharacter 
           isClosing={elfieClosing}
-          onAnimationComplete={() => {
-            if (!elfieClosing) {
-              // Hide Elfie after opening animation completes
-              setShowElfie(false);
-            }
-          }}
         />
       )}
       <DashboardNav active={activeDashboard} onSelect={setActiveDashboard} />
