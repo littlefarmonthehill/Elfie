@@ -3,6 +3,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { startOrderSyncScheduler } from "./services/order-sync-scheduler";
 import { startInventorySyncScheduler } from "./services/inventory-sync-scheduler";
+import { startEmbeddingWorker } from "./services/embedding-worker";
 
 const app = express();
 app.use(express.json());
@@ -77,6 +78,9 @@ app.use((req, res, next) => {
       
       // Start automatic inventory sync scheduler
       startInventorySyncScheduler();
+      
+      // Start background embedding worker
+      startEmbeddingWorker();
     });
   } catch (error) {
     console.error("Failed to start server:", error);

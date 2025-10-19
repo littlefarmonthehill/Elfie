@@ -693,45 +693,25 @@ export async function syncBricklinkData(options?: {
       console.error('✗ Rebrickable sync failed (non-fatal):', error);
     }
 
-    // Step 3: Generate embeddings for new/updated inventory items
-    console.log('🧠 Step 3/5: Generating AI embeddings for inventory...');
+    // Step 3: Schedule embedding generation in background
+    console.log('🧠 Step 3/5: Scheduling AI embeddings (background)...');
     try {
-      // Embed newly added/updated inventory items (limit to recent changes)
-      const recentInventory = await db
-        .select({ id: blInventory.id })
-        .from(blInventory)
-        .orderBy(sql`${blInventory.updatedAt} DESC`)
-        .limit(100); // Embed up to 100 most recently updated items
-      
-      if (recentInventory.length > 0) {
-        const inventoryIds = recentInventory.map(i => i.id);
-        await batchEmbedInventory(inventoryIds);
-        console.log(`✓ Generated embeddings for ${inventoryIds.length} inventory items`);
-      }
+      const { createEmbeddingJob } = await import('./embedding-worker');
+      await createEmbeddingJob('inventory', 'bricklink_sync');
+      console.log('✓ Inventory embedding job scheduled');
     } catch (error) {
-      console.error('✗ Inventory embedding failed (non-fatal):', error);
+      console.error('✗ Failed to schedule inventory embeddings (non-fatal):', error);
     }
 
-    // Step 4: Generate embeddings for sets (if Rebrickable sync was successful)
-    console.log('🎯 Step 4/5: Generating AI embeddings for LEGO sets...');
+    // Step 4: Schedule set embeddings in background (if Rebrickable sync was successful)
+    console.log('🎯 Step 4/5: Scheduling set embeddings (background)...');
     if (rebrickableResult.setsAdded > 0 || rebrickableResult.partsProcessed > 0) {
       try {
-        // Get unique set numbers that don't have embeddings yet
-        const newSets = await db.execute(sql`
-          SELECT DISTINCT spr.set_num 
-          FROM set_part_relationships spr
-          LEFT JOIN set_part_embeddings spe ON spr.set_num = spe.set_num
-          WHERE spe.set_num IS NULL
-          LIMIT 50
-        `);
-        
-        if (newSets.rows.length > 0) {
-          const setNumbers = newSets.rows.map((r: any) => r.set_num);
-          await batchEmbedSets(setNumbers);
-          console.log(`✓ Generated embeddings for ${setNumbers.length} LEGO sets`);
-        }
+        const { createEmbeddingJob } = await import('./embedding-worker');
+        await createEmbeddingJob('sets', 'bricklink_sync');
+        console.log('✓ Set embedding job scheduled');
       } catch (error) {
-        console.error('✗ Set embedding failed (non-fatal):', error);
+        console.error('✗ Failed to schedule set embeddings (non-fatal):', error);
       }
     }
 

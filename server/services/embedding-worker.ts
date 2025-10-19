@@ -1,0 +1,173 @@
+import { db } from "../db";
+import { embeddingJobs, blInventory, orders, setPartRelationships } from "@shared/schema";
+import { eq, sql } from "drizzle-orm";
+import { batchEmbedInventory, batchEmbedOrders, batchEmbedSets } from "./embeddings";
+
+let isProcessing = false;
+let workerInterval: NodeJS.Timeout | null = null;
+
+/**
+ * Start the background worker that processes embedding jobs
+ */
+export function startEmbeddingWorker() {
+  if (workerInterval) {
+    console.log('⚠️  Embedding worker already running');
+    return;
+  }
+
+  console.log('🤖 Embedding worker started');
+  
+  // Check for pending jobs every 10 seconds
+  workerInterval = setInterval(async () => {
+    await processNextJob();
+  }, 10000);
+
+  // Also process immediately on startup
+  processNextJob();
+}
+
+/**
+ * Stop the background worker
+ */
+export function stopEmbeddingWorker() {
+  if (workerInterval) {
+    clearInterval(workerInterval);
+    workerInterval = null;
+    console.log('🛑 Embedding worker stopped');
+  }
+}
+
+/**
+ * Process the next pending embedding job
+ */
+async function processNextJob() {
+  if (isProcessing) {
+    return; // Already processing a job
+  }
+
+  try {
+    isProcessing = true;
+
+    // Find the oldest pending job
+    const [job] = await db
+      .select()
+      .from(embeddingJobs)
+      .where(eq(embeddingJobs.status, 'pending'))
+      .orderBy(embeddingJobs.createdAt)
+      .limit(1);
+
+    if (!job) {
+      return; // No pending jobs
+    }
+
+    console.log(`🧠 Processing embedding job ${job.id} (${job.jobType})`);
+
+    // Mark as processing
+    await db
+      .update(embeddingJobs)
+      .set({
+        status: 'processing',
+        startedAt: new Date(),
+      })
+      .where(eq(embeddingJobs.id, job.id));
+
+    try {
+      // Process based on job type
+      switch (job.jobType) {
+        case 'inventory': {
+          // Fetch recent inventory items that need embedding
+          const recentInventory = await db
+            .select({ id: blInventory.id })
+            .from(blInventory)
+            .orderBy(sql`${blInventory.updatedAt} DESC`)
+            .limit(100); // Embed up to 100 most recently updated items
+          
+          if (recentInventory.length > 0) {
+            const inventoryIds = recentInventory.map(i => i.id);
+            await batchEmbedInventory(inventoryIds);
+            console.log(`  ✓ Embedded ${inventoryIds.length} inventory items`);
+          }
+          break;
+        }
+        case 'sets': {
+          // Get unique set numbers that don't have embeddings yet
+          const newSets = await db.execute(sql`
+            SELECT DISTINCT spr.set_num 
+            FROM set_part_relationships spr
+            LEFT JOIN set_part_embeddings spe ON spr.set_num = spe.set_num
+            WHERE spe.set_num IS NULL
+            LIMIT 50
+          `);
+          
+          if (newSets.rows.length > 0) {
+            const setNumbers = newSets.rows.map((r: any) => r.set_num);
+            await batchEmbedSets(setNumbers);
+            console.log(`  ✓ Embedded ${setNumbers.length} LEGO sets`);
+          }
+          break;
+        }
+        case 'orders': {
+          // Fetch recent orders that need embedding
+          const recentOrders = await db
+            .select({ id: orders.id })
+            .from(orders)
+            .orderBy(sql`${orders.updatedAt} DESC`)
+            .limit(50); // Embed up to 50 most recent orders
+          
+          if (recentOrders.length > 0) {
+            const orderIds = recentOrders.map(o => o.id);
+            await batchEmbedOrders(orderIds);
+            console.log(`  ✓ Embedded ${orderIds.length} orders`);
+          }
+          break;
+        }
+        default:
+          throw new Error(`Unknown job type: ${job.jobType}`);
+      }
+
+      // Mark as completed
+      await db
+        .update(embeddingJobs)
+        .set({
+          status: 'completed',
+          completedAt: new Date(),
+        })
+        .where(eq(embeddingJobs.id, job.id));
+
+      console.log(`✅ Embedding job ${job.id} completed successfully`);
+    } catch (error) {
+      console.error(`❌ Embedding job ${job.id} failed:`, error);
+
+      // Mark as failed
+      await db
+        .update(embeddingJobs)
+        .set({
+          status: 'failed',
+          errorMessage: error instanceof Error ? error.message : String(error),
+          completedAt: new Date(),
+        })
+        .where(eq(embeddingJobs.id, job.id));
+    }
+  } catch (error) {
+    console.error('Error processing embedding job:', error);
+  } finally {
+    isProcessing = false;
+  }
+}
+
+/**
+ * Create a new embedding job
+ */
+export async function createEmbeddingJob(jobType: 'inventory' | 'sets' | 'orders', triggeredBy: string) {
+  const [job] = await db
+    .insert(embeddingJobs)
+    .values({
+      jobType,
+      status: 'pending',
+      triggeredBy,
+    })
+    .returning();
+
+  console.log(`📋 Created embedding job ${job.id} for ${jobType}`);
+  return job;
+}

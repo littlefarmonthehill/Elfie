@@ -505,6 +505,36 @@ export const insertSetPartEmbeddingSchema = createInsertSchema(setPartEmbeddings
 export type InsertSetPartEmbedding = z.infer<typeof insertSetPartEmbeddingSchema>;
 export type SetPartEmbedding = typeof setPartEmbeddings.$inferSelect;
 
+// Background Embedding Jobs - For async embedding generation
+export const embeddingJobs = pgTable("embedding_jobs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  jobType: text("job_type").notNull(), // 'inventory', 'orders', 'sets'
+  status: text("status").notNull(), // 'pending', 'processing', 'completed', 'failed'
+  triggeredBy: text("triggered_by").notNull(), // 'manual_sync', 'automated_sync', 'system'
+  
+  // Progress tracking
+  totalItems: integer("total_items"),
+  processedItems: integer("processed_items").default(0),
+  
+  // Metadata
+  errorMessage: text("error_message"),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  statusIdx: index("embedding_jobs_status_idx").on(table.status),
+  createdAtIdx: index("embedding_jobs_created_idx").on(table.createdAt),
+}));
+
+export const insertEmbeddingJobSchema = createInsertSchema(embeddingJobs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertEmbeddingJob = z.infer<typeof insertEmbeddingJobSchema>;
+export type EmbeddingJob = typeof embeddingJobs.$inferSelect;
+
 // Warehouse Management - Aisles
 export const whAisles = pgTable("wh_aisles", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
