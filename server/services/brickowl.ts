@@ -397,33 +397,6 @@ export async function syncInventoryItem(
   }
 }
 
-// Find BrickLink items that are NOT in BrickOwl
-export async function findUnsyncedItems(limit: number = 5): Promise<(typeof blInventory.$inferSelect)[]> {
-  try {
-    // Get all BrickOwl inventory
-    const brickowlInventory = await getBrickOwlInventory(false); // Get all, not just active
-    
-    console.log(`BrickOwl returned ${brickowlInventory.length} lots`);
-    console.log(`Sample lot:`, brickowlInventory[0] ? JSON.stringify(brickowlInventory[0]).substring(0, 200) : 'none');
-    
-    // Note: With BOID+condition matching, we can't efficiently pre-determine "unsynced" items
-    // because we'd need to lookup BOID for every BrickLink item (29k+ API calls!)
-    // Instead, just return first N items and let syncInventoryItem determine create vs update
-    const unsyncedItems = await db
-      .select()
-      .from(blInventory)
-      .limit(limit);
-    
-    console.log(`Selected ${unsyncedItems.length} BrickLink items to sync (limit: ${limit})`);
-    
-    return unsyncedItems;
-  } catch (error) {
-    console.error('Error finding unsynced items:', error);
-    // Fallback: just return first N items from BrickLink
-    return db.select().from(blInventory).limit(limit);
-  }
-}
-
 // Sync all BrickLink inventory to BrickOwl
 export async function syncBrickLinkToBrickOwl(limit?: number): Promise<BrickOwlSyncResult> {
   const result: BrickOwlSyncResult = {
@@ -463,61 +436,6 @@ export async function syncBrickLinkToBrickOwl(limit?: number): Promise<BrickOwlS
       }
     } else {
       result.lotsSkipped++;
-      if (syncResult.error) {
-        result.errors.push(`${item.itemNo}: ${syncResult.error}`);
-      }
-    }
-
-    // Add delay to avoid rate limiting (600 req/min = ~10 req/sec)
-    await new Promise(resolve => setTimeout(resolve, 120));
-  }
-
-  return result;
-}
-
-// Sync only unsynced BrickLink items to BrickOwl
-export async function syncUnsyncedItems(limit: number = 5): Promise<BrickOwlSyncResult> {
-  const result: BrickOwlSyncResult = {
-    lotsCreated: 0,
-    lotsUpdated: 0,
-    lotsSkipped: 0,
-    errors: [],
-    totalApiCalls: 0,
-  };
-
-  // Find unsynced items
-  const unsyncedItems = await findUnsyncedItems(limit);
-  
-  if (unsyncedItems.length === 0) {
-    console.log('No unsynced items found!');
-    return result;
-  }
-  
-  console.log(`Syncing ${unsyncedItems.length} unsynced items from BrickLink to BrickOwl...`);
-  console.log('Items to sync:', unsyncedItems.map(item => `${item.itemNo} (ID: ${item.id})`).join(', '));
-
-  // Fetch BrickOwl inventory once for efficiency (to detect updates vs creates)
-  const brickowlInventory = await getBrickOwlInventory(false);
-
-  // Sync each item
-  for (const item of unsyncedItems) {
-    const syncResult = await syncInventoryItem(item, brickowlInventory);
-    result.totalApiCalls += 2; // Estimate: lookup + create/update
-    
-    if (syncResult.success) {
-      if (syncResult.action === 'created') {
-        result.lotsCreated++;
-        console.log(`✓ Created: ${item.itemNo} (${item.colorName || 'N/A'}) - ID: ${item.id}`);
-      } else if (syncResult.action === 'updated') {
-        result.lotsUpdated++;
-        console.log(`✓ Updated: ${item.itemNo} (${item.colorName || 'N/A'}) - ID: ${item.id}`);
-      } else if (syncResult.action === 'skipped') {
-        result.lotsSkipped++;
-        console.log(`○ No changes: ${item.itemNo} (${item.colorName || 'N/A'}) - ID: ${item.id}`);
-      }
-    } else {
-      result.lotsSkipped++;
-      console.log(`✗ Skipped: ${item.itemNo} - ${syncResult.error}`);
       if (syncResult.error) {
         result.errors.push(`${item.itemNo}: ${syncResult.error}`);
       }
