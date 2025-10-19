@@ -7,6 +7,7 @@ import { syncRebrickableSetParts } from "./rebrickable";
 import { syncLock } from "./sync-lock";
 import { batchEmbedInventory, batchEmbedSets } from "./embeddings";
 import { syncBrickLinkToBrickOwl } from "./brickowl";
+import { saveXMLBackup } from "./export";
 
 export interface BricklinkSyncResult {
   categoriesAdded: number;
@@ -733,6 +734,14 @@ export async function syncBricklinkData(): Promise<BricklinkSyncResult> {
     const totalApiCalls = categoriesResult.apiCalls + colorsResult.apiCalls + inventoryResult.apiCalls;
 
     console.log('\n✅ Comprehensive inventory sync complete!');
+
+    // Step 6: Automatically save XML backup for manual restore
+    try {
+      const backupFilename = await saveXMLBackup();
+      console.log(`💾 XML backup saved: ${backupFilename}`);
+    } catch (error) {
+      console.error('✗ XML backup failed (non-fatal):', error);
+    }
 
     return {
       categoriesAdded: categoriesResult.added,
