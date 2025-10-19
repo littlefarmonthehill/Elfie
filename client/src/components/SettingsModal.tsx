@@ -339,6 +339,139 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                   </Select>
                 </div>
               </div>
+
+              <Separator className="bg-gray-700" />
+
+              {/* Data Export (CSV) */}
+              <div>
+                <h3 className="text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
+                  <Download className="h-4 w-4 text-green-400" />
+                  Data Export (CSV)
+                </h3>
+                <p className="text-xs text-gray-400 mb-3">Export your business data as CSV files for analysis or record-keeping</p>
+                
+                <Accordion type="single" collapsible className="space-y-2">
+                  {/* Core Business Data */}
+                  <AccordionItem value="core" className="bg-gray-800 border border-gray-700 rounded-lg px-3">
+                    <AccordionTrigger className="text-xs font-medium text-gray-300 py-2.5 hover:no-underline">
+                      <div className="flex items-center gap-2">
+                        <HardDrive className="h-3.5 w-3.5 text-purple-400" />
+                        Core Business Data
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="pb-3 space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="text-xs"
+                          onClick={() => handleExport('inventory', 'csv')}
+                          data-testid="button-export-inventory-csv"
+                        >
+                          <Download className="h-3 w-3 mr-1" />
+                          Inventory CSV
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="text-xs"
+                          onClick={() => handleExport('orders', 'csv')}
+                          data-testid="button-export-orders-csv"
+                        >
+                          <Download className="h-3 w-3 mr-1" />
+                          Orders CSV
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="text-xs"
+                          data-testid="button-export-warehouse-csv"
+                        >
+                          <Download className="h-3 w-3 mr-1" />
+                          Warehouse CSV
+                        </Button>
+                      </div>
+                      <p className="text-[10px] text-gray-500 mt-2">
+                        Your inventory quantities, orders, and warehouse locations
+                      </p>
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  {/* Platform Catalog Data */}
+                  <AccordionItem value="catalog" className="bg-gray-800 border border-gray-700 rounded-lg px-3">
+                    <AccordionTrigger className="text-xs font-medium text-gray-300 py-2.5 hover:no-underline">
+                      <div className="flex items-center gap-2">
+                        <Database className="h-3.5 w-3.5 text-blue-400" />
+                        Platform Catalog Data
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="pb-3 space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="text-xs"
+                          data-testid="button-export-catalog-csv"
+                        >
+                          <Download className="h-3 w-3 mr-1" />
+                          BrickLink Catalog
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="text-xs"
+                          data-testid="button-export-sets-csv"
+                        >
+                          <Download className="h-3 w-3 mr-1" />
+                          Set-Part Data
+                        </Button>
+                      </div>
+                      <p className="text-[10px] text-gray-500 mt-2">
+                        External catalog data (can be re-fetched from BrickLink/Rebrickable)
+                      </p>
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  {/* AI & Analytics */}
+                  <AccordionItem value="ai" className="bg-gray-800 border border-gray-700 rounded-lg px-3">
+                    <AccordionTrigger className="text-xs font-medium text-gray-300 py-2.5 hover:no-underline">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="h-3.5 w-3.5 text-violet-400" />
+                        AI & Analytics Data
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="pb-3 space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="text-xs"
+                          data-testid="button-export-embeddings"
+                        >
+                          <Download className="h-3 w-3 mr-1" />
+                          AI Embeddings
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="text-xs"
+                          data-testid="button-export-analytics"
+                        >
+                          <Download className="h-3 w-3 mr-1" />
+                          Analytics Cache
+                        </Button>
+                      </div>
+                      <p className="text-[10px] text-gray-500 mt-2">
+                        Derived data (can be regenerated, but expensive)
+                      </p>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+                <p className="text-[10px] text-yellow-400 mt-3 flex items-start gap-1">
+                  <AlertTriangle className="h-3 w-3 flex-shrink-0 mt-0.5" />
+                  <span>Note: CSV files are for analysis only and are NOT considered backups. Use the Backup & Clear tab for restore capabilities.</span>
+                </p>
+              </div>
               </div>
             )}
 
@@ -890,19 +1023,19 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                   </div>
                 </div>
 
-                {/* Point-in-Time Restore */}
+                {/* Automatic Restore (Guided Wizard) */}
                 <div>
                   <h3 className="text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
                     <RotateCcw className="h-4 w-4 text-blue-400" />
-                    Point-in-Time Restore
+                    Automatic Restore (Guided Wizard)
                   </h3>
-                  <p className="text-xs text-gray-400 mb-3">Restore your database to any moment in the last 30 days</p>
+                  <p className="text-xs text-gray-400 mb-3">Full-system recovery with impact analysis and automated platform synchronization</p>
                   
                   <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 space-y-3">
                     <div className="bg-blue-500/10 border border-blue-500/30 rounded p-3 space-y-2">
-                      <p className="text-xs font-medium text-blue-300">✨ Guided Recovery Process</p>
+                      <p className="text-xs font-medium text-blue-300">✨ Comprehensive Guided Process</p>
                       <p className="text-[10px] text-blue-200/80">
-                        We'll walk you through the entire restore process step-by-step, automatically sync data from your sales platforms, and verify everything is correct.
+                        Step-by-step wizard that restores your database to any point in the last 30 days, analyzes inventory/order mismatches, detects anomalies, syncs from BrickLink/BrickOwl, and verifies data integrity.
                       </p>
                     </div>
 
@@ -949,315 +1082,110 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
 
                 <Separator className="bg-gray-700" />
 
-                {/* Data Export */}
+                {/* Manual Restore */}
                 <div>
                   <h3 className="text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
-                    <Download className="h-4 w-4 text-green-400" />
-                    Export Data
+                    <Download className="h-4 w-4 text-purple-400" />
+                    Manual Restore
                   </h3>
-                  <p className="text-xs text-gray-400 mb-3">Create portable backups of your business data</p>
+                  <p className="text-xs text-gray-400 mb-3">Download XML backups and manually upload to BrickLink</p>
                   
-                  <Accordion type="single" collapsible className="space-y-2">
-                    {/* Core Business Data */}
-                    <AccordionItem value="core" className="bg-gray-800 border border-gray-700 rounded-lg px-3">
-                      <AccordionTrigger className="text-xs font-medium text-gray-300 py-2.5 hover:no-underline">
-                        <div className="flex items-center gap-2">
-                          <HardDrive className="h-3.5 w-3.5 text-purple-400" />
-                          Core Business Data
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent className="pb-3 space-y-2">
-                        <div className="grid grid-cols-2 gap-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="text-xs"
-                            onClick={() => handleExport('inventory', 'csv')}
-                            data-testid="button-export-inventory-csv"
-                          >
-                            <Download className="h-3 w-3 mr-1" />
-                            Inventory CSV
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="text-xs"
-                            onClick={() => handleExport('inventory', 'xml')}
-                            data-testid="button-export-inventory-xml"
-                          >
-                            <Download className="h-3 w-3 mr-1" />
-                            BrickLink XML
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="text-xs"
-                            onClick={() => handleExport('orders', 'csv')}
-                            data-testid="button-export-orders-csv"
-                          >
-                            <Download className="h-3 w-3 mr-1" />
-                            Orders CSV
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="text-xs"
-                            data-testid="button-export-warehouse-csv"
-                          >
-                            <Download className="h-3 w-3 mr-1" />
-                            Warehouse CSV
-                          </Button>
-                        </div>
-                        <p className="text-[10px] text-gray-500 mt-2">
-                          Your inventory quantities, orders, and warehouse locations
-                        </p>
-                      </AccordionContent>
-                    </AccordionItem>
-
-                    {/* Platform Catalog Data */}
-                    <AccordionItem value="catalog" className="bg-gray-800 border border-gray-700 rounded-lg px-3">
-                      <AccordionTrigger className="text-xs font-medium text-gray-300 py-2.5 hover:no-underline">
-                        <div className="flex items-center gap-2">
-                          <Database className="h-3.5 w-3.5 text-blue-400" />
-                          Platform Catalog Data
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent className="pb-3 space-y-2">
-                        <div className="grid grid-cols-2 gap-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="text-xs"
-                            data-testid="button-export-catalog-csv"
-                          >
-                            <Download className="h-3 w-3 mr-1" />
-                            BrickLink Catalog
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="text-xs"
-                            data-testid="button-export-sets-csv"
-                          >
-                            <Download className="h-3 w-3 mr-1" />
-                            Set-Part Data
-                          </Button>
-                        </div>
-                        <p className="text-[10px] text-gray-500 mt-2">
-                          External catalog data (can be re-fetched from BrickLink/Rebrickable)
-                        </p>
-                      </AccordionContent>
-                    </AccordionItem>
-
-                    {/* AI & Analytics */}
-                    <AccordionItem value="ai" className="bg-gray-800 border border-gray-700 rounded-lg px-3">
-                      <AccordionTrigger className="text-xs font-medium text-gray-300 py-2.5 hover:no-underline">
-                        <div className="flex items-center gap-2">
-                          <Sparkles className="h-3.5 w-3.5 text-violet-400" />
-                          AI & Analytics Data
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent className="pb-3 space-y-2">
-                        <div className="grid grid-cols-2 gap-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="text-xs"
-                            data-testid="button-export-embeddings"
-                          >
-                            <Download className="h-3 w-3 mr-1" />
-                            AI Embeddings
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="text-xs"
-                            data-testid="button-export-analytics"
-                          >
-                            <Download className="h-3 w-3 mr-1" />
-                            Analytics Cache
-                          </Button>
-                        </div>
-                        <p className="text-[10px] text-gray-500 mt-2">
-                          Derived data (can be regenerated, but expensive)
-                        </p>
-                      </AccordionContent>
-                    </AccordionItem>
-                  </Accordion>
-                </div>
-
-                <Separator className="bg-gray-700" />
-
-                {/* Automated Backup Schedule */}
-                <div>
-                  <h3 className="text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-orange-400" />
-                    Automated Export Schedule
-                  </h3>
-                  <p className="text-xs text-gray-400 mb-3">Automatically export data to cloud storage</p>
-                  
-                  <div className="bg-gray-800 border border-gray-700 rounded-lg p-3 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs font-medium text-gray-300">Daily BrickLink XML Export</p>
-                        <p className="text-[10px] text-gray-500">Export at 3:00 AM daily</p>
-                      </div>
-                      <Switch defaultChecked={false} />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs font-medium text-gray-300">Weekly Full Database Export</p>
-                        <p className="text-[10px] text-gray-500">Export every Sunday at 2:00 AM</p>
-                      </div>
-                      <Switch defaultChecked={false} />
-                    </div>
-                    <div className="bg-gray-900/50 rounded p-2">
-                      <p className="text-[10px] text-gray-400">
-                        <strong>Note:</strong> Exports will be saved to your configured cloud storage (Google Drive, Dropbox, etc.)
+                  <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 space-y-3">
+                    <div className="bg-purple-500/10 border border-purple-500/30 rounded p-3 space-y-2">
+                      <p className="text-xs font-medium text-purple-300">📥 Simple Download Process</p>
+                      <p className="text-[10px] text-purple-200/80">
+                        Download BrickLink XML backups from our archive, then manually upload them to BrickLink yourself for complete control over the restore process.
                       </p>
+                    </div>
+
+                    {/* List of available backups */}
+                    <div className="space-y-2">
+                      <Label className="text-xs text-gray-400">Available XML Backups</Label>
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {/* Placeholder backups - would be fetched from API */}
+                        {[
+                          { date: '2025-10-19 14:30', size: '2.4 MB' },
+                          { date: '2025-10-18 14:30', size: '2.3 MB' },
+                          { date: '2025-10-17 14:30', size: '2.2 MB' },
+                        ].map((backup, idx) => (
+                          <div key={idx} className="flex items-center justify-between bg-gray-700/50 rounded p-2">
+                            <div>
+                              <p className="text-xs text-gray-300 font-medium">{backup.date}</p>
+                              <p className="text-[10px] text-gray-500">{backup.size}</p>
+                            </div>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="text-xs"
+                              onClick={() => handleExport('inventory', 'xml')}
+                              data-testid={`button-download-backup-${idx}`}
+                            >
+                              <Download className="h-3 w-3 mr-1" />
+                              Download
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="bg-gray-900/50 rounded p-3 space-y-2">
+                      <p className="text-xs font-medium text-gray-300">After Download:</p>
+                      <ol className="text-[10px] text-gray-400 space-y-1 ml-4 list-decimal">
+                        <li>Go to BrickLink → My Store → Upload/Update My Inventory</li>
+                        <li>Select your downloaded XML file and upload</li>
+                        <li>Wait for BrickLink to process the upload</li>
+                        <li>Return to PlanetBrick and sync from BrickLink</li>
+                      </ol>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="w-full text-xs mt-2"
+                        onClick={() => window.open('https://www.bricklink.com/inventory_upload.asp', '_blank')}
+                        data-testid="button-open-bricklink-upload"
+                      >
+                        <CloudUpload className="h-3 w-3 mr-1" />
+                        Open BrickLink Upload Page
+                      </Button>
                     </div>
                   </div>
                 </div>
 
                 <Separator className="bg-gray-700" />
 
-                {/* Restore from Backup */}
+                {/* Clear Data Section */}
                 <div>
                   <h3 className="text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
-                    <Upload className="h-4 w-4 text-green-400" />
-                    Restore from Backup
+                    <Trash2 className="h-4 w-4 text-red-400" />
+                    Clear Data
                   </h3>
-                  <p className="text-xs text-gray-400 mb-3">Restore your inventory from exported backups</p>
-                  
-                  <Accordion type="single" collapsible className="space-y-2">
-                    {/* BrickLink API Restore */}
-                    <AccordionItem value="api-restore" className="bg-gray-800 border border-gray-700 rounded-lg px-3">
-                      <AccordionTrigger className="text-xs font-medium text-gray-300 py-2.5 hover:no-underline">
-                        <div className="flex items-center gap-2">
-                          <CloudUpload className="h-3.5 w-3.5 text-blue-400" />
-                          BrickLink API Restore (Automated)
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent className="pb-3 space-y-3">
-                        <div className="space-y-2">
-                          <Label htmlFor="restore-file" className="text-xs text-gray-400">
-                            Select Backup File
-                          </Label>
-                          <Input
-                            id="restore-file"
-                            type="file"
-                            accept=".csv,.xml"
-                            className="text-xs h-8"
-                            data-testid="input-restore-file"
-                          />
-                        </div>
-                        
-                        <div className="bg-blue-500/10 border border-blue-500/30 rounded p-2">
-                          <p className="text-xs text-blue-300 flex items-start gap-2">
-                            <CheckCircle2 className="h-3 w-3 mt-0.5 flex-shrink-0" />
-                            <span>This will automatically restore all inventory via BrickLink API. Names, colors, and categories will be auto-populated by BrickLink.</span>
-                          </p>
-                        </div>
-
-                        <div className="space-y-1.5">
-                          <div className="flex items-center gap-2">
-                            <input type="checkbox" id="delete-before-restore" className="h-3 w-3" />
-                            <Label htmlFor="delete-before-restore" className="text-xs text-gray-400 cursor-pointer">
-                              Delete existing inventory before restore
-                            </Label>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <input type="checkbox" id="restore-warehouse" className="h-3 w-3" />
-                            <Label htmlFor="restore-warehouse" className="text-xs text-gray-400 cursor-pointer">
-                              Also restore warehouse locations (if available)
-                            </Label>
-                          </div>
-                        </div>
-
-                        <div className="flex gap-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="text-xs flex-1"
-                            data-testid="button-validate-restore"
-                          >
-                            <FileText className="h-3 w-3 mr-1" />
-                            Validate File
-                          </Button>
-                          <Button 
-                            variant="default" 
-                            size="sm" 
-                            className="text-xs flex-1 bg-green-600 hover:bg-green-700"
-                            data-testid="button-start-restore"
-                          >
-                            <Upload className="h-3 w-3 mr-1" />
-                            Start Restore
-                          </Button>
-                        </div>
-
-                        <div className="text-[10px] text-gray-500 space-y-1">
-                          <p><strong>Supported formats:</strong> BrickLink XML, PlanetBrick CSV</p>
-                          <p><strong>Restoration speed:</strong> ~100 items/minute (BrickLink rate limit)</p>
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
-
-                    {/* Manual BrickLink Upload */}
-                    <AccordionItem value="manual-restore" className="bg-gray-800 border border-gray-700 rounded-lg px-3">
-                      <AccordionTrigger className="text-xs font-medium text-gray-300 py-2.5 hover:no-underline">
-                        <div className="flex items-center gap-2">
-                          <Upload className="h-3.5 w-3.5 text-purple-400" />
-                          Manual BrickLink Upload
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent className="pb-3 space-y-2">
-                        <p className="text-xs text-gray-400">
-                          For manual control, upload your BrickLink XML backup directly via BrickLink's website.
-                        </p>
-                        <ol className="text-[10px] text-gray-500 space-y-1 ml-4 list-decimal">
-                          <li>Export BrickLink XML from the Export Data section above</li>
-                          <li>Go to BrickLink → My Store → Upload/Update My Inventory</li>
-                          <li>Select your XML file and upload</li>
-                          <li>After upload completes, sync PlanetBrick with BrickLink</li>
-                        </ol>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="w-full text-xs mt-2"
-                          onClick={() => window.open('https://www.bricklink.com/inventory_upload.asp', '_blank')}
-                          data-testid="button-open-bricklink-upload"
-                        >
-                          <CloudUpload className="h-3 w-3 mr-1" />
-                          Open BrickLink Upload Page
-                        </Button>
-                      </AccordionContent>
-                    </AccordionItem>
-                  </Accordion>
-                </div>
-
-                <Separator className="bg-gray-700" />
-
-                {/* Recovery Testing */}
-                <div>
-                  <h3 className="text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
-                    <History className="h-4 w-4 text-cyan-400" />
-                    Recovery Testing
-                  </h3>
-                  <p className="text-xs text-gray-400 mb-3">Test your backup and restore process</p>
+                  <p className="text-xs text-gray-400 mb-3">Permanently delete inventory or order data</p>
                   
                   <div className="bg-gray-800 border border-gray-700 rounded-lg p-3 space-y-2">
                     <Button 
                       variant="outline" 
                       size="sm" 
-                      className="w-full justify-start text-xs"
-                      data-testid="button-test-restore"
+                      className="w-full justify-start text-xs text-red-400 border-red-500/30 hover:bg-red-500/10"
+                      onClick={() => setClearDataDialog('inventory')}
+                      data-testid="button-clear-inventory"
                     >
-                      <CheckCircle2 className="h-3 w-3 mr-2" />
-                      Run Recovery Test (Creates Temporary Copy)
+                      <Trash2 className="h-3 w-3 mr-2" />
+                      Clear All Inventory Data
                     </Button>
-                    <p className="text-[10px] text-gray-500">
-                      Last test: Never • Recommended: Quarterly
-                    </p>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full justify-start text-xs text-red-400 border-red-500/30 hover:bg-red-500/10"
+                      onClick={() => setClearDataDialog('orders')}
+                      data-testid="button-clear-orders"
+                    >
+                      <Trash2 className="h-3 w-3 mr-2" />
+                      Clear All Order Data
+                    </Button>
+                    <div className="bg-red-500/10 border border-red-500/30 rounded p-2">
+                      <p className="text-[10px] text-red-300">
+                        <strong>Warning:</strong> These actions cannot be undone. Always export backups before clearing data.
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
