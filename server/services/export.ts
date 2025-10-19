@@ -1,5 +1,20 @@
 import { db } from '../db';
 import { blInventory } from '@shared/schema';
+import { promises as fs } from 'fs';
+import path from 'path';
+
+const BACKUP_DIR = path.join(process.cwd(), 'backups', 'bricklink-xml');
+
+/**
+ * Ensure backup directory exists
+ */
+async function ensureBackupDir() {
+  try {
+    await fs.mkdir(BACKUP_DIR, { recursive: true });
+  } catch (error) {
+    console.error('Error creating backup directory:', error);
+  }
+}
 
 /**
  * Generate BrickLink XML format from inventory
@@ -121,4 +136,80 @@ function escapeXml(unsafe: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;');
+}
+
+/**
+ * Save XML backup to disk (called automatically during inventory sync)
+ */
+export async function saveXMLBackup(): Promise<string> {
+  await ensureBackupDir();
+  
+  const xml = await generateBrickLinkXML();
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+  const filename = `bricklink-inventory-${timestamp}.xml`;
+  const filepath = path.join(BACKUP_DIR, filename);
+  
+  await fs.writeFile(filepath, xml, 'utf-8');
+  console.log(`✓ XML backup saved: ${filename}`);
+  
+  return filename;
+}
+
+/**
+ * List all available XML backups
+ */
+export async function listXMLBackups(): Promise<Array<{ filename: string; timestamp: Date; size: number }>> {
+  await ensureBackupDir();
+  
+  try {
+    const files = await fs.readdir(BACKUP_DIR);
+    const xmlFiles = files.filter(f => f.endsWith('.xml'));
+    
+    const backups = await Promise.all(
+      xmlFiles.map(async (filename) => {
+        const filepath = path.join(BACKUP_DIR, filename);
+        const stats = await fs.stat(filepath);
+        
+        // Extract timestamp from filename: bricklink-inventory-2025-10-19T16-30-00.xml
+        const timestampStr = filename.replace('bricklink-inventory-', '').replace('.xml', '');
+        const timestamp = new Date(timestampStr.replace(/-/g, (match, offset) => {
+          // Replace hyphens with colons for time part
+          if (offset > 10) return ':';
+          return match;
+        }));
+        
+        return {
+          filename,
+          timestamp: stats.mtime, // Use file modification time as more reliable
+          size: stats.size,
+        };
+      })
+    );
+    
+    // Sort by timestamp, most recent first
+    return backups.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+  } catch (error) {
+    console.error('Error listing XML backups:', error);
+    return [];
+  }
+}
+
+/**
+ * Get specific XML backup file content
+ */
+export async function getXMLBackup(filename: string): Promise<string> {
+  const filepath = path.join(BACKUP_DIR, filename);
+  
+  // Security check: ensure filename doesn't contain path traversal
+  if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+    throw new Error('Invalid filename');
+  }
+  
+  try {
+    const content = await fs.readFile(filepath, 'utf-8');
+    return content;
+  } catch (error) {
+    console.error(`Error reading backup file ${filename}:`, error);
+    throw new Error('Backup file not found');
+  }
 }
