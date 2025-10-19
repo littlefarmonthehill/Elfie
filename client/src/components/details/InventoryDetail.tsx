@@ -113,18 +113,18 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
     enabled: !data.loading && !!data.id,
   });
 
-  // Fetch sets containing this part
+  // Fetch sets containing this part in this color
   const { data: setsData, isLoading: loadingSets } = useQuery<{ 
     sets: Array<{ 
       setNum: string; 
       setName: string | null; 
-      totalQuantity: number; 
-      colors: Array<{ 
-        name: string; 
-        rgb: string | null; 
-        quantity: number 
-      }> 
-    }> 
+      quantity: number;
+    }>;
+    color: {
+      id: number;
+      name: string;
+      rgb: string | null;
+    } | null;
   }>({
     queryKey: [`/api/inventory/${data.itemNo}/${data.colorId || 0}/sets`],
     enabled: setsDialogOpen && !!data.itemNo,
@@ -999,8 +999,20 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
             </DialogTrigger>
             <DialogContent className="max-w-3xl max-h-[80vh]" aria-describedby="sets-dialog-description">
               <DialogHeader>
-                <DialogTitle className="text-base font-bold text-white">
-                  Sets Containing {data.itemNo}
+                <DialogTitle className="text-base font-bold text-white flex items-center gap-2">
+                  <span>Sets Containing {data.itemNo}</span>
+                  {setsData?.color && (
+                    <span className="flex items-center gap-1.5 text-sm font-normal">
+                      <span className="text-gray-500">in</span>
+                      <div 
+                        className="w-3 h-3 rounded-full border border-gray-600"
+                        style={{ 
+                          backgroundColor: setsData.color.rgb ? `#${setsData.color.rgb}` : '#666'
+                        }}
+                      />
+                      <span className="text-lego-blue">{setsData.color.name}</span>
+                    </span>
+                  )}
                 </DialogTitle>
               </DialogHeader>
               <div id="sets-dialog-description" className="mt-3 overflow-y-auto max-h-[calc(80vh-120px)]">
@@ -1021,8 +1033,7 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
                         }`}
                         data-testid={`set-row-${set.setNum}`}
                       >
-                        {/* Set header */}
-                        <div className="flex items-center justify-between gap-3 mb-1">
+                        <div className="flex items-center justify-between gap-3">
                           <div className="flex items-center gap-3 flex-1 min-w-0">
                             <span className="text-xs font-mono font-bold text-lego-blue whitespace-nowrap">
                               {set.setNum}
@@ -1031,7 +1042,7 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
                               {set.setName || 'Unknown Set'}
                             </span>
                             <span className="text-[10px] text-lego-yellow font-bold whitespace-nowrap">
-                              {set.totalQuantity}× total
+                              {set.quantity}×
                             </span>
                           </div>
                           <a 
@@ -1044,31 +1055,6 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
                             <ExternalLink className="h-3.5 w-3.5" />
                           </a>
                         </div>
-                        
-                        {/* Color breakdown - inline with dots */}
-                        {set.colors && set.colors.length > 0 && (
-                          <div className="ml-4 flex flex-wrap items-center gap-x-3 gap-y-1">
-                            {set.colors.map((color: any, colorIndex: number) => (
-                              <div 
-                                key={`${set.setNum}-${colorIndex}`}
-                                className="flex items-center gap-1.5"
-                              >
-                                <div 
-                                  className="w-2.5 h-2.5 rounded-full border border-gray-600"
-                                  style={{ 
-                                    backgroundColor: color.rgb ? `#${color.rgb}` : '#666'
-                                  }}
-                                />
-                                <span className="text-[10px] text-gray-400">
-                                  {color.name}
-                                </span>
-                                <span className="text-[10px] text-gray-500 font-mono">
-                                  {color.quantity}×
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
                       </div>
                     ))}
                   </div>
