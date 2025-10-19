@@ -1545,28 +1545,16 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
     }
   });
 
-  // Get Sets Containing This Part
-  // Returns sets with color breakdown showing which colors of this part appear in each set
+  // Get Sets Containing This Part in a Specific Color
+  // Returns sets that contain the part in the specified color
   app.get("/api/inventory/:itemNo/:colorId/sets", async (req, res) => {
     try {
-      const { itemNo } = req.params;
+      const { itemNo, colorId } = req.params;
+      const colorIdNum = parseInt(colorId);
       const limit = parseInt(req.query.limit as string) || 100;
       
-      // Get all set-part-color combinations
-      const rawData = await db
-        .select({
-          setNum: setPartRelationships.setNum,
-          setName: setPartRelationships.setName,
-          colorId: setPartRelationships.colorId,
-          quantity: setPartRelationships.quantity,
-        })
-        .from(setPartRelationships)
-        .where(eq(setPartRelationships.partNum, itemNo))
-        .orderBy(setPartRelationships.setNum);
-      
-      // Get color names and RGB values for the color IDs
-      const colorIds = Array.from(new Set(rawData.map(r => r.colorId).filter(c => c !== null)));
-      const colors = colorIds.length > 0 
+      // Get color name for the requested color
+      const colorInfo = colorIdNum && colorIdNum > 0
         ? await db
             .select({
               id: blColors.id,
@@ -1574,64 +1562,48 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
               rgb: blColors.rgb,
             })
             .from(blColors)
-            .where(inArray(blColors.id, colorIds))
+            .where(eq(blColors.id, colorIdNum))
+            .limit(1)
         : [];
       
-      const colorMap = new Map(colors.map(c => [c.id, { name: c.name, rgb: c.rgb }]));
+      const requestedColor = colorInfo.length > 0 ? colorInfo[0] : null;
       
-      // Group by set and aggregate color quantities
-      const setsMap = new Map<string, any>();
-      
-      for (const row of rawData) {
-        if (!setsMap.has(row.setNum)) {
-          setsMap.set(row.setNum, {
-            setNum: row.setNum,
-            setName: row.setName,
-            totalQuantity: 0,
-            colorQuantities: new Map<number, { name: string; rgb: string | null; quantity: number }>(),
-          });
-        }
-        
-        const set = setsMap.get(row.setNum);
-        set.totalQuantity += row.quantity;
-        
-        // Aggregate quantities for the same color
-        if (row.colorId) {
-          const colorInfo = colorMap.get(row.colorId);
-          const colorName = colorInfo?.name || `Color ${row.colorId}`;
-          const colorRgb = colorInfo?.rgb || null;
-          
-          if (set.colorQuantities.has(row.colorId)) {
-            const existing = set.colorQuantities.get(row.colorId);
-            existing.quantity += row.quantity;
-          } else {
-            set.colorQuantities.set(row.colorId, {
-              name: colorName,
-              rgb: colorRgb,
-              quantity: row.quantity,
-            });
-          }
-        }
-      }
-      
-      // Convert colorQuantities Map to array
-      const allSets = Array.from(setsMap.values());
-      for (const set of allSets) {
-        set.colors = Array.from(set.colorQuantities.values());
-        delete set.colorQuantities;
-      }
+      // Get sets containing this part in this specific color
+      const rawData = await db
+        .select({
+          setNum: setPartRelationships.setNum,
+          setName: setPartRelationships.setName,
+          quantity: setPartRelationships.quantity,
+        })
+        .from(setPartRelationships)
+        .where(
+          and(
+            eq(setPartRelationships.partNum, itemNo),
+            colorIdNum && colorIdNum > 0 
+              ? eq(setPartRelationships.colorId, colorIdNum)
+              : sql`${setPartRelationships.colorId} IS NULL`
+          )
+        )
+        .orderBy(setPartRelationships.setNum);
       
       // Sort by set name alphabetically (case-insensitive)
-      allSets.sort((a, b) => {
+      const sortedSets = rawData.sort((a, b) => {
         const nameA = (a.setName || a.setNum).toLowerCase();
         const nameB = (b.setName || b.setNum).toLowerCase();
         return nameA.localeCompare(nameB);
       });
       
       // Apply limit
-      const sets = allSets.slice(0, limit);
+      const sets = sortedSets.slice(0, limit);
       
-      res.json({ sets });
+      res.json({ 
+        sets,
+        color: requestedColor ? {
+          id: requestedColor.id,
+          name: requestedColor.name,
+          rgb: requestedColor.rgb,
+        } : null
+      });
     } catch (error) {
       console.error("Get sets for part error:", error);
       res.status(500).json({ 
