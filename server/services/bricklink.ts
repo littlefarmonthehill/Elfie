@@ -400,13 +400,13 @@ export async function syncBricklinkColors(): Promise<{ added: number; updated: n
 
 export async function syncBricklinkInventory(): Promise<{ added: number; updated: number; apiCalls: number }> {
   try {
-    console.log('Starting BrickLink inventory sync (fetching ALL inventory without filters)...');
+    console.log('📥 Downloading all inventory data from BrickLink API...');
     
     // Fetch all inventory without status filters - BrickLink will return everything
     const { data: responseData, apiCalls } = await bricklinkRequest('/inventories');
     
     const items = Array.isArray(responseData) ? responseData : [];
-    console.log(`Received ${items.length} total inventory items from BrickLink`);
+    console.log(`✓ Downloaded ${items.length} items from BrickLink`);
     
     if (items.length === 0) {
       console.log('No inventory items received from BrickLink');
@@ -423,11 +423,12 @@ export async function syncBricklinkInventory(): Promise<{ added: number; updated
     const newItems = items.filter(item => !existingIds.has(Number(item.inventory_id)));
     const existingItemsToCheck = items.filter(item => existingIds.has(Number(item.inventory_id)));
     
-    console.log(`Processing: ${newItems.length} new items, ${existingItemsToCheck.length} existing items to check`);
+    console.log(`🔍 Analyzing changes: ${newItems.length} new items, ${existingItemsToCheck.length} items to check for updates`);
     
     // Batch insert new items (PostgreSQL supports large batch inserts)
     let added = 0;
     if (newItems.length > 0) {
+      console.log(`➕ Adding ${newItems.length} new items to database...`);
       const BATCH_SIZE = 1000;
       for (let i = 0; i < newItems.length; i += BATCH_SIZE) {
         const batch = newItems.slice(i, i + BATCH_SIZE);
@@ -471,6 +472,7 @@ export async function syncBricklinkInventory(): Promise<{ added: number; updated
     // For existing items, check if they need updates (quantity or price changes)
     let updated = 0;
     if (existingItemsToCheck.length > 0) {
+      console.log(`🔄 Comparing ${existingItemsToCheck.length} items for price/quantity changes...`);
       // Get full details of existing items that might need updates in batches to avoid PostgreSQL ROW limit
       const FETCH_BATCH_SIZE = 1000; // Fetch in smaller batches to avoid "ROW expressions can have at most 1664 entries" error
       const existingDetails = [];
@@ -485,7 +487,8 @@ export async function syncBricklinkInventory(): Promise<{ added: number; updated
           .where(inArray(blInventory.id, batchIds));
         
         existingDetails.push(...batchDetails);
-        console.log(`Fetched existing details batch ${Math.floor(i / FETCH_BATCH_SIZE) + 1}: ${existingDetails.length}/${existingItemsToCheck.length} items`);
+        const progress = Math.round((existingDetails.length / existingItemsToCheck.length) * 100);
+        console.log(`  Progress: ${existingDetails.length}/${existingItemsToCheck.length} (${progress}%)`);
       }
       
       const existingMap = new Map(existingDetails.map(item => [item.id, item]));

@@ -1766,16 +1766,21 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
     batchSize: z.number().int().min(10).max(100).optional().default(30),
   });
   
-  // Start background embedding job
+  // Start background embedding job (now uses persistent worker)
   app.post("/api/embeddings/jobs/start", async (req, res) => {
     try {
       // Validate input
       const validated = startJobSchema.parse(req.body);
       
-      const { jobManager } = await import('./services/backgroundJobs');
-      const jobId = await jobManager.startEmbeddingJob(validated.type, validated.batchSize);
+      // Use the new persistent embedding worker instead of the old in-memory system
+      const { createEmbeddingJob } = await import('./services/embedding-worker');
+      const job = await createEmbeddingJob(validated.type, 'manual');
       
-      res.json({ jobId, message: 'Background job started' });
+      res.json({ 
+        jobId: job.id, 
+        message: 'Background job started - will continue until 100% complete',
+        persistent: true
+      });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ 
@@ -1832,19 +1837,24 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
     }
   });
 
-  // Get active job for a type
+  // Get active job for a type (now queries database)
   app.get("/api/embeddings/jobs/active/:type", async (req, res) => {
     try {
       const { type } = req.params;
       
-      if (!type || !['inventory', 'orders'].includes(type)) {
-        return res.status(400).json({ error: "Invalid job type. Must be 'inventory' or 'orders'" });
+      if (!type || !['inventory', 'orders', 'sets'].includes(type)) {
+        return res.status(400).json({ error: "Invalid job type. Must be 'inventory', 'orders', or 'sets'" });
       }
       
-      const { jobManager } = await import('./services/backgroundJobs');
-      const job = jobManager.getActiveJob(type as 'inventory' | 'orders');
+      // Query the persistent database for active jobs
+      const [activeJob] = await db
+        .select()
+        .from(embeddingJobs)
+        .where(sql`${embeddingJobs.jobType} = ${type} AND ${embeddingJobs.status} IN ('pending', 'processing')`)
+        .orderBy(sql`${embeddingJobs.createdAt} DESC`)
+        .limit(1);
       
-      res.json(job || null);
+      res.json(activeJob || null);
     } catch (error) {
       console.error("Get active job error:", error);
       res.status(500).json({ 
