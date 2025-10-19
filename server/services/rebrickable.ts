@@ -18,9 +18,29 @@ export async function syncRebrickableSetParts(): Promise<RebrickableSyncResult> 
   try {
     console.log('[Rebrickable] Starting set-part relationships sync...');
     
-    // Clear existing data before importing
-    await db.delete(setPartRelationships);
-    console.log('[Rebrickable] Cleared existing set-part relationships');
+    // Check if we already have data - only sync if missing or empty
+    const existingCount = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(setPartRelationships);
+    
+    const recordCount = Number(existingCount[0]?.count || 0);
+    
+    if (recordCount > 0) {
+      console.log(`[Rebrickable] ✓ Already have ${recordCount.toLocaleString()} relationships - skipping sync (Rebrickable data rarely changes)`);
+      
+      // Get unique set count for response
+      const setCount = await db
+        .selectDistinct({ setNum: setPartRelationships.setNum })
+        .from(setPartRelationships);
+      
+      return {
+        setsAdded: 0,
+        setsUpdated: 0,
+        partsProcessed: recordCount,
+      };
+    }
+    
+    console.log('[Rebrickable] No existing data found - performing full sync...');
     
     // Step 1: Build set_num → set_name mapping from sets.csv
     console.log('[Rebrickable] Step 1: Downloading sets.csv to get set names...');
