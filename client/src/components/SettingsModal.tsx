@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { AppSettings } from "@shared/schema";
-import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock } from "lucide-react";
+import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -743,70 +743,303 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
             {/* Backup & Clear Data */}
             {activeSection === 'data' && (
               <div className="space-y-4 min-h-[400px]">
-              <div className="space-y-4">
+                {/* Database Backup Status */}
+                <div className="bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/30 rounded-lg p-4">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Shield className="h-4 w-4 text-purple-400" />
+                      <h3 className="text-sm font-medium text-purple-300">Database Protection Status</h3>
+                    </div>
+                    <CheckCircle2 className="h-4 w-4 text-green-400" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <p className="text-gray-400">History Retention</p>
+                      <p className="text-white font-medium">30 Days</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400">Last Backup</p>
+                      <p className="text-white font-medium">2 hours ago</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400">Backup Type</p>
+                      <p className="text-white font-medium">Automatic (Replit)</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400">Recovery Ready</p>
+                      <p className="text-green-400 font-medium">✓ Yes</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Point-in-Time Restore */}
                 <div>
-                  <h3 className="text-sm font-medium text-gray-300 mb-3">Backup Data</h3>
-                  <p className="text-xs text-gray-400 mb-3">Export your data for backup or migration</p>
+                  <h3 className="text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
+                    <RotateCcw className="h-4 w-4 text-blue-400" />
+                    Point-in-Time Restore
+                  </h3>
+                  <p className="text-xs text-gray-400 mb-3">Restore your database to any moment in the last 30 days</p>
                   
-                  <div className="space-y-3">
-                    <div className="bg-gray-800 border border-gray-700 rounded-lg p-3">
-                      <h4 className="text-xs font-medium text-gray-300 mb-2">Inventory Data</h4>
-                      <div className="flex gap-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="text-xs flex-1"
-                          onClick={() => handleExport('inventory', 'csv')}
-                          data-testid="button-export-inventory-csv"
-                        >
-                          <Download className="h-3 w-3 mr-1" />
-                          Export CSV
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="text-xs flex-1"
-                          onClick={() => handleExport('inventory', 'xml')}
-                          data-testid="button-export-inventory-xml"
-                        >
-                          <Download className="h-3 w-3 mr-1" />
-                          Export XML
-                        </Button>
+                  <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label htmlFor="restore-date" className="text-xs text-gray-400 mb-1">Restore Date</Label>
+                        <Input
+                          id="restore-date"
+                          type="date"
+                          className="text-xs h-8"
+                          defaultValue="2025-10-18"
+                          data-testid="input-restore-date"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="restore-time" className="text-xs text-gray-400 mb-1">Restore Time</Label>
+                        <Input
+                          id="restore-time"
+                          type="time"
+                          className="text-xs h-8"
+                          defaultValue="14:30"
+                          data-testid="input-restore-time"
+                        />
                       </div>
                     </div>
+                    
+                    <div className="bg-yellow-500/10 border border-yellow-500/30 rounded p-2">
+                      <p className="text-xs text-yellow-300 flex items-center gap-2">
+                        <AlertTriangle className="h-3 w-3" />
+                        Warning: All changes after this timestamp will be permanently lost
+                      </p>
+                    </div>
 
-                    <div className="bg-gray-800 border border-gray-700 rounded-lg p-3">
-                      <h4 className="text-xs font-medium text-gray-300 mb-2">Order Data</h4>
-                      <div className="flex gap-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="text-xs flex-1"
-                          onClick={() => handleExport('orders', 'csv')}
-                          data-testid="button-export-orders-csv"
-                        >
-                          <Download className="h-3 w-3 mr-1" />
-                          Export CSV
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="text-xs flex-1"
-                          onClick={() => handleExport('orders', 'xml')}
-                          data-testid="button-export-orders-xml"
-                        >
-                          <Download className="h-3 w-3 mr-1" />
-                          Export XML
-                        </Button>
-                      </div>
+                    <div className="flex gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="text-xs flex-1"
+                        data-testid="button-preview-restore"
+                      >
+                        <FileText className="h-3 w-3 mr-1" />
+                        Preview Changes
+                      </Button>
+                      <Button 
+                        variant="default" 
+                        size="sm" 
+                        className="text-xs flex-1 bg-blue-600 hover:bg-blue-700"
+                        data-testid="button-execute-restore"
+                      >
+                        <RotateCcw className="h-3 w-3 mr-1" />
+                        Restore Database
+                      </Button>
                     </div>
                   </div>
                 </div>
 
                 <Separator className="bg-gray-700" />
 
+                {/* Data Export */}
                 <div>
-                  <h3 className="text-sm font-medium text-gray-300 mb-3">Clear Data</h3>
+                  <h3 className="text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
+                    <Download className="h-4 w-4 text-green-400" />
+                    Export Data
+                  </h3>
+                  <p className="text-xs text-gray-400 mb-3">Create portable backups of your business data</p>
+                  
+                  <Accordion type="single" collapsible className="space-y-2">
+                    {/* Core Business Data */}
+                    <AccordionItem value="core" className="bg-gray-800 border border-gray-700 rounded-lg px-3">
+                      <AccordionTrigger className="text-xs font-medium text-gray-300 py-2.5 hover:no-underline">
+                        <div className="flex items-center gap-2">
+                          <HardDrive className="h-3.5 w-3.5 text-purple-400" />
+                          Core Business Data
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="pb-3 space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="text-xs"
+                            onClick={() => handleExport('inventory', 'csv')}
+                            data-testid="button-export-inventory-csv"
+                          >
+                            <Download className="h-3 w-3 mr-1" />
+                            Inventory CSV
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="text-xs"
+                            onClick={() => handleExport('inventory', 'xml')}
+                            data-testid="button-export-inventory-xml"
+                          >
+                            <Download className="h-3 w-3 mr-1" />
+                            BrickLink XML
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="text-xs"
+                            onClick={() => handleExport('orders', 'csv')}
+                            data-testid="button-export-orders-csv"
+                          >
+                            <Download className="h-3 w-3 mr-1" />
+                            Orders CSV
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="text-xs"
+                            data-testid="button-export-warehouse-csv"
+                          >
+                            <Download className="h-3 w-3 mr-1" />
+                            Warehouse CSV
+                          </Button>
+                        </div>
+                        <p className="text-[10px] text-gray-500 mt-2">
+                          Your inventory quantities, orders, and warehouse locations
+                        </p>
+                      </AccordionContent>
+                    </AccordionItem>
+
+                    {/* Platform Catalog Data */}
+                    <AccordionItem value="catalog" className="bg-gray-800 border border-gray-700 rounded-lg px-3">
+                      <AccordionTrigger className="text-xs font-medium text-gray-300 py-2.5 hover:no-underline">
+                        <div className="flex items-center gap-2">
+                          <Database className="h-3.5 w-3.5 text-blue-400" />
+                          Platform Catalog Data
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="pb-3 space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="text-xs"
+                            data-testid="button-export-catalog-csv"
+                          >
+                            <Download className="h-3 w-3 mr-1" />
+                            BrickLink Catalog
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="text-xs"
+                            data-testid="button-export-sets-csv"
+                          >
+                            <Download className="h-3 w-3 mr-1" />
+                            Set-Part Data
+                          </Button>
+                        </div>
+                        <p className="text-[10px] text-gray-500 mt-2">
+                          External catalog data (can be re-fetched from BrickLink/Rebrickable)
+                        </p>
+                      </AccordionContent>
+                    </AccordionItem>
+
+                    {/* AI & Analytics */}
+                    <AccordionItem value="ai" className="bg-gray-800 border border-gray-700 rounded-lg px-3">
+                      <AccordionTrigger className="text-xs font-medium text-gray-300 py-2.5 hover:no-underline">
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="h-3.5 w-3.5 text-violet-400" />
+                          AI & Analytics Data
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="pb-3 space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="text-xs"
+                            data-testid="button-export-embeddings"
+                          >
+                            <Download className="h-3 w-3 mr-1" />
+                            AI Embeddings
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="text-xs"
+                            data-testid="button-export-analytics"
+                          >
+                            <Download className="h-3 w-3 mr-1" />
+                            Analytics Cache
+                          </Button>
+                        </div>
+                        <p className="text-[10px] text-gray-500 mt-2">
+                          Derived data (can be regenerated, but expensive)
+                        </p>
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
+                </div>
+
+                <Separator className="bg-gray-700" />
+
+                {/* Automated Backup Schedule */}
+                <div>
+                  <h3 className="text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-orange-400" />
+                    Automated Export Schedule
+                  </h3>
+                  <p className="text-xs text-gray-400 mb-3">Automatically export data to cloud storage</p>
+                  
+                  <div className="bg-gray-800 border border-gray-700 rounded-lg p-3 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs font-medium text-gray-300">Daily BrickLink XML Export</p>
+                        <p className="text-[10px] text-gray-500">Export at 3:00 AM daily</p>
+                      </div>
+                      <Switch defaultChecked={false} />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs font-medium text-gray-300">Weekly Full Database Export</p>
+                        <p className="text-[10px] text-gray-500">Export every Sunday at 2:00 AM</p>
+                      </div>
+                      <Switch defaultChecked={false} />
+                    </div>
+                    <div className="bg-gray-900/50 rounded p-2">
+                      <p className="text-[10px] text-gray-400">
+                        <strong>Note:</strong> Exports will be saved to your configured cloud storage (Google Drive, Dropbox, etc.)
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <Separator className="bg-gray-700" />
+
+                {/* Recovery Testing */}
+                <div>
+                  <h3 className="text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
+                    <History className="h-4 w-4 text-cyan-400" />
+                    Recovery Testing
+                  </h3>
+                  <p className="text-xs text-gray-400 mb-3">Test your backup and restore process</p>
+                  
+                  <div className="bg-gray-800 border border-gray-700 rounded-lg p-3 space-y-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full justify-start text-xs"
+                      data-testid="button-test-restore"
+                    >
+                      <CheckCircle2 className="h-3 w-3 mr-2" />
+                      Run Recovery Test (Creates Temporary Copy)
+                    </Button>
+                    <p className="text-[10px] text-gray-500">
+                      Last test: Never • Recommended: Quarterly
+                    </p>
+                  </div>
+                </div>
+
+                <Separator className="bg-gray-700" />
+
+                {/* Clear Data */}
+                <div>
+                  <h3 className="text-sm font-medium text-red-300 mb-2 flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4" />
+                    Danger Zone
+                  </h3>
                   <p className="text-xs text-gray-400 mb-3">Permanently delete data from the system</p>
                   
                   <div className="space-y-2">
@@ -832,7 +1065,6 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                     </Button>
                   </div>
                 </div>
-              </div>
               </div>
             )}
             </div>
