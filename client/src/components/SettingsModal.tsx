@@ -176,9 +176,24 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
     'other': 'Other Models',
   };
 
-  const handleExport = (type: 'inventory' | 'orders', format: 'csv' | 'xml') => {
-    // TODO: Implement export functionality
-    console.log(`Exporting ${type} as ${format}`);
+  const handleExport = async (type: 'inventory' | 'orders', format: 'csv' | 'xml') => {
+    try {
+      let url = '';
+      
+      if (type === 'inventory' && format === 'xml') {
+        url = '/api/export/bricklink-xml';
+      } else if (type === 'inventory' && format === 'csv') {
+        url = '/api/export/inventory-csv';
+      } else {
+        console.log(`Export not yet implemented for ${type} ${format}`);
+        return;
+      }
+      
+      // Trigger download by opening URL in new window
+      window.open(url, '_blank');
+    } catch (error) {
+      console.error(`Error exporting ${type} as ${format}:`, error);
+    }
   };
 
   const handleClearData = (type: 'inventory' | 'orders') => {

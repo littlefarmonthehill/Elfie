@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { syncBricklinkData, fetchPriceOMagicData, searchBricklinkCatalogItem, syncPriceOMagicCache } from "./services/bricklink";
 import { syncShipStationOrders } from "./services/shipstation";
 import { syncBrickLinkToBrickOwl } from "./services/brickowl";
+import { generateBrickLinkXML, generateInventoryCSV } from "./services/export";
 import { db } from "./db";
 import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, setPartRelationships } from "@shared/schema";
 import { eq, desc, sql, inArray, like, or, and, isNotNull } from "drizzle-orm";
@@ -411,6 +412,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating settings:", error);
       res.status(500).json({ error: "Failed to update settings" });
+    }
+  });
+
+  // Export Routes
+  app.get("/api/export/bricklink-xml", async (req, res) => {
+    try {
+      const xml = await generateBrickLinkXML();
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+      const filename = `planetbrick-inventory-${timestamp}.xml`;
+      
+      res.setHeader('Content-Type', 'application/xml');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.send(xml);
+    } catch (error) {
+      console.error("Error generating BrickLink XML:", error);
+      res.status(500).json({ error: "Failed to generate BrickLink XML export" });
+    }
+  });
+
+  app.get("/api/export/inventory-csv", async (req, res) => {
+    try {
+      const csv = await generateInventoryCSV();
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+      const filename = `planetbrick-inventory-${timestamp}.csv`;
+      
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.send(csv);
+    } catch (error) {
+      console.error("Error generating inventory CSV:", error);
+      res.status(500).json({ error: "Failed to generate inventory CSV export" });
     }
   });
 
