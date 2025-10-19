@@ -3043,6 +3043,119 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
     }
   });
 
+  // Get Order Sync Status for all platforms
+  app.get("/api/order-sync/status", async (req, res) => {
+    try {
+      // Get local database order stats
+      const dbOrderStats = await db
+        .select({
+          totalOrders: sql<number>`COUNT(*)`,
+          totalItems: sql<number>`SUM((SELECT COUNT(*) FROM ${orderDetails} WHERE ${orderDetails.orderId} = ${orders.id}))`,
+          pendingOrders: sql<number>`COUNT(CASE WHEN ${orders.orderStatus} IN ('awaiting_payment', 'awaiting_shipment', 'pending') THEN 1 END)`,
+          shippedOrders: sql<number>`COUNT(CASE WHEN ${orders.orderStatus} = 'shipped' THEN 1 END)`,
+        })
+        .from(orders);
+
+      const dbStats = {
+        totalOrders: Number(dbOrderStats[0]?.totalOrders) || 0,
+        totalItems: Number(dbOrderStats[0]?.totalItems) || 0,
+        pendingOrders: Number(dbOrderStats[0]?.pendingOrders) || 0,
+        shippedOrders: Number(dbOrderStats[0]?.shippedOrders) || 0,
+      };
+
+      // Get settings to check API credentials
+      const [settings] = await db.select().from(appSettings).limit(1);
+      const bricklinkEnabled = !!(settings?.bricklinkConsumerKey && settings?.bricklinkConsumerSecret && 
+        settings?.bricklinkTokenValue && settings?.bricklinkTokenSecret);
+      const brickowlEnabled = !!settings?.brickowlApiKey;
+
+      // Get last sync times from sync_metadata
+      const [blSyncMeta] = await db
+        .select()
+        .from(syncMetadata)
+        .where(eq(syncMetadata.id, 'bricklink_orders'))
+        .limit(1);
+
+      const [boSyncMeta] = await db
+        .select()
+        .from(syncMetadata)
+        .where(eq(syncMetadata.id, 'brickowl_orders'))
+        .limit(1);
+
+      // Get BrickLink order stats from local database
+      const blLocalStats = await db
+        .select({
+          totalOrders: sql<number>`COUNT(*)`,
+          totalItems: sql<number>`SUM((SELECT COUNT(*) FROM ${orderDetails} WHERE ${orderDetails.orderId} = ${orders.id}))`,
+          pendingOrders: sql<number>`COUNT(CASE WHEN ${orders.orderStatus} IN ('awaiting_payment', 'awaiting_shipment', 'pending') THEN 1 END)`,
+        })
+        .from(orders)
+        .where(eq(orders.marketplace, 'BrickLink'));
+
+      const brickLinkStats = {
+        totalOrders: Number(blLocalStats[0]?.totalOrders) || 0,
+        totalItems: Number(blLocalStats[0]?.totalItems) || 0,
+        pendingOrders: Number(blLocalStats[0]?.pendingOrders) || 0,
+        lastSyncedAt: blSyncMeta?.lastSyncTime?.toISOString() || null,
+      };
+
+      // Get BrickOwl order stats from local database
+      const boLocalStats = await db
+        .select({
+          totalOrders: sql<number>`COUNT(*)`,
+          totalItems: sql<number>`SUM((SELECT COUNT(*) FROM ${orderDetails} WHERE ${orderDetails.orderId} = ${orders.id}))`,
+          pendingOrders: sql<number>`COUNT(CASE WHEN ${orders.orderStatus} IN ('awaiting_payment', 'awaiting_shipment', 'pending') THEN 1 END)`,
+        })
+        .from(orders)
+        .where(eq(orders.marketplace, 'BrickOwl'));
+
+      const brickOwlStats = {
+        totalOrders: Number(boLocalStats[0]?.totalOrders) || 0,
+        totalItems: Number(boLocalStats[0]?.totalItems) || 0,
+        pendingOrders: Number(boLocalStats[0]?.pendingOrders) || 0,
+        lastSyncedAt: boSyncMeta?.lastSyncTime?.toISOString() || null,
+      };
+
+      // For now, we can't easily get differentials without making API calls
+      // So we'll just return the stats and indicate if API is configured
+      const orderSyncStatus = {
+        platforms: [
+          {
+            name: 'BrickLink',
+            enabled: bricklinkEnabled,
+            stats: brickLinkStats,
+            differentials: {
+              // These would need API calls to calculate - leaving as 0 for now
+              missingOrders: 0,
+              statusDifferences: 0,
+            },
+          },
+          {
+            name: 'BrickOwl',
+            enabled: brickowlEnabled,
+            stats: brickOwlStats,
+            differentials: {
+              // These would need API calls to calculate - leaving as 0 for now
+              missingOrders: 0,
+              statusDifferences: 0,
+            },
+          },
+        ],
+        summary: {
+          totalOrders: dbStats.totalOrders,
+          totalItems: dbStats.totalItems,
+          pendingOrders: dbStats.pendingOrders,
+          shippedOrders: dbStats.shippedOrders,
+        },
+      };
+
+      res.json(orderSyncStatus);
+    } catch (error) {
+      console.error("Error fetching order sync status:", error);
+      res.status(500).json({ error: "Failed to fetch order sync status" });
+    }
+  });
+
   // Marketplace diagnostic endpoint
   app.get("/api/orders/marketplace-diagnostic", async (req, res) => {
     try {
