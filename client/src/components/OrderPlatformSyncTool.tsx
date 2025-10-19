@@ -47,10 +47,9 @@ export default function OrderPlatformSyncTool() {
   // BrickLink order sync mutation
   const bricklinkSyncMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest('POST', '/api/sync/bricklink/orders', {
+      const result = await apiRequest('POST', '/api/sync/bricklink/orders', {
         fullSync: false,
       });
-      const result = await response.json();
       return result;
     },
     onSuccess: (result) => {
@@ -75,10 +74,9 @@ export default function OrderPlatformSyncTool() {
   // BrickOwl order sync mutation
   const brickowlSyncMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest('POST', '/api/sync/brickowl/orders', {
+      const result = await apiRequest('POST', '/api/sync/brickowl/orders', {
         fullSync: false,
       });
-      const result = await response.json();
       return result;
     },
     onSuccess: (result) => {
@@ -103,10 +101,9 @@ export default function OrderPlatformSyncTool() {
   // All platforms sync mutation
   const syncAllMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest('POST', '/api/sync/all-platforms/orders', {
+      const result = await apiRequest('POST', '/api/sync/all-platforms/orders', {
         fullSync: false,
       });
-      const result = await response.json();
       return result;
     },
     onSuccess: (result) => {
