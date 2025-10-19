@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { startOrderSyncScheduler } from "./services/order-sync-scheduler";
+import { startInventorySyncScheduler } from "./services/inventory-sync-scheduler";
 
 const app = express();
 app.use(express.json());
@@ -73,6 +74,9 @@ app.use((req, res, next) => {
       startOrderSyncScheduler().catch(error => {
         console.error('Failed to start order sync scheduler:', error);
       });
+      
+      // Start automatic inventory sync scheduler
+      startInventorySyncScheduler();
     });
   } catch (error) {
     console.error("Failed to start server:", error);

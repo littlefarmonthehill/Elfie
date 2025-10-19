@@ -658,7 +658,11 @@ async function syncBricklinkInventoryByStatus(): Promise<{ added: number; update
   }
 }
 
-export async function syncBricklinkData(): Promise<BricklinkSyncResult> {
+export async function syncBricklinkData(options?: { 
+  includePlatformSync?: boolean 
+}): Promise<BricklinkSyncResult> {
+  const { includePlatformSync = false } = options || {};
+  
   // Acquire inventory sync lock to prevent order sync conflicts
   const lockAcquired = await syncLock.acquireInventoryLock();
   if (!lockAcquired) {
@@ -730,19 +734,24 @@ export async function syncBricklinkData(): Promise<BricklinkSyncResult> {
     }
 
     // Step 5: Sync inventory to all sales platforms (currently BrickOwl)
-    console.log('🌐 Step 5/5: Syncing inventory to sales platforms...');
-    try {
-      // Only sync if BrickOwl credentials are configured
-      const [settings] = await db.select().from(appSettings).limit(1);
-      if (settings?.brickowlApiKey) {
-        console.log('Syncing to BrickOwl...');
-        const syncResult = await syncBrickLinkToBrickOwl(100); // Limit to 100 items per sync
-        console.log(`✓ BrickOwl sync: ${syncResult.lotsCreated} created, ${syncResult.lotsUpdated} updated, ${syncResult.lotsSkipped} skipped`);
-      } else {
-        console.log('⏭️ BrickOwl credentials not configured, skipping platform sync');
+    // Only run if includePlatformSync is true (used by automated sync, not manual sync)
+    if (includePlatformSync) {
+      console.log('🌐 Step 5/5: Syncing inventory to sales platforms...');
+      try {
+        // Only sync if BrickOwl credentials are configured
+        const [settings] = await db.select().from(appSettings).limit(1);
+        if (settings?.brickowlApiKey) {
+          console.log('Syncing to BrickOwl...');
+          const syncResult = await syncBrickLinkToBrickOwl(100); // Limit to 100 items per sync
+          console.log(`✓ BrickOwl sync: ${syncResult.lotsCreated} created, ${syncResult.lotsUpdated} updated, ${syncResult.lotsSkipped} skipped`);
+        } else {
+          console.log('⏭️ BrickOwl credentials not configured, skipping platform sync');
+        }
+      } catch (error) {
+        console.error('✗ Platform sync failed (non-fatal):', error);
       }
-    } catch (error) {
-      console.error('✗ Platform sync failed (non-fatal):', error);
+    } else {
+      console.log('⏭️ Step 5/5: Platform sync skipped (use automated sync or manual platform sync)');
     }
 
     const totalApiCalls = categoriesResult.apiCalls + colorsResult.apiCalls + inventoryResult.apiCalls;
