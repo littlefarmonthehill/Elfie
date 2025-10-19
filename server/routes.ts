@@ -2885,6 +2885,18 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
     }
   });
 
+  // Get BrickLink sync progress (for real-time UI updates)
+  app.get("/api/sync/bricklink/progress", async (req, res) => {
+    try {
+      const { syncProgressTracker } = await import('./services/sync-progress');
+      const progress = syncProgressTracker.get();
+      res.json(progress);
+    } catch (error) {
+      console.error("Error fetching sync progress:", error);
+      res.status(500).json({ error: "Failed to fetch sync progress" });
+    }
+  });
+
   // Get ShipStation sync progress (for real-time UI updates)
   app.get("/api/sync/shipstation/orders/progress", async (req, res) => {
     try {

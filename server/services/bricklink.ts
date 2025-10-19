@@ -400,13 +400,18 @@ export async function syncBricklinkColors(): Promise<{ added: number; updated: n
 
 export async function syncBricklinkInventory(): Promise<{ added: number; updated: number; apiCalls: number }> {
   try {
+    const { syncProgressTracker } = await import('./sync-progress');
+    syncProgressTracker.start();
+    
     console.log('📥 Downloading all inventory data from BrickLink API...');
+    syncProgressTracker.update('Downloading inventory from BrickLink...', 10);
     
     // Fetch all inventory without status filters - BrickLink will return everything
     const { data: responseData, apiCalls } = await bricklinkRequest('/inventories');
     
     const items = Array.isArray(responseData) ? responseData : [];
     console.log(`✓ Downloaded ${items.length} items from BrickLink`);
+    syncProgressTracker.update(`Downloaded ${items.length} items from BrickLink`, 25, { itemsDownloaded: items.length });
     
     if (items.length === 0) {
       console.log('No inventory items received from BrickLink');
@@ -424,11 +429,15 @@ export async function syncBricklinkInventory(): Promise<{ added: number; updated
     const existingItemsToCheck = items.filter(item => existingIds.has(Number(item.inventory_id)));
     
     console.log(`🔍 Analyzing changes: ${newItems.length} new items, ${existingItemsToCheck.length} items to check for updates`);
+    syncProgressTracker.update(`Analyzing changes: ${newItems.length} new, ${existingItemsToCheck.length} to check`, 35, { 
+      totalItems: items.length 
+    });
     
     // Batch insert new items (PostgreSQL supports large batch inserts)
     let added = 0;
     if (newItems.length > 0) {
       console.log(`➕ Adding ${newItems.length} new items to database...`);
+      syncProgressTracker.update(`Adding ${newItems.length} new items...`, 40);
       const BATCH_SIZE = 1000;
       for (let i = 0; i < newItems.length; i += BATCH_SIZE) {
         const batch = newItems.slice(i, i + BATCH_SIZE);
@@ -473,6 +482,7 @@ export async function syncBricklinkInventory(): Promise<{ added: number; updated
     let updated = 0;
     if (existingItemsToCheck.length > 0) {
       console.log(`🔄 Comparing ${existingItemsToCheck.length} items for price/quantity changes...`);
+      syncProgressTracker.update(`Comparing ${existingItemsToCheck.length} items for changes...`, 50);
       // Get full details of existing items that might need updates in batches to avoid PostgreSQL ROW limit
       const FETCH_BATCH_SIZE = 1000; // Fetch in smaller batches to avoid "ROW expressions can have at most 1664 entries" error
       const existingDetails = [];
@@ -488,7 +498,13 @@ export async function syncBricklinkInventory(): Promise<{ added: number; updated
         
         existingDetails.push(...batchDetails);
         const progress = Math.round((existingDetails.length / existingItemsToCheck.length) * 100);
+        const overallProgress = 50 + Math.round(progress * 0.3); // 50-80%
         console.log(`  Progress: ${existingDetails.length}/${existingItemsToCheck.length} (${progress}%)`);
+        syncProgressTracker.update(
+          `Checking for updates: ${existingDetails.length}/${existingItemsToCheck.length}`, 
+          overallProgress, 
+          { itemsChecked: existingDetails.length }
+        );
       }
       
       const existingMap = new Map(existingDetails.map(item => [item.id, item]));
@@ -542,6 +558,7 @@ export async function syncBricklinkInventory(): Promise<{ added: number; updated
       });
       
       console.log(`Found ${itemsToUpdate.length} items needing updates`);
+      syncProgressTracker.update(`Updating ${itemsToUpdate.length} modified items...`, 85);
       
       for (let i = 0; i < itemsToUpdate.length; i += BATCH_SIZE) {
         const batch = itemsToUpdate.slice(i, i + BATCH_SIZE);
@@ -583,14 +600,19 @@ export async function syncBricklinkInventory(): Promise<{ added: number; updated
           updated++;
         }
         
+        const updateProgress = 85 + Math.round(((i + batch.length) / itemsToUpdate.length) * 10); // 85-95%
+        syncProgressTracker.update(`Updated ${updated}/${itemsToUpdate.length} items`, updateProgress, { itemsUpdated: updated });
         console.log(`Updated batch ${Math.floor(i / BATCH_SIZE) + 1}: ${updated}/${itemsToUpdate.length} items`);
       }
     }
 
     console.log(`BrickLink inventory sync complete: ${added} added, ${updated} updated`);
+    syncProgressTracker.complete(added, updated);
     return { added, updated, apiCalls };
   } catch (error) {
     console.error('Error syncing BrickLink inventory:', error);
+    const { syncProgressTracker } = await import('./sync-progress');
+    syncProgressTracker.error(error instanceof Error ? error.message : 'Sync failed');
     throw error;
   }
 }
