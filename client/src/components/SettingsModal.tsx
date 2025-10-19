@@ -23,11 +23,19 @@ interface SettingsModalProps {
 export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   const [clearDataDialog, setClearDataDialog] = useState<'inventory' | 'orders' | null>(null);
   const [restoreWizardOpen, setRestoreWizardOpen] = useState(false);
-  const [restoreStep, setRestoreStep] = useState<'select' | 'warning' | 'restoring' | 'syncing' | 'verification' | 'complete'>('select');
+  const [restoreStep, setRestoreStep] = useState<'select' | 'warning' | 'restoring' | 'syncing' | 'differential' | 'verification' | 'complete'>('select');
   const [restoreDate, setRestoreDate] = useState('2025-10-18');
   const [restoreTime, setRestoreTime] = useState('14:30');
   const [restoreProgress, setRestoreProgress] = useState(0);
   const [restoreCurrentTask, setRestoreCurrentTask] = useState('');
+  const [differentialAnalysis, setDifferentialAnalysis] = useState<{
+    totalItems: number;
+    quantityChanges: number;
+    netQuantityChange: number;
+    priceUpdates: number;
+    remarksUpdates: number;
+    descriptionUpdates: number;
+  } | null>(null);
   const [verificationResults, setVerificationResults] = useState<{
     inventoryMatch: boolean;
     orderStatusMatch: boolean;
@@ -1193,10 +1201,11 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
 
       {/* Restore Wizard Dialog */}
       <Dialog open={restoreWizardOpen} onOpenChange={(open) => {
-        if (!open && restoreStep !== 'restoring' && restoreStep !== 'syncing') {
+        if (!open && restoreStep !== 'restoring' && restoreStep !== 'syncing' && restoreStep !== 'differential') {
           setRestoreWizardOpen(false);
           setRestoreStep('select');
           setRestoreProgress(0);
+          setDifferentialAnalysis(null);
           setVerificationResults(null);
         }
       }}>
@@ -1207,6 +1216,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
               {restoreStep === 'warning' && 'Important: Read Before Proceeding'}
               {restoreStep === 'restoring' && 'Restoring Database...'}
               {restoreStep === 'syncing' && 'Syncing from Sales Platforms...'}
+              {restoreStep === 'differential' && 'Quick Recovery: Restore Current State'}
               {restoreStep === 'verification' && 'Verifying Recovery...'}
               {restoreStep === 'complete' && 'Recovery Complete!'}
             </DialogTitle>
@@ -1233,8 +1243,9 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                   <p className="text-sm font-medium text-blue-300">What Happens Next (Automated):</p>
                   <ol className="text-xs text-blue-200/90 space-y-2 ml-4 list-decimal">
                     <li><strong>Database Restore:</strong> We'll roll back your PlanetBrick database to the selected timestamp</li>
-                    <li><strong>Platform Sync (Critical):</strong> We'll automatically pull fresh data from BrickLink and BrickOwl</li>
-                    <li><strong>Why?</strong> Your sales platforms have the most up-to-date inventory and order information</li>
+                    <li><strong>Platform Sync:</strong> We'll automatically pull fresh data from BrickLink and BrickOwl</li>
+                    <li><strong>Differential Recovery (NEW!):</strong> We'll update BrickLink FROM BrickOwl to get current inventory state</li>
+                    <li><strong>Why?</strong> BrickOwl has your most up-to-date inventory, orders, remarks, and prices</li>
                     <li><strong>Verification:</strong> We'll check that everything matches and alert you to any issues</li>
                   </ol>
                 </div>
@@ -1397,21 +1408,151 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                   size="sm"
                   className="w-full text-xs"
                   onClick={() => {
-                    setRestoreStep('verification');
-                    setVerificationResults({
-                      inventoryMatch: true,
-                      orderStatusMatch: true,
-                      platformSync: true
+                    setRestoreStep('differential');
+                    setDifferentialAnalysis({
+                      totalItems: 1247,
+                      quantityChanges: 156,
+                      netQuantityChange: -89,
+                      priceUpdates: 12,
+                      remarksUpdates: 23,
+                      descriptionUpdates: 8
                     });
                   }}
-                  data-testid="button-skip-to-verification"
+                  data-testid="button-skip-to-differential"
                 >
-                  Skip to Verification (Demo)
+                  Skip to Differential Recovery (Demo)
                 </Button>
               </div>
             )}
 
-            {/* Step 4: Verification */}
+            {/* Step 4: Differential Recovery */}
+            {restoreStep === 'differential' && differentialAnalysis && (
+              <div className="space-y-4">
+                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 space-y-3">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="h-5 w-5 text-yellow-400 mt-0.5 flex-shrink-0" />
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-yellow-300">Problem Detected</p>
+                      <p className="text-xs text-yellow-200/90">
+                        BrickLink has been restored to <strong>{restoreDate} at {restoreTime}</strong> (OLD data).
+                        Meanwhile, BrickOwl has been synced and contains CURRENT data (up to the minute).
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4 space-y-3">
+                  <p className="text-sm font-medium text-green-300">Solution: Quick Recovery</p>
+                  <p className="text-xs text-green-200/90">
+                    We can update BrickLink FROM BrickOwl to get you back to the current state. 
+                    This uses your existing sync mappings (external_lot_ids) to match inventory items perfectly.
+                  </p>
+                  <div className="bg-green-500/20 border border-green-500/40 rounded p-3 mt-2">
+                    <p className="text-xs font-medium text-green-300 mb-2">What Gets Synced:</p>
+                    <ul className="text-[10px] text-green-200/90 space-y-1 ml-4 list-disc">
+                      <li><strong>Quantities:</strong> Reflects sales that happened after restore point</li>
+                      <li><strong>Prices:</strong> Current pricing from BrickOwl</li>
+                      <li><strong>Remarks:</strong> Personal notes (BrickOwl personal_note → BrickLink remarks)</li>
+                      <li><strong>Descriptions:</strong> Public notes (BrickOwl public_note → BrickLink description)</li>
+                      <li><strong>Conditions:</strong> New/Used status updates</li>
+                    </ul>
+                  </div>
+                </div>
+
+                <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
+                  <h4 className="text-sm font-medium text-gray-300 mb-3">Differential Analysis</h4>
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div className="bg-gray-900 rounded p-3">
+                      <p className="text-gray-400">Total Items in BrickOwl</p>
+                      <p className="text-white font-medium text-lg">{differentialAnalysis.totalItems}</p>
+                    </div>
+                    <div className="bg-gray-900 rounded p-3">
+                      <p className="text-gray-400">Quantity Adjustments</p>
+                      <p className="text-blue-400 font-medium text-lg">{differentialAnalysis.quantityChanges}</p>
+                    </div>
+                    <div className="bg-gray-900 rounded p-3">
+                      <p className="text-gray-400">Net Quantity Change</p>
+                      <p className={`font-medium text-lg ${differentialAnalysis.netQuantityChange < 0 ? 'text-red-400' : 'text-green-400'}`}>
+                        {differentialAnalysis.netQuantityChange > 0 ? '+' : ''}{differentialAnalysis.netQuantityChange} pieces
+                      </p>
+                      <p className="text-[10px] text-gray-500 mt-1">
+                        {differentialAnalysis.netQuantityChange < 0 ? 'Sales since restore point' : 'Restocks since restore point'}
+                      </p>
+                    </div>
+                    <div className="bg-gray-900 rounded p-3">
+                      <p className="text-gray-400">Price Updates</p>
+                      <p className="text-purple-400 font-medium text-lg">{differentialAnalysis.priceUpdates}</p>
+                    </div>
+                    <div className="bg-gray-900 rounded p-3">
+                      <p className="text-gray-400">Remarks Updates</p>
+                      <p className="text-yellow-400 font-medium text-lg">{differentialAnalysis.remarksUpdates}</p>
+                    </div>
+                    <div className="bg-gray-900 rounded p-3">
+                      <p className="text-gray-400">Description Updates</p>
+                      <p className="text-cyan-400 font-medium text-lg">{differentialAnalysis.descriptionUpdates}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-blue-500/10 border border-blue-500/30 rounded p-3">
+                  <p className="text-[10px] text-blue-300">
+                    <strong>How it works:</strong> We'll use the external_lot_ids.other field (which contains BrickLink inventory IDs) to match each BrickOwl lot to its corresponding BrickLink inventory item, then update BrickLink with BrickOwl's current data via the BrickLink API.
+                  </p>
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 text-xs"
+                    onClick={() => {
+                      setRestoreStep('syncing');
+                      setDifferentialAnalysis(null);
+                    }}
+                    data-testid="button-back-to-sync"
+                  >
+                    Back
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 text-xs"
+                    onClick={() => {
+                      setRestoreStep('verification');
+                      setVerificationResults({
+                        inventoryMatch: true,
+                        orderStatusMatch: true,
+                        platformSync: true
+                      });
+                    }}
+                    data-testid="button-skip-differential"
+                  >
+                    Skip (Not Recommended)
+                  </Button>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="flex-1 text-xs bg-green-600 hover:bg-green-700"
+                    onClick={() => {
+                      // Simulate differential sync
+                      setTimeout(() => {
+                        setRestoreStep('verification');
+                        setVerificationResults({
+                          inventoryMatch: true,
+                          orderStatusMatch: true,
+                          platformSync: true
+                        });
+                      }, 2000);
+                    }}
+                    data-testid="button-apply-differential"
+                  >
+                    Apply to BrickLink
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 5: Verification */}
             {restoreStep === 'verification' && verificationResults && (
               <div className="space-y-4">
                 <div className="text-center py-4">
@@ -1504,7 +1645,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
               </div>
             )}
 
-            {/* Step 5: Complete */}
+            {/* Step 6: Complete */}
             {restoreStep === 'complete' && (
               <div className="space-y-4">
                 <div className="text-center py-6">
@@ -1512,7 +1653,17 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                     <CheckCircle2 className="h-10 w-10 text-green-400" />
                   </div>
                   <h3 className="text-lg font-medium text-green-300 mb-2">Recovery Complete!</h3>
-                  <p className="text-xs text-gray-400">Your database has been successfully restored to {restoreDate} at {restoreTime}</p>
+                  <p className="text-xs text-gray-400">Your database has been successfully restored and BrickLink updated to current state</p>
+                </div>
+
+                <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3 space-y-2">
+                  <p className="text-xs font-medium text-green-300">✓ Recovery Summary:</p>
+                  <ul className="text-[10px] text-green-200/90 space-y-1 ml-4 list-disc">
+                    <li>Database restored to {restoreDate} at {restoreTime}</li>
+                    <li>Platform data synced from BrickLink and BrickOwl</li>
+                    <li>BrickLink updated with current data from BrickOwl (differential sync)</li>
+                    <li>All verification checks passed</li>
+                  </ul>
                 </div>
 
                 <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 space-y-3">
@@ -1520,7 +1671,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                   <div className="space-y-2">
                     <label className="flex items-start gap-2 text-xs text-blue-200/90 cursor-pointer">
                       <input type="checkbox" className="mt-0.5" />
-                      <span>Verify key inventory items match BrickLink quantities</span>
+                      <span>Verify key inventory items match between BrickLink and BrickOwl</span>
                     </label>
                     <label className="flex items-start gap-2 text-xs text-blue-200/90 cursor-pointer">
                       <input type="checkbox" className="mt-0.5" />
@@ -1528,7 +1679,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                     </label>
                     <label className="flex items-start gap-2 text-xs text-blue-200/90 cursor-pointer">
                       <input type="checkbox" className="mt-0.5" />
-                      <span>Review any shipped orders to ensure inventory was correctly adjusted</span>
+                      <span>Confirm remarks and descriptions synced correctly from BrickOwl</span>
                     </label>
                     <label className="flex items-start gap-2 text-xs text-blue-200/90 cursor-pointer">
                       <input type="checkbox" className="mt-0.5" />
@@ -1543,7 +1694,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
 
                 <div className="bg-gray-800 border border-gray-700 rounded p-3">
                   <p className="text-xs text-gray-400">
-                    <strong>Next Steps:</strong> Monitor your store for the next 24 hours to ensure everything is working correctly. If you notice any discrepancies, you can review the sync logs in the Notifications panel.
+                    <strong>Next Steps:</strong> Monitor your store for the next 24 hours to ensure everything is working correctly. The differential sync ensured BrickLink matches your current BrickOwl state, but spot-check a few items to confirm.
                   </p>
                 </div>
 
@@ -1555,6 +1706,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                     setRestoreWizardOpen(false);
                     setRestoreStep('select');
                     setRestoreProgress(0);
+                    setDifferentialAnalysis(null);
                     setVerificationResults(null);
                   }}
                   data-testid="button-close-wizard"
