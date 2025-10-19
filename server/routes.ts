@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { syncBricklinkData, fetchPriceOMagicData, searchBricklinkCatalogItem, syncPriceOMagicCache } from "./services/bricklink";
 import { syncShipStationOrders } from "./services/shipstation";
 import { syncBrickLinkToBrickOwl } from "./services/brickowl";
-import { generateBrickLinkXML, generateInventoryCSV } from "./services/export";
+import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBackup } from "./services/export";
 import { db } from "./db";
 import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, setPartRelationships } from "@shared/schema";
 import { eq, desc, sql, inArray, like, or, and, isNotNull } from "drizzle-orm";
@@ -443,6 +443,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error generating inventory CSV:", error);
       res.status(500).json({ error: "Failed to generate inventory CSV export" });
+    }
+  });
+
+  // List available XML backups
+  app.get("/api/backups/list", async (req, res) => {
+    try {
+      const backups = await listXMLBackups();
+      res.json({ success: true, backups });
+    } catch (error) {
+      console.error("Error listing XML backups:", error);
+      res.status(500).json({ error: "Failed to list backups" });
+    }
+  });
+
+  // Download specific XML backup
+  app.get("/api/backups/download/:filename", async (req, res) => {
+    try {
+      const { filename } = req.params;
+      const xml = await getXMLBackup(filename);
+      
+      res.setHeader('Content-Type', 'application/xml');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.send(xml);
+    } catch (error) {
+      console.error("Error downloading backup:", error);
+      res.status(404).json({ error: "Backup file not found" });
     }
   });
 
