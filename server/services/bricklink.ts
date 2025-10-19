@@ -492,6 +492,7 @@ export async function syncBricklinkInventory(): Promise<{ added: number; updated
       
       // Batch update items that have changed
       const BATCH_SIZE = 500;
+      let debugLogCount = 0;
       const itemsToUpdate = existingItemsToCheck.filter(item => {
         const existing = existingMap.get(Number(item.inventory_id));
         if (!existing) return false;
@@ -522,7 +523,8 @@ export async function syncBricklinkInventory(): Promise<{ added: number; updated
         );
         
         // Log first few items that need updates to help debug
-        if (needsUpdate && itemsToUpdate.length < 5) {
+        if (needsUpdate && debugLogCount < 5) {
+          debugLogCount++;
           const reasons = [];
           if (existing.quantity !== item.quantity) reasons.push(`quantity: ${existing.quantity} → ${item.quantity}`);
           if (Math.abs(existingUnitPrice - apiUnitPrice) > 0.001) reasons.push(`price: $${existingUnitPrice} → $${apiUnitPrice}`);
