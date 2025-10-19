@@ -1,7 +1,7 @@
 import OpenAI from 'openai';
 import { db } from '../db';
-import { inventoryEmbeddings, orderEmbeddings, blInventory, orders, appSettings } from '@shared/schema';
-import { eq, sql } from 'drizzle-orm';
+import { inventoryEmbeddings, orderEmbeddings, setPartEmbeddings, blInventory, orders, setPartRelationships, appSettings } from '@shared/schema';
+import { eq, sql, inArray } from 'drizzle-orm';
 
 /**
  * Get OpenAI client with API key from settings or environment
@@ -307,6 +307,99 @@ export async function batchEmbedOrders(orderIds: string[]) {
 }
 
 /**
+ * Create searchable content from set-part relationships
+ */
+export function createSetPartContent(setNum: string, setName: string, parts: any[]): string {
+  const partsList = parts.map(p => 
+    `${p.partNum} (Color: ${p.colorId}, Qty: ${p.quantity})`
+  ).join(', ');
+  
+  return `Set: ${setNum}. Name: ${setName}. Contains ${parts.length} unique parts: ${partsList}`;
+}
+
+/**
+ * Generate and store embedding for a LEGO set with all its parts
+ */
+export async function embedSet(setNum: string) {
+  try {
+    // Get all parts for this set
+    const parts = await db
+      .select()
+      .from(setPartRelationships)
+      .where(eq(setPartRelationships.setNum, setNum));
+    
+    if (parts.length === 0) {
+      console.log(`No parts found for set ${setNum}`);
+      return { success: false, error: 'No parts found' };
+    }
+    
+    const setName = parts[0]?.setName || setNum;
+    
+    // Create searchable content
+    const content = createSetPartContent(setNum, setName, parts);
+    
+    // Generate embedding
+    const embedding = await generateEmbedding(content);
+    
+    // Check if embedding already exists
+    const existing = await db.query.setPartEmbeddings.findFirst({
+      where: eq(setPartEmbeddings.setNum, setNum),
+    });
+    
+    if (existing) {
+      // Update existing
+      await db
+        .update(setPartEmbeddings)
+        .set({
+          embedding: sql.raw(`'${JSON.stringify(embedding)}'::vector`),
+          content,
+          updatedAt: new Date(),
+        })
+        .where(eq(setPartEmbeddings.setNum, setNum));
+    } else {
+      // Insert new
+      await db.insert(setPartEmbeddings).values({
+        setNum,
+        embedding: sql.raw(`'${JSON.stringify(embedding)}'::vector`),
+        content,
+      });
+    }
+    
+    return { success: true, setNum };
+  } catch (error: any) {
+    console.error(`Error embedding set ${setNum}:`, error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Batch embed all sets
+ */
+export async function batchEmbedSets(setNumbers?: string[]) {
+  const results = [];
+  
+  // Get unique set numbers if not provided
+  if (!setNumbers) {
+    const sets = await db
+      .selectDistinct({ setNum: setPartRelationships.setNum })
+      .from(setPartRelationships);
+    setNumbers = sets.map(s => s.setNum);
+  }
+  
+  console.log(`Embedding ${setNumbers.length} sets...`);
+  
+  for (const setNum of setNumbers) {
+    const result = await embedSet(setNum);
+    results.push(result);
+    
+    // Small delay to avoid rate limits
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  
+  return results;
+}
+
+/**
  * Get embedding statistics
  */
 export async function getEmbeddingStats() {
@@ -318,6 +411,10 @@ export async function getEmbeddingStats() {
     SELECT COUNT(*) as count FROM order_embeddings
   `);
   
+  const setPartCount = await db.execute(sql`
+    SELECT COUNT(*) as count FROM set_part_embeddings
+  `);
+  
   const totalInventory = await db.execute(sql`
     SELECT COUNT(*) as count FROM bl_inventory
   `);
@@ -326,10 +423,16 @@ export async function getEmbeddingStats() {
     SELECT COUNT(*) as count FROM orders
   `);
   
+  const totalSets = await db.execute(sql`
+    SELECT COUNT(DISTINCT set_num) as count FROM set_part_relationships
+  `);
+  
   const invCount = String((inventoryCount.rows[0] as any)?.count || '0');
   const totalInv = String((totalInventory.rows[0] as any)?.count || '0');
   const ordCount = String((orderCount.rows[0] as any)?.count || '0');
   const totalOrd = String((totalOrders.rows[0] as any)?.count || '0');
+  const setCount = String((setPartCount.rows[0] as any)?.count || '0');
+  const totalSet = String((totalSets.rows[0] as any)?.count || '0');
   
   return {
     inventory: {
@@ -344,6 +447,13 @@ export async function getEmbeddingStats() {
       total: parseInt(totalOrd),
       percentage: parseInt(totalOrd) > 0
         ? ((parseInt(ordCount) / parseInt(totalOrd)) * 100).toFixed(1)
+        : '0',
+    },
+    sets: {
+      embedded: parseInt(setCount),
+      total: parseInt(totalSet),
+      percentage: parseInt(totalSet) > 0
+        ? ((parseInt(setCount) / parseInt(totalSet)) * 100).toFixed(1)
         : '0',
     },
   };

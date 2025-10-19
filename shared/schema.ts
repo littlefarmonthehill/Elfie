@@ -483,6 +483,28 @@ export const insertOrderEmbeddingSchema = createInsertSchema(orderEmbeddings).om
 export type InsertOrderEmbedding = z.infer<typeof insertOrderEmbeddingSchema>;
 export type OrderEmbedding = typeof orderEmbeddings.$inferSelect;
 
+// Set-Part Embeddings - For AI understanding of set-part relationships
+export const setPartEmbeddings = pgTable("set_part_embeddings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  setNum: text("set_num").notNull(), // Reference to set_part_relationships.set_num
+  embedding: vector("embedding", { dimensions: 1536 }),
+  content: text("content").notNull(), // Set details, parts list, context
+  embeddingModel: text("embedding_model").default('text-embedding-3-small').notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  setNumIdx: index("set_part_embeddings_set_num_idx").on(table.setNum),
+}));
+
+export const insertSetPartEmbeddingSchema = createInsertSchema(setPartEmbeddings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertSetPartEmbedding = z.infer<typeof insertSetPartEmbeddingSchema>;
+export type SetPartEmbedding = typeof setPartEmbeddings.$inferSelect;
+
 // Warehouse Management - Aisles
 export const whAisles = pgTable("wh_aisles", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),

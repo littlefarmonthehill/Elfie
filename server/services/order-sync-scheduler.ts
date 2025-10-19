@@ -1,7 +1,10 @@
 import { db } from "../db";
-import { appSettings } from "@shared/schema";
+import { appSettings, orders } from "@shared/schema";
 import { syncBrickLinkOrders } from "./bricklink-order-sync";
 import { syncBrickOwlOrders } from "./brickowl-order-sync";
+import { syncLock } from "./sync-lock";
+import { batchEmbedOrders } from "./embeddings";
+import { sql } from "drizzle-orm";
 
 let syncInterval: NodeJS.Timeout | null = null;
 let isRunning = false;
@@ -75,16 +78,39 @@ async function checkAndRunSync() {
 
 /**
  * Run order syncs for all configured platforms
+ * Respects inventory sync lock - will queue if inventory sync is running
  */
 async function runAllPlatformSyncs(settings: any) {
+  // Check if inventory sync is running
+  if (syncLock.isInventorySyncRunning()) {
+    console.log('⏸️ Inventory sync in progress - queueing order sync');
+    
+    // Queue this sync to run after inventory completes
+    await syncLock.queueOrderSync(async () => {
+      await executeOrderSync(settings);
+    });
+    return;
+  }
+
+  // No inventory sync running, execute immediately
+  await executeOrderSync(settings);
+}
+
+/**
+ * Execute the actual order sync logic
+ */
+async function executeOrderSync(settings: any) {
   isRunning = true;
   console.log('\n🔄 Starting scheduled order sync for all platforms...');
   
   const results = {
     shipstation: { success: false, error: null as any },
-    bricklink: { success: false, error: null as any },
-    brickowl: { success: false, error: null as any },
+    bricklink: { success: false, error: null as any, ordersAdded: 0 },
+    brickowl: { success: false, error: null as any, ordersAdded: 0 },
   };
+  
+  // Track order IDs for embedding
+  const newOrderIds: string[] = [];
   
   try {
     // 1. Sync ShipStation orders (DEPRECATED - using EasyPost for shipping now)
@@ -96,7 +122,7 @@ async function runAllPlatformSyncs(settings: any) {
         settings.bricklinkTokenValue && settings.bricklinkTokenSecret) {
       try {
         console.log('🧱 Syncing BrickLink orders...');
-        await syncBrickLinkOrders(
+        const blResult = await syncBrickLinkOrders(
           settings.bricklinkConsumerKey,
           settings.bricklinkConsumerSecret,
           settings.bricklinkTokenValue,
@@ -104,7 +130,19 @@ async function runAllPlatformSyncs(settings: any) {
           { fullSync: false } // Incremental sync
         );
         results.bricklink.success = true;
+        results.bricklink.ordersAdded = blResult.ordersAdded;
         console.log('✅ BrickLink sync complete');
+        
+        // Track newly added orders for embedding
+        if (blResult.ordersAdded > 0) {
+          const recentOrders = await db.execute(sql`
+            SELECT id FROM orders 
+            WHERE marketplace = 'BrickLink'
+            ORDER BY synced_at DESC 
+            LIMIT ${blResult.ordersAdded}
+          `);
+          newOrderIds.push(...recentOrders.rows.map((r: any) => r.id));
+        }
       } catch (error: any) {
         results.bricklink.error = error.message;
         console.error('❌ BrickLink sync failed:', error.message);
@@ -117,12 +155,24 @@ async function runAllPlatformSyncs(settings: any) {
     if (settings.brickowlApiKey) {
       try {
         console.log('🦉 Syncing BrickOwl orders...');
-        await syncBrickOwlOrders(
+        const boResult = await syncBrickOwlOrders(
           settings.brickowlApiKey,
           { fullSync: false } // Incremental sync
         );
         results.brickowl.success = true;
+        results.brickowl.ordersAdded = boResult.ordersAdded;
         console.log('✅ BrickOwl sync complete');
+        
+        // Track newly added orders for embedding
+        if (boResult.ordersAdded > 0) {
+          const recentOrders = await db.execute(sql`
+            SELECT id FROM orders 
+            WHERE marketplace = 'BrickOwl'
+            ORDER BY synced_at DESC 
+            LIMIT ${boResult.ordersAdded}
+          `);
+          newOrderIds.push(...recentOrders.rows.map((r: any) => r.id));
+        }
       } catch (error: any) {
         results.brickowl.error = error.message;
         console.error('❌ BrickOwl sync failed:', error.message);
@@ -131,10 +181,23 @@ async function runAllPlatformSyncs(settings: any) {
       console.log('⏭️ BrickOwl credentials not configured, skipping');
     }
     
+    // 4. Generate embeddings for new orders
+    if (newOrderIds.length > 0) {
+      console.log(`🧠 Generating AI embeddings for ${newOrderIds.length} new orders...`);
+      try {
+        await batchEmbedOrders(newOrderIds);
+        console.log(`✓ Generated embeddings for ${newOrderIds.length} orders`);
+      } catch (error) {
+        console.error('✗ Order embedding failed (non-fatal):', error);
+      }
+    }
+    
     // Summary
     const successCount = Object.values(results).filter(r => r.success).length;
     const totalAttempted = Object.values(results).filter(r => r.success || r.error).length;
-    console.log(`\n✨ Order sync complete: ${successCount}/${totalAttempted} platforms successful`);
+    const totalOrdersAdded = results.bricklink.ordersAdded + results.brickowl.ordersAdded;
+    
+    console.log(`\n✨ Order sync complete: ${successCount}/${totalAttempted} platforms successful, ${totalOrdersAdded} new orders`);
     
   } finally {
     isRunning = false;

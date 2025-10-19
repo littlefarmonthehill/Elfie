@@ -1,9 +1,12 @@
 import { db } from "../db";
-import { blCategories, blColors, blInventory, blApiCalls, appSettings, priceGuideCache } from "@shared/schema";
+import { blCategories, blColors, blInventory, blApiCalls, appSettings, priceGuideCache, setPartRelationships } from "@shared/schema";
 import { eq, gte, sql, inArray, and } from "drizzle-orm";
 import OAuth from "oauth-1.0a";
 import crypto from "crypto";
 import { syncRebrickableSetParts } from "./rebrickable";
+import { syncLock } from "./sync-lock";
+import { batchEmbedInventory, batchEmbedSets } from "./embeddings";
+import { syncBrickLinkToBrickOwl } from "./brickowl";
 
 export interface BricklinkSyncResult {
   categoriesAdded: number;
@@ -619,38 +622,112 @@ async function syncBricklinkInventoryByStatus(): Promise<{ added: number; update
 }
 
 export async function syncBricklinkData(): Promise<BricklinkSyncResult> {
-  // Check rate limit before starting sync
-  const rateLimit = await checkRateLimit();
-  
-  // Sync in order: categories, colors, inventory, and Rebrickable set-part relationships
-  const categoriesResult = await syncBricklinkCategories();
-  const colorsResult = await syncBricklinkColors();
-  const inventoryResult = await syncBricklinkInventory();
-  
-  // Sync Rebrickable set-part relationships (doesn't use BrickLink API)
-  let rebrickableResult = { setsAdded: 0, partsProcessed: 0 };
-  try {
-    rebrickableResult = await syncRebrickableSetParts();
-    console.log(`Rebrickable sync complete: ${rebrickableResult.setsAdded} sets, ${rebrickableResult.partsProcessed} part relationships`);
-  } catch (error) {
-    console.error('Rebrickable sync failed (non-fatal):', error);
-    // Don't fail the entire sync if Rebrickable fails
+  // Acquire inventory sync lock to prevent order sync conflicts
+  const lockAcquired = await syncLock.acquireInventoryLock();
+  if (!lockAcquired) {
+    throw new Error('Inventory sync already in progress');
   }
 
-  const totalApiCalls = categoriesResult.apiCalls + colorsResult.apiCalls + inventoryResult.apiCalls;
+  try {
+    // Check rate limit before starting sync
+    const rateLimit = await checkRateLimit();
+    
+    console.log('\n🔄 Starting comprehensive inventory sync...');
+    
+    // Step 1: Sync in order: categories, colors, inventory
+    console.log('📦 Step 1/5: Syncing BrickLink data...');
+    const categoriesResult = await syncBricklinkCategories();
+    const colorsResult = await syncBricklinkColors();
+    const inventoryResult = await syncBricklinkInventory();
+    
+    // Step 2: Sync Rebrickable set-part relationships (doesn't use BrickLink API)
+    console.log('🧩 Step 2/5: Syncing Rebrickable set-part relationships...');
+    let rebrickableResult = { setsAdded: 0, partsProcessed: 0 };
+    try {
+      rebrickableResult = await syncRebrickableSetParts();
+      console.log(`✓ Rebrickable sync complete: ${rebrickableResult.setsAdded} sets, ${rebrickableResult.partsProcessed} part relationships`);
+    } catch (error) {
+      console.error('✗ Rebrickable sync failed (non-fatal):', error);
+    }
 
-  return {
-    categoriesAdded: categoriesResult.added,
-    categoriesUpdated: categoriesResult.updated,
-    colorsAdded: colorsResult.added,
-    colorsUpdated: colorsResult.updated,
-    inventoryAdded: inventoryResult.added,
-    inventoryUpdated: inventoryResult.updated,
-    totalApiCalls,
-    rateLimitWarning: rateLimit.warning,
-    rebrickableSets: rebrickableResult.setsAdded,
-    rebrickableParts: rebrickableResult.partsProcessed,
-  };
+    // Step 3: Generate embeddings for new/updated inventory items
+    console.log('🧠 Step 3/5: Generating AI embeddings for inventory...');
+    try {
+      // Embed newly added/updated inventory items (limit to recent changes)
+      const recentInventory = await db
+        .select({ id: blInventory.id })
+        .from(blInventory)
+        .orderBy(sql`${blInventory.updatedAt} DESC`)
+        .limit(100); // Embed up to 100 most recently updated items
+      
+      if (recentInventory.length > 0) {
+        const inventoryIds = recentInventory.map(i => i.id);
+        await batchEmbedInventory(inventoryIds);
+        console.log(`✓ Generated embeddings for ${inventoryIds.length} inventory items`);
+      }
+    } catch (error) {
+      console.error('✗ Inventory embedding failed (non-fatal):', error);
+    }
+
+    // Step 4: Generate embeddings for sets (if Rebrickable sync was successful)
+    console.log('🎯 Step 4/5: Generating AI embeddings for LEGO sets...');
+    if (rebrickableResult.setsAdded > 0 || rebrickableResult.partsProcessed > 0) {
+      try {
+        // Get unique set numbers that don't have embeddings yet
+        const newSets = await db.execute(sql`
+          SELECT DISTINCT spr.set_num 
+          FROM set_part_relationships spr
+          LEFT JOIN set_part_embeddings spe ON spr.set_num = spe.set_num
+          WHERE spe.set_num IS NULL
+          LIMIT 50
+        `);
+        
+        if (newSets.rows.length > 0) {
+          const setNumbers = newSets.rows.map((r: any) => r.set_num);
+          await batchEmbedSets(setNumbers);
+          console.log(`✓ Generated embeddings for ${setNumbers.length} LEGO sets`);
+        }
+      } catch (error) {
+        console.error('✗ Set embedding failed (non-fatal):', error);
+      }
+    }
+
+    // Step 5: Sync inventory to all sales platforms (currently BrickOwl)
+    console.log('🌐 Step 5/5: Syncing inventory to sales platforms...');
+    try {
+      // Only sync if BrickOwl credentials are configured
+      const [settings] = await db.select().from(appSettings).limit(1);
+      if (settings?.brickowlApiKey) {
+        console.log('Syncing to BrickOwl...');
+        const syncResult = await syncBrickLinkToBrickOwl(100); // Limit to 100 items per sync
+        console.log(`✓ BrickOwl sync: ${syncResult.lotsCreated} created, ${syncResult.lotsUpdated} updated, ${syncResult.lotsSkipped} skipped`);
+      } else {
+        console.log('⏭️ BrickOwl credentials not configured, skipping platform sync');
+      }
+    } catch (error) {
+      console.error('✗ Platform sync failed (non-fatal):', error);
+    }
+
+    const totalApiCalls = categoriesResult.apiCalls + colorsResult.apiCalls + inventoryResult.apiCalls;
+
+    console.log('\n✅ Comprehensive inventory sync complete!');
+
+    return {
+      categoriesAdded: categoriesResult.added,
+      categoriesUpdated: categoriesResult.updated,
+      colorsAdded: colorsResult.added,
+      colorsUpdated: colorsResult.updated,
+      inventoryAdded: inventoryResult.added,
+      inventoryUpdated: inventoryResult.updated,
+      totalApiCalls,
+      rateLimitWarning: rateLimit.warning,
+      rebrickableSets: rebrickableResult.setsAdded,
+      rebrickableParts: rebrickableResult.partsProcessed,
+    };
+  } finally {
+    // Always release the lock, even if sync fails
+    syncLock.releaseInventoryLock();
+  }
 }
 
 // ====== PRICE-O-MAGIC FUNCTIONS ======
