@@ -264,6 +264,28 @@ export async function updateBrickLinkInventoryQuantity(
   }
 }
 
+/**
+ * Update BrickLink inventory item with multiple fields
+ * @param inventoryId - BrickLink inventory ID (numeric from bl_inventory.id)
+ * @param updates - Object with fields to update (quantity, unit_price, remarks, description, new_or_used, etc.)
+ */
+export async function updateBrickLinkInventoryItem(
+  inventoryId: number,
+  updates: Record<string, any>
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    console.log(`Updating BrickLink inventory ${inventoryId} with:`, updates);
+    
+    await bricklinkPutRequest(`/inventories/${inventoryId}`, updates);
+    
+    console.log(`✓ BrickLink: Updated inventory ${inventoryId}`);
+    return { success: true };
+  } catch (error: any) {
+    console.error(`✗ BrickLink update failed for inventory ${inventoryId}:`, error);
+    return { success: false, error: error.message || 'Unknown error' };
+  }
+}
+
 export async function syncBricklinkCategories(): Promise<{ added: number; updated: number; apiCalls: number }> {
   try {
     const { data: responseData, apiCalls } = await bricklinkRequest('/categories');
