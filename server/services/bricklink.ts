@@ -504,7 +504,7 @@ export async function syncBricklinkInventory(): Promise<{ added: number; updated
         const apiIsRetain = !!item.is_retain;
         const apiIsStockRoom = !!item.is_stock_room;
         
-        return (
+        const needsUpdate = (
           existing.quantity !== item.quantity || 
           Math.abs(existingUnitPrice - apiUnitPrice) > 0.001 ||
           existing.itemNo !== item.item.no ||
@@ -520,6 +520,20 @@ export async function syncBricklinkInventory(): Promise<{ added: number; updated
           existing.isStockRoom !== apiIsStockRoom ||
           existing.bindId !== (item.bind_id || null)
         );
+        
+        // Log first few items that need updates to help debug
+        if (needsUpdate && itemsToUpdate.length < 5) {
+          const reasons = [];
+          if (existing.quantity !== item.quantity) reasons.push(`quantity: ${existing.quantity} → ${item.quantity}`);
+          if (Math.abs(existingUnitPrice - apiUnitPrice) > 0.001) reasons.push(`price: $${existingUnitPrice} → $${apiUnitPrice}`);
+          if (existing.remarks !== (item.remarks || null)) reasons.push('remarks changed');
+          if (existing.description !== (item.description || null)) reasons.push('description changed');
+          if (existing.isRetain !== apiIsRetain) reasons.push(`isRetain: ${existing.isRetain} → ${apiIsRetain}`);
+          if (existing.isStockRoom !== apiIsStockRoom) reasons.push(`isStockRoom: ${existing.isStockRoom} → ${apiIsStockRoom}`);
+          console.log(`[Sync Debug] Item ${item.inventory_id} (${item.item.no}) needs update: ${reasons.join(', ')}`);
+        }
+        
+        return needsUpdate;
       });
       
       console.log(`Found ${itemsToUpdate.length} items needing updates`);

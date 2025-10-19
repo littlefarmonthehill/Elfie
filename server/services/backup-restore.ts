@@ -409,11 +409,11 @@ export async function applyDifferentialRecovery(
         itemUpdates.quantity = boQty;
       }
 
-      // Price update
+      // Price update - preserve BrickLink's original precision (don't round)
       const boPrice = parseFloat(boItem.price || '0');
       const blPrice = parseFloat(blItem.unitPrice || '0');
       if (Math.abs(boPrice - blPrice) > 0.01) {
-        itemUpdates.unit_price = boPrice.toFixed(2);
+        itemUpdates.unit_price = boPrice; // Keep original precision from BrickOwl
       }
 
       // Remarks (personal_note)
