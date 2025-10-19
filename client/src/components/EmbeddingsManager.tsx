@@ -35,13 +35,14 @@ export function EmbeddingsManager() {
     refetchInterval: 2000, // Poll every 2 seconds
   });
 
-  // Show completion toast when job finishes
+  // Show completion toast when job finishes and refresh stats
   useEffect(() => {
     if ((inventoryJob as any)?.status === 'completed') {
       toast({
         title: "✅ Inventory Embedding Complete!",
         description: `Successfully embedded ${(inventoryJob as any).itemsProcessed} items`,
       });
+      queryClient.invalidateQueries({ queryKey: ['/api/embeddings/stats'] });
     }
   }, [(inventoryJob as any)?.status]);
 
@@ -51,6 +52,7 @@ export function EmbeddingsManager() {
         title: "✅ Order Embedding Complete!",
         description: `Successfully embedded ${(ordersJob as any).itemsProcessed} orders`,
       });
+      queryClient.invalidateQueries({ queryKey: ['/api/embeddings/stats'] });
     }
   }, [(ordersJob as any)?.status]);
 
@@ -72,6 +74,7 @@ export function EmbeddingsManager() {
         description: `Embedding inventory items in batches of ${inventoryBatchSize}. You can close this screen!`,
       });
       refetchInventoryJob();
+      queryClient.invalidateQueries({ queryKey: ['/api/embeddings/stats'] });
     },
     onError: (error: any) => {
       toast({
@@ -100,6 +103,7 @@ export function EmbeddingsManager() {
         description: `Embedding orders in batches of ${orderBatchSize}. You can close this screen!`,
       });
       refetchOrdersJob();
+      queryClient.invalidateQueries({ queryKey: ['/api/embeddings/stats'] });
     },
     onError: (error: any) => {
       toast({
@@ -171,6 +175,10 @@ export function EmbeddingsManager() {
   const ordersProgress = (ordersJob as any)?.progress?.percentage || 0;
   const isInventoryRunning = (inventoryJob as any)?.status === 'running';
   const isOrdersRunning = (ordersJob as any)?.status === 'running';
+  
+  // Check if all items are embedded (from stats, not job progress)
+  const inventoryComplete = (stats as any)?.inventory?.percentage === 100;
+  const ordersComplete = (stats as any)?.orders?.percentage === 100;
 
   return (
     <div className="space-y-4">
@@ -274,13 +282,13 @@ export function EmbeddingsManager() {
             {!isInventoryRunning ? (
               <Button
                 onClick={() => startInventoryJob()}
-                disabled={startingInventoryJob || inventoryProgress === 100}
+                disabled={startingInventoryJob || inventoryComplete}
                 size="sm"
                 className="text-xs h-8 gap-1"
                 data-testid="button-start-inventory-job"
               >
                 <Play className="w-3 h-3" />
-                {inventoryProgress === 100 ? 'All Done' : 'Start Background Job'}
+                {inventoryComplete ? 'All Done' : 'Start Background Job'}
               </Button>
             ) : (
               <Button
@@ -351,13 +359,13 @@ export function EmbeddingsManager() {
             {!isOrdersRunning ? (
               <Button
                 onClick={() => startOrdersJob()}
-                disabled={startingOrdersJob || ordersProgress === 100}
+                disabled={startingOrdersJob || ordersComplete}
                 size="sm"
                 className="text-xs h-8 gap-1"
                 data-testid="button-start-orders-job"
               >
                 <Play className="w-3 h-3" />
-                {ordersProgress === 100 ? 'All Done' : 'Start Background Job'}
+                {ordersComplete ? 'All Done' : 'Start Background Job'}
               </Button>
             ) : (
               <Button
