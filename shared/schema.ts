@@ -660,3 +660,144 @@ export const picklistItemsRelations = relations(picklistItems, ({ one }) => ({
     references: [whBins.id],
   }),
 }));
+
+// Backup & Restore System Tables
+
+// Restore Jobs - Track database restore operations
+export const restoreJobs = pgTable("restore_jobs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restoreTimestamp: timestamp("restore_timestamp").notNull(), // Target restore point
+  initiatedBy: text("initiated_by").notNull(), // Username or system
+  status: text("status").notNull(), // pending, restoring, syncing, differential, verifying, complete, failed
+  currentStep: text("current_step"), // Current operation description
+  progress: integer("progress").default(0), // 0-100
+  
+  // Tracking metadata
+  dbRestoreStarted: timestamp("db_restore_started"),
+  dbRestoreCompleted: timestamp("db_restore_completed"),
+  platformSyncStarted: timestamp("platform_sync_started"),
+  platformSyncCompleted: timestamp("platform_sync_completed"),
+  differentialStarted: timestamp("differential_started"),
+  differentialCompleted: timestamp("differential_completed"),
+  verificationStarted: timestamp("verification_started"),
+  verificationCompleted: timestamp("verification_completed"),
+  
+  // Results
+  errorMessage: text("error_message"),
+  verificationResults: text("verification_results"), // JSON string with verification metrics
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+}, (table) => ({
+  statusIdx: index("restore_jobs_status_idx").on(table.status),
+  createdAtIdx: index("restore_jobs_created_idx").on(table.createdAt),
+}));
+
+export const insertRestoreJobSchema = createInsertSchema(restoreJobs).omit({
+  id: true,
+  createdAt: true,
+  completedAt: true,
+});
+
+export type InsertRestoreJob = z.infer<typeof insertRestoreJobSchema>;
+export type RestoreJob = typeof restoreJobs.$inferSelect;
+
+// Differential Batches - Track BrickLink update batches during differential recovery
+export const differentialBatches = pgTable("differential_batches", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restoreJobId: varchar("restore_job_id").notNull().references(() => restoreJobs.id, { onDelete: 'cascade' }),
+  batchNumber: integer("batch_number").notNull(),
+  totalBatches: integer("total_batches").notNull(),
+  
+  // Batch contents
+  inventoryIds: text("inventory_ids").notNull(), // JSON array of BL inventory IDs to update
+  
+  // Update details
+  quantityUpdates: integer("quantity_updates").default(0),
+  priceUpdates: integer("price_updates").default(0),
+  remarksUpdates: integer("remarks_updates").default(0),
+  descriptionUpdates: integer("description_updates").default(0),
+  
+  // Execution status
+  status: text("status").notNull(), // pending, processing, completed, failed
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  errorMessage: text("error_message"),
+  
+  // Rate limiting
+  rateLimitRemaining: integer("rate_limit_remaining"),
+  rateLimitReset: timestamp("rate_limit_reset"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  restoreJobIdx: index("diff_batches_job_idx").on(table.restoreJobId),
+  statusIdx: index("diff_batches_status_idx").on(table.status),
+}));
+
+export const insertDifferentialBatchSchema = createInsertSchema(differentialBatches).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertDifferentialBatch = z.infer<typeof insertDifferentialBatchSchema>;
+export type DifferentialBatch = typeof differentialBatches.$inferSelect;
+
+// Anomaly Events - Track fraud detection and suspicious changes
+export const anomalyEvents = pgTable("anomaly_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restoreJobId: varchar("restore_job_id").references(() => restoreJobs.id, { onDelete: 'set null' }),
+  
+  // Anomaly details
+  anomalyType: text("anomaly_type").notNull(), // massive_quantity_change, price_swing, remarks_wipe, suspicious_pattern
+  severity: text("severity").notNull(), // low, medium, high, critical
+  description: text("description").notNull(),
+  
+  // Metrics
+  affectedItems: integer("affected_items"),
+  metricValue: decimal("metric_value", { precision: 12, scale: 2 }), // Percentage or delta
+  threshold: decimal("threshold", { precision: 12, scale: 2 }), // Threshold that triggered alert
+  
+  // Details payload
+  details: text("details"), // JSON string with additional context
+  
+  // Resolution
+  acknowledged: boolean("acknowledged").default(false),
+  acknowledgedBy: text("acknowledged_by"),
+  acknowledgedAt: timestamp("acknowledged_at"),
+  resolution: text("resolution"), // proceeded, aborted, reviewed
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  restoreJobIdx: index("anomaly_restore_job_idx").on(table.restoreJobId),
+  severityIdx: index("anomaly_severity_idx").on(table.severity),
+  acknowledgedIdx: index("anomaly_acknowledged_idx").on(table.acknowledged),
+  createdAtIdx: index("anomaly_created_idx").on(table.createdAt),
+}));
+
+export const insertAnomalyEventSchema = createInsertSchema(anomalyEvents).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertAnomalyEvent = z.infer<typeof insertAnomalyEventSchema>;
+export type AnomalyEvent = typeof anomalyEvents.$inferSelect;
+
+// Relations for backup/restore system
+export const restoreJobsRelations = relations(restoreJobs, ({ many }) => ({
+  differentialBatches: many(differentialBatches),
+  anomalyEvents: many(anomalyEvents),
+}));
+
+export const differentialBatchesRelations = relations(differentialBatches, ({ one }) => ({
+  restoreJob: one(restoreJobs, {
+    fields: [differentialBatches.restoreJobId],
+    references: [restoreJobs.id],
+  }),
+}));
+
+export const anomalyEventsRelations = relations(anomalyEvents, ({ one }) => ({
+  restoreJob: one(restoreJobs, {
+    fields: [anomalyEvents.restoreJobId],
+    references: [restoreJobs.id],
+  }),
+}));
