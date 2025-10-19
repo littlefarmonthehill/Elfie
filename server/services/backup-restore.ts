@@ -671,13 +671,13 @@ export async function getRestoreStatus(jobId: string) {
 
 /**
  * Run verification checks on restored data
- * This wraps the existing verifyDifferentialRecovery function
+ * This wraps the existing performVerification function
  */
 export async function verifyRestoration(jobId: string): Promise<VerificationResults> {
   console.log(`🔍 Running verification checks for restore job ${jobId}`);
   
   try {
-    const results = await verifyDifferentialRecovery(jobId);
+    const results = await performVerification(jobId);
     console.log(`✓ Verification complete for job ${jobId}`);
     return results;
   } catch (error: any) {
