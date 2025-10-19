@@ -89,6 +89,14 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
     enabled: open,
   });
 
+  const { data: backupsData, isLoading: backupsLoading } = useQuery<{
+    success: boolean;
+    backups: Array<{ filename: string; timestamp: string; size: number }>;
+  }>({
+    queryKey: ['/api/backups/list'],
+    enabled: open,
+  });
+
   const updateSettingsMutation = useMutation({
     mutationFn: async (data: Partial<AppSettings>) => {
       const response = await fetch('/api/settings', {
@@ -193,6 +201,15 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
       window.open(url, '_blank');
     } catch (error) {
       console.error(`Error exporting ${type} as ${format}:`, error);
+    }
+  };
+
+  const handleDownloadBackup = (filename: string) => {
+    try {
+      const url = `/api/backups/download/${encodeURIComponent(filename)}`;
+      window.open(url, '_blank');
+    } catch (error) {
+      console.error('Error downloading backup:', error);
     }
   };
 
@@ -1117,29 +1134,45 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                     <div className="space-y-2">
                       <Label className="text-xs text-gray-400">Available XML Backups</Label>
                       <div className="space-y-2 max-h-48 overflow-y-auto">
-                        {/* Placeholder backups - would be fetched from API */}
-                        {[
-                          { date: '2025-10-19 14:30', size: '2.4 MB' },
-                          { date: '2025-10-18 14:30', size: '2.3 MB' },
-                          { date: '2025-10-17 14:30', size: '2.2 MB' },
-                        ].map((backup, idx) => (
-                          <div key={idx} className="flex items-center justify-between bg-gray-700/50 rounded p-2">
-                            <div>
-                              <p className="text-xs text-gray-300 font-medium">{backup.date}</p>
-                              <p className="text-[10px] text-gray-500">{backup.size}</p>
-                            </div>
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              className="text-xs"
-                              onClick={() => handleExport('inventory', 'xml')}
-                              data-testid={`button-download-backup-${idx}`}
-                            >
-                              <Download className="h-3 w-3 mr-1" />
-                              Download
-                            </Button>
+                        {backupsLoading ? (
+                          <div className="text-xs text-gray-400 text-center py-4">Loading backups...</div>
+                        ) : !backupsData?.backups || backupsData.backups.length === 0 ? (
+                          <div className="text-xs text-gray-400 text-center py-4">
+                            No backups available yet. Run an inventory sync to create your first backup.
                           </div>
-                        ))}
+                        ) : (
+                          backupsData.backups.map((backup, idx) => {
+                            const date = new Date(backup.timestamp);
+                            const formattedDate = date.toLocaleString('en-US', {
+                              year: 'numeric',
+                              month: '2-digit',
+                              day: '2-digit',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              hour12: false
+                            });
+                            const sizeInMB = (backup.size / (1024 * 1024)).toFixed(2);
+                            
+                            return (
+                              <div key={backup.filename} className="flex items-center justify-between bg-gray-700/50 rounded p-2">
+                                <div>
+                                  <p className="text-xs text-gray-300 font-medium">{formattedDate}</p>
+                                  <p className="text-[10px] text-gray-500">{sizeInMB} MB</p>
+                                </div>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  className="text-xs"
+                                  onClick={() => handleDownloadBackup(backup.filename)}
+                                  data-testid={`button-download-backup-${idx}`}
+                                >
+                                  <Download className="h-3 w-3 mr-1" />
+                                  Download
+                                </Button>
+                              </div>
+                            );
+                          })
+                        )}
                       </div>
                     </div>
 
