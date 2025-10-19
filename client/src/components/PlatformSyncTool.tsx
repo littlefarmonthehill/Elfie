@@ -83,6 +83,25 @@ export default function PlatformSyncTool() {
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 
+  // Poll sync progress (only when syncing)
+  const { data: syncProgress } = useQuery<{
+    status: 'idle' | 'syncing' | 'complete' | 'error';
+    currentStep: string;
+    progress: number;
+    details: {
+      itemsDownloaded?: number;
+      itemsAdded?: number;
+      itemsUpdated?: number;
+      itemsChecked?: number;
+      totalItems?: number;
+    };
+    error?: string;
+  }>({
+    queryKey: ['/api/sync/bricklink/progress'],
+    refetchInterval: syncingBrickLink ? 1000 : false, // Poll every second while syncing
+    enabled: syncingBrickLink,
+  });
+
   // Sync mutation
   const syncMutation = useMutation({
     mutationFn: async ({ platform, limit }: { platform: string; limit?: number }) => {
@@ -265,6 +284,41 @@ export default function PlatformSyncTool() {
               </>
             )}
           </Button>
+
+          {/* Sync Progress Display */}
+          {syncProgress && syncProgress.status === 'syncing' && (
+            <div className="mb-2 p-2 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] font-semibold text-blue-400">
+                  {syncProgress.currentStep}
+                </span>
+                <span className="text-[10px] text-blue-400">
+                  {syncProgress.progress}%
+                </span>
+              </div>
+              {/* Progress bar */}
+              <div className="w-full bg-gray-700 rounded-full h-1.5">
+                <div 
+                  className="bg-blue-500 h-1.5 rounded-full transition-all duration-300"
+                  style={{ width: `${syncProgress.progress}%` }}
+                />
+              </div>
+              {/* Details */}
+              {syncProgress.details && (
+                <div className="mt-1 flex gap-2 text-[9px] text-gray-400">
+                  {syncProgress.details.itemsDownloaded !== undefined && (
+                    <span>Downloaded: {syncProgress.details.itemsDownloaded.toLocaleString()}</span>
+                  )}
+                  {syncProgress.details.itemsAdded !== undefined && (
+                    <span>Added: {syncProgress.details.itemsAdded.toLocaleString()}</span>
+                  )}
+                  {syncProgress.details.itemsUpdated !== undefined && (
+                    <span>Updated: {syncProgress.details.itemsUpdated.toLocaleString()}</span>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
           
           <div className="grid grid-cols-2 gap-2">
             <div className="bg-gray-900/50 rounded-lg p-2 border border-gray-700">
