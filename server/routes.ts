@@ -4770,6 +4770,102 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
     }
   });
 
+  // ============================================================================
+  // BACKUP & RESTORE ROUTES
+  // ============================================================================
+  
+  // Import backup-restore service
+  const backupRestore = await import('./services/backup-restore');
+  
+  // POST /api/backup/restore - Initiate restore workflow
+  app.post("/api/backup/restore", async (req, res) => {
+    try {
+      const { targetTimestamp, skipPlatformSync } = req.body;
+      
+      if (!targetTimestamp) {
+        return res.status(400).json({ error: "targetTimestamp is required" });
+      }
+      
+      const jobId = await backupRestore.initiateRestoreWorkflow(
+        targetTimestamp,
+        skipPlatformSync || false
+      );
+      
+      res.json({ success: true, jobId });
+    } catch (error: any) {
+      console.error("Error initiating restore:", error);
+      res.status(500).json({ error: error.message || "Failed to initiate restore" });
+    }
+  });
+  
+  // GET /api/backup/restore/status/:jobId - Check restore progress
+  app.get("/api/backup/restore/status/:jobId", async (req, res) => {
+    try {
+      const { jobId } = req.params;
+      const status = await backupRestore.getRestoreStatus(jobId);
+      
+      if (!status) {
+        return res.status(404).json({ error: "Restore job not found" });
+      }
+      
+      res.json(status);
+    } catch (error: any) {
+      console.error("Error fetching restore status:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch restore status" });
+    }
+  });
+  
+  // POST /api/backup/differential/analyze - Analyze BrickOwl vs BrickLink differences
+  app.post("/api/backup/differential/analyze", async (req, res) => {
+    try {
+      const { jobId } = req.body;
+      
+      if (!jobId) {
+        return res.status(400).json({ error: "jobId is required" });
+      }
+      
+      const analysis = await backupRestore.analyzeDifferential(jobId);
+      res.json(analysis);
+    } catch (error: any) {
+      console.error("Error analyzing differential:", error);
+      res.status(500).json({ error: error.message || "Failed to analyze differential" });
+    }
+  });
+  
+  // POST /api/backup/differential/apply - Apply differential sync to BrickLink
+  app.post("/api/backup/differential/apply", async (req, res) => {
+    try {
+      const { jobId, overrideAnomalies } = req.body;
+      
+      if (!jobId) {
+        return res.status(400).json({ error: "jobId is required" });
+      }
+      
+      const result = await backupRestore.applyDifferentialRecovery(
+        jobId,
+        overrideAnomalies || false
+      );
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error applying differential:", error);
+      res.status(500).json({ error: error.message || "Failed to apply differential" });
+    }
+  });
+  
+  // GET /api/backup/verify/:jobId - Run verification checks
+  app.get("/api/backup/verify/:jobId", async (req, res) => {
+    try {
+      const { jobId } = req.params;
+      const verification = await backupRestore.verifyRestoration(jobId);
+      
+      res.json(verification);
+    } catch (error: any) {
+      console.error("Error verifying restore:", error);
+      res.status(500).json({ error: error.message || "Failed to verify restore" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

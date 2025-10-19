@@ -340,7 +340,25 @@ export async function analyzeDifferential(jobId: string): Promise<DifferentialAn
 /**
  * Apply differential recovery (update BrickLink from BrickOwl)
  */
-export async function applyDifferentialRecovery(jobId: string): Promise<void> {
+export async function applyDifferentialRecovery(
+  jobId: string,
+  overrideAnomalies = false
+): Promise<void> {
+  // Check for anomalies first if not overriding
+  if (!overrideAnomalies) {
+    const analysis = await analyzeDifferential(jobId);
+    const criticalAnomalies = analysis.anomalies.filter(a => 
+      a.severity === 'critical' || a.severity === 'high'
+    );
+    
+    if (criticalAnomalies.length > 0) {
+      throw new Error(
+        `Differential recovery blocked: ${criticalAnomalies.length} critical/high anomalies detected. ` +
+        `Use overrideAnomalies=true to proceed anyway.`
+      );
+    }
+  }
+  
   await updateRestoreJobStatus(jobId, {
     status: 'differential',
     currentStep: 'Applying differential recovery',
@@ -587,4 +605,83 @@ export async function acknowledgeAnomaly(
       resolution,
     })
     .where(eq(anomalyEvents.id, anomalyId));
+}
+
+/**
+ * Initiate the complete restore workflow
+ * This is the main entry point for database restoration
+ */
+export async function initiateRestoreWorkflow(
+  targetTimestamp: string,
+  skipPlatformSync = false
+): Promise<string> {
+  console.log(`🔄 Initiating restore workflow to timestamp: ${targetTimestamp}`);
+  
+  // Create restore job
+  const jobId = await createRestoreJob(new Date(targetTimestamp), 'system');
+  
+  try {
+    // Step 1: Database restore via Neon PITR (simulated - actual restore is manual)
+    await updateRestoreJobStatus(jobId, {
+      status: 'in_progress',
+      currentStep: 'Database restore initiated - awaiting PITR completion',
+      progress: 10,
+    });
+    
+    console.log(`✓ Restore job ${jobId} created`);
+    console.log(`⚠️  Manual action required: Restore database via Neon PITR to ${targetTimestamp}`);
+    console.log(`⚠️  After PITR is complete, proceed with platform sync`);
+    
+    return jobId;
+  } catch (error: any) {
+    console.error(`✗ Restore workflow failed:`, error);
+    await failRestoreJob(jobId, error);
+    throw error;
+  }
+}
+
+/**
+ * Get the current status of a restore job
+ */
+export async function getRestoreStatus(jobId: string) {
+  const [job] = await db.select()
+    .from(restoreJobs)
+    .where(eq(restoreJobs.id, jobId))
+    .limit(1);
+  
+  if (!job) {
+    return null;
+  }
+  
+  // Get anomaly events if any
+  const anomalies = await getAnomalyEvents(jobId);
+  
+  // Get differential batches if any
+  const batches = await db.select()
+    .from(differentialBatches)
+    .where(eq(differentialBatches.restoreJobId, jobId))
+    .orderBy(differentialBatches.batchNumber);
+  
+  return {
+    ...job,
+    anomalies,
+    batches,
+  };
+}
+
+/**
+ * Run verification checks on restored data
+ * This wraps the existing verifyDifferentialRecovery function
+ */
+export async function verifyRestoration(jobId: string): Promise<VerificationResults> {
+  console.log(`🔍 Running verification checks for restore job ${jobId}`);
+  
+  try {
+    const results = await verifyDifferentialRecovery(jobId);
+    console.log(`✓ Verification complete for job ${jobId}`);
+    return results;
+  } catch (error: any) {
+    console.error(`✗ Verification failed for job ${jobId}:`, error);
+    throw error;
+  }
 }
