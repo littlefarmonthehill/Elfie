@@ -1233,7 +1233,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                   <p className="text-sm font-medium text-blue-300">What Happens Next (Automated):</p>
                   <ol className="text-xs text-blue-200/90 space-y-2 ml-4 list-decimal">
                     <li><strong>Database Restore:</strong> We'll roll back your PlanetBrick database to the selected timestamp</li>
-                    <li><strong>Platform Sync (Critical):</strong> We'll automatically pull fresh data from BrickLink, BrickOwl, and other platforms</li>
+                    <li><strong>Platform Sync (Critical):</strong> We'll automatically pull fresh data from BrickLink and BrickOwl</li>
                     <li><strong>Why?</strong> Your sales platforms have the most up-to-date inventory and order information</li>
                     <li><strong>Verification:</strong> We'll check that everything matches and alert you to any issues</li>
                   </ol>
@@ -1363,24 +1363,24 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
 
                   <div className="flex items-center justify-between p-3 bg-gray-800 border border-gray-700 rounded">
                     <div className="flex items-center gap-2">
-                      <div className="h-4 w-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                      <CheckCircle2 className="h-4 w-4 text-green-400" />
                       <span className="text-xs text-gray-300">BrickLink Orders</span>
                     </div>
-                    <span className="text-xs text-gray-400">Syncing... (42 of 156)</span>
+                    <span className="text-xs text-green-400">Complete (156 orders)</span>
                   </div>
 
-                  <div className="flex items-center justify-between p-3 bg-gray-800 border border-gray-700 rounded opacity-50">
+                  <div className="flex items-center justify-between p-3 bg-gray-800 border border-gray-700 rounded">
                     <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-gray-500" />
-                      <span className="text-xs text-gray-400">BrickOwl Orders</span>
+                      <div className="h-4 w-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                      <span className="text-xs text-gray-300">BrickOwl Orders</span>
                     </div>
-                    <span className="text-xs text-gray-500">Waiting...</span>
+                    <span className="text-xs text-gray-400">Syncing... (23 of 89)</span>
                   </div>
 
                   <div className="flex items-center justify-between p-3 bg-gray-800 border border-gray-700 rounded opacity-50">
                     <div className="flex items-center gap-2">
                       <Clock className="h-4 w-4 text-gray-500" />
-                      <span className="text-xs text-gray-400">ShipStation Orders</span>
+                      <span className="text-xs text-gray-400">EasyPost Tracking Data</span>
                     </div>
                     <span className="text-xs text-gray-500">Waiting...</span>
                   </div>
@@ -1388,7 +1388,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
 
                 <div className="bg-blue-500/10 border border-blue-500/30 rounded p-3">
                   <p className="text-[10px] text-blue-300">
-                    <strong>Why we do this:</strong> Your sales platforms (BrickLink, BrickOwl, etc.) have processed sales and status changes since the restore point. We're pulling their current data to ensure PlanetBrick matches reality.
+                    <strong>Why we do this:</strong> Your sales platforms (BrickLink and BrickOwl) have processed sales and status changes since the restore point. We're pulling their current data to ensure PlanetBrick matches reality. EasyPost tracking data is also synced to match shipment statuses.
                   </p>
                 </div>
 

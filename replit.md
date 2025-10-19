@@ -1,7 +1,7 @@
 # PlanetBrick - LEGO Business Operations Dashboard
 
 ## Overview
-PlanetBrick is a business operations and analytics dashboard designed for LEGO resellers. It integrates with BrickLink and ShipStation to provide real-time inventory management, order tracking, sales analytics, and marketing insights. The platform features a dark-mode, LEGO-inspired user interface and an AI chat assistant (E.L.F.I.E.). Its primary purpose is to enhance efficiency and profitability for LEGO resellers through data-driven decision-making.
+PlanetBrick is a business operations and analytics dashboard designed for LEGO resellers. It integrates with BrickLink, BrickOwl, and EasyPost to provide real-time inventory management, order tracking, sales analytics, and marketing insights. The platform features a dark-mode, LEGO-inspired user interface and an AI chat assistant (E.L.F.I.E.). Its primary purpose is to enhance efficiency and profitability for LEGO resellers through data-driven decision-making.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -9,7 +9,7 @@ Preferred communication style: Simple, everyday language.
 ## System Architecture
 
 ### Data Flow & System Design
-BrickLink serves as the primary source for product catalog data (items, categories, colors), while PlanetBrick manages inventory quantities. Inventory changes within PlanetBrick trigger synchronization to BrickLink and BrickOwl. Orders are pulled from BrickLink, BrickOwl, and ShipStation, leading to automatic inventory adjustments and cross-platform synchronization. ShipStation orders from BrickLink have item metadata embedded in `name` and `sku` fields for parsing. The system employs optimized batch and incremental synchronization for BrickLink (1000-item batches) and ShipStation (modified since last sync), tracked via a `sync_metadata` table. Inventory is adjusted only when orders ship, and restored only when shipped orders are cancelled/returned, preventing incorrect adjustments.
+BrickLink serves as the primary source for product catalog data (items, categories, colors), while PlanetBrick manages inventory quantities. Inventory changes within PlanetBrick trigger synchronization to BrickLink and BrickOwl. Orders are pulled from BrickLink and BrickOwl, leading to automatic inventory adjustments and cross-platform synchronization. The system employs optimized batch and incremental synchronization for BrickLink (1000-item batches), tracked via a `sync_metadata` table. Inventory is adjusted only when orders ship, and restored only when shipped orders are cancelled/returned, preventing incorrect adjustments. Shipping labels and tracking are managed through EasyPost integration.
 
 **Sync Orchestration:** A global sync lock manager prevents race conditions between inventory and order syncs. When inventory sync runs, it acquires an exclusive lock that blocks order syncs from executing concurrently. Order syncs automatically queue when blocked and execute after the inventory lock is released. The comprehensive inventory sync pipeline follows this sequence: (1) Sync BrickLink data (categories, colors, inventory), (2) Sync Rebrickable set-part relationships, (3) Generate AI embeddings for new/updated inventory items (up to 100 most recent), (4) Generate AI embeddings for new LEGO sets (up to 50 without embeddings), (5) Sync inventory to all sales platforms (currently BrickOwl). Order syncs generate embeddings for newly added orders after completion. All embedding generation and platform sync operations are non-fatal (failures logged but don't break main sync). Lock is guaranteed to release via try-finally blocks even on errors.
 
@@ -23,7 +23,7 @@ The frontend uses React 18+, TypeScript, Vite, Shadcn/ui, and Tailwind CSS, feat
 - **API:** RESTful endpoints for data and integrations.
 - **Data Schema:** Includes tables for `users`, `bl_categories`, `bl_colors`, `bl_inventory`, `orders`, `order_details`, `sync_metadata`, `app_settings`, `inventory_embeddings`, `order_embeddings`, `set_part_embeddings` (AI understanding of set-to-part relationships), warehouse management (`wh_aisles`, `wh_shelves`, `wh_bins`, `inventory_locations`), `picklist_items`, `sync_issues`, shipping (`order_splits`, `order_split_items`, `shipments`), and `set_part_relationships` (Rebrickable data).
 - **Authentication:** Basic username/password.
-- **Order Status & Inventory Automation:** Centralized configuration maps platform-specific statuses and defines inventory impact. Inventory is reduced upon shipping and restored upon cancellation/return of shipped orders. Supports BrickLink, BrickOwl, ShipStation, eBay, and Amazon platforms.
+- **Order Status & Inventory Automation:** Centralized configuration maps platform-specific statuses and defines inventory impact. Inventory is reduced upon shipping and restored upon cancellation/return of shipped orders. Supports BrickLink, BrickOwl, eBay, and Amazon platforms.
 - **Shipping System:** Vendor-agnostic shipping abstraction layer with EasyPost implementation. Supports order splitting for partial shipments, automatic label generation, tracking integration, and automated platform status synchronization. When shipping labels are purchased, order status automatically updates to "shipped" on BrickLink (via OAuth 1.0a two-step API: PUT /orders/{id} for tracking, PUT /orders/{id}/status for status) and BrickOwl (via POST /order/update with status_id=2) with tracking numbers. Split orders are marked local-only and don't sync to sales platforms.
 
 ### Feature Specifications
@@ -36,17 +36,16 @@ The frontend uses React 18+, TypeScript, Vite, Shadcn/ui, and Tailwind CSS, feat
 - **Picklist:** Bin-level picking system for order fulfillment, grouped by Aisle for optimal routes, with optimistic UI updates.
 - **Fulfillment:** Order fulfillment system, grouping items by warehouse bin location. Features a consolidated Actions dropdown menu (MoreVertical icon) for operations including: packing slips (multi-select), lot labels (placeholder for future), shipping (single order), and order splitting. The new order splitting workflow assumes all items ship together by default (no initial checkboxes). When "Split Order" is selected from Actions, item checkboxes appear dynamically to select which items to move to a new order. A confirmation dialog displays the original order number, new "-1" suffix order number, and the list of items being moved. The split operation creates a new order and moves selected items while keeping remaining items in the original order. Packing slip system supports bulk print with PlanetBrick branding and order details.
 - **Shipped Orders:** Customer support and reprint tool displaying all shipped orders sorted by ship date (most recent first). Features real-time search by order number, customer name/email, or tracking number. Each order shows details including shipping date, carrier, service, and tracking information. Includes Actions dropdown for reprinting packing slips, shipping labels, and lot labels (placeholder). Orders automatically disappear from Fulfillment once shipped and appear in this tool.
-- **Order Sync Tester:** Dry-run tool for validating order sync logic from BrickLink and BrickOwl APIs without database writes. Compares ShipStation and platform data for pending orders.
+- **Order Sync Tester:** Dry-run tool for validating order sync logic from BrickLink and BrickOwl APIs without database writes. Validates platform order data for pending orders.
 - **Sales Analytics:** Includes Year-over-Year Sales Comparison and Platform Comparison Analysis, and a Platform Performance Dashboard.
 - **AI Intelligence & Embeddings Management:** Settings for AI assistant configuration, server-side background jobs for embedding generation, and a semantic search testing interface. Three types of embeddings are generated automatically: (1) Inventory embeddings for semantic search of parts and items, (2) Order embeddings for pattern analysis and customer insights, and (3) Set-part embeddings for AI understanding of which parts belong to which LEGO sets. All embeddings use OpenAI's text-embedding-3-small model (1536 dimensions) and are stored in PostgreSQL with pgvector for efficient similarity search. Embeddings are generated automatically during sync operations, with inventory and set embeddings generated after inventory sync completes, and order embeddings generated after order sync completes.
 - **Automation & Scheduling:** Centralized controls for automated Inventory Sync, Price-o-Matic, and Orders Sync, stored in `app_settings`.
 
 ## External Dependencies
 
--   **BrickLink API:** LEGO inventory, categories, colors, and market data.
--   **BrickOwl API:** Multi-platform inventory synchronization.
+-   **BrickLink API:** LEGO inventory, categories, colors, orders, and market data.
+-   **BrickOwl API:** Multi-platform inventory synchronization and order management.
 -   **Rebrickable CSV:** Set-part relationship data (synced during BrickLink inventory sync).
--   **ShipStation API:** Legacy order management (being phased out).
 -   **EasyPost API:** Multi-carrier shipping label generation, rate shopping, and tracking.
 -   **OpenRouter API:** Powers the E.L.F.I.E. AI chat assistant.
 -   **OpenAI API:** Generates vector embeddings.
