@@ -28,6 +28,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   const [restoreTime, setRestoreTime] = useState('14:30');
   const [restoreProgress, setRestoreProgress] = useState(0);
   const [restoreCurrentTask, setRestoreCurrentTask] = useState('');
+  const [restoreJobId, setRestoreJobId] = useState<string | null>(null);
   const [differentialAnalysis, setDifferentialAnalysis] = useState<{
     totalItems: number;
     quantityChanges: number;
@@ -35,11 +36,22 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
     priceUpdates: number;
     remarksUpdates: number;
     descriptionUpdates: number;
+    anomalies?: Array<{
+      type: string;
+      severity: string;
+      description: string;
+      affectedItems: number;
+      metricValue: number;
+    }>;
   } | null>(null);
   const [verificationResults, setVerificationResults] = useState<{
     inventoryMatch: boolean;
     orderStatusMatch: boolean;
     platformSync: boolean;
+    inventoryCount?: number;
+    bricklinkCount?: number;
+    brickowlCount?: number;
+    discrepancies?: number;
   } | null>(null);
 
   // AI Settings
@@ -173,6 +185,93 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
     // TODO: Implement clear data functionality
     console.log(`Clearing ${type} data`);
     setClearDataDialog(null);
+  };
+
+  // Restore workflow functions
+  const handleInitiateRestore = async () => {
+    try {
+      setRestoreStep('restoring');
+      setRestoreProgress(0);
+      setRestoreCurrentTask('Initiating restore workflow...');
+      
+      const targetTimestamp = `${restoreDate}T${restoreTime}:00`;
+      const response = await apiRequest('POST', '/api/backup/restore', {
+        targetTimestamp,
+        skipPlatformSync: false,
+      });
+      
+      const { jobId } = response;
+      setRestoreJobId(jobId);
+      setRestoreCurrentTask('Restore job created - manual PITR required');
+      setRestoreProgress(100);
+      
+      // Move to next step (in production, user would manually restore via Neon)
+      setTimeout(() => {
+        setRestoreStep('differential');
+        handleAnalyzeDifferential(jobId);
+      }, 2000);
+    } catch (error: any) {
+      console.error('Failed to initiate restore:', error);
+      setRestoreCurrentTask(`Error: ${error.message || 'Failed to initiate restore'}`);
+    }
+  };
+
+  const handleAnalyzeDifferential = async (jobId: string) => {
+    try {
+      setRestoreCurrentTask('Analyzing differential changes...');
+      
+      const analysis = await apiRequest('POST', '/api/backup/differential/analyze', {
+        jobId,
+      });
+      
+      setDifferentialAnalysis(analysis);
+      setRestoreCurrentTask('Differential analysis complete');
+    } catch (error: any) {
+      console.error('Failed to analyze differential:', error);
+      setRestoreCurrentTask(`Error: ${error.message || 'Failed to analyze differential'}`);
+    }
+  };
+
+  const handleApplyDifferential = async (overrideAnomalies = false) => {
+    if (!restoreJobId) return;
+    
+    try {
+      setRestoreProgress(0);
+      setRestoreCurrentTask('Applying differential recovery to BrickLink...');
+      
+      await apiRequest('POST', '/api/backup/differential/apply', {
+        jobId: restoreJobId,
+        overrideAnomalies,
+      });
+      
+      setRestoreProgress(100);
+      setRestoreCurrentTask('Differential recovery complete');
+      
+      // Move to verification
+      setTimeout(() => {
+        setRestoreStep('verification');
+        handleVerifyRestoration();
+      }, 1000);
+    } catch (error: any) {
+      console.error('Failed to apply differential:', error);
+      setRestoreCurrentTask(`Error: ${error.message || 'Failed to apply differential'}`);
+    }
+  };
+
+  const handleVerifyRestoration = async () => {
+    if (!restoreJobId) return;
+    
+    try {
+      setRestoreCurrentTask('Running verification checks...');
+      
+      const results = await apiRequest('GET', `/api/backup/verify/${restoreJobId}`);
+      
+      setVerificationResults(results);
+      setRestoreCurrentTask('Verification complete');
+    } catch (error: any) {
+      console.error('Failed to verify restoration:', error);
+      setRestoreCurrentTask(`Error: ${error.message || 'Failed to verify restoration'}`);
+    }
   };
 
   const [activeSection, setActiveSection] = useState<'general' | 'platforms' | 'ai' | 'automation' | 'data'>('general');
@@ -1294,24 +1393,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                     variant="default"
                     size="sm"
                     className="flex-1 text-xs bg-blue-600 hover:bg-blue-700"
-                    onClick={() => {
-                      setRestoreStep('restoring');
-                      setRestoreProgress(0);
-                      // Simulate restore process
-                      setTimeout(() => {
-                        setRestoreProgress(25);
-                        setRestoreCurrentTask('Rolling back database to restore point...');
-                        setTimeout(() => {
-                          setRestoreProgress(50);
-                          setRestoreCurrentTask('Validating restored data integrity...');
-                          setTimeout(() => {
-                            setRestoreProgress(100);
-                            setRestoreStep('syncing');
-                            setRestoreProgress(0);
-                          }, 1500);
-                        }, 2000);
-                      }, 1000);
-                    }}
+                    onClick={handleInitiateRestore}
                     data-testid="button-confirm-restore"
                   >
                     I Understand - Begin Restore
@@ -1533,17 +1615,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                     variant="default"
                     size="sm"
                     className="flex-1 text-xs bg-green-600 hover:bg-green-700"
-                    onClick={() => {
-                      // Simulate differential sync
-                      setTimeout(() => {
-                        setRestoreStep('verification');
-                        setVerificationResults({
-                          inventoryMatch: true,
-                          orderStatusMatch: true,
-                          platformSync: true
-                        });
-                      }, 2000);
-                    }}
+                    onClick={() => handleApplyDifferential(false)}
                     data-testid="button-apply-differential"
                   >
                     Apply to BrickLink
