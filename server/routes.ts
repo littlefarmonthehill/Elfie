@@ -1563,8 +1563,15 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
         delete set.colorQuantities;
       }
       
-      // Convert to array and apply limit
-      const sets = Array.from(setsMap.values()).slice(0, limit);
+      // Sort by set name alphabetically (case-insensitive)
+      allSets.sort((a, b) => {
+        const nameA = (a.setName || a.setNum).toLowerCase();
+        const nameB = (b.setName || b.setNum).toLowerCase();
+        return nameA.localeCompare(nameB);
+      });
+      
+      // Apply limit
+      const sets = allSets.slice(0, limit);
       
       res.json({ sets });
     } catch (error) {
