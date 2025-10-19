@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { AppSettings } from "@shared/schema";
-import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive } from "lucide-react";
+import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1008,6 +1008,122 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
 
                 <Separator className="bg-gray-700" />
 
+                {/* Restore from Backup */}
+                <div>
+                  <h3 className="text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
+                    <Upload className="h-4 w-4 text-green-400" />
+                    Restore from Backup
+                  </h3>
+                  <p className="text-xs text-gray-400 mb-3">Restore your inventory from exported backups</p>
+                  
+                  <Accordion type="single" collapsible className="space-y-2">
+                    {/* BrickLink API Restore */}
+                    <AccordionItem value="api-restore" className="bg-gray-800 border border-gray-700 rounded-lg px-3">
+                      <AccordionTrigger className="text-xs font-medium text-gray-300 py-2.5 hover:no-underline">
+                        <div className="flex items-center gap-2">
+                          <CloudUpload className="h-3.5 w-3.5 text-blue-400" />
+                          BrickLink API Restore (Automated)
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="pb-3 space-y-3">
+                        <div className="space-y-2">
+                          <Label htmlFor="restore-file" className="text-xs text-gray-400">
+                            Select Backup File
+                          </Label>
+                          <Input
+                            id="restore-file"
+                            type="file"
+                            accept=".csv,.xml"
+                            className="text-xs h-8"
+                            data-testid="input-restore-file"
+                          />
+                        </div>
+                        
+                        <div className="bg-blue-500/10 border border-blue-500/30 rounded p-2">
+                          <p className="text-xs text-blue-300 flex items-start gap-2">
+                            <CheckCircle2 className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                            <span>This will automatically restore all inventory via BrickLink API. Names, colors, and categories will be auto-populated by BrickLink.</span>
+                          </p>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <div className="flex items-center gap-2">
+                            <input type="checkbox" id="delete-before-restore" className="h-3 w-3" />
+                            <Label htmlFor="delete-before-restore" className="text-xs text-gray-400 cursor-pointer">
+                              Delete existing inventory before restore
+                            </Label>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <input type="checkbox" id="restore-warehouse" className="h-3 w-3" />
+                            <Label htmlFor="restore-warehouse" className="text-xs text-gray-400 cursor-pointer">
+                              Also restore warehouse locations (if available)
+                            </Label>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="text-xs flex-1"
+                            data-testid="button-validate-restore"
+                          >
+                            <FileText className="h-3 w-3 mr-1" />
+                            Validate File
+                          </Button>
+                          <Button 
+                            variant="default" 
+                            size="sm" 
+                            className="text-xs flex-1 bg-green-600 hover:bg-green-700"
+                            data-testid="button-start-restore"
+                          >
+                            <Upload className="h-3 w-3 mr-1" />
+                            Start Restore
+                          </Button>
+                        </div>
+
+                        <div className="text-[10px] text-gray-500 space-y-1">
+                          <p><strong>Supported formats:</strong> BrickLink XML, PlanetBrick CSV</p>
+                          <p><strong>Restoration speed:</strong> ~100 items/minute (BrickLink rate limit)</p>
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+
+                    {/* Manual BrickLink Upload */}
+                    <AccordionItem value="manual-restore" className="bg-gray-800 border border-gray-700 rounded-lg px-3">
+                      <AccordionTrigger className="text-xs font-medium text-gray-300 py-2.5 hover:no-underline">
+                        <div className="flex items-center gap-2">
+                          <Upload className="h-3.5 w-3.5 text-purple-400" />
+                          Manual BrickLink Upload
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="pb-3 space-y-2">
+                        <p className="text-xs text-gray-400">
+                          For manual control, upload your BrickLink XML backup directly via BrickLink's website.
+                        </p>
+                        <ol className="text-[10px] text-gray-500 space-y-1 ml-4 list-decimal">
+                          <li>Export BrickLink XML from the Export Data section above</li>
+                          <li>Go to BrickLink → My Store → Upload/Update My Inventory</li>
+                          <li>Select your XML file and upload</li>
+                          <li>After upload completes, sync PlanetBrick with BrickLink</li>
+                        </ol>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="w-full text-xs mt-2"
+                          onClick={() => window.open('https://www.bricklink.com/inventory_upload.asp', '_blank')}
+                          data-testid="button-open-bricklink-upload"
+                        >
+                          <CloudUpload className="h-3 w-3 mr-1" />
+                          Open BrickLink Upload Page
+                        </Button>
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
+                </div>
+
+                <Separator className="bg-gray-700" />
+
                 {/* Recovery Testing */}
                 <div>
                   <h3 className="text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
@@ -1029,40 +1145,6 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                     <p className="text-[10px] text-gray-500">
                       Last test: Never • Recommended: Quarterly
                     </p>
-                  </div>
-                </div>
-
-                <Separator className="bg-gray-700" />
-
-                {/* Clear Data */}
-                <div>
-                  <h3 className="text-sm font-medium text-red-300 mb-2 flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4" />
-                    Danger Zone
-                  </h3>
-                  <p className="text-xs text-gray-400 mb-3">Permanently delete data from the system</p>
-                  
-                  <div className="space-y-2">
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="w-full justify-start text-xs text-red-400 hover:text-red-300 border-red-900/50 hover:border-red-800"
-                      onClick={() => setClearDataDialog('inventory')}
-                      data-testid="button-clear-inventory"
-                    >
-                      <Trash2 className="h-3 w-3 mr-2" />
-                      Clear All Inventory Data
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="w-full justify-start text-xs text-red-400 hover:text-red-300 border-red-900/50 hover:border-red-800"
-                      onClick={() => setClearDataDialog('orders')}
-                      data-testid="button-clear-orders"
-                    >
-                      <Trash2 className="h-3 w-3 mr-2" />
-                      Clear All Order Data
-                    </Button>
                   </div>
                 </div>
               </div>
