@@ -22,6 +22,17 @@ interface SettingsModalProps {
 
 export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   const [clearDataDialog, setClearDataDialog] = useState<'inventory' | 'orders' | null>(null);
+  const [restoreWizardOpen, setRestoreWizardOpen] = useState(false);
+  const [restoreStep, setRestoreStep] = useState<'select' | 'warning' | 'restoring' | 'syncing' | 'verification' | 'complete'>('select');
+  const [restoreDate, setRestoreDate] = useState('2025-10-18');
+  const [restoreTime, setRestoreTime] = useState('14:30');
+  const [restoreProgress, setRestoreProgress] = useState(0);
+  const [restoreCurrentTask, setRestoreCurrentTask] = useState('');
+  const [verificationResults, setVerificationResults] = useState<{
+    inventoryMatch: boolean;
+    orderStatusMatch: boolean;
+    platformSync: boolean;
+  } | null>(null);
 
   // AI Settings
   const [aiEnabled, setAiEnabled] = useState(true);
@@ -781,6 +792,13 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                   <p className="text-xs text-gray-400 mb-3">Restore your database to any moment in the last 30 days</p>
                   
                   <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 space-y-3">
+                    <div className="bg-blue-500/10 border border-blue-500/30 rounded p-3 space-y-2">
+                      <p className="text-xs font-medium text-blue-300">✨ Guided Recovery Process</p>
+                      <p className="text-[10px] text-blue-200/80">
+                        We'll walk you through the entire restore process step-by-step, automatically sync data from your sales platforms, and verify everything is correct.
+                      </p>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <Label htmlFor="restore-date" className="text-xs text-gray-400 mb-1">Restore Date</Label>
@@ -788,7 +806,8 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                           id="restore-date"
                           type="date"
                           className="text-xs h-8"
-                          defaultValue="2025-10-18"
+                          value={restoreDate}
+                          onChange={(e) => setRestoreDate(e.target.value)}
                           data-testid="input-restore-date"
                         />
                       </div>
@@ -798,39 +817,26 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                           id="restore-time"
                           type="time"
                           className="text-xs h-8"
-                          defaultValue="14:30"
+                          value={restoreTime}
+                          onChange={(e) => setRestoreTime(e.target.value)}
                           data-testid="input-restore-time"
                         />
                       </div>
                     </div>
-                    
-                    <div className="bg-yellow-500/10 border border-yellow-500/30 rounded p-2">
-                      <p className="text-xs text-yellow-300 flex items-center gap-2">
-                        <AlertTriangle className="h-3 w-3" />
-                        Warning: All changes after this timestamp will be permanently lost
-                      </p>
-                    </div>
 
-                    <div className="flex gap-2">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="text-xs flex-1"
-                        data-testid="button-preview-restore"
-                      >
-                        <FileText className="h-3 w-3 mr-1" />
-                        Preview Changes
-                      </Button>
-                      <Button 
-                        variant="default" 
-                        size="sm" 
-                        className="text-xs flex-1 bg-blue-600 hover:bg-blue-700"
-                        data-testid="button-execute-restore"
-                      >
-                        <RotateCcw className="h-3 w-3 mr-1" />
-                        Restore Database
-                      </Button>
-                    </div>
+                    <Button 
+                      variant="default" 
+                      size="sm" 
+                      className="w-full text-xs bg-blue-600 hover:bg-blue-700"
+                      onClick={() => {
+                        setRestoreWizardOpen(true);
+                        setRestoreStep('warning');
+                      }}
+                      data-testid="button-start-restore-wizard"
+                    >
+                      <RotateCcw className="h-3 w-3 mr-1" />
+                      Start Guided Restore
+                    </Button>
                   </div>
                 </div>
 
@@ -1184,6 +1190,382 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Restore Wizard Dialog */}
+      <Dialog open={restoreWizardOpen} onOpenChange={(open) => {
+        if (!open && restoreStep !== 'restoring' && restoreStep !== 'syncing') {
+          setRestoreWizardOpen(false);
+          setRestoreStep('select');
+          setRestoreProgress(0);
+          setVerificationResults(null);
+        }
+      }}>
+        <DialogContent className="bg-gray-900 border-gray-700 max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-base flex items-center gap-2">
+              <RotateCcw className="h-4 w-4 text-blue-400" />
+              {restoreStep === 'warning' && 'Important: Read Before Proceeding'}
+              {restoreStep === 'restoring' && 'Restoring Database...'}
+              {restoreStep === 'syncing' && 'Syncing from Sales Platforms...'}
+              {restoreStep === 'verification' && 'Verifying Recovery...'}
+              {restoreStep === 'complete' && 'Recovery Complete!'}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* Step 1: Warning & Explanation */}
+            {restoreStep === 'warning' && (
+              <div className="space-y-4">
+                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 space-y-3">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="h-5 w-5 text-yellow-400 mt-0.5 flex-shrink-0" />
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-yellow-300">Critical: Understanding Point-in-Time Restore</p>
+                      <p className="text-xs text-yellow-200/90">
+                        You're about to restore your database to <strong>{restoreDate} at {restoreTime}</strong>. 
+                        All data changes after this timestamp will be permanently lost.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 space-y-3">
+                  <p className="text-sm font-medium text-blue-300">What Happens Next (Automated):</p>
+                  <ol className="text-xs text-blue-200/90 space-y-2 ml-4 list-decimal">
+                    <li><strong>Database Restore:</strong> We'll roll back your PlanetBrick database to the selected timestamp</li>
+                    <li><strong>Platform Sync (Critical):</strong> We'll automatically pull fresh data from BrickLink, BrickOwl, and other platforms</li>
+                    <li><strong>Why?</strong> Your sales platforms have the most up-to-date inventory and order information</li>
+                    <li><strong>Verification:</strong> We'll check that everything matches and alert you to any issues</li>
+                  </ol>
+                </div>
+
+                <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+                  <p className="text-xs text-red-300 flex items-start gap-2">
+                    <AlertTriangle className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                    <span>
+                      <strong>Important:</strong> After restore, your local data will be OLD. We will automatically sync FROM your sales platforms (not TO them) to get the correct current state. This prevents overwriting good data with old data.
+                    </span>
+                  </p>
+                </div>
+
+                <div className="space-y-2 pt-2">
+                  <p className="text-xs font-medium text-gray-300">Checklist - Please Confirm:</p>
+                  <div className="space-y-1.5">
+                    <label className="flex items-start gap-2 text-xs text-gray-400 cursor-pointer">
+                      <input type="checkbox" className="mt-0.5" data-testid="checkbox-understand-data-loss" />
+                      <span>I understand all changes after {restoreDate} {restoreTime} will be lost</span>
+                    </label>
+                    <label className="flex items-start gap-2 text-xs text-gray-400 cursor-pointer">
+                      <input type="checkbox" className="mt-0.5" data-testid="checkbox-understand-platform-sync" />
+                      <span>I understand we will sync FROM platforms (not TO them) after restore</span>
+                    </label>
+                    <label className="flex items-start gap-2 text-xs text-gray-400 cursor-pointer">
+                      <input type="checkbox" className="mt-0.5" data-testid="checkbox-backup-current" />
+                      <span>I have exported a current backup of my data (if needed)</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 text-xs"
+                    onClick={() => {
+                      setRestoreWizardOpen(false);
+                      setRestoreStep('select');
+                    }}
+                    data-testid="button-cancel-restore"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="flex-1 text-xs bg-blue-600 hover:bg-blue-700"
+                    onClick={() => {
+                      setRestoreStep('restoring');
+                      setRestoreProgress(0);
+                      // Simulate restore process
+                      setTimeout(() => {
+                        setRestoreProgress(25);
+                        setRestoreCurrentTask('Rolling back database to restore point...');
+                        setTimeout(() => {
+                          setRestoreProgress(50);
+                          setRestoreCurrentTask('Validating restored data integrity...');
+                          setTimeout(() => {
+                            setRestoreProgress(100);
+                            setRestoreStep('syncing');
+                            setRestoreProgress(0);
+                          }, 1500);
+                        }, 2000);
+                      }, 1000);
+                    }}
+                    data-testid="button-confirm-restore"
+                  >
+                    I Understand - Begin Restore
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 2: Restoring Database */}
+            {restoreStep === 'restoring' && (
+              <div className="space-y-4">
+                <div className="text-center py-8">
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-500/20 mb-4">
+                    <RotateCcw className="h-8 w-8 text-blue-400 animate-spin" />
+                  </div>
+                  <h3 className="text-sm font-medium text-gray-200 mb-2">Restoring Database</h3>
+                  <p className="text-xs text-gray-400 mb-4">{restoreCurrentTask}</p>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs text-gray-400">
+                    <span>Progress</span>
+                    <span>{restoreProgress}%</span>
+                  </div>
+                  <div className="w-full bg-gray-700 rounded-full h-2">
+                    <div 
+                      className="bg-blue-500 h-2 rounded-full transition-all duration-500"
+                      style={{ width: `${restoreProgress}%` }}
+                    />
+                  </div>
+                </div>
+
+                <div className="bg-gray-800 border border-gray-700 rounded p-3">
+                  <p className="text-[10px] text-gray-500">
+                    <strong>Note:</strong> Do not close this window or navigate away. The restore process typically takes 1-3 minutes depending on your database size.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Step 3: Syncing from Platforms */}
+            {restoreStep === 'syncing' && (
+              <div className="space-y-4">
+                <div className="text-center py-6">
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-500/20 mb-4">
+                    <CloudUpload className="h-8 w-8 text-green-400 animate-pulse" />
+                  </div>
+                  <h3 className="text-sm font-medium text-gray-200 mb-2">Syncing from Sales Platforms</h3>
+                  <p className="text-xs text-gray-400 mb-4">Pulling current data from external platforms</p>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between p-3 bg-gray-800 border border-gray-700 rounded">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-green-400" />
+                      <span className="text-xs text-gray-300">BrickLink Inventory</span>
+                    </div>
+                    <span className="text-xs text-green-400">Complete (1,247 items)</span>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 bg-gray-800 border border-gray-700 rounded">
+                    <div className="flex items-center gap-2">
+                      <div className="h-4 w-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                      <span className="text-xs text-gray-300">BrickLink Orders</span>
+                    </div>
+                    <span className="text-xs text-gray-400">Syncing... (42 of 156)</span>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 bg-gray-800 border border-gray-700 rounded opacity-50">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-gray-500" />
+                      <span className="text-xs text-gray-400">BrickOwl Orders</span>
+                    </div>
+                    <span className="text-xs text-gray-500">Waiting...</span>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 bg-gray-800 border border-gray-700 rounded opacity-50">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-gray-500" />
+                      <span className="text-xs text-gray-400">ShipStation Orders</span>
+                    </div>
+                    <span className="text-xs text-gray-500">Waiting...</span>
+                  </div>
+                </div>
+
+                <div className="bg-blue-500/10 border border-blue-500/30 rounded p-3">
+                  <p className="text-[10px] text-blue-300">
+                    <strong>Why we do this:</strong> Your sales platforms (BrickLink, BrickOwl, etc.) have processed sales and status changes since the restore point. We're pulling their current data to ensure PlanetBrick matches reality.
+                  </p>
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-xs"
+                  onClick={() => {
+                    setRestoreStep('verification');
+                    setVerificationResults({
+                      inventoryMatch: true,
+                      orderStatusMatch: true,
+                      platformSync: true
+                    });
+                  }}
+                  data-testid="button-skip-to-verification"
+                >
+                  Skip to Verification (Demo)
+                </Button>
+              </div>
+            )}
+
+            {/* Step 4: Verification */}
+            {restoreStep === 'verification' && verificationResults && (
+              <div className="space-y-4">
+                <div className="text-center py-4">
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-500/20 mb-4">
+                    <CheckCircle2 className="h-8 w-8 text-green-400" />
+                  </div>
+                  <h3 className="text-sm font-medium text-gray-200 mb-2">Verifying Recovery</h3>
+                  <p className="text-xs text-gray-400">Checking data integrity and platform synchronization</p>
+                </div>
+
+                <div className="space-y-2">
+                  <div className={`flex items-center justify-between p-3 rounded border ${
+                    verificationResults.inventoryMatch 
+                      ? 'bg-green-500/10 border-green-500/30' 
+                      : 'bg-red-500/10 border-red-500/30'
+                  }`}>
+                    <div className="flex items-center gap-2">
+                      {verificationResults.inventoryMatch ? (
+                        <CheckCircle2 className="h-4 w-4 text-green-400" />
+                      ) : (
+                        <AlertTriangle className="h-4 w-4 text-red-400" />
+                      )}
+                      <span className="text-xs text-gray-300">Inventory Sync Verification</span>
+                    </div>
+                    <span className={`text-xs ${verificationResults.inventoryMatch ? 'text-green-400' : 'text-red-400'}`}>
+                      {verificationResults.inventoryMatch ? '✓ Matched' : '✗ Mismatch'}
+                    </span>
+                  </div>
+
+                  <div className={`flex items-center justify-between p-3 rounded border ${
+                    verificationResults.orderStatusMatch 
+                      ? 'bg-green-500/10 border-green-500/30' 
+                      : 'bg-red-500/10 border-red-500/30'
+                  }`}>
+                    <div className="flex items-center gap-2">
+                      {verificationResults.orderStatusMatch ? (
+                        <CheckCircle2 className="h-4 w-4 text-green-400" />
+                      ) : (
+                        <AlertTriangle className="h-4 w-4 text-red-400" />
+                      )}
+                      <span className="text-xs text-gray-300">Order Status Verification</span>
+                    </div>
+                    <span className={`text-xs ${verificationResults.orderStatusMatch ? 'text-green-400' : 'text-red-400'}`}>
+                      {verificationResults.orderStatusMatch ? '✓ Matched' : '✗ Mismatch'}
+                    </span>
+                  </div>
+
+                  <div className={`flex items-center justify-between p-3 rounded border ${
+                    verificationResults.platformSync 
+                      ? 'bg-green-500/10 border-green-500/30' 
+                      : 'bg-red-500/10 border-red-500/30'
+                  }`}>
+                    <div className="flex items-center gap-2">
+                      {verificationResults.platformSync ? (
+                        <CheckCircle2 className="h-4 w-4 text-green-400" />
+                      ) : (
+                        <AlertTriangle className="h-4 w-4 text-red-400" />
+                      )}
+                      <span className="text-xs text-gray-300">Platform Sync Status</span>
+                    </div>
+                    <span className={`text-xs ${verificationResults.platformSync ? 'text-green-400' : 'text-red-400'}`}>
+                      {verificationResults.platformSync ? '✓ All Synced' : '✗ Issues Found'}
+                    </span>
+                  </div>
+                </div>
+
+                {verificationResults.inventoryMatch && verificationResults.orderStatusMatch && verificationResults.platformSync ? (
+                  <div className="bg-green-500/10 border border-green-500/30 rounded p-3">
+                    <p className="text-xs text-green-300">
+                      <strong>✓ All checks passed!</strong> Your data has been successfully restored and synchronized with your sales platforms. You can now safely resume normal operations.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="bg-yellow-500/10 border border-yellow-500/30 rounded p-3">
+                    <p className="text-xs text-yellow-300">
+                      <strong>⚠ Issues detected.</strong> Some data may not match between PlanetBrick and your sales platforms. Review the issues above and consider manual verification.
+                    </p>
+                  </div>
+                )}
+
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="w-full text-xs bg-blue-600 hover:bg-blue-700"
+                  onClick={() => setRestoreStep('complete')}
+                  data-testid="button-continue-to-summary"
+                >
+                  Continue to Summary
+                </Button>
+              </div>
+            )}
+
+            {/* Step 5: Complete */}
+            {restoreStep === 'complete' && (
+              <div className="space-y-4">
+                <div className="text-center py-6">
+                  <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-green-500/20 mb-4">
+                    <CheckCircle2 className="h-10 w-10 text-green-400" />
+                  </div>
+                  <h3 className="text-lg font-medium text-green-300 mb-2">Recovery Complete!</h3>
+                  <p className="text-xs text-gray-400">Your database has been successfully restored to {restoreDate} at {restoreTime}</p>
+                </div>
+
+                <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 space-y-3">
+                  <p className="text-sm font-medium text-blue-300">Post-Recovery Checklist:</p>
+                  <div className="space-y-2">
+                    <label className="flex items-start gap-2 text-xs text-blue-200/90 cursor-pointer">
+                      <input type="checkbox" className="mt-0.5" />
+                      <span>Verify key inventory items match BrickLink quantities</span>
+                    </label>
+                    <label className="flex items-start gap-2 text-xs text-blue-200/90 cursor-pointer">
+                      <input type="checkbox" className="mt-0.5" />
+                      <span>Check recent orders (last 7 days) for correct statuses</span>
+                    </label>
+                    <label className="flex items-start gap-2 text-xs text-blue-200/90 cursor-pointer">
+                      <input type="checkbox" className="mt-0.5" />
+                      <span>Review any shipped orders to ensure inventory was correctly adjusted</span>
+                    </label>
+                    <label className="flex items-start gap-2 text-xs text-blue-200/90 cursor-pointer">
+                      <input type="checkbox" className="mt-0.5" />
+                      <span>Test a manual inventory sync to verify sync system is working</span>
+                    </label>
+                    <label className="flex items-start gap-2 text-xs text-blue-200/90 cursor-pointer">
+                      <input type="checkbox" className="mt-0.5" />
+                      <span>Re-enable automated sync schedules if you disabled them</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div className="bg-gray-800 border border-gray-700 rounded p-3">
+                  <p className="text-xs text-gray-400">
+                    <strong>Next Steps:</strong> Monitor your store for the next 24 hours to ensure everything is working correctly. If you notice any discrepancies, you can review the sync logs in the Notifications panel.
+                  </p>
+                </div>
+
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="w-full text-xs bg-green-600 hover:bg-green-700"
+                  onClick={() => {
+                    setRestoreWizardOpen(false);
+                    setRestoreStep('select');
+                    setRestoreProgress(0);
+                    setVerificationResults(null);
+                  }}
+                  data-testid="button-close-wizard"
+                >
+                  Close & Return to Settings
+                </Button>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
