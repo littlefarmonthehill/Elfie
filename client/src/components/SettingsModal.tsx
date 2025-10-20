@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { AppSettings } from "@shared/schema";
-import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload } from "lucide-react";
+import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,13 +14,46 @@ import { Switch } from "@/components/ui/switch";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { EmbeddingsManager } from "@/components/EmbeddingsManager";
+import { useToast } from "@/hooks/use-toast";
 
 interface SettingsModalProps {
   open: boolean;
   onClose: () => void;
 }
 
+// Device detection helper
+function getDeviceInfo() {
+  const userAgent = navigator.userAgent;
+  const platform = navigator.platform;
+  
+  const isIOS = /iPhone|iPad|iPod/.test(userAgent) && !(window as any).MSStream;
+  const isIPad = /iPad/.test(userAgent) || (platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isAndroid = /Android/.test(userAgent);
+  const isMac = /Mac/.test(platform) && !isIPad;
+  const isWindows = /Win/.test(platform);
+  const isSafari = /Safari/.test(userAgent) && !/Chrome/.test(userAgent);
+  const isChrome = /Chrome/.test(userAgent);
+  const isFirefox = /Firefox/.test(userAgent);
+  const isPWA = window.matchMedia('(display-mode: standalone)').matches;
+  
+  let deviceType = 'Unknown';
+  let browserType = 'Unknown';
+  
+  if (isIOS) deviceType = 'iPhone';
+  else if (isIPad) deviceType = 'iPad';
+  else if (isAndroid) deviceType = 'Android';
+  else if (isMac) deviceType = 'Mac';
+  else if (isWindows) deviceType = 'Windows';
+  
+  if (isSafari) browserType = 'Safari';
+  else if (isChrome) browserType = 'Chrome';
+  else if (isFirefox) browserType = 'Firefox';
+  
+  return { deviceType, browserType, isPWA, isIOS: isIOS || isIPad };
+}
+
 export default function SettingsModal({ open, onClose }: SettingsModalProps) {
+  const { toast } = useToast();
   const [clearDataDialog, setClearDataDialog] = useState<'inventory' | 'orders' | null>(null);
   const [restoreWizardOpen, setRestoreWizardOpen] = useState(false);
   const [restoreStep, setRestoreStep] = useState<'select' | 'warning' | 'restoring' | 'syncing' | 'differential' | 'verification' | 'complete'>('select');
@@ -196,6 +229,57 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
     // TODO: Implement clear data functionality
     console.log(`Clearing ${type} data`);
     setClearDataDialog(null);
+  };
+
+  // Handle app cache and data clearing
+  const handleClearAppCache = async () => {
+    try {
+      // Clear localStorage (except auth data if any)
+      const authKeys = ['elfie-session-id']; // Preserve these keys
+      const keysToKeep: Record<string, string> = {};
+      
+      authKeys.forEach(key => {
+        const value = localStorage.getItem(key);
+        if (value) keysToKeep[key] = value;
+      });
+      
+      localStorage.clear();
+      
+      // Restore preserved keys
+      Object.entries(keysToKeep).forEach(([key, value]) => {
+        localStorage.setItem(key, value);
+      });
+      
+      // Clear sessionStorage
+      sessionStorage.clear();
+      
+      // Clear service worker cache if available
+      if ('serviceWorker' in navigator && 'caches' in window) {
+        const cacheNames = await caches.keys();
+        await Promise.all(
+          cacheNames.map(cacheName => caches.delete(cacheName))
+        );
+        
+        // Force service worker update
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (const registration of registrations) {
+          await registration.update();
+        }
+      }
+      
+      toast({
+        title: "Cache Cleared",
+        description: "App data cleared successfully. Reload the app to apply changes.",
+      });
+      
+    } catch (error) {
+      console.error('Error clearing cache:', error);
+      toast({
+        title: "Error",
+        description: "Failed to clear cache completely. Try manual steps below.",
+        variant: "destructive",
+      });
+    }
   };
 
   // Restore workflow functions
@@ -482,6 +566,130 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                   <AlertTriangle className="h-3 w-3 flex-shrink-0 mt-0.5" />
                   <span>Note: CSV files are for analysis only and are NOT considered backups. Use the Backup & Clear tab for restore capabilities.</span>
                 </p>
+              </div>
+
+              <Separator className="bg-gray-700" />
+
+              {/* Cache & Storage */}
+              <div>
+                <h3 className="text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
+                  <Smartphone className="h-4 w-4 text-blue-400" />
+                  Cache & Storage
+                </h3>
+                <p className="text-xs text-gray-400 mb-3">Clear app cache and stored data to fix issues or free up space</p>
+
+                {(() => {
+                  const deviceInfo = getDeviceInfo();
+                  
+                  return (
+                    <div className="space-y-3">
+                      {/* Device Info */}
+                      <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Smartphone className="h-4 w-4 text-blue-400" />
+                          <span className="text-xs font-medium text-gray-300">Device Info</span>
+                        </div>
+                        <div className="space-y-1 text-[11px] text-gray-400">
+                          <p>Device: <span className="text-gray-300">{deviceInfo.deviceType}</span></p>
+                          <p>Browser: <span className="text-gray-300">{deviceInfo.browserType}</span></p>
+                          <p>Mode: <span className="text-gray-300">{deviceInfo.isPWA ? 'PWA (Installed)' : 'Browser'}</span></p>
+                        </div>
+                      </div>
+
+                      {/* Clear App Cache Button */}
+                      <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
+                        <Button
+                          onClick={handleClearAppCache}
+                          variant="outline"
+                          size="sm"
+                          className="w-full text-xs bg-blue-600 hover:bg-blue-700 border-blue-500"
+                          data-testid="button-clear-cache"
+                        >
+                          <RefreshCw className="h-3 w-3 mr-2" />
+                          Clear App Cache & Data
+                        </Button>
+                        <p className="text-[10px] text-blue-300 mt-2">
+                          Clears localStorage, sessionStorage, and service worker cache. Your session will be preserved.
+                        </p>
+                      </div>
+
+                      {/* Device-Specific Instructions */}
+                      {deviceInfo.isIOS && (
+                        <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3">
+                          <h4 className="text-xs font-medium text-purple-300 mb-2">iOS/iPadOS Manual Cache Clear</h4>
+                          <p className="text-[10px] text-gray-400 mb-2">
+                            If issues persist after using the button above, follow these steps:
+                          </p>
+                          <ol className="text-[10px] text-gray-400 space-y-1 list-decimal list-inside">
+                            {deviceInfo.isPWA ? (
+                              <>
+                                <li>Close this PWA completely</li>
+                                <li>Open Safari and go to Settings</li>
+                                <li>Scroll down to "Safari" → "Advanced"</li>
+                                <li>Tap "Website Data"</li>
+                                <li>Search for "planetbrick" or "replit"</li>
+                                <li>Swipe left and tap "Delete"</li>
+                                <li>Re-open the PWA from your home screen</li>
+                              </>
+                            ) : (
+                              <>
+                                <li>Open Safari Settings</li>
+                                <li>Go to "Safari" → "Advanced" → "Website Data"</li>
+                                <li>Search for "planetbrick" or the current site</li>
+                                <li>Swipe left and delete</li>
+                                <li>Reload this page</li>
+                              </>
+                            )}
+                          </ol>
+                        </div>
+                      )}
+
+                      {deviceInfo.deviceType === 'Android' && (
+                        <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
+                          <h4 className="text-xs font-medium text-green-300 mb-2">Android Manual Cache Clear</h4>
+                          <p className="text-[10px] text-gray-400 mb-2">
+                            If issues persist:
+                          </p>
+                          <ol className="text-[10px] text-gray-400 space-y-1 list-decimal list-inside">
+                            {deviceInfo.isPWA ? (
+                              <>
+                                <li>Go to Settings → Apps</li>
+                                <li>Find "PlanetBrick" in app list</li>
+                                <li>Tap "Storage"</li>
+                                <li>Tap "Clear Cache" and "Clear Data"</li>
+                                <li>Re-open the app</li>
+                              </>
+                            ) : (
+                              <>
+                                <li>Open {deviceInfo.browserType} settings</li>
+                                <li>Go to Privacy → Clear browsing data</li>
+                                <li>Select "Cached images and files"</li>
+                                <li>Select "Site settings" or "Cookies"</li>
+                                <li>Clear data and reload</li>
+                              </>
+                            )}
+                          </ol>
+                        </div>
+                      )}
+
+                      {!deviceInfo.isIOS && deviceInfo.deviceType !== 'Android' && (
+                        <div className="bg-gray-700/50 border border-gray-600 rounded-lg p-3">
+                          <h4 className="text-xs font-medium text-gray-300 mb-2">Desktop Cache Clear</h4>
+                          <p className="text-[10px] text-gray-400 mb-2">
+                            If issues persist, use browser developer tools:
+                          </p>
+                          <ul className="text-[10px] text-gray-400 space-y-1 list-disc list-inside">
+                            <li>Press F12 to open DevTools</li>
+                            <li>Go to "Application" or "Storage" tab</li>
+                            <li>Clear all storage (localStorage, sessionStorage, Cache)</li>
+                            <li>Unregister Service Workers</li>
+                            <li>Reload the page</li>
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
               </div>
             )}
