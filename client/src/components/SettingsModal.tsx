@@ -56,9 +56,8 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
 
   // AI Settings
   const [aiEnabled, setAiEnabled] = useState(true);
-  const [apiKey, setApiKey] = useState("");
   const [openaiApiKey, setOpenaiApiKey] = useState("");
-  const [selectedModel, setSelectedModel] = useState("openai/gpt-4o-mini");
+  const [selectedModel, setSelectedModel] = useState("gpt-4o-mini");
   const [systemPrompt, setSystemPrompt] = useState("");
   const [availableModels, setAvailableModels] = useState<Array<{ id: string; name: string }>>([]);
   const [loadingModels, setLoadingModels] = useState(false);
@@ -115,10 +114,8 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   useEffect(() => {
     if (settings) {
       setAiEnabled(settings.aiEnabled);
-      const key = settings.openrouterApiKey || "";
-      setApiKey(key);
       setOpenaiApiKey(settings.openaiApiKey || "");
-      setSelectedModel(settings.selectedModel || "openai/gpt-4o-mini");
+      setSelectedModel(settings.selectedModel || "gpt-4o-mini");
       setSystemPrompt(settings.systemPrompt || "");
       setBricklinkConsumerKey(settings.bricklinkConsumerKey || "");
       setBricklinkConsumerSecret(settings.bricklinkConsumerSecret || "");
@@ -134,21 +131,17 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
       setOrdersSyncEnabled(settings.ordersSyncEnabled || false);
       setOrdersSyncFrequency(settings.ordersSyncFrequency || 15);
       
-      // Fetch models if API key exists
-      if (key) {
-        fetchModels(key);
-      }
+      // Fetch models
+      fetchModels();
     }
   }, [settings]);
 
-  const fetchModels = async (key: string) => {
-    if (!key) return;
+  const fetchModels = async () => {
     setLoadingModels(true);
     try {
-      const response = await fetch('/api/openrouter/models', {
-        method: 'POST',
+      const response = await fetch('/api/openai/models', {
+        method: 'GET',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey: key }),
       });
       const data = await response.json();
       if (data.models) {
@@ -161,28 +154,6 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
     }
   };
 
-  // Group models by provider
-  const groupedModels = availableModels.reduce((acc, model) => {
-    const provider = model.id.split('/')[0] || 'other';
-    if (!acc[provider]) {
-      acc[provider] = [];
-    }
-    acc[provider].push(model);
-    return acc;
-  }, {} as Record<string, Array<{ id: string; name: string }>>);
-
-  const providerNames: Record<string, string> = {
-    'openai': 'OpenAI (ChatGPT)',
-    'anthropic': 'Anthropic (Claude)',
-    'google': 'Google (Gemini)',
-    'meta': 'Meta (Llama)',
-    'mistralai': 'Mistral AI',
-    'cohere': 'Cohere',
-    'perplexity': 'Perplexity',
-    'deepseek': 'DeepSeek',
-    'x-ai': 'xAI (Grok)',
-    'other': 'Other Models',
-  };
 
   const handleExport = async (type: 'inventory' | 'orders', format: 'csv' | 'xml') => {
     try {
@@ -752,7 +723,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                           setAiEnabled(checked);
                           updateSettingsMutation.mutate({ 
                             aiEnabled: checked,
-                            openrouterApiKey: apiKey || null,
+                            openaiApiKey: openaiApiKey || null,
                             selectedModel: selectedModel || null,
                             systemPrompt: systemPrompt || null,
                           });
@@ -764,42 +735,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                     <Separator className="bg-gray-700" />
 
                     <div className="space-y-2">
-                      <Label htmlFor="openrouter-api-key" className="text-xs text-gray-400">OpenRouter API Key</Label>
-                      <Input
-                        id="openrouter-api-key"
-                        type="password"
-                        placeholder="sk-or-v1-..."
-                        value={apiKey}
-                        onChange={(e) => setApiKey(e.target.value)}
-                        onBlur={() => {
-                          updateSettingsMutation.mutate({
-                            aiEnabled,
-                            openrouterApiKey: apiKey || null,
-                            selectedModel: selectedModel || null,
-                            systemPrompt: systemPrompt || null,
-                          });
-                          if (apiKey) {
-                            fetchModels(apiKey);
-                          }
-                        }}
-                        className="text-xs font-mono"
-                        data-testid="input-openrouter-api-key"
-                      />
-                      <p className="text-xs text-gray-500">
-                        Your API key is stored securely. Get one from{" "}
-                        <a 
-                          href="https://openrouter.ai/keys" 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="text-purple-400 hover:text-purple-300"
-                        >
-                          OpenRouter
-                        </a>
-                      </p>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="openai-api-key" className="text-xs text-gray-400">OpenAI API Key (for Embeddings)</Label>
+                      <Label htmlFor="openai-api-key" className="text-xs text-gray-400">OpenAI API Key</Label>
                       <Input
                         id="openai-api-key"
                         type="password"
@@ -809,7 +745,6 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                         onBlur={() => {
                           updateSettingsMutation.mutate({
                             aiEnabled,
-                            openrouterApiKey: apiKey || null,
                             openaiApiKey: openaiApiKey || null,
                             selectedModel: selectedModel || null,
                             systemPrompt: systemPrompt || null,
@@ -819,7 +754,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                         data-testid="input-openai-api-key"
                       />
                       <p className="text-xs text-gray-500">
-                        Required for semantic search and embeddings. Get one from{" "}
+                        Your API key is stored securely. Get one from{" "}
                         <a 
                           href="https://platform.openai.com/api-keys" 
                           target="_blank" 
@@ -831,7 +766,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                       </p>
                     </div>
 
-                    {apiKey && availableModels.length > 0 && (
+                    {availableModels.length > 0 && (
                       <div className="space-y-2">
                         <Label htmlFor="ai-model" className="text-xs text-gray-400">Model</Label>
                         <Select 
@@ -840,7 +775,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                             setSelectedModel(value);
                             updateSettingsMutation.mutate({
                               aiEnabled,
-                              openrouterApiKey: apiKey || null,
+                              openaiApiKey: openaiApiKey || null,
                               selectedModel: value,
                               systemPrompt: systemPrompt || null,
                             });
@@ -850,17 +785,10 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                             <SelectValue placeholder="Select a model" />
                           </SelectTrigger>
                           <SelectContent>
-                            {Object.entries(groupedModels).map(([provider, models]) => (
-                              <SelectGroup key={provider}>
-                                <SelectLabel className="text-xs">
-                                  {providerNames[provider] || provider}
-                                </SelectLabel>
-                                {models.map((model) => (
-                                  <SelectItem key={model.id} value={model.id}>
-                                    {model.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectGroup>
+                            {availableModels.map((model) => (
+                              <SelectItem key={model.id} value={model.id}>
+                                {model.name}
+                              </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
@@ -883,7 +811,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                         onBlur={() => {
                           updateSettingsMutation.mutate({
                             aiEnabled,
-                            openrouterApiKey: apiKey || null,
+                            openaiApiKey: openaiApiKey || null,
                             selectedModel: selectedModel || null,
                             systemPrompt: systemPrompt || null,
                           });
@@ -898,7 +826,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
 
                     <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3">
                       <p className="text-xs text-purple-300">
-                        <strong>Using OpenRouter:</strong> Access multiple AI models through a unified API
+                        <strong>Using OpenAI:</strong> Powered by GPT-4o-mini for chat completions and text-embedding-3-small for semantic search
                       </p>
                     </div>
                   </div>
