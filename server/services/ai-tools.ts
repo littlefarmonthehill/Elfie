@@ -314,12 +314,11 @@ export async function getOrderAnalytics(params?: {
  */
 export async function getSetParts(params: {
   setNum: string;
-  limit?: number;
 }) {
-  const { setNum, limit = 100 } = params;
+  const { setNum } = params;
   
   try {
-    // Query set-part relationships for this set
+    // Query set-part relationships for this set (no limit - return complete parts list)
     const parts = await db
       .select({
         partNum: setPartRelationships.partNum,
@@ -328,8 +327,7 @@ export async function getSetParts(params: {
         setName: setPartRelationships.setName,
       })
       .from(setPartRelationships)
-      .where(eq(setPartRelationships.setNum, setNum))
-      .limit(limit);
+      .where(eq(setPartRelationships.setNum, setNum));
     
     if (parts.length === 0) {
       return {
@@ -338,17 +336,21 @@ export async function getSetParts(params: {
       };
     }
     
-    // Get color names for the parts
+    // Get color names for the parts (only if there are colorIds)
     const colorIds = Array.from(new Set(parts.map(p => p.colorId).filter(id => id !== null)));
-    const colors = await db
-      .select({
-        id: blColors.id,
-        name: blColors.name,
-      })
-      .from(blColors)
-      .where(sql`${blColors.id} IN (${sql.join(colorIds.map(id => sql`${id}`), sql`, `)})`);
+    let colorMap = new Map<number, string>();
     
-    const colorMap = new Map(colors.map(c => [c.id, c.name]));
+    if (colorIds.length > 0) {
+      const colors = await db
+        .select({
+          id: blColors.id,
+          name: blColors.name,
+        })
+        .from(blColors)
+        .where(sql`${blColors.id} IN (${sql.join(colorIds.map(id => sql`${id}`), sql`, `)})`);
+      
+      colorMap = new Map(colors.map(c => [c.id, c.name]));
+    }
     
     // Enrich parts with color names
     const enrichedParts = parts.map(part => ({
@@ -531,17 +533,13 @@ export const AI_TOOLS = [
     type: 'function',
     function: {
       name: 'get_set_parts',
-      description: 'Get the complete list of parts and quantities in a LEGO set. Use this when user asks "what parts are in set X" or "show me the parts list for set X".',
+      description: 'Get the complete list of ALL parts and quantities in a LEGO set. Returns the full inventory with no limits. Use this when user asks "what parts are in set X" or "show me the parts list for set X".',
       parameters: {
         type: 'object',
         properties: {
           setNum: {
             type: 'string',
             description: 'The set number (e.g., "4709-1", "10179-1", "75192-1"). Must include the variant number after the dash.',
-          },
-          limit: {
-            type: 'number',
-            description: 'Maximum number of parts to return (default: 100)',
           },
         },
         required: ['setNum'],
