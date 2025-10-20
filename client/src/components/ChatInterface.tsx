@@ -11,6 +11,7 @@ import elfieRobot from "@assets/PlanetBrick_good_robot_1760672362080.png";
 interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
+  imageUrl?: string;
   items?: Array<{
     id: number;
     itemNo: string;
@@ -39,6 +40,7 @@ interface ChatMessage {
 
 interface MessageContentProps {
   content: string;
+  imageUrl?: string;
   items?: Array<{
     id: number;
     itemNo: string;
@@ -68,7 +70,7 @@ interface MessageContentProps {
   onBrickLinkSearch?: (itemNo: string, itemType: string) => void;
 }
 
-function MessageContent({ content, items, orders, bricklinkSearchSuggestion, onItemClick, onBrickLinkClick, onBrickLinkSearch }: MessageContentProps) {
+function MessageContent({ content, imageUrl, items, orders, bricklinkSearchSuggestion, onItemClick, onBrickLinkClick, onBrickLinkSearch }: MessageContentProps) {
   // Group items by itemNo for grouped display
   const groupedItems = items && items.length > 0 ? items.reduce((acc, item) => {
     if (!acc[item.itemNo]) {
@@ -328,6 +330,22 @@ function MessageContent({ content, items, orders, bricklinkSearchSuggestion, onI
 
   return (
     <div className="w-full space-y-2">
+      {/* Show identified LEGO part image from Brickognize */}
+      {imageUrl && (
+        <div className="flex justify-center">
+          <img 
+            src={imageUrl} 
+            alt="Identified LEGO part" 
+            className="max-w-[200px] max-h-[200px] object-contain rounded-lg border border-purple-500/30 bg-gray-900/50"
+            data-testid="img-brickognize-result"
+            onError={(e) => {
+              // Hide image if it fails to load
+              e.currentTarget.style.display = 'none';
+            }}
+          />
+        </div>
+      )}
+      
       {/* Always show the AI's text response when present */}
       {content && content.trim().length > 0 && (
         <div className="space-y-1 bg-gray-800/80 text-gray-300 border border-purple-500/20 p-3 rounded-lg">
@@ -653,6 +671,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
             const assistantMessage: ChatMessage = {
               role: 'assistant',
               content: resultMessage,
+              imageUrl: topResult.img_url, // Include image from Brickognize
               items: inventoryData, // Include all items for display
             };
             
@@ -685,6 +704,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
             const assistantMessage: ChatMessage = {
               role: 'assistant',
               content: resultMessage,
+              imageUrl: topResult.img_url, // Include image from Brickognize
             };
             
             setMessages(prev => [...prev, assistantMessage]);
@@ -708,6 +728,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
           const assistantMessage: ChatMessage = {
             role: 'assistant',
             content: resultMessage,
+            imageUrl: topResults[0]?.img_url, // Include image from top result
           };
           
           setMessages(prev => [...prev, assistantMessage]);
@@ -846,6 +867,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
                     ) : (
                       <MessageContent
                         content={message.content}
+                        imageUrl={message.imageUrl}
                         items={message.items}
                         orders={message.orders}
                         bricklinkSearchSuggestion={message.bricklinkSearchSuggestion}
