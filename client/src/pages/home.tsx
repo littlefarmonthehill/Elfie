@@ -603,7 +603,10 @@ export default function Home() {
     setChatOpen(true);
   };
 
-  const handleChatClose = () => {
+  const handleChatClose = (open?: boolean) => {
+    // Only close if explicitly set to false (or called without parameter)
+    if (open === true) return;
+    
     // Close drawer first
     setChatOpen(false);
     setElfieResting(false);
