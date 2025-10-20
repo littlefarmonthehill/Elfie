@@ -255,15 +255,8 @@ function MessageContent({ content, items, orders, bricklinkSearchSuggestion, onI
         </div>
       )}
       
-      {/* Show grouped inventory items if available */}
-      {groupedItems && Object.entries(groupedItems).map(([itemNo, items]) => (
-        <InventoryGroup
-          key={itemNo}
-          itemNo={itemNo}
-          items={items}
-          onItemClick={(id) => onItemClick?.('inventory', id.toString())}
-        />
-      ))}
+      {/* Don't show inventory group cards - the clickable part numbers in text are enough */}
+      {/* Users can click part numbers to view details instead of seeing redundant cards */}
       
       {/* Show orders if available */}
       {orders && orders.length > 0 && (

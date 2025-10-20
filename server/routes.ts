@@ -1325,11 +1325,43 @@ You are PROACTIVE and INTELLIGENT. Don't just say "I can't find it" - USE YOUR T
         orderStatus: string;
       }> = [];
       
-      // Re-extract items for frontend display using same search criteria
-      // This ensures items shown to user match what AI is describing
+      // Extract ONLY the specific items mentioned in E.L.F.I.E.'s response
+      // This makes part numbers clickable without showing irrelevant items
+      // Parse part numbers from the assistant's message (e.g., "Part 4228", "Part 3021 in Red")
+      const partNumberRegex = /Part\s+(\S+)/gi;
+      const mentionedParts: Set<string> = new Set();
+      let partMatch;
+      
+      while ((partMatch = partNumberRegex.exec(assistantMessage)) !== null) {
+        mentionedParts.add(partMatch[1]);
+      }
+      
+      // Query database for only the mentioned parts
+      if (mentionedParts.size > 0) {
+        const items = await db
+          .select({
+            id: blInventory.id,
+            itemNo: blInventory.itemNo,
+            itemName: blInventory.itemName,
+            colorId: blInventory.colorId,
+            colorName: blColors.name,
+            colorRgb: blColors.rgb,
+            quantity: blInventory.quantity,
+            unitPrice: blInventory.unitPrice,
+            newOrUsed: blInventory.newOrUsed,
+          })
+          .from(blInventory)
+          .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+          .where(inArray(blInventory.itemNo, Array.from(mentionedParts)))
+          .limit(20);
+        
+        itemsFound.push(...items);
+      }
+      
       const partNumber = partNumberMatch ? partNumberMatch[1] : null;
       
-      if (partNumber || searchKeywords.length > 0) {
+      // Don't run the old broad search - we only want items E.L.F.I.E. mentioned
+      if (partNumber && false) { // Disabled - we extract from E.L.F.I.E.'s response instead
         if (partNumber) {
           const items = await db
             .select({
