@@ -4,7 +4,7 @@
  */
 
 import { db } from '../db';
-import { blInventory, blColors, blCategories, orders, orderDetails, setPartRelationships, inventoryEmbeddings } from '@shared/schema';
+import { blInventory, blColors, blCategories, orders, orderDetails, setPartRelationships, inventoryEmbeddings, blForumPosts, blForumEmbeddings } from '@shared/schema';
 import { eq, like, or, sql, and, desc, inArray } from 'drizzle-orm';
 import { searchBricklinkCatalogItem, fetchPriceOMagicData } from './bricklink';
 import { generateEmbedding, createInventoryContent } from './embeddings';
@@ -768,6 +768,80 @@ export async function getCopurchasedItems(params: {
 }
 
 /**
+ * Tool: Search BrickLink forum discussions
+ */
+export async function searchForumDiscussions(params: {
+  query: string;
+  limit?: number;
+}) {
+  const { query, limit = 10 } = params;
+  
+  try {
+    // Generate embedding for the search query
+    const queryEmbedding = await generateEmbedding(query);
+    const embeddingVector = JSON.stringify(queryEmbedding);
+    
+    // Search using cosine similarity
+    const results = await db.execute(sql`
+      SELECT 
+        fp.id,
+        fp.thread_id,
+        fp.title,
+        fp.excerpt,
+        fp.username,
+        fp.user_feedback_count,
+        fp.posted_at,
+        fp.post_url,
+        fp.thread_url,
+        fp.has_replies,
+        1 - (fe.embedding <=> ${embeddingVector}::vector) as relevance
+      FROM bl_forum_embeddings fe
+      JOIN bl_forum_posts fp ON fe.post_id = fp.id
+      ORDER BY fe.embedding <=> ${embeddingVector}::vector
+      LIMIT ${Math.min(limit, 20)}
+    `);
+    
+    if (results.rows.length === 0) {
+      return {
+        success: true,
+        message: 'No forum discussions found matching your query. The forum database may be empty or syncing.',
+        data: [],
+        count: 0,
+      };
+    }
+    
+    const posts = (results.rows as any[]).map(row => ({
+      id: row.id,
+      threadId: row.thread_id,
+      title: row.title,
+      excerpt: row.excerpt,
+      username: row.username,
+      userFeedbackRating: row.user_feedback_count || 0,
+      postedAt: row.posted_at,
+      postUrl: row.post_url,
+      threadUrl: row.thread_url,
+      hasReplies: row.has_replies,
+      relevance: parseFloat(row.relevance || '0').toFixed(3),
+    }));
+    
+    return {
+      success: true,
+      data: posts,
+      count: posts.length,
+      message: `Found ${posts.length} relevant forum discussion${posts.length !== 1 ? 's' : ''}`,
+    };
+  } catch (error: any) {
+    console.error('Error searching forum discussions:', error);
+    return {
+      success: false,
+      message: error.message || 'Failed to search forum discussions',
+      data: [],
+      count: 0,
+    };
+  }
+}
+
+/**
  * Tool definitions for OpenRouter function calling
  */
 export const AI_TOOLS = [
@@ -1007,6 +1081,27 @@ export const AI_TOOLS = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'search_forum_discussions',
+      description: 'Search BrickLink forum discussions for community knowledge, questions, tips, seller experiences, buyer feedback, marketplace trends, and general LEGO collecting wisdom. Use this when users ask about community insights, common issues, marketplace practices, or want to know what other sellers/buyers are discussing.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: {
+            type: 'string',
+            description: 'The search query (e.g., "shipping to Canada", "payment issues", "pricing strategies", "inventory management tips")',
+          },
+          limit: {
+            type: 'number',
+            description: 'Maximum number of forum posts to return (default: 10, max: 20)',
+          },
+        },
+        required: ['query'],
+      },
+    },
+  },
 ];
 
 /**
@@ -1042,6 +1137,9 @@ export async function executeToolCall(toolName: string, params: any): Promise<an
     
     case 'search_web':
       return await searchWeb(params);
+    
+    case 'search_forum_discussions':
+      return await searchForumDiscussions(params);
     
     default:
       return {
