@@ -305,8 +305,14 @@ function MessageContent({ content, items, orders, bricklinkSearchSuggestion, onI
         </div>
       )}
       
-      {/* Don't show inventory group cards - the clickable part numbers in text are enough */}
-      {/* Users can click part numbers to view details instead of seeing redundant cards */}
+      {/* Show inventory items if available (e.g., from image recognition) */}
+      {items && items.length > 0 && (
+        <InventoryGroup
+          itemNo={items[0].itemNo}
+          items={items}
+          onItemClick={(id) => onItemClick?.('inventory', String(id))}
+        />
+      )}
       
       {/* Show orders if available */}
       {orders && orders.length > 0 && (
@@ -612,17 +618,13 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
           
           if (inventoryData && inventoryData.length > 0) {
             // Part found in inventory - show it immediately
-            let resultMessage = `I identified this as **${topResult.name}** (Part ${topResult.id}) with ${confidence}% confidence.\n\nI found this part in your inventory:\n\n`;
-            
-            // Format inventory items
-            inventoryData.slice(0, 5).forEach((item: any) => {
-              resultMessage += `• ${item.colorName || 'Unknown Color'} - ${item.quantity} units @ $${item.unitPrice || '0.00'}\n`;
-            });
+            const totalColors = new Set(inventoryData.map((item: any) => item.colorId)).size;
+            let resultMessage = `I identified this as **${topResult.name}** (Part ${topResult.id}) with ${confidence}% confidence.\n\nFound in your inventory: ${inventoryData.length} variant${inventoryData.length > 1 ? 's' : ''} across ${totalColors} color${totalColors > 1 ? 's' : ''}.`;
             
             const assistantMessage: ChatMessage = {
               role: 'assistant',
               content: resultMessage,
-              items: inventoryData.slice(0, 5), // Include items for display
+              items: inventoryData, // Include all items for display
             };
             
             setMessages(prev => [...prev, assistantMessage]);
