@@ -4,9 +4,10 @@
  */
 
 import { db } from '../db';
-import { blInventory, blColors, blCategories, orders, orderDetails, setPartRelationships } from '@shared/schema';
+import { blInventory, blColors, blCategories, orders, orderDetails, setPartRelationships, inventoryEmbeddings } from '@shared/schema';
 import { eq, like, or, sql, and, desc, inArray } from 'drizzle-orm';
 import { searchBricklinkCatalogItem, fetchPriceOMagicData } from './bricklink';
+import { generateEmbedding, createInventoryContent } from './embeddings';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 
@@ -587,6 +588,7 @@ export async function searchOrdersByItem(params: {
 
 /**
  * Get items that were frequently purchased together with a specific part
+ * Uses HYBRID approach: SQL for exact co-purchases + embeddings for semantic similarity
  */
 export async function getCopurchasedItems(params: {
   itemNo: string;
@@ -597,20 +599,27 @@ export async function getCopurchasedItems(params: {
   try {
     // STEP 1: Find all inventory IDs for this part number
     const inventoryItems = await db
-      .select({ id: blInventory.id })
+      .select({ 
+        id: blInventory.id,
+        itemName: blInventory.itemName,
+        itemType: blInventory.itemType,
+        colorName: blInventory.colorName,
+      })
       .from(blInventory)
       .where(eq(blInventory.itemNo, itemNo));
     
     if (inventoryItems.length === 0) {
       return {
         success: true,
-        data: [],
+        data: [],  // Backward compatible
+        exactCopurchases: [],
+        similarItems: [],
         count: 0,
         message: `No inventory found for item ${itemNo}`,
       };
     }
     
-    // STEP 2: Find all orders containing this part
+    // STEP 2: SQL-based exact co-purchases
     const inventoryIds = inventoryItems.map(item => item.id.toString());
     const skuPatterns = inventoryIds.map(id => 
       like(orderDetails.sku, `%-${id}.LGO-%`)
@@ -622,88 +631,132 @@ export async function getCopurchasedItems(params: {
       .where(or(...skuPatterns))
       .groupBy(orderDetails.orderId);
     
-    if (ordersWithThisPart.length === 0) {
-      return {
-        success: true,
-        data: [],
-        count: 0,
-        message: `No orders found containing item ${itemNo}`,
-      };
-    }
+    let exactCopurchases: any[] = [];
     
-    const orderIds = ordersWithThisPart.map(o => o.orderId);
-    
-    // STEP 3: Get all items from those orders (including orderId for proper deduplication)
-    // Extract part numbers from SKUs: "16-51508372.LGO-3021" -> "3021"
-    const allItemsInOrders = await db
-      .select({
-        orderId: orderDetails.orderId,
-        sku: orderDetails.sku,
-        name: orderDetails.name,
-        quantity: orderDetails.quantity,
-      })
-      .from(orderDetails)
-      .where(inArray(orderDetails.orderId, orderIds));
-    
-    // STEP 4: Parse SKUs and aggregate co-purchased items (counting unique orders, not line items)
-    interface CopurchaseItem {
-      itemNo: string;
-      name: string;
-      totalQuantity: number;
-      orderCount: number;
-      orderIds: Set<string>;
-    }
-    
-    const copurchaseMap = new Map<string, CopurchaseItem>();
-    
-    allItemsInOrders.forEach(item => {
-      // Parse part number from SKU: "16-51508372.LGO-3021" -> "3021"
-      const match = item.sku?.match(/\.LGO-([^-]+)/);
-      if (!match) return;
+    if (ordersWithThisPart.length > 0) {
+      const orderIds = ordersWithThisPart.map(o => o.orderId);
       
-      const partNumber = match[1];
+      // Get all items from those orders
+      const allItemsInOrders = await db
+        .select({
+          orderId: orderDetails.orderId,
+          sku: orderDetails.sku,
+          name: orderDetails.name,
+          quantity: orderDetails.quantity,
+        })
+        .from(orderDetails)
+        .where(inArray(orderDetails.orderId, orderIds));
       
-      // Skip the searched part itself
-      if (partNumber === itemNo) return;
-      
-      if (!copurchaseMap.has(partNumber)) {
-        copurchaseMap.set(partNumber, {
-          itemNo: partNumber,
-          name: item.name || 'Unknown',
-          totalQuantity: 0,
-          orderCount: 0,
-          orderIds: new Set(),
-        });
+      // Aggregate co-purchased items (counting unique orders)
+      interface CopurchaseItem {
+        itemNo: string;
+        name: string;
+        totalQuantity: number;
+        orderCount: number;
+        orderIds: Set<string>;
       }
       
-      const existing = copurchaseMap.get(partNumber)!;
-      existing.totalQuantity += item.quantity || 0;
-      // Only count unique orders - increment orderCount when we see a new orderId
-      if (!existing.orderIds.has(item.orderId)) {
-        existing.orderIds.add(item.orderId);
-        existing.orderCount += 1;
-      }
-    });
+      const copurchaseMap = new Map<string, CopurchaseItem>();
+      
+      allItemsInOrders.forEach(item => {
+        const match = item.sku?.match(/\.LGO-([^-]+)/);
+        if (!match) return;
+        
+        const partNumber = match[1];
+        if (partNumber === itemNo) return; // Skip the searched part itself
+        
+        if (!copurchaseMap.has(partNumber)) {
+          copurchaseMap.set(partNumber, {
+            itemNo: partNumber,
+            name: item.name || 'Unknown',
+            totalQuantity: 0,
+            orderCount: 0,
+            orderIds: new Set(),
+          });
+        }
+        
+        const existing = copurchaseMap.get(partNumber)!;
+        existing.totalQuantity += item.quantity || 0;
+        if (!existing.orderIds.has(item.orderId)) {
+          existing.orderIds.add(item.orderId);
+          existing.orderCount += 1;
+        }
+      });
+      
+      // Sort by frequency
+      exactCopurchases = Array.from(copurchaseMap.values())
+        .sort((a, b) => b.orderCount - a.orderCount)
+        .slice(0, limit)
+        .map(({ itemNo, name, totalQuantity, orderCount }) => ({
+          itemNo,
+          name,
+          totalQuantity,
+          orderCount,
+          source: 'exact_copurchase',
+        }));
+    }
     
-    // STEP 5: Sort by frequency and return top results (remove orderIds Set from response)
-    const results = Array.from(copurchaseMap.values())
-      .sort((a, b) => b.orderCount - a.orderCount)
-      .slice(0, limit)
-      .map(({ itemNo, name, totalQuantity, orderCount }) => ({
-        itemNo,
-        name,
-        totalQuantity,
-        orderCount,
+    // STEP 3: Embedding-based semantic similarity
+    let similarItems: any[] = [];
+    
+    try {
+      // Create query content from the first inventory item
+      const sampleItem = inventoryItems[0];
+      const queryContent = `Item: ${itemNo}. Name: ${sampleItem.itemName || 'Unknown'}. Type: ${sampleItem.itemType || ''}. Color: ${sampleItem.colorName || ''}`;
+      
+      // Generate query embedding
+      const queryEmbedding = await generateEmbedding(queryContent);
+      
+      // Search using cosine similarity with parameterized query
+      const embeddingVector = JSON.stringify(queryEmbedding);
+      const searchLimit = Math.min(limit || 20, 10);
+      
+      const embeddingResults = await db.execute(sql`
+        SELECT 
+          ie.inventory_id,
+          bi.item_no,
+          bi.item_name,
+          bi.item_type,
+          bi.color_name,
+          bi.quantity,
+          1 - (ie.embedding <=> ${embeddingVector}::vector) as similarity
+        FROM inventory_embeddings ie
+        JOIN bl_inventory bi ON ie.inventory_id = bi.id
+        WHERE bi.item_no != ${itemNo}
+        ORDER BY ie.embedding <=> ${embeddingVector}::vector
+        LIMIT ${searchLimit}
+      `);
+      
+      similarItems = (embeddingResults.rows as any[]).map(row => ({
+        itemNo: row.item_no,
+        name: row.item_name || 'Unknown',
+        itemType: row.item_type,
+        colorName: row.color_name,
+        similarity: parseFloat(row.similarity || '0').toFixed(3),
+        source: 'semantic_similarity',
       }));
+    } catch (embeddingError: any) {
+      console.error('⚠️ Embedding search failed (continuing with SQL results):', embeddingError.message);
+    }
+    
+    // Combine both results for backward compatibility (data field)
+    // Also provide separate arrays for richer AI responses
+    const combinedData = [
+      ...exactCopurchases.map(item => ({ ...item, category: 'bought_together' as const })),
+      ...similarItems.map(item => ({ ...item, category: 'similar_item' as const })),
+    ];
     
     return {
       success: true,
-      data: results,
-      count: results.length,
+      data: combinedData,  // Backward compatible: combined results
+      exactCopurchases,    // New: items bought in same orders
+      similarItems,        // New: semantically similar via AI
+      count: combinedData.length,
       summary: {
         searchedPart: itemNo,
         totalOrdersAnalyzed: ordersWithThisPart.length,
-        uniqueCopurchasedItems: copurchaseMap.size,
+        exactCopurchasesFound: exactCopurchases.length,
+        similarItemsFound: similarItems.length,
       },
     };
   } catch (error: any) {
@@ -903,7 +956,7 @@ export const AI_TOOLS = [
     type: 'function',
     function: {
       name: 'get_copurchased_items',
-      description: 'Find what other parts customers frequently bought together with a specific part. Use this to answer "what did people buy along with this part" or "what do customers buy together with part X". Returns items sorted by frequency.',
+      description: 'Find what other parts customers bought together with a specific part using HYBRID analysis: (1) SQL for exact co-purchases from order history, and (2) AI embeddings for semantically similar items. Returns both exact co-purchases (items literally bought in same orders) AND similar items (semantically related via AI). Use this to answer "what did people buy along with this part", "what do customers buy together with part X", or "show me related items".',
       parameters: {
         type: 'object',
         properties: {
@@ -913,7 +966,7 @@ export const AI_TOOLS = [
           },
           limit: {
             type: 'number',
-            description: 'Maximum number of co-purchased items to return (default: 20)',
+            description: 'Maximum number of co-purchased items to return per category (default: 20)',
           },
         },
         required: ['itemNo'],
