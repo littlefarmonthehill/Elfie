@@ -599,29 +599,88 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
       
       const data = await response.json();
       
-      // Format results for chat
+      // Format results for chat and check inventory
       if (data.items && data.items.length > 0) {
-        const topResults = data.items.slice(0, 5);
-        let resultMessage = `I found ${data.items.length} possible matches for your image:\n\n`;
+        const topResult = data.items[0]; // Get the best match
+        const topResultId = topResult.id;
+        const confidence = Math.round(topResult.score * 100);
         
-        topResults.forEach((item: any, index: number) => {
-          const confidence = Math.round(item.score * 100);
-          resultMessage += `${index + 1}. ${item.name} (${item.id}) - ${confidence}% match\n`;
-        });
-        
-        resultMessage += `\nWould you like more information about any of these parts?`;
-        
-        const assistantMessage: ChatMessage = {
-          role: 'assistant',
-          content: resultMessage,
-        };
-        
-        setMessages(prev => [...prev, assistantMessage]);
-        
-        toast({
-          title: "Brick-tastic Discovery!",
-          description: `Found ${data.items.length} possible matches!`,
-        });
+        // Check if this part exists in inventory
+        try {
+          const inventoryResponse = await fetch(`/api/inventory?search=${topResultId}`);
+          const inventoryData = await inventoryResponse.json();
+          
+          if (inventoryData && inventoryData.length > 0) {
+            // Part found in inventory - show it immediately
+            let resultMessage = `I identified this as **${topResult.name}** (Part ${topResult.id}) with ${confidence}% confidence.\n\nI found this part in your inventory:\n\n`;
+            
+            // Format inventory items
+            inventoryData.slice(0, 5).forEach((item: any) => {
+              resultMessage += `• ${item.colorName || 'Unknown Color'} - ${item.quantity} units @ $${item.unitPrice || '0.00'}\n`;
+            });
+            
+            const assistantMessage: ChatMessage = {
+              role: 'assistant',
+              content: resultMessage,
+              items: inventoryData.slice(0, 5), // Include items for display
+            };
+            
+            setMessages(prev => [...prev, assistantMessage]);
+            
+            toast({
+              title: "Part Identified!",
+              description: `Found ${topResult.name} in your inventory!`,
+            });
+          } else {
+            // Part not in inventory - show BrickLink link with proper URL pattern
+            const topResults = data.items.slice(0, 5);
+            let resultMessage = `I identified this as **${topResult.name}** (Part ${topResult.id}) with ${confidence}% confidence.\n\nThis part is not currently in your inventory.\n\n`;
+            
+            if (topResults.length > 1) {
+              resultMessage += `Other possible matches:\n`;
+              topResults.slice(1).forEach((item: any, index: number) => {
+                const itemConfidence = Math.round(item.score * 100);
+                resultMessage += `${index + 2}. ${item.name} (${item.id}) - ${itemConfidence}% match\n`;
+              });
+              resultMessage += `\n`;
+            }
+            
+            resultMessage += `Click below to view Part ${topResult.id} on BrickLink:`;
+            
+            // Construct proper BrickLink URL
+            const bricklinkUrl = `https://www.bricklink.com/v2/catalog/catalogitem.page?P=${topResult.id}`;
+            resultMessage += `\n[View on BrickLink](${bricklinkUrl})`;
+            
+            const assistantMessage: ChatMessage = {
+              role: 'assistant',
+              content: resultMessage,
+            };
+            
+            setMessages(prev => [...prev, assistantMessage]);
+            
+            toast({
+              title: "Part Identified!",
+              description: `Found ${topResult.name} - not in your inventory`,
+            });
+          }
+        } catch (inventoryError) {
+          console.error('Error checking inventory:', inventoryError);
+          // Fall back to showing results without inventory check
+          const topResults = data.items.slice(0, 5);
+          let resultMessage = `I found ${data.items.length} possible matches for your image:\n\n`;
+          
+          topResults.forEach((item: any, index: number) => {
+            const itemConfidence = Math.round(item.score * 100);
+            resultMessage += `${index + 1}. ${item.name} (${item.id}) - ${itemConfidence}% match\n`;
+          });
+          
+          const assistantMessage: ChatMessage = {
+            role: 'assistant',
+            content: resultMessage,
+          };
+          
+          setMessages(prev => [...prev, assistantMessage]);
+        }
       } else {
         const assistantMessage: ChatMessage = {
           role: 'assistant',

@@ -97,9 +97,10 @@ interface InventoryDetailProps {
     updatedAt?: string | null;
     priceOMagic?: PriceOMagicData | null;
   };
+  onBrickLinkClick?: (url: string) => void;
 }
 
-export default function InventoryDetail({ data }: InventoryDetailProps) {
+export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDetailProps) {
   const [activeTab, setActiveTab] = useState("overview");
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
@@ -1045,15 +1046,13 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
                               {set.quantity}×
                             </span>
                           </div>
-                          <a 
-                            href={`https://www.bricklink.com/v2/catalog/catalogitem.page?S=${set.setNum}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                          <button
+                            onClick={() => onBrickLinkClick?.(`https://www.bricklink.com/v2/catalog/catalogitem.page?S=${set.setNum}`)}
                             className="flex-shrink-0 text-gray-400 hover:text-lego-blue transition-colors"
                             data-testid={`link-set-${set.setNum}`}
                           >
                             <ExternalLink className="h-3.5 w-3.5" />
-                          </a>
+                          </button>
                         </div>
                       </div>
                     ))}
@@ -1072,16 +1071,14 @@ export default function InventoryDetail({ data }: InventoryDetailProps) {
             </DialogContent>
           </Dialog>
 
-          <a 
-            href={bricklinkUrl} 
-            target="_blank" 
-            rel="noopener noreferrer"
+          <button
+            onClick={() => onBrickLinkClick?.(bricklinkUrl)}
             className="flex items-center gap-1 text-[10px] font-bold text-lego-blue hover:text-lego-blue/80 transition-colors whitespace-nowrap"
             data-testid="link-bricklink"
           >
             BRICKLINK
             <ExternalLink className="h-3.5 w-3.5" />
-          </a>
+          </button>
         </div>
       </div>
     </div>

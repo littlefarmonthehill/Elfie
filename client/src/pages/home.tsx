@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Package, ClipboardList, RefreshCw } from "lucide-react";
+import { Package, ClipboardList, RefreshCw, ExternalLink, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import Header from "@/components/Header";
 import DashboardNav, { DashboardType } from "@/components/DashboardNav";
@@ -13,6 +13,8 @@ import ChatInterface from "@/components/ChatInterface";
 import DetailModal, { DetailData } from "@/components/DetailModal";
 import DateRangeSelector, { DateRangeValue } from "@/components/DateRangeSelector";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { ElfieCharacter } from "@/components/ElfieCharacter";
 
 export default function Home() {
@@ -31,6 +33,7 @@ export default function Home() {
     open: false,
     data: null,
   });
+  const [brickLinkUrl, setBrickLinkUrl] = useState<string | null>(null);
 
   // Fetch picklist stats for indicator
   const { data: picklistStats } = useQuery<{ toPull: number; toReshelve: number }>({
@@ -824,8 +827,43 @@ export default function Home() {
           onClose={() => setDetailModal({ open: false, data: null })} 
           detail={detailModal.data}
           onOrderSelect={handleOrderSelect}
+          onBrickLinkClick={setBrickLinkUrl}
         />
       </div>
+
+      {/* BrickLink in-app browser dialog */}
+      <Dialog open={!!brickLinkUrl} onOpenChange={() => setBrickLinkUrl(null)}>
+        <DialogContent className="max-w-4xl h-[80vh] p-0" aria-describedby="bricklink-description">
+          <DialogHeader className="p-4 border-b">
+            <div className="flex items-center justify-between">
+              <DialogTitle className="text-base flex items-center gap-2">
+                <ExternalLink className="h-4 w-4" />
+                BrickLink
+              </DialogTitle>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => setBrickLinkUrl(null)}
+                data-testid="button-close-bricklink"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <p id="bricklink-description" className="sr-only">
+              BrickLink catalog page displaying item information
+            </p>
+          </DialogHeader>
+          {brickLinkUrl && (
+            <iframe
+              src={brickLinkUrl}
+              className="w-full h-full"
+              title="BrickLink"
+              sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+              data-testid="iframe-bricklink"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
