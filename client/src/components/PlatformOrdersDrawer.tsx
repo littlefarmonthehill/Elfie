@@ -68,12 +68,12 @@ export default function PlatformOrdersDrawer({
                       <div className="flex items-center gap-2 mb-1.5">
                         <span className="text-base md:text-lg font-mono font-bold text-white">#{order.orderNumber}</span>
                         {order.marketplace && (
-                          <span className="text-xs md:text-sm text-gray-400 bg-gray-700/50 px-2 py-0.5 rounded">
+                          <span className="text-[9px] md:text-xs text-gray-400 bg-gray-700/50 px-2 py-0.5 rounded">
                             {order.marketplace}
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 text-sm md:text-base text-gray-400">
+                      <div className="flex items-center gap-2 text-[10px] md:text-sm text-gray-400">
                         <span>{order.customerUsername}</span>
                         <span className="text-gray-600">•</span>
                         <span>{new Date(order.orderDate).toLocaleDateString()}</span>
@@ -83,7 +83,7 @@ export default function PlatformOrdersDrawer({
                       <div className="text-base md:text-lg font-mono font-bold text-green-400">
                         ${Number(order.orderTotal).toFixed(2)}
                       </div>
-                      <div className="text-xs md:text-sm text-gray-500 mt-0.5">
+                      <div className="text-[9px] md:text-xs text-gray-500 mt-0.5">
                         {order.orderStatus}
                       </div>
                     </div>

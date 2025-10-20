@@ -150,7 +150,7 @@ export default function PlatformPerformance({ orders, onPlatformClick }: Platfor
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-1">
                     <DollarSign className="h-3 w-3 text-green-400" />
-                    <span className="text-sm md:text-base text-gray-400">Revenue:</span>
+                    <span className="text-[10px] md:text-sm text-gray-400">Revenue:</span>
                   </div>
                   <span className="text-xs font-mono font-bold text-white">
                     ${platform.revenue.toFixed(2)}
@@ -166,7 +166,7 @@ export default function PlatformPerformance({ orders, onPlatformClick }: Platfor
                   />
                 </div>
 
-                <div className="flex justify-between items-center text-xs md:text-sm text-gray-500">
+                <div className="flex justify-between items-center text-[9px] md:text-xs text-gray-500">
                   <span>{platform.orders} orders ({orderPercentage.toFixed(1)}%)</span>
                   <span>Avg: ${platform.avgOrderValue.toFixed(2)}</span>
                 </div>

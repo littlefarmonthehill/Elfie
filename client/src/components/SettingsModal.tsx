@@ -402,7 +402,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                           Warehouse CSV
                         </Button>
                       </div>
-                      <p className="text-sm md:text-base text-gray-500 mt-2">
+                      <p className="text-[10px] md:text-sm text-gray-500 mt-2">
                         Your inventory quantities, orders, and warehouse locations
                       </p>
                     </AccordionContent>
@@ -437,7 +437,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                           Set-Part Data
                         </Button>
                       </div>
-                      <p className="text-sm md:text-base text-gray-500 mt-2">
+                      <p className="text-[10px] md:text-sm text-gray-500 mt-2">
                         External catalog data (can be re-fetched from BrickLink/Rebrickable)
                       </p>
                     </AccordionContent>
@@ -472,13 +472,13 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                           Analytics Cache
                         </Button>
                       </div>
-                      <p className="text-sm md:text-base text-gray-500 mt-2">
+                      <p className="text-[10px] md:text-sm text-gray-500 mt-2">
                         Derived data (can be regenerated, but expensive)
                       </p>
                     </AccordionContent>
                   </AccordionItem>
                 </Accordion>
-                <p className="text-sm md:text-base text-yellow-400 mt-3 flex items-start gap-1">
+                <p className="text-[10px] md:text-sm text-yellow-400 mt-3 flex items-start gap-1">
                   <AlertTriangle className="h-3 w-3 flex-shrink-0 mt-0.5" />
                   <span>Note: CSV files are for analysis only and are NOT considered backups. Use the Backup & Clear tab for restore capabilities.</span>
                 </p>
@@ -856,7 +856,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                       <div className="flex items-center justify-between">
                         <div>
                           <Label className="text-xs font-medium text-gray-300">Inventory Sync (Daily)</Label>
-                          <p className="text-sm md:text-base text-gray-500 mt-0.5">Sync inventory, colors, categories + embeddings</p>
+                          <p className="text-[10px] md:text-sm text-gray-500 mt-0.5">Sync inventory, colors, categories + embeddings</p>
                         </div>
                         <Switch
                           checked={inventorySyncEnabled}
@@ -880,7 +880,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                             className="text-xs w-32"
                             data-testid="input-inventory-time"
                           />
-                          <p className="text-sm md:text-base text-gray-500">Time in your local timezone</p>
+                          <p className="text-[10px] md:text-sm text-gray-500">Time in your local timezone</p>
                         </div>
                       )}
                     </div>
@@ -892,7 +892,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                       <div className="flex items-center justify-between">
                         <div>
                           <Label className="text-xs font-medium text-gray-300">Price-o-Matic</Label>
-                          <p className="text-sm md:text-base text-gray-500 mt-0.5">Runs after inventory sync, respecting API limits</p>
+                          <p className="text-[10px] md:text-sm text-gray-500 mt-0.5">Runs after inventory sync, respecting API limits</p>
                         </div>
                         <Switch
                           checked={priceOMaticEnabled}
@@ -906,7 +906,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                       
                       {priceOMaticEnabled && (
                         <div className="ml-4">
-                          <p className="text-sm md:text-base text-gray-400">Will run automatically after inventory sync completes</p>
+                          <p className="text-[10px] md:text-sm text-gray-400">Will run automatically after inventory sync completes</p>
                         </div>
                       )}
                     </div>
@@ -918,7 +918,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                       <div className="flex items-center justify-between">
                         <div>
                           <Label className="text-xs font-medium text-gray-300">Orders Sync</Label>
-                          <p className="text-sm md:text-base text-gray-500 mt-0.5">Sync orders, details + embeddings periodically</p>
+                          <p className="text-[10px] md:text-sm text-gray-500 mt-0.5">Sync orders, details + embeddings periodically</p>
                         </div>
                         <Switch
                           checked={ordersSyncEnabled}
@@ -944,7 +944,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                             className="text-xs w-24"
                             data-testid="input-orders-frequency"
                           />
-                          <p className="text-sm md:text-base text-gray-500">Recommended: 15 minutes</p>
+                          <p className="text-[10px] md:text-sm text-gray-500">Recommended: 15 minutes</p>
                         </div>
                       )}
                     </div>
@@ -1002,7 +1002,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                   <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 space-y-3">
                     <div className="bg-blue-500/10 border border-blue-500/30 rounded p-3 space-y-2">
                       <p className="text-xs font-medium text-blue-300">✨ Comprehensive Guided Process</p>
-                      <p className="text-sm md:text-base text-blue-200/80">
+                      <p className="text-[10px] md:text-sm text-blue-200/80">
                         Step-by-step wizard that restores your database to any point in the last 30 days, analyzes inventory/order mismatches, detects anomalies, syncs from BrickLink/BrickOwl, and verifies data integrity.
                       </p>
                     </div>
@@ -1061,7 +1061,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                   <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 space-y-3">
                     <div className="bg-purple-500/10 border border-purple-500/30 rounded p-3 space-y-2">
                       <p className="text-xs font-medium text-purple-300">📥 Simple Download Process</p>
-                      <p className="text-sm md:text-base text-purple-200/80">
+                      <p className="text-[10px] md:text-sm text-purple-200/80">
                         Download BrickLink XML backups from our archive, then manually upload them to BrickLink yourself for complete control over the restore process.
                       </p>
                     </div>
@@ -1093,7 +1093,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                               <div key={backup.filename} className="flex items-center justify-between bg-gray-700/50 rounded p-2">
                                 <div>
                                   <p className="text-xs text-gray-300 font-medium">{formattedDate}</p>
-                                  <p className="text-sm md:text-base text-gray-500">{sizeInMB} MB</p>
+                                  <p className="text-[10px] md:text-sm text-gray-500">{sizeInMB} MB</p>
                                 </div>
                                 <Button 
                                   variant="outline" 
@@ -1114,7 +1114,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
 
                     <div className="bg-gray-900/50 rounded p-3 space-y-2">
                       <p className="text-xs font-medium text-gray-300">After Download:</p>
-                      <ol className="text-sm md:text-base text-gray-400 space-y-1 ml-4 list-decimal">
+                      <ol className="text-[10px] md:text-sm text-gray-400 space-y-1 ml-4 list-decimal">
                         <li>Go to BrickLink → My Store → Upload/Update My Inventory</li>
                         <li>Select your downloaded XML file and upload</li>
                         <li>Wait for BrickLink to process the upload</li>
@@ -1166,7 +1166,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                       Clear All Order Data
                     </Button>
                     <div className="bg-red-500/10 border border-red-500/30 rounded p-2">
-                      <p className="text-sm md:text-base text-red-300">
+                      <p className="text-[10px] md:text-sm text-red-300">
                         <strong>Warning:</strong> These actions cannot be undone. Always export backups before clearing data.
                       </p>
                     </div>
@@ -1339,7 +1339,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                 </div>
 
                 <div className="bg-gray-800 border border-gray-700 rounded p-3">
-                  <p className="text-sm md:text-base text-gray-500">
+                  <p className="text-[10px] md:text-sm text-gray-500">
                     <strong>Note:</strong> Do not close this window or navigate away. The restore process typically takes 1-3 minutes depending on your database size.
                   </p>
                 </div>
@@ -1392,7 +1392,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                 </div>
 
                 <div className="bg-blue-500/10 border border-blue-500/30 rounded p-3">
-                  <p className="text-sm md:text-base text-blue-300">
+                  <p className="text-[10px] md:text-sm text-blue-300">
                     <strong>Why we do this:</strong> Your sales platforms (BrickLink and BrickOwl) have processed sales and status changes since the restore point. We're pulling their current data to ensure PlanetBrick matches reality. EasyPost tracking data is also synced to match shipment statuses.
                   </p>
                 </div>
@@ -1443,7 +1443,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                   </p>
                   <div className="bg-green-500/20 border border-green-500/40 rounded p-3 mt-2">
                     <p className="text-xs font-medium text-green-300 mb-2">What Gets Synced:</p>
-                    <ul className="text-sm md:text-base text-green-200/90 space-y-1 ml-4 list-disc">
+                    <ul className="text-[10px] md:text-sm text-green-200/90 space-y-1 ml-4 list-disc">
                       <li><strong>Quantities:</strong> Reflects sales that happened after restore point</li>
                       <li><strong>Prices:</strong> Current pricing from BrickOwl</li>
                       <li><strong>Remarks:</strong> Personal notes (BrickOwl personal_note → BrickLink remarks)</li>
@@ -1469,7 +1469,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                       <p className={`font-medium text-lg ${differentialAnalysis.netQuantityChange < 0 ? 'text-red-400' : 'text-green-400'}`}>
                         {differentialAnalysis.netQuantityChange > 0 ? '+' : ''}{differentialAnalysis.netQuantityChange} pieces
                       </p>
-                      <p className="text-sm md:text-base text-gray-500 mt-1">
+                      <p className="text-[10px] md:text-sm text-gray-500 mt-1">
                         {differentialAnalysis.netQuantityChange < 0 ? 'Sales since restore point' : 'Restocks since restore point'}
                       </p>
                     </div>
@@ -1489,7 +1489,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                 </div>
 
                 <div className="bg-blue-500/10 border border-blue-500/30 rounded p-3">
-                  <p className="text-sm md:text-base text-blue-300">
+                  <p className="text-[10px] md:text-sm text-blue-300">
                     <strong>How it works:</strong> We'll use the external_lot_ids.other field (which contains BrickLink inventory IDs) to match each BrickOwl lot to its corresponding BrickLink inventory item, then update BrickLink with BrickOwl's current data via the BrickLink API.
                   </p>
                 </div>
@@ -1642,7 +1642,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
 
                 <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3 space-y-2">
                   <p className="text-xs font-medium text-green-300">✓ Recovery Summary:</p>
-                  <ul className="text-sm md:text-base text-green-200/90 space-y-1 ml-4 list-disc">
+                  <ul className="text-[10px] md:text-sm text-green-200/90 space-y-1 ml-4 list-disc">
                     <li>Database restored to {restoreDate} at {restoreTime}</li>
                     <li>Platform data synced from BrickLink and BrickOwl</li>
                     <li>BrickLink updated with current data from BrickOwl (differential sync)</li>

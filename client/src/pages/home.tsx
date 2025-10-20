@@ -649,19 +649,19 @@ export default function Home() {
             <div className="flex items-center gap-1.5 md:gap-3 lg:gap-4">
               <div className="flex items-center gap-1 md:gap-2 lg:gap-2.5">
                 <Package className="h-3.5 w-3.5 md:h-4 md:w-4 lg:h-5 lg:w-5 text-gray-400" />
-                <span className="text-sm md:text-base md:text-sm lg:text-base font-bold text-gray-400">TOOLS</span>
+                <span className="text-[10px] md:text-sm md:text-sm lg:text-base font-bold text-gray-400">TOOLS</span>
               </div>
               <div className="flex gap-1 md:gap-2 lg:gap-2.5">
                 <button
                   onClick={() => setActiveInventoryDrawer('priceomatic')}
-                  className="text-sm md:text-base md:text-sm lg:text-base font-bold py-1 md:py-1.5 lg:py-2 px-1.5 md:px-3 lg:px-4 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
+                  className="text-[10px] md:text-sm md:text-sm lg:text-base font-bold py-1 md:py-1.5 lg:py-2 px-1.5 md:px-3 lg:px-4 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
                   data-testid="button-priceomatic"
                 >
                   Price-O-Matic
                 </button>
                 <button
                   onClick={() => setActiveInventoryDrawer('warehouse')}
-                  className="text-sm md:text-base md:text-sm lg:text-base font-bold py-1 md:py-1.5 lg:py-2 px-1.5 md:px-3 lg:px-4 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
+                  className="text-[10px] md:text-sm md:text-sm lg:text-base font-bold py-1 md:py-1.5 lg:py-2 px-1.5 md:px-3 lg:px-4 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
                   data-testid="button-warehouse"
                 >
                   Warehouse
@@ -670,13 +670,13 @@ export default function Home() {
             </div>
             <button
               onClick={() => setActiveInventoryDrawer('platformsync')}
-              className="relative flex items-center gap-1 md:gap-1.5 text-sm md:text-base md:text-sm lg:text-base text-gray-400 hover:text-gray-300 transition-colors"
+              className="relative flex items-center gap-1 md:gap-1.5 text-[10px] md:text-sm md:text-sm lg:text-base text-gray-400 hover:text-gray-300 transition-colors"
               data-testid="button-platformsync"
             >
               <RefreshCw className="h-3.5 w-3.5 md:h-4 md:w-4 lg:h-5 lg:w-5" />
               <span className="font-medium">Sync</span>
               {totalDiscrepancies > 0 && (
-                <span className="absolute -top-1 -right-1 md:-top-1.5 md:-right-1.5 bg-yellow-500 text-black text-xs md:text-sm md:text-[11px] lg:text-xs font-bold rounded-full h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6 flex items-center justify-center">
+                <span className="absolute -top-1 -right-1 md:-top-1.5 md:-right-1.5 bg-yellow-500 text-black text-[9px] md:text-xs md:text-[11px] lg:text-xs font-bold rounded-full h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6 flex items-center justify-center">
                   {totalDiscrepancies}
                 </span>
               )}
@@ -692,36 +692,36 @@ export default function Home() {
             <div className="flex items-center gap-1.5 md:gap-3 lg:gap-4">
               <div className="flex items-center gap-1 md:gap-2 lg:gap-2.5">
                 <ClipboardList className="h-3.5 w-3.5 md:h-4 md:w-4 lg:h-5 lg:w-5 text-gray-400" />
-                <span className="text-sm md:text-base md:text-sm lg:text-base font-bold text-gray-400">TOOLS</span>
+                <span className="text-[10px] md:text-sm md:text-sm lg:text-base font-bold text-gray-400">TOOLS</span>
               </div>
               <div className="flex gap-1 md:gap-2 lg:gap-2.5">
                 <button
                   onClick={() => setActiveOrdersDrawer('picklist')}
-                  className="relative text-sm md:text-base md:text-sm lg:text-base font-bold py-1 md:py-1.5 lg:py-2 px-1.5 md:px-3 lg:px-4 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
+                  className="relative text-[10px] md:text-sm md:text-sm lg:text-base font-bold py-1 md:py-1.5 lg:py-2 px-1.5 md:px-3 lg:px-4 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
                   data-testid="button-picklist"
                 >
                   Picklist
                   {picklistStats && (picklistStats.toPull + picklistStats.toReshelve) > 0 && (
-                    <span className="absolute -top-1 -right-1 md:-top-1.5 md:-right-1.5 bg-orange-500 text-white text-xs md:text-sm md:text-[11px] lg:text-xs font-bold rounded-full h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6 flex items-center justify-center">
+                    <span className="absolute -top-1 -right-1 md:-top-1.5 md:-right-1.5 bg-orange-500 text-white text-[9px] md:text-xs md:text-[11px] lg:text-xs font-bold rounded-full h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6 flex items-center justify-center">
                       {picklistStats.toPull + picklistStats.toReshelve}
                     </span>
                   )}
                 </button>
                 <button
                   onClick={() => setActiveOrdersDrawer('fulfillment')}
-                  className="relative text-sm md:text-base md:text-sm lg:text-base font-bold py-1 md:py-1.5 lg:py-2 px-1.5 md:px-3 lg:px-4 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
+                  className="relative text-[10px] md:text-sm md:text-sm lg:text-base font-bold py-1 md:py-1.5 lg:py-2 px-1.5 md:px-3 lg:px-4 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
                   data-testid="button-fulfillment"
                 >
                   Fulfillment and Shipping
                   {fulfillmentStats && fulfillmentStats.unfulfilled > 0 && (
-                    <span className="absolute -top-1 -right-1 md:-top-1.5 md:-right-1.5 bg-green-500 text-white text-xs md:text-sm md:text-[11px] lg:text-xs font-bold rounded-full h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6 flex items-center justify-center">
+                    <span className="absolute -top-1 -right-1 md:-top-1.5 md:-right-1.5 bg-green-500 text-white text-[9px] md:text-xs md:text-[11px] lg:text-xs font-bold rounded-full h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6 flex items-center justify-center">
                       {fulfillmentStats.unfulfilled}
                     </span>
                   )}
                 </button>
                 <button
                   onClick={() => setActiveOrdersDrawer('shipped')}
-                  className="text-sm md:text-base md:text-sm lg:text-base font-bold py-1 md:py-1.5 lg:py-2 px-1.5 md:px-3 lg:px-4 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
+                  className="text-[10px] md:text-sm md:text-sm lg:text-base font-bold py-1 md:py-1.5 lg:py-2 px-1.5 md:px-3 lg:px-4 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
                   data-testid="button-shipped"
                 >
                   Shipped
@@ -730,7 +730,7 @@ export default function Home() {
             </div>
             <button
               onClick={() => setActiveOrdersDrawer('platformsync')}
-              className="flex items-center gap-1 md:gap-1.5 text-sm md:text-base md:text-sm lg:text-base text-gray-400 hover:text-gray-300 transition-colors"
+              className="flex items-center gap-1 md:gap-1.5 text-[10px] md:text-sm md:text-sm lg:text-base text-gray-400 hover:text-gray-300 transition-colors"
               data-testid="button-platformsync"
             >
               <RefreshCw className="h-3.5 w-3.5 md:h-4 md:w-4 lg:h-5 lg:w-5" />

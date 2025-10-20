@@ -142,7 +142,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
           <Sparkles className="w-5 h-5 text-purple-400" />
           <div>
             <h2 className="text-base font-bold text-white">Price-o-Matic</h2>
-            <p className="text-sm md:text-base text-gray-400">Smart Pricing Insights</p>
+            <p className="text-[10px] md:text-sm text-gray-400">Smart Pricing Insights</p>
           </div>
         </div>
         <Button
@@ -172,7 +172,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
           >
             <div className="flex items-center gap-1.5 mb-0.5">
               <TrendingUp className="w-3.5 h-3.5 text-red-400" />
-              <p className="text-xs md:text-sm text-red-400 uppercase">Too High</p>
+              <p className="text-[9px] md:text-xs text-red-400 uppercase">Too High</p>
             </div>
             <p className="text-xl font-mono font-bold text-red-400">{insightsData?.summary.tooHigh || 0}</p>
             <p className="text-xs text-gray-500">Losing sales</p>
@@ -189,7 +189,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
           >
             <div className="flex items-center gap-1.5 mb-0.5">
               <TrendingDown className="w-3.5 h-3.5 text-orange-400" />
-              <p className="text-xs md:text-sm text-orange-400 uppercase">Too Low</p>
+              <p className="text-[9px] md:text-xs text-orange-400 uppercase">Too Low</p>
             </div>
             <p className="text-xl font-mono font-bold text-orange-400">{insightsData?.summary.tooLow || 0}</p>
             <p className="text-xs text-gray-500">Losing profit</p>
@@ -206,7 +206,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
           >
             <div className="flex items-center gap-1.5 mb-0.5">
               <CheckCircle className="w-3.5 h-3.5 text-green-400" />
-              <p className="text-xs md:text-sm text-green-400 uppercase">Well Priced</p>
+              <p className="text-[9px] md:text-xs text-green-400 uppercase">Well Priced</p>
             </div>
             <p className="text-xl font-mono font-bold text-green-400">{insightsData?.summary.wellPriced || 0}</p>
             <p className="text-xs text-gray-500">Optimal range</p>
@@ -215,7 +215,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
           <Card className="p-2.5 bg-gray-900/50 border-gray-700" data-testid="stat-total">
             <div className="flex items-center gap-1.5 mb-0.5">
               <Zap className="w-3.5 h-3.5 text-purple-400" />
-              <p className="text-xs md:text-sm text-gray-400 uppercase">Total</p>
+              <p className="text-[9px] md:text-xs text-gray-400 uppercase">Total</p>
             </div>
             <p className="text-xl font-mono font-bold text-white">{insightsData?.summary.total || 0}</p>
             <p className="text-xs text-gray-500">Items analyzed</p>
@@ -225,7 +225,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
         {/* How It Works */}
         <Card className="p-3 bg-purple-500/10 border-purple-500/30">
           <h3 className="text-xs font-bold text-purple-400 mb-1.5">How It Works</h3>
-          <ul className="text-sm md:text-base text-gray-300 space-y-0.5">
+          <ul className="text-[10px] md:text-sm text-gray-300 space-y-0.5">
             <li>• Analyzes 1,500 items/day on 14-day cycle</li>
             <li>• 20%+ above = Too High (losing sales)</li>
             <li>• 20%+ below = Too Low (losing profit)</li>
@@ -257,7 +257,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
                   {status.lastSyncStatus === 'in_progress' && 'Syncing...'}
                   {status.lastSyncStatus === 'failed' && 'Sync Failed'}
                 </p>
-                <p className="text-xs md:text-sm text-gray-400">
+                <p className="text-[9px] md:text-xs text-gray-400">
                   {status.lastSyncTime && formatDistanceToNow(new Date(status.lastSyncTime), { addSuffix: true })}
                 </p>
               </div>
@@ -292,29 +292,29 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
                         <p className="text-xs text-white truncate">{item.itemName || 'Unknown Item'}</p>
-                        <span className="text-sm md:text-base font-mono text-gray-400 flex-shrink-0">{item.itemNo}</span>
+                        <span className="text-[10px] md:text-sm font-mono text-gray-400 flex-shrink-0">{item.itemNo}</span>
                       </div>
                       <div className="flex items-center gap-1.5 mb-1">
-                        <span className="text-sm md:text-base text-gray-400">{item.newOrUsed === 'N' ? 'New' : 'Used'}</span>
+                        <span className="text-[10px] md:text-sm text-gray-400">{item.newOrUsed === 'N' ? 'New' : 'Used'}</span>
                         {item.colorName && (
                           <>
                             <span className="text-gray-600">•</span>
-                            <span className="text-sm md:text-base text-gray-400">{item.colorName}</span>
+                            <span className="text-[10px] md:text-sm text-gray-400">{item.colorName}</span>
                           </>
                         )}
                       </div>
                       <div className="flex items-center gap-2">
                         <div className="flex-1">
                           <p className="text-[7px] text-gray-500">Current</p>
-                          <p className="text-sm md:text-base font-mono text-white">{formatCurrency(item.currentPrice)}</p>
+                          <p className="text-[10px] md:text-sm font-mono text-white">{formatCurrency(item.currentPrice)}</p>
                         </div>
                         <div className="flex-1">
                           <p className="text-[7px] text-gray-500">Suggested</p>
-                          <p className="text-sm md:text-base font-mono text-purple-400">{formatCurrency(item.suggestedPrice)}</p>
+                          <p className="text-[10px] md:text-sm font-mono text-purple-400">{formatCurrency(item.suggestedPrice)}</p>
                         </div>
                         <div className="flex-1">
                           <p className="text-[7px] text-gray-500">Variance</p>
-                          <p className={`text-sm md:text-base font-mono font-bold ${
+                          <p className={`text-[10px] md:text-sm font-mono font-bold ${
                             item.variance > 0 ? 'text-red-400' : item.variance < 0 ? 'text-orange-400' : 'text-green-400'
                           }`}>
                             {item.variance > 0 ? '+' : ''}{item.variance}%
@@ -324,7 +324,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
                     </div>
                     <div className="text-right flex-shrink-0">
                       <p className="text-[7px] text-gray-500">Qty</p>
-                      <p className="text-sm md:text-base font-mono text-gray-300">{item.quantity}</p>
+                      <p className="text-[10px] md:text-sm font-mono text-gray-300">{item.quantity}</p>
                     </div>
                   </div>
                 </div>

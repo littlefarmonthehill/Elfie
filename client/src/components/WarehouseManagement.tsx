@@ -530,7 +530,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                 variant={filter === 'all' ? 'default' : 'ghost'}
                 onClick={() => setFilter('all')}
                 data-testid="filter-all"
-                className="text-sm md:text-base py-1 px-2"
+                className="text-[10px] md:text-sm py-1 px-2"
               >
                 All
               </Button>
@@ -539,7 +539,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                 variant={filter === 'assigned' ? 'default' : 'ghost'}
                 onClick={() => setFilter('assigned')}
                 data-testid="filter-assigned"
-                className="text-sm md:text-base py-1 px-2"
+                className="text-[10px] md:text-sm py-1 px-2"
               >
                 Assigned
               </Button>
@@ -549,7 +549,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                   variant={filter === 'unassigned' ? 'default' : 'ghost'}
                   onClick={() => setFilter('unassigned')}
                   data-testid="filter-unassigned"
-                  className="text-sm md:text-base py-1 px-2"
+                  className="text-[10px] md:text-sm py-1 px-2"
                 >
                   Unassigned
                 </Button>
@@ -566,7 +566,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                     setCreateDialogOpen(true);
                   }}
                   data-testid="button-add-new"
-                  className="text-sm md:text-base py-1 px-2"
+                  className="text-[10px] md:text-sm py-1 px-2"
                 >
                   <Plus className="w-3 h-3 mr-1" />
                   Add New
@@ -632,7 +632,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
             <div className="flex items-center gap-2 mb-3 p-2 bg-blue-500/10 rounded">
               <span className="text-xs text-gray-400">{selectedItems.size} selected</span>
               <Select value={bulkBinId} onValueChange={setBulkBinId}>
-                <SelectTrigger className="w-32 h-7 text-sm md:text-base" data-testid="select-bulk-bin">
+                <SelectTrigger className="w-32 h-7 text-[10px] md:text-sm" data-testid="select-bulk-bin">
                   <SelectValue placeholder="Select bin" />
                 </SelectTrigger>
                 <SelectContent>
@@ -648,7 +648,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                 onClick={handleBulkAssign} 
                 disabled={!bulkBinId}
                 data-testid="button-bulk-assign"
-                className="text-sm md:text-base"
+                className="text-[10px] md:text-sm"
               >
                 {filter === 'assigned' ? 'Move to Bin' : 'Assign to Bin'}
               </Button>
@@ -695,7 +695,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                         <div className="font-medium text-gray-300">
                           {item.itemNo}{item.itemName && ` - ${item.itemName}`}
                         </div>
-                        <div className="text-sm md:text-base text-gray-500">
+                        <div className="text-[10px] md:text-sm text-gray-500">
                           {item.colorName} • {item.newOrUsed === 'N' ? 'New' : 'Used'} • Qty: {item.quantity}
                           {item.binName && ` • Bin: ${item.binName}`}
                         </div>
@@ -704,7 +704,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                     {activeView === 'bins' && (
                       <>
                         <div className="font-medium text-gray-300">{item.name}</div>
-                        <div className="text-sm md:text-base text-gray-500">
+                        <div className="text-[10px] md:text-sm text-gray-500">
                           {item.shelfName ? `Shelf: ${item.aisleName ? `${item.aisleName} - ` : ''}${item.shelfName}` : 'Unassigned'}
                         </div>
                       </>
@@ -712,7 +712,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                     {activeView === 'shelves' && (
                       <>
                         <div className="font-medium text-gray-300">{item.name}</div>
-                        <div className="text-sm md:text-base text-gray-500">
+                        <div className="text-[10px] md:text-sm text-gray-500">
                           {item.aisleName ? `Aisle: ${item.aisleName}` : 'Unassigned'}
                         </div>
                       </>
@@ -721,13 +721,13 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                       <>
                         <div className="font-medium text-gray-300">{item.name}</div>
                         {item.description && (
-                          <div className="text-sm md:text-base text-gray-500">{item.description}</div>
+                          <div className="text-[10px] md:text-sm text-gray-500">{item.description}</div>
                         )}
                       </>
                     )}
                   </div>
                   {item.assigned && (
-                    <Badge variant="secondary" className="text-xs md:text-sm">
+                    <Badge variant="secondary" className="text-[9px] md:text-xs">
                       Assigned
                     </Badge>
                   )}

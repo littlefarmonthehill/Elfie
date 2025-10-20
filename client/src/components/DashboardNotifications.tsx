@@ -94,22 +94,22 @@ export default function DashboardNotifications() {
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs md:text-sm font-semibold uppercase">
+            <span className="text-[9px] md:text-xs font-semibold uppercase">
               {issue.syncType.replace('_', ' ')}
             </span>
-            <Badge variant="outline" className="text-sm md:text-base md:text-xs">
+            <Badge variant="outline" className="text-[10px] md:text-sm md:text-xs">
               {issue.platform}
             </Badge>
             {issue.itemNo && (
-              <span className="text-xs md:text-sm font-mono text-gray-300">
+              <span className="text-[9px] md:text-xs font-mono text-gray-300">
                 {issue.itemNo}
               </span>
             )}
           </div>
-          <p className="text-xs md:text-sm text-gray-300 leading-relaxed">
+          <p className="text-[9px] md:text-xs text-gray-300 leading-relaxed">
             {issue.issueDescription}
           </p>
-          <div className="flex items-center gap-2 mt-1.5 text-sm md:text-base md:text-xs text-gray-400">
+          <div className="flex items-center gap-2 mt-1.5 text-[10px] md:text-sm md:text-xs text-gray-400">
             <span>{issue.issueType.replace('_', ' ')}</span>
             <span>•</span>
             <span>{new Date(issue.createdAt).toLocaleString()}</span>

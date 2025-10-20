@@ -284,17 +284,17 @@ export default function OrderSyncTester({ open, onOpenChange }: OrderSyncTesterP
                                       {result.shipstationItems.map((item: any, itemIdx: number) => (
                                         <tr key={itemIdx}>
                                           <td className="py-2">{item.name}</td>
-                                          <td className="py-2 font-mono text-sm md:text-base">{item.sku || '-'}</td>
+                                          <td className="py-2 font-mono text-[10px] md:text-sm">{item.sku || '-'}</td>
                                           <td className="py-2">{item.quantity}</td>
                                           <td className="py-2">${item.unitPrice}</td>
                                           <td className="py-2">${(item.quantity * item.unitPrice).toFixed(2)}</td>
                                           <td className="py-2">
                                             {item.warehouseBin ? (
-                                              <span className="text-green-600 text-sm md:text-base">
+                                              <span className="text-green-600 text-[10px] md:text-sm">
                                                 {item.warehouseBin.aisleName} › {item.warehouseBin.shelfName} › {item.warehouseBin.binName}
                                               </span>
                                             ) : (
-                                              <span className="text-orange-600 text-sm md:text-base">Not assigned</span>
+                                              <span className="text-orange-600 text-[10px] md:text-sm">Not assigned</span>
                                             )}
                                           </td>
                                         </tr>
@@ -331,17 +331,17 @@ export default function OrderSyncTester({ open, onOpenChange }: OrderSyncTesterP
                                       {result.platformItems.map((item: any, itemIdx: number) => (
                                         <tr key={itemIdx}>
                                           <td className="py-2">{item.name}</td>
-                                          <td className="py-2 font-mono text-sm md:text-base">{item.sku || '-'}</td>
+                                          <td className="py-2 font-mono text-[10px] md:text-sm">{item.sku || '-'}</td>
                                           <td className="py-2">{item.quantity}</td>
                                           <td className="py-2">${item.unitPrice}</td>
                                           <td className="py-2">${(item.quantity * item.unitPrice).toFixed(2)}</td>
                                           <td className="py-2">
                                             {item.warehouseBin ? (
-                                              <span className="text-green-600 text-sm md:text-base">
+                                              <span className="text-green-600 text-[10px] md:text-sm">
                                                 {item.warehouseBin.aisleName} › {item.warehouseBin.shelfName} › {item.warehouseBin.binName}
                                               </span>
                                             ) : (
-                                              <span className="text-orange-600 text-sm md:text-base">Not assigned</span>
+                                              <span className="text-orange-600 text-[10px] md:text-sm">Not assigned</span>
                                             )}
                                           </td>
                                         </tr>

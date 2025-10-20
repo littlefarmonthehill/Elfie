@@ -102,12 +102,12 @@ export default function MarketplaceDiagnostic() {
         <div className="space-y-2">
           {data.insights?.detectionMethods?.map((method: any, idx: number) => (
             <div key={idx} className="flex items-start gap-3 text-xs">
-              <div className="bg-blue-500/20 text-blue-400 rounded px-1.5 py-0.5 font-mono text-sm md:text-base flex-shrink-0">
+              <div className="bg-blue-500/20 text-blue-400 rounded px-1.5 py-0.5 font-mono text-[10px] md:text-sm flex-shrink-0">
                 P{method.priority}
               </div>
               <div className="flex-1">
                 <div className="font-semibold text-gray-300">{method.method}</div>
-                <div className="text-gray-500 text-sm md:text-base">{method.description}</div>
+                <div className="text-gray-500 text-[10px] md:text-sm">{method.description}</div>
               </div>
             </div>
           ))}
