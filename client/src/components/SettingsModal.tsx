@@ -253,24 +253,30 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
       // Clear sessionStorage
       sessionStorage.clear();
       
-      // Clear service worker cache if available
+      // Clear service worker cache and unregister old service workers
       if ('serviceWorker' in navigator && 'caches' in window) {
+        // Clear all caches
         const cacheNames = await caches.keys();
         await Promise.all(
           cacheNames.map(cacheName => caches.delete(cacheName))
         );
         
-        // Force service worker update
+        // Unregister ALL service workers (to remove old one)
         const registrations = await navigator.serviceWorker.getRegistrations();
         for (const registration of registrations) {
-          await registration.update();
+          await registration.unregister();
         }
       }
       
       toast({
-        title: "Cache Cleared",
-        description: "App data cleared successfully. Reload the app to apply changes.",
+        title: "Cache Cleared & Service Worker Removed",
+        description: "Please close and reopen the app completely to get the latest version.",
       });
+      
+      // Wait a moment, then reload the page to re-register the new service worker
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
       
     } catch (error) {
       console.error('Error clearing cache:', error);
