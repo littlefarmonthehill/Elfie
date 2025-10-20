@@ -792,7 +792,10 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
           <Button
             size="icon"
             variant="ghost"
-            onClick={onToggleMinimize}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleMinimize();
+            }}
             className="h-7 w-7 hover:bg-purple-500/20"
             data-testid="button-toggle-chat"
           >
@@ -812,6 +815,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
           <div 
             className="flex-1 p-4 overflow-y-auto" 
             style={{ WebkitOverflowScrolling: 'touch' }}
+            onClick={(e) => e.stopPropagation()}
           >
             <div className="space-y-4">
               {messages.map((message, i) => (
@@ -893,7 +897,10 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
               />
               <Button 
                 size="icon" 
-                onClick={() => fileInputRef.current?.click()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  fileInputRef.current?.click();
+                }}
                 variant="ghost"
                 className="text-purple-400 hover:text-purple-300 hover:bg-purple-500/20"
                 data-testid="button-camera"
@@ -907,15 +914,22 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-                onFocus={() => setIsInputFocused(true)}
+                onFocus={(e) => {
+                  e.stopPropagation();
+                  setIsInputFocused(true);
+                }}
                 onBlur={() => setIsInputFocused(false)}
+                onClick={(e) => e.stopPropagation()}
                 placeholder="Ask E.L.F.I.E. for help..."
                 className="text-sm bg-gray-800/80 border-purple-500/30 focus-visible:ring-purple-500/50"
                 data-testid="input-chat"
               />
               <Button 
                 size="icon" 
-                onClick={() => handleSend()} 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSend();
+                }}
                 className={colors.button} 
                 data-testid="button-send"
                 disabled={isLoading}
