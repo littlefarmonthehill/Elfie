@@ -4,7 +4,7 @@
  */
 
 import { db } from '../db';
-import { blInventory, blColors, blCategories, orders } from '@shared/schema';
+import { blInventory, blColors, blCategories, orders, setPartRelationships } from '@shared/schema';
 import { eq, like, or, sql, and, desc } from 'drizzle-orm';
 import { searchBricklinkCatalogItem, fetchPriceOMagicData } from './bricklink';
 
@@ -310,6 +310,73 @@ export async function getOrderAnalytics(params?: {
 }
 
 /**
+ * Tool: Get parts in a LEGO set with quantities
+ */
+export async function getSetParts(params: {
+  setNum: string;
+  limit?: number;
+}) {
+  const { setNum, limit = 100 } = params;
+  
+  try {
+    // Query set-part relationships for this set
+    const parts = await db
+      .select({
+        partNum: setPartRelationships.partNum,
+        colorId: setPartRelationships.colorId,
+        quantity: setPartRelationships.quantity,
+        setName: setPartRelationships.setName,
+      })
+      .from(setPartRelationships)
+      .where(eq(setPartRelationships.setNum, setNum))
+      .limit(limit);
+    
+    if (parts.length === 0) {
+      return {
+        success: false,
+        message: `No parts found for set ${setNum}. This set may not be in the Rebrickable database.`,
+      };
+    }
+    
+    // Get color names for the parts
+    const colorIds = [...new Set(parts.map(p => p.colorId).filter(id => id !== null))];
+    const colors = await db
+      .select({
+        id: blColors.id,
+        name: blColors.name,
+      })
+      .from(blColors)
+      .where(sql`${blColors.id} IN (${sql.join(colorIds.map(id => sql`${id}`), sql`, `)})`);
+    
+    const colorMap = new Map(colors.map(c => [c.id, c.name]));
+    
+    // Enrich parts with color names
+    const enrichedParts = parts.map(part => ({
+      partNum: part.partNum,
+      colorId: part.colorId,
+      colorName: part.colorId ? colorMap.get(part.colorId) || 'Unknown' : 'N/A',
+      quantity: part.quantity,
+    }));
+    
+    return {
+      success: true,
+      data: {
+        setNum,
+        setName: parts[0].setName,
+        parts: enrichedParts,
+        totalParts: enrichedParts.reduce((sum, p) => sum + p.quantity, 0),
+        uniqueParts: enrichedParts.length,
+      },
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      message: error.message || 'Failed to get set parts',
+    };
+  }
+}
+
+/**
  * Tool definitions for OpenRouter function calling
  */
 export const AI_TOOLS = [
@@ -460,6 +527,27 @@ export const AI_TOOLS = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'get_set_parts',
+      description: 'Get the complete list of parts and quantities in a LEGO set. Use this when user asks "what parts are in set X" or "show me the parts list for set X".',
+      parameters: {
+        type: 'object',
+        properties: {
+          setNum: {
+            type: 'string',
+            description: 'The set number (e.g., "4709-1", "10179-1", "75192-1"). Must include the variant number after the dash.',
+          },
+          limit: {
+            type: 'number',
+            description: 'Maximum number of parts to return (default: 100)',
+          },
+        },
+        required: ['setNum'],
+      },
+    },
+  },
 ];
 
 /**
@@ -483,6 +571,9 @@ export async function executeToolCall(toolName: string, params: any): Promise<an
     
     case 'get_order_analytics':
       return await getOrderAnalytics(params);
+    
+    case 'get_set_parts':
+      return await getSetParts(params);
     
     default:
       return {
