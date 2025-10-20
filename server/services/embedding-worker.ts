@@ -75,17 +75,34 @@ async function processNextJob() {
       // Process based on job type
       switch (job.jobType) {
         case 'inventory': {
-          // Fetch recent inventory items that need embedding
-          const recentInventory = await db
-            .select({ id: blInventory.id })
-            .from(blInventory)
-            .orderBy(sql`${blInventory.updatedAt} DESC`)
-            .limit(100); // Embed up to 100 most recently updated items
+          // First, get items that don't have embeddings yet
+          const unembeddedItems = await db.execute(sql`
+            SELECT bi.id
+            FROM bl_inventory bi
+            LEFT JOIN inventory_embeddings ie ON bi.id = ie.inventory_id
+            WHERE ie.inventory_id IS NULL
+            ORDER BY bi.id
+            LIMIT 100
+          `);
           
-          if (recentInventory.length > 0) {
-            const inventoryIds = recentInventory.map(i => i.id);
+          if (unembeddedItems.rows.length > 0) {
+            // Process items without embeddings first
+            const inventoryIds = unembeddedItems.rows.map((r: any) => r.id);
             await batchEmbedInventory(inventoryIds);
-            console.log(`  ✓ Embedded ${inventoryIds.length} inventory items`);
+            console.log(`  ✓ Embedded ${inventoryIds.length} inventory items (new)`);
+          } else {
+            // All items have embeddings, update recently changed ones
+            const recentInventory = await db
+              .select({ id: blInventory.id })
+              .from(blInventory)
+              .orderBy(sql`${blInventory.updatedAt} DESC`)
+              .limit(100);
+            
+            if (recentInventory.length > 0) {
+              const inventoryIds = recentInventory.map(i => i.id);
+              await batchEmbedInventory(inventoryIds);
+              console.log(`  ✓ Re-embedded ${inventoryIds.length} inventory items (updated)`);
+            }
           }
           break;
         }
@@ -107,17 +124,34 @@ async function processNextJob() {
           break;
         }
         case 'orders': {
-          // Fetch recent orders that need embedding
-          const recentOrders = await db
-            .select({ id: orders.id })
-            .from(orders)
-            .orderBy(sql`${orders.updatedAt} DESC`)
-            .limit(50); // Embed up to 50 most recent orders
+          // First, get orders that don't have embeddings yet
+          const unembeddedOrders = await db.execute(sql`
+            SELECT o.id
+            FROM orders o
+            LEFT JOIN order_embeddings oe ON o.id = oe.order_id
+            WHERE oe.order_id IS NULL
+            ORDER BY o.order_date DESC
+            LIMIT 50
+          `);
           
-          if (recentOrders.length > 0) {
-            const orderIds = recentOrders.map(o => o.id);
+          if (unembeddedOrders.rows.length > 0) {
+            // Process orders without embeddings first
+            const orderIds = unembeddedOrders.rows.map((r: any) => r.id);
             await batchEmbedOrders(orderIds);
-            console.log(`  ✓ Embedded ${orderIds.length} orders`);
+            console.log(`  ✓ Embedded ${orderIds.length} orders (new)`);
+          } else {
+            // All orders have embeddings, update recently changed ones
+            const recentOrders = await db
+              .select({ id: orders.id })
+              .from(orders)
+              .orderBy(sql`${orders.updatedAt} DESC`)
+              .limit(50);
+            
+            if (recentOrders.length > 0) {
+              const orderIds = recentOrders.map(o => o.id);
+              await batchEmbedOrders(orderIds);
+              console.log(`  ✓ Re-embedded ${orderIds.length} orders (updated)`);
+            }
           }
           break;
         }
