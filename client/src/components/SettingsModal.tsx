@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { AppSettings } from "@shared/schema";
+import { APP_VERSION, APP_NAME } from "@shared/version";
 import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -422,6 +423,21 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
               <div className="space-y-4 min-h-[400px]">
               <div className="space-y-3">
                 <h3 className="text-sm font-medium text-gray-300">General Settings</h3>
+                
+                {/* Version Display */}
+                <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-medium text-gray-300">{APP_NAME}</p>
+                      <p className="text-[10px] text-gray-500">Version {APP_VERSION}</p>
+                    </div>
+                    <div className="flex items-center gap-1 text-[10px] text-gray-500">
+                      <CheckCircle2 className="h-3 w-3 text-green-400" />
+                      <span>Up to date</span>
+                    </div>
+                  </div>
+                </div>
+                
                 <div className="space-y-2">
                   <Label htmlFor="timezone" className="text-xs text-gray-400">Time Zone</Label>
                   <Select defaultValue="america/chicago">
