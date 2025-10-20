@@ -764,7 +764,7 @@ export default function Home() {
       <Sheet open={chatOpen} onOpenChange={handleChatClose}>
         <SheetContent 
           side="bottom" 
-          className="h-[85vh] p-0 border-0 overflow-hidden"
+          className="h-[95vh] p-0 border-0 overflow-hidden"
           style={{
             background: 'linear-gradient(135deg, #1a0a2e 0%, #2d1b4e 50%, #0f0524 100%)',
           }}
