@@ -771,6 +771,8 @@ export default function Home() {
           style={{
             background: 'linear-gradient(135deg, #1a0a2e 0%, #2d1b4e 50%, #0f0524 100%)',
           }}
+          onInteractOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
         >
           {/* Jetsons-style chrome border with scan lines */}
           <div className="absolute inset-0 pointer-events-none">
