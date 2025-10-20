@@ -3,7 +3,7 @@ import { embeddingJobs, blInventory, orders, setPartRelationships } from "@share
 import { eq, sql } from "drizzle-orm";
 import { batchEmbedInventory, batchEmbedOrders, batchEmbedSets } from "./embeddings";
 
-let isProcessing = false;
+let processingJobs: Set<string> = new Set();
 let workerInterval: NodeJS.Timeout | null = null;
 
 /**
@@ -41,24 +41,27 @@ export function stopEmbeddingWorker() {
  * Process the next pending embedding job
  */
 async function processNextJob() {
-  if (isProcessing) {
-    return; // Already processing a job
-  }
-
   try {
-    isProcessing = true;
-
-    // Find the oldest pending job
-    const [job] = await db
+    // Find the oldest pending job whose type isn't already being processed
+    const pendingJobs = await db
       .select()
       .from(embeddingJobs)
       .where(eq(embeddingJobs.status, 'pending'))
-      .orderBy(embeddingJobs.createdAt)
-      .limit(1);
+      .orderBy(embeddingJobs.createdAt);
 
-    if (!job) {
+    if (pendingJobs.length === 0) {
       return; // No pending jobs
     }
+
+    // Find first job whose type isn't already processing
+    const job = pendingJobs.find(j => !processingJobs.has(j.jobType));
+    
+    if (!job) {
+      return; // All pending job types are already being processed
+    }
+
+    // Mark this job type as processing
+    processingJobs.add(job.jobType);
 
     console.log(`🧠 Processing embedding job ${job.id} (${job.jobType})`);
 
@@ -181,11 +184,12 @@ async function processNextJob() {
           completedAt: new Date(),
         })
         .where(eq(embeddingJobs.id, job.id));
+    } finally {
+      // Remove this job type from processing set
+      processingJobs.delete(job.jobType);
     }
   } catch (error) {
     console.error('Error processing embedding job:', error);
-  } finally {
-    isProcessing = false;
   }
 }
 
