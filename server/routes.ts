@@ -2040,25 +2040,48 @@ You are PROACTIVE and INTELLIGENT. Don't just say "I can't find it" - USE YOUR T
   // Get Inventory Items
   app.get("/api/inventory", async (req, res) => {
     try {
-      const inventoryItems = await db
-        .select({
-          id: blInventory.id,
-          itemNo: blInventory.itemNo,
-          itemType: blInventory.itemType,
-          colorId: blInventory.colorId,
-          colorName: blColors.name,
-          colorRgb: blColors.rgb,
-          categoryId: blInventory.categoryId,
-          categoryName: blCategories.name,
-          quantity: blInventory.quantity,
-          newOrUsed: blInventory.newOrUsed,
-          unitPrice: blInventory.unitPrice,
-          updatedAt: blInventory.updatedAt,
-        })
-        .from(blInventory)
-        .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
-        .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
-        .limit(100);
+      const searchQuery = req.query.search as string;
+      
+      // Build query conditionally
+      const inventoryItems = searchQuery && searchQuery.trim()
+        ? await db
+            .select({
+              id: blInventory.id,
+              itemNo: blInventory.itemNo,
+              itemType: blInventory.itemType,
+              colorId: blInventory.colorId,
+              colorName: blColors.name,
+              colorRgb: blColors.rgb,
+              categoryId: blInventory.categoryId,
+              categoryName: blCategories.name,
+              quantity: blInventory.quantity,
+              newOrUsed: blInventory.newOrUsed,
+              unitPrice: blInventory.unitPrice,
+              updatedAt: blInventory.updatedAt,
+            })
+            .from(blInventory)
+            .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+            .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
+            .where(eq(blInventory.itemNo, searchQuery.trim()))
+        : await db
+            .select({
+              id: blInventory.id,
+              itemNo: blInventory.itemNo,
+              itemType: blInventory.itemType,
+              colorId: blInventory.colorId,
+              colorName: blColors.name,
+              colorRgb: blColors.rgb,
+              categoryId: blInventory.categoryId,
+              categoryName: blCategories.name,
+              quantity: blInventory.quantity,
+              newOrUsed: blInventory.newOrUsed,
+              unitPrice: blInventory.unitPrice,
+              updatedAt: blInventory.updatedAt,
+            })
+            .from(blInventory)
+            .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+            .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
+            .limit(100);
 
       res.json(inventoryItems);
     } catch (error) {

@@ -113,15 +113,9 @@ export function InventoryGroup({ itemNo, items, onItemClick }: InventoryGroupPro
               const itemId = group.new?.id || group.used?.id;
               
               return (
-                <button
+                <div
                   key={idx}
-                  onClick={() => {
-                    console.log('[InventoryGroup] Clicked row:', { idx, itemId, itemNo, colorName: group.colorName, newItem: group.new, usedItem: group.used });
-                    if (itemId) {
-                      onItemClick?.(itemId);
-                    }
-                  }}
-                  className="w-full grid grid-cols-[14px_80px_1fr] gap-2 items-center py-1.5 px-2 -mx-2 rounded text-left hover:bg-gray-800/20 active:bg-gray-800/30 transition-colors"
+                  className="w-full grid grid-cols-[14px_80px_1fr] gap-2 items-center py-1.5 px-2 -mx-2 rounded"
                   data-testid={`inventory-row-${itemNo}-${idx}`}
                 >
                   {/* Color dot */}
@@ -134,23 +128,47 @@ export function InventoryGroup({ itemNo, items, onItemClick }: InventoryGroupPro
                   {/* Color name */}
                   <span className="text-gray-400 text-[10px] truncate">{group.colorName || 'Unknown'}</span>
                   
-                  {/* Conditions aligned in columns - using grid for vertical alignment */}
+                  {/* Conditions aligned in columns - each clickable separately */}
                   <div className="grid grid-cols-2 gap-3 text-[10px]">
-                    {/* New condition - always in first column, no "N:" prefix */}
-                    <div className="flex items-center gap-1">
-                      {group.new && (
+                    {/* New condition - clickable if exists */}
+                    {group.new ? (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          console.log('[InventoryGroup] Clicked New:', { itemId: group.new?.id, itemNo, colorName: group.colorName });
+                          if (group.new?.id) {
+                            onItemClick?.(group.new.id);
+                          }
+                        }}
+                        className="flex items-center gap-1 text-left hover:bg-gray-800/20 active:bg-gray-800/30 rounded px-1 -mx-1 transition-colors"
+                        data-testid={`inventory-new-${itemNo}-${idx}`}
+                      >
                         <span className="text-green-400 whitespace-nowrap">{group.new.quantity}@${group.new.unitPrice || '0.00'}</span>
-                      )}
-                    </div>
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-1"></div>
+                    )}
                     
-                    {/* Used condition - always in second column, no "U:" prefix */}
-                    <div className="flex items-center gap-1">
-                      {group.used && (
+                    {/* Used condition - clickable if exists */}
+                    {group.used ? (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          console.log('[InventoryGroup] Clicked Used:', { itemId: group.used?.id, itemNo, colorName: group.colorName });
+                          if (group.used?.id) {
+                            onItemClick?.(group.used.id);
+                          }
+                        }}
+                        className="flex items-center gap-1 text-left hover:bg-gray-800/20 active:bg-gray-800/30 rounded px-1 -mx-1 transition-colors"
+                        data-testid={`inventory-used-${itemNo}-${idx}`}
+                      >
                         <span className="text-orange-400 whitespace-nowrap">{group.used.quantity}@${group.used.unitPrice || '0.00'}</span>
-                      )}
-                    </div>
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-1"></div>
+                    )}
                   </div>
-                </button>
+                </div>
               );
             })}
           </div>
