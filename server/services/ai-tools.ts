@@ -339,7 +339,7 @@ export async function getSetParts(params: {
     }
     
     // Get color names for the parts
-    const colorIds = [...new Set(parts.map(p => p.colorId).filter(id => id !== null))];
+    const colorIds = Array.from(new Set(parts.map(p => p.colorId).filter(id => id !== null)));
     const colors = await db
       .select({
         id: blColors.id,
