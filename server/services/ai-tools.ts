@@ -5,7 +5,7 @@
 
 import { db } from '../db';
 import { blInventory, blColors, blCategories, orders, orderDetails, setPartRelationships } from '@shared/schema';
-import { eq, like, or, sql, and, desc } from 'drizzle-orm';
+import { eq, like, or, sql, and, desc, inArray } from 'drizzle-orm';
 import { searchBricklinkCatalogItem, fetchPriceOMagicData } from './bricklink';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
@@ -586,6 +586,135 @@ export async function searchOrdersByItem(params: {
 }
 
 /**
+ * Get items that were frequently purchased together with a specific part
+ */
+export async function getCopurchasedItems(params: {
+  itemNo: string;
+  limit?: number;
+}) {
+  const { itemNo, limit = 20 } = params;
+  
+  try {
+    // STEP 1: Find all inventory IDs for this part number
+    const inventoryItems = await db
+      .select({ id: blInventory.id })
+      .from(blInventory)
+      .where(eq(blInventory.itemNo, itemNo));
+    
+    if (inventoryItems.length === 0) {
+      return {
+        success: true,
+        data: [],
+        count: 0,
+        message: `No inventory found for item ${itemNo}`,
+      };
+    }
+    
+    // STEP 2: Find all orders containing this part
+    const inventoryIds = inventoryItems.map(item => item.id.toString());
+    const skuPatterns = inventoryIds.map(id => 
+      like(orderDetails.sku, `%-${id}.LGO-%`)
+    );
+    
+    const ordersWithThisPart = await db
+      .select({ orderId: orderDetails.orderId })
+      .from(orderDetails)
+      .where(or(...skuPatterns))
+      .groupBy(orderDetails.orderId);
+    
+    if (ordersWithThisPart.length === 0) {
+      return {
+        success: true,
+        data: [],
+        count: 0,
+        message: `No orders found containing item ${itemNo}`,
+      };
+    }
+    
+    const orderIds = ordersWithThisPart.map(o => o.orderId);
+    
+    // STEP 3: Get all items from those orders (including orderId for proper deduplication)
+    // Extract part numbers from SKUs: "16-51508372.LGO-3021" -> "3021"
+    const allItemsInOrders = await db
+      .select({
+        orderId: orderDetails.orderId,
+        sku: orderDetails.sku,
+        name: orderDetails.name,
+        quantity: orderDetails.quantity,
+      })
+      .from(orderDetails)
+      .where(inArray(orderDetails.orderId, orderIds));
+    
+    // STEP 4: Parse SKUs and aggregate co-purchased items (counting unique orders, not line items)
+    interface CopurchaseItem {
+      itemNo: string;
+      name: string;
+      totalQuantity: number;
+      orderCount: number;
+      orderIds: Set<string>;
+    }
+    
+    const copurchaseMap = new Map<string, CopurchaseItem>();
+    
+    allItemsInOrders.forEach(item => {
+      // Parse part number from SKU: "16-51508372.LGO-3021" -> "3021"
+      const match = item.sku?.match(/\.LGO-([^-]+)/);
+      if (!match) return;
+      
+      const partNumber = match[1];
+      
+      // Skip the searched part itself
+      if (partNumber === itemNo) return;
+      
+      if (!copurchaseMap.has(partNumber)) {
+        copurchaseMap.set(partNumber, {
+          itemNo: partNumber,
+          name: item.name || 'Unknown',
+          totalQuantity: 0,
+          orderCount: 0,
+          orderIds: new Set(),
+        });
+      }
+      
+      const existing = copurchaseMap.get(partNumber)!;
+      existing.totalQuantity += item.quantity || 0;
+      // Only count unique orders - increment orderCount when we see a new orderId
+      if (!existing.orderIds.has(item.orderId)) {
+        existing.orderIds.add(item.orderId);
+        existing.orderCount += 1;
+      }
+    });
+    
+    // STEP 5: Sort by frequency and return top results (remove orderIds Set from response)
+    const results = Array.from(copurchaseMap.values())
+      .sort((a, b) => b.orderCount - a.orderCount)
+      .slice(0, limit)
+      .map(({ itemNo, name, totalQuantity, orderCount }) => ({
+        itemNo,
+        name,
+        totalQuantity,
+        orderCount,
+      }));
+    
+    return {
+      success: true,
+      data: results,
+      count: results.length,
+      summary: {
+        searchedPart: itemNo,
+        totalOrdersAnalyzed: ordersWithThisPart.length,
+        uniqueCopurchasedItems: copurchaseMap.size,
+      },
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      message: error.message || 'Failed to get co-purchased items',
+    };
+  }
+}
+
+/**
  * Tool definitions for OpenRouter function calling
  */
 export const AI_TOOLS = [
@@ -773,6 +902,27 @@ export const AI_TOOLS = [
   {
     type: 'function',
     function: {
+      name: 'get_copurchased_items',
+      description: 'Find what other parts customers frequently bought together with a specific part. Use this to answer "what did people buy along with this part" or "what do customers buy together with part X". Returns items sorted by frequency.',
+      parameters: {
+        type: 'object',
+        properties: {
+          itemNo: {
+            type: 'string',
+            description: 'The part number to analyze co-purchases for (e.g., "3001", "32039")',
+          },
+          limit: {
+            type: 'number',
+            description: 'Maximum number of co-purchased items to return (default: 20)',
+          },
+        },
+        required: ['itemNo'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'get_set_parts',
       description: 'Get the complete list of ALL parts and quantities in a LEGO set. Returns the full inventory with no limits. Use this when user asks "what parts are in set X" or "show me the parts list for set X".',
       parameters: {
@@ -830,6 +980,9 @@ export async function executeToolCall(toolName: string, params: any): Promise<an
     
     case 'search_orders_by_item':
       return await searchOrdersByItem(params);
+    
+    case 'get_copurchased_items':
+      return await getCopurchasedItems(params);
     
     case 'get_set_parts':
       return await getSetParts(params);
