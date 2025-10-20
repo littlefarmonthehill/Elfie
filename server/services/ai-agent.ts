@@ -21,11 +21,16 @@ interface AgentLoopOptions {
   maxIterations?: number;
 }
 
+interface AgentLoopResult {
+  message: string;
+  bricklinkItem?: any;
+}
+
 /**
  * Run the AI agent loop with function calling support
- * Returns the final assistant message after all tool calls are resolved
+ * Returns the final assistant message and any BrickLink catalog items found
  */
-export async function runAgentLoop(options: AgentLoopOptions): Promise<string> {
+export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoopResult> {
   const { apiKey, model, systemPrompt, messages, maxIterations = 5 } = options;
   
   let conversationMessages: Message[] = [
@@ -34,6 +39,7 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<string> {
   ];
   
   let iterations = 0;
+  let bricklinkCatalogItem: any = null;
   
   while (iterations < maxIterations) {
     iterations++;
@@ -133,6 +139,12 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<string> {
         
         console.log(`✅ Tool result:`, toolResult);
         
+        // Track BrickLink catalog items for frontend display
+        if (toolName === 'search_bricklink_catalog' && toolResult.success && toolResult.data) {
+          bricklinkCatalogItem = toolResult.data;
+          console.log('📦 BrickLink catalog item found:', bricklinkCatalogItem);
+        }
+        
         // Add tool result to conversation
         conversationMessages.push({
           role: 'tool',
@@ -149,10 +161,16 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<string> {
     // No tool calls - we have the final answer
     const finalContent = assistantMessage.content || '';
     console.log(`✅ Agent loop complete after ${iterations} iteration(s)`);
-    return finalContent;
+    return {
+      message: finalContent,
+      bricklinkItem: bricklinkCatalogItem,
+    };
   }
   
   // Max iterations reached
   console.warn(`⚠️ Agent loop reached max iterations (${maxIterations})`);
-  return conversationMessages[conversationMessages.length - 1].content || 'I apologize, but I encountered an issue processing your request.';
+  return {
+    message: conversationMessages[conversationMessages.length - 1].content || 'I apologize, but I encountered an issue processing your request.',
+    bricklinkItem: bricklinkCatalogItem,
+  };
 }
