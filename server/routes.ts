@@ -1264,8 +1264,9 @@ AVAILABLE TOOLS:
 3. search_local_inventory - Search local inventory with advanced filters
 4. get_inventory_stats - Get inventory statistics (totals, values, etc.)
 5. get_order_analytics - Get sales and order analytics
-6. get_set_parts - Get complete parts list with quantities for any LEGO set
-7. search_web - Search the internet for current information, news, trends, and research
+6. search_orders_by_item - Search order history to find if a specific part has been sold
+7. get_set_parts - Get complete parts list with quantities for any LEGO set
+8. search_web - Search the internet for current information, news, trends, and research
 
 WHEN TO USE TOOLS:
 - If a user asks about a part/set that's NOT in inventory → ALWAYS use search_bricklink_catalog
@@ -1273,6 +1274,7 @@ WHEN TO USE TOOLS:
 - If a user asks "what parts are in set X" or "show me the parts for set X" → use get_set_parts with the set number (e.g., "4709-1")
 - If a user asks about pricing/market value → use get_bricklink_price_guide
 - If a user wants filtered inventory search → use search_local_inventory
+- If a user asks "has anyone purchased this part" or "show me sales for part X" → use search_orders_by_item
 - For business strategy questions → use the relevant analytics tools
 - If a user asks about current events, market trends, recent news, or topics requiring up-to-date information → use search_web
 

@@ -4,7 +4,7 @@
  */
 
 import { db } from '../db';
-import { blInventory, blColors, blCategories, orders, setPartRelationships } from '@shared/schema';
+import { blInventory, blColors, blCategories, orders, orderDetails, setPartRelationships } from '@shared/schema';
 import { eq, like, or, sql, and, desc } from 'drizzle-orm';
 import { searchBricklinkCatalogItem, fetchPriceOMagicData } from './bricklink';
 import axios from 'axios';
@@ -482,6 +482,84 @@ export async function searchWeb(params: {
 }
 
 /**
+ * Search orders by item number to find sales history
+ */
+export async function searchOrdersByItem(params: {
+  itemNo: string;
+  colorId?: number;
+  condition?: string;
+  limit?: number;
+}) {
+  const { itemNo, colorId, condition, limit = 50 } = params;
+  
+  try {
+    // Build where conditions
+    const conditions: any[] = [like(orderDetails.sku, `%${itemNo}%`)];
+    
+    if (colorId !== undefined) {
+      conditions.push(eq(orderDetails.colorId, colorId));
+    }
+    
+    if (condition) {
+      conditions.push(eq(orderDetails.condition, condition));
+    }
+    
+    const results = await db
+      .select({
+        orderId: orderDetails.orderId,
+        orderNumber: orders.orderNumber,
+        orderDate: orders.orderDate,
+        marketplace: orders.marketplace,
+        customerUsername: orders.customerUsername,
+        itemName: orderDetails.name,
+        sku: orderDetails.sku,
+        quantity: orderDetails.quantity,
+        unitPrice: orderDetails.unitPrice,
+        colorId: orderDetails.colorId,
+        condition: orderDetails.condition,
+      })
+      .from(orderDetails)
+      .innerJoin(orders, eq(orderDetails.orderId, orders.id))
+      .where(and(...conditions))
+      .orderBy(desc(orders.orderDate))
+      .limit(limit);
+    
+    if (results.length === 0) {
+      return {
+        success: true,
+        data: [],
+        count: 0,
+        message: `No sales history found for item ${itemNo}`,
+      };
+    }
+    
+    // Calculate summary stats
+    const totalQuantity = results.reduce((sum, r) => sum + (r.quantity || 0), 0);
+    const totalRevenue = results.reduce((sum, r) => 
+      sum + ((r.quantity || 0) * parseFloat(r.unitPrice || '0')), 0
+    );
+    const avgPrice = totalRevenue / totalQuantity;
+    
+    return {
+      success: true,
+      data: results,
+      count: results.length,
+      summary: {
+        totalOrders: results.length,
+        totalQuantitySold: totalQuantity,
+        totalRevenue: totalRevenue.toFixed(2),
+        averagePrice: avgPrice.toFixed(2),
+      },
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      message: error.message || 'Failed to search orders by item',
+    };
+  }
+}
+
+/**
  * Tool definitions for OpenRouter function calling
  */
 export const AI_TOOLS = [
@@ -640,6 +718,35 @@ export const AI_TOOLS = [
   {
     type: 'function',
     function: {
+      name: 'search_orders_by_item',
+      description: 'Search order history to find if a specific part/item has been sold. Returns sales history including dates, quantities, prices, and customers. Use this to answer "has anyone purchased this part" or "show me sales for part X".',
+      parameters: {
+        type: 'object',
+        properties: {
+          itemNo: {
+            type: 'string',
+            description: 'The item number/SKU to search for (e.g., "26047", "3001")',
+          },
+          colorId: {
+            type: 'number',
+            description: 'Optional: Filter by BrickLink color ID',
+          },
+          condition: {
+            type: 'string',
+            description: 'Optional: Filter by condition (e.g., "New", "Used")',
+          },
+          limit: {
+            type: 'number',
+            description: 'Maximum number of results to return (default: 50)',
+          },
+        },
+        required: ['itemNo'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'get_set_parts',
       description: 'Get the complete list of ALL parts and quantities in a LEGO set. Returns the full inventory with no limits. Use this when user asks "what parts are in set X" or "show me the parts list for set X".',
       parameters: {
@@ -694,6 +801,9 @@ export async function executeToolCall(toolName: string, params: any): Promise<an
     
     case 'get_order_analytics':
       return await getOrderAnalytics(params);
+    
+    case 'search_orders_by_item':
+      return await searchOrdersByItem(params);
     
     case 'get_set_parts':
       return await getSetParts(params);
