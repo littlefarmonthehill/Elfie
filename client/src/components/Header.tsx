@@ -20,11 +20,11 @@ export default function Header({ onSettingsClick, onElfieClick }: HeaderProps) {
         <div className="absolute inset-0 rounded-full bg-purple-500/30 blur-lg animate-pulse group-hover:bg-purple-400/40 transition-all duration-300" />
         
         {/* Robot icon */}
-        <div className="relative w-8 h-8 md:w-10 md:h-10 lg:w-12 lg:h-12 rounded-full bg-purple-500/20 border-2 border-purple-500/50 flex items-center justify-center group-hover:border-purple-400/70 group-hover:scale-110 transition-all duration-300">
+        <div className="relative w-10 h-10 md:w-12 md:h-12 lg:w-14 lg:h-14 rounded-full bg-purple-500/20 border-2 border-purple-500/50 flex items-center justify-center group-hover:border-purple-400/70 group-hover:scale-110 transition-all duration-300">
           <img 
             src={elfieRobot} 
             alt="E.L.F.I.E. AI Assistant" 
-            className="w-5 h-5 md:w-6 md:h-6 lg:w-7 lg:h-7 object-contain"
+            className="w-8 h-8 md:w-10 md:h-10 lg:w-12 lg:h-12 object-contain"
           />
         </div>
         
