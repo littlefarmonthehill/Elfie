@@ -36,12 +36,31 @@ export function useServiceWorker() {
           });
 
           // Auto-reload when new service worker takes control
+          // BUT ONLY if the page is visible (not during camera usage)
           let refreshing = false;
           navigator.serviceWorker.addEventListener('controllerchange', () => {
             if (!refreshing) {
-              refreshing = true;
-              console.log('🔄 Reloading to apply update...');
-              window.location.reload();
+              // Don't reload if page is hidden (e.g., camera is open)
+              if (document.hidden || document.visibilityState === 'hidden') {
+                console.log('🔄 Update available, but waiting until page is visible...');
+                
+                // Wait for page to become visible again, then reload
+                const visibilityHandler = () => {
+                  if (!document.hidden && document.visibilityState === 'visible') {
+                    console.log('🔄 Page visible again, reloading to apply update...');
+                    refreshing = true;
+                    window.location.reload();
+                    document.removeEventListener('visibilitychange', visibilityHandler);
+                  }
+                };
+                
+                document.addEventListener('visibilitychange', visibilityHandler);
+              } else {
+                // Page is visible, safe to reload
+                refreshing = true;
+                console.log('🔄 Reloading to apply update...');
+                window.location.reload();
+              }
             }
           });
         })
