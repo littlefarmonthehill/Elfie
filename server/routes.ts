@@ -11,6 +11,7 @@ import { eq, desc, sql, inArray, like, or, and, isNotNull } from "drizzle-orm";
 import { z } from "zod";
 import multer from "multer";
 import FormData from "form-data";
+import axios from "axios";
 
 // Decode HTML entities from BrickLink notes for accurate comparison
 function decodeHtmlEntities(text: string | null | undefined): string {
@@ -2003,38 +2004,31 @@ You are PROACTIVE and INTELLIGENT. Don't just say "I can't find it" - USE YOUR T
         size: req.file.size
       });
       
-      // Create a Blob from the buffer for fetch API compatibility
-      const blob = new Blob([req.file.buffer], { type: req.file.mimetype || 'image/jpeg' });
-      
-      // Use browser-compatible FormData with Blob
+      // Use the form-data package with axios for proper Node.js compatibility
       const formData = new FormData();
-      formData.append('query_image', blob, req.file.originalname || 'image.jpg');
+      formData.append('query_image', req.file.buffer, {
+        filename: req.file.originalname || 'image.jpg',
+        contentType: req.file.mimetype || 'image/jpeg',
+      });
       
-      // Call Brickognize API
+      // Call Brickognize API using axios (handles streams properly)
       const brickognizeUrl = `https://api.brickognize.com/predict/${itemType}/`;
       console.log('📷 Calling Brickognize API:', brickognizeUrl);
       
-      const response = await fetch(brickognizeUrl, {
-        method: 'POST',
-        body: formData,
+      const response = await axios.post(brickognizeUrl, formData, {
+        headers: formData.getHeaders(),
       });
       
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Brickognize API error:', response.status, errorText);
-        return res.status(response.status).json({ 
-          error: `Brickognize couldn't identify that image. Try a clearer photo!` 
-        });
-      }
+      console.log('📷 Brickognize results:', response.data.items?.length || 0, 'items found');
       
-      const data = await response.json();
-      console.log('📷 Brickognize results:', data.items?.length || 0, 'items found');
-      
-      res.json(data);
-    } catch (error) {
-      console.error('📷 Brickognize identification error:', error);
-      res.status(500).json({ 
-        error: error instanceof Error ? error.message : "Oops! E.L.F.I.E. couldn't identify that LEGO piece. Try again!"
+      res.json(response.data);
+    } catch (error: any) {
+      console.error('📷 Brickognize identification error:', error.response?.data || error.message);
+      const statusCode = error.response?.status || 500;
+      res.status(statusCode).json({ 
+        error: statusCode === 400 
+          ? "Brickognize couldn't identify that image. Try a clearer photo!"
+          : "Oops! E.L.F.I.E. couldn't identify that LEGO piece. Try again!"
       });
     }
   });
