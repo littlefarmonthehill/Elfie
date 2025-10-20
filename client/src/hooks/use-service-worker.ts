@@ -12,13 +12,8 @@ export function useServiceWorker() {
         .then((registration) => {
           console.log('✅ Service Worker registered');
 
-          // Check for updates on page load
+          // Check for updates only when app is opened
           registration.update();
-
-          // Check for updates every 30 minutes (much less aggressive)
-          setInterval(() => {
-            registration.update();
-          }, 1800000); // 30 minutes
 
           // Listen for updates
           registration.addEventListener('updatefound', () => {
