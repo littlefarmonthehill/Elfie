@@ -105,21 +105,21 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
 
   return (
     <div className="space-y-2">
-      {/* Order Pills Navigation - Compact */}
+      {/* Order Pills Navigation */}
       {data.isRepeatCustomer && allCustomerOrders.length > 1 && (
-        <div className="bg-gradient-to-r from-lego-orange/10 via-lego-orange/5 to-transparent border border-lego-orange/30 rounded-lg p-1.5">
-          <div className="flex items-center gap-1.5 mb-1">
-            <RefreshCcw className="h-3 w-3 text-lego-orange" />
-            <span className="text-[9px] font-bold text-lego-orange">CUSTOMER ORDERS ({allCustomerOrders.length})</span>
+        <div className="bg-gradient-to-r from-lego-orange/10 via-lego-orange/5 to-transparent border border-lego-orange/30 rounded-lg p-2.5">
+          <div className="flex items-center gap-2 mb-2">
+            <RefreshCcw className="h-4 w-4 text-lego-orange" />
+            <span className="text-xs md:text-sm font-bold text-lego-orange">CUSTOMER ORDERS ({allCustomerOrders.length})</span>
           </div>
           <ScrollArea className="w-full whitespace-nowrap">
-            <div className="flex gap-1.5 pb-1">
+            <div className="flex gap-2 pb-1">
               {allCustomerOrders.map((order) => (
                 <button
                   key={order.orderId}
                   onClick={() => !order.isCurrent && onOrderSelect?.(order.orderId)}
                   disabled={order.isCurrent}
-                  className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[9px] font-bold transition-all border ${
+                  className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-xs md:text-sm font-bold transition-all border ${
                     order.isCurrent
                       ? 'bg-lego-orange text-white border-lego-orange shadow-lg shadow-lego-orange/20'
                       : 'bg-gray-900 text-gray-300 border-gray-700 hover:bg-lego-orange/20 hover:border-lego-orange/50'
@@ -127,7 +127,7 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
                   data-testid={`order-pill-${order.orderId}`}
                 >
                   <span className="font-black">#{order.orderNumber}</span>
-                  <Badge className={getStatusColor(order.status) + ' text-[8px] h-3 px-1 font-bold'}>{order.status}</Badge>
+                  <Badge className={getStatusColor(order.status) + ' text-xs h-4 px-1.5 font-bold'}>{order.status}</Badge>
                   <span className="text-lego-green font-mono font-black">${order.total.toFixed(2)}</span>
                 </button>
               ))}
@@ -137,43 +137,43 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
         </div>
       )}
 
-      {/* Compact Header with Customer - Ultra Condensed */}
-      <div className="bg-gradient-to-r from-lego-blue/15 via-lego-blue/5 to-transparent border border-lego-blue/30 rounded-lg p-2">
-        <div className="flex items-center justify-between gap-2 mb-1">
-          <div className="flex items-center gap-1.5">
-            <h3 className="text-[10px] font-black text-white">ORDER #{data.orderNumber!}</h3>
-            <Badge className={getStatusColor(data.status!) + ' text-[9px] h-3.5 px-1.5 font-bold'}>{data.status!}</Badge>
+      {/* Header with Customer */}
+      <div className="bg-gradient-to-r from-lego-blue/15 via-lego-blue/5 to-transparent border border-lego-blue/30 rounded-lg p-3">
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm md:text-base font-black text-white">ORDER #{data.orderNumber!}</h3>
+            <Badge className={getStatusColor(data.status!) + ' text-xs md:text-sm h-5 px-2 font-bold'}>{data.status!}</Badge>
           </div>
-          <div className="flex items-center gap-1 text-[9px] text-gray-400">
-            <Calendar className="h-3 w-3" />
+          <div className="flex items-center gap-1.5 text-xs md:text-sm text-gray-400">
+            <Calendar className="h-4 w-4" />
             <span className="font-medium">{new Date(data.orderDate!).toLocaleDateString()}</span>
           </div>
         </div>
         
-        {/* Customer Info - Single Line */}
-        <div className="flex items-center gap-2 text-[9px]">
-          <div className="flex items-center gap-1 flex-1 min-w-0">
-            <User className="h-3 w-3 text-lego-blue flex-shrink-0" />
+        {/* Customer Info */}
+        <div className="flex items-center gap-3 text-xs md:text-sm">
+          <div className="flex items-center gap-1.5 flex-1 min-w-0">
+            <User className="h-4 w-4 text-lego-blue flex-shrink-0" />
             <span className="font-bold text-white truncate">{data.customer.name}</span>
           </div>
-          <div className="flex items-center gap-1">
-            <MapPin className="h-3 w-3 text-gray-400 flex-shrink-0" />
+          <div className="flex items-center gap-1.5">
+            <MapPin className="h-4 w-4 text-gray-400 flex-shrink-0" />
             <span className="text-gray-400">{data.customer.city}, {data.customer.state}</span>
           </div>
         </div>
       </div>
 
-      {/* Items - Scrollable Table with Fixed Height */}
+      {/* Items - Scrollable Table */}
       <div className="bg-gradient-to-r from-lego-green/10 via-lego-green/5 to-transparent border border-lego-green/30 rounded-lg overflow-hidden">
-        <div className="flex items-center gap-1.5 px-2 pt-1.5 pb-1">
-          <Package className="h-3.5 w-3.5 text-lego-green" />
-          <h4 className="text-[10px] font-black text-lego-green">ITEMS ({data.items.length})</h4>
+        <div className="flex items-center gap-2 px-3 pt-2 pb-1.5">
+          <Package className="h-4 w-4 text-lego-green" />
+          <h4 className="text-sm md:text-base font-black text-lego-green">ITEMS ({data.items.length})</h4>
         </div>
         
-        <ScrollArea className="h-[140px] px-2 pb-1.5">
-          <div className="space-y-0.5">
+        <ScrollArea className="h-[180px] px-3 pb-2">
+          <div className="space-y-1">
             {/* Table Header */}
-            <div className="grid grid-cols-12 gap-2 text-[9px] font-bold text-gray-500 border-b border-gray-700 pb-0.5 sticky top-0 bg-gray-900/95">
+            <div className="grid grid-cols-12 gap-2 text-xs md:text-sm font-bold text-gray-500 border-b border-gray-700 pb-1 sticky top-0 bg-gray-900/95">
               <div className="col-span-2">PART #</div>
               <div className="col-span-5">ITEM NAME</div>
               <div className="col-span-1 text-center">QTY</div>
@@ -183,7 +183,7 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
             
             {/* Items Rows */}
             {data.items.map((item, index) => (
-              <div key={index} className="grid grid-cols-12 gap-2 text-[10px] items-center py-0.5 hover:bg-lego-green/5 rounded transition-colors">
+              <div key={index} className="grid grid-cols-12 gap-2 text-sm md:text-base items-center py-1 hover:bg-lego-green/5 rounded transition-colors">
                 <div className="col-span-2 font-mono font-bold text-lego-blue truncate" title={item.partNumber}>{item.partNumber}</div>
                 <div className="col-span-5 text-white truncate" title={item.name}>{item.name}</div>
                 <div className="col-span-1 text-center font-bold text-gray-300">{item.quantity}</div>
@@ -195,15 +195,15 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
         </ScrollArea>
       </div>
 
-      {/* Financial Summary - Ultra Compact */}
+      {/* Financial Summary */}
       <div className="grid grid-cols-2 gap-3">
-        {/* Totals */}
-        <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-lg p-1.5">
-          <div className="flex items-center gap-1 mb-1">
-            <DollarSign className="h-3 w-3 text-lego-yellow" />
-            <span className="text-[9px] font-bold text-gray-400">BREAKDOWN</span>
+        {/* Breakdown */}
+        <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-lg p-3">
+          <div className="flex items-center gap-1.5 mb-2">
+            <DollarSign className="h-4 w-4 text-lego-yellow" />
+            <span className="text-xs md:text-sm font-bold text-gray-400">BREAKDOWN</span>
           </div>
-          <div className="space-y-0.5 text-[9px]">
+          <div className="space-y-1 text-xs md:text-sm">
             <div className="flex justify-between">
               <span className="text-gray-400">Subtotal</span>
               <span className="font-mono text-white">${subtotal.toFixed(2)}</span>
@@ -220,18 +220,18 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
         </div>
 
         {/* Total */}
-        <div className="bg-gradient-to-br from-lego-green/20 to-lego-green/5 border-2 border-lego-green/50 rounded-lg p-1.5 flex flex-col justify-center items-center">
-          <span className="text-[9px] font-bold text-gray-400 mb-0.5">ORDER TOTAL</span>
-          <span className="text-2xl font-black font-mono text-lego-green leading-none">${total.toFixed(2)}</span>
+        <div className="bg-gradient-to-br from-lego-green/20 to-lego-green/5 border-2 border-lego-green/50 rounded-lg p-3 flex flex-col justify-center items-center">
+          <span className="text-xs md:text-sm font-bold text-gray-400 mb-1">ORDER TOTAL</span>
+          <span className="text-2xl md:text-3xl font-black font-mono text-lego-green leading-none">${total.toFixed(2)}</span>
         </div>
       </div>
 
-      {/* Shipping Info - Ultra Compact */}
+      {/* Shipping Info */}
       {data.shippedDate && (
-        <div className="bg-gradient-to-r from-lego-green/15 via-lego-green/5 to-transparent border border-lego-green/30 rounded-lg p-1.5">
-          <div className="flex items-center justify-between text-[9px]">
-            <div className="flex items-center gap-1">
-              <Truck className="h-3 w-3 text-lego-green" />
+        <div className="bg-gradient-to-r from-lego-green/15 via-lego-green/5 to-transparent border border-lego-green/30 rounded-lg p-2.5">
+          <div className="flex items-center justify-between text-xs md:text-sm">
+            <div className="flex items-center gap-2">
+              <Truck className="h-4 w-4 text-lego-green" />
               <span className="font-bold text-lego-green">SHIPPED</span>
               <span className="text-gray-400">{new Date(data.shippedDate).toLocaleDateString()}</span>
             </div>

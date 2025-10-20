@@ -249,7 +249,7 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1.5 flex-wrap">
               <h3 className="text-sm font-black text-lego-blue font-mono" data-testid="text-item-number">{data.itemNo}</h3>
-              <Badge className={`text-[9px] h-4 px-2 font-bold ${
+              <Badge className={`text-xs md:text-sm h-4 px-2 font-bold ${
                 data.newOrUsed === 'N' 
                   ? 'bg-lego-green/20 text-lego-green border-lego-green/40' 
                   : 'bg-lego-orange/20 text-lego-orange border-lego-orange/40'
@@ -257,7 +257,7 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
                 {conditionText}
               </Badge>
               {data.bindId && (
-                <Badge className="bg-purple-500/20 text-purple-400 border-purple-400/40 text-[9px] h-4 px-2 font-bold">
+                <Badge className="bg-purple-500/20 text-purple-400 border-purple-400/40 text-xs md:text-sm h-4 px-2 font-bold">
                   BIND #{data.bindId}
                 </Badge>
               )}
@@ -274,11 +274,11 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
                       style={{ backgroundColor: `#${data.colorRgb}` }}
                     />
                   )}
-                  <span className="text-[10px] text-gray-300 font-medium">{data.colorName}</span>
+                  <span className="text-sm md:text-base text-gray-300 font-medium">{data.colorName}</span>
                 </div>
               )}
               {data.categoryName && (
-                <Badge className="bg-gray-800 text-gray-300 border-gray-700 text-[9px] h-4 px-2 font-medium">
+                <Badge className="bg-gray-800 text-gray-300 border-gray-700 text-xs md:text-sm h-4 px-2 font-medium">
                   {data.categoryName}
                 </Badge>
               )}
@@ -289,11 +289,11 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
 
       {/* Tabbed Content - Scrollable with fixed height */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
-        <TabsList className="flex-shrink-0 grid w-full grid-cols-4 bg-gray-800 p-0.5 h-8 mb-3">
-          <TabsTrigger value="overview" className="text-[10px] py-0.5 data-[state=active]:bg-lego-blue" data-testid="tab-overview">OVERVIEW</TabsTrigger>
-          <TabsTrigger value="pricing" className="text-[10px] py-0.5 data-[state=active]:bg-purple-600" data-testid="tab-pricing">PRICING</TabsTrigger>
-          <TabsTrigger value="analytics" className="text-[10px] py-0.5 data-[state=active]:bg-lego-orange" data-testid="tab-analytics">ANALYTICS</TabsTrigger>
-          <TabsTrigger value="details" className="text-[10px] py-0.5 data-[state=active]:bg-lego-green" data-testid="tab-details">DETAILS</TabsTrigger>
+        <TabsList className="flex-shrink-0 grid w-full grid-cols-4 bg-gray-800 p-0.5 h-9 mb-3">
+          <TabsTrigger value="overview" className="text-xs md:text-sm py-1 data-[state=active]:bg-lego-blue" data-testid="tab-overview">OVERVIEW</TabsTrigger>
+          <TabsTrigger value="pricing" className="text-xs md:text-sm py-1 data-[state=active]:bg-purple-600" data-testid="tab-pricing">PRICING</TabsTrigger>
+          <TabsTrigger value="analytics" className="text-xs md:text-sm py-1 data-[state=active]:bg-lego-orange" data-testid="tab-analytics">ANALYTICS</TabsTrigger>
+          <TabsTrigger value="details" className="text-xs md:text-sm py-1 data-[state=active]:bg-lego-green" data-testid="tab-details">DETAILS</TabsTrigger>
         </TabsList>
 
         <div className="flex-1 overflow-y-auto min-h-0">
@@ -306,7 +306,7 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
                   <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-2.5">
                     <div className="flex items-center gap-1.5 mb-1.5">
                       <FileText className="h-3.5 w-3.5 text-blue-400" />
-                      <p className="text-[10px] font-bold text-blue-400">DESCRIPTION</p>
+                      <p className="text-sm md:text-base font-bold text-blue-400">DESCRIPTION</p>
                     </div>
                     <p className="text-xs text-gray-300 leading-relaxed">{data.description}</p>
                   </div>
@@ -315,7 +315,7 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
                   <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-2.5">
                     <div className="flex items-center gap-1.5 mb-1.5">
                       <AlertCircle className="h-3.5 w-3.5 text-yellow-400" />
-                      <p className="text-[10px] font-bold text-yellow-400">REMARKS</p>
+                      <p className="text-sm md:text-base font-bold text-yellow-400">REMARKS</p>
                     </div>
                     <p className="text-xs text-gray-300 leading-relaxed">{data.remarks}</p>
                   </div>
@@ -325,23 +325,23 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
 
             {/* Current Inventory Info */}
             <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-2.5">
-              <p className="text-[10px] font-bold text-gray-400 mb-2">CURRENT INVENTORY</p>
+              <p className="text-sm md:text-base font-bold text-gray-400 mb-2">CURRENT INVENTORY</p>
               <div className="grid grid-cols-3 gap-2 mb-2">
                 <div className="text-center">
                   <Package className="h-4 w-4 text-lego-blue mx-auto mb-1" />
-                  <p className="text-[9px] text-gray-400 mb-0.5">QUANTITY</p>
+                  <p className="text-xs md:text-sm text-gray-400 mb-0.5">QUANTITY</p>
                   <p className="text-lg font-black font-mono text-lego-blue" data-testid="text-quantity">{data.quantity}</p>
                 </div>
 
                 <div className="text-center">
                   <DollarSign className="h-4 w-4 text-lego-green mx-auto mb-1" />
-                  <p className="text-[9px] text-gray-400 mb-0.5">PRICE</p>
+                  <p className="text-xs md:text-sm text-gray-400 mb-0.5">PRICE</p>
                   <p className="text-lg font-black font-mono text-lego-green" data-testid="text-unit-price">${currentPrice.toFixed(2)}</p>
                 </div>
 
                 <div className="text-center">
                   <DollarSign className="h-4 w-4 text-lego-red mx-auto mb-1" />
-                  <p className="text-[9px] text-gray-400 mb-0.5">VALUE</p>
+                  <p className="text-xs md:text-sm text-gray-400 mb-0.5">VALUE</p>
                   <p className="text-lg font-black font-mono text-lego-red" data-testid="text-total-value">${totalValue.toFixed(2)}</p>
                 </div>
               </div>
@@ -350,16 +350,16 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
               {myCost !== null && myCost > 0 && (
                 <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-700">
                   <div>
-                    <p className="text-[9px] text-gray-400 mb-0.5">MY COST</p>
+                    <p className="text-xs md:text-sm text-gray-400 mb-0.5">MY COST</p>
                     <p className="text-sm font-bold font-mono text-yellow-400">${myCost.toFixed(4)}</p>
                   </div>
                   {profit !== null && (
                     <div>
-                      <p className="text-[9px] text-gray-400 mb-0.5">PROFIT</p>
+                      <p className="text-xs md:text-sm text-gray-400 mb-0.5">PROFIT</p>
                       <p className={`text-sm font-bold font-mono ${profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                         ${profit.toFixed(2)}
                         {profitMargin !== null && (
-                          <span className="text-[9px] text-gray-400 ml-1">({profitMargin.toFixed(1)}%)</span>
+                          <span className="text-xs md:text-sm text-gray-400 ml-1">({profitMargin.toFixed(1)}%)</span>
                         )}
                       </p>
                     </div>
@@ -372,7 +372,7 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
             <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-2.5">
               <div className="flex items-center gap-1.5 mb-2">
                 <MapPin className="h-3.5 w-3.5 text-blue-400" />
-                <p className="text-[10px] font-bold text-blue-400">WAREHOUSE LOCATION</p>
+                <p className="text-sm md:text-base font-bold text-blue-400">WAREHOUSE LOCATION</p>
               </div>
               {warehouseLocation && warehouseLocation.length > 0 ? (
                 (() => {
@@ -381,26 +381,26 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
                   return (
                     <div className="grid grid-cols-3 gap-2">
                       <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-2 text-center" data-testid="card-aisle">
-                        <p className="text-[9px] text-purple-400 font-bold mb-1">AISLE</p>
+                        <p className="text-xs md:text-sm text-purple-400 font-bold mb-1">AISLE</p>
                         <p className="text-xs font-semibold text-white" data-testid="text-aisle">
                           {loc.aisleName || '—'}
                         </p>
                       </div>
                       <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-2 text-center" data-testid="card-shelf">
-                        <p className="text-[9px] text-orange-400 font-bold mb-1">SHELF</p>
+                        <p className="text-xs md:text-sm text-orange-400 font-bold mb-1">SHELF</p>
                         <p className="text-xs font-semibold text-white" data-testid="text-shelf">
                           {loc.shelfName || '—'}
                         </p>
                       </div>
                       <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-2 text-center" data-testid="card-bin">
-                        <p className="text-[9px] text-green-400 font-bold mb-1">BIN</p>
+                        <p className="text-xs md:text-sm text-green-400 font-bold mb-1">BIN</p>
                         <p className="text-xs font-semibold text-white" data-testid="text-bin">
                           {loc.binName || '—'}
                         </p>
                       </div>
                       {loc.bagLabel && (
                         <div className="col-span-3 bg-blue-500/10 border border-blue-500/30 rounded-lg p-2 text-center" data-testid="card-bag">
-                          <p className="text-[9px] text-blue-400 font-bold mb-1">BAG</p>
+                          <p className="text-xs md:text-sm text-blue-400 font-bold mb-1">BAG</p>
                           <p className="text-xs font-semibold text-white" data-testid="text-bag">
                             {loc.bagLabel}
                           </p>
@@ -410,7 +410,7 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
                   );
                 })()
               ) : (
-                <p className="text-[10px] text-gray-400 italic">
+                <p className="text-sm md:text-base text-gray-400 italic">
                   Not assigned to a warehouse location
                 </p>
               )}
@@ -419,7 +419,7 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
             {/* When First Available & Physical Details */}
             {priceOMagic && (priceOMagic.yearReleased || priceOMagic.weight || priceOMagic.dimensionX) && (
               <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-2.5">
-                <p className="text-[10px] font-bold text-gray-400 mb-2">ITEM SPECIFICATIONS</p>
+                <p className="text-sm md:text-base font-bold text-gray-400 mb-2">ITEM SPECIFICATIONS</p>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
                   {priceOMagic.yearReleased && (
                     <div>
@@ -449,9 +449,9 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
             <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-2.5">
               <div className="flex items-center gap-1.5 mb-2">
                 <Layers className="h-3.5 w-3.5 text-purple-400" />
-                <p className="text-[10px] font-bold text-purple-400">APPEARS IN SETS</p>
+                <p className="text-sm md:text-base font-bold text-purple-400">APPEARS IN SETS</p>
               </div>
-              <p className="text-[10px] text-gray-400 italic">
+              <p className="text-sm md:text-base text-gray-400 italic">
                 Set information will be available soon. This requires additional BrickLink API calls.
               </p>
             </div>
@@ -476,7 +476,7 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
                 <div className="flex items-center gap-2 mb-2">
                   <Sparkles className="h-4 w-4 text-purple-400" />
                   <h4 className="text-xs font-black text-purple-400">PRICE-O-MAGIC</h4>
-                  <Badge className="bg-purple-500/30 text-purple-300 border-purple-400/40 text-[9px] h-4 px-2 font-bold ml-auto">
+                  <Badge className="bg-purple-500/30 text-purple-300 border-purple-400/40 text-xs md:text-sm h-4 px-2 font-bold ml-auto">
                     +{priceOMagic.premiumPercentage}% PREMIUM
                   </Badge>
                 </div>
@@ -489,18 +489,18 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
                       data-testid="button-price-breakdown"
                     >
                       <div className="flex items-center justify-center gap-1.5 mb-1">
-                        <p className="text-[10px] text-purple-300 font-bold">SUGGESTED PRICE</p>
+                        <p className="text-sm md:text-base text-purple-300 font-bold">SUGGESTED PRICE</p>
                         <Info className="h-3 w-3 text-purple-400 opacity-60 group-hover:opacity-100 transition-opacity" />
                       </div>
                       <p className="text-3xl font-black font-mono text-purple-400">
                         ${suggestedPrice.toFixed(3)}
                       </p>
                       {currentPrice > 0 && suggestedPrice > currentPrice && (
-                        <p className="text-[10px] text-purple-300/70 mt-1">
+                        <p className="text-sm md:text-base text-purple-300/70 mt-1">
                           +${(suggestedPrice - currentPrice).toFixed(3)} vs current
                         </p>
                       )}
-                      <p className="text-[9px] text-purple-400/60 mt-1 group-hover:text-purple-400/80 transition-colors">
+                      <p className="text-xs md:text-sm text-purple-400/60 mt-1 group-hover:text-purple-400/80 transition-colors">
                         Tap to see calculation
                       </p>
                     </button>
@@ -548,7 +548,7 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
                               <p className="text-2xl font-mono font-black text-white mb-2">
                                 ${marketBase.toFixed(3)}
                               </p>
-                              <div className="space-y-1 text-[10px]">
+                              <div className="space-y-1 text-sm md:text-base">
                                 {stockAvgPrice !== null && (
                                   <div className="flex justify-between">
                                     <span className="text-gray-400">Current Stock Avg:</span>
@@ -581,7 +581,7 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
                                 <span className="text-xs text-gray-400">PlanetBrick Premium:</span>
                                 <div className="text-right">
                                   <span className="text-sm font-mono font-bold text-purple-400">+{basePremium}%</span>
-                                  <span className="text-[10px] text-gray-500 ml-2">${planetBrickPremium.toFixed(3)}</span>
+                                  <span className="text-sm md:text-base text-gray-500 ml-2">${planetBrickPremium.toFixed(3)}</span>
                                 </div>
                               </div>
                               
@@ -593,7 +593,7 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
                                     <span className="text-sm font-mono font-bold text-yellow-400">
                                       -{minifigReduction}%
                                     </span>
-                                    <span className="text-[10px] text-gray-500 ml-2">-${minifigAdjustment.toFixed(3)}</span>
+                                    <span className="text-sm md:text-base text-gray-500 ml-2">-${minifigAdjustment.toFixed(3)}</span>
                                   </div>
                                 </div>
                               )}
@@ -606,11 +606,11 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
                                     <span className={`text-sm font-mono font-bold ${scarcityBonus > 0 ? 'text-orange-400' : 'text-gray-500'}`}>
                                       +{scarcityBonus}%
                                     </span>
-                                    <span className="text-[10px] text-gray-500 ml-2">${supplyAdjustment.toFixed(3)}</span>
+                                    <span className="text-sm md:text-base text-gray-500 ml-2">${supplyAdjustment.toFixed(3)}</span>
                                   </div>
                                 </div>
                                 {priceOMagic.stockTotalLots !== null && (
-                                  <p className="text-[9px] text-gray-500 pl-1">
+                                  <p className="text-xs md:text-sm text-gray-500 pl-1">
                                     {priceOMagic.stockTotalLots} {priceOMagic.stockTotalLots === 1 ? 'listing' : 'listings'} available worldwide
                                   </p>
                                 )}
@@ -624,12 +624,12 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
                                 ${suggestedPrice.toFixed(3)}
                               </p>
                               {priceOMagic.stockMinPrice && priceOMagic.stockMaxPrice && (
-                                <p className="text-[9px] text-gray-500 mb-2">
+                                <p className="text-xs md:text-sm text-gray-500 mb-2">
                                   Market range: ${parseFloat(priceOMagic.stockMinPrice).toFixed(2)} - ${parseFloat(priceOMagic.stockMaxPrice).toFixed(2)}
                                 </p>
                               )}
                               <div className="pt-2 border-t border-purple-500/30">
-                                <p className="text-[9px] text-purple-300 font-mono">
+                                <p className="text-xs md:text-sm text-purple-300 font-mono">
                                   Market Base + PlanetBrick Premium{isMinifig ? ' (reduced for minifigs)' : ''} + Market Supply Impact
                                 </p>
                               </div>
@@ -648,16 +648,16 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
                     <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-2">
                       <div className="flex items-center gap-1 mb-1">
                         <ShoppingCart className="h-3.5 w-3.5 text-blue-400" />
-                        <p className="text-[10px] font-bold text-blue-400">FOR SALE</p>
+                        <p className="text-sm md:text-base font-bold text-blue-400">FOR SALE</p>
                       </div>
                       <p className="text-xs font-mono text-white mb-0.5">Avg: ${stockAvgPrice.toFixed(3)}</p>
                       {priceOMagic.stockMinPrice && priceOMagic.stockMaxPrice && (
-                        <p className="text-[9px] text-gray-400">
+                        <p className="text-xs md:text-sm text-gray-400">
                           ${parseFloat(priceOMagic.stockMinPrice).toFixed(2)} - ${parseFloat(priceOMagic.stockMaxPrice).toFixed(2)}
                         </p>
                       )}
                       {priceOMagic.stockTotalLots && (
-                        <p className="text-[9px] text-gray-400">{priceOMagic.stockTotalLots} lots</p>
+                        <p className="text-xs md:text-sm text-gray-400">{priceOMagic.stockTotalLots} lots</p>
                       )}
                     </div>
                   )}
@@ -667,16 +667,16 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
                     <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-2">
                       <div className="flex items-center gap-1 mb-1">
                         <BarChart3 className="h-3.5 w-3.5 text-green-400" />
-                        <p className="text-[10px] font-bold text-green-400">SOLD (6mo)</p>
+                        <p className="text-sm md:text-base font-bold text-green-400">SOLD (6mo)</p>
                       </div>
                       <p className="text-xs font-mono text-white mb-0.5">Avg: ${soldAvgPrice.toFixed(3)}</p>
                       {priceOMagic.soldMinPrice && priceOMagic.soldMaxPrice && (
-                        <p className="text-[9px] text-gray-400">
+                        <p className="text-xs md:text-sm text-gray-400">
                           ${parseFloat(priceOMagic.soldMinPrice).toFixed(2)} - ${parseFloat(priceOMagic.soldMaxPrice).toFixed(2)}
                         </p>
                       )}
                       {priceOMagic.soldTotalLots && (
-                        <p className="text-[9px] text-gray-400">{priceOMagic.soldTotalLots} lots</p>
+                        <p className="text-xs md:text-sm text-gray-400">{priceOMagic.soldTotalLots} lots</p>
                       )}
                     </div>
                   )}
@@ -687,7 +687,7 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
             {/* Tier Pricing */}
             {hasTierPricing && (
               <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-2.5">
-                <p className="text-[10px] font-bold text-gray-400 mb-2">BULK DISCOUNTS</p>
+                <p className="text-sm md:text-base font-bold text-gray-400 mb-2">BULK DISCOUNTS</p>
                 <div className="space-y-1.5">
                   {data.tierQuantity1 && data.tierPrice1 && parseFloat(data.tierPrice1) > 0 && (
                     <div className="flex items-center justify-between bg-gray-900/50 rounded px-2.5 py-1.5">
@@ -714,7 +714,7 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
             {/* Sale Rate */}
             {data.saleRate !== undefined && data.saleRate !== null && data.saleRate > 0 && (
               <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-2.5">
-                <p className="text-[10px] font-bold text-gray-400 mb-1">SALE DISCOUNT</p>
+                <p className="text-sm md:text-base font-bold text-gray-400 mb-1">SALE DISCOUNT</p>
                 <p className="text-xl font-black font-mono text-red-400">{data.saleRate}% OFF</p>
               </div>
             )}
@@ -724,7 +724,7 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
           <TabsContent value="analytics" className="mt-0 space-y-2.5">
             {/* Date Range Selector */}
             <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-2">
-              <p className="text-[9px] font-bold text-gray-400 mb-1.5">ANALYSIS PERIOD</p>
+              <p className="text-xs md:text-sm font-bold text-gray-400 mb-1.5">ANALYSIS PERIOD</p>
               <div className="grid grid-cols-5 gap-1">
                 {[
                   { value: '3months' as const, label: '3M' },
@@ -736,7 +736,7 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
                   <button
                     key={option.value}
                     onClick={() => setDateRange(option.value)}
-                    className={`text-[9px] font-bold py-1 px-2 rounded transition-all ${
+                    className={`text-xs md:text-sm font-bold py-1 px-2 rounded transition-all ${
                       dateRange === option.value
                         ? 'bg-lego-orange text-white border border-lego-orange'
                         : 'bg-gray-900 text-gray-400 border border-gray-700 hover-elevate'
@@ -760,32 +760,32 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
                 <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-2.5">
                   <div className="flex items-center gap-1.5 mb-2">
                     <TrendingUp className="h-3.5 w-3.5 text-green-400" />
-                    <p className="text-[10px] font-bold text-green-400">SALES PERFORMANCE</p>
+                    <p className="text-sm md:text-base font-bold text-green-400">SALES PERFORMANCE</p>
                   </div>
                   <div className="grid grid-cols-3 gap-2 mb-2">
                     <div className="text-center">
                       <ShoppingCart className="h-4 w-4 text-lego-blue mx-auto mb-1" />
-                      <p className="text-[9px] text-gray-400 mb-0.5">TOTAL SOLD</p>
+                      <p className="text-xs md:text-sm text-gray-400 mb-0.5">TOTAL SOLD</p>
                       <p className="text-lg font-black font-mono text-lego-blue">{analytics.totalUnitsSold}</p>
                     </div>
                     <div className="text-center">
                       <DollarSign className="h-4 w-4 text-lego-green mx-auto mb-1" />
-                      <p className="text-[9px] text-gray-400 mb-0.5">REVENUE</p>
+                      <p className="text-xs md:text-sm text-gray-400 mb-0.5">REVENUE</p>
                       <p className="text-lg font-black font-mono text-lego-green">${analytics.totalRevenue}</p>
                     </div>
                     <div className="text-center">
                       <Zap className="h-4 w-4 text-lego-orange mx-auto mb-1" />
-                      <p className="text-[9px] text-gray-400 mb-0.5">VELOCITY</p>
+                      <p className="text-xs md:text-sm text-gray-400 mb-0.5">VELOCITY</p>
                       <p className="text-lg font-black font-mono text-lego-orange">{analytics.salesVelocity}/mo</p>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div className="bg-gray-900/50 rounded px-2.5 py-1.5">
-                      <span className="text-gray-500 block text-[9px]">Avg Price</span>
+                      <span className="text-gray-500 block text-xs md:text-sm">Avg Price</span>
                       <span className="text-white font-mono">${analytics.averageSellingPrice}</span>
                     </div>
                     <div className="bg-gray-900/50 rounded px-2.5 py-1.5">
-                      <span className="text-gray-500 block text-[9px]">Orders</span>
+                      <span className="text-gray-500 block text-xs md:text-sm">Orders</span>
                       <span className="text-white font-mono">{analytics.totalOrders}</span>
                     </div>
                   </div>
@@ -795,7 +795,7 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
                 <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-2.5">
                   <div className="flex items-center gap-1.5 mb-2">
                     <Clock className="h-3.5 w-3.5 text-yellow-400" />
-                    <p className="text-[10px] font-bold text-yellow-400">MOVEMENT INSIGHTS</p>
+                    <p className="text-sm md:text-base font-bold text-yellow-400">MOVEMENT INSIGHTS</p>
                   </div>
                   <div className="space-y-1.5 text-xs">
                     <div className="flex items-center justify-between bg-gray-900/50 rounded px-2.5 py-1.5">
@@ -817,15 +817,15 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
 
                 {/* Recent Activity */}
                 <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-2.5">
-                  <p className="text-[10px] font-bold text-gray-400 mb-2">RECENT ACTIVITY (3 MONTHS)</p>
+                  <p className="text-sm md:text-base font-bold text-gray-400 mb-2">RECENT ACTIVITY (3 MONTHS)</p>
                   <div className="flex items-center gap-3">
                     <div className="flex-1 text-center">
                       <p className="text-xl font-black font-mono text-purple-400">{analytics.recentSales.last3Months}</p>
-                      <p className="text-[9px] text-gray-500">Units Sold</p>
+                      <p className="text-xs md:text-sm text-gray-500">Units Sold</p>
                     </div>
                     <div className="flex-1 text-center">
                       <p className="text-xl font-black font-mono text-purple-400">{analytics.recentSales.percentOfTotal}%</p>
-                      <p className="text-[9px] text-gray-500">of Total</p>
+                      <p className="text-xs md:text-sm text-gray-500">of Total</p>
                     </div>
                   </div>
                 </div>
@@ -835,7 +835,7 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
                   <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-2.5">
                     <div className="flex items-center gap-1.5 mb-2">
                       <Users className="h-3.5 w-3.5 text-blue-400" />
-                      <p className="text-[10px] font-bold text-blue-400">TOP CUSTOMERS</p>
+                      <p className="text-sm md:text-base font-bold text-blue-400">TOP CUSTOMERS</p>
                     </div>
                     <div className="space-y-1.5">
                       {analytics.topCustomers.map((customer, idx) => (
@@ -844,7 +844,7 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
                             <span className="text-xs text-white truncate pr-2">{customer.name}</span>
                             <span className="text-xs font-mono text-lego-green">{customer.units} units</span>
                           </div>
-                          <div className="flex items-center justify-between text-[9px]">
+                          <div className="flex items-center justify-between text-xs md:text-sm">
                             <span className="text-gray-500">{customer.orders} {customer.orders === 1 ? 'order' : 'orders'}</span>
                             <span className="text-gray-400 font-mono">${customer.revenue.toFixed(2)}</span>
                           </div>
@@ -858,7 +858,7 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
                 <div className="bg-gradient-to-r from-lego-orange/20 via-lego-orange/10 to-transparent border border-lego-orange/30 rounded-lg p-2.5">
                   <div className="flex items-center gap-1.5 mb-2">
                     <Sparkles className="h-3.5 w-3.5 text-lego-orange" />
-                    <p className="text-[10px] font-bold text-lego-orange">MOVEMENT STRATEGIES</p>
+                    <p className="text-sm md:text-base font-bold text-lego-orange">MOVEMENT STRATEGIES</p>
                   </div>
                   <div className="space-y-1.5 text-xs text-gray-300">
                     {analytics.daysSinceLastSold !== null && analytics.daysSinceLastSold > 90 && (
@@ -892,7 +892,7 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
               <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-4 text-center">
                 <BarChart3 className="h-8 w-8 text-gray-600 mx-auto mb-2" />
                 <p className="text-xs text-gray-500">No sales data available</p>
-                <p className="text-[10px] text-gray-600 mt-1">This item hasn't been sold yet</p>
+                <p className="text-sm md:text-base text-gray-600 mt-1">This item hasn't been sold yet</p>
               </div>
             )}
           </TabsContent>
@@ -903,7 +903,7 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
             <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-2.5">
               <div className="flex items-center gap-1.5 mb-2">
                 <Tag className="h-3.5 w-3.5 text-blue-400" />
-                <p className="text-[10px] font-bold text-blue-400">IDENTIFIERS</p>
+                <p className="text-sm md:text-base font-bold text-blue-400">IDENTIFIERS</p>
               </div>
               <div className="space-y-1.5 text-xs">
                 <div className="flex items-center justify-between">
@@ -937,7 +937,7 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
             <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-2.5">
               <div className="flex items-center gap-1.5 mb-2">
                 <Database className="h-3.5 w-3.5 text-purple-400" />
-                <p className="text-[10px] font-bold text-purple-400">INVENTORY SETTINGS</p>
+                <p className="text-sm md:text-base font-bold text-purple-400">INVENTORY SETTINGS</p>
               </div>
               <div className="space-y-1.5 text-xs">
                 {data.completeness && (
@@ -980,7 +980,7 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
       <div className="flex-shrink-0 flex items-center justify-between bg-gray-800 border border-gray-700 rounded-lg p-2.5 mt-3">
         <div className="flex items-center gap-1.5">
           <Calendar className="h-3.5 w-3.5 text-gray-400" />
-          <span className="text-[10px] text-gray-400">
+          <span className="text-sm md:text-base text-gray-400">
             Updated <span className="font-bold text-white">{data.updatedAt ? new Date(data.updatedAt).toLocaleDateString() : 'N/A'}</span>
           </span>
         </div>
@@ -991,7 +991,7 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
               <Button 
                 size="sm"
                 variant="ghost"
-                className="h-6 px-2 text-[10px] font-bold text-lego-yellow hover:text-lego-yellow/80"
+                className="h-6 px-2 text-sm md:text-base font-bold text-lego-yellow hover:text-lego-yellow/80"
                 data-testid="button-view-sets"
               >
                 <Boxes className="h-3.5 w-3.5 mr-1" />
@@ -1042,7 +1042,7 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
                             <span className="text-xs text-gray-300 truncate flex-1">
                               {set.setName || 'Unknown Set'}
                             </span>
-                            <span className="text-[10px] text-lego-yellow font-bold whitespace-nowrap">
+                            <span className="text-sm md:text-base text-lego-yellow font-bold whitespace-nowrap">
                               {set.quantity}×
                             </span>
                           </div>
@@ -1081,7 +1081,7 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
               e.stopPropagation();
               window.open(bricklinkUrl, '_blank', 'noopener,noreferrer');
             }}
-            className="flex items-center gap-1 text-[10px] font-bold text-lego-blue hover:text-lego-blue/80 transition-colors whitespace-nowrap"
+            className="flex items-center gap-1 text-sm md:text-base font-bold text-lego-blue hover:text-lego-blue/80 transition-colors whitespace-nowrap"
             data-testid="link-bricklink"
           >
             BRICKLINK
