@@ -832,3 +832,70 @@ export const anomalyEventsRelations = relations(anomalyEvents, ({ one }) => ({
     references: [restoreJobs.id],
   }),
 }));
+
+// BrickLink Forum Posts - For community knowledge tracking
+export const blForumPosts = pgTable("bl_forum_posts", {
+  id: varchar("id").primaryKey(), // Forum message ID from BrickLink
+  threadId: text("thread_id").notNull(), // Thread ID for grouping conversations
+  
+  // Post content
+  title: text("title").notNull(),
+  content: text("content"), // Full post content (if available)
+  excerpt: text("excerpt"), // Preview/summary shown in list view
+  
+  // Author info
+  username: text("username").notNull(),
+  userFeedbackCount: integer("user_feedback_count"), // Feedback rating
+  
+  // Timestamps
+  postedAt: timestamp("posted_at").notNull(),
+  
+  // URLs
+  postUrl: text("post_url").notNull(),
+  threadUrl: text("thread_url").notNull(),
+  
+  // Metadata
+  hasReplies: boolean("has_replies").default(false),
+  replyCount: integer("reply_count").default(0),
+  
+  // Scraping metadata
+  lastScrapedAt: timestamp("last_scraped_at").defaultNow().notNull(),
+  scrapedContent: boolean("scraped_content").default(false), // Whether full content was scraped
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  threadIdx: index("bl_forum_thread_idx").on(table.threadId),
+  postedAtIdx: index("bl_forum_posted_idx").on(table.postedAt),
+  usernameIdx: index("bl_forum_username_idx").on(table.username),
+}));
+
+export const insertBlForumPostSchema = createInsertSchema(blForumPosts).omit({
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertBlForumPost = z.infer<typeof insertBlForumPostSchema>;
+export type BlForumPost = typeof blForumPosts.$inferSelect;
+
+// BrickLink Forum Embeddings - For semantic search of community discussions
+export const blForumEmbeddings = pgTable("bl_forum_embeddings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  postId: varchar("post_id").notNull(), // Reference to bl_forum_posts.id
+  embedding: vector("embedding", { dimensions: 1536 }),
+  content: text("content").notNull(), // Searchable content: title + excerpt/content + username
+  embeddingModel: text("embedding_model").default('text-embedding-3-small').notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  postIdIdx: index("bl_forum_embeddings_post_idx").on(table.postId),
+}));
+
+export const insertBlForumEmbeddingSchema = createInsertSchema(blForumEmbeddings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertBlForumEmbedding = z.infer<typeof insertBlForumEmbeddingSchema>;
+export type BlForumEmbedding = typeof blForumEmbeddings.$inferSelect;
