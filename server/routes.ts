@@ -1274,15 +1274,18 @@ You are PROACTIVE and INTELLIGENT. Don't just say "I can't find it" - USE YOUR T
       // Use agent loop with function calling (with error recovery)
       const { runAgentLoop } = await import('./services/ai-agent');
       let assistantMessage: string;
+      let bricklinkCatalogItem: any = null;
       
       try {
-        assistantMessage = await runAgentLoop({
+        const agentResult = await runAgentLoop({
           apiKey,
           model,
           systemPrompt,
           messages,
           maxIterations: 5,
         });
+        assistantMessage = agentResult.message;
+        bricklinkCatalogItem = agentResult.bricklinkItem;
       } catch (agentError: any) {
         // Agent loop failed - return user-friendly error message instead of 500
         console.error('❌ Agent loop error:', agentError);
@@ -1542,6 +1545,7 @@ You are PROACTIVE and INTELLIGENT. Don't just say "I can't find it" - USE YOUR T
         orders: ordersFound, // Return orders for frontend display
         sessionId, // Return session ID for client to use
         bricklinkSearchSuggestion, // Return suggestion if item not found (frontend will render as button)
+        bricklinkItem: bricklinkCatalogItem, // Return BrickLink catalog item if found (frontend will auto-open drawer)
       });
     } catch (error) {
       console.error("❌ Chat error:", error);
