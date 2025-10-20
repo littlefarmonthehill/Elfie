@@ -28,7 +28,7 @@ export default function PlatformOrdersDrawer({
 }: PlatformOrdersDrawerProps) {
   return (
     <Drawer open={open} onOpenChange={onClose}>
-      <DrawerContent className="bg-gray-900 border-gray-700 h-[95vh] flex flex-col">
+      <DrawerContent className="bg-gray-900 border-gray-700 h-[92vh] flex flex-col">
         <DrawerHeader className="border-b border-gray-700 py-3 flex-shrink-0">
           <div className="flex items-center justify-between">
             <DrawerTitle className="text-sm font-black text-white uppercase tracking-wide">

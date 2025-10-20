@@ -559,7 +559,7 @@ export default function PlatformSyncTool() {
 
       {/* Discrepancy Details Drawer */}
       <Drawer open={discrepancyDrawer.open} onOpenChange={(open) => setDiscrepancyDrawer({ ...discrepancyDrawer, open })}>
-        <DrawerContent className="max-h-[95vh]">
+        <DrawerContent className="max-h-[92vh]">
           <DrawerHeader className="border-b border-gray-800">
             <div className="flex items-center justify-between">
               <DrawerTitle className="text-sm text-white">{discrepancyDrawer.title}</DrawerTitle>
@@ -749,7 +749,7 @@ function SyncIssuesSection() {
 
       {/* Sync Issues Drawer */}
       <Drawer open={issuesDrawerOpen} onOpenChange={setIssuesDrawerOpen}>
-        <DrawerContent className="max-h-[95vh]">
+        <DrawerContent className="max-h-[92vh]">
           <DrawerHeader className="border-b border-gray-800">
             <div className="flex items-center justify-between">
               <DrawerTitle className="text-sm text-white">Sync Action Items</DrawerTitle>
