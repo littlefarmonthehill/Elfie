@@ -1997,13 +1997,18 @@ You are PROACTIVE and INTELLIGENT. Don't just say "I can't find it" - USE YOUR T
       
       const itemType = req.body.itemType || 'parts'; // Default to parts
       console.log('📷 Brickognize identify endpoint called for type:', itemType);
-      
-      // Prepare form data for Brickognize API using form-data package
-      const formData = new FormData();
-      formData.append('query_image', req.file.buffer, {
-        filename: req.file.originalname || 'image.jpg',
-        contentType: req.file.mimetype || 'image/jpeg',
+      console.log('📷 File info:', {
+        originalname: req.file.originalname,
+        mimetype: req.file.mimetype,
+        size: req.file.size
       });
+      
+      // Create a Blob from the buffer for fetch API compatibility
+      const blob = new Blob([req.file.buffer], { type: req.file.mimetype || 'image/jpeg' });
+      
+      // Use browser-compatible FormData with Blob
+      const formData = new FormData();
+      formData.append('query_image', blob, req.file.originalname || 'image.jpg');
       
       // Call Brickognize API
       const brickognizeUrl = `https://api.brickognize.com/predict/${itemType}/`;
@@ -2011,10 +2016,7 @@ You are PROACTIVE and INTELLIGENT. Don't just say "I can't find it" - USE YOUR T
       
       const response = await fetch(brickognizeUrl, {
         method: 'POST',
-        body: formData as any,
-        headers: {
-          ...formData.getHeaders(),
-        },
+        body: formData,
       });
       
       if (!response.ok) {
