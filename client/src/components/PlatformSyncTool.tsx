@@ -562,7 +562,7 @@ export default function PlatformSyncTool() {
         <DrawerContent className="max-h-[85vh]">
           <DrawerHeader className="border-b border-gray-800">
             <div className="flex items-center justify-between">
-              <DrawerTitle className="text-[10px] md:text-sm text-white">{discrepancyDrawer.title}</DrawerTitle>
+              <DrawerTitle className="text-base md:text-lg text-white">{discrepancyDrawer.title}</DrawerTitle>
               <DrawerClose asChild>
                 <Button variant="ghost" size="icon" data-testid="button-close-discrepancy">
                   <X className="h-4 w-4" />
@@ -752,7 +752,7 @@ function SyncIssuesSection() {
         <DrawerContent className="max-h-[85vh]">
           <DrawerHeader className="border-b border-gray-800">
             <div className="flex items-center justify-between">
-              <DrawerTitle className="text-[10px] md:text-sm text-white">Sync Action Items</DrawerTitle>
+              <DrawerTitle className="text-base md:text-lg text-white">Sync Action Items</DrawerTitle>
               <DrawerClose asChild>
                 <Button variant="ghost" size="icon" data-testid="button-close-issues">
                   <X className="h-4 w-4" />
@@ -855,7 +855,7 @@ function SyncIssuesList() {
                         {issue.platform}
                       </Badge>
                     </div>
-                    <p className="text-[10px] md:text-sm text-white font-medium">{issue.issueDescription}</p>
+                    <p className="text-base md:text-lg text-white font-medium">{issue.issueDescription}</p>
                     {issue.itemNo && (
                       <p className="text-xs text-gray-400 mt-1">Item: {issue.itemNo}</p>
                     )}

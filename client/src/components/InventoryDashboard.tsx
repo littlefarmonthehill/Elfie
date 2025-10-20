@@ -292,7 +292,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
       <Drawer open={activeDrawer === 'priceomatic'} onOpenChange={(open) => !open && onDrawerChange(null)}>
         <DrawerContent className="max-h-[95vh]">
           <DrawerHeader>
-            <DrawerTitle className="flex items-center gap-2">
+            <DrawerTitle className="flex items-center gap-2 text-base md:text-lg">
               <Sparkles className="w-5 h-5 text-lego-orange" />
               Price-O-Matic Intelligence
             </DrawerTitle>
@@ -307,7 +307,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
       <Drawer open={activeDrawer === 'warehouse'} onOpenChange={(open) => !open && onDrawerChange(null)}>
         <DrawerContent className="h-[90vh]">
           <DrawerHeader>
-            <DrawerTitle className="flex items-center gap-2">
+            <DrawerTitle className="flex items-center gap-2 text-base md:text-lg">
               <Warehouse className="w-5 h-5 text-blue-400" />
               Warehouse Management
             </DrawerTitle>
@@ -322,7 +322,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
       <Drawer open={activeDrawer === 'platformsync'} onOpenChange={(open) => !open && onDrawerChange(null)}>
         <DrawerContent className="h-[90vh]">
           <DrawerHeader>
-            <DrawerTitle className="flex items-center gap-2">
+            <DrawerTitle className="flex items-center gap-2 text-base md:text-lg">
               <RefreshCw className="w-5 h-5 text-purple-400" />
               Sync Inventory
             </DrawerTitle>

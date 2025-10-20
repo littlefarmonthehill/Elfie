@@ -144,7 +144,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
       <Drawer open={activeDrawer === 'picklist'} onOpenChange={(open) => !open && onDrawerChange(null)}>
         <DrawerContent className="h-[90vh]">
           <DrawerHeader className="relative">
-            <DrawerTitle className="flex items-center gap-2">
+            <DrawerTitle className="flex items-center gap-2 text-base md:text-lg">
               <ClipboardList className="w-5 h-5 text-orange-400" />
               Picklist
             </DrawerTitle>
@@ -163,7 +163,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
       <Drawer open={activeDrawer === 'fulfillment'} onOpenChange={(open) => !open && onDrawerChange(null)}>
         <DrawerContent className="h-[90vh]">
           <DrawerHeader className="relative">
-            <DrawerTitle className="flex items-center gap-2">
+            <DrawerTitle className="flex items-center gap-2 text-base md:text-lg">
               <Truck className="w-5 h-5 text-green-400" />
               Fulfillment and Shipping
             </DrawerTitle>
@@ -182,7 +182,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
       <Drawer open={activeDrawer === 'platformsync'} onOpenChange={(open) => !open && onDrawerChange(null)}>
         <DrawerContent className="h-[90vh]">
           <DrawerHeader className="relative">
-            <DrawerTitle className="flex items-center gap-2">
+            <DrawerTitle className="flex items-center gap-2 text-base md:text-lg">
               <RefreshCw className="w-5 h-5 text-blue-400" />
               Sync Orders
             </DrawerTitle>
@@ -201,7 +201,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
       <Drawer open={activeDrawer === 'shipped'} onOpenChange={(open) => !open && onDrawerChange(null)}>
         <DrawerContent className="h-[90vh]">
           <DrawerHeader className="relative">
-            <DrawerTitle className="flex items-center gap-2">
+            <DrawerTitle className="flex items-center gap-2 text-base md:text-lg">
               <PackageCheck className="w-5 h-5 text-green-400" />
               Shipped Orders
             </DrawerTitle>
