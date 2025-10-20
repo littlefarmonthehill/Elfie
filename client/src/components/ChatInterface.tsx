@@ -921,35 +921,54 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
 
       {/* Web Browser iframe dialog - displays any URL in-app */}
       <Dialog open={!!webBrowserUrl} onOpenChange={() => setWebBrowserUrl(null)}>
-        <DialogContent className="max-w-4xl h-[80vh] p-0" aria-describedby="web-browser-description">
-          <DialogHeader className="p-4 border-b">
+        <DialogContent className="max-w-4xl h-[80vh] p-0 bg-white" aria-describedby="web-browser-description">
+          <DialogHeader className="p-4 border-b bg-gray-100">
             <div className="flex items-center justify-between">
-              <DialogTitle className="text-base flex items-center gap-2">
+              <DialogTitle className="text-base flex items-center gap-2 text-gray-900">
                 <ExternalLink className="h-4 w-4" />
                 {webBrowserUrl && new URL(webBrowserUrl).hostname}
               </DialogTitle>
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={() => setWebBrowserUrl(null)}
-                className="h-8 w-8"
-                data-testid="button-close-web-browser"
-              >
-                <X className="h-4 w-4" />
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    if (webBrowserUrl) {
+                      window.open(webBrowserUrl, '_blank', 'noopener,noreferrer');
+                    }
+                  }}
+                  className="text-xs h-7"
+                  data-testid="button-open-external"
+                >
+                  <ExternalLink className="h-3 w-3 mr-1" />
+                  Open in Browser
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => setWebBrowserUrl(null)}
+                  className="h-8 w-8"
+                  data-testid="button-close-web-browser"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
             <p id="web-browser-description" className="sr-only">
               Web page displayed in-app browser
             </p>
           </DialogHeader>
           {webBrowserUrl && (
-            <iframe
-              src={webBrowserUrl}
-              className="w-full h-full"
-              title="Web Browser"
-              sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
-              data-testid="iframe-web-browser"
-            />
+            <div className="w-full h-full bg-white">
+              <iframe
+                src={webBrowserUrl}
+                className="w-full h-full bg-white"
+                style={{ colorScheme: 'light' }}
+                title="Web Browser"
+                sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+                data-testid="iframe-web-browser"
+              />
+            </div>
           )}
         </DialogContent>
       </Dialog>
