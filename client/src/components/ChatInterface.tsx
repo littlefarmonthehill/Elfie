@@ -116,15 +116,10 @@ function MessageContent({ content, items, orders, bricklinkSearchSuggestion, onI
         const url = match[0];
         const displayText = getShortUrlText(url);
         
-        // ALWAYS use in-app browser to avoid external Safari/browser
-        // This provides a consistent experience and prevents leaving the app
+        // On iOS: Opens in-app Safari sheet with "Done" button (stays in app)
+        // On Desktop: Opens in new tab
         const handleLinkClick = () => {
-          if (onBrickLinkClick) {
-            onBrickLinkClick(url);
-          } else {
-            // Should always have handler, but log warning if not
-            console.warn('No in-app browser handler available for URL:', url);
-          }
+          window.open(url, '_blank', 'noopener,noreferrer');
         };
         
         parts.push(
@@ -381,7 +376,6 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
   const [isLoading, setIsLoading] = useState(false);
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
-  const [webBrowserUrl, setWebBrowserUrl] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -818,7 +812,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
                         orders={message.orders}
                         bricklinkSearchSuggestion={message.bricklinkSearchSuggestion}
                         onItemClick={onItemClick}
-                        onBrickLinkClick={setWebBrowserUrl}
+                        onBrickLinkClick={undefined}
                         onBrickLinkSearch={handleBrickLinkSearch}
                       />
                     )}
@@ -919,40 +913,6 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
         </div>
       )}
 
-      {/* Web Browser iframe dialog - displays any URL in-app (same method as item drawer) */}
-      <Dialog open={!!webBrowserUrl} onOpenChange={() => setWebBrowserUrl(null)}>
-        <DialogContent className="max-w-4xl h-[80vh] p-0" aria-describedby="web-browser-description">
-          <DialogHeader className="p-2 border-b">
-            <div className="flex items-center justify-between">
-              <DialogTitle className="text-sm flex items-center gap-2">
-                <ExternalLink className="h-4 w-4" />
-                {webBrowserUrl && new URL(webBrowserUrl).hostname}
-              </DialogTitle>
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={() => setWebBrowserUrl(null)}
-                className="h-7 w-7"
-                data-testid="button-close-web-browser"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            <p id="web-browser-description" className="sr-only">
-              Web page displayed in-app browser
-            </p>
-          </DialogHeader>
-          {webBrowserUrl && (
-            <iframe
-              src={webBrowserUrl}
-              className="w-full h-full"
-              title="Web Browser"
-              sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
-              data-testid="iframe-web-browser"
-            />
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
