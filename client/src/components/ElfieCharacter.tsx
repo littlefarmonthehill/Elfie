@@ -3,9 +3,11 @@ import { motion } from "framer-motion";
 interface ElfieCharacterProps {
   onAnimationComplete?: () => void;
   isClosing?: boolean;
+  isResting?: boolean;
+  isThinking?: boolean;
 }
 
-export function ElfieCharacter({ onAnimationComplete, isClosing = false, isResting = false }: ElfieCharacterProps & { isResting?: boolean }) {
+export function ElfieCharacter({ onAnimationComplete, isClosing = false, isResting = false, isThinking = false }: ElfieCharacterProps) {
   // Animation variants for Elfie's entrance - flies DOWN in zigzag pattern
   const elfieVariants = {
     hidden: {
@@ -138,8 +140,25 @@ export function ElfieCharacter({ onAnimationComplete, isClosing = false, isResti
         }
       }}
     >
-      {/* Idle floating animation when resting */}
-      {isResting && (
+      {/* Circular flying animation when thinking */}
+      {isThinking && isResting && (
+        <motion.div
+          animate={{
+            x: [0, 50, 100, 50, 0, -50, -100, -50, 0],
+            y: [0, -50, 0, 50, 0, 50, 0, -50, 0],
+            rotate: [0, 45, 90, 135, 180, 225, 270, 315, 360],
+          }}
+          transition={{
+            duration: 4,
+            repeat: Infinity,
+            ease: "linear",
+          }}
+        >
+          <FloatingElfie isResting={true} />
+        </motion.div>
+      )}
+      {/* Idle floating animation when resting (not thinking) */}
+      {!isThinking && isResting && (
         <motion.div
           animate={{
             y: [0, -8, 0],

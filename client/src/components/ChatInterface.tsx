@@ -343,9 +343,10 @@ interface ChatInterfaceProps {
   onItemClick?: (type: 'inventory' | 'order' | 'sales' | 'marketing', id: string) => void;
   isMinimized?: boolean;
   onToggleMinimize?: () => void;
+  onThinkingChange?: (isThinking: boolean) => void;
 }
 
-export default function ChatInterface({ dashboardContext, themeColor, prompts, onPromptAction, onItemClick, isMinimized = true, onToggleMinimize }: ChatInterfaceProps) {
+export default function ChatInterface({ dashboardContext, themeColor, prompts, onPromptAction, onItemClick, isMinimized = true, onToggleMinimize, onThinkingChange }: ChatInterfaceProps) {
   // Chat has its own distinct purple/violet color scheme
   const colors = {
     gradient: 'from-purple-500/20 via-violet-500/15 to-purple-600/10',
@@ -413,6 +414,11 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
       setPendingPrompt(null);
     }
   }, [isMinimized, pendingPrompt]);
+
+  // Notify parent when thinking state changes
+  useEffect(() => {
+    onThinkingChange?.(isLoading);
+  }, [isLoading, onThinkingChange]);
 
   const handleSend = async (message?: string) => {
     const textToSend = message || input;

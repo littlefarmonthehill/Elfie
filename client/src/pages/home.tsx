@@ -24,6 +24,7 @@ export default function Home() {
   const [showElfie, setShowElfie] = useState(false);
   const [elfieClosing, setElfieClosing] = useState(false);
   const [elfieResting, setElfieResting] = useState(false);
+  const [elfieThinking, setElfieThinking] = useState(false);
   const [activeInventoryDrawer, setActiveInventoryDrawer] = useState<'priceomatic' | 'warehouse' | 'platformsync' | null>(null);
   const [activeOrdersDrawer, setActiveOrdersDrawer] = useState<'picklist' | 'fulfillment' | 'platformsync' | 'shipped' | null>(null);
   const [detailModal, setDetailModal] = useState<{ open: boolean; data: DetailData | null }>({
@@ -628,6 +629,7 @@ export default function Home() {
         <ElfieCharacter 
           isClosing={elfieClosing}
           isResting={elfieResting}
+          isThinking={elfieThinking}
           onAnimationComplete={() => {
             if (!elfieClosing) {
               // Opening animation complete, keep Elfie in resting state
@@ -809,6 +811,7 @@ export default function Home() {
               onItemClick={handleItemClick}
               isMinimized={false}
               onToggleMinimize={handleChatClose}
+              onThinkingChange={setElfieThinking}
             />
           </div>
         </SheetContent>
