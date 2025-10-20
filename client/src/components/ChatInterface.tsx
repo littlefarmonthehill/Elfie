@@ -784,9 +784,9 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
               alt="Elfie Robot" 
               className="h-6 w-6 md:h-7 md:w-7 lg:h-8 lg:w-8 object-contain"
             />
-            <span className="text-sm font-bold text-purple-300">E.L.F.I.E.</span>
+            <span className="text-[10px] md:text-sm font-bold text-purple-300">E.L.F.I.E.</span>
           </div>
-          <span className="text-xs text-gray-400">AI Assistant</span>
+          <span className="text-[9px] md:text-xs text-gray-400">AI Assistant</span>
         </div>
         {onToggleMinimize && (
           <Button
@@ -831,7 +831,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
                     </div>
                   )}
                   <div
-                    className={`max-w-[80%] rounded-lg text-xs ${
+                    className={`max-w-[80%] rounded-lg text-[10px] md:text-sm ${
                       message.role === 'user'
                         ? colors.userBg + ' text-white p-3'
                         : 'text-gray-300' // Assistant messages - MessageContent handles its own styling
@@ -865,7 +865,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
                     />
                   </div>
                   <div className="max-w-[80%] rounded-lg p-3 bg-purple-500/10 border border-purple-500/20">
-                    <div className="flex items-center gap-2 text-xs text-purple-300">
+                    <div className="flex items-center gap-2 text-[9px] md:text-xs text-purple-300">
                       <span>E.L.F.I.E. is thinking</span>
                       <div className="flex gap-1">
                         <span className="animate-pulse">.</span>
@@ -910,7 +910,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
                 onFocus={() => setIsInputFocused(true)}
                 onBlur={() => setIsInputFocused(false)}
                 placeholder="Ask E.L.F.I.E. for help..."
-                className="text-xs bg-gray-800/80 border-purple-500/30 focus-visible:ring-purple-500/50"
+                className="text-[10px] md:text-sm bg-gray-800/80 border-purple-500/30 focus-visible:ring-purple-500/50"
                 data-testid="input-chat"
               />
               <Button 
@@ -938,7 +938,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
             <button
               key={prompt}
               onClick={() => handlePromptClick(prompt)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${colors.promptBg}`}
+              className={`px-3 py-1.5 rounded-full text-[9px] md:text-xs font-medium transition-all ${colors.promptBg}`}
               data-testid={`prompt-${prompt.toLowerCase().replace(/\s/g, '-')}`}
             >
               {prompt}
