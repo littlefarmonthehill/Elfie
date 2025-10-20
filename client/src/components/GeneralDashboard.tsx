@@ -194,8 +194,8 @@ export default function GeneralDashboard({ onItemClick }: GeneralDashboardProps)
                     </div>
                   </div>
                   <div className="flex items-center gap-2 ml-2 flex-shrink-0">
-                    <span className="text-gray-400 font-mono text-[10px] md:text-xs lg:text-sm">{formatCurrency(item.currentPrice)}</span>
-                    <span className="text-orange-400 font-mono text-[10px] md:text-xs lg:text-sm font-bold">{item.variance}%</span>
+                    <span className="text-gray-400 font-mono text-sm md:text-base md:text-xs lg:text-sm">{formatCurrency(item.currentPrice)}</span>
+                    <span className="text-orange-400 font-mono text-sm md:text-base md:text-xs lg:text-sm font-bold">{item.variance}%</span>
                   </div>
                 </div>
               ))

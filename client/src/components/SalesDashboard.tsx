@@ -547,7 +547,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
         <div className="flex items-center gap-2">
           <button
             onClick={() => setCompareMode(!compareMode)}
-            className={`flex items-center gap-1.5 text-[10px] font-bold py-1 px-2 rounded transition-all ${
+            className={`flex items-center gap-1.5 text-sm md:text-base font-bold py-1 px-2 rounded transition-all ${
               compareMode
                 ? 'bg-lego-orange text-white border border-lego-orange'
                 : 'bg-gray-900 text-gray-400 border border-gray-700 hover-elevate'
@@ -563,7 +563,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
             <div className="flex gap-1">
               <button
                 onClick={() => setComparisonType('year')}
-                className={`text-[10px] px-2 py-1 rounded transition-all ${
+                className={`text-sm md:text-base px-2 py-1 rounded transition-all ${
                   comparisonType === 'year'
                     ? 'bg-purple-600 text-white border border-purple-500'
                     : 'bg-gray-800 text-gray-400 border border-gray-700 hover-elevate'
@@ -574,7 +574,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
               </button>
               <button
                 onClick={() => setComparisonType('platform')}
-                className={`text-[10px] px-2 py-1 rounded transition-all ${
+                className={`text-sm md:text-base px-2 py-1 rounded transition-all ${
                   comparisonType === 'platform'
                     ? 'bg-purple-600 text-white border border-purple-500'
                     : 'bg-gray-800 text-gray-400 border border-gray-700 hover-elevate'
@@ -590,7 +590,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
         {/* Row 2: Year Selection (full width for easier mobile tapping) */}
         {compareMode && comparisonType === 'year' && availableYears.length > 0 && (
           <div className="flex items-center gap-2 overflow-x-auto">
-            <span className="text-[9px] text-gray-500 flex-shrink-0">vs</span>
+            <span className="text-xs md:text-sm text-gray-500 flex-shrink-0">vs</span>
             <div className="flex gap-2 flex-nowrap">
               {(() => {
                 const nonCurrentYears = availableYears.filter(y => y !== currentYear);
@@ -614,7 +614,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
                         }
                       }}
                       aria-pressed={isSelected}
-                      className={`text-[9px] font-bold py-1 px-2 rounded transition-all flex-shrink-0 ${
+                      className={`text-xs md:text-sm font-bold py-1 px-2 rounded transition-all flex-shrink-0 ${
                         isSelected
                           ? 'bg-blue-600 text-white border border-blue-500'
                           : 'bg-gray-800 text-gray-400 border border-gray-700 hover-elevate'
@@ -633,7 +633,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
         {/* Row 2: Platform Selection (full width for easier mobile tapping) */}
         {compareMode && comparisonType === 'platform' && availablePlatforms.length > 0 && (
           <div className="flex items-center gap-2 overflow-x-auto">
-            <span className="text-[9px] text-gray-500 flex-shrink-0">select</span>
+            <span className="text-xs md:text-sm text-gray-500 flex-shrink-0">select</span>
             <div className="flex gap-2 flex-nowrap">
               {(() => {
                 // Sort platforms: selected first (alphabetical), then unselected (alphabetical)
@@ -656,7 +656,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
                         }
                       }}
                       aria-pressed={isSelected}
-                      className={`text-[9px] font-bold py-1 px-2 rounded transition-all flex-shrink-0 ${
+                      className={`text-xs md:text-sm font-bold py-1 px-2 rounded transition-all flex-shrink-0 ${
                         isSelected
                           ? 'bg-blue-600 text-white border border-blue-500'
                           : 'bg-gray-800 text-gray-400 border border-gray-700 hover-elevate'
@@ -760,7 +760,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
         <div className="bg-gray-900/50 border border-purple-500/20 rounded-lg p-3" data-testid="section-yoy-metrics">
           <div className="flex items-center gap-2 mb-2">
             <TrendingUp className="w-3.5 h-3.5 text-purple-400" />
-            <h3 className="text-[10px] font-semibold text-purple-400 uppercase tracking-wide">Year-over-Year Growth</h3>
+            <h3 className="text-sm md:text-base font-semibold text-purple-400 uppercase tracking-wide">Year-over-Year Growth</h3>
           </div>
           <div className={`grid gap-2 ${validCompareYears.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
             {(() => {
@@ -781,13 +781,13 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
 
                 return (
                   <div key={compareYear} className="bg-gray-800/50 rounded p-2">
-                    <div className="text-[9px] text-gray-500 mb-1">
+                    <div className="text-xs md:text-sm text-gray-500 mb-1">
                       {currentYear} vs {compareYear}
                     </div>
                     <div className={`text-sm font-mono font-bold ${growth >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                       {growth >= 0 ? '+' : ''}{growth.toFixed(1)}%
                     </div>
-                    <div className="text-[9px] text-gray-400 mt-1">
+                    <div className="text-xs md:text-sm text-gray-400 mt-1">
                       ${Math.round(yearTotals[currentYear]).toLocaleString()} vs ${Math.round(yearTotals[compareYear]).toLocaleString()}
                     </div>
                   </div>
@@ -803,7 +803,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
         <div className="bg-gray-900/50 border border-purple-500/20 rounded-lg p-3" data-testid="section-platform-metrics">
           <div className="flex items-center gap-2 mb-2">
             <TrendingUp className="w-3.5 h-3.5 text-purple-400" />
-            <h3 className="text-[10px] font-semibold text-purple-400 uppercase tracking-wide">Platform Performance</h3>
+            <h3 className="text-sm md:text-base font-semibold text-purple-400 uppercase tracking-wide">Platform Performance</h3>
           </div>
           <div className={`grid gap-2 ${validPlatforms.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
             {(() => {
@@ -830,14 +830,14 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
                         className="w-2 h-2 rounded-full" 
                         style={{ backgroundColor: PLATFORM_COLORS[platform] || PLATFORM_COLORS['Other'] }}
                       />
-                      <div className="text-[9px] text-gray-500">
+                      <div className="text-xs md:text-sm text-gray-500">
                         {platform}
                       </div>
                     </div>
                     <div className="text-sm font-mono font-bold text-white">
                       ${Math.round(revenue).toLocaleString()}
                     </div>
-                    <div className="text-[9px] text-gray-400 mt-1">
+                    <div className="text-xs md:text-sm text-gray-400 mt-1">
                       {percentage.toFixed(1)}% of total
                     </div>
                   </div>
@@ -911,19 +911,19 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
       <div className="bg-gray-900/50 border border-yellow-500/20 rounded-lg p-3" data-testid="section-sales-metrics">
         <div className="flex items-center gap-2 mb-2">
           <Target className="w-3.5 h-3.5 text-yellow-400" />
-          <h3 className="text-[10px] font-semibold text-yellow-400 uppercase tracking-wide">Key Metrics</h3>
+          <h3 className="text-sm md:text-base font-semibold text-yellow-400 uppercase tracking-wide">Key Metrics</h3>
         </div>
         <div className="grid grid-cols-3 gap-2">
           <div className="text-center">
-            <div className="text-[9px] text-gray-500">Total Orders</div>
+            <div className="text-xs md:text-sm text-gray-500">Total Orders</div>
             <div className="text-xs text-gray-300 font-mono">{filteredOrders.length}</div>
           </div>
           <div className="text-center">
-            <div className="text-[9px] text-gray-500">Avg Order Value</div>
+            <div className="text-xs md:text-sm text-gray-500">Avg Order Value</div>
             <div className="text-xs text-lego-green font-mono">${averageOrderValue.toFixed(2)}</div>
           </div>
           <div className="text-center">
-            <div className="text-[9px] text-gray-500">Total Revenue</div>
+            <div className="text-xs md:text-sm text-gray-500">Total Revenue</div>
             <div className="text-xs text-lego-green font-mono">${Math.round(totalRevenue).toLocaleString()}</div>
           </div>
         </div>
