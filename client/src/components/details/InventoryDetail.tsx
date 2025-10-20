@@ -1047,7 +1047,11 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
                             </span>
                           </div>
                           <button
-                            onClick={() => onBrickLinkClick?.(`https://www.bricklink.com/v2/catalog/catalogitem.page?S=${set.setNum}`)}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              window.open(`https://www.bricklink.com/v2/catalog/catalogitem.page?S=${set.setNum}`, '_blank', 'noopener,noreferrer');
+                            }}
                             className="flex-shrink-0 text-gray-400 hover:text-lego-blue transition-colors"
                             data-testid={`link-set-${set.setNum}`}
                           >
@@ -1072,7 +1076,11 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
           </Dialog>
 
           <button
-            onClick={() => onBrickLinkClick?.(bricklinkUrl)}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              window.open(bricklinkUrl, '_blank', 'noopener,noreferrer');
+            }}
             className="flex items-center gap-1 text-[10px] font-bold text-lego-blue hover:text-lego-blue/80 transition-colors whitespace-nowrap"
             data-testid="link-bricklink"
           >
