@@ -1,5 +1,7 @@
-// Increment this version number with each deployment to force cache updates
-const CACHE_VERSION = 3;
+// Auto-generated version using build timestamp
+// DO NOT EDIT THIS LINE - Updated automatically on each build
+const BUILD_TIMESTAMP = 1729444611000;
+const CACHE_VERSION = BUILD_TIMESTAMP;
 const CACHE_NAME = `planetbrick-v${CACHE_VERSION}`;
 const urlsToCache = [
   '/',

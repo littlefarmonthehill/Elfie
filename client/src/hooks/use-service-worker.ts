@@ -5,8 +5,10 @@ export function useServiceWorker() {
     if ('serviceWorker' in navigator && import.meta.env.PROD) {
       let newWorker: ServiceWorker | null = null;
 
+      // Add timestamp to force re-check on each app load
+      const timestamp = new Date().getTime();
       navigator.serviceWorker
-        .register('/service-worker.js')
+        .register(`/service-worker.js?t=${timestamp}`)
         .then((registration) => {
           console.log('✅ Service Worker registered');
 
