@@ -1,7 +1,7 @@
 import { db } from "../db";
-import { embeddingJobs, blInventory, orders, setPartRelationships } from "@shared/schema";
+import { embeddingJobs, blInventory, orders, orderDetails, setPartRelationships } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
-import { batchEmbedInventory, batchEmbedOrders, batchEmbedSets } from "./embeddings";
+import { batchEmbedInventory, batchEmbedOrders, batchEmbedOrderDetails, batchEmbedSets } from "./embeddings";
 
 let processingJobs: Set<string> = new Set();
 let workerInterval: NodeJS.Timeout | null = null;
@@ -158,6 +158,40 @@ async function processNextJob() {
           }
           break;
         }
+        case 'order_details': {
+          // Get order details that don't have embeddings yet (limit to small batch for faster job completion)
+          const unembeddedDetails = await db.execute(sql`
+            SELECT od.id, od.order_id
+            FROM order_details od
+            LEFT JOIN order_detail_embeddings ode ON od.id = ode.order_detail_id
+            WHERE ode.order_detail_id IS NULL
+            ORDER BY od.id
+            LIMIT 25
+          `);
+          
+          if (unembeddedDetails.rows.length > 0) {
+            // Group by order ID - limit to max 10 orders per job run for reasonable completion time
+            const uniqueOrderIds = Array.from(new Set(unembeddedDetails.rows.map((r: any) => r.order_id))).slice(0, 10);
+            await batchEmbedOrderDetails(uniqueOrderIds);
+            console.log(`  ✓ Embedded order details for ${uniqueOrderIds.length} orders`);
+          } else {
+            // All order details have embeddings, re-embed for recently updated orders
+            const recentDetails = await db.execute(sql`
+              SELECT DISTINCT od.order_id
+              FROM order_details od
+              INNER JOIN orders o ON od.order_id = o.id
+              ORDER BY o.updated_at DESC
+              LIMIT 10
+            `);
+            
+            if (recentDetails.rows.length > 0) {
+              const orderIds = recentDetails.rows.map((r: any) => r.order_id);
+              await batchEmbedOrderDetails(orderIds);
+              console.log(`  ✓ Re-embedded order details for ${orderIds.length} orders (updated)`);
+            }
+          }
+          break;
+        }
         default:
           throw new Error(`Unknown job type: ${job.jobType}`);
       }
@@ -196,7 +230,7 @@ async function processNextJob() {
 /**
  * Create a new embedding job
  */
-export async function createEmbeddingJob(jobType: 'inventory' | 'sets' | 'orders', triggeredBy: string) {
+export async function createEmbeddingJob(jobType: 'inventory' | 'sets' | 'orders' | 'order_details', triggeredBy: string) {
   const [job] = await db
     .insert(embeddingJobs)
     .values({
