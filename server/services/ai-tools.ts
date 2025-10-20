@@ -7,6 +7,7 @@ import { db } from '../db';
 import { blInventory, blColors, blCategories, orders, setPartRelationships } from '@shared/schema';
 import { eq, like, or, sql, and, desc } from 'drizzle-orm';
 import { searchBricklinkCatalogItem, fetchPriceOMagicData } from './bricklink';
+import axios from 'axios';
 
 /**
  * Tool: Search BrickLink catalog for items NOT in local inventory
@@ -379,6 +380,74 @@ export async function getSetParts(params: {
 }
 
 /**
+ * Tool: Search the web for information
+ */
+export async function searchWeb(params: {
+  query: string;
+}) {
+  const { query } = params;
+  
+  try {
+    // Use DuckDuckGo's HTML search (no API key required)
+    const response = await axios.get('https://html.duckduckgo.com/html/', {
+      params: { q: query },
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      },
+      timeout: 10000, // 10 second timeout
+    });
+    
+    // Simple HTML parsing to extract search results
+    const html = response.data;
+    const results: Array<{
+      title: string;
+      snippet: string;
+      url: string;
+    }> = [];
+    
+    // Extract result blocks (simplified parsing)
+    const resultRegex = /<a class="result__a"[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>[\s\S]*?<a class="result__snippet"[^>]*>([^<]+)<\/a>/g;
+    let match;
+    let count = 0;
+    
+    while ((match = resultRegex.exec(html)) !== null && count < 5) {
+      const url = match[1].replace(/^\/\/duckduckgo\.com\/l\/\?uddg=/, '').split('&')[0];
+      const decodedUrl = decodeURIComponent(url);
+      
+      if (decodedUrl && !decodedUrl.includes('duckduckgo.com')) {
+        results.push({
+          title: match[2].trim(),
+          snippet: match[3].trim(),
+          url: decodedUrl,
+        });
+        count++;
+      }
+    }
+    
+    if (results.length === 0) {
+      return {
+        success: false,
+        message: `No results found for: ${query}`,
+      };
+    }
+    
+    return {
+      success: true,
+      data: {
+        query,
+        results,
+        summary: `Found ${results.length} results for "${query}". ${results.map((r, i) => `${i + 1}. ${r.title}: ${r.snippet}`).join(' ')}`,
+      },
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      message: error.message || 'Failed to search the web',
+    };
+  }
+}
+
+/**
  * Tool definitions for OpenRouter function calling
  */
 export const AI_TOOLS = [
@@ -543,6 +612,23 @@ export const AI_TOOLS = [
           },
         },
         required: ['setNum'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'search_web',
+      description: 'Search the internet for current information, news, trends, or research when the topic requires up-to-date or external knowledge beyond your training data. Use this when discussing current events, market trends, recent LEGO releases, industry news, or any topic where internet research would provide valuable context.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: {
+            type: 'string',
+            description: 'The search query (e.g., "LEGO market trends 2024", "BrickLink recent updates", "current LEGO set prices")',
+          },
+        },
+        required: ['query'],
       },
     },
   },
