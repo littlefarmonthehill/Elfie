@@ -1,5 +1,5 @@
 // Increment this version number with each deployment to force cache updates
-const CACHE_VERSION = 2;
+const CACHE_VERSION = 3;
 const CACHE_NAME = `planetbrick-v${CACHE_VERSION}`;
 const urlsToCache = [
   '/',
