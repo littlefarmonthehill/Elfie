@@ -791,7 +791,6 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
                 ref={fileInputRef}
                 type="file"
                 accept="image/*"
-                capture="environment"
                 onChange={handleFileSelect}
                 className="hidden"
                 data-testid="input-file"
