@@ -380,8 +380,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .insert(appSettings)
           .values({
             aiEnabled: true,
-            openrouterApiKey: process.env.OPENROUTER_API_KEY || null,
-            selectedModel: 'openai/gpt-4o-mini',
+            selectedModel: 'gpt-4o-mini',
           })
           .returning();
         
@@ -475,32 +474,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // OpenRouter Models Route
-  app.post("/api/openrouter/models", async (req, res) => {
+  // OpenAI Models Route (simplified - we use specific models)
+  app.get("/api/openai/models", async (req, res) => {
     try {
-      const { apiKey } = req.body;
-      
-      if (!apiKey) {
-        return res.status(400).json({ error: "API key required" });
-      }
-
-      const response = await fetch('https://openrouter.ai/api/v1/models', {
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`OpenRouter API error: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      
-      // Format models for the UI
-      const models = data.data.map((model: any) => ({
-        id: model.id,
-        name: model.name || model.id,
-      }));
+      // Return common OpenAI chat models
+      const models = [
+        { id: 'gpt-4o', name: 'GPT-4o' },
+        { id: 'gpt-4o-mini', name: 'GPT-4o Mini' },
+        { id: 'gpt-4-turbo', name: 'GPT-4 Turbo' },
+        { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo' },
+      ];
 
       res.json({ models });
     } catch (error) {
@@ -541,13 +524,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const apiKey = settings?.openrouterApiKey || process.env.OPENROUTER_API_KEY;
-      const model = settings?.selectedModel || 'openai/gpt-4o-mini';
+      const apiKey = settings?.openaiApiKey || process.env.OPENAI_API_KEY;
+      const model = settings?.selectedModel || 'gpt-4o-mini';
       
       if (!apiKey) {
         return res.status(400).json({
-          error: "OpenRouter API key not configured",
-          message: "Please configure your OpenRouter API key in Settings.",
+          error: "OpenAI API key not configured",
+          message: "Please configure your OpenAI API key in Settings.",
         });
       }
 
@@ -1318,10 +1301,10 @@ You are PROACTIVE and INTELLIGENT. Don't just say "I can't find it" - USE YOUR T
         let errorMessage = "I'm having trouble processing your request right now.";
         if (agentError.message?.includes('timeout')) {
           errorMessage = "The AI service is taking too long to respond. Please try again.";
-        } else if (agentError.message?.includes('OpenRouter')) {
-          errorMessage = "I'm having trouble connecting to the AI service. Please check your OpenRouter API key in Settings.";
+        } else if (agentError.message?.includes('OpenAI')) {
+          errorMessage = "I'm having trouble connecting to the AI service. Please check your OpenAI API key in Settings.";
         } else if (agentError.message?.includes('API key')) {
-          errorMessage = "Please configure your OpenRouter API key in Settings.";
+          errorMessage = "Please configure your OpenAI API key in Settings.";
         } else if (agentError.message?.includes('Invalid response')) {
           errorMessage = "The AI service returned an unexpected response. Please try again.";
         }
@@ -1585,12 +1568,12 @@ You are PROACTIVE and INTELLIGENT. Don't just say "I can't find it" - USE YOUR T
       // Provide more specific error messages
       let userMessage = "I'm having trouble connecting right now. Please try again.";
       if (error instanceof Error) {
-        if (error.message.includes('OpenRouter')) {
+        if (error.message.includes('OpenAI')) {
           userMessage = "I'm having trouble connecting to the AI service. Please check your API key in Settings.";
         } else if (error.message.includes('timeout') || error.message.includes('ECONNREFUSED')) {
           userMessage = "The request timed out. Please try again.";
         } else if (error.message.includes('API key')) {
-          userMessage = "Please configure your OpenRouter API key in Settings.";
+          userMessage = "Please configure your OpenAI API key in Settings.";
         }
       }
       
