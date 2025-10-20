@@ -493,29 +493,40 @@ export async function searchOrdersByItem(params: {
   const { itemNo, colorId, condition, limit = 50 } = params;
   
   try {
-    // Build SKU search pattern - match part number to avoid false positives
-    // Patterns:
-    // 1. High-confidence: ".LGO-3021" (explicit delimiter)
-    // 2. End-of-string: "23053021" (colorId+partNo) or "XX-3021"
-    // Using regex: match itemNo when preceded by start/non-digit OR followed by end/non-digit
-    // This matches "3021" in "23053021" but NOT "3021" in "30212" (where 3021 is part of 30212)
-    const skuPatterns = or(
-      like(orderDetails.sku, `%.LGO-${itemNo}`),          // Explicit: "XX.LGO-3021"
-      like(orderDetails.sku, `%.LGO-${itemNo}-%`),        // Explicit: "XX.LGO-3021-Y"
-      like(orderDetails.sku, `%${itemNo}`),               // Ends with: "23053021", "XX-3021"
-      sql`${orderDetails.sku} ~ ${`(^|[^0-9])${itemNo}([^0-9]|$)`}`  // Regex: itemNo with boundaries
-    );
-    
-    // Build where conditions
-    const conditions: any[] = [skuPatterns];
+    // STEP 1: Find all inventory IDs for this part number
+    // SKUs are formatted as "{inventory_id}.LGO-{part_number}"
+    // So we need to find the inventory IDs first, then search for them in SKUs
+    const inventoryConditions: any[] = [eq(blInventory.itemNo, itemNo)];
     
     if (colorId !== undefined) {
-      conditions.push(eq(orderDetails.colorId, colorId));
+      inventoryConditions.push(eq(blInventory.colorId, colorId));
     }
     
     if (condition) {
-      conditions.push(eq(orderDetails.condition, condition));
+      const conditionCode = condition === 'New' ? 'N' : 'U';
+      inventoryConditions.push(eq(blInventory.newOrUsed, conditionCode));
     }
+    
+    const inventoryItems = await db
+      .select({ id: blInventory.id })
+      .from(blInventory)
+      .where(and(...inventoryConditions));
+    
+    if (inventoryItems.length === 0) {
+      return {
+        success: true,
+        data: [],
+        count: 0,
+        message: `No inventory found for item ${itemNo}`,
+      };
+    }
+    
+    // STEP 2: Search for orders containing these inventory IDs in their SKU
+    // SKU format: "16-{inventory_id}.LGO-{part_number}"
+    const inventoryIds = inventoryItems.map(item => item.id.toString());
+    const skuPatterns = inventoryIds.map(id => 
+      like(orderDetails.sku, `%-${id}.LGO-%`)
+    );
     
     const results = await db
       .select({
@@ -533,7 +544,7 @@ export async function searchOrdersByItem(params: {
       })
       .from(orderDetails)
       .innerJoin(orders, eq(orderDetails.orderId, orders.id))
-      .where(and(...conditions))
+      .where(or(...skuPatterns))
       .orderBy(desc(orders.orderDate))
       .limit(limit);
     
