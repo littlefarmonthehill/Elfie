@@ -314,6 +314,68 @@ export async function getOrderAnalytics(params?: {
 }
 
 /**
+ * Tool: Get sales by category
+ */
+export async function getSalesByCategory(params?: {
+  limit?: number;
+  startDate?: string;
+  endDate?: string;
+}) {
+  const { limit = 10, startDate, endDate } = params || {};
+  
+  try {
+    const conditions: any[] = [];
+    
+    if (startDate) {
+      conditions.push(sql`${orders.orderDate} >= ${startDate}`);
+    }
+    if (endDate) {
+      conditions.push(sql`${orders.orderDate} <= ${endDate}`);
+    }
+    
+    // Join orders -> orderDetails -> blInventory -> blCategories
+    let queryBuilder = db
+      .select({
+        categoryId: blCategories.id,
+        categoryName: blCategories.name,
+        totalQuantity: sql<number>`SUM(CAST(${orderDetails.quantity} AS INTEGER))`,
+        totalRevenue: sql<number>`SUM(CAST(${orderDetails.quantity} AS INTEGER) * CAST(${orderDetails.unitPrice} AS DECIMAL))`,
+        orderCount: sql<number>`COUNT(DISTINCT ${orders.id})`,
+      })
+      .from(orderDetails)
+      .innerJoin(orders, eq(orderDetails.orderId, orders.id))
+      .leftJoin(blInventory, sql`${orderDetails.sku} = ${blInventory.itemNo} || '-' || ${blInventory.colorId}`)
+      .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
+      .where(
+        conditions.length > 0
+          ? and(sql`${blCategories.name} IS NOT NULL`, ...conditions)
+          : sql`${blCategories.name} IS NOT NULL`
+      )
+      .groupBy(blCategories.id, blCategories.name)
+      .orderBy(sql`SUM(CAST(${orderDetails.quantity} AS INTEGER) * CAST(${orderDetails.unitPrice} AS DECIMAL)) DESC`)
+      .limit(limit);
+    
+    const categoryStats = await queryBuilder;
+    
+    return {
+      success: true,
+      data: categoryStats.map(cat => ({
+        categoryName: cat.categoryName,
+        totalQuantity: Number(cat.totalQuantity) || 0,
+        totalRevenue: Number(cat.totalRevenue) || 0,
+        orderCount: Number(cat.orderCount) || 0,
+      })),
+    };
+  } catch (error: any) {
+    console.error('Error getting sales by category:', error);
+    return {
+      success: false,
+      message: error.message || 'Failed to get sales by category',
+    };
+  }
+}
+
+/**
  * Tool: Get parts in a LEGO set with quantities
  */
 export async function getSetParts(params: {
@@ -1000,6 +1062,31 @@ export const AI_TOOLS = [
   {
     type: 'function',
     function: {
+      name: 'get_sales_by_category',
+      description: 'Analyze sales performance by product category. Returns top-selling categories with revenue, quantity sold, and order count. Essential for answering "what category sells best", "what should we list next", or category-level sales analysis.',
+      parameters: {
+        type: 'object',
+        properties: {
+          limit: {
+            type: 'number',
+            description: 'Maximum number of categories to return (default: 10)',
+          },
+          startDate: {
+            type: 'string',
+            description: 'Start date for date range filter (ISO format)',
+          },
+          endDate: {
+            type: 'string',
+            description: 'End date for date range filter (ISO format)',
+          },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'search_orders_by_item',
       description: 'Search order history to find if a specific part/item has been sold. Returns sales history including dates, quantities, prices, and customers. Use this to answer "has anyone purchased this part" or "show me sales for part X".',
       parameters: {
@@ -1125,6 +1212,9 @@ export async function executeToolCall(toolName: string, params: any): Promise<an
     
     case 'get_order_analytics':
       return await getOrderAnalytics(params);
+    
+    case 'get_sales_by_category':
+      return await getSalesByCategory(params);
     
     case 'search_orders_by_item':
       return await searchOrdersByItem(params);
