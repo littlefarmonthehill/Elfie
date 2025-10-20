@@ -596,10 +596,8 @@ export default function Home() {
     setElfieClosing(false);
     setElfieResting(false);
     
-    // Open drawer when Elfie reaches bottom (emerge + flyDown = 1200ms)
-    setTimeout(() => {
-      setChatOpen(true);
-    }, 1200);
+    // Open drawer immediately
+    setChatOpen(true);
   };
 
   const handleChatClose = () => {
