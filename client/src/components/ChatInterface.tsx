@@ -116,13 +116,20 @@ function MessageContent({ content, items, orders, bricklinkSearchSuggestion, onI
         const url = match[0];
         const displayText = getShortUrlText(url);
         
-        // Check if it's a BrickLink URL for special handling
-        const isBrickLink = url.includes('bricklink.com');
+        // Prefer in-app browser (onBrickLinkClick) when available to avoid external Safari
+        // Fall back to window.open when handler not provided
+        const handleLinkClick = () => {
+          if (onBrickLinkClick) {
+            onBrickLinkClick(url);
+          } else {
+            window.open(url, '_blank', 'noopener,noreferrer');
+          }
+        };
         
         parts.push(
           <button
             key={`url-${match.index}`}
-            onClick={() => isBrickLink ? onBrickLinkClick?.(url) : window.open(url, '_blank', 'noopener,noreferrer')}
+            onClick={handleLinkClick}
             className="inline-flex items-center gap-1 text-purple-400 hover:text-purple-300 underline"
             data-testid={`link-${displayText.toLowerCase().replace(/\s+/g, '-')}`}
           >
