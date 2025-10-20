@@ -3,6 +3,7 @@
  * Handles the conversation flow with tool execution
  */
 
+import OpenAI from 'openai';
 import { AI_TOOLS, executeToolCall } from './ai-tools';
 
 interface Message {
@@ -47,56 +48,41 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
     iterations++;
     console.log(`🤖 Agent loop iteration ${iterations}/${maxIterations}`);
     
-    // Call OpenRouter with tools (with timeout)
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    // Call OpenAI with tools (with timeout)
+    const openai = new OpenAI({ apiKey });
     
-    let response;
+    let completion;
     try {
-      response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-          'HTTP-Referer': 'https://planetbrick.replit.app',
-          'X-Title': 'PlanetBrick E.L.F.I.E.',
-        },
-        body: JSON.stringify({
-          model,
-          messages: conversationMessages,
-          tools: AI_TOOLS,
-          tool_choice: 'auto',
-          temperature: 0.7,
-          max_tokens: 800,
-        }),
-        signal: controller.signal,
+      completion = await openai.chat.completions.create({
+        model,
+        messages: conversationMessages as any,
+        tools: AI_TOOLS as any,
+        tool_choice: 'auto',
+        temperature: 0.7,
+        max_tokens: 800,
+      }, {
+        timeout: 30000, // 30 second timeout
       });
     } catch (error: any) {
-      clearTimeout(timeout);
-      if (error.name === 'AbortError') {
-        throw new Error('OpenRouter API request timed out after 30 seconds');
+      if (error.message?.includes('timeout')) {
+        throw new Error('OpenAI API request timed out after 30 seconds');
       }
-      throw new Error(`OpenRouter API request failed: ${error.message}`);
+      throw new Error(`OpenAI API request failed: ${error.message}`);
     }
-    
-    clearTimeout(timeout);
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`OpenRouter API error: ${response.statusText} - ${errorText}`);
-    }
-    
-    const data = await response.json();
     
     // Validate response structure
-    if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-      throw new Error('Invalid response from OpenRouter API: missing message');
+    if (!completion.choices || !completion.choices[0] || !completion.choices[0].message) {
+      throw new Error('Invalid response from OpenAI API: missing message');
     }
     
-    const assistantMessage = data.choices[0].message;
+    const assistantMessage = completion.choices[0].message;
     
-    // Add assistant's response to conversation
-    conversationMessages.push(assistantMessage);
+    // Add assistant's response to conversation (convert to our Message type)
+    conversationMessages.push({
+      role: assistantMessage.role as 'assistant',
+      content: assistantMessage.content || '',
+      tool_calls: assistantMessage.tool_calls,
+    });
     
     // Check if assistant wants to call any tools
     if (assistantMessage.tool_calls && assistantMessage.tool_calls.length > 0) {
@@ -104,6 +90,12 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
       
       // Execute each tool call
       for (const toolCall of assistantMessage.tool_calls) {
+        // Type guard for function-based tool calls
+        if (toolCall.type !== 'function' || !toolCall.function) {
+          console.warn('⚠️ Skipping non-function tool call:', toolCall);
+          continue;
+        }
+        
         const toolName = toolCall.function.name;
         
         // Defensive JSON parsing
