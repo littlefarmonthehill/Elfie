@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, Bot, RefreshCcw, ChevronUp, ChevronDown, Minimize2, Maximize2, ExternalLink, X } from "lucide-react";
+import { Send, Bot, RefreshCcw, ChevronUp, ChevronDown, Minimize2, Maximize2, ExternalLink, X, Camera, Image } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { InventoryGroup } from "@/components/InventoryGroup";
 import { OrderGroup } from "@/components/OrderGroup";
+import { useToast } from "@/hooks/use-toast";
 import elfieRobot from "@assets/PlanetBrick_good_robot_1760672362080.png";
 
 interface ChatMessage {
@@ -368,6 +369,8 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
   const [brickLinkUrl, setBrickLinkUrl] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   // Persist session ID
   useEffect(() => {
@@ -560,6 +563,80 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
     }
   };
 
+  const handleImageUpload = async (file: File) => {
+    if (!file) return;
+    
+    setIsLoading(true);
+    
+    try {
+      // Create FormData and append the image
+      const formData = new FormData();
+      formData.append('image', file);
+      formData.append('itemType', 'parts'); // Default to parts
+      
+      // Call Brickognize API
+      const response = await fetch('/api/brickognize/identify', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to identify LEGO item');
+      }
+      
+      const data = await response.json();
+      
+      // Format results for chat
+      if (data.items && data.items.length > 0) {
+        const topResults = data.items.slice(0, 5);
+        let resultMessage = `I found ${data.items.length} possible matches for your image:\n\n`;
+        
+        topResults.forEach((item: any, index: number) => {
+          const confidence = Math.round(item.score * 100);
+          resultMessage += `${index + 1}. ${item.name} (${item.id}) - ${confidence}% match\n`;
+        });
+        
+        resultMessage += `\nWould you like more information about any of these parts?`;
+        
+        const assistantMessage: ChatMessage = {
+          role: 'assistant',
+          content: resultMessage,
+        };
+        
+        setMessages(prev => [...prev, assistantMessage]);
+        
+        toast({
+          title: "Image identified!",
+          description: `Found ${data.items.length} possible matches`,
+        });
+      } else {
+        const assistantMessage: ChatMessage = {
+          role: 'assistant',
+          content: "I couldn't identify any LEGO parts in that image. Try taking a clearer photo with good lighting.",
+        };
+        setMessages(prev => [...prev, assistantMessage]);
+      }
+    } catch (error) {
+      console.error('Image upload error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to identify LEGO item from image",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleImageUpload(file);
+    }
+    // Reset input so same file can be selected again
+    e.target.value = '';
+  };
+
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartY.current = e.touches[0].clientY;
   };
@@ -703,6 +780,26 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
           
           <div className={`border-t-2 ${colors.border} bg-gray-900/50 backdrop-blur-sm`}>
             <div className="flex gap-2 p-3">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handleFileSelect}
+                className="hidden"
+                data-testid="input-file"
+              />
+              <Button 
+                size="icon" 
+                onClick={() => fileInputRef.current?.click()}
+                variant="ghost"
+                className="text-purple-400 hover:text-purple-300 hover:bg-purple-500/20"
+                data-testid="button-camera"
+                disabled={isLoading}
+                title="Take photo or upload image"
+              >
+                <Camera className="h-4 w-4" />
+              </Button>
               <Input
                 ref={inputRef}
                 value={input}

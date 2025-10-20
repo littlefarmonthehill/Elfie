@@ -9,6 +9,8 @@ import { db } from "./db";
 import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, setPartRelationships } from "@shared/schema";
 import { eq, desc, sql, inArray, like, or, and, isNotNull } from "drizzle-orm";
 import { z } from "zod";
+import multer from "multer";
+import FormData from "form-data";
 
 // Decode HTML entities from BrickLink notes for accurate comparison
 function decodeHtmlEntities(text: string | null | undefined): string {
@@ -1980,6 +1982,53 @@ You are PROACTIVE and INTELLIGENT. Don't just say "I can't find it" - USE YOUR T
       console.error('🔗 BrickLink search error:', error);
       res.status(500).json({ 
         error: error instanceof Error ? error.message : "Failed to search BrickLink catalog"
+      });
+    }
+  });
+
+  // Brickognize Image Recognition Endpoint
+  const upload = multer({ storage: multer.memoryStorage() });
+  
+  app.post("/api/brickognize/identify", upload.single('image'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No image file provided" });
+      }
+      
+      const itemType = req.body.itemType || 'parts'; // Default to parts
+      console.log('📷 Brickognize identify endpoint called for type:', itemType);
+      
+      // Prepare form data for Brickognize API
+      const formData = new FormData();
+      formData.append('query_image', req.file.buffer, {
+        filename: req.file.originalname,
+        contentType: req.file.mimetype,
+      });
+      
+      // Call Brickognize API
+      const brickognizeUrl = `https://api.brickognize.com/predict/${itemType}/`;
+      const response = await fetch(brickognizeUrl, {
+        method: 'POST',
+        body: formData as any,
+        headers: formData.getHeaders(),
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Brickognize API error:', response.status, errorText);
+        return res.status(response.status).json({ 
+          error: `Brickognize API error: ${response.statusText}` 
+        });
+      }
+      
+      const data = await response.json();
+      console.log('📷 Brickognize results:', data.items?.length || 0, 'items found');
+      
+      res.json(data);
+    } catch (error) {
+      console.error('📷 Brickognize identification error:', error);
+      res.status(500).json({ 
+        error: error instanceof Error ? error.message : "Failed to identify LEGO item"
       });
     }
   });
