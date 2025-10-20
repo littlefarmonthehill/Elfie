@@ -8,6 +8,7 @@ import { blInventory, blColors, blCategories, orders, setPartRelationships } fro
 import { eq, like, or, sql, and, desc } from 'drizzle-orm';
 import { searchBricklinkCatalogItem, fetchPriceOMagicData } from './bricklink';
 import axios from 'axios';
+import * as cheerio from 'cheerio';
 
 /**
  * Tool: Search BrickLink catalog for items NOT in local inventory
@@ -392,42 +393,73 @@ export async function searchWeb(params: {
     const response = await axios.get('https://html.duckduckgo.com/html/', {
       params: { q: query },
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
       },
-      timeout: 10000, // 10 second timeout
+      timeout: 15000, // 15 second timeout
     });
     
-    // Simple HTML parsing to extract search results
-    const html = response.data;
+    // Use cheerio to parse HTML
+    const $ = cheerio.load(response.data);
     const results: Array<{
       title: string;
       snippet: string;
       url: string;
     }> = [];
     
-    // Extract result blocks (simplified parsing)
-    const resultRegex = /<a class="result__a"[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>[\s\S]*?<a class="result__snippet"[^>]*>([^<]+)<\/a>/g;
-    let match;
-    let count = 0;
-    
-    while ((match = resultRegex.exec(html)) !== null && count < 5) {
-      const url = match[1].replace(/^\/\/duckduckgo\.com\/l\/\?uddg=/, '').split('&')[0];
-      const decodedUrl = decodeURIComponent(url);
+    // Extract search result items
+    $('.result').each((index, element) => {
+      if (index >= 5) return false; // Limit to 5 results
       
-      if (decodedUrl && !decodedUrl.includes('duckduckgo.com')) {
-        results.push({
-          title: match[2].trim(),
-          snippet: match[3].trim(),
-          url: decodedUrl,
-        });
-        count++;
+      const $elem = $(element);
+      
+      // Extract title and URL from the result title link
+      const titleLink = $elem.find('.result__a');
+      const title = titleLink.text().trim();
+      let rawUrl = titleLink.attr('href') || '';
+      
+      // DuckDuckGo wraps URLs in redirect format: /l/?uddg=<encoded_url>&...
+      // Need to extract the uddg parameter which contains the actual destination URL
+      let url = '';
+      if (rawUrl.includes('uddg=')) {
+        try {
+          // Parse the uddg parameter from the redirect URL
+          const urlParams = new URLSearchParams(rawUrl.split('?')[1] || '');
+          const uddg = urlParams.get('uddg');
+          if (uddg) {
+            url = decodeURIComponent(uddg);
+          }
+        } catch (error) {
+          console.error('Failed to parse DuckDuckGo redirect URL:', rawUrl);
+        }
+      } else {
+        // Direct URL (rare but possible)
+        url = rawUrl;
       }
-    }
+      
+      // Ensure URL has protocol
+      if (url && !url.startsWith('http')) {
+        url = 'https://' + url.replace(/^\/+/, '');
+      }
+      
+      // Extract snippet (try multiple selectors for robustness)
+      let snippet = $elem.find('.result__snippet').text().trim();
+      if (!snippet) {
+        snippet = $elem.find('.result__snippet span').text().trim();
+      }
+      if (!snippet) {
+        snippet = $elem.find('.result__extras').text().trim();
+      }
+      
+      // Only add if we have valid data (title, URL, and not a duckduckgo.com link)
+      if (title && url && url.startsWith('http') && !url.includes('duckduckgo.com')) {
+        results.push({ title, snippet: snippet || 'No description available', url });
+      }
+    });
     
     if (results.length === 0) {
       return {
         success: false,
-        message: `No results found for: ${query}`,
+        message: `No results found for: ${query}. Try a different search query.`,
       };
     }
     
@@ -440,9 +472,10 @@ export async function searchWeb(params: {
       },
     };
   } catch (error: any) {
+    console.error('❌ Web search error:', error);
     return {
       success: false,
-      message: error.message || 'Failed to search the web',
+      message: `Failed to search the web: ${error.message || 'Unknown error'}`,
     };
   }
 }
