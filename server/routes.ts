@@ -1296,6 +1296,8 @@ You are PROACTIVE and INTELLIGENT. Don't just say "I can't find it" - USE YOUR T
       let assistantMessage: string;
       let bricklinkCatalogItem: any = null;
       
+      let ordersFromAgentTools: any[] = [];
+      
       try {
         const agentResult = await runAgentLoop({
           apiKey,
@@ -1306,6 +1308,7 @@ You are PROACTIVE and INTELLIGENT. Don't just say "I can't find it" - USE YOUR T
         });
         assistantMessage = agentResult.message;
         bricklinkCatalogItem = agentResult.bricklinkItem;
+        ordersFromAgentTools = agentResult.ordersFromTool || [];
       } catch (agentError: any) {
         // Agent loop failed - return user-friendly error message instead of 500
         console.error('❌ Agent loop error:', agentError);
@@ -1344,7 +1347,7 @@ You are PROACTIVE and INTELLIGENT. Don't just say "I can't find it" - USE YOUR T
         newOrUsed: string;
       }> = [];
       
-      // Extract orders for display
+      // Extract orders for display (includes orders from AI tools like search_orders_by_item)
       const ordersFound: Array<{
         id: string;
         orderNumber: string;
@@ -1353,7 +1356,7 @@ You are PROACTIVE and INTELLIGENT. Don't just say "I can't find it" - USE YOUR T
         orderTotal: string;
         customerUsername: string;
         orderStatus: string;
-      }> = [];
+      }> = [...ordersFromAgentTools];
       
       // Extract ONLY the specific items mentioned in E.L.F.I.E.'s response
       // This makes part numbers clickable without showing irrelevant items

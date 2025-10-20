@@ -535,6 +535,8 @@ export async function searchOrdersByItem(params: {
         orderDate: orders.orderDate,
         marketplace: orders.marketplace,
         customerUsername: orders.customerUsername,
+        orderTotal: orders.orderTotal,
+        orderStatus: orders.orderStatus,
         itemName: orderDetails.name,
         sku: orderDetails.sku,
         quantity: orderDetails.quantity,

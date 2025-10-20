@@ -24,6 +24,7 @@ interface AgentLoopOptions {
 interface AgentLoopResult {
   message: string;
   bricklinkItem?: any;
+  ordersFromTool?: any[];
 }
 
 /**
@@ -40,6 +41,7 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
   
   let iterations = 0;
   let bricklinkCatalogItem: any = null;
+  let ordersFromTool: any[] = [];
   
   while (iterations < maxIterations) {
     iterations++;
@@ -145,6 +147,30 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
           console.log('📦 BrickLink catalog item found:', bricklinkCatalogItem);
         }
         
+        // Track orders from search_orders_by_item for frontend display as clickable items
+        if (toolName === 'search_orders_by_item' && toolResult.success && toolResult.data && toolResult.data.length > 0) {
+          // Transform order details into order summary format for OrderGroup component
+          const orderSummaries = toolResult.data.reduce((acc: any[], orderDetail: any) => {
+            // Check if we already have this order in the summary
+            const existing = acc.find(o => o.id === orderDetail.orderId);
+            if (!existing) {
+              acc.push({
+                id: orderDetail.orderId,
+                orderNumber: orderDetail.orderNumber,
+                marketplace: orderDetail.marketplace,
+                orderDate: orderDetail.orderDate,
+                orderTotal: orderDetail.orderTotal || '0.00',
+                customerUsername: orderDetail.customerUsername,
+                orderStatus: orderDetail.orderStatus || 'Unknown',
+              });
+            }
+            return acc;
+          }, []);
+          
+          ordersFromTool.push(...orderSummaries);
+          console.log(`📦 Found ${orderSummaries.length} order(s) from search_orders_by_item tool`);
+        }
+        
         // Add tool result to conversation
         conversationMessages.push({
           role: 'tool',
@@ -164,6 +190,7 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
     return {
       message: finalContent,
       bricklinkItem: bricklinkCatalogItem,
+      ordersFromTool: ordersFromTool.length > 0 ? ordersFromTool : undefined,
     };
   }
   
@@ -172,5 +199,6 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
   return {
     message: conversationMessages[conversationMessages.length - 1].content || 'I apologize, but I encountered an issue processing your request.',
     bricklinkItem: bricklinkCatalogItem,
+    ordersFromTool: ordersFromTool.length > 0 ? ordersFromTool : undefined,
   };
 }
