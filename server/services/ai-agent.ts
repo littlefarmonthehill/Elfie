@@ -26,6 +26,7 @@ interface AgentLoopResult {
   message: string;
   bricklinkItem?: any;
   ordersFromTool?: any[];
+  forumDiscussionsFromTool?: any[];
 }
 
 /**
@@ -43,6 +44,7 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
   let iterations = 0;
   let bricklinkCatalogItem: any = null;
   let ordersFromTool: any[] = [];
+  let forumDiscussionsFromTool: any[] = [];
   
   while (iterations < maxIterations) {
     iterations++;
@@ -163,6 +165,12 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
           console.log(`📦 Found ${orderSummaries.length} order(s) from search_orders_by_item tool`);
         }
         
+        // Track forum discussions from search_forum_discussions for frontend display
+        if (toolName === 'search_forum_discussions' && toolResult.success && toolResult.data && toolResult.data.length > 0) {
+          forumDiscussionsFromTool.push(...toolResult.data);
+          console.log(`💬 Found ${toolResult.data.length} forum discussion(s) from search_forum_discussions tool`);
+        }
+        
         // Add tool result to conversation
         conversationMessages.push({
           role: 'tool',
@@ -183,6 +191,7 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
       message: finalContent,
       bricklinkItem: bricklinkCatalogItem,
       ordersFromTool: ordersFromTool.length > 0 ? ordersFromTool : undefined,
+      forumDiscussionsFromTool: forumDiscussionsFromTool.length > 0 ? forumDiscussionsFromTool : undefined,
     };
   }
   
@@ -192,5 +201,6 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
     message: conversationMessages[conversationMessages.length - 1].content || 'I apologize, but I encountered an issue processing your request.',
     bricklinkItem: bricklinkCatalogItem,
     ordersFromTool: ordersFromTool.length > 0 ? ordersFromTool : undefined,
+    forumDiscussionsFromTool: forumDiscussionsFromTool.length > 0 ? forumDiscussionsFromTool : undefined,
   };
 }

@@ -1290,6 +1290,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
       let bricklinkCatalogItem: any = null;
       
       let ordersFromAgentTools: any[] = [];
+      let forumDiscussionsFromAgentTools: any[] = [];
       
       try {
         const agentResult = await runAgentLoop({
@@ -1302,6 +1303,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
         assistantMessage = agentResult.message;
         bricklinkCatalogItem = agentResult.bricklinkItem;
         ordersFromAgentTools = agentResult.ordersFromTool || [];
+        forumDiscussionsFromAgentTools = agentResult.forumDiscussionsFromTool || [];
       } catch (agentError: any) {
         // Agent loop failed - return user-friendly error message instead of 500
         console.error('❌ Agent loop error:', agentError);
@@ -1561,6 +1563,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
         message: assistantMessage,
         items: itemsFound,
         orders: ordersFound, // Return orders for frontend display
+        forumDiscussions: forumDiscussionsFromAgentTools, // Return forum discussions for frontend display
         sessionId, // Return session ID for client to use
         bricklinkSearchSuggestion, // Return suggestion if item not found (frontend will render as button)
         bricklinkItem: bricklinkCatalogItem, // Return BrickLink catalog item if found (frontend will auto-open drawer)

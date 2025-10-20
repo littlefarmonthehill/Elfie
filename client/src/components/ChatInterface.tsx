@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { InventoryGroup } from "@/components/InventoryGroup";
 import { OrderGroup } from "@/components/OrderGroup";
+import { ForumDiscussionsGroup } from "@/components/ForumDiscussionsGroup";
 import { useToast } from "@/hooks/use-toast";
 import elfieRobot from "@assets/PlanetBrick_good_robot_1760672362080.png";
 
@@ -31,6 +32,19 @@ interface ChatMessage {
     orderTotal: string;
     customerUsername: string;
     orderStatus: string;
+  }>;
+  forumDiscussions?: Array<{
+    id: string;
+    threadId: string;
+    title: string;
+    excerpt: string | null;
+    username: string;
+    userFeedbackRating: number;
+    postedAt: string;
+    postUrl: string;
+    threadUrl: string;
+    hasReplies: boolean;
+    relevance: string;
   }>;
   bricklinkSearchSuggestion?: {
     itemNo: string;
@@ -61,6 +75,19 @@ interface MessageContentProps {
     customerUsername: string;
     orderStatus: string;
   }>;
+  forumDiscussions?: Array<{
+    id: string;
+    threadId: string;
+    title: string;
+    excerpt: string | null;
+    username: string;
+    userFeedbackRating: number;
+    postedAt: string;
+    postUrl: string;
+    threadUrl: string;
+    hasReplies: boolean;
+    relevance: string;
+  }>;
   bricklinkSearchSuggestion?: {
     itemNo: string;
     itemType: string;
@@ -70,7 +97,7 @@ interface MessageContentProps {
   onBrickLinkSearch?: (itemNo: string, itemType: string) => void;
 }
 
-function MessageContent({ content, imageUrl, items, orders, bricklinkSearchSuggestion, onItemClick, onBrickLinkClick, onBrickLinkSearch }: MessageContentProps) {
+function MessageContent({ content, imageUrl, items, orders, forumDiscussions, bricklinkSearchSuggestion, onItemClick, onBrickLinkClick, onBrickLinkSearch }: MessageContentProps) {
   // Group items by itemNo for grouped display
   const groupedItems = items && items.length > 0 ? items.reduce((acc, item) => {
     if (!acc[item.itemNo]) {
@@ -370,6 +397,14 @@ function MessageContent({ content, imageUrl, items, orders, bricklinkSearchSugge
         />
       )}
       
+      {/* Show forum discussions if available */}
+      {forumDiscussions && forumDiscussions.length > 0 && (
+        <ForumDiscussionsGroup
+          discussions={forumDiscussions}
+          onExternalLinkClick={onBrickLinkClick}
+        />
+      )}
+      
       {/* Show BrickLink search button if suggestion is present */}
       {bricklinkSearchSuggestion && onBrickLinkSearch && (
         <div className="mt-3">
@@ -534,6 +569,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
         content: data.message || "I'm sorry, I couldn't generate a response.",
         items: data.items || [],
         orders: data.orders || [],
+        forumDiscussions: data.forumDiscussions || [],
         bricklinkSearchSuggestion: data.bricklinkSearchSuggestion || null,
       };
 
@@ -870,6 +906,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
                         imageUrl={message.imageUrl}
                         items={message.items}
                         orders={message.orders}
+                        forumDiscussions={message.forumDiscussions}
                         bricklinkSearchSuggestion={message.bricklinkSearchSuggestion}
                         onItemClick={onItemClick}
                         onBrickLinkClick={undefined}
