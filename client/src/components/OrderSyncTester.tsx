@@ -39,7 +39,7 @@ export default function OrderSyncTester({ open, onOpenChange }: OrderSyncTesterP
       <DrawerContent className="max-h-[90vh]">
         <DrawerHeader className="border-b">
           <div className="flex items-center justify-between">
-            <DrawerTitle className="text-base md:text-lg font-bold">Order Sync Tester</DrawerTitle>
+            <DrawerTitle className="text-sm font-bold">Order Sync Tester</DrawerTitle>
             <DrawerClose asChild>
               <Button variant="ghost" size="icon" data-testid="button-close-ordersync">
                 <X className="h-4 w-4" />

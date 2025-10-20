@@ -559,10 +559,10 @@ export default function PlatformSyncTool() {
 
       {/* Discrepancy Details Drawer */}
       <Drawer open={discrepancyDrawer.open} onOpenChange={(open) => setDiscrepancyDrawer({ ...discrepancyDrawer, open })}>
-        <DrawerContent className="max-h-[85vh]">
+        <DrawerContent className="max-h-[95vh]">
           <DrawerHeader className="border-b border-gray-800">
             <div className="flex items-center justify-between">
-              <DrawerTitle className="text-base md:text-lg text-white">{discrepancyDrawer.title}</DrawerTitle>
+              <DrawerTitle className="text-sm text-white">{discrepancyDrawer.title}</DrawerTitle>
               <DrawerClose asChild>
                 <Button variant="ghost" size="icon" data-testid="button-close-discrepancy">
                   <X className="h-4 w-4" />
@@ -749,10 +749,10 @@ function SyncIssuesSection() {
 
       {/* Sync Issues Drawer */}
       <Drawer open={issuesDrawerOpen} onOpenChange={setIssuesDrawerOpen}>
-        <DrawerContent className="max-h-[85vh]">
+        <DrawerContent className="max-h-[95vh]">
           <DrawerHeader className="border-b border-gray-800">
             <div className="flex items-center justify-between">
-              <DrawerTitle className="text-base md:text-lg text-white">Sync Action Items</DrawerTitle>
+              <DrawerTitle className="text-sm text-white">Sync Action Items</DrawerTitle>
               <DrawerClose asChild>
                 <Button variant="ghost" size="icon" data-testid="button-close-issues">
                   <X className="h-4 w-4" />
