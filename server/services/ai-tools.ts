@@ -493,8 +493,21 @@ export async function searchOrdersByItem(params: {
   const { itemNo, colorId, condition, limit = 50 } = params;
   
   try {
+    // Build SKU search pattern - match part number to avoid false positives
+    // Patterns:
+    // 1. High-confidence: ".LGO-3021" (explicit delimiter)
+    // 2. End-of-string: "23053021" (colorId+partNo) or "XX-3021"
+    // Using regex: match itemNo when preceded by start/non-digit OR followed by end/non-digit
+    // This matches "3021" in "23053021" but NOT "3021" in "30212" (where 3021 is part of 30212)
+    const skuPatterns = or(
+      like(orderDetails.sku, `%.LGO-${itemNo}`),          // Explicit: "XX.LGO-3021"
+      like(orderDetails.sku, `%.LGO-${itemNo}-%`),        // Explicit: "XX.LGO-3021-Y"
+      like(orderDetails.sku, `%${itemNo}`),               // Ends with: "23053021", "XX-3021"
+      sql`${orderDetails.sku} ~ ${`(^|[^0-9])${itemNo}([^0-9]|$)`}`  // Regex: itemNo with boundaries
+    );
+    
     // Build where conditions
-    const conditions: any[] = [like(orderDetails.sku, `%${itemNo}%`)];
+    const conditions: any[] = [skuPatterns];
     
     if (colorId !== undefined) {
       conditions.push(eq(orderDetails.colorId, colorId));
