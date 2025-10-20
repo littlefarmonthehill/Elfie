@@ -263,6 +263,13 @@ export type InsertShipment = z.infer<typeof insertShipmentSchema>;
 export type Shipment = typeof shipments.$inferSelect;
 
 // Relations
+export const blInventoryRelations = relations(blInventory, ({ one }) => ({
+  category: one(blCategories, {
+    fields: [blInventory.categoryId],
+    references: [blCategories.id],
+  }),
+}));
+
 export const ordersRelations = relations(orders, ({ many }) => ({
   items: many(orderDetails),
   shipments: many(shipments),
@@ -485,6 +492,26 @@ export const insertOrderEmbeddingSchema = createInsertSchema(orderEmbeddings).om
 
 export type InsertOrderEmbedding = z.infer<typeof insertOrderEmbeddingSchema>;
 export type OrderEmbedding = typeof orderEmbeddings.$inferSelect;
+
+// Order Detail Embeddings - For line-item level analysis (SKU performance, category trends)
+export const orderDetailEmbeddings = pgTable("order_detail_embeddings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderDetailId: varchar("order_detail_id").notNull(), // Reference to order_details.id
+  embedding: vector("embedding", { dimensions: 1536 }),
+  content: text("content").notNull(), // SKU, quantity, price, category, sale date
+  embeddingModel: text("embedding_model").default('text-embedding-3-small').notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertOrderDetailEmbeddingSchema = createInsertSchema(orderDetailEmbeddings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertOrderDetailEmbedding = z.infer<typeof insertOrderDetailEmbeddingSchema>;
+export type OrderDetailEmbedding = typeof orderDetailEmbeddings.$inferSelect;
 
 // Set-Part Embeddings - For AI understanding of set-part relationships
 export const setPartEmbeddings = pgTable("set_part_embeddings", {

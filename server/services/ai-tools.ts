@@ -314,6 +314,73 @@ export async function getOrderAnalytics(params?: {
 }
 
 /**
+ * Tool: Get inventory aging - analyze how long items have been in stock
+ */
+export async function getInventoryAging(params?: {
+  daysThreshold?: number;
+  categoryName?: string;
+  limit?: number;
+}) {
+  const { daysThreshold = 90, categoryName, limit = 20 } = params || {};
+  
+  try {
+    const conditions: any[] = [];
+    
+    // Calculate date threshold
+    const thresholdDate = new Date();
+    thresholdDate.setDate(thresholdDate.getDate() - daysThreshold);
+    
+    if (categoryName) {
+      conditions.push(like(blCategories.name, `%${categoryName}%`));
+    }
+    
+    let queryBuilder = db
+      .select({
+        itemNo: blInventory.itemNo,
+        itemName: blInventory.itemName,
+        categoryName: blCategories.name,
+        colorName: blInventory.colorName,
+        quantity: blInventory.quantity,
+        unitPrice: blInventory.unitPrice,
+        dateCreated: blInventory.dateCreated,
+        daysInStock: sql<number>`CAST(EXTRACT(EPOCH FROM (NOW() - ${blInventory.dateCreated})) / 86400 AS INTEGER)`,
+        estimatedValue: sql<number>`${blInventory.quantity} * CAST(${blInventory.unitPrice} AS DECIMAL)`,
+      })
+      .from(blInventory)
+      .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
+      .where(
+        conditions.length > 0
+          ? and(sql`${blInventory.dateCreated} < ${thresholdDate.toISOString()}`, ...conditions)
+          : sql`${blInventory.dateCreated} < ${thresholdDate.toISOString()}`
+      )
+      .orderBy(sql`EXTRACT(EPOCH FROM (NOW() - ${blInventory.dateCreated})) DESC`)
+      .limit(limit);
+    
+    const agingItems = await queryBuilder;
+    
+    return {
+      success: true,
+      data: agingItems.map(item => ({
+        itemNo: item.itemNo,
+        itemName: item.itemName,
+        categoryName: item.categoryName,
+        colorName: item.colorName,
+        quantity: Number(item.quantity) || 0,
+        unitPrice: Number(item.unitPrice) || 0,
+        daysInStock: Number(item.daysInStock) || 0,
+        estimatedValue: Number(item.estimatedValue) || 0,
+      })),
+    };
+  } catch (error: any) {
+    console.error('Error getting inventory aging:', error);
+    return {
+      success: false,
+      message: error.message || 'Failed to get inventory aging',
+    };
+  }
+}
+
+/**
  * Tool: Get sales by category
  */
 export async function getSalesByCategory(params?: {
@@ -371,6 +438,155 @@ export async function getSalesByCategory(params?: {
     return {
       success: false,
       message: error.message || 'Failed to get sales by category',
+    };
+  }
+}
+
+/**
+ * Tool: Get margin analysis - analyze profit margins by category or item
+ */
+export async function getMarginAnalysis(params?: {
+  categoryName?: string;
+  minMarginPercent?: number;
+  limit?: number;
+}) {
+  const { categoryName, minMarginPercent = 0, limit = 20 } = params || {};
+  
+  try {
+    const conditions: any[] = [
+      sql`${blInventory.myCost} IS NOT NULL`,
+      sql`${blInventory.unitPrice} IS NOT NULL`,
+      sql`CAST(${blInventory.myCost} AS DECIMAL) > 0`, // Defensively handle all zero variants
+    ];
+    
+    if (categoryName) {
+      conditions.push(like(blCategories.name, `%${categoryName}%`));
+    }
+    
+    const results = await db
+      .select({
+        itemNo: blInventory.itemNo,
+        itemName: blInventory.itemName,
+        categoryName: blCategories.name,
+        colorName: blInventory.colorName,
+        quantity: blInventory.quantity,
+        unitPrice: blInventory.unitPrice,
+        myCost: blInventory.myCost,
+        margin: sql<number>`CAST(${blInventory.unitPrice} AS DECIMAL) - CAST(${blInventory.myCost} AS DECIMAL)`,
+        marginPercent: sql<number>`((CAST(${blInventory.unitPrice} AS DECIMAL) - CAST(${blInventory.myCost} AS DECIMAL)) / CAST(${blInventory.myCost} AS DECIMAL)) * 100`,
+        totalValue: sql<number>`${blInventory.quantity} * CAST(${blInventory.unitPrice} AS DECIMAL)`,
+        totalCost: sql<number>`${blInventory.quantity} * CAST(${blInventory.myCost} AS DECIMAL)`,
+      })
+      .from(blInventory)
+      .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
+      .where(and(...conditions))
+      .orderBy(sql`((CAST(${blInventory.unitPrice} AS DECIMAL) - CAST(${blInventory.myCost} AS DECIMAL)) / CAST(${blInventory.myCost} AS DECIMAL)) * 100 DESC`)
+      .limit(limit);
+    
+    // Filter by minimum margin percentage
+    const filtered = results.filter(item => Number(item.marginPercent) >= minMarginPercent);
+    
+    return {
+      success: true,
+      data: filtered.map(item => ({
+        itemNo: item.itemNo,
+        itemName: item.itemName,
+        categoryName: item.categoryName,
+        colorName: item.colorName,
+        quantity: Number(item.quantity) || 0,
+        unitPrice: Number(item.unitPrice) || 0,
+        myCost: Number(item.myCost) || 0,
+        margin: Number(item.margin) || 0,
+        marginPercent: Number(item.marginPercent) || 0,
+        totalValue: Number(item.totalValue) || 0,
+        totalCost: Number(item.totalCost) || 0,
+      })),
+    };
+  } catch (error: any) {
+    console.error('Error getting margin analysis:', error);
+    return {
+      success: false,
+      message: error.message || 'Failed to get margin analysis',
+    };
+  }
+}
+
+/**
+ * Tool: Get SKU performance - sales velocity and revenue per SKU
+ */
+export async function getSkuPerformance(params?: {
+  startDate?: string;
+  endDate?: string;
+  limit?: number;
+  minQuantitySold?: number;
+}) {
+  const { startDate, endDate, limit = 20, minQuantitySold = 1 } = params || {};
+  
+  try {
+    const conditions: any[] = [];
+    
+    if (startDate) {
+      conditions.push(sql`${orders.orderDate} >= ${startDate}`);
+    }
+    if (endDate) {
+      conditions.push(sql`${orders.orderDate} <= ${endDate}`);
+    }
+    
+    let queryBuilder = db
+      .select({
+        sku: orderDetails.sku,
+        name: orderDetails.name,
+        totalQuantity: sql<number>`SUM(CAST(${orderDetails.quantity} AS INTEGER))`,
+        totalRevenue: sql<number>`SUM(CAST(${orderDetails.quantity} AS INTEGER) * CAST(${orderDetails.unitPrice} AS DECIMAL))`,
+        avgPrice: sql<number>`AVG(CAST(${orderDetails.unitPrice} AS DECIMAL))`,
+        orderCount: sql<number>`COUNT(DISTINCT ${orders.id})`,
+        firstSale: sql<string>`MIN(${orders.orderDate})`,
+        lastSale: sql<string>`MAX(${orders.orderDate})`,
+      })
+      .from(orderDetails)
+      .innerJoin(orders, eq(orderDetails.orderId, orders.id))
+      .groupBy(orderDetails.sku, orderDetails.name)
+      .orderBy(sql`SUM(CAST(${orderDetails.quantity} AS INTEGER) * CAST(${orderDetails.unitPrice} AS DECIMAL)) DESC`)
+      .limit(limit * 2); // Get more initially for filtering
+    
+    if (conditions.length > 0) {
+      queryBuilder = queryBuilder.where(and(...conditions)) as any;
+    }
+    
+    const results = await queryBuilder;
+    
+    // Filter and calculate velocity
+    const filtered = results
+      .filter(item => Number(item.totalQuantity) >= minQuantitySold)
+      .slice(0, limit)
+      .map(item => {
+        const firstSale = new Date(item.firstSale);
+        const lastSale = new Date(item.lastSale);
+        const daysBetween = Math.max(1, Math.ceil((lastSale.getTime() - firstSale.getTime()) / (1000 * 60 * 60 * 24)));
+        const velocity = Number(item.totalQuantity) / daysBetween;
+        
+        return {
+          sku: item.sku,
+          name: item.name,
+          totalQuantity: Number(item.totalQuantity) || 0,
+          totalRevenue: Number(item.totalRevenue) || 0,
+          avgPrice: Number(item.avgPrice) || 0,
+          orderCount: Number(item.orderCount) || 0,
+          velocity: velocity, // Units per day
+          firstSale: item.firstSale,
+          lastSale: item.lastSale,
+        };
+      });
+    
+    return {
+      success: true,
+      data: filtered,
+    };
+  } catch (error: any) {
+    console.error('Error getting SKU performance:', error);
+    return {
+      success: false,
+      message: error.message || 'Failed to get SKU performance',
     };
   }
 }
@@ -1087,6 +1303,85 @@ export const AI_TOOLS = [
   {
     type: 'function',
     function: {
+      name: 'get_inventory_aging',
+      description: 'Analyze slow-moving inventory by finding items that have been in stock for a long time. Returns items with days in stock, estimated value. Useful for answering "which items are slow-moving", "what inventory should we discount", or identifying aging stock.',
+      parameters: {
+        type: 'object',
+        properties: {
+          daysThreshold: {
+            type: 'number',
+            description: 'Minimum days in stock to include (default: 90)',
+          },
+          categoryName: {
+            type: 'string',
+            description: 'Filter by category name',
+          },
+          limit: {
+            type: 'number',
+            description: 'Maximum number of items to return (default: 20)',
+          },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_margin_analysis',
+      description: 'Analyze profit margins by item or category. Returns items with unit price, cost, margin dollar amount and percentage. Essential for answering "which items have best margins", "what\'s most profitable to sell", or margin analysis.',
+      parameters: {
+        type: 'object',
+        properties: {
+          categoryName: {
+            type: 'string',
+            description: 'Filter by category name',
+          },
+          minMarginPercent: {
+            type: 'number',
+            description: 'Minimum margin percentage to include (default: 0)',
+          },
+          limit: {
+            type: 'number',
+            description: 'Maximum number of items to return (default: 20)',
+          },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_sku_performance',
+      description: 'Analyze SKU-level sales performance including velocity (units per day), total revenue, average price, and order frequency. Essential for answering "which SKUs sell fastest", "best performing products", or sales velocity analysis.',
+      parameters: {
+        type: 'object',
+        properties: {
+          startDate: {
+            type: 'string',
+            description: 'Start date for date range filter (ISO format)',
+          },
+          endDate: {
+            type: 'string',
+            description: 'End date for date range filter (ISO format)',
+          },
+          limit: {
+            type: 'number',
+            description: 'Maximum number of SKUs to return (default: 20)',
+          },
+          minQuantitySold: {
+            type: 'number',
+            description: 'Minimum total quantity sold to include (default: 1)',
+          },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'search_orders_by_item',
       description: 'Search order history to find if a specific part/item has been sold. Returns sales history including dates, quantities, prices, and customers. Use this to answer "has anyone purchased this part" or "show me sales for part X".',
       parameters: {
@@ -1215,6 +1510,15 @@ export async function executeToolCall(toolName: string, params: any): Promise<an
     
     case 'get_sales_by_category':
       return await getSalesByCategory(params);
+    
+    case 'get_inventory_aging':
+      return await getInventoryAging(params);
+    
+    case 'get_margin_analysis':
+      return await getMarginAnalysis(params);
+    
+    case 'get_sku_performance':
+      return await getSkuPerformance(params);
     
     case 'search_orders_by_item':
       return await searchOrdersByItem(params);

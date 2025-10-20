@@ -1,7 +1,7 @@
 import OpenAI from 'openai';
 import { db } from '../db';
-import { inventoryEmbeddings, orderEmbeddings, setPartEmbeddings, blInventory, orders, setPartRelationships, appSettings } from '@shared/schema';
-import { eq, sql, inArray } from 'drizzle-orm';
+import { inventoryEmbeddings, orderEmbeddings, orderDetailEmbeddings, setPartEmbeddings, blInventory, orders, orderDetails, setPartRelationships, appSettings } from '@shared/schema';
+import { eq, sql, inArray, and } from 'drizzle-orm';
 
 /**
  * Get OpenAI client with API key from settings or environment
@@ -36,28 +36,50 @@ export async function generateEmbedding(text: string): Promise<number[]> {
 }
 
 /**
- * Create searchable content from inventory item
+ * Create searchable content from inventory item (ENRICHED with quantitative fields)
  */
 export function createInventoryContent(item: any): string {
   const parts = [
     `Item: ${item.itemNo}`,
     item.itemName ? `Name: ${item.itemName}` : '',
     item.itemType ? `Type: ${item.itemType}` : '',
+    item.categoryName ? `Category: ${item.categoryName}` : '',
     item.colorName ? `Color: ${item.colorName}` : '',
     item.description ? `Description: ${item.description}` : '',
     item.remarks ? `Remarks: ${item.remarks}` : '',
     `Condition: ${item.newOrUsed === 'N' ? 'New' : 'Used'}`,
-    item.quantity ? `Quantity: ${item.quantity}` : '',
-    item.unitPrice ? `Price: $${item.unitPrice}` : '',
+    item.quantity ? `Quantity in stock: ${item.quantity}` : '',
+    item.unitPrice ? `Base price: $${item.unitPrice}` : '',
+    item.myCost ? `Cost: $${item.myCost}` : '',
+    item.tierPrice1 && item.tierQuantity1 ? `Tier 1: ${item.tierQuantity1}+ at $${item.tierPrice1}` : '',
+    item.tierPrice2 && item.tierQuantity2 ? `Tier 2: ${item.tierQuantity2}+ at $${item.tierPrice2}` : '',
+    item.tierPrice3 && item.tierQuantity3 ? `Tier 3: ${item.tierQuantity3}+ at $${item.tierPrice3}` : '',
+    item.myWeight ? `Weight: ${item.myWeight}g` : '',
+    item.bulk ? `Bulk quantity: ${item.bulk}` : '',
+    item.stockRoomId ? `Location: ${item.stockRoomId}` : '',
+    item.dateCreated ? `Added: ${new Date(item.dateCreated).toLocaleDateString()}` : '',
   ];
   
   return parts.filter(Boolean).join('. ');
 }
 
 /**
- * Create searchable content from order
+ * Create searchable content from order (ENRICHED with order details and metrics)
  */
 export function createOrderContent(order: any, items?: any[]): string {
+  // Calculate order metrics from items if available
+  let itemCount = 0;
+  let totalQuantity = 0;
+  let categories = new Set<string>();
+  
+  if (items && items.length > 0) {
+    itemCount = items.length;
+    totalQuantity = items.reduce((sum, item) => sum + (parseInt(item.quantity) || 0), 0);
+    items.forEach(item => {
+      if (item.categoryName) categories.add(item.categoryName);
+    });
+  }
+  
   const parts = [
     `Order: ${order.orderNumber}`,
     order.marketplace ? `Platform: ${order.marketplace}` : '',
@@ -66,7 +88,12 @@ export function createOrderContent(order: any, items?: any[]): string {
     order.customerUsername ? `Customer: ${order.customerUsername}` : '',
     order.orderTotal ? `Total: $${order.orderTotal}` : '',
     order.shippingAmount ? `Shipping: $${order.shippingAmount}` : '',
-    items ? `Items: ${items.map(i => i.name || i.sku).join(', ')}` : '',
+    order.salesTax ? `Tax: $${order.salesTax}` : '',
+    order.paymentMethod ? `Payment: ${order.paymentMethod}` : '',
+    itemCount > 0 ? `Line items: ${itemCount}` : '',
+    totalQuantity > 0 ? `Total pieces: ${totalQuantity}` : '',
+    categories.size > 0 ? `Categories: ${Array.from(categories).join(', ')}` : '',
+    items ? `Products: ${items.map(i => i.name || i.sku).join(', ')}` : '',
   ];
   
   return parts.filter(Boolean).join('. ');
@@ -77,17 +104,26 @@ export function createOrderContent(order: any, items?: any[]): string {
  */
 export async function embedInventoryItem(inventoryId: number) {
   try {
-    // Get inventory item
+    // Get inventory item with category
     const item = await db.query.blInventory.findFirst({
       where: eq(blInventory.id, inventoryId),
+      with: {
+        category: true,
+      },
     });
     
     if (!item) {
       throw new Error(`Inventory item ${inventoryId} not found`);
     }
     
+    // Flatten category name for embedding
+    const enrichedItem = {
+      ...item,
+      categoryName: item.category?.name,
+    };
+    
     // Create searchable content
-    const content = createInventoryContent(item);
+    const content = createInventoryContent(enrichedItem);
     
     // Generate embedding
     const embedding = await generateEmbedding(content);
@@ -171,6 +207,102 @@ export async function embedOrder(orderId: string) {
     return { success: true, orderId };
   } catch (error: any) {
     console.error(`Error embedding order ${orderId}:`, error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Create searchable content from order detail (line item) with inventory enrichment
+ */
+export function createOrderDetailContent(orderDetail: any, order?: any, inventoryItem?: any): string {
+  const parts = [
+    `SKU: ${orderDetail.sku}`,
+    orderDetail.name ? `Item: ${orderDetail.name}` : '',
+    inventoryItem?.categoryName || orderDetail.categoryName ? `Category: ${inventoryItem?.categoryName || orderDetail.categoryName}` : '',
+    inventoryItem?.colorName || orderDetail.colorName ? `Color: ${inventoryItem?.colorName || orderDetail.colorName}` : '',
+    orderDetail.quantity ? `Quantity sold: ${orderDetail.quantity}` : '',
+    orderDetail.unitPrice ? `Price: $${orderDetail.unitPrice}` : '',
+    orderDetail.condition ? `Condition: ${orderDetail.condition}` : '',
+    order?.orderDate ? `Sale date: ${new Date(order.orderDate).toLocaleDateString()}` : '',
+    order?.marketplace ? `Platform: ${order.marketplace}` : '',
+    order?.customerUsername ? `Customer: ${order.customerUsername}` : '',
+  ];
+  
+  return parts.filter(Boolean).join('. ');
+}
+
+/**
+ * Generate and store embedding for an order detail (line item)
+ */
+export async function embedOrderDetail(orderDetailId: string) {
+  try {
+    // Get order detail with its parent order
+    const orderDetail = await db.query.orderDetails.findFirst({
+      where: eq(orderDetails.id, orderDetailId),
+      with: { order: true },
+    });
+    
+    if (!orderDetail) {
+      throw new Error(`Order detail ${orderDetailId} not found`);
+    }
+    
+    // Try to enrich with inventory data (category/color) by matching SKU
+    let inventoryItem = null;
+    if (orderDetail.sku) {
+      // Parse SKU format: "itemNo-colorId" or just "itemNo"
+      const skuParts = orderDetail.sku.split('-');
+      const itemNo = skuParts[0];
+      const colorId = skuParts[1] ? parseInt(skuParts[1]) : null;
+      
+      // Look up in inventory with category relation
+      const foundItem = await db.query.blInventory.findFirst({
+        where: colorId 
+          ? and(eq(blInventory.itemNo, itemNo), eq(blInventory.colorId, colorId))
+          : eq(blInventory.itemNo, itemNo),
+        with: { category: true },
+      });
+      
+      if (foundItem) {
+        inventoryItem = {
+          ...foundItem,
+          categoryName: foundItem.category?.name,
+        };
+      }
+    }
+    
+    // Create searchable content
+    const content = createOrderDetailContent(orderDetail, orderDetail.order, inventoryItem);
+    
+    // Generate embedding
+    const embedding = await generateEmbedding(content);
+    
+    // Check if embedding already exists
+    const existing = await db.query.orderDetailEmbeddings.findFirst({
+      where: eq(orderDetailEmbeddings.orderDetailId, orderDetailId),
+    });
+    
+    if (existing) {
+      // Update existing
+      await db
+        .update(orderDetailEmbeddings)
+        .set({
+          embedding: sql.raw(`'${JSON.stringify(embedding)}'::vector`),
+          content,
+          updatedAt: new Date(),
+        })
+        .where(eq(orderDetailEmbeddings.orderDetailId, orderDetailId));
+    } else {
+      // Insert new
+      await db.insert(orderDetailEmbeddings).values({
+        orderDetailId,
+        embedding: sql.raw(`'${JSON.stringify(embedding)}'::vector`),
+        content,
+      });
+    }
+    
+    return { success: true, orderDetailId };
+  } catch (error: any) {
+    console.error(`Error embedding order detail ${orderDetailId}:`, error);
     return { success: false, error: error.message };
   }
 }
