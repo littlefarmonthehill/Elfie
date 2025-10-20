@@ -97,7 +97,7 @@ export default function DashboardNotifications() {
             <span className="text-xs md:text-sm font-semibold uppercase">
               {issue.syncType.replace('_', ' ')}
             </span>
-            <Badge variant="outline" className="text-[10px] md:text-xs">
+            <Badge variant="outline" className="text-sm md:text-base md:text-xs">
               {issue.platform}
             </Badge>
             {issue.itemNo && (
@@ -109,7 +109,7 @@ export default function DashboardNotifications() {
           <p className="text-xs md:text-sm text-gray-300 leading-relaxed">
             {issue.issueDescription}
           </p>
-          <div className="flex items-center gap-2 mt-1.5 text-[10px] md:text-xs text-gray-400">
+          <div className="flex items-center gap-2 mt-1.5 text-sm md:text-base md:text-xs text-gray-400">
             <span>{issue.issueType.replace('_', ' ')}</span>
             <span>•</span>
             <span>{new Date(issue.createdAt).toLocaleString()}</span>

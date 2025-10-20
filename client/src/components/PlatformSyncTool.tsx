@@ -224,7 +224,7 @@ export default function PlatformSyncTool() {
               <p className="text-xs md:text-base lg:text-lg font-bold text-white">
                 {isLoading ? <span className="inline-block bg-gray-700 h-3 w-20 rounded animate-pulse" /> : displayData?.source.name || 'BrickLink'}
               </p>
-              <p className="text-[10px] md:text-xs text-gray-400">
+              <p className="text-sm md:text-base md:text-xs text-gray-400">
                 {isLoading ? (
                   <span className="inline-block bg-gray-700 h-2 w-32 rounded animate-pulse" />
                 ) : (
@@ -234,7 +234,7 @@ export default function PlatformSyncTool() {
                 )}
               </p>
             </div>
-            <Badge variant="outline" className="bg-purple-500/10 border-purple-500/30 text-purple-400 text-[10px]">
+            <Badge variant="outline" className="bg-purple-500/10 border-purple-500/30 text-purple-400 text-sm md:text-base">
               Active
             </Badge>
           </div>
@@ -249,12 +249,12 @@ export default function PlatformSyncTool() {
                 : 'bg-blue-500/10 border-blue-500/30'
             }`}>
               <div className="flex items-center gap-2 mb-1">
-                <span className="text-[10px] font-semibold text-gray-300">
+                <span className="text-sm md:text-base font-semibold text-gray-300">
                   API Usage: {rateLimit.callsLast24h.toLocaleString()}/5,000 (24h)
                 </span>
               </div>
               {rateLimit.warning && (
-                <p className={`text-[10px] ${
+                <p className={`text-sm md:text-base ${
                   rateLimit.blocked ? 'text-red-400' : 'text-yellow-400'
                 }`}>
                   {rateLimit.warning}
@@ -289,10 +289,10 @@ export default function PlatformSyncTool() {
           {syncProgress && syncProgress.status === 'syncing' && (
             <div className="mb-2 p-2 bg-blue-500/10 border border-blue-500/30 rounded-lg">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-[10px] font-semibold text-blue-400">
+                <span className="text-sm md:text-base font-semibold text-blue-400">
                   {syncProgress.currentStep}
                 </span>
-                <span className="text-[10px] text-blue-400">
+                <span className="text-sm md:text-base text-blue-400">
                   {syncProgress.progress}%
                 </span>
               </div>
@@ -305,7 +305,7 @@ export default function PlatformSyncTool() {
               </div>
               {/* Details */}
               {syncProgress.details && (
-                <div className="mt-1 flex gap-2 text-[9px] text-gray-400">
+                <div className="mt-1 flex gap-2 text-xs md:text-sm text-gray-400">
                   {syncProgress.details.itemsDownloaded !== undefined && (
                     <span>Downloaded: {syncProgress.details.itemsDownloaded.toLocaleString()}</span>
                   )}
@@ -322,7 +322,7 @@ export default function PlatformSyncTool() {
           
           <div className="grid grid-cols-2 gap-2">
             <div className="bg-gray-900/50 rounded-lg p-2 border border-gray-700">
-              <p className="text-[10px] md:text-xs text-gray-400 mb-0.5">Total Lots</p>
+              <p className="text-sm md:text-base md:text-xs text-gray-400 mb-0.5">Total Lots</p>
               <p className="text-sm md:text-base font-bold text-white font-mono">
                 {isLoading ? (
                   <span className="inline-block bg-gray-700 h-4 w-16 rounded animate-pulse" />
@@ -332,7 +332,7 @@ export default function PlatformSyncTool() {
               </p>
             </div>
             <div className="bg-gray-900/50 rounded-lg p-2 border border-gray-700">
-              <p className="text-[10px] md:text-xs text-gray-400 mb-0.5">Total Parts</p>
+              <p className="text-sm md:text-base md:text-xs text-gray-400 mb-0.5">Total Parts</p>
               <p className="text-sm md:text-base font-bold text-white font-mono">
                 {isLoading ? (
                   <span className="inline-block bg-gray-700 h-4 w-16 rounded animate-pulse" />
@@ -421,7 +421,7 @@ export default function PlatformSyncTool() {
                   <div className="flex items-center gap-1.5">
                     <p className="text-xs md:text-base lg:text-lg font-bold text-white">{platform.name}</p>
                     {!platform.enabled && (
-                      <Badge variant="outline" className="text-[10px] text-gray-500 border-gray-600">
+                      <Badge variant="outline" className="text-sm md:text-base text-gray-500 border-gray-600">
                         Not Configured
                       </Badge>
                     )}
@@ -451,13 +451,13 @@ export default function PlatformSyncTool() {
                 {/* Platform Stats */}
                 <div className="grid grid-cols-2 gap-2 mb-2">
                   <div className="bg-gray-900/50 rounded-lg p-1.5 border border-gray-700">
-                    <p className="text-[10px] md:text-xs text-gray-400 mb-0.5">Lots</p>
+                    <p className="text-sm md:text-base md:text-xs text-gray-400 mb-0.5">Lots</p>
                     <p className="text-xs md:text-base lg:text-lg font-bold text-white font-mono">
                       {platform.enabled ? platform.stats.totalLots.toLocaleString() : '—'}
                     </p>
                   </div>
                   <div className="bg-gray-900/50 rounded-lg p-1.5 border border-gray-700">
-                    <p className="text-[10px] md:text-xs text-gray-400 mb-0.5">Parts</p>
+                    <p className="text-sm md:text-base md:text-xs text-gray-400 mb-0.5">Parts</p>
                     <p className="text-xs md:text-base lg:text-lg font-bold text-white font-mono">
                       {platform.enabled ? platform.stats.totalParts.toLocaleString() : '—'}
                     </p>
@@ -470,8 +470,8 @@ export default function PlatformSyncTool() {
                     <div className="flex items-start gap-1.5 mb-1.5">
                       <AlertTriangle className="w-3 h-3 text-orange-400 flex-shrink-0 mt-0.5" />
                       <div className="flex-1">
-                        <p className="text-[10px] font-bold text-orange-400 mb-1">Discrepancies Found</p>
-                        <div className="grid grid-cols-2 gap-1.5 text-[10px]">
+                        <p className="text-sm md:text-base font-bold text-orange-400 mb-1">Discrepancies Found</p>
+                        <div className="grid grid-cols-2 gap-1.5 text-sm md:text-base">
                           {platform.discrepancies.missingLots > 0 && (
                             <button
                               onClick={() => handleDiscrepancyClick(platform.name, 'missing', `Missing Lots on ${platform.name}`)}
@@ -532,7 +532,7 @@ export default function PlatformSyncTool() {
                 {platform.enabled && platform.stats.lastSyncedAt && (
                   <div className="mt-1.5 flex items-center gap-1">
                     <CheckCircle2 className="w-3 h-3 text-green-400" />
-                    <p className="text-[10px] text-gray-400">
+                    <p className="text-sm md:text-base text-gray-400">
                       Last synced: {new Date(platform.stats.lastSyncedAt).toLocaleString()}
                     </p>
                   </div>
@@ -548,8 +548,8 @@ export default function PlatformSyncTool() {
         <div className="flex items-start gap-1.5">
           <Info className="w-3 h-3 text-blue-400 flex-shrink-0 mt-0.5" />
           <div>
-            <p className="text-[10px] font-bold text-blue-400 mb-0.5">Platform Configuration</p>
-            <p className="text-[10px] text-gray-300">
+            <p className="text-sm md:text-base font-bold text-blue-400 mb-0.5">Platform Configuration</p>
+            <p className="text-sm md:text-base text-gray-300">
               Configure API credentials in Settings → API Credentials to enable platform sync.
               Once configured, platforms will automatically sync inventory from {displayData?.source.name || 'BrickLink'}.
             </p>
@@ -605,12 +605,12 @@ export default function PlatformSyncTool() {
                         </Button>
                         <div className="grid grid-cols-2 gap-3 text-xs md:text-base lg:text-lg">
                           <div className="text-right">
-                            <p className="text-gray-400 text-[10px] md:text-xs">BrickLink</p>
+                            <p className="text-gray-400 text-sm md:text-base md:text-xs">BrickLink</p>
                             <p className="text-white font-mono">Qty: {item.blQuantity}</p>
                             <p className="text-white font-mono">${item.blPrice.toFixed(2)}</p>
                           </div>
                           <div className="text-right">
-                            <p className="text-gray-400 text-[10px] md:text-xs">{discrepancyDrawer.platform}</p>
+                            <p className="text-gray-400 text-sm md:text-base md:text-xs">{discrepancyDrawer.platform}</p>
                             <p className={`font-mono ${item.qtyDiff ? 'text-orange-400' : 'text-white'}`}>
                               Qty: {item.boQuantity}
                               {item.qtyDiff && item.qtyDiff !== 0 && (
@@ -630,14 +630,14 @@ export default function PlatformSyncTool() {
                       {/* Remarks Difference */}
                       {item.difference === 'remarks' && (
                         <div className="border-t border-gray-700 pt-2">
-                          <p className="text-[10px] font-bold text-orange-400 mb-1">Personal Note (Internal)</p>
+                          <p className="text-sm md:text-base font-bold text-orange-400 mb-1">Personal Note (Internal)</p>
                           <div className="grid grid-cols-2 gap-2 text-xs">
                             <div>
-                              <p className="text-gray-400 text-[10px]">BrickLink:</p>
+                              <p className="text-gray-400 text-sm md:text-base">BrickLink:</p>
                               <p className="text-white font-mono break-words">{item.blRemarks || '(empty)'}</p>
                             </div>
                             <div>
-                              <p className="text-gray-400 text-[10px]">{discrepancyDrawer.platform}:</p>
+                              <p className="text-gray-400 text-sm md:text-base">{discrepancyDrawer.platform}:</p>
                               <p className="text-white font-mono break-words">{item.boRemarks || '(empty)'}</p>
                             </div>
                           </div>
@@ -647,14 +647,14 @@ export default function PlatformSyncTool() {
                       {/* Description Difference */}
                       {item.difference === 'description' && (
                         <div className="border-t border-gray-700 pt-2">
-                          <p className="text-[10px] font-bold text-orange-400 mb-1">Public Note (Buyer Visible)</p>
+                          <p className="text-sm md:text-base font-bold text-orange-400 mb-1">Public Note (Buyer Visible)</p>
                           <div className="grid grid-cols-2 gap-2 text-xs">
                             <div>
-                              <p className="text-gray-400 text-[10px]">BrickLink:</p>
+                              <p className="text-gray-400 text-sm md:text-base">BrickLink:</p>
                               <p className="text-white font-mono break-words">{item.blDescription || '(empty)'}</p>
                             </div>
                             <div>
-                              <p className="text-gray-400 text-[10px]">{discrepancyDrawer.platform}:</p>
+                              <p className="text-gray-400 text-sm md:text-base">{discrepancyDrawer.platform}:</p>
                               <p className="text-white font-mono break-words">{item.boDescription || '(empty)'}</p>
                             </div>
                           </div>
@@ -732,15 +732,15 @@ function SyncIssuesSection() {
                 {openIssues} Open Issue{openIssues !== 1 ? 's' : ''}
               </p>
               {criticalIssues > 0 && (
-                <p className="text-[10px] md:text-xs text-orange-300">
+                <p className="text-sm md:text-base md:text-xs text-orange-300">
                   {criticalIssues} critical
                 </p>
               )}
-              <p className="text-[10px] md:text-xs text-gray-400 mt-1">
+              <p className="text-sm md:text-base md:text-xs text-gray-400 mt-1">
                 Click to view and resolve sync issues
               </p>
             </div>
-            <Badge variant="outline" className="bg-orange-500/20 border-orange-500/50 text-orange-300 text-[10px]">
+            <Badge variant="outline" className="bg-orange-500/20 border-orange-500/50 text-orange-300 text-sm md:text-base">
               Review
             </Badge>
           </div>
@@ -845,13 +845,13 @@ function SyncIssuesList() {
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <Badge className={`text-[10px] ${getSeverityColor(issue.severity)}`}>
+                      <Badge className={`text-sm md:text-base ${getSeverityColor(issue.severity)}`}>
                         {issue.severity}
                       </Badge>
-                      <Badge variant="outline" className="text-[10px]">
+                      <Badge variant="outline" className="text-sm md:text-base">
                         {issue.syncType}
                       </Badge>
-                      <Badge variant="outline" className="text-[10px]">
+                      <Badge variant="outline" className="text-sm md:text-base">
                         {issue.platform}
                       </Badge>
                     </div>
@@ -859,7 +859,7 @@ function SyncIssuesList() {
                     {issue.itemNo && (
                       <p className="text-xs text-gray-400 mt-1">Item: {issue.itemNo}</p>
                     )}
-                    <p className="text-[10px] text-gray-500 mt-1">
+                    <p className="text-sm md:text-base text-gray-500 mt-1">
                       {new Date(issue.createdAt).toLocaleString()}
                     </p>
                   </div>

@@ -175,7 +175,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
               <p className="text-xs md:text-sm text-red-400 uppercase">Too High</p>
             </div>
             <p className="text-xl font-mono font-bold text-red-400">{insightsData?.summary.tooHigh || 0}</p>
-            <p className="text-[8px] text-gray-500">Losing sales</p>
+            <p className="text-xs text-gray-500">Losing sales</p>
           </Card>
           
           <Card 
@@ -192,7 +192,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
               <p className="text-xs md:text-sm text-orange-400 uppercase">Too Low</p>
             </div>
             <p className="text-xl font-mono font-bold text-orange-400">{insightsData?.summary.tooLow || 0}</p>
-            <p className="text-[8px] text-gray-500">Losing profit</p>
+            <p className="text-xs text-gray-500">Losing profit</p>
           </Card>
           
           <Card 
@@ -209,7 +209,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
               <p className="text-xs md:text-sm text-green-400 uppercase">Well Priced</p>
             </div>
             <p className="text-xl font-mono font-bold text-green-400">{insightsData?.summary.wellPriced || 0}</p>
-            <p className="text-[8px] text-gray-500">Optimal range</p>
+            <p className="text-xs text-gray-500">Optimal range</p>
           </Card>
           
           <Card className="p-2.5 bg-gray-900/50 border-gray-700" data-testid="stat-total">
@@ -218,7 +218,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
               <p className="text-xs md:text-sm text-gray-400 uppercase">Total</p>
             </div>
             <p className="text-xl font-mono font-bold text-white">{insightsData?.summary.total || 0}</p>
-            <p className="text-[8px] text-gray-500">Items analyzed</p>
+            <p className="text-xs text-gray-500">Items analyzed</p>
           </Card>
         </div>
 
@@ -265,7 +265,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
             {status.recordsUpdated !== undefined && status.recordsUpdated > 0 && (
               <div className="text-right">
                 <p className="text-lg font-mono font-bold text-purple-400">{status.recordsUpdated}</p>
-                <p className="text-[8px] text-gray-500 uppercase">Items</p>
+                <p className="text-xs text-gray-500 uppercase">Items</p>
               </div>
             )}
           </div>

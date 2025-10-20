@@ -620,7 +620,7 @@ export default function FulfillmentTool() {
                       {order.orderNumber}
                     </p>
                     {order.marketplace && (
-                      <p className="text-[10px] text-gray-500 mt-0.5">{order.marketplace}</p>
+                      <p className="text-sm md:text-base text-gray-500 mt-0.5">{order.marketplace}</p>
                     )}
                   </div>
                 </div>

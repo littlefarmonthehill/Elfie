@@ -41,7 +41,7 @@ export function OrderGroup({ orders, onOrderClick }: OrderGroupProps) {
                     #{order.orderNumber}
                   </span>
                   {order.marketplace && (
-                    <span className="text-[10px] text-purple-300 bg-purple-900/50 px-1.5 py-0.5 rounded">
+                    <span className="text-sm md:text-base text-purple-300 bg-purple-900/50 px-1.5 py-0.5 rounded">
                       {order.marketplace}
                     </span>
                   )}

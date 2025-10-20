@@ -168,25 +168,25 @@ export default function OrderPlatformSyncTool() {
           <h3 className="text-xs font-semibold text-gray-300 mb-2">Database Summary</h3>
           <div className="grid grid-cols-2 gap-2">
             <div className="bg-gray-900/50 rounded-lg p-2 border border-gray-700">
-              <p className="text-[10px] text-gray-400 mb-0.5">Total Orders</p>
+              <p className="text-sm md:text-base text-gray-400 mb-0.5">Total Orders</p>
               <p className="text-sm font-bold text-white font-mono">
                 {data.summary.totalOrders.toLocaleString()}
               </p>
             </div>
             <div className="bg-gray-900/50 rounded-lg p-2 border border-gray-700">
-              <p className="text-[10px] text-gray-400 mb-0.5">Total Items</p>
+              <p className="text-sm md:text-base text-gray-400 mb-0.5">Total Items</p>
               <p className="text-sm font-bold text-white font-mono">
                 {data.summary.totalItems.toLocaleString()}
               </p>
             </div>
             <div className="bg-gray-900/50 rounded-lg p-2 border border-gray-700">
-              <p className="text-[10px] text-gray-400 mb-0.5">Pending</p>
+              <p className="text-sm md:text-base text-gray-400 mb-0.5">Pending</p>
               <p className="text-sm font-bold text-orange-400 font-mono">
                 {data.summary.pendingOrders.toLocaleString()}
               </p>
             </div>
             <div className="bg-gray-900/50 rounded-lg p-2 border border-gray-700">
-              <p className="text-[10px] text-gray-400 mb-0.5">Shipped</p>
+              <p className="text-sm md:text-base text-gray-400 mb-0.5">Shipped</p>
               <p className="text-sm font-bold text-green-400 font-mono">
                 {data.summary.shippedOrders.toLocaleString()}
               </p>
@@ -261,7 +261,7 @@ export default function OrderPlatformSyncTool() {
                   <div className="flex items-center gap-1.5">
                     <p className="text-xs md:text-base lg:text-lg font-bold text-white">{platform.name}</p>
                     {!platform.enabled && (
-                      <Badge variant="outline" className="text-[10px] text-gray-500 border-gray-600">
+                      <Badge variant="outline" className="text-sm md:text-base text-gray-500 border-gray-600">
                         Not Configured
                       </Badge>
                     )}
@@ -290,7 +290,7 @@ export default function OrderPlatformSyncTool() {
 
                 {/* Last Synced Info */}
                 {platform.enabled && platform.stats.lastSyncedAt && (
-                  <p className="text-[10px] text-gray-400 mb-2">
+                  <p className="text-sm md:text-base text-gray-400 mb-2">
                     Last synced: {new Date(platform.stats.lastSyncedAt).toLocaleString()}
                   </p>
                 )}
@@ -298,19 +298,19 @@ export default function OrderPlatformSyncTool() {
                 {/* Platform Stats */}
                 <div className="grid grid-cols-3 gap-2">
                   <div className="bg-gray-900/50 rounded-lg p-1.5 border border-gray-700">
-                    <p className="text-[10px] md:text-xs text-gray-400 mb-0.5">Orders</p>
+                    <p className="text-sm md:text-base md:text-xs text-gray-400 mb-0.5">Orders</p>
                     <p className="text-xs md:text-base lg:text-lg font-bold text-white font-mono">
                       {platform.enabled ? platform.stats.totalOrders.toLocaleString() : '—'}
                     </p>
                   </div>
                   <div className="bg-gray-900/50 rounded-lg p-1.5 border border-gray-700">
-                    <p className="text-[10px] md:text-xs text-gray-400 mb-0.5">Items</p>
+                    <p className="text-sm md:text-base md:text-xs text-gray-400 mb-0.5">Items</p>
                     <p className="text-xs md:text-base lg:text-lg font-bold text-white font-mono">
                       {platform.enabled ? platform.stats.totalItems.toLocaleString() : '—'}
                     </p>
                   </div>
                   <div className="bg-gray-900/50 rounded-lg p-1.5 border border-gray-700">
-                    <p className="text-[10px] md:text-xs text-gray-400 mb-0.5">Pending</p>
+                    <p className="text-sm md:text-base md:text-xs text-gray-400 mb-0.5">Pending</p>
                     <p className="text-xs md:text-base lg:text-lg font-bold text-orange-400 font-mono">
                       {platform.enabled ? platform.stats.pendingOrders.toLocaleString() : '—'}
                     </p>

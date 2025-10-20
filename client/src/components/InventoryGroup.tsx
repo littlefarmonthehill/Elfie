@@ -99,7 +99,7 @@ export function InventoryGroup({ itemNo, items, onItemClick }: InventoryGroupPro
           <div className="grid grid-cols-[14px_80px_1fr] gap-2 items-center pb-1.5 mb-1.5 border-b border-purple-500/20">
             <div></div> {/* Empty space for color dot column */}
             <div></div> {/* Empty space for color name column */}
-            <div className="grid grid-cols-2 gap-3 text-[9px] font-semibold uppercase tracking-wider">
+            <div className="grid grid-cols-2 gap-3 text-xs md:text-sm font-semibold uppercase tracking-wider">
               <span className="text-green-400/70">New</span>
               <span className="text-orange-400/70">Used</span>
             </div>
@@ -126,10 +126,10 @@ export function InventoryGroup({ itemNo, items, onItemClick }: InventoryGroupPro
                   />
                   
                   {/* Color name */}
-                  <span className="text-gray-400 text-[10px] truncate">{group.colorName || 'Unknown'}</span>
+                  <span className="text-gray-400 text-sm md:text-base truncate">{group.colorName || 'Unknown'}</span>
                   
                   {/* Conditions aligned in columns - each clickable separately */}
-                  <div className="grid grid-cols-2 gap-3 text-[10px]">
+                  <div className="grid grid-cols-2 gap-3 text-sm md:text-base">
                     {/* New condition - clickable if exists */}
                     {group.new ? (
                       <button
