@@ -603,10 +603,7 @@ export default function Home() {
     setChatOpen(true);
   };
 
-  const handleChatClose = (open?: boolean) => {
-    // Only close if explicitly set to false (or called without parameter)
-    if (open === true) return;
-    
+  const handleChatClose = () => {
     // Close drawer first
     setChatOpen(false);
     setElfieResting(false);
@@ -764,7 +761,7 @@ export default function Home() {
       </div>
 
       {/* Elfie Chat Drawer - Jetsons Style */}
-      <Sheet open={chatOpen} onOpenChange={handleChatClose}>
+      <Sheet open={chatOpen}>
         <SheetContent 
           side="bottom" 
           className="h-[92vh] p-0 border-0 overflow-hidden"
@@ -773,6 +770,7 @@ export default function Home() {
           }}
           onInteractOutside={(e) => e.preventDefault()}
           onEscapeKeyDown={(e) => e.preventDefault()}
+          onOpenAutoFocus={(e) => e.preventDefault()}
         >
           {/* Jetsons-style chrome border with scan lines */}
           <div className="absolute inset-0 pointer-events-none">
