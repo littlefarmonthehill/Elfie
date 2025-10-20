@@ -248,9 +248,11 @@ function MessageContent({ content, items, orders, bricklinkSearchSuggestion, onI
 
   return (
     <div className="w-full space-y-2">
-      {/* Only show text content if there are no grouped items or orders */}
-      {!groupedItems && !orders?.length && (
-        <div className="space-y-1">{parseContent(content)}</div>
+      {/* Always show the AI's text response when present */}
+      {content && content.trim().length > 0 && (
+        <div className="space-y-1 bg-gray-800/80 text-gray-300 border border-purple-500/20 p-3 rounded-lg">
+          {parseContent(content)}
+        </div>
       )}
       
       {/* Show grouped inventory items if available */}
@@ -617,9 +619,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
                     className={`max-w-[80%] rounded-lg text-xs ${
                       message.role === 'user'
                         ? colors.userBg + ' text-white p-3'
-                        : (message.items && message.items.length > 0) || (message.orders && message.orders.length > 0)
-                        ? 'text-gray-300' // No background for messages with inventory items or orders
-                        : 'bg-gray-800/80 text-gray-300 border border-purple-500/20 p-3'
+                        : 'text-gray-300' // Assistant messages - MessageContent handles its own styling
                     }`}
                   >
                     {message.role === 'user' ? (
