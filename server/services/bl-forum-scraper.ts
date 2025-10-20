@@ -160,6 +160,8 @@ export async function saveForumPosts(posts: ForumPostData[]): Promise<number> {
             excerpt: post.excerpt,
             lastScrapedAt: new Date(),
             updatedAt: new Date(),
+            // Update lastReplyAt - for now we use postedAt (in future could scrape thread for actual last reply)
+            lastReplyAt: post.postedAt,
           })
           .where(eq(blForumPosts.id, post.id));
       } else {
@@ -172,6 +174,7 @@ export async function saveForumPosts(posts: ForumPostData[]): Promise<number> {
           username: post.username,
           userFeedbackCount: post.userFeedbackCount,
           postedAt: post.postedAt,
+          lastReplyAt: post.postedAt, // Initialize with post date (will update when we see it again)
           postUrl: post.postUrl,
           threadUrl: post.threadUrl,
           hasReplies: post.hasReplies,
@@ -254,6 +257,48 @@ function createForumContent(post: any): string {
 }
 
 /**
+ * Purge forum posts older than 6 months with no recent replies
+ */
+export async function purgeStaleForumPosts(): Promise<number> {
+  try {
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    
+    console.log(`🗑️ Purging forum posts with no replies since ${sixMonthsAgo.toLocaleDateString()}...`);
+    
+    // Find stale posts
+    const stalePosts = await db.query.blForumPosts.findMany({
+      where: sql`${blForumPosts.lastReplyAt} < ${sixMonthsAgo}`,
+      columns: { id: true },
+    });
+    
+    if (stalePosts.length === 0) {
+      console.log('✅ No stale posts to purge');
+      return 0;
+    }
+    
+    console.log(`🗑️ Found ${stalePosts.length} stale posts to purge`);
+    
+    // Delete embeddings first (foreign key)
+    for (const post of stalePosts) {
+      await db.delete(blForumEmbeddings).where(eq(blForumEmbeddings.postId, post.id));
+    }
+    
+    // Delete posts
+    const postIds = stalePosts.map(p => p.id);
+    const deleteResult = await db.delete(blForumPosts).where(
+      sql`${blForumPosts.id} = ANY(${postIds})`
+    );
+    
+    console.log(`✅ Purged ${stalePosts.length} stale forum posts`);
+    return stalePosts.length;
+  } catch (error: any) {
+    console.error('❌ Error purging stale posts:', error.message);
+    return 0;
+  }
+}
+
+/**
  * Full sync: scrape forum and generate embeddings
  */
 export async function syncBrickLinkForum(): Promise<{
@@ -261,18 +306,22 @@ export async function syncBrickLinkForum(): Promise<{
   postsScraped: number;
   postsSaved: number;
   embeddingsGenerated: number;
+  postsPurged: number;
   error?: string;
 }> {
   try {
     console.log('📡 Starting BrickLink forum sync...');
     
-    // Step 1: Scrape forum posts
+    // Step 1: Purge stale posts (older than 6 months)
+    const purgedCount = await purgeStaleForumPosts();
+    
+    // Step 2: Scrape forum posts
     const posts = await scrapeForumList();
     
-    // Step 2: Save to database
+    // Step 3: Save to database
     const savedCount = await saveForumPosts(posts);
     
-    // Step 3: Generate embeddings for new posts
+    // Step 4: Generate embeddings for new posts
     const embeddedCount = await generateForumEmbeddings();
     
     console.log('✅ BrickLink forum sync complete');
@@ -282,6 +331,7 @@ export async function syncBrickLinkForum(): Promise<{
       postsScraped: posts.length,
       postsSaved: savedCount,
       embeddingsGenerated: embeddedCount,
+      postsPurged: purgedCount,
     };
   } catch (error: any) {
     console.error('❌ Forum sync failed:', error);
@@ -290,6 +340,7 @@ export async function syncBrickLinkForum(): Promise<{
       postsScraped: 0,
       postsSaved: 0,
       embeddingsGenerated: 0,
+      postsPurged: 0,
       error: error.message,
     };
   }

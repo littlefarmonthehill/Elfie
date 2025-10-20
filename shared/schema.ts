@@ -851,6 +851,7 @@ export const blForumPosts = pgTable("bl_forum_posts", {
   
   // Timestamps
   postedAt: timestamp("posted_at").notNull(),
+  lastReplyAt: timestamp("last_reply_at"), // When the last reply was made (null if no replies)
   
   // URLs
   postUrl: text("post_url").notNull(),

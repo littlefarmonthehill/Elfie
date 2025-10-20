@@ -85,7 +85,7 @@ async function runForumSync() {
     const result = await syncBrickLinkForum();
     
     if (result.success) {
-      console.log(`✅ Forum sync completed: ${result.postsSaved} new posts, ${result.embeddingsGenerated} embeddings`);
+      console.log(`✅ Forum sync completed: ${result.postsSaved} new posts, ${result.embeddingsGenerated} embeddings, ${result.postsPurged} purged`);
     } else {
       console.error(`❌ Forum sync failed: ${result.error}`);
     }
