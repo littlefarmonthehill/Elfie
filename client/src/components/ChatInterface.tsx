@@ -100,8 +100,8 @@ function MessageContent({ content, items, orders, bricklinkSearchSuggestion, onI
       const parts: (string | JSX.Element)[] = [];
       let lastIndex = 0;
 
-      // Match BrickLink URLs
-      const urlRegex = /https:\/\/www\.bricklink\.com\/[^\s)]+/g;
+      // Match all URLs (http and https)
+      const urlRegex = /https?:\/\/[^\s)]+/g;
       let match;
 
       while ((match = urlRegex.exec(text)) !== null) {
@@ -111,15 +111,21 @@ function MessageContent({ content, items, orders, bricklinkSearchSuggestion, onI
           parts.push(...parsePartNumbers(beforeText));
         }
 
-        // Add clickable URL
+        // Add clickable URL with short text
         const url = match[0];
+        const displayText = getShortUrlText(url);
+        
+        // Check if it's a BrickLink URL for special handling
+        const isBrickLink = url.includes('bricklink.com');
+        
         parts.push(
           <button
             key={`url-${match.index}`}
-            onClick={() => onBrickLinkClick?.(url)}
+            onClick={() => isBrickLink ? onBrickLinkClick?.(url) : window.open(url, '_blank', 'noopener,noreferrer')}
             className="inline-flex items-center gap-1 text-purple-400 hover:text-purple-300 underline"
+            data-testid={`link-${displayText.toLowerCase().replace(/\s+/g, '-')}`}
           >
-            View on BrickLink
+            {displayText}
             <ExternalLink className="h-3 w-3" />
           </button>
         );
@@ -133,6 +139,42 @@ function MessageContent({ content, items, orders, bricklinkSearchSuggestion, onI
       }
 
       return parts.length > 0 ? parts : text;
+    };
+
+    // Helper function to generate short, readable text for URLs
+    const getShortUrlText = (url: string): string => {
+      try {
+        const urlObj = new URL(url);
+        const domain = urlObj.hostname.replace('www.', '');
+        
+        // Special cases for known domains
+        if (domain.includes('bricklink.com')) return 'View on BrickLink';
+        if (domain.includes('brickset.com')) return 'View on Brickset';
+        if (domain.includes('rebrickable.com')) return 'View on Rebrickable';
+        if (domain.includes('youtube.com') || domain.includes('youtu.be')) return 'Watch Video';
+        if (domain.includes('reddit.com')) return 'View Reddit Post';
+        if (domain.includes('instagram.com')) return 'View on Instagram';
+        if (domain.includes('twitter.com') || domain.includes('x.com')) return 'View on Twitter';
+        
+        // For articles/news sites, try to use pathname
+        const pathParts = urlObj.pathname.split('/').filter(p => p && p.length > 2);
+        if (pathParts.length > 0) {
+          // Capitalize and clean up the last meaningful path segment
+          const lastPart = pathParts[pathParts.length - 1]
+            .replace(/[-_]/g, ' ')
+            .replace(/\.[^.]+$/, ''); // Remove file extension
+          
+          if (lastPart.length > 5 && lastPart.length < 30) {
+            return lastPart.charAt(0).toUpperCase() + lastPart.slice(1).substring(0, 25);
+          }
+        }
+        
+        // Default: capitalize domain name
+        const domainName = domain.split('.')[0];
+        return domainName.charAt(0).toUpperCase() + domainName.slice(1);
+      } catch (e) {
+        return 'View Link';
+      }
     };
 
     const parsePartNumbers = (text: string) => {

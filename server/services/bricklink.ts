@@ -982,6 +982,7 @@ export async function syncPriceOMagicCache(maxItems: number = 1500): Promise<{
         itemNo: blInventory.itemNo,
         itemType: blInventory.itemType,
         colorId: blInventory.colorId,
+        newOrUsed: blInventory.newOrUsed,
         cacheId: priceGuideCache.id,
         lastFetched: priceGuideCache.fetchedAt,
       })
@@ -991,7 +992,8 @@ export async function syncPriceOMagicCache(maxItems: number = 1500): Promise<{
         and(
           eq(blInventory.itemNo, priceGuideCache.itemNo),
           eq(blInventory.itemType, priceGuideCache.itemType),
-          sql`(${blInventory.colorId} = ${priceGuideCache.colorId} OR (${blInventory.colorId} IS NULL AND ${priceGuideCache.colorId} IS NULL))`
+          sql`(${blInventory.colorId} = ${priceGuideCache.colorId} OR (${blInventory.colorId} IS NULL AND ${priceGuideCache.colorId} IS NULL))`,
+          sql`${blInventory.newOrUsed} = ${priceGuideCache.newOrUsed}`
         )
       )
       .orderBy(sql`COALESCE(${priceGuideCache.fetchedAt}, '1970-01-01'::timestamp) ASC`)
@@ -1020,6 +1022,7 @@ export async function syncPriceOMagicCache(maxItems: number = 1500): Promise<{
           item.itemNo,
           item.itemType,
           item.colorId || undefined,
+          item.newOrUsed, // Use the item's condition
           15 // Default 15% premium
         );
 
@@ -1064,6 +1067,7 @@ export async function fetchPriceOMagicData(
   itemNo: string,
   itemType: string,
   colorId?: number,
+  newOrUsed: string = 'N',
   premiumPercentage: number = 15
 ): Promise<any> {
   try {
@@ -1078,17 +1082,18 @@ export async function fetchPriceOMagicData(
           eq(priceGuideCache.itemNo, itemNo),
           eq(priceGuideCache.itemType, itemType),
           colorId ? eq(priceGuideCache.colorId, colorId) : sql`${priceGuideCache.colorId} IS NULL`,
+          eq(priceGuideCache.newOrUsed, newOrUsed),
           gte(priceGuideCache.fetchedAt, twentyFourHoursAgo)
         )
       )
       .limit(1);
     
     if (existingCache.length > 0) {
-      console.log(`[Price-o-Matic] Using cached data for ${itemType}/${itemNo}${colorId ? `/${colorId}` : ''}`);
+      console.log(`[Price-o-Matic] Using cached data for ${itemType}/${itemNo}${colorId ? `/${colorId}` : ''}/${newOrUsed}`);
       return existingCache[0];
     }
 
-    console.log(`[Price-o-Matic] Fetching fresh data for ${itemType}/${itemNo}${colorId ? `/${colorId}` : ''}`);
+    console.log(`[Price-o-Matic] Fetching fresh data for ${itemType}/${itemNo}${colorId ? `/${colorId}` : ''}/${newOrUsed}`);
 
     // Convert item type code to BrickLink API format (P -> PART, M -> MINIFIG, etc.)
     // Handle both single-letter codes (P, M, S) and full words (PART, MINIFIG, SET)
@@ -1111,7 +1116,10 @@ export async function fetchPriceOMagicData(
     const { data: itemDetails } = await bricklinkCatalogRequest(itemDetailsEndpoint);
 
     // Fetch price guide - stock
-    const stockPriceParams: Record<string, string> = { guide_type: 'stock' };
+    const stockPriceParams: Record<string, string> = { 
+      guide_type: 'stock',
+      new_or_used: newOrUsed
+    };
     if (colorId) {
       stockPriceParams.color_id = colorId.toString();
     }
@@ -1119,7 +1127,10 @@ export async function fetchPriceOMagicData(
     const { data: stockPriceData } = await bricklinkCatalogRequest(stockPriceEndpoint, stockPriceParams);
 
     // Fetch price guide - sold
-    const soldPriceParams: Record<string, string> = { guide_type: 'sold' };
+    const soldPriceParams: Record<string, string> = { 
+      guide_type: 'sold',
+      new_or_used: newOrUsed
+    };
     if (colorId) {
       soldPriceParams.color_id = colorId.toString();
     }
@@ -1136,6 +1147,7 @@ export async function fetchPriceOMagicData(
       itemNo,
       itemType,
       colorId: colorId || null,
+      newOrUsed,
       
       // Item details
       itemName: itemDetails?.name || null,
@@ -1174,7 +1186,8 @@ export async function fetchPriceOMagicData(
         and(
           eq(priceGuideCache.itemNo, itemNo),
           eq(priceGuideCache.itemType, itemType),
-          colorId ? eq(priceGuideCache.colorId, colorId) : sql`${priceGuideCache.colorId} IS NULL`
+          colorId ? eq(priceGuideCache.colorId, colorId) : sql`${priceGuideCache.colorId} IS NULL`,
+          eq(priceGuideCache.newOrUsed, newOrUsed)
         )
       );
 

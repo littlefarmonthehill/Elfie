@@ -939,12 +939,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
           const partNumber = partNumberMatch[1];
           
-          // Get inventory item details to extract itemType and colorId
+          // Get inventory item details to extract itemType, colorId, and condition
           const inventoryItem = await db
             .select({
               itemNo: blInventory.itemNo,
               itemType: blInventory.itemType,
               colorId: blInventory.colorId,
+              newOrUsed: blInventory.newOrUsed,
             })
             .from(blInventory)
             .where(eq(blInventory.itemNo, partNumber))
@@ -956,6 +957,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               item.itemNo,
               item.itemType,
               item.colorId || undefined,
+              item.newOrUsed, // Use item's condition
               15 // 15% premium
             );
             
@@ -2648,15 +2650,16 @@ You are PROACTIVE and INTELLIGENT. Don't just say "I can't find it" - USE YOUR T
     try {
       const { itemNo, itemType } = req.params;
       const colorId = req.query.color_id ? parseInt(req.query.color_id as string) : undefined;
+      const newOrUsed = (req.query.new_or_used as string) || 'N'; // Default to New if not specified
       const premiumPercentage = req.query.premium ? parseInt(req.query.premium as string) : 15;
 
       if (!itemNo || !itemType) {
         return res.status(400).json({ error: "Item number and type are required" });
       }
 
-      console.log(`[Price-o-Matic] Fetching price guide for ${itemType}/${itemNo}${colorId ? `/${colorId}` : ''}`);
+      console.log(`[Price-o-Matic] Fetching price guide for ${itemType}/${itemNo}${colorId ? `/${colorId}` : ''}/${newOrUsed}`);
 
-      const priceData = await fetchPriceOMagicData(itemNo, itemType, colorId, premiumPercentage);
+      const priceData = await fetchPriceOMagicData(itemNo, itemType, colorId, newOrUsed, premiumPercentage);
 
       res.json(priceData);
     } catch (error) {

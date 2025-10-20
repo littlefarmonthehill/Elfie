@@ -60,12 +60,13 @@ export async function getBrickLinkPriceGuide(params: {
   itemNo: string;
   itemType?: 'PART' | 'SET' | 'MINIFIG';
   colorId?: number;
+  newOrUsed?: 'N' | 'U';
   premiumPercentage?: number;
 }) {
-  const { itemNo, itemType = 'PART', colorId, premiumPercentage = 15 } = params;
+  const { itemNo, itemType = 'PART', colorId, newOrUsed = 'N', premiumPercentage = 15 } = params;
   
   try {
-    const priceData = await fetchPriceOMagicData(itemNo, itemType, colorId, premiumPercentage);
+    const priceData = await fetchPriceOMagicData(itemNo, itemType, colorId, newOrUsed, premiumPercentage);
     
     if (!priceData) {
       return {
@@ -526,6 +527,11 @@ export const AI_TOOLS = [
           colorId: {
             type: 'number',
             description: 'BrickLink color ID (optional, for parts)',
+          },
+          newOrUsed: {
+            type: 'string',
+            enum: ['N', 'U'],
+            description: 'Item condition: N for New, U for Used (default: N)',
           },
           premiumPercentage: {
             type: 'number',

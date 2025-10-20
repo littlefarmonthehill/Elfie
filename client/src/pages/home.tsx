@@ -196,8 +196,15 @@ export default function Home() {
           });
           
           // Fetch Price-o-Matic data in background
+          const params = new URLSearchParams();
+          if (inventoryData.colorId) {
+            params.append('color_id', inventoryData.colorId.toString());
+          }
+          if (inventoryData.newOrUsed) {
+            params.append('new_or_used', inventoryData.newOrUsed);
+          }
           const priceGuideUrl = `/api/inventory/price-guide/${inventoryData.itemNo}/${inventoryData.itemType}${
-            inventoryData.colorId ? `?color_id=${inventoryData.colorId}` : ''
+            params.toString() ? `?${params.toString()}` : ''
           }`;
           
           const priceResponse = await fetch(priceGuideUrl);
