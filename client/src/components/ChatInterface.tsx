@@ -116,13 +116,14 @@ function MessageContent({ content, items, orders, bricklinkSearchSuggestion, onI
         const url = match[0];
         const displayText = getShortUrlText(url);
         
-        // Prefer in-app browser (onBrickLinkClick) when available to avoid external Safari
-        // Fall back to window.open when handler not provided
+        // ALWAYS use in-app browser to avoid external Safari/browser
+        // This provides a consistent experience and prevents leaving the app
         const handleLinkClick = () => {
           if (onBrickLinkClick) {
             onBrickLinkClick(url);
           } else {
-            window.open(url, '_blank', 'noopener,noreferrer');
+            // Should always have handler, but log warning if not
+            console.warn('No in-app browser handler available for URL:', url);
           }
         };
         
@@ -380,7 +381,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
   const [isLoading, setIsLoading] = useState(false);
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
-  const [brickLinkUrl, setBrickLinkUrl] = useState<string | null>(null);
+  const [webBrowserUrl, setWebBrowserUrl] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -817,7 +818,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
                         orders={message.orders}
                         bricklinkSearchSuggestion={message.bricklinkSearchSuggestion}
                         onItemClick={onItemClick}
-                        onBrickLinkClick={setBrickLinkUrl}
+                        onBrickLinkClick={setWebBrowserUrl}
                         onBrickLinkSearch={handleBrickLinkSearch}
                       />
                     )}
@@ -918,36 +919,36 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
         </div>
       )}
 
-      {/* BrickLink iframe dialog */}
-      <Dialog open={!!brickLinkUrl} onOpenChange={() => setBrickLinkUrl(null)}>
-        <DialogContent className="max-w-4xl h-[80vh] p-0" aria-describedby="bricklink-description">
+      {/* Web Browser iframe dialog - displays any URL in-app */}
+      <Dialog open={!!webBrowserUrl} onOpenChange={() => setWebBrowserUrl(null)}>
+        <DialogContent className="max-w-4xl h-[80vh] p-0" aria-describedby="web-browser-description">
           <DialogHeader className="p-4 border-b">
             <div className="flex items-center justify-between">
               <DialogTitle className="text-base flex items-center gap-2">
                 <ExternalLink className="h-4 w-4" />
-                BrickLink
+                {webBrowserUrl && new URL(webBrowserUrl).hostname}
               </DialogTitle>
               <Button
                 size="icon"
                 variant="ghost"
-                onClick={() => setBrickLinkUrl(null)}
+                onClick={() => setWebBrowserUrl(null)}
                 className="h-8 w-8"
-                data-testid="button-close-bricklink"
+                data-testid="button-close-web-browser"
               >
                 <X className="h-4 w-4" />
               </Button>
             </div>
-            <p id="bricklink-description" className="sr-only">
-              BrickLink catalog page displaying part information
+            <p id="web-browser-description" className="sr-only">
+              Web page displayed in-app browser
             </p>
           </DialogHeader>
-          {brickLinkUrl && (
+          {webBrowserUrl && (
             <iframe
-              src={brickLinkUrl}
+              src={webBrowserUrl}
               className="w-full h-full"
-              title="BrickLink"
+              title="Web Browser"
               sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
-              data-testid="iframe-bricklink"
+              data-testid="iframe-web-browser"
             />
           )}
         </DialogContent>
