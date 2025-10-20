@@ -266,11 +266,14 @@ export async function purgeStaleForumPosts(): Promise<number> {
     
     console.log(`🗑️ Purging forum posts with no replies since ${sixMonthsAgo.toLocaleDateString()}...`);
     
-    // Find stale posts
-    const stalePosts = await db.query.blForumPosts.findMany({
-      where: sql`${blForumPosts.lastReplyAt} < ${sixMonthsAgo}`,
-      columns: { id: true },
-    });
+    // Find stale posts using safe parameterized query
+    const stalePostsResult = await db.execute(sql`
+      SELECT id
+      FROM ${blForumPosts}
+      WHERE last_reply_at < ${sixMonthsAgo}
+    `);
+    
+    const stalePosts = stalePostsResult.rows as { id: string }[];
     
     if (stalePosts.length === 0) {
       console.log('✅ No stale posts to purge');
@@ -284,11 +287,11 @@ export async function purgeStaleForumPosts(): Promise<number> {
       await db.delete(blForumEmbeddings).where(eq(blForumEmbeddings.postId, post.id));
     }
     
-    // Delete posts
+    // Delete posts using safe parameterized query
     const postIds = stalePosts.map(p => p.id);
-    const deleteResult = await db.delete(blForumPosts).where(
-      sql`${blForumPosts.id} = ANY(${postIds})`
-    );
+    for (const postId of postIds) {
+      await db.delete(blForumPosts).where(eq(blForumPosts.id, postId));
+    }
     
     console.log(`✅ Purged ${stalePosts.length} stale forum posts`);
     return stalePosts.length;
