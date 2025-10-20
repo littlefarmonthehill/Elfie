@@ -1998,26 +1998,30 @@ You are PROACTIVE and INTELLIGENT. Don't just say "I can't find it" - USE YOUR T
       const itemType = req.body.itemType || 'parts'; // Default to parts
       console.log('📷 Brickognize identify endpoint called for type:', itemType);
       
-      // Prepare form data for Brickognize API
+      // Prepare form data for Brickognize API using form-data package
       const formData = new FormData();
       formData.append('query_image', req.file.buffer, {
-        filename: req.file.originalname,
-        contentType: req.file.mimetype,
+        filename: req.file.originalname || 'image.jpg',
+        contentType: req.file.mimetype || 'image/jpeg',
       });
       
       // Call Brickognize API
       const brickognizeUrl = `https://api.brickognize.com/predict/${itemType}/`;
+      console.log('📷 Calling Brickognize API:', brickognizeUrl);
+      
       const response = await fetch(brickognizeUrl, {
         method: 'POST',
         body: formData as any,
-        headers: formData.getHeaders(),
+        headers: {
+          ...formData.getHeaders(),
+        },
       });
       
       if (!response.ok) {
         const errorText = await response.text();
         console.error('Brickognize API error:', response.status, errorText);
         return res.status(response.status).json({ 
-          error: `Brickognize API error: ${response.statusText}` 
+          error: `Brickognize couldn't identify that image. Try a clearer photo!` 
         });
       }
       
@@ -2028,7 +2032,7 @@ You are PROACTIVE and INTELLIGENT. Don't just say "I can't find it" - USE YOUR T
     } catch (error) {
       console.error('📷 Brickognize identification error:', error);
       res.status(500).json({ 
-        error: error instanceof Error ? error.message : "Failed to identify LEGO item"
+        error: error instanceof Error ? error.message : "Oops! E.L.F.I.E. couldn't identify that LEGO piece. Try again!"
       });
     }
   });

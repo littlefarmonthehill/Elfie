@@ -613,8 +613,8 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
         setMessages(prev => [...prev, assistantMessage]);
         
         toast({
-          title: "Image identified!",
-          description: `Found ${data.items.length} possible matches`,
+          title: "Brick-tastic Discovery!",
+          description: `Found ${data.items.length} possible matches!`,
         });
       } else {
         const assistantMessage: ChatMessage = {
@@ -626,8 +626,8 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
     } catch (error) {
       console.error('Image upload error:', error);
       toast({
-        title: "Error",
-        description: "Failed to identify LEGO item from image",
+        title: "Image Recognition Failed",
+        description: "E.L.F.I.E. couldn't identify that piece. Try a clearer photo!",
         variant: "destructive",
       });
     } finally {
