@@ -620,10 +620,13 @@ export default function Home() {
 
   return (
     <div className="flex flex-col h-screen bg-background text-foreground">
-      <Header 
-        onSettingsClick={() => setSettingsOpen(true)} 
-        onElfieClick={handleElfieClick}
-      />
+      {/* Sticky Header */}
+      <div className="sticky top-0 z-50">
+        <Header 
+          onSettingsClick={() => setSettingsOpen(true)} 
+          onElfieClick={handleElfieClick}
+        />
+      </div>
       
       {/* Elfie Character Animation */}
       {showElfie && (
@@ -639,12 +642,16 @@ export default function Home() {
           }}
         />
       )}
-      <DashboardNav active={activeDashboard} onSelect={setActiveDashboard} />
+      
+      {/* Sticky Dashboard Nav with soft gradient background */}
+      <div className="sticky top-14 md:top-16 lg:top-20 z-40 bg-gradient-to-r from-purple-950/40 via-blue-950/30 to-purple-950/40 backdrop-blur-sm">
+        <DashboardNav active={activeDashboard} onSelect={setActiveDashboard} />
+      </div>
       
 
       {/* Tools Selector - Only show for inventory */}
       {activeDashboard === 'inventory' && (
-        <div className="px-3 md:px-6 lg:px-8 py-2 md:py-3 lg:py-4 bg-black border-b border-gray-800">
+        <div className="sticky top-[calc(3.5rem+2.5rem)] md:top-[calc(4rem+3rem)] lg:top-[calc(5rem+3.5rem)] z-30 px-3 md:px-6 lg:px-8 py-2 md:py-3 lg:py-4 bg-gradient-to-r from-cyan-950/30 via-teal-950/20 to-cyan-950/30 border-b border-cyan-800/30 backdrop-blur-sm">
           <div className="flex items-center justify-between gap-1.5 md:gap-3 lg:gap-4">
             <div className="flex items-center gap-1.5 md:gap-3 lg:gap-4">
               <div className="flex items-center gap-1 md:gap-2 lg:gap-2.5">
@@ -687,7 +694,7 @@ export default function Home() {
 
       {/* Tools Selector - Only show for orders */}
       {activeDashboard === 'orders' && (
-        <div className="px-3 md:px-6 lg:px-8 py-2 md:py-3 lg:py-4 bg-black border-b border-gray-800">
+        <div className="sticky top-[calc(3.5rem+2.5rem)] md:top-[calc(4rem+3rem)] lg:top-[calc(5rem+3.5rem)] z-30 px-3 md:px-6 lg:px-8 py-2 md:py-3 lg:py-4 bg-gradient-to-r from-orange-950/30 via-amber-950/20 to-orange-950/30 border-b border-orange-800/30 backdrop-blur-sm">
           <div className="flex items-center justify-between gap-1.5 md:gap-3 lg:gap-4">
             <div className="flex items-center gap-1.5 md:gap-3 lg:gap-4">
               <div className="flex items-center gap-1 md:gap-2 lg:gap-2.5">
@@ -742,7 +749,7 @@ export default function Home() {
 
       {/* Date Range Selector - Only show for sales and marketing */}
       {(activeDashboard === 'sales' || activeDashboard === 'marketing') && (
-        <div className="px-3 md:px-6 lg:px-8 py-2 md:py-3 lg:py-4 bg-black border-b border-gray-800">
+        <div className="sticky top-[calc(3.5rem+2.5rem)] md:top-[calc(4rem+3rem)] lg:top-[calc(5rem+3.5rem)] z-30 px-3 md:px-6 lg:px-8 py-2 md:py-3 lg:py-4 bg-gradient-to-r from-pink-950/30 via-fuchsia-950/20 to-pink-950/30 border-b border-pink-800/30 backdrop-blur-sm">
           <DateRangeSelector value={dateRange} onChange={setDateRange} />
         </div>
       )}
