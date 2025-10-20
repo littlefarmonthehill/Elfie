@@ -191,20 +191,35 @@ function FloatingElfie({ isResting }: { isResting: boolean }) {
 
         {/* Signal waves - animated */}
         <motion.ellipse
-          cx="50" cy="10" rx="15" ry="4"
-          stroke="#78909C" strokeWidth="2" fill="none" opacity="0.6"
+          cx={50}
+          cy={10}
+          initial={{ rx: 15, ry: 4 }}
+          stroke="#78909C"
+          strokeWidth="2"
+          fill="none"
+          opacity="0.6"
           animate={{ rx: [15, 22], ry: [4, 6], opacity: [0.6, 0] }}
           transition={{ duration: 2, repeat: Infinity, ease: "easeOut" }}
         />
         <motion.ellipse
-          cx="50" cy="10" rx="20" ry="5"
-          stroke="#78909C" strokeWidth="2" fill="none" opacity="0.4"
+          cx={50}
+          cy={10}
+          initial={{ rx: 20, ry: 5 }}
+          stroke="#78909C"
+          strokeWidth="2"
+          fill="none"
+          opacity="0.4"
           animate={{ rx: [20, 30], ry: [5, 8], opacity: [0.4, 0] }}
           transition={{ duration: 2, repeat: Infinity, ease: "easeOut", delay: 0.5 }}
         />
         <motion.ellipse
-          cx="50" cy="10" rx="25" ry="6"
-          stroke="#78909C" strokeWidth="2" fill="none" opacity="0.3"
+          cx={50}
+          cy={10}
+          initial={{ rx: 25, ry: 6 }}
+          stroke="#78909C"
+          strokeWidth="2"
+          fill="none"
+          opacity="0.3"
           animate={{ rx: [25, 38], ry: [6, 10], opacity: [0.3, 0] }}
           transition={{ duration: 2, repeat: Infinity, ease: "easeOut", delay: 1 }}
         />

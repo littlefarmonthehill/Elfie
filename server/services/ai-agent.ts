@@ -76,12 +76,39 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<string> {
       // Execute each tool call
       for (const toolCall of assistantMessage.tool_calls) {
         const toolName = toolCall.function.name;
-        const toolParams = JSON.parse(toolCall.function.arguments);
+        
+        // Defensive JSON parsing
+        let toolParams;
+        try {
+          toolParams = JSON.parse(toolCall.function.arguments);
+        } catch (error) {
+          console.error(`❌ Failed to parse tool arguments for ${toolName}:`, error);
+          // Add error result to conversation so model can retry
+          conversationMessages.push({
+            role: 'tool',
+            tool_call_id: toolCall.id,
+            name: toolName,
+            content: JSON.stringify({
+              success: false,
+              message: `Invalid tool arguments: ${error instanceof Error ? error.message : 'JSON parse error'}`,
+            }),
+          });
+          continue;
+        }
         
         console.log(`📞 Calling tool: ${toolName}`, toolParams);
         
-        // Execute the tool
-        const toolResult = await executeToolCall(toolName, toolParams);
+        // Execute the tool with error handling
+        let toolResult;
+        try {
+          toolResult = await executeToolCall(toolName, toolParams);
+        } catch (error) {
+          console.error(`❌ Tool execution error for ${toolName}:`, error);
+          toolResult = {
+            success: false,
+            message: `Tool execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          };
+        }
         
         console.log(`✅ Tool result:`, toolResult);
         

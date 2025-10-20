@@ -1478,13 +1478,29 @@ You are PROACTIVE and INTELLIGENT. Don't just say "I can't find it" - USE YOUR T
         bricklinkSearchSuggestion, // Return suggestion if item not found (frontend will render as button)
       });
     } catch (error) {
-      console.error("Chat error:", error);
+      console.error("❌ Chat error:", error);
       if (error instanceof Error) {
+        console.error("Error name:", error.name);
+        console.error("Error message:", error.message);
         console.error("Error stack:", error.stack);
       }
+      
+      // Provide more specific error messages
+      let userMessage = "I'm having trouble connecting right now. Please try again.";
+      if (error instanceof Error) {
+        if (error.message.includes('OpenRouter')) {
+          userMessage = "I'm having trouble connecting to the AI service. Please check your API key in Settings.";
+        } else if (error.message.includes('timeout') || error.message.includes('ECONNREFUSED')) {
+          userMessage = "The request timed out. Please try again.";
+        } else if (error.message.includes('API key')) {
+          userMessage = "Please configure your OpenRouter API key in Settings.";
+        }
+      }
+      
       res.status(500).json({
         error: "Failed to generate response",
-        message: "I'm having trouble connecting right now. Please try again.",
+        message: userMessage,
+        details: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   });

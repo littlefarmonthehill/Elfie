@@ -356,10 +356,9 @@ export const AI_TOOLS = [
             type: 'number',
             description: 'BrickLink color ID (optional, for parts)',
           },
-          newOrUsed: {
-            type: 'string',
-            enum: ['N', 'U'],
-            description: 'New or Used condition',
+          premiumPercentage: {
+            type: 'number',
+            description: 'Premium percentage to add to average sold price for suggested retail (default: 15)',
           },
         },
         required: ['itemNo'],
