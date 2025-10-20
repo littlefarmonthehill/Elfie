@@ -101,30 +101,62 @@ function MessageContent({ content, items, orders, bricklinkSearchSuggestion, onI
       const parts: (string | JSX.Element)[] = [];
       let lastIndex = 0;
 
-      // Match all URLs (http and https)
-      const urlRegex = /https?:\/\/[^\s)]+/g;
-      let match;
-
-      while ((match = urlRegex.exec(text)) !== null) {
-        // Add text before the URL
-        if (match.index > lastIndex) {
-          const beforeText = text.substring(lastIndex, match.index);
+      // Match markdown links: [text](url) AND bare URLs: https://...
+      // Markdown format takes priority
+      const markdownLinkRegex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
+      const bareUrlRegex = /https?:\/\/[^\s)]+/g;
+      
+      // First pass: Find all markdown links
+      const markdownMatches: Array<{ start: number; end: number; text: string; url: string }> = [];
+      let mdMatch;
+      while ((mdMatch = markdownLinkRegex.exec(text)) !== null) {
+        markdownMatches.push({
+          start: mdMatch.index,
+          end: mdMatch.index + mdMatch[0].length,
+          text: mdMatch[1],
+          url: mdMatch[2]
+        });
+      }
+      
+      // Second pass: Find bare URLs that aren't inside markdown links
+      const allMatches: Array<{ start: number; end: number; text: string | null; url: string }> = [...markdownMatches];
+      let bareMatch: RegExpExecArray | null;
+      while ((bareMatch = bareUrlRegex.exec(text)) !== null) {
+        const isCoveredByMarkdown = markdownMatches.some(
+          md => bareMatch!.index >= md.start && bareMatch!.index < md.end
+        );
+        if (!isCoveredByMarkdown) {
+          allMatches.push({
+            start: bareMatch.index,
+            end: bareMatch.index + bareMatch[0].length,
+            text: null,
+            url: bareMatch[0]
+          });
+        }
+      }
+      
+      // Sort by position
+      allMatches.sort((a, b) => a.start - b.start);
+      
+      // Build the result
+      allMatches.forEach((match, idx) => {
+        // Add text before this match
+        if (match.start > lastIndex) {
+          const beforeText = text.substring(lastIndex, match.start);
           parts.push(...parsePartNumbers(beforeText));
         }
-
-        // Add clickable URL with short text
-        const url = match[0];
-        const displayText = getShortUrlText(url);
+        
+        const displayText = match.text || getShortUrlText(match.url);
         
         // On iOS: Opens in-app Safari sheet with "Done" button (stays in app)
         // On Desktop: Opens in new tab
         const handleLinkClick = () => {
-          window.open(url, '_blank', 'noopener,noreferrer');
+          window.open(match.url, '_blank', 'noopener,noreferrer');
         };
         
         parts.push(
           <button
-            key={`url-${match.index}`}
+            key={`url-${idx}`}
             onClick={handleLinkClick}
             className="inline-flex items-center gap-1 text-purple-400 hover:text-purple-300 underline"
             data-testid={`link-${displayText.toLowerCase().replace(/\s+/g, '-')}`}
@@ -133,9 +165,9 @@ function MessageContent({ content, items, orders, bricklinkSearchSuggestion, onI
             <ExternalLink className="h-3 w-3" />
           </button>
         );
-
-        lastIndex = match.index + url.length;
-      }
+        
+        lastIndex = match.end;
+      });
 
       // Add remaining text
       if (lastIndex < text.length) {

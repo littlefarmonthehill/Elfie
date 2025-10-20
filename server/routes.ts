@@ -1293,6 +1293,17 @@ Example - CORRECT USAGE:
 User: "Show me sales for December 2024"
 Good: Now you have specific details → call get_order_analytics with the exact date range
 
+EXCEPTION - ALWAYS USE search_web FOR NEWS/TRENDS:
+When users ask about NEWS, TRENDS, or CURRENT EVENTS, YOU MUST use search_web even though it costs money:
+✅ User: "latest news" → CALL search_web("latest LEGO news")
+✅ User: "what's new" → CALL search_web("new LEGO announcements")
+✅ User: "trending LEGO sets" → CALL search_web("trending LEGO sets")
+
+CRITICAL: When search_web returns results with URLs, format them as markdown links in your response:
+- Format: [Article Title](https://url-here)
+- Example: "Check out [New LEGO Castle Set Announced](https://example.com/article) for details."
+- Users can click these links to read more
+
 You are INTELLIGENT and COST-CONSCIOUS. Ask clarifying questions first, THEN use tools once you know exactly what to fetch.`;
 
       const systemPrompt = settings?.systemPrompt 
