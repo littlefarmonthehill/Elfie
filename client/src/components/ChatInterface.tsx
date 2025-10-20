@@ -150,7 +150,9 @@ function MessageContent({ content, items, orders, bricklinkSearchSuggestion, onI
         
         // On iOS: Opens in-app Safari sheet with "Done" button (stays in app)
         // On Desktop: Opens in new tab
-        const handleLinkClick = () => {
+        const handleLinkClick = (e: React.MouseEvent) => {
+          e.preventDefault();
+          e.stopPropagation();
           window.open(match.url, '_blank', 'noopener,noreferrer');
         };
         
