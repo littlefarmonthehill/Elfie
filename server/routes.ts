@@ -1252,11 +1252,18 @@ AVAILABLE TOOLS:
 5. get_order_analytics - Get sales and order analytics
 
 WHEN TO USE TOOLS:
-- If a user asks about a part/set that's NOT in inventory → use search_bricklink_catalog
+- If a user asks about a part/set that's NOT in inventory → ALWAYS use search_bricklink_catalog
 - If a user asks "what is part X" or "tell me about part X" → use search_bricklink_catalog if not in inventory
 - If a user asks about pricing/market value → use get_bricklink_price_guide
 - If a user wants filtered inventory search → use search_local_inventory
 - For business strategy questions → use the relevant analytics tools
+
+CRITICAL BEHAVIOR FOR UNKNOWN PARTS:
+When you use search_bricklink_catalog and find an item:
+- Tell the user you found it on BrickLink
+- Mention the part number and name
+- The system will AUTOMATICALLY open the item detail drawer to show more information
+- If search_bricklink_catalog returns success: false, let the user know the part wasn't found
 
 You are PROACTIVE and INTELLIGENT. Don't just say "I can't find it" - USE YOUR TOOLS to help the user!`;
 
