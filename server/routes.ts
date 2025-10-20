@@ -1239,34 +1239,40 @@ CRITICAL: The above is a BAD example. NEVER include "Would you like to" or any f
 
 Keep responses helpful, accurate, and based on the actual data provided. End your response after providing the requested information.`;
 
+      // Enhanced system prompt for function calling capabilities
+      const enhancedDefaultPrompt = `${defaultSystemPrompt}
+
+IMPORTANT: You now have access to tools/functions to enhance your capabilities:
+
+AVAILABLE TOOLS:
+1. search_bricklink_catalog - Look up items NOT in local inventory on BrickLink
+2. get_bricklink_price_guide - Get current market pricing for any item
+3. search_local_inventory - Search local inventory with advanced filters
+4. get_inventory_stats - Get inventory statistics (totals, values, etc.)
+5. get_order_analytics - Get sales and order analytics
+
+WHEN TO USE TOOLS:
+- If a user asks about a part/set that's NOT in inventory → use search_bricklink_catalog
+- If a user asks "what is part X" or "tell me about part X" → use search_bricklink_catalog if not in inventory
+- If a user asks about pricing/market value → use get_bricklink_price_guide
+- If a user wants filtered inventory search → use search_local_inventory
+- For business strategy questions → use the relevant analytics tools
+
+You are PROACTIVE and INTELLIGENT. Don't just say "I can't find it" - USE YOUR TOOLS to help the user!`;
+
       const systemPrompt = settings?.systemPrompt 
-        ? `${settings.systemPrompt}\n\nCurrent context: ${context}\n${databaseContext}` 
-        : defaultSystemPrompt;
+        ? `${settings.systemPrompt}\n\nCurrent context: ${context}\n${databaseContext}\n\n${enhancedDefaultPrompt}` 
+        : `${enhancedDefaultPrompt}\n\nCurrent context: ${context}\n${databaseContext}`;
 
-      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-          'HTTP-Referer': 'https://planetbrick.replit.app',
-          'X-Title': 'PlanetBrick',
-        },
-        body: JSON.stringify({
-          model,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            ...messages
-          ],
-          temperature: 0.7,
-          max_tokens: 500,
-        }),
+      // Use agent loop with function calling
+      const { runAgentLoop } = await import('./services/ai-agent');
+      const assistantMessage = await runAgentLoop({
+        apiKey,
+        model,
+        systemPrompt,
+        messages,
+        maxIterations: 5,
       });
-
-      if (!response.ok) {
-        throw new Error(`OpenRouter API error: ${response.statusText}`);
-      }
-
-      const data = await response.json();
       
       // Extract inventory items from the search for grouped display
       const itemsFound: Array<{
@@ -1441,8 +1447,6 @@ Keep responses helpful, accurate, and based on the actual data provided. End you
           customerUsername: order.customerUsername || 'Unknown',
         })));
       }
-      
-      const assistantMessage = data.choices[0].message.content;
 
       // Save conversation to database for learning
       try {
