@@ -3,7 +3,7 @@ import { appSettings, orders } from "@shared/schema";
 import { syncBrickLinkOrders } from "./bricklink-order-sync";
 import { syncBrickOwlOrders } from "./brickowl-order-sync";
 import { syncLock } from "./sync-lock";
-import { batchEmbedOrders } from "./embeddings";
+import { batchEmbedOrders, batchEmbedOrderDetails } from "./embeddings";
 import { sql } from "drizzle-orm";
 
 let syncInterval: NodeJS.Timeout | null = null;
@@ -181,12 +181,19 @@ async function executeOrderSync(settings: any) {
       console.log('⏭️ BrickOwl credentials not configured, skipping');
     }
     
-    // 4. Generate embeddings for new orders
+    // 4. Generate embeddings for new orders and their order details
     if (newOrderIds.length > 0) {
       console.log(`🧠 Generating AI embeddings for ${newOrderIds.length} new orders...`);
       try {
+        // Embed orders
         await batchEmbedOrders(newOrderIds);
-        console.log(`✓ Generated embeddings for ${newOrderIds.length} orders`);
+        console.log(`  ✓ Generated order embeddings`);
+        
+        // Embed order details (line items)
+        await batchEmbedOrderDetails(newOrderIds);
+        console.log(`  ✓ Generated order detail embeddings`);
+        
+        console.log(`✓ Embeddings complete for ${newOrderIds.length} orders`);
       } catch (error) {
         console.error('✗ Order embedding failed (non-fatal):', error);
       }

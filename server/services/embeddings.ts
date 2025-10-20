@@ -439,6 +439,31 @@ export async function batchEmbedOrders(orderIds: string[]) {
 }
 
 /**
+ * Batch embed order details for given orders
+ */
+export async function batchEmbedOrderDetails(orderIds: string[]) {
+  const results = [];
+  
+  // Get all order detail IDs for these orders
+  const orderDetailRecords = await db
+    .select({ id: orderDetails.id })
+    .from(orderDetails)
+    .where(sql`${orderDetails.orderId} IN (${sql.join(orderIds.map(id => sql`${id}`), sql`, `)})`);
+  
+  console.log(`  📋 Found ${orderDetailRecords.length} order details to embed`);
+  
+  for (const record of orderDetailRecords) {
+    const result = await embedOrderDetail(record.id);
+    results.push(result);
+    
+    // Small delay to avoid rate limits
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  
+  return results;
+}
+
+/**
  * Create searchable content from set-part relationships
  */
 export function createSetPartContent(setNum: string, setName: string, parts: any[]): string {
