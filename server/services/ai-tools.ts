@@ -659,6 +659,9 @@ export async function executeToolCall(toolName: string, params: any): Promise<an
     case 'get_set_parts':
       return await getSetParts(params);
     
+    case 'search_web':
+      return await searchWeb(params);
+    
     default:
       return {
         success: false,
