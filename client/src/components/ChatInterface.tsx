@@ -673,6 +673,30 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
                   </div>
                 </div>
               ))}
+              
+              {/* Thinking indicator when loading */}
+              {isLoading && (
+                <div className="flex gap-2 justify-start" data-testid="thinking-indicator">
+                  <div className="flex-shrink-0">
+                    <img 
+                      src={elfieRobot} 
+                      alt="Elfie thinking" 
+                      className="h-8 w-8 md:h-9 md:w-9 lg:h-10 lg:w-10 object-contain animate-bounce"
+                    />
+                  </div>
+                  <div className="max-w-[80%] rounded-lg p-3 bg-purple-500/10 border border-purple-500/20">
+                    <div className="flex items-center gap-2 text-xs text-purple-300">
+                      <span>E.L.F.I.E. is thinking</span>
+                      <div className="flex gap-1">
+                        <span className="animate-pulse">.</span>
+                        <span className="animate-pulse" style={{ animationDelay: '0.2s' }}>.</span>
+                        <span className="animate-pulse" style={{ animationDelay: '0.4s' }}>.</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               <div ref={messagesEndRef} />
             </div>
           </div>

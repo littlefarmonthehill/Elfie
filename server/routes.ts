@@ -1166,13 +1166,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Use custom system prompt if provided, otherwise use default
+      const currentDate = new Date().toLocaleDateString('en-US', { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      });
+      
       const defaultSystemPrompt = `You are E.L.F.I.E. (Expert LEGO Fulfillment & Inventory Engine), an AI assistant for LEGO business operations with DIRECT DATABASE ACCESS.
 
+Today's date: ${currentDate}
 Current context: ${context}
 ${databaseContext}
 ${historyContext}
 
 CRITICAL: You HAVE database access and real data is provided above. Use this data to answer questions accurately.
+IMPORTANT: When users ask about upcoming products, events, or timeframes (like "Christmas"), consider today's date to provide contextually relevant information.
 
 PRICE-O-MAGIC FEATURE:
 - You have access to real-time BrickLink market data including stock prices, sold prices, and suggested pricing
