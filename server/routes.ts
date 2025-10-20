@@ -1264,15 +1264,42 @@ You are PROACTIVE and INTELLIGENT. Don't just say "I can't find it" - USE YOUR T
         ? `${settings.systemPrompt}\n\nCurrent context: ${context}\n${databaseContext}\n\n${enhancedDefaultPrompt}` 
         : `${enhancedDefaultPrompt}\n\nCurrent context: ${context}\n${databaseContext}`;
 
-      // Use agent loop with function calling
+      // Use agent loop with function calling (with error recovery)
       const { runAgentLoop } = await import('./services/ai-agent');
-      const assistantMessage = await runAgentLoop({
-        apiKey,
-        model,
-        systemPrompt,
-        messages,
-        maxIterations: 5,
-      });
+      let assistantMessage: string;
+      
+      try {
+        assistantMessage = await runAgentLoop({
+          apiKey,
+          model,
+          systemPrompt,
+          messages,
+          maxIterations: 5,
+        });
+      } catch (agentError: any) {
+        // Agent loop failed - return user-friendly error message instead of 500
+        console.error('❌ Agent loop error:', agentError);
+        
+        let errorMessage = "I'm having trouble processing your request right now.";
+        if (agentError.message?.includes('timeout')) {
+          errorMessage = "The AI service is taking too long to respond. Please try again.";
+        } else if (agentError.message?.includes('OpenRouter')) {
+          errorMessage = "I'm having trouble connecting to the AI service. Please check your OpenRouter API key in Settings.";
+        } else if (agentError.message?.includes('API key')) {
+          errorMessage = "Please configure your OpenRouter API key in Settings.";
+        } else if (agentError.message?.includes('Invalid response')) {
+          errorMessage = "The AI service returned an unexpected response. Please try again.";
+        }
+        
+        // Return error as assistant message instead of throwing 500
+        return res.json({
+          message: errorMessage,
+          items: [],
+          orders: [],
+          sessionId,
+          error: true,
+        });
+      }
       
       // Extract inventory items from the search for grouped display
       const itemsFound: Array<{

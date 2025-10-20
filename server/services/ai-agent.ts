@@ -39,24 +39,39 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<string> {
     iterations++;
     console.log(`🤖 Agent loop iteration ${iterations}/${maxIterations}`);
     
-    // Call OpenRouter with tools
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-        'HTTP-Referer': 'https://planetbrick.replit.app',
-        'X-Title': 'PlanetBrick E.L.F.I.E.',
-      },
-      body: JSON.stringify({
-        model,
-        messages: conversationMessages,
-        tools: AI_TOOLS,
-        tool_choice: 'auto',
-        temperature: 0.7,
-        max_tokens: 800,
-      }),
-    });
+    // Call OpenRouter with tools (with timeout)
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    
+    let response;
+    try {
+      response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+          'HTTP-Referer': 'https://planetbrick.replit.app',
+          'X-Title': 'PlanetBrick E.L.F.I.E.',
+        },
+        body: JSON.stringify({
+          model,
+          messages: conversationMessages,
+          tools: AI_TOOLS,
+          tool_choice: 'auto',
+          temperature: 0.7,
+          max_tokens: 800,
+        }),
+        signal: controller.signal,
+      });
+    } catch (error: any) {
+      clearTimeout(timeout);
+      if (error.name === 'AbortError') {
+        throw new Error('OpenRouter API request timed out after 30 seconds');
+      }
+      throw new Error(`OpenRouter API request failed: ${error.message}`);
+    }
+    
+    clearTimeout(timeout);
     
     if (!response.ok) {
       const errorText = await response.text();
@@ -64,6 +79,12 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<string> {
     }
     
     const data = await response.json();
+    
+    // Validate response structure
+    if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+      throw new Error('Invalid response from OpenRouter API: missing message');
+    }
+    
     const assistantMessage = data.choices[0].message;
     
     // Add assistant's response to conversation
