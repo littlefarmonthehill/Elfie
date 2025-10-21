@@ -84,7 +84,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const { isApproved } = req.body;
       
+      // Validate isApproved
+      const approvalSchema = z.object({
+        isApproved: z.boolean(),
+      });
+      
+      const validation = approvalSchema.safeParse({ isApproved });
+      if (!validation.success) {
+        return res.status(400).json({ message: "Invalid approval status. Must be boolean" });
+      }
+      
       const updatedUser = await storage.updateUserApproval(id, isApproved);
+      
+      // Check if user was found and updated
+      if (!updatedUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
       res.json(updatedUser);
     } catch (error) {
       console.error("Error updating user approval:", error);
@@ -104,12 +120,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const { role } = req.body;
       
-      // Validate role
-      if (!['customer', 'employee', 'admin'].includes(role)) {
+      // Validate role using enum
+      const roleSchema = z.object({
+        role: z.enum(['customer', 'employee', 'admin']),
+      });
+      
+      const validation = roleSchema.safeParse({ role });
+      if (!validation.success) {
         return res.status(400).json({ message: "Invalid role. Must be customer, employee, or admin" });
       }
       
       const updatedUser = await storage.updateUserRole(id, role);
+      
+      // Check if user was found and updated
+      if (!updatedUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
       res.json(updatedUser);
     } catch (error) {
       console.error("Error updating user role:", error);
