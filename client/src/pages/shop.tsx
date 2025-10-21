@@ -824,40 +824,43 @@ export default function Shop() {
             </div>
           </div>
 
-          {/* Centered Logo - Half In/Half Out */}
-          <div className="absolute left-1/2 -translate-x-1/2 -bottom-6 md:-bottom-8 z-[60]">
-            <img 
-              src={planetBrickLogo} 
-              alt="PlanetBrick" 
-              className="h-14 md:h-20 lg:h-24 w-auto object-contain drop-shadow-2xl"
-              data-testid="logo-planetbrick"
-            />
-          </div>
+          {/* All aligned on same row */}
+          <div className="absolute bottom-2 md:bottom-3 left-0 right-0 flex items-center justify-between px-4 md:px-8 lg:px-12 z-[50]">
+            {/* Lots - Left */}
+            <div className="flex items-center gap-2 relative group">
+              {/* Comet trail effect */}
+              <div className="absolute -left-8 top-1/2 -translate-y-1/2 w-32 h-px bg-gradient-to-r from-transparent via-cyan-400/40 to-cyan-500/60 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              <div className="relative">
+                <Sparkles className="w-3 h-3 md:w-4 md:h-4 text-cyan-400" />
+              </div>
+              <div className="text-left">
+                <div className="text-xs md:text-base font-bold text-white">{totalLots.toLocaleString()}</div>
+                <div className="text-[7px] md:text-[9px] text-gray-400">Unique Lots</div>
+              </div>
+            </div>
 
-          {/* Lots - Left Side Lower */}
-          <div className="absolute -bottom-1 left-4 md:left-8 lg:left-12 flex items-center gap-2 relative group z-[50]">
-            {/* Comet trail effect */}
-            <div className="absolute -left-8 top-1/2 -translate-y-1/2 w-32 h-px bg-gradient-to-r from-transparent via-cyan-400/40 to-cyan-500/60 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-            <div className="relative">
-              <Sparkles className="w-3 h-3 md:w-4 md:h-4 text-cyan-400" />
+            {/* Centered Logo */}
+            <div className="absolute left-1/2 -translate-x-1/2 -bottom-4 md:-bottom-6 z-[60]">
+              <img 
+                src={planetBrickLogo} 
+                alt="PlanetBrick" 
+                className="h-14 md:h-20 lg:h-24 w-auto object-contain drop-shadow-2xl"
+                data-testid="logo-planetbrick"
+              />
             </div>
-            <div className="text-left">
-              <div className="text-xs md:text-base font-bold text-white">{totalLots.toLocaleString()}</div>
-              <div className="text-[7px] md:text-[9px] text-gray-400">Unique Lots</div>
-            </div>
-          </div>
 
-          {/* Parts - Right Side Lower */}
-          <div className="absolute -bottom-1 right-4 md:right-8 lg:right-12 flex items-center gap-2 group z-[50]">
-            <div className="text-right">
-              <div className="text-xs md:text-base font-bold text-white">{totalParts.toLocaleString()}</div>
-              <div className="text-[7px] md:text-[9px] text-gray-400">Total Parts</div>
+            {/* Parts - Right */}
+            <div className="flex items-center gap-2 group">
+              <div className="text-right">
+                <div className="text-xs md:text-base font-bold text-white">{totalParts.toLocaleString()}</div>
+                <div className="text-[7px] md:text-[9px] text-gray-400">Total Parts</div>
+              </div>
+              <div className="relative">
+                <Sparkles className="w-3 h-3 md:w-4 md:h-4 text-blue-400" />
+              </div>
+              {/* Comet trail effect */}
+              <div className="absolute -right-8 top-1/2 -translate-y-1/2 w-32 h-px bg-gradient-to-l from-transparent via-blue-400/40 to-blue-500/60 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             </div>
-            <div className="relative">
-              <Sparkles className="w-3 h-3 md:w-4 md:h-4 text-blue-400" />
-            </div>
-            {/* Comet trail effect */}
-            <div className="absolute -right-8 top-1/2 -translate-y-1/2 w-32 h-px bg-gradient-to-l from-transparent via-blue-400/40 to-blue-500/60 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
           </div>
         </header>
 
