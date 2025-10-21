@@ -437,83 +437,96 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
       </Card>
 
       <Dialog open={isOpen} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-4xl max-h-[85vh] bg-gray-900 border-purple-500/30 overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="text-2xl md:text-3xl font-bold text-white">
+        <DialogContent className="max-w-3xl max-h-[80vh] bg-black/98 border-white/20 overflow-hidden flex flex-col backdrop-blur-xl">
+          <DialogHeader className="pb-3 border-b border-white/10">
+            <DialogTitle className="text-lg md:text-xl font-bold text-white flex items-center gap-3">
+              <Sparkles className="w-5 h-5 text-cyan-400" />
               {lot.name}
             </DialogTitle>
-            <DialogDescription className="text-base md:text-lg text-gray-400">
-              Part #{lot.part} • {lot.lotCount} variations • {lot.totalQty.toLocaleString()} total pieces
+            <DialogDescription className="text-xs md:text-sm text-gray-400 flex items-center gap-2">
+              <span className="text-cyan-400">#{lot.part}</span>
+              <span className="text-gray-600">•</span>
+              <span>{lot.lotCount} variations</span>
+              <span className="text-gray-600">•</span>
+              <span>{lot.totalQty.toLocaleString()} pieces</span>
             </DialogDescription>
           </DialogHeader>
           
-          <div className="flex-1 overflow-y-auto pr-2">
-            <div className="space-y-3">
+          <div className="flex-1 overflow-y-auto pr-2 mt-4">
+            <div className="grid grid-cols-1 gap-2.5">
               {lot.variations.map((variation, idx) => {
                 const quantity = quantities[idx] || 1;
                 return (
-                  <Card key={idx} className="p-4 bg-gray-800/50 border-gray-700 hover-elevate" data-testid={`variation-${lot.id}-${idx}`}>
-                    <div className="flex items-center gap-4">
-                      <div
-                        className="w-16 h-16 rounded-md shrink-0 border-2 border-gray-600"
-                        style={{ backgroundColor: variation.colorHex }}
-                      />
-                      <div className="flex-1 space-y-2">
-                        <div>
-                          <h4 className="text-lg font-bold text-white">{variation.color}</h4>
-                          <p className="text-sm text-gray-400">{variation.condition}</p>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <span className="text-xl font-bold text-cyan-400">{variation.price}</span>
-                          <span className="text-sm text-gray-500">{variation.qty.toLocaleString()} available</span>
-                        </div>
+                  <div 
+                    key={idx} 
+                    className="p-3 bg-gray-900/60 border border-white/10 rounded-lg hover-elevate transition-all duration-300 group"
+                    data-testid={`variation-${lot.id}-${idx}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      {/* Color Swatch */}
+                      <div className="relative">
+                        <div
+                          className="w-12 h-12 md:w-14 md:h-14 rounded-lg shrink-0 border-2 border-white/20 shadow-lg transition-all duration-300 group-hover:scale-105"
+                          style={{ 
+                            backgroundColor: variation.colorHex,
+                            boxShadow: `0 4px 12px ${variation.colorHex}50`
+                          }}
+                        />
+                        <div className="absolute -top-1 -right-1 w-3 h-3 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                       </div>
-                      <div className="flex flex-col gap-3 items-end">
-                        <div className="flex items-center gap-2 bg-gray-700/50 rounded-md p-1">
+
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-sm md:text-base font-bold text-white truncate">{variation.color}</h4>
+                        <div className="flex items-center gap-3 mt-0.5">
+                          <span className="text-xs md:text-sm text-gray-400">{variation.condition}</span>
+                          <span className="text-xs text-gray-600">•</span>
+                          <span className="text-xs md:text-sm text-gray-500">{variation.qty.toLocaleString()} available</span>
+                        </div>
+                        <div className="text-base md:text-lg font-bold text-cyan-400 mt-1">{variation.price}</div>
+                      </div>
+
+                      {/* Quantity Controls */}
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1 bg-gray-800/80 rounded-md p-0.5 border border-white/10">
                           <Button
                             size="icon"
                             variant="ghost"
-                            className="h-8 w-8 text-white"
+                            className="h-7 w-7 text-white hover:bg-white/10"
                             onClick={() => updateQuantity(idx, -1)}
                             disabled={quantity <= 1}
                           >
-                            <Minus className="w-4 h-4" />
+                            <Minus className="w-3 h-3" />
                           </Button>
-                          <Input
-                            type="number"
-                            value={quantity}
-                            onChange={(e) => {
-                              const val = parseInt(e.target.value) || 1;
-                              setQuantities(prev => ({ ...prev, [idx]: Math.max(1, Math.min(variation.qty, val)) }));
-                            }}
-                            className="w-16 h-8 text-center bg-gray-900 border-gray-600 text-white"
-                            min="1"
-                            max={variation.qty}
-                          />
+                          <div className="w-10 md:w-12 text-center">
+                            <span className="text-sm md:text-base font-bold text-white">{quantity}</span>
+                          </div>
                           <Button
                             size="icon"
                             variant="ghost"
-                            className="h-8 w-8 text-white"
+                            className="h-7 w-7 text-white hover:bg-white/10"
                             onClick={() => updateQuantity(idx, 1)}
                             disabled={quantity >= variation.qty}
                           >
-                            <Plus className="w-4 h-4" />
+                            <Plus className="w-3 h-3" />
                           </Button>
                         </div>
+                        
                         <Button
-                          size="default"
-                          className="bg-cyan-600 hover:bg-cyan-500 text-white px-6"
+                          size="sm"
+                          className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white px-4 text-xs md:text-sm shadow-lg transition-all duration-300 group-hover:shadow-cyan-500/50"
                           onClick={() => {
                             onAddToCart({ ...variation, lotId: lot.id, partNumber: lot.part, partName: lot.name }, quantity);
-                            setQuantities(prev => ({ ...prev, [idx]: 1 })); // Reset after adding
+                            setQuantities(prev => ({ ...prev, [idx]: 1 }));
                           }}
                           data-testid={`button-add-${lot.id}-${idx}`}
                         >
-                          Add to Cart
+                          <ShoppingCart className="w-3 h-3 mr-1.5" />
+                          Add
                         </Button>
                       </div>
                     </div>
-                  </Card>
+                  </div>
                 );
               })}
             </div>
@@ -674,23 +687,10 @@ export default function Shop() {
 
       <div className="relative z-10">
         {/* Redesigned Header - Centered Logo, Comet Stats */}
-        <header className="sticky top-0 z-50 bg-black/95 backdrop-blur-xl border-b border-white/10 relative">
-          <div className="px-4 md:px-8 py-2 md:py-3 flex items-center justify-between relative">
-            {/* Lots - Left Side with Comet Trail */}
-            <div className="flex items-center gap-2 relative group">
-              {/* Comet trail effect */}
-              <div className="absolute -left-8 top-1/2 -translate-y-1/2 w-32 h-px bg-gradient-to-r from-transparent via-cyan-400/40 to-cyan-500/60 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <div className="relative">
-                <Sparkles className="w-4 h-4 md:w-5 md:h-5 text-cyan-400" />
-              </div>
-              <div className="text-left">
-                <div className="text-sm md:text-lg font-bold text-white">{totalLots.toLocaleString()}</div>
-                <div className="text-[8px] md:text-[10px] text-gray-400">Unique Lots</div>
-              </div>
-            </div>
-
-            {/* Cart & Login - Right Side */}
-            <div className="flex items-center gap-1.5 md:gap-3">
+        <header className="sticky top-0 z-50 bg-black/95 backdrop-blur-xl border-b border-white/10 relative pb-8 md:pb-12">
+          <div className="px-4 md:px-8 py-2 md:py-3 flex items-start justify-between relative">
+            {/* Cart & Login - Top Right */}
+            <div className="flex items-center gap-1.5 md:gap-3 ml-auto">
               <Sheet open={isCartOpen} onOpenChange={setIsCartOpen}>
                 <SheetTrigger asChild>
                   <Button size="icon" variant="ghost" className="text-cyan-300 h-8 w-8 md:h-10 md:w-10 relative hover-elevate" data-testid="button-cart">
@@ -771,7 +771,7 @@ export default function Shop() {
           </div>
 
           {/* Centered Logo - Half In/Half Out */}
-          <div className="absolute left-1/2 -translate-x-1/2 -bottom-8 md:-bottom-12 z-[60]">
+          <div className="absolute left-1/2 -translate-x-1/2 top-2 md:top-3 z-[60]">
             <img 
               src={planetBrickLogo} 
               alt="PlanetBrick" 
@@ -780,22 +780,38 @@ export default function Shop() {
             />
           </div>
 
-          {/* Parts - Right Side (positioned absolutely to align with left side) */}
-          <div className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 flex items-center gap-2 group">
-            <div className="text-right">
-              <div className="text-sm md:text-lg font-bold text-white">{totalParts.toLocaleString()}</div>
-              <div className="text-[8px] md:text-[10px] text-gray-400">Total Parts</div>
+          {/* Stats Row - Below Logo */}
+          <div className="absolute bottom-2 left-0 right-0 flex items-center justify-center gap-8 md:gap-16">
+            {/* Lots - Left with Comet Trail */}
+            <div className="flex items-center gap-2 relative group">
+              {/* Comet trail effect */}
+              <div className="absolute -left-8 top-1/2 -translate-y-1/2 w-32 h-px bg-gradient-to-r from-transparent via-cyan-400/40 to-cyan-500/60 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              <div className="relative">
+                <Sparkles className="w-4 h-4 md:w-5 md:h-5 text-cyan-400" />
+              </div>
+              <div className="text-left">
+                <div className="text-sm md:text-lg font-bold text-white">{totalLots.toLocaleString()}</div>
+                <div className="text-[8px] md:text-[10px] text-gray-400">Unique Lots</div>
+              </div>
             </div>
-            <div className="relative">
-              <Sparkles className="w-4 h-4 md:w-5 md:h-5 text-blue-400" />
+
+            {/* Parts - Right with Comet Trail */}
+            <div className="flex items-center gap-2 group">
+              <div className="text-right">
+                <div className="text-sm md:text-lg font-bold text-white">{totalParts.toLocaleString()}</div>
+                <div className="text-[8px] md:text-[10px] text-gray-400">Total Parts</div>
+              </div>
+              <div className="relative">
+                <Sparkles className="w-4 h-4 md:w-5 md:h-5 text-blue-400" />
+              </div>
+              {/* Comet trail effect */}
+              <div className="absolute -right-8 top-1/2 -translate-y-1/2 w-32 h-px bg-gradient-to-l from-transparent via-blue-400/40 to-blue-500/60 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             </div>
-            {/* Comet trail effect */}
-            <div className="absolute -right-8 top-1/2 -translate-y-1/2 w-32 h-px bg-gradient-to-l from-transparent via-blue-400/40 to-blue-500/60 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
           </div>
         </header>
 
         {/* Search Bar */}
-        <div className="sticky top-[3.5rem] md:top-[4rem] z-30 bg-black/95 backdrop-blur-xl px-3 md:px-6 py-3 md:py-4 mt-8 md:mt-12 border-b border-white/10">
+        <div className="sticky top-[5rem] md:top-[6rem] z-30 bg-black/95 backdrop-blur-xl px-3 md:px-6 py-3 md:py-4 border-b border-white/10">
           <div className="relative max-w-3xl mx-auto">
             <Search className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-gray-500" />
             <input
