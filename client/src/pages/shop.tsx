@@ -412,8 +412,16 @@ interface LotCardProps {
 function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
   const primaryColor = lot.variations[0];
   const [quantities, setQuantities] = useState<Record<number, number>>({});
+  
+  // Try lot imageUrl first, then first variation with an image
+  const getInitialImageUrl = () => {
+    if (lot.imageUrl) return lot.imageUrl;
+    const variationWithImage = lot.variations.find(v => v.imageUrl);
+    return variationWithImage?.imageUrl || null;
+  };
+  
   const [imageSrc, setImageSrc] = useState<string | null>(
-    getProxyImageUrl(lot.imageUrl)
+    getProxyImageUrl(getInitialImageUrl())
   );
 
   const updateQuantity = (idx: number, delta: number) => {
@@ -425,10 +433,12 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
   };
   
   const handleImageError = () => {
-    if (lot.imageUrl && imageSrc !== lot.imageUrl) {
+    const originalUrl = getInitialImageUrl();
+    if (originalUrl && imageSrc !== originalUrl) {
       console.warn(`[Shop] Proxy image failed for ${lot.part}, falling back to original URL`);
-      setImageSrc(lot.imageUrl);
+      setImageSrc(originalUrl);
     } else {
+      console.warn(`[Shop] No image available for ${lot.part}`);
       setImageSrc(null);
     }
   };

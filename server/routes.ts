@@ -2311,12 +2311,28 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
         return res.status(400).json({ error: "Missing url parameter" });
       }
 
-      // Validate it's a Rebrickable URL for security
-      if (!imageUrl.startsWith('https://cdn.rebrickable.com/')) {
-        return res.status(400).json({ error: "Only Rebrickable CDN URLs are allowed" });
+      // Strict validation for SSRF protection
+      let parsedUrl: URL;
+      try {
+        parsedUrl = new URL(imageUrl);
+      } catch {
+        return res.status(400).json({ error: "Invalid URL format" });
       }
 
-      const imageBuffer = await processImageFromUrl(imageUrl);
+      // Only allow HTTPS protocol
+      if (parsedUrl.protocol !== 'https:') {
+        return res.status(400).json({ error: "Only HTTPS URLs are allowed" });
+      }
+
+      // Strict allowlist: only cdn.rebrickable.com domain
+      if (parsedUrl.hostname !== 'cdn.rebrickable.com') {
+        return res.status(400).json({ error: "Only cdn.rebrickable.com URLs are allowed" });
+      }
+
+      // Normalize the URL to prevent bypasses
+      const normalizedUrl = parsedUrl.toString();
+
+      const imageBuffer = await processImageFromUrl(normalizedUrl);
 
       if (!imageBuffer) {
         return res.status(404).json({ error: "Image not found or failed to process" });
