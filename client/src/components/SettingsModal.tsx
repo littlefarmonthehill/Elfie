@@ -71,6 +71,26 @@ function UserManagementSection() {
     },
   });
 
+  const updateUserRoleMutation = useMutation({
+    mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
+      return await apiRequest('PATCH', `/api/admin/users/${userId}/role`, { role });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      toast({
+        title: "Role Updated",
+        description: "User role has been updated successfully.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update user role.",
+        variant: "destructive",
+      });
+    },
+  });
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -123,20 +143,32 @@ function UserManagementSection() {
                       <p className="text-sm font-medium text-gray-200">
                         {user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : 'Unknown User'}
                       </p>
-                      {user.role === 'admin' && (
-                        <span className="text-[10px] bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full border border-purple-500/30">
-                          Admin
-                        </span>
-                      )}
                     </div>
                     <p className="text-xs text-gray-400">{user.email || 'No email'}</p>
-                    <p className="text-[10px] text-gray-500">
-                      Joined: {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Unknown'}
-                    </p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-[10px] text-gray-500">Role:</span>
+                      <Select
+                        value={user.role}
+                        onValueChange={(role) => updateUserRoleMutation.mutate({ userId: user.id, role })}
+                        disabled={updateUserRoleMutation.isPending}
+                      >
+                        <SelectTrigger 
+                          className="h-6 text-[10px] w-[100px] bg-gray-900/50 border-gray-600"
+                          data-testid={`select-role-${user.id}`}
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="customer">Customer</SelectItem>
+                          <SelectItem value="employee">Employee</SelectItem>
+                          <SelectItem value="admin">Admin</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col items-end gap-2">
                   {user.isApproved ? (
                     <>
                       <span className="text-xs text-green-400 flex items-center gap-1">
