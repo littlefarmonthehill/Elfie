@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Search, ShoppingCart, ChevronRight, Sparkles, Plus, X } from "lucide-react";
+import { Search, ShoppingCart, ChevronRight, Sparkles, Plus, X, Minus } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -13,8 +13,16 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import elfieRobot from "@assets/PlanetBrick_good_robot_1760672362080.png";
-import planetBrickLogo from "@assets/PlanetBrick_dotcom_with_planet_and_robot_400_1760672362080.png";
+import planetBrickLogo from "@assets/PlanetBrick_with_planet_1761030158394.png";
 
 interface CartItem {
   lotId: number;
@@ -357,31 +365,30 @@ const slopeLots = productLots.filter(lot => lot.category === "slopes");
 
 interface LotCardProps {
   lot: typeof productLots[0];
-  isSelected: boolean;
-  onClick: () => void;
-  onAddToCart: (variation: any) => void;
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  onAddToCart: (variation: any, quantity: number) => void;
 }
 
-function LotCard({ lot, isSelected, onClick, onAddToCart }: LotCardProps) {
+function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
   const primaryColor = lot.variations[0];
+  const [quantities, setQuantities] = useState<Record<number, number>>({});
+
+  const updateQuantity = (idx: number, delta: number) => {
+    setQuantities(prev => {
+      const current = prev[idx] || 1;
+      const newQty = Math.max(1, Math.min(lot.variations[idx].qty, current + delta));
+      return { ...prev, [idx]: newQty };
+    });
+  };
 
   return (
-    <Card
-      className={`shrink-0 bg-gray-900/60 border-purple-500/30 hover-elevate cursor-pointer transition-all duration-300 ${
-        isSelected 
-          ? 'ring-2 ring-cyan-400 scale-110 md:scale-125 z-20 w-40 md:w-80' 
-          : 'w-36 md:w-64 p-2 md:p-4'
-      } ${isSelected ? 'p-2 md:p-4' : ''}`}
-      onClick={(e) => {
-        if ((e.target as HTMLElement).closest('button[data-add-to-cart]')) {
-          return;
-        }
-        onClick();
-      }}
-      data-testid={`card-lot-${lot.id}`}
-    >
-      {!isSelected ? (
-        // Front: Lot Summary
+    <>
+      <Card
+        className="shrink-0 w-36 md:w-64 p-2 md:p-4 bg-gray-900/60 border-purple-500/30 hover-elevate cursor-pointer transition-all"
+        onClick={() => onOpenChange(true)}
+        data-testid={`card-lot-${lot.id}`}
+      >
         <div>
           <div
             className="w-full aspect-square rounded-md mb-2 md:mb-3 flex items-center justify-center border border-gray-700/50 relative overflow-hidden"
@@ -392,7 +399,6 @@ function LotCard({ lot, isSelected, onClick, onAddToCart }: LotCardProps) {
           >
             <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-transparent to-cyan-500/10" />
             <div className="absolute top-0 left-0 w-full h-full">
-              {/* Floating sparkles */}
               <div className="absolute top-2 right-2 w-1.5 h-1.5 md:w-3 md:h-3 bg-white rounded-full animate-pulse" style={{ animationDelay: '0s' }} />
               <div className="absolute bottom-3 left-3 w-1.5 h-1.5 md:w-3 md:h-3 bg-cyan-400 rounded-full animate-pulse" style={{ animationDelay: '0.5s' }} />
               <div className="absolute top-1/2 left-1/4 w-1 h-1 md:w-2 md:h-2 bg-pink-400 rounded-full animate-pulse" style={{ animationDelay: '1s' }} />
@@ -419,54 +425,93 @@ function LotCard({ lot, isSelected, onClick, onAddToCart }: LotCardProps) {
             </div>
           </div>
         </div>
-      ) : (
-        // Back: Color/Condition Variations with Add to Cart
-        <div className="space-y-1 md:space-y-2">
-          <div className="flex items-center justify-between mb-1 md:mb-2">
-            <h3 className="text-[10px] md:text-base font-bold text-white">#{lot.part} - {lot.name}</h3>
-            <Badge className="text-[9px] md:text-sm px-1 md:px-2 py-0.5 h-auto bg-cyan-600/20 text-cyan-300 border-cyan-500/30">
-              {lot.totalQty.toLocaleString()}
-            </Badge>
-          </div>
+      </Card>
+
+      <Dialog open={isOpen} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-4xl max-h-[85vh] bg-gray-900 border-purple-500/30 overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="text-2xl md:text-3xl font-bold text-white">
+              {lot.name}
+            </DialogTitle>
+            <DialogDescription className="text-base md:text-lg text-gray-400">
+              Part #{lot.part} • {lot.lotCount} variations • {lot.totalQty.toLocaleString()} total pieces
+            </DialogDescription>
+          </DialogHeader>
           
-          <div className="space-y-1 md:space-y-1.5 max-h-32 md:max-h-64 overflow-y-auto">
-            {lot.variations.map((variation, idx) => (
-              <div
-                key={idx}
-                className="flex items-center gap-1 md:gap-2 p-1 md:p-2 rounded bg-gray-800/50 border border-gray-700/50 hover-elevate"
-                data-testid={`variation-${lot.id}-${idx}`}
-              >
-                <div
-                  className="w-3 h-3 md:w-6 md:h-6 rounded-sm shrink-0 border border-gray-600/50"
-                  style={{ backgroundColor: variation.colorHex }}
-                />
-                <div className="flex-1 min-w-0">
-                  <p className="text-[9px] md:text-sm text-white truncate font-medium">{variation.color}</p>
-                  <p className="text-[8px] md:text-xs text-gray-500">{variation.condition}</p>
-                </div>
-                <div className="text-right shrink-0">
-                  <p className="text-[9px] md:text-sm font-semibold text-cyan-400">{variation.price}</p>
-                  <p className="text-[8px] md:text-xs text-gray-400">{variation.qty.toLocaleString()} avail</p>
-                </div>
-                <Button
-                  size="sm"
-                  variant="default"
-                  className="shrink-0 h-6 md:h-8 px-2 md:px-3 text-[8px] md:text-xs bg-cyan-600 hover:bg-cyan-500"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onAddToCart({ ...variation, lotId: lot.id, partNumber: lot.part, partName: lot.name });
-                  }}
-                  data-add-to-cart
-                  data-testid={`button-add-${lot.id}-${idx}`}
-                >
-                  <Plus className="w-3 h-3 md:w-4 md:h-4" />
-                </Button>
-              </div>
-            ))}
+          <div className="flex-1 overflow-y-auto pr-2">
+            <div className="space-y-3">
+              {lot.variations.map((variation, idx) => {
+                const quantity = quantities[idx] || 1;
+                return (
+                  <Card key={idx} className="p-4 bg-gray-800/50 border-gray-700 hover-elevate" data-testid={`variation-${lot.id}-${idx}`}>
+                    <div className="flex items-center gap-4">
+                      <div
+                        className="w-16 h-16 rounded-md shrink-0 border-2 border-gray-600"
+                        style={{ backgroundColor: variation.colorHex }}
+                      />
+                      <div className="flex-1 space-y-2">
+                        <div>
+                          <h4 className="text-lg font-bold text-white">{variation.color}</h4>
+                          <p className="text-sm text-gray-400">{variation.condition}</p>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <span className="text-xl font-bold text-cyan-400">{variation.price}</span>
+                          <span className="text-sm text-gray-500">{variation.qty.toLocaleString()} available</span>
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-3 items-end">
+                        <div className="flex items-center gap-2 bg-gray-700/50 rounded-md p-1">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 text-white"
+                            onClick={() => updateQuantity(idx, -1)}
+                            disabled={quantity <= 1}
+                          >
+                            <Minus className="w-4 h-4" />
+                          </Button>
+                          <Input
+                            type="number"
+                            value={quantity}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value) || 1;
+                              setQuantities(prev => ({ ...prev, [idx]: Math.max(1, Math.min(variation.qty, val)) }));
+                            }}
+                            className="w-16 h-8 text-center bg-gray-900 border-gray-600 text-white"
+                            min="1"
+                            max={variation.qty}
+                          />
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 text-white"
+                            onClick={() => updateQuantity(idx, 1)}
+                            disabled={quantity >= variation.qty}
+                          >
+                            <Plus className="w-4 h-4" />
+                          </Button>
+                        </div>
+                        <Button
+                          size="default"
+                          className="bg-cyan-600 hover:bg-cyan-500 text-white px-6"
+                          onClick={() => {
+                            onAddToCart({ ...variation, lotId: lot.id, partNumber: lot.part, partName: lot.name }, quantity);
+                            setQuantities(prev => ({ ...prev, [idx]: 1 })); // Reset after adding
+                          }}
+                          data-testid={`button-add-${lot.id}-${idx}`}
+                        >
+                          Add to Cart
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
           </div>
-        </div>
-      )}
-    </Card>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -474,11 +519,11 @@ interface HorizontalRowProps {
   title: string;
   lots: typeof productLots;
   categoryId: string;
-  onAddToCart: (item: any) => void;
+  onAddToCart: (item: any, quantity: number) => void;
 }
 
 function HorizontalRow({ title, lots, categoryId, onAddToCart }: HorizontalRowProps) {
-  const [selectedLot, setSelectedLot] = useState<number | null>(null);
+  const [openLotId, setOpenLotId] = useState<number | null>(null);
 
   return (
     <section className="py-3 md:py-6">
@@ -503,8 +548,8 @@ function HorizontalRow({ title, lots, categoryId, onAddToCart }: HorizontalRowPr
             <LotCard
               key={lot.id}
               lot={lot}
-              isSelected={selectedLot === lot.id}
-              onClick={() => setSelectedLot(selectedLot === lot.id ? null : lot.id)}
+              isOpen={openLotId === lot.id}
+              onOpenChange={(open) => setOpenLotId(open ? lot.id : null)}
               onAddToCart={onAddToCart}
             />
           ))}
@@ -521,10 +566,10 @@ export default function Shop() {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const { toast } = useToast();
 
-  const handleAddToCart = (item: any) => {
+  const handleAddToCart = (item: any, quantity: number = 1) => {
     const cartItem: CartItem = {
       ...item,
-      quantity: 1, // default quantity
+      quantity, // Use provided quantity
     };
     
     setCart(prevCart => {
@@ -538,7 +583,7 @@ export default function Shop() {
       if (existingIndex >= 0) {
         // Update quantity
         const newCart = [...prevCart];
-        newCart[existingIndex].quantity += 1;
+        newCart[existingIndex].quantity += quantity;
         return newCart;
       } else {
         // Add new item
@@ -548,7 +593,7 @@ export default function Shop() {
     
     toast({
       title: "Added to cart",
-      description: `${item.partName} - ${item.color} (${item.condition})`,
+      description: `${quantity}x ${item.partName} - ${item.color} (${item.condition})`,
     });
   };
 
@@ -595,25 +640,28 @@ export default function Shop() {
           {/* Elfie Icon - Left */}
           <button
             data-testid="button-elfie"
-            className="relative group cursor-pointer flex items-center justify-center"
+            className="relative group cursor-pointer flex items-center gap-2 md:gap-3"
           >
-            <div className="absolute inset-0 rounded-full bg-purple-500/30 blur-md animate-pulse group-hover:bg-purple-400/40 transition-all duration-300" />
-            <div className="relative w-9 h-9 md:w-14 md:h-14 lg:w-16 lg:h-16 rounded-full bg-purple-500/20 border-2 border-purple-500/50 flex items-center justify-center group-hover:border-purple-400/70 group-hover:scale-110 transition-all duration-300">
-              <img 
-                src={elfieRobot} 
-                alt="E.L.F.I.E." 
-                className="w-7 h-7 md:w-12 md:h-12 lg:w-14 lg:h-14 object-contain"
-              />
+            <div className="relative">
+              <div className="absolute inset-0 rounded-full bg-purple-500/30 blur-md animate-pulse group-hover:bg-purple-400/40 transition-all duration-300" />
+              <div className="relative w-9 h-9 md:w-14 md:h-14 lg:w-16 lg:h-16 rounded-full bg-purple-500/20 border-2 border-purple-500/50 flex items-center justify-center group-hover:border-purple-400/70 group-hover:scale-110 transition-all duration-300">
+                <img 
+                  src={elfieRobot} 
+                  alt="E.L.F.I.E." 
+                  className="w-7 h-7 md:w-12 md:h-12 lg:w-14 lg:h-14 object-contain"
+                />
+              </div>
+              <div className="absolute inset-0 rounded-full border-2 border-purple-500/0 group-hover:border-purple-500/30 group-hover:scale-150 transition-all duration-500 opacity-0 group-hover:opacity-100" />
             </div>
-            <div className="absolute inset-0 rounded-full border-2 border-purple-500/0 group-hover:border-purple-500/30 group-hover:scale-150 transition-all duration-500 opacity-0 group-hover:opacity-100" />
+            <span className="text-cyan-300 font-semibold text-xs md:text-base lg:text-lg">Elfie</span>
           </button>
 
-          {/* PlanetBrick Logo - Centered */}
-          <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center justify-center">
+          {/* PlanetBrick Logo - Centered with Overlap Effect */}
+          <div className="absolute left-1/2 transform -translate-x-1/2 top-2 md:top-3 lg:top-4 z-[60]">
             <img 
               src={planetBrickLogo} 
-              alt="PlanetBrick.com" 
-              className="h-10 md:h-16 lg:h-20 w-auto object-contain"
+              alt="PlanetBrick" 
+              className="h-24 md:h-40 lg:h-48 w-auto object-contain drop-shadow-2xl"
               data-testid="logo-planetbrick"
             />
           </div>

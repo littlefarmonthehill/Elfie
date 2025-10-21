@@ -2176,6 +2176,87 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
     }
   });
 
+  // Get Shop Inventory (for customer-facing shop page)
+  app.get("/api/shop/inventory", async (req, res) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+      const category = req.query.category as string | undefined;
+
+      // Fetch inventory with color and category information
+      let inventoryQuery = db
+        .select({
+          id: blInventory.id,
+          itemNo: blInventory.itemNo,
+          itemName: blInventory.itemName,
+          itemType: blInventory.itemType,
+          colorId: blInventory.colorId,
+          colorName: blColors.name,
+          colorRgb: blColors.rgb,
+          categoryId: blInventory.categoryId,
+          categoryName: blCategories.name,
+          quantity: blInventory.quantity,
+          newOrUsed: blInventory.newOrUsed,
+          unitPrice: blInventory.unitPrice,
+        })
+        .from(blInventory)
+        .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+        .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
+        .where(sql`${blInventory.quantity} > 0`); // Only show items in stock
+
+      const inventoryItems = await inventoryQuery.limit(1000); // Get more items to group
+
+      // Group by itemNo to create "lots"
+      const lotsMap = new Map<string, any>();
+
+      for (const item of inventoryItems) {
+        const key = item.itemNo;
+
+        if (!lotsMap.has(key)) {
+          lotsMap.set(key, {
+            id: item.id,
+            part: item.itemNo,
+            name: item.itemName || item.itemNo,
+            totalQty: 0,
+            lotCount: 0,
+            category: item.categoryName?.toLowerCase() || 'other',
+            variations: [],
+          });
+        }
+
+        const lot = lotsMap.get(key)!;
+        lot.totalQty += item.quantity || 0;
+        lot.lotCount += 1;
+
+        // Add variation
+        lot.variations.push({
+          color: item.colorName || 'Unknown',
+          colorHex: item.colorRgb || '#CCCCCC',
+          condition: item.newOrUsed === 'N' ? 'New' : 'Used',
+          qty: item.quantity || 0,
+          price: `$${(item.unitPrice || 0).toFixed(2)}`,
+        });
+      }
+
+      // Convert map to array and apply category filter if provided
+      let lots = Array.from(lotsMap.values());
+
+      if (category) {
+        lots = lots.filter(lot => lot.category.includes(category.toLowerCase()));
+      }
+
+      // Sort by totalQty descending (most inventory first)
+      lots.sort((a, b) => b.totalQty - a.totalQty);
+
+      // Apply final limit
+      lots = lots.slice(0, limit);
+
+      res.json({ lots });
+    } catch (error) {
+      console.error("Error fetching shop inventory:", error);
+      res.status(500).json({ error: "Failed to fetch shop inventory" });
+    }
+  });
+
   // In-memory cache for discrepancies (expires after 5 minutes)
   const discrepancyCache = new Map<string, { data: any[]; timestamp: number }>();
   const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
