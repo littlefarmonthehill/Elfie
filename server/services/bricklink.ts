@@ -740,10 +740,25 @@ export async function syncBricklinkData(options?: {
       }
     }
 
-    // Step 5: Sync inventory to all sales platforms (currently BrickOwl)
+    // Step 5: Sync Rebrickable images for items without images
+    console.log('🖼️  Step 5/6: Syncing Rebrickable images...');
+    try {
+      const [settings] = await db.select().from(appSettings).limit(1);
+      if (settings?.rebrickableImageSyncEnabled) {
+        const { syncRebrickableImages } = await import('./rebrickable-images');
+        const imageResult = await syncRebrickableImages();
+        console.log(`✓ Rebrickable images: ${imageResult.imagesFetched} fetched, ${imageResult.errors} errors`);
+      } else {
+        console.log('⏭️ Rebrickable image sync disabled in settings');
+      }
+    } catch (error) {
+      console.error('✗ Rebrickable image sync failed (non-fatal):', error);
+    }
+
+    // Step 6: Sync inventory to all sales platforms (currently BrickOwl)
     // Only run if includePlatformSync is true (used by automated sync, not manual sync)
     if (includePlatformSync) {
-      console.log('🌐 Step 5/5: Syncing inventory to sales platforms...');
+      console.log('🌐 Step 6/7: Syncing inventory to sales platforms...');
       try {
         // Only sync if BrickOwl credentials are configured
         const [settings] = await db.select().from(appSettings).limit(1);
@@ -758,14 +773,14 @@ export async function syncBricklinkData(options?: {
         console.error('✗ Platform sync failed (non-fatal):', error);
       }
     } else {
-      console.log('⏭️ Step 5/5: Platform sync skipped (use automated sync or manual platform sync)');
+      console.log('⏭️ Step 6/7: Platform sync skipped (use automated sync or manual platform sync)');
     }
 
     const totalApiCalls = categoriesResult.apiCalls + colorsResult.apiCalls + inventoryResult.apiCalls;
 
     console.log('\n✅ Comprehensive inventory sync complete!');
 
-    // Step 6: Automatically save XML backup for manual restore
+    // Step 7: Automatically save XML backup for manual restore
     try {
       const backupFilename = await saveXMLBackup();
       console.log(`💾 XML backup saved: ${backupFilename}`);

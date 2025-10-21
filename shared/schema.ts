@@ -103,6 +103,9 @@ export const blInventory = pgTable("bl_inventory", {
   tierQuantity2: integer("tier_quantity_2"),
   tierQuantity3: integer("tier_quantity_3"),
   myWeight: decimal("my_weight", { precision: 10, scale: 4 }),
+  // Rebrickable image URLs (LDraw renders)
+  imageUrl: text("image_url"),
+  thumbnailUrl: text("thumbnail_url"),
   syncedAt: timestamp("synced_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
