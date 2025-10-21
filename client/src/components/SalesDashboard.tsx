@@ -759,8 +759,8 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
       {compareMode && comparisonType === 'year' && validCompareYears.length > 0 && (
         <div className="bg-gray-900/50 border border-purple-500/20 rounded-lg p-3" data-testid="section-yoy-metrics">
           <div className="flex items-center gap-2 mb-2">
-            <TrendingUp className="w-3.5 h-3.5 text-purple-400" />
-            <h3 className="text-[10px] md:text-sm font-semibold text-purple-400 uppercase tracking-wide">Year-over-Year Growth</h3>
+            <TrendingUp className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-purple-400" />
+            <h3 className="text-xs md:text-base lg:text-lg font-semibold text-purple-400 uppercase tracking-wide">Year-over-Year Growth</h3>
           </div>
           <div className={`grid gap-2 ${validCompareYears.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
             {(() => {
@@ -802,8 +802,8 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
       {compareMode && comparisonType === 'platform' && validPlatforms.length > 0 && (
         <div className="bg-gray-900/50 border border-purple-500/20 rounded-lg p-3" data-testid="section-platform-metrics">
           <div className="flex items-center gap-2 mb-2">
-            <TrendingUp className="w-3.5 h-3.5 text-purple-400" />
-            <h3 className="text-[10px] md:text-sm font-semibold text-purple-400 uppercase tracking-wide">Platform Performance</h3>
+            <TrendingUp className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-purple-400" />
+            <h3 className="text-xs md:text-base lg:text-lg font-semibold text-purple-400 uppercase tracking-wide">Platform Performance</h3>
           </div>
           <div className={`grid gap-2 ${validPlatforms.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
             {(() => {
@@ -851,8 +851,8 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
       {/* Highlights - Top Revenue Orders */}
       <div className="bg-gray-900/50 border border-green-500/20 rounded-lg p-3" data-testid="section-top-revenue">
         <div className="flex items-center gap-2 mb-2">
-          <TrendingUp className="w-3.5 h-3.5 text-green-400" />
-          <h3 className="text-xs font-semibold text-green-400 uppercase tracking-wide">Highlights - Top Revenue Orders</h3>
+          <TrendingUp className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-green-400" />
+          <h3 className="text-xs md:text-base lg:text-lg font-semibold text-green-400 uppercase tracking-wide">Highlights - Top Revenue Orders</h3>
         </div>
         <div className="space-y-1.5">
           {topRevenueOrders.length > 0 ? (
@@ -863,12 +863,12 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
                 className="flex justify-between items-center hover-elevate rounded px-2 py-1 cursor-pointer"
                 data-testid={`top-revenue-${order.id}`}
               >
-                <div className="flex items-center gap-2">
-                  <DollarSign className="w-3.5 h-3.5 text-green-400 flex-shrink-0" />
-                  <span className="text-gray-200 font-mono text-xs font-medium">#{order.orderNumber}</span>
-                  <span className="text-gray-400 text-[11px]">{order.customerUsername}</span>
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <DollarSign className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-green-400 flex-shrink-0" />
+                  <span className="text-gray-200 font-mono text-xs md:text-base lg:text-lg font-medium">#{order.orderNumber}</span>
+                  <span className="text-gray-400 text-[11px] md:text-sm lg:text-base">{order.customerUsername}</span>
                 </div>
-                <span className="text-lego-green font-mono font-medium text-xs ml-2 flex-shrink-0">${Number(order.orderTotal).toFixed(2)}</span>
+                <span className="text-lego-green font-mono font-medium text-xs md:text-base lg:text-lg ml-2 flex-shrink-0">${Number(order.orderTotal).toFixed(2)}</span>
               </div>
             ))
           ) : (
@@ -880,8 +880,8 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
       {/* Recent Activity - High Value Sales */}
       <div className="bg-gray-900/50 border border-blue-500/20 rounded-lg p-3" data-testid="section-recent-high-value">
         <div className="flex items-center gap-2 mb-2">
-          <Target className="w-3.5 h-3.5 text-blue-400" />
-          <h3 className="text-xs font-semibold text-blue-400 uppercase tracking-wide">Recent Activity - High Value Sales ($100+)</h3>
+          <Target className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-blue-400" />
+          <h3 className="text-xs md:text-base lg:text-lg font-semibold text-blue-400 uppercase tracking-wide">Recent Activity - High Value Sales ($100+)</h3>
         </div>
         <div className="space-y-1.5">
           {recentHighValueSales.length > 0 ? (
@@ -892,13 +892,13 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
                 className="flex justify-between items-center hover-elevate rounded px-2 py-1 cursor-pointer"
                 data-testid={`high-value-sale-${order.id}`}
               >
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-1 min-w-0">
                   <div className="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0" />
-                  <span className="text-gray-200 font-mono text-xs font-medium">#{order.orderNumber}</span>
-                  <span className="text-gray-400 text-[11px]">{order.customerUsername}</span>
-                  <span className="text-gray-400 text-[11px]">{new Date(order.orderDate).toLocaleDateString()}</span>
+                  <span className="text-gray-200 font-mono text-xs md:text-base lg:text-lg font-medium">#{order.orderNumber}</span>
+                  <span className="text-gray-400 text-[11px] md:text-sm lg:text-base">{order.customerUsername}</span>
+                  <span className="text-gray-400 text-[11px] md:text-sm lg:text-base">{new Date(order.orderDate).toLocaleDateString()}</span>
                 </div>
-                <span className="text-lego-green font-mono font-medium text-xs ml-2 flex-shrink-0">${Number(order.orderTotal).toFixed(2)}</span>
+                <span className="text-lego-green font-mono font-medium text-xs md:text-base lg:text-lg ml-2 flex-shrink-0">${Number(order.orderTotal).toFixed(2)}</span>
               </div>
             ))
           ) : (
@@ -910,21 +910,21 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
       {/* Action Items - Sales Metrics */}
       <div className="bg-gray-900/50 border border-yellow-500/20 rounded-lg p-3" data-testid="section-sales-metrics">
         <div className="flex items-center gap-2 mb-2">
-          <Target className="w-3.5 h-3.5 text-yellow-400" />
-          <h3 className="text-[10px] md:text-sm font-semibold text-yellow-400 uppercase tracking-wide">Key Metrics</h3>
+          <Target className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-yellow-400" />
+          <h3 className="text-xs md:text-base lg:text-lg font-semibold text-yellow-400 uppercase tracking-wide">Key Metrics</h3>
         </div>
         <div className="grid grid-cols-3 gap-2">
           <div className="text-center">
-            <div className="text-[9px] md:text-xs text-gray-500">Total Orders</div>
-            <div className="text-xs text-gray-300 font-mono">{filteredOrders.length}</div>
+            <div className="text-[9px] md:text-sm lg:text-base text-gray-500">Total Orders</div>
+            <div className="text-xs md:text-base lg:text-lg text-gray-300 font-mono">{filteredOrders.length}</div>
           </div>
           <div className="text-center">
-            <div className="text-[9px] md:text-xs text-gray-500">Avg Order Value</div>
-            <div className="text-xs text-lego-green font-mono">${averageOrderValue.toFixed(2)}</div>
+            <div className="text-[9px] md:text-sm lg:text-base text-gray-500">Avg Order Value</div>
+            <div className="text-xs md:text-base lg:text-lg text-lego-green font-mono">${averageOrderValue.toFixed(2)}</div>
           </div>
           <div className="text-center">
-            <div className="text-[9px] md:text-xs text-gray-500">Total Revenue</div>
-            <div className="text-xs text-lego-green font-mono">${Math.round(totalRevenue).toLocaleString()}</div>
+            <div className="text-[9px] md:text-sm lg:text-base text-gray-500">Total Revenue</div>
+            <div className="text-xs md:text-base lg:text-lg text-lego-green font-mono">${Math.round(totalRevenue).toLocaleString()}</div>
           </div>
         </div>
       </div>
