@@ -13,6 +13,6 @@ export function useAuth() {
     isLoading,
     isAuthenticated: !!user,
     isApproved: user?.isApproved ?? false,
-    isAdmin: user?.role === 'admin',
+    isAdmin: user?.role === 'admin' || user?.role === 'employee',
   };
 }

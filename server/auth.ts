@@ -13,8 +13,8 @@ const SALT_ROUNDS = 10;
 const APPROVED_ADMINS = ["bhnorby@gmail.com", "caleblauritsen@gmail.com"];
 
 // Sanitize user object to remove sensitive fields
-function sanitizeUser(user: User | null): Omit<User, 'password'> | null {
-  if (!user) return null;
+function sanitizeUser(user: User | null | undefined): Omit<User, 'password'> | undefined {
+  if (!user) return undefined;
   const { password, ...sanitizedUser } = user;
   return sanitizedUser;
 }
@@ -123,9 +123,9 @@ export async function setupAuth(app: Express) {
       // Hash password
       const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
 
-      // Auto-approve admins
+      // Auto-approve admins (Blake and Caleb get admin role and auto-approval)
       const isApproved = APPROVED_ADMINS.includes(email);
-      const role = isApproved ? "admin" : "user";
+      const role = isApproved ? "admin" : "customer";
 
       // Create user
       const user = await storage.createUser({
