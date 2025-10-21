@@ -63,8 +63,10 @@ interface ProductLot {
   category: string;
   imageUrl?: string | null;
   thumbnailUrl?: string | null;
+  firstColorId?: number | null;
   variations: {
     color: string;
+    colorId: number | null;
     colorHex: string;
     condition: string;
     qty: number;
@@ -73,8 +75,13 @@ interface ProductLot {
   colorGroups: ColorGroup[];
 }
 
+function getProxyImageUrl(part: string, colorId: number | null | undefined): string | null {
+  if (colorId == null) return null;
+  return `/api/images/parts/${part}/${colorId}`;
+}
+
 // Mock data for development (will be replaced with API data)
-const mockProductLots: Omit<ProductLot, 'uniqueColorCount' | 'colorGroups'>[] = [
+const mockProductLots: Array<Omit<ProductLot, 'uniqueColorCount' | 'colorGroups'> & { variations: Omit<ProductLot['variations'][0], 'colorId'>[] }> = [
   { 
     id: 1, 
     part: "3001", 
@@ -402,6 +409,9 @@ interface LotCardProps {
 function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
   const primaryColor = lot.variations[0];
   const [quantities, setQuantities] = useState<Record<number, number>>({});
+  const [imageSrc, setImageSrc] = useState<string | null>(
+    getProxyImageUrl(lot.part, lot.firstColorId)
+  );
 
   const updateQuantity = (idx: number, delta: number) => {
     setQuantities(prev => {
@@ -409,6 +419,15 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
       const newQty = Math.max(1, Math.min(lot.variations[idx].qty, current + delta));
       return { ...prev, [idx]: newQty };
     });
+  };
+  
+  const handleImageError = () => {
+    if (lot.imageUrl && imageSrc !== lot.imageUrl) {
+      console.warn(`[Shop] Proxy image failed for ${lot.part}, falling back to original URL`);
+      setImageSrc(lot.imageUrl);
+    } else {
+      setImageSrc(null);
+    }
   };
 
   return (
@@ -422,13 +441,13 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
           <div
             className="w-full aspect-square rounded-md mb-2 md:mb-3 flex items-center justify-center border border-gray-700/50 relative overflow-hidden"
             style={{
-              background: lot.imageUrl 
+              background: imageSrc
                 ? 'radial-gradient(ellipse at 30% 30%, #1e3a8a 0%, #0f172a 50%, #000000 100%)'
                 : `linear-gradient(135deg, ${primaryColor.colorHex}60 0%, ${primaryColor.colorHex}30 100%)`,
               boxShadow: `0 4px 16px ${primaryColor.colorHex}40`
             }}
           >
-            {lot.imageUrl ? (
+            {imageSrc ? (
               <>
                 <div className="absolute inset-0 opacity-60">
                   <div className="absolute top-[10%] left-[15%] w-8 h-8 md:w-16 md:h-16 bg-cyan-500/40 rounded-full blur-xl animate-pulse" style={{ animationDelay: '0s', animationDuration: '3s' }} />
@@ -438,17 +457,13 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
                 <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-transparent to-cyan-500/10" />
                 <div className="relative z-10 w-full h-full p-1 md:p-2 flex items-center justify-center">
                   <img 
-                    src={lot.imageUrl} 
+                    src={imageSrc} 
                     alt={lot.name}
                     className="max-w-full max-h-full object-contain"
-                    style={{ 
-                      mixBlendMode: 'darken',
-                      filter: 'drop-shadow(0 0 8px rgba(6, 182, 212, 0.4))'
-                    }}
+                    onError={handleImageError}
                     data-testid={`img-part-${lot.id}`}
                   />
                 </div>
-                <div className="absolute inset-0 bg-gradient-to-b from-blue-900/20 via-transparent to-cyan-900/20 pointer-events-none" style={{ mixBlendMode: 'overlay' }} />
               </>
             ) : (
               <>
@@ -501,7 +516,7 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
           </DialogHeader>
           
           <div className="flex-1 overflow-y-auto pr-0.5 mt-1.5">
-            {lot.imageUrl && (
+            {imageSrc && (
               <div className="mb-3 flex justify-center">
                 <div 
                   className="w-32 h-32 md:w-48 md:h-48 rounded-lg border border-white/10 flex items-center justify-center p-2 relative overflow-hidden"
@@ -517,17 +532,13 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
                   <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-transparent to-cyan-500/10" />
                   <div className="relative z-10 w-full h-full p-2 flex items-center justify-center">
                     <img 
-                      src={lot.imageUrl} 
+                      src={imageSrc} 
                       alt={lot.name}
                       className="max-w-full max-h-full object-contain"
-                      style={{ 
-                        mixBlendMode: 'darken',
-                        filter: 'drop-shadow(0 0 12px rgba(6, 182, 212, 0.4))' 
-                      }}
+                      onError={handleImageError}
                       data-testid={`img-modal-${lot.id}`}
                     />
                   </div>
-                  <div className="absolute inset-0 bg-gradient-to-b from-blue-900/20 via-transparent to-cyan-900/20 pointer-events-none" style={{ mixBlendMode: 'overlay' }} />
                 </div>
               </div>
             )}

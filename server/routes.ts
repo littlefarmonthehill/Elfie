@@ -6,6 +6,7 @@ import { syncBricklinkData, fetchPriceOMagicData, searchBricklinkCatalogItem, sy
 import { syncShipStationOrders } from "./services/shipstation";
 import { syncBrickLinkToBrickOwl } from "./services/brickowl";
 import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBackup } from "./services/export";
+import { getProcessedPartImage } from "./services/image-proxy";
 import { db } from "./db";
 import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, setPartRelationships } from "@shared/schema";
 import { eq, desc, sql, inArray, like, or, and, isNotNull } from "drizzle-orm";
@@ -2224,12 +2225,18 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
             variations: [],
             imageUrl: null,
             thumbnailUrl: null,
+            firstColorId: null,
           });
         }
 
         const lot = lotsMap.get(key)!;
         lot.totalQty += item.quantity || 0;
         lot.lotCount += 1;
+
+        // Store the first colorId for proxy URL generation
+        if (typeof lot.firstColorId !== 'number' && item.colorId !== null) {
+          lot.firstColorId = item.colorId;
+        }
 
         // Use the first available image for the lot
         if (!lot.imageUrl && item.imageUrl) {
@@ -2243,6 +2250,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
         // Add variation
         lot.variations.push({
           color: item.colorName || 'Unknown',
+          colorId: item.colorId,
           colorHex: item.colorRgb || '#CCCCCC',
           condition: item.newOrUsed === 'N' ? 'New' : 'Used',
           qty: item.quantity || 0,
@@ -2288,6 +2296,31 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
     } catch (error) {
       console.error("Error fetching shop stats:", error);
       res.status(500).json({ error: "Failed to fetch shop stats" });
+    }
+  });
+
+  // Image proxy route - serves part images with white backgrounds removed
+  app.get("/api/images/parts/:partNum/:colorId", async (req, res) => {
+    try {
+      const { partNum, colorId } = req.params;
+      const colorIdNum = parseInt(colorId);
+
+      if (isNaN(colorIdNum)) {
+        return res.status(400).json({ error: "Invalid color ID" });
+      }
+
+      const imageBuffer = await getProcessedPartImage(partNum, colorIdNum);
+
+      if (!imageBuffer) {
+        return res.status(404).json({ error: "Image not found" });
+      }
+
+      res.setHeader('Content-Type', 'image/png');
+      res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
+      res.send(imageBuffer);
+    } catch (error) {
+      console.error(`Error serving image for ${req.params.partNum} color ${req.params.colorId}:`, error);
+      res.status(500).json({ error: "Failed to process image" });
     }
   });
 
