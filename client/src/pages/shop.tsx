@@ -829,13 +829,13 @@ export default function Shop() {
             <img 
               src={planetBrickLogo} 
               alt="PlanetBrick" 
-              className="h-14 md:h-20 lg:h-24 w-auto object-contain drop-shadow-2xl"
+              className="h-16 md:h-24 lg:h-28 w-auto object-contain drop-shadow-2xl"
               data-testid="logo-planetbrick"
             />
           </div>
 
           {/* Stats Row - Lower in lighter band */}
-          <div className="absolute -bottom-8 md:-bottom-10 left-0 right-0 flex items-center justify-between px-4 md:px-8 lg:px-12 z-[50]">
+          <div className="absolute -bottom-8 md:-bottom-10 left-0 right-0 flex items-center justify-between px-12 md:px-20 lg:px-32 z-[50]">
             {/* Lots - Left */}
             <div className="flex items-center gap-2 relative group">
               {/* Comet trail effect */}
