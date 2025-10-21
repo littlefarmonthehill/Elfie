@@ -452,13 +452,13 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
       </Card>
 
       <Dialog open={isOpen} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-2xl max-h-[75vh] bg-black/98 border-white/20 overflow-hidden flex flex-col backdrop-blur-xl">
-          <DialogHeader className="pb-2 border-b border-white/10">
-            <DialogTitle className="text-base md:text-lg font-bold text-white flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-cyan-400" />
+        <DialogContent className="max-w-xl max-h-[70vh] bg-black/98 border-white/20 overflow-hidden flex flex-col backdrop-blur-xl p-3">
+          <DialogHeader className="pb-1.5 border-b border-white/10">
+            <DialogTitle className="text-sm md:text-base font-bold text-white flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
               {lot.name}
             </DialogTitle>
-            <DialogDescription className="text-[10px] md:text-xs text-gray-400 flex items-center gap-1.5">
+            <DialogDescription className="text-[9px] md:text-[10px] text-gray-400 flex items-center gap-1">
               <span className="text-cyan-400">#{lot.part}</span>
               <span className="text-gray-600">•</span>
               <span>{lot.uniqueColorCount} {lot.uniqueColorCount === 1 ? 'color' : 'colors'}</span>
@@ -467,84 +467,84 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
             </DialogDescription>
           </DialogHeader>
           
-          <div className="flex-1 overflow-y-auto pr-1 mt-2">
-            <div className="grid grid-cols-1 gap-2">
+          <div className="flex-1 overflow-y-auto pr-0.5 mt-1.5">
+            <div className="grid grid-cols-1 gap-1.5">
               {lot.colorGroups.map((colorGroup, groupIdx) => (
-                <div key={groupIdx} className="flex items-center gap-2 overflow-x-auto pb-1">
+                <div key={groupIdx} className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
                   {/* Color Header - Fixed on left */}
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-1.5 shrink-0">
                     <div
-                      className="w-6 h-6 rounded shrink-0 border border-white/30 shadow-sm"
+                      className="w-5 h-5 rounded shrink-0 border border-white/30 shadow-sm"
                       style={{ 
                         backgroundColor: colorGroup.colorHex,
                         boxShadow: `0 1px 4px ${colorGroup.colorHex}40`
                       }}
                     />
-                    <div className="min-w-[80px]">
-                      <h4 className="text-xs md:text-sm font-bold text-white">{colorGroup.colorName}</h4>
-                      <p className="text-[9px] md:text-[10px] text-gray-500">{colorGroup.totalQty.toLocaleString()} pcs</p>
+                    <div className="min-w-[70px]">
+                      <h4 className="text-[10px] md:text-xs font-bold text-white">{colorGroup.colorName}</h4>
+                      <p className="text-[8px] md:text-[9px] text-gray-500">{colorGroup.totalQty.toLocaleString()}</p>
                     </div>
                   </div>
                   
                   {/* Condition Variations - Same line */}
-                  <div className="flex gap-1.5">
+                  <div className="flex gap-1">
                     {colorGroup.variations.map((variation, varIdx) => {
                       const idx = lot.variations.findIndex(v => v.color === variation.color && v.condition === variation.condition);
                       const quantity = quantities[idx] || 1;
                       return (
                         <div 
                           key={varIdx}
-                          className="p-2 bg-gray-900/40 border border-white/5 rounded hover-elevate transition-all duration-300 group shrink-0 min-w-[160px]"
+                          className="p-1.5 bg-gray-900/40 border border-white/5 rounded hover-elevate transition-all duration-300 group shrink-0 min-w-[135px]"
                           data-testid={`variation-${lot.id}-${idx}`}
                         >
-                          <div className="flex flex-col gap-1.5">
+                          <div className="flex flex-col gap-1">
                             {/* Info */}
                             <div>
-                              <div className="flex items-center gap-1.5 mb-0.5">
-                                <Badge variant="outline" className="text-[9px] text-gray-300 border-white/20 h-4 px-1">
+                              <div className="flex items-center gap-1 mb-0.5">
+                                <Badge variant="outline" className="text-[8px] text-gray-300 border-white/20 h-3.5 px-1">
                                   {variation.condition}
                                 </Badge>
-                                <span className="text-[9px] text-gray-500">{variation.qty.toLocaleString()}</span>
+                                <span className="text-[8px] text-gray-500">{variation.qty.toLocaleString()}</span>
                               </div>
-                              <div className="text-sm font-bold text-cyan-400">{variation.price}</div>
+                              <div className="text-xs font-bold text-cyan-400">{variation.price}</div>
                             </div>
 
                             {/* Quantity Controls */}
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-0.5">
                               <div className="flex items-center gap-0.5 bg-gray-800/80 rounded p-0.5 border border-white/10 flex-1">
                                 <Button
                                   size="icon"
                                   variant="ghost"
-                                  className="h-5 w-5 text-white hover:bg-white/10"
+                                  className="h-4 w-4 text-white hover:bg-white/10"
                                   onClick={() => updateQuantity(idx, -1)}
                                   disabled={quantity <= 1}
                                 >
-                                  <Minus className="w-2.5 h-2.5" />
+                                  <Minus className="w-2 h-2" />
                                 </Button>
                                 <div className="flex-1 text-center">
-                                  <span className="text-xs font-bold text-white">{quantity}</span>
+                                  <span className="text-[10px] font-bold text-white">{quantity}</span>
                                 </div>
                                 <Button
                                   size="icon"
                                   variant="ghost"
-                                  className="h-5 w-5 text-white hover:bg-white/10"
+                                  className="h-4 w-4 text-white hover:bg-white/10"
                                   onClick={() => updateQuantity(idx, 1)}
                                   disabled={quantity >= variation.qty}
                                 >
-                                  <Plus className="w-2.5 h-2.5" />
+                                  <Plus className="w-2 h-2" />
                                 </Button>
                               </div>
                               
                               <Button
                                 size="sm"
-                                className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white px-2 text-[10px] shadow-lg transition-all duration-300 group-hover:shadow-cyan-500/50 h-5"
+                                className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white px-1.5 text-[9px] shadow-lg transition-all duration-300 group-hover:shadow-cyan-500/50 h-4"
                                 onClick={() => {
                                   onAddToCart({ ...variation, lotId: lot.id, partNumber: lot.part, partName: lot.name }, quantity);
                                   setQuantities(prev => ({ ...prev, [idx]: 1 }));
                                 }}
                                 data-testid={`button-add-${lot.id}-${idx}`}
                               >
-                                <ShoppingCart className="w-2.5 h-2.5 mr-0.5" />
+                                <ShoppingCart className="w-2 h-2 mr-0.5" />
                                 Add
                               </Button>
                             </div>
