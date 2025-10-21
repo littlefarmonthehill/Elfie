@@ -17,65 +17,54 @@ import NotFound from "@/pages/not-found";
 function Router() {
   const { isAuthenticated, isApproved, isLoading, isAdmin } = useAuth();
 
-  // Show loading state while checking authentication
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-lego-red/20">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-12 w-12 animate-spin rounded-full border-4 border-lego-blue border-t-transparent" />
-          <p className="text-sm text-gray-400">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <Switch>
-      {/* Public routes - anyone can access */}
+      {/* Public routes - anyone can access (render immediately without waiting for auth) */}
       <Route path="/shop" component={Shop} />
       <Route path="/search" component={Search} />
       <Route path="/login" component={Login} />
       <Route path="/signup" component={Signup} />
 
-      {!isAuthenticated ? (
-        <>
-          {/* Not logged in - redirect to shop */}
-          <Route path="/">
-            <Redirect to="/shop" />
-          </Route>
-        </>
-      ) : !isApproved ? (
-        <>
-          {/* Logged in but not approved - show pending approval page */}
-          <Route path="/" component={PendingApproval} />
-          <Route path="/admin">
-            <Redirect to="/" />
-          </Route>
-        </>
-      ) : (
-        <>
-          {/* Logged in and approved - role-based routing */}
-          {isAdmin ? (
-            <>
-              {/* Admin/Employee routes */}
-              <Route path="/admin" component={Home} />
-              <Route path="/">
-                <Redirect to="/admin" />
-              </Route>
-            </>
-          ) : (
-            <>
-              {/* Customer routes */}
-              <Route path="/">
-                <Redirect to="/shop" />
-              </Route>
-              <Route path="/admin">
-                <Redirect to="/shop" />
-              </Route>
-            </>
-          )}
-        </>
-      )}
+      {/* Protected routes - show loading while checking authentication */}
+      <Route path="/admin">
+        {isLoading ? (
+          <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-lego-red/20">
+            <div className="flex flex-col items-center gap-4">
+              <div className="h-12 w-12 animate-spin rounded-full border-4 border-lego-blue border-t-transparent" />
+              <p className="text-sm text-gray-400">Loading...</p>
+            </div>
+          </div>
+        ) : !isAuthenticated ? (
+          <Redirect to="/login" />
+        ) : !isApproved ? (
+          <Redirect to="/" />
+        ) : isAdmin ? (
+          <Home />
+        ) : (
+          <Redirect to="/shop" />
+        )}
+      </Route>
+
+      {/* Home route - different behavior based on auth state */}
+      <Route path="/">
+        {isLoading ? (
+          <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-lego-red/20">
+            <div className="flex flex-col items-center gap-4">
+              <div className="h-12 w-12 animate-spin rounded-full border-4 border-lego-blue border-t-transparent" />
+              <p className="text-sm text-gray-400">Loading...</p>
+            </div>
+          </div>
+        ) : !isAuthenticated ? (
+          <Redirect to="/shop" />
+        ) : !isApproved ? (
+          <PendingApproval />
+        ) : isAdmin ? (
+          <Redirect to="/admin" />
+        ) : (
+          <Redirect to="/shop" />
+        )}
+      </Route>
+
       <Route component={NotFound} />
     </Switch>
   );

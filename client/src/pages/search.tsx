@@ -30,7 +30,7 @@ interface ProductVariation {
   colorHex: string;
   condition: string;
   qty: number;
-  price: number;
+  price: string;
 }
 
 interface ColorGroup {
@@ -481,7 +481,7 @@ export default function Search() {
                                   <span className="text-[10px] text-gray-400">{variation.qty} available</span>
                                 </div>
                                 <div className="flex items-center justify-between gap-2">
-                                  <span className="text-sm font-bold text-cyan-400">${variation.price.toFixed(2)}</span>
+                                  <span className="text-sm font-bold text-cyan-400">{variation.price}</span>
                                   <Button
                                     size="icon"
                                     className="h-6 w-6 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600"
@@ -494,7 +494,7 @@ export default function Search() {
                                         color: colorGroup.colorName,
                                         colorHex: colorGroup.colorHex,
                                         condition: variation.condition,
-                                        price: `$${variation.price.toFixed(2)}`,
+                                        price: variation.price,
                                         imageUrl: selectedLot.imageUrl,
                                       }, 1);
                                     }}
