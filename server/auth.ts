@@ -6,9 +6,34 @@ import type { Express, RequestHandler } from "express";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
 import bcrypt from "bcrypt";
+import { z } from "zod";
+import type { User } from "@shared/schema";
 
 const SALT_ROUNDS = 10;
 const APPROVED_ADMINS = ["bhnorby@gmail.com", "caleblauritsen@gmail.com"];
+
+// Sanitize user object to remove sensitive fields
+function sanitizeUser(user: User | null): Omit<User, 'password'> | null {
+  if (!user) return null;
+  const { password, ...sanitizedUser } = user;
+  return sanitizedUser;
+}
+
+// Server-side validation schemas
+const emailPasswordSchema = z.object({
+  email: z.string().email().min(1).transform(val => val.toLowerCase()),
+  password: z.string().min(8),
+});
+
+const signupSchema = emailPasswordSchema.extend({
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
+});
+
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(8),
+});
 
 export function getSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
@@ -26,7 +51,7 @@ export function getSession() {
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: true,
+      secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       maxAge: sessionTtl,
     },
@@ -45,7 +70,9 @@ export async function setupAuth(app: Express) {
       { usernameField: "email" },
       async (email, password, done) => {
         try {
-          const user = await storage.getUserByEmail(email);
+          // Normalize email to lowercase
+          const normalizedEmail = email.toLowerCase();
+          const user = await storage.getUserByEmail(normalizedEmail);
           if (!user) {
             return done(null, false, { message: "Invalid email or password" });
           }
@@ -59,7 +86,7 @@ export async function setupAuth(app: Express) {
             return done(null, false, { message: "Invalid email or password" });
           }
 
-          return done(null, user);
+          return done(null, sanitizeUser(user));
         } catch (error) {
           return done(error);
         }
@@ -74,7 +101,7 @@ export async function setupAuth(app: Express) {
   passport.deserializeUser(async (id: string, done) => {
     try {
       const user = await storage.getUser(id);
-      done(null, user);
+      done(null, sanitizeUser(user));
     } catch (error) {
       done(error);
     }
@@ -83,11 +110,9 @@ export async function setupAuth(app: Express) {
   // Signup route
   app.post("/api/signup", async (req, res) => {
     try {
-      const { email, password, firstName, lastName } = req.body;
-
-      if (!email || !password) {
-        return res.status(400).json({ message: "Email and password are required" });
-      }
+      // Validate input
+      const validatedData = signupSchema.parse(req.body);
+      const { email, password, firstName, lastName } = validatedData;
 
       // Check if user already exists
       const existingUser = await storage.getUserByEmail(email);
@@ -99,7 +124,7 @@ export async function setupAuth(app: Express) {
       const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
 
       // Auto-approve admins
-      const isApproved = APPROVED_ADMINS.includes(email.toLowerCase());
+      const isApproved = APPROVED_ADMINS.includes(email);
       const role = isApproved ? "admin" : "user";
 
       // Create user
@@ -112,14 +137,27 @@ export async function setupAuth(app: Express) {
         role,
       });
 
-      // Log in the user
-      req.login(user, (err) => {
+      // Regenerate session to prevent session fixation
+      req.session.regenerate((err) => {
         if (err) {
-          return res.status(500).json({ message: "Failed to log in after signup" });
+          return res.status(500).json({ message: "Failed to create session" });
         }
-        res.json(user);
+        
+        // Log in the user
+        req.login(sanitizeUser(user) as any, (loginErr) => {
+          if (loginErr) {
+            return res.status(500).json({ message: "Failed to log in after signup" });
+          }
+          res.json(sanitizeUser(user));
+        });
       });
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          message: "Invalid input", 
+          errors: error.errors 
+        });
+      }
       console.error("Signup error:", error);
       res.status(500).json({ message: "Failed to create account" });
     }
@@ -135,11 +173,18 @@ export async function setupAuth(app: Express) {
         return res.status(401).json({ message: info?.message || "Invalid credentials" });
       }
 
-      req.login(user, (loginErr) => {
-        if (loginErr) {
-          return res.status(500).json({ message: "Failed to log in" });
+      // Regenerate session to prevent session fixation
+      req.session.regenerate((regenerateErr) => {
+        if (regenerateErr) {
+          return res.status(500).json({ message: "Failed to create session" });
         }
-        res.json(user);
+        
+        req.login(user, (loginErr) => {
+          if (loginErr) {
+            return res.status(500).json({ message: "Failed to log in" });
+          }
+          res.json(user);
+        });
       });
     })(req, res, next);
   });
@@ -147,19 +192,24 @@ export async function setupAuth(app: Express) {
   // Logout route
   app.post("/api/logout", (req, res) => {
     req.logout(() => {
-      res.json({ message: "Logged out successfully" });
+      req.session.destroy((err) => {
+        if (err) {
+          console.error("Session destroy error:", err);
+        }
+        res.clearCookie('connect.sid');
+        res.json({ message: "Logged out successfully" });
+      });
     });
   });
 
   // Change password route
   app.post("/api/change-password", isAuthenticated, async (req, res) => {
     try {
+      // Validate input
+      const validatedData = changePasswordSchema.parse(req.body);
+      const { currentPassword, newPassword } = validatedData;
+      
       const user = req.user as any;
-      const { currentPassword, newPassword } = req.body;
-
-      if (!currentPassword || !newPassword) {
-        return res.status(400).json({ message: "Current and new password are required" });
-      }
 
       // Get user from DB
       const dbUser = await storage.getUser(user.id);
@@ -181,6 +231,12 @@ export async function setupAuth(app: Express) {
 
       res.json({ message: "Password changed successfully" });
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          message: "Invalid input", 
+          errors: error.errors 
+        });
+      }
       console.error("Change password error:", error);
       res.status(500).json({ message: "Failed to change password" });
     }
