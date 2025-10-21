@@ -25,18 +25,66 @@ export class DatabaseStorage implements IStorage {
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
-    const [user] = await db
-      .insert(users)
-      .values(userData)
-      .onConflictDoUpdate({
-        target: users.id,
-        set: {
-          ...userData,
-          updatedAt: new Date(),
-        },
-      })
-      .returning();
-    return user;
+    // Robust upsert algorithm to handle:
+    // 1. Existing users (by OIDC sub)
+    // 2. Pre-approved users (by email)
+    // 3. Email changes from IdP
+    
+    return await db.transaction(async (tx) => {
+      // First, try to find by OIDC sub (id)
+      const [userById] = await tx
+        .select()
+        .from(users)
+        .where(eq(users.id, userData.id));
+
+      if (userById) {
+        // User exists by id - update profile fields only
+        const [updated] = await tx
+          .update(users)
+          .set({
+            email: userData.email,
+            firstName: userData.firstName,
+            lastName: userData.lastName,
+            profileImageUrl: userData.profileImageUrl,
+            updatedAt: new Date(),
+            // Preserve isApproved and role
+          })
+          .where(eq(users.id, userData.id))
+          .returning();
+        return updated;
+      }
+
+      // Not found by id, try by email (handles pre-approved users)
+      const [userByEmail] = await tx
+        .select()
+        .from(users)
+        .where(eq(users.email, userData.email));
+
+      if (userByEmail) {
+        // Pre-approved user logging in for first time
+        // Update id to OIDC sub and profile fields, preserve isApproved/role
+        const [updated] = await tx
+          .update(users)
+          .set({
+            id: userData.id, // Set to OIDC sub
+            firstName: userData.firstName,
+            lastName: userData.lastName,
+            profileImageUrl: userData.profileImageUrl,
+            updatedAt: new Date(),
+            // Preserve isApproved and role from pre-approval
+          })
+          .where(eq(users.email, userData.email))
+          .returning();
+        return updated;
+      }
+
+      // New user - insert with default approval status
+      const [newUser] = await tx
+        .insert(users)
+        .values(userData)
+        .returning();
+      return newUser;
+    });
   }
 
   async getAllUsers(): Promise<User[]> {

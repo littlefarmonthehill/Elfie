@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { AppSettings } from "@shared/schema";
+import type { AppSettings, User } from "@shared/schema";
 import { APP_VERSION, APP_NAME } from "@shared/version";
-import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw } from "lucide-react";
+import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,10 +16,172 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { EmbeddingsManager } from "@/components/EmbeddingsManager";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 
 interface SettingsModalProps {
   open: boolean;
   onClose: () => void;
+}
+
+// User Management Section Component (Admin Only)
+function UserManagementSection() {
+  const { toast } = useToast();
+  const { isAdmin } = useAuth();
+  
+  // Early return if not admin (defense in depth)
+  if (!isAdmin) {
+    return null;
+  }
+  
+  const { data: users, isLoading, isError } = useQuery<User[]>({
+    queryKey: ['/api/admin/users'],
+    enabled: isAdmin, // Only fetch if user is admin
+  });
+
+  // Show error state if query fails
+  if (isError) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center space-y-2">
+          <AlertTriangle className="h-8 w-8 text-red-400 mx-auto" />
+          <p className="text-sm text-red-400">Access Denied</p>
+          <p className="text-xs text-gray-400">You don't have permission to manage users.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const updateUserApprovalMutation = useMutation({
+    mutationFn: async ({ userId, isApproved }: { userId: string; isApproved: boolean }) => {
+      return await apiRequest('PATCH', `/api/admin/users/${userId}/approval`, { isApproved });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      toast({
+        title: "User Updated",
+        description: "User approval status has been updated successfully.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update user approval status.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-purple-500 border-t-transparent" />
+          <p className="text-xs text-gray-400">Loading users...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4 min-h-[400px]">
+      <div>
+        <h3 className="text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
+          <Users className="h-4 w-4 text-purple-400" />
+          User Management
+        </h3>
+        <p className="text-xs text-gray-400 mb-4">Manage user access and approvals for PlanetBrick</p>
+
+        <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 mb-4">
+          <p className="text-xs text-blue-300">
+            <strong>Note:</strong> Users must be approved before they can access the platform. New users will see a pending approval page after logging in.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          {users && users.length > 0 ? (
+            users.map((user) => (
+              <div
+                key={user.id}
+                className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 flex items-center justify-between hover-elevate"
+                data-testid={`user-card-${user.id}`}
+              >
+                <div className="flex items-center gap-3 flex-1">
+                  {user.profileImageUrl ? (
+                    <img
+                      src={user.profileImageUrl}
+                      alt={`${user.firstName} ${user.lastName}`}
+                      className="h-10 w-10 rounded-full"
+                    />
+                  ) : (
+                    <div className="h-10 w-10 rounded-full bg-purple-500/20 flex items-center justify-center">
+                      <Users className="h-5 w-5 text-purple-400" />
+                    </div>
+                  )}
+                  
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-gray-200">
+                        {user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : 'Unknown User'}
+                      </p>
+                      {user.role === 'admin' && (
+                        <span className="text-[10px] bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full border border-purple-500/30">
+                          Admin
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-400">{user.email || 'No email'}</p>
+                    <p className="text-[10px] text-gray-500">
+                      Joined: {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Unknown'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {user.isApproved ? (
+                    <>
+                      <span className="text-xs text-green-400 flex items-center gap-1">
+                        <CheckCircle2 className="h-4 w-4" />
+                        Approved
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => updateUserApprovalMutation.mutate({ userId: user.id, isApproved: false })}
+                        disabled={updateUserApprovalMutation.isPending}
+                        data-testid={`button-revoke-${user.id}`}
+                      >
+                        Revoke
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-xs text-orange-400 flex items-center gap-1">
+                        <AlertTriangle className="h-4 w-4" />
+                        Pending
+                      </span>
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={() => updateUserApprovalMutation.mutate({ userId: user.id, isApproved: true })}
+                        disabled={updateUserApprovalMutation.isPending}
+                        data-testid={`button-approve-${user.id}`}
+                      >
+                        Approve
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="text-center py-8 text-gray-400 text-sm">
+              No users found
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // Device detection helper
@@ -376,7 +538,8 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
     }
   };
 
-  const [activeSection, setActiveSection] = useState<'general' | 'platforms' | 'ai' | 'automation' | 'data'>('general');
+  const { isAdmin } = useAuth();
+  const [activeSection, setActiveSection] = useState<'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'users'>('general');
 
   const navigationItems = [
     { id: 'general' as const, label: 'General', icon: Settings },
@@ -384,6 +547,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
     { id: 'ai' as const, label: 'AI & Intelligence', icon: Sparkles },
     { id: 'automation' as const, label: 'Automation', icon: Clock },
     { id: 'data' as const, label: 'Backup & Clear', icon: Database },
+    ...(isAdmin ? [{ id: 'users' as const, label: 'User Management', icon: Users }] : []),
   ];
 
   return (
@@ -1403,6 +1567,11 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                   </div>
                 </div>
               </div>
+            )}
+
+            {/* User Management (Admin Only) */}
+            {activeSection === 'users' && isAdmin && (
+              <UserManagementSection />
             )}
             </div>
           </div>
