@@ -9,6 +9,14 @@ export interface RebrickableImageSyncResult {
   errors: number;
 }
 
+export interface BulkImageSyncResult {
+  totalBatches: number;
+  totalImagesProcessed: number;
+  totalImagesFetched: number;
+  totalErrors: number;
+  completed: boolean;
+}
+
 const REBRICKABLE_API_KEY = process.env.REBRICKABLE_API_KEY;
 const REBRICKABLE_API_BASE = 'https://rebrickable.com/api/v3';
 
@@ -151,6 +159,74 @@ export async function syncRebrickableImages(): Promise<RebrickableImageSyncResul
     
   } catch (error) {
     console.error('[Rebrickable Images] Sync failed:', error);
+    throw error;
+  }
+}
+
+// Bulk sync: keep fetching images until all items have them
+export async function bulkSyncRebrickableImages(maxBatches: number = 500): Promise<BulkImageSyncResult> {
+  console.log('[Rebrickable Images] Starting BULK image sync...');
+  
+  if (!REBRICKABLE_API_KEY) {
+    console.error('[Rebrickable Images] REBRICKABLE_API_KEY not set in environment variables');
+    return {
+      totalBatches: 0,
+      totalImagesProcessed: 0,
+      totalImagesFetched: 0,
+      totalErrors: 1,
+      completed: false,
+    };
+  }
+
+  let totalBatches = 0;
+  let totalImagesProcessed = 0;
+  let totalImagesFetched = 0;
+  let totalErrors = 0;
+  let hasMoreImages = true;
+
+  try {
+    while (hasMoreImages && totalBatches < maxBatches) {
+      totalBatches++;
+      
+      console.log(`[Rebrickable Images] 🔄 Starting batch ${totalBatches}/${maxBatches}...`);
+      
+      // Run one batch sync
+      const batchResult = await syncRebrickableImages();
+      
+      totalImagesProcessed += batchResult.imagesProcessed;
+      totalImagesFetched += batchResult.imagesFetched;
+      totalErrors += batchResult.errors;
+      
+      // Check if there are more images to fetch
+      if (batchResult.imagesProcessed === 0) {
+        hasMoreImages = false;
+        console.log('[Rebrickable Images] ✅ No more images to fetch - bulk sync complete!');
+      } else {
+        console.log(`[Rebrickable Images] 📊 Progress: ${totalImagesFetched} total images fetched across ${totalBatches} batches`);
+        
+        // Small delay between batches to be respectful to API
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+    }
+
+    const completed = !hasMoreImages;
+    
+    if (!completed) {
+      console.log(`[Rebrickable Images] ⚠️ Reached max batch limit (${maxBatches}). Some images may remain unfetched.`);
+    }
+
+    console.log(`[Rebrickable Images] 🎉 Bulk sync finished: ${totalBatches} batches, ${totalImagesFetched} images fetched, ${totalErrors} errors`);
+    
+    return {
+      totalBatches,
+      totalImagesProcessed,
+      totalImagesFetched,
+      totalErrors,
+      completed,
+    };
+    
+  } catch (error) {
+    console.error('[Rebrickable Images] Bulk sync failed:', error);
     throw error;
   }
 }
