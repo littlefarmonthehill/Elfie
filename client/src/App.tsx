@@ -7,6 +7,7 @@ import { useServiceWorker } from "@/hooks/use-service-worker";
 import { useAuth } from "@/hooks/useAuth";
 import Home from "@/pages/home";
 import Shop from "@/pages/shop";
+import Search from "@/pages/search";
 import Login from "@/pages/login";
 import Signup from "@/pages/signup";
 import PendingApproval from "@/pages/pending-approval";
@@ -32,6 +33,7 @@ function Router() {
     <Switch>
       {/* Public routes - anyone can access */}
       <Route path="/shop" component={Shop} />
+      <Route path="/search" component={Search} />
       <Route path="/login" component={Login} />
       <Route path="/signup" component={Signup} />
 

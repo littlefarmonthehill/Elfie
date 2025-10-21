@@ -6,6 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Search, ShoppingCart, ChevronRight, Sparkles, Plus, X, Minus } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useMutation } from "@tanstack/react-query";
+import { LogOut } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -617,6 +620,18 @@ export default function Shop() {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const { toast } = useToast();
 
+  // Logout mutation
+  const logoutMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/logout'),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
+      toast({
+        title: "Logged out",
+        description: "You have been logged out successfully",
+      });
+    },
+  });
+
   // Fetch real inventory data
   const { data: inventoryData, isLoading: inventoryLoading } = useQuery<{ lots: ProductLot[] }>({
     queryKey: ['/api/shop/inventory'],
@@ -628,6 +643,12 @@ export default function Shop() {
     totalParts: number;
   }>({
     queryKey: ['/api/shop/stats'],
+  });
+
+  // Check authentication status
+  const { data: user } = useQuery<any>({
+    queryKey: ['/api/auth/user'],
+    retry: false,
   });
 
   // Process lots to group by color
@@ -815,11 +836,25 @@ export default function Shop() {
                 )}
               </SheetContent>
             </Sheet>
-            <Link href="/login">
-              <Button variant="ghost" size="sm" className="text-cyan-300 text-[9px] md:text-sm h-8 md:h-10 px-2 md:px-3" data-testid="button-login-header">
-                Login
+            {user ? (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="text-cyan-300 text-[9px] md:text-sm h-8 md:h-10 px-2 md:px-3" 
+                onClick={() => logoutMutation.mutate()}
+                disabled={logoutMutation.isPending}
+                data-testid="button-logout-header"
+              >
+                <LogOut className="w-3 h-3 md:w-4 md:h-4 mr-1" />
+                Logout
               </Button>
-            </Link>
+            ) : (
+              <Link href="/login">
+                <Button variant="ghost" size="sm" className="text-cyan-300 text-[9px] md:text-sm h-8 md:h-10 px-2 md:px-3" data-testid="button-login-header">
+                  Login
+                </Button>
+              </Link>
+            )}
             </div>
           </div>
 

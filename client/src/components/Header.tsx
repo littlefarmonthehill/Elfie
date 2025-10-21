@@ -1,6 +1,9 @@
-import { Settings } from "lucide-react";
+import { Settings, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import elfieRobot from "@assets/PlanetBrick_good_robot_1760672362080.png";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 interface HeaderProps {
   onSettingsClick: () => void;
@@ -8,6 +11,22 @@ interface HeaderProps {
 }
 
 export default function Header({ onSettingsClick, onElfieClick }: HeaderProps) {
+  const { toast } = useToast();
+
+  // Logout mutation
+  const logoutMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/logout'),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
+      toast({
+        title: "Logged out",
+        description: "You have been logged out successfully",
+      });
+      // Redirect to login page
+      window.location.href = '/login';
+    },
+  });
+
   return (
     <header className="h-14 md:h-20 lg:h-24 border-b border-gray-800 flex items-center justify-between px-4 md:px-8 lg:px-10 bg-gradient-to-r from-blue-950 to-black relative">
       {/* Elfie Icon - Left */}
@@ -37,16 +56,30 @@ export default function Header({ onSettingsClick, onElfieClick }: HeaderProps) {
         PlanetBrick
       </h1>
 
-      {/* Settings - Right */}
-      <Button
-        size="icon"
-        variant="ghost"
-        onClick={onSettingsClick}
-        data-testid="button-settings"
-        className="md:h-12 md:w-12 lg:h-14 lg:w-14"
-      >
-        <Settings className="h-4 w-4 md:h-6 md:w-6 lg:h-7 lg:w-7" />
-      </Button>
+      {/* Settings & Logout - Right */}
+      <div className="flex items-center gap-2">
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={() => logoutMutation.mutate()}
+          disabled={logoutMutation.isPending}
+          data-testid="button-logout"
+          className="md:h-12 md:w-12 lg:h-14 lg:w-14"
+          title="Logout"
+        >
+          <LogOut className="h-4 w-4 md:h-6 md:w-6 lg:h-7 lg:w-7" />
+        </Button>
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={onSettingsClick}
+          data-testid="button-settings"
+          className="md:h-12 md:w-12 lg:h-14 lg:w-14"
+          title="Settings"
+        >
+          <Settings className="h-4 w-4 md:h-6 md:w-6 lg:h-7 lg:w-7" />
+        </Button>
+      </div>
     </header>
   );
 }
