@@ -420,19 +420,30 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
       >
         <div>
           <div
-            className="w-full aspect-square rounded-md mb-2 md:mb-3 flex items-center justify-center border border-gray-700/50 relative overflow-hidden bg-gray-800/50"
+            className="w-full aspect-square rounded-md mb-2 md:mb-3 flex items-center justify-center border border-gray-700/50 relative overflow-hidden"
             style={{
-              background: lot.imageUrl ? '#1a1a1a' : `linear-gradient(135deg, ${primaryColor.colorHex}60 0%, ${primaryColor.colorHex}30 100%)`,
+              background: lot.imageUrl 
+                ? 'radial-gradient(ellipse at 30% 30%, #1e3a8a 0%, #0f172a 50%, #000000 100%)'
+                : `linear-gradient(135deg, ${primaryColor.colorHex}60 0%, ${primaryColor.colorHex}30 100%)`,
               boxShadow: `0 4px 16px ${primaryColor.colorHex}40`
             }}
           >
             {lot.imageUrl ? (
-              <img 
-                src={lot.imageUrl} 
-                alt={lot.name}
-                className="w-full h-full object-contain p-1 md:p-2"
-                data-testid={`img-part-${lot.id}`}
-              />
+              <>
+                <div className="absolute inset-0 opacity-40">
+                  <div className="absolute top-[10%] left-[15%] w-8 h-8 md:w-16 md:h-16 bg-cyan-500/30 rounded-full blur-xl animate-pulse" style={{ animationDelay: '0s', animationDuration: '3s' }} />
+                  <div className="absolute bottom-[20%] right-[20%] w-6 h-6 md:w-12 md:h-12 bg-blue-400/30 rounded-full blur-lg animate-pulse" style={{ animationDelay: '1s', animationDuration: '4s' }} />
+                  <div className="absolute top-[60%] left-[70%] w-4 h-4 md:w-8 md:h-8 bg-purple-400/20 rounded-full blur-md animate-pulse" style={{ animationDelay: '2s', animationDuration: '5s' }} />
+                </div>
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-cyan-500/5" />
+                <img 
+                  src={lot.imageUrl} 
+                  alt={lot.name}
+                  className="w-full h-full object-contain p-1 md:p-2 relative z-10 drop-shadow-2xl"
+                  style={{ filter: 'drop-shadow(0 0 8px rgba(6, 182, 212, 0.3))' }}
+                  data-testid={`img-part-${lot.id}`}
+                />
+              </>
             ) : (
               <>
                 <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-transparent to-cyan-500/10" />
@@ -486,11 +497,23 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
           <div className="flex-1 overflow-y-auto pr-0.5 mt-1.5">
             {lot.imageUrl && (
               <div className="mb-3 flex justify-center">
-                <div className="w-32 h-32 md:w-48 md:h-48 rounded-lg bg-gray-900/40 border border-white/10 flex items-center justify-center p-2">
+                <div 
+                  className="w-32 h-32 md:w-48 md:h-48 rounded-lg border border-white/10 flex items-center justify-center p-2 relative overflow-hidden"
+                  style={{
+                    background: 'radial-gradient(ellipse at center, #1e3a8a 0%, #0f172a 50%, #000000 100%)'
+                  }}
+                >
+                  <div className="absolute inset-0 opacity-50">
+                    <div className="absolute top-[15%] left-[10%] w-12 md:w-20 h-12 md:h-20 bg-cyan-500/30 rounded-full blur-2xl animate-pulse" style={{ animationDelay: '0s', animationDuration: '3s' }} />
+                    <div className="absolute bottom-[15%] right-[15%] w-10 md:w-16 h-10 md:h-16 bg-blue-400/30 rounded-full blur-xl animate-pulse" style={{ animationDelay: '1.5s', animationDuration: '4s' }} />
+                    <div className="absolute top-[50%] right-[60%] w-6 md:w-10 h-6 md:h-10 bg-purple-400/20 rounded-full blur-lg animate-pulse" style={{ animationDelay: '3s', animationDuration: '5s' }} />
+                  </div>
+                  <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-cyan-500/5" />
                   <img 
                     src={lot.imageUrl} 
                     alt={lot.name}
-                    className="w-full h-full object-contain"
+                    className="w-full h-full object-contain relative z-10"
+                    style={{ filter: 'drop-shadow(0 0 12px rgba(6, 182, 212, 0.4))' }}
                     data-testid={`img-modal-${lot.id}`}
                   />
                 </div>
