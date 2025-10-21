@@ -529,39 +529,45 @@ interface HorizontalRowProps {
   lots: ProductLot[];
   categoryId: string;
   onAddToCart: (item: any, quantity: number) => void;
+  bandColor: string;
 }
 
-function HorizontalRow({ title, lots, categoryId, onAddToCart }: HorizontalRowProps) {
+function HorizontalRow({ title, lots, categoryId, onAddToCart, bandColor }: HorizontalRowProps) {
   const [openLotId, setOpenLotId] = useState<number | null>(null);
 
   return (
-    <section className="py-3 md:py-6">
-      <div className="px-3 md:px-6 mb-2 md:mb-4 flex items-center justify-between">
-        <h2 className="text-sm md:text-2xl font-bold text-white flex items-center gap-1.5 md:gap-3">
-          <Sparkles className="w-4 h-4 md:w-6 md:h-6 text-pink-400" />
-          {title}
-        </h2>
-        {lots.length > 12 && (
-          <Link href={`/search?category=${categoryId}`}>
-            <button className="text-[10px] md:text-base text-cyan-400 hover:text-cyan-300 flex items-center gap-1 md:gap-1.5" data-testid={`button-more-${categoryId}`}>
-              More
-              <ChevronRight className="w-3 h-3 md:w-5 md:h-5" />
-            </button>
-          </Link>
-        )}
-      </div>
+    <section className="py-6 md:py-8 relative">
+      {/* Colorful Band Background */}
+      <div className={`absolute inset-0 bg-gradient-to-r ${bandColor} opacity-10`} />
       
-      <div className="overflow-x-auto scrollbar-hide">
-        <div className="flex gap-2 md:gap-4 px-3 md:px-6">
-          {lots.slice(0, 12).map((lot) => (
-            <LotCard
-              key={lot.id}
-              lot={lot}
-              isOpen={openLotId === lot.id}
-              onOpenChange={(open) => setOpenLotId(open ? lot.id : null)}
-              onAddToCart={onAddToCart}
-            />
-          ))}
+      <div className="relative z-10">
+        <div className="px-3 md:px-6 mb-4 md:mb-6 flex items-center justify-between">
+          <h2 className={`text-2xl md:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r ${bandColor} flex items-center gap-2 md:gap-4`}>
+            <Sparkles className="w-6 h-6 md:w-8 md:h-8 text-white drop-shadow-lg" />
+            {title}
+          </h2>
+          {lots.length > 12 && (
+            <Link href={`/search?category=${categoryId}`}>
+              <button className={`text-sm md:text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r ${bandColor} hover:opacity-80 flex items-center gap-1.5 md:gap-2 transition-opacity`} data-testid={`button-more-${categoryId}`}>
+                More
+                <ChevronRight className="w-5 h-5 md:w-6 md:h-6" />
+              </button>
+            </Link>
+          )}
+        </div>
+      
+        <div className="overflow-x-auto scrollbar-hide">
+          <div className="flex gap-2 md:gap-4 px-3 md:px-6">
+            {lots.slice(0, 12).map((lot) => (
+              <LotCard
+                key={lot.id}
+                lot={lot}
+                isOpen={openLotId === lot.id}
+                onOpenChange={(open) => setOpenLotId(open ? lot.id : null)}
+                onAddToCart={onAddToCart}
+              />
+            ))}
+          </div>
         </div>
       </div>
     </section>
@@ -667,50 +673,33 @@ export default function Shop() {
       </div>
 
       <div className="relative z-10">
-        {/* Admin-style Header - Bigger */}
-        <header className="sticky top-0 z-50 h-14 md:h-20 lg:h-24 border-b border-purple-500/30 flex items-center justify-between px-3 md:px-6 lg:px-8 bg-gradient-to-r from-purple-950/90 via-blue-950/80 to-purple-950/90 backdrop-blur-xl">
-          {/* Elfie Icon - Left */}
-          <button
-            data-testid="button-elfie"
-            className="relative group cursor-pointer flex items-center gap-2 md:gap-3"
-          >
-            <div className="relative">
-              <div className="absolute inset-0 rounded-full bg-purple-500/30 blur-md animate-pulse group-hover:bg-purple-400/40 transition-all duration-300" />
-              <div className="relative w-9 h-9 md:w-14 md:h-14 lg:w-16 lg:h-16 rounded-full bg-purple-500/20 border-2 border-purple-500/50 flex items-center justify-center group-hover:border-purple-400/70 group-hover:scale-110 transition-all duration-300">
-                <img 
-                  src={elfieRobot} 
-                  alt="E.L.F.I.E." 
-                  className="w-7 h-7 md:w-12 md:h-12 lg:w-14 lg:h-14 object-contain"
-                />
-              </div>
-              <div className="absolute inset-0 rounded-full border-2 border-purple-500/0 group-hover:border-purple-500/30 group-hover:scale-150 transition-all duration-500 opacity-0 group-hover:opacity-100" />
+        {/* Redesigned Header with Logo, Stats, Cart, Login */}
+        <header className="sticky top-0 z-50 bg-gradient-to-r from-purple-950/95 via-blue-950/90 to-purple-950/95 backdrop-blur-xl border-b border-purple-500/30">
+          {/* Top Row: Logo centered, Cart & Login on right */}
+          <div className="px-4 md:px-8 py-4 md:py-6 flex items-center justify-between">
+            {/* PlanetBrick Logo - Left/Center */}
+            <div className="flex-1 flex justify-start md:justify-center">
+              <img 
+                src={planetBrickLogo} 
+                alt="PlanetBrick" 
+                className="h-16 md:h-24 lg:h-32 w-auto object-contain drop-shadow-2xl"
+                data-testid="logo-planetbrick"
+              />
             </div>
-            <span className="text-cyan-300 font-semibold text-xs md:text-base lg:text-lg">Elfie</span>
-          </button>
 
-          {/* PlanetBrick Logo - Centered with Overlap Effect */}
-          <div className="absolute left-1/2 transform -translate-x-1/2 top-2 md:top-3 lg:top-4 z-[60]">
-            <img 
-              src={planetBrickLogo} 
-              alt="PlanetBrick" 
-              className="h-24 md:h-40 lg:h-48 w-auto object-contain drop-shadow-2xl"
-              data-testid="logo-planetbrick"
-            />
-          </div>
-
-          {/* Cart & Login - Right */}
-          <div className="flex items-center gap-1.5 md:gap-3">
-            <Sheet open={isCartOpen} onOpenChange={setIsCartOpen}>
-              <SheetTrigger asChild>
-                <Button size="icon" variant="ghost" className="text-cyan-300 h-9 w-9 md:h-12 md:w-12 relative" data-testid="button-cart">
-                  <ShoppingCart className="w-5 h-5 md:w-7 md:h-7" />
-                  {cartCount > 0 && (
-                    <Badge className="absolute -top-1 -right-1 h-5 w-5 md:h-6 md:w-6 flex items-center justify-center p-0 text-[8px] md:text-[10px] bg-cyan-500 border-none">
-                      {cartCount}
-                    </Badge>
-                  )}
-                </Button>
-              </SheetTrigger>
+            {/* Cart & Login - Right */}
+            <div className="flex items-center gap-2 md:gap-4">
+              <Sheet open={isCartOpen} onOpenChange={setIsCartOpen}>
+                <SheetTrigger asChild>
+                  <Button size="icon" variant="ghost" className="text-cyan-300 h-10 w-10 md:h-14 md:w-14 relative hover-elevate" data-testid="button-cart">
+                    <ShoppingCart className="w-6 h-6 md:w-8 md:h-8" />
+                    {cartCount > 0 && (
+                      <Badge className="absolute -top-1 -right-1 h-6 w-6 md:h-7 md:w-7 flex items-center justify-center p-0 text-[10px] md:text-xs bg-cyan-500 border-none font-bold">
+                        {cartCount}
+                      </Badge>
+                    )}
+                  </Button>
+                </SheetTrigger>
               <SheetContent className="w-full sm:max-w-lg bg-gray-900 border-purple-500/30">
                 <SheetHeader>
                   <SheetTitle className="text-white">Shopping Cart</SheetTitle>
@@ -777,27 +766,32 @@ export default function Shop() {
               </Button>
             </Link>
           </div>
-        </header>
-
-        {/* Inventory Stats Banner - Admin Style - Bigger */}
-        <div className="sticky top-14 md:top-20 lg:top-24 z-40 px-3 md:px-6 lg:px-8 py-2 md:py-4 lg:py-5 bg-gradient-to-r from-pink-950/40 via-purple-950/30 to-cyan-950/40 border-b border-purple-500/30 backdrop-blur-xl">
-          <div className="flex items-center justify-center gap-4 md:gap-8 text-xs md:text-base lg:text-lg">
-            <div className="flex items-center gap-1.5 md:gap-2.5">
-              <Sparkles className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-pink-400" />
-              <span className="font-bold text-white">{totalLots.toLocaleString()}</span>
-              <span className="text-gray-400">Unique Lots</span>
-            </div>
-            <div className="w-px h-4 md:h-5 lg:h-6 bg-purple-500/30" />
-            <div className="flex items-center gap-1.5 md:gap-2.5">
-              <Sparkles className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-cyan-400" />
-              <span className="font-bold text-white">{totalParts.toLocaleString()}</span>
-              <span className="text-gray-400">Total Parts</span>
+          </div>
+          
+          {/* Inventory Stats Row */}
+          <div className="px-4 md:px-8 py-3 md:py-4 bg-gradient-to-r from-pink-950/40 via-purple-950/30 to-cyan-950/40 border-t border-purple-500/20">
+            <div className="flex items-center justify-center gap-6 md:gap-12">
+              <div className="flex items-center gap-2 md:gap-3">
+                <Sparkles className="w-5 h-5 md:w-6 md:h-6 text-pink-400" />
+                <div className="text-left">
+                  <div className="text-xl md:text-3xl font-bold text-white">{totalLots.toLocaleString()}</div>
+                  <div className="text-xs md:text-sm text-gray-400">Unique Lots</div>
+                </div>
+              </div>
+              <div className="w-px h-12 md:h-14 bg-purple-500/30" />
+              <div className="flex items-center gap-2 md:gap-3">
+                <Sparkles className="w-5 h-5 md:w-6 md:h-6 text-cyan-400" />
+                <div className="text-left">
+                  <div className="text-xl md:text-3xl font-bold text-white">{totalParts.toLocaleString()}</div>
+                  <div className="text-xs md:text-sm text-gray-400">Total Parts</div>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
+        </header>
 
-        {/* Search Bar - Bigger */}
-        <div className="sticky top-[6.5rem] md:top-[8.5rem] lg:top-[10.25rem] z-30 bg-gradient-to-b from-gray-900/95 to-gray-950/95 backdrop-blur-xl px-3 md:px-6 py-2 md:py-3 border-b border-purple-500/20">
+        {/* Search Bar */}
+        <div className="sticky top-[5.5rem] md:top-[9rem] z-30 bg-gradient-to-b from-gray-900/95 to-gray-950/95 backdrop-blur-xl px-3 md:px-6 py-2 md:py-3 border-b border-purple-500/20">
           <div className="relative max-w-3xl mx-auto">
             <Search className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-gray-500" />
             <input
@@ -809,14 +803,14 @@ export default function Shop() {
           </div>
         </div>
 
-        {/* Netflix-style Horizontal Scrolling Rows */}
+        {/* Colorful Category Bands */}
         <div className="pb-4 md:pb-8">
-          <HorizontalRow title="Featured Profits" lots={featuredLots} categoryId="featured" onAddToCart={handleAddToCart} />
-          <HorizontalRow title="Bricks" lots={brickLots} categoryId="bricks" onAddToCart={handleAddToCart} />
-          <HorizontalRow title="Plates" lots={plateLots} categoryId="plates" onAddToCart={handleAddToCart} />
-          <HorizontalRow title="Tiles" lots={tileLots} categoryId="tiles" onAddToCart={handleAddToCart} />
-          <HorizontalRow title="Slopes" lots={slopeLots} categoryId="slopes" onAddToCart={handleAddToCart} />
-          <HorizontalRow title="Minifigs" lots={minifigLots} categoryId="minifigs" onAddToCart={handleAddToCart} />
+          <HorizontalRow title="Featured Products" lots={featuredLots} categoryId="featured" onAddToCart={handleAddToCart} bandColor="from-purple-600 via-pink-500 to-cyan-500" />
+          <HorizontalRow title="Bricks" lots={brickLots} categoryId="bricks" onAddToCart={handleAddToCart} bandColor="from-red-600 via-orange-500 to-yellow-500" />
+          <HorizontalRow title="Plates" lots={plateLots} categoryId="plates" onAddToCart={handleAddToCart} bandColor="from-blue-600 via-cyan-500 to-teal-500" />
+          <HorizontalRow title="Tiles" lots={tileLots} categoryId="tiles" onAddToCart={handleAddToCart} bandColor="from-green-600 via-emerald-500 to-lime-500" />
+          <HorizontalRow title="Slopes" lots={slopeLots} categoryId="slopes" onAddToCart={handleAddToCart} bandColor="from-indigo-600 via-purple-500 to-pink-500" />
+          <HorizontalRow title="Minifigs" lots={minifigLots} categoryId="minifigs" onAddToCart={handleAddToCart} bandColor="from-yellow-500 via-amber-500 to-orange-500" />
         </div>
 
         {/* Footer */}
@@ -833,6 +827,37 @@ export default function Shop() {
           </div>
         </footer>
       </div>
+
+      {/* Floating E.L.F.I.E. Chatbot Button - Bottom Right */}
+      <button
+        data-testid="button-elfie-chat"
+        className="fixed bottom-6 right-6 z-[70] group cursor-pointer"
+      >
+        <div className="relative">
+          {/* Pulsing glow effect */}
+          <div className="absolute inset-0 rounded-full bg-gradient-to-r from-purple-500 via-pink-500 to-cyan-500 blur-xl animate-pulse group-hover:blur-2xl transition-all duration-300 opacity-60" />
+          
+          {/* Main button */}
+          <div className="relative w-16 h-16 md:w-20 md:h-20 rounded-full bg-gradient-to-r from-purple-600 via-pink-500 to-cyan-500 border-4 border-white/20 flex items-center justify-center group-hover:scale-110 transition-all duration-300 shadow-2xl">
+            <img 
+              src={elfieRobot} 
+              alt="E.L.F.I.E." 
+              className="w-12 h-12 md:w-16 md:h-16 object-contain"
+            />
+          </div>
+
+          {/* Label */}
+          <div className="absolute -top-12 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
+            <div className="bg-gray-900 text-white px-3 py-1.5 rounded-lg text-sm font-bold border border-purple-500/50">
+              E.L.F.I.E.
+              <div className="text-[10px] text-gray-400">Inventory & Set Info</div>
+            </div>
+          </div>
+
+          {/* Orbital ring animation */}
+          <div className="absolute inset-0 rounded-full border-2 border-purple-500/30 group-hover:border-cyan-500/50 group-hover:scale-150 transition-all duration-700 opacity-0 group-hover:opacity-100" />
+        </div>
+      </button>
 
       <style>{`
         .scrollbar-hide::-webkit-scrollbar {
