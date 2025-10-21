@@ -334,6 +334,8 @@ export const appSettings = pgTable("app_settings", {
   ordersSyncFrequency: integer("orders_sync_frequency").default(15).notNull(), // minutes
   forumSyncEnabled: boolean("forum_sync_enabled").default(true).notNull(),
   forumSyncFrequency: integer("forum_sync_frequency").default(60).notNull(), // minutes
+  // Rebrickable Configuration
+  rebrickableImageSyncEnabled: boolean("rebrickable_image_sync_enabled").default(true).notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
