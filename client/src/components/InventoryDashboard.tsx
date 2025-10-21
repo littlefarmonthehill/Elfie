@@ -133,8 +133,8 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
       <div className="space-y-1.5">
         <div className="bg-gray-900/50 border border-blue-500/20 rounded-lg p-3" data-testid="section-inventory-info">
           <div className="flex items-center gap-2 mb-2">
-            <Package className="w-3.5 h-3.5 text-blue-400" />
-            <h3 className="text-[10px] md:text-sm font-semibold text-blue-400 uppercase tracking-wide">Inventory Info</h3>
+            <Package className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-blue-400" />
+            <h3 className="text-xs md:text-base lg:text-lg font-semibold text-blue-400 uppercase tracking-wide">Inventory Info</h3>
           </div>
           <div className="grid grid-cols-4 gap-1.5">
             <MetricCard label="Lots" value={stats ? formatNumber(stats.totalLots) : '0'} color="blue" data-testid="metric-lots" />
@@ -146,8 +146,8 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
 
         <div className="bg-gray-900/50 border border-cyan-500/20 rounded-lg p-3" data-testid="section-values">
           <div className="flex items-center gap-2 mb-2">
-            <TrendingUp className="w-3.5 h-3.5 text-cyan-400" />
-            <h3 className="text-[10px] md:text-sm font-semibold text-cyan-400 uppercase tracking-wide">Values</h3>
+            <TrendingUp className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-cyan-400" />
+            <h3 className="text-xs md:text-base lg:text-lg font-semibold text-cyan-400 uppercase tracking-wide">Values</h3>
             <Tooltip>
               <TooltipTrigger asChild>
                 <button className="text-gray-500 hover:text-gray-400" data-testid="button-cost-info">
