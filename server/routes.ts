@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { setupAuth, isAuthenticated, isApproved } from "./replitAuth";
 import { syncBricklinkData, fetchPriceOMagicData, searchBricklinkCatalogItem, syncPriceOMagicCache } from "./services/bricklink";
 import { syncShipStationOrders } from "./services/shipstation";
 import { syncBrickLinkToBrickOwl } from "./services/brickowl";
@@ -38,8 +39,64 @@ function decodeHtmlEntities(text: string | null | undefined): string {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Data Fetch Routes
-  app.get("/api/orders", async (req, res) => {
+  // Auth middleware setup - REQUIRED for Replit Auth
+  // Reference: blueprint:javascript_log_in_with_replit
+  await setupAuth(app);
+
+  // Auth routes - authenticated but may not be approved
+  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  // Admin routes - get all users and manage approvals
+  app.get('/api/admin/users', isApproved, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      // Only admins can access this
+      if (user?.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      
+      const users = await storage.getAllUsers();
+      res.json(users);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  app.patch('/api/admin/users/:id/approval', isApproved, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      // Only admins can access this
+      if (user?.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      
+      const { id } = req.params;
+      const { isApproved } = req.body;
+      
+      const updatedUser = await storage.updateUserApproval(id, isApproved);
+      res.json(updatedUser);
+    } catch (error) {
+      console.error("Error updating user approval:", error);
+      res.status(500).json({ message: "Failed to update user approval" });
+    }
+  });
+
+  // Data Fetch Routes - all protected by isApproved middleware
+  app.get("/api/orders", isApproved, async (req, res) => {
     try {
       // Parse date range parameter
       const range = req.query.range as string;
