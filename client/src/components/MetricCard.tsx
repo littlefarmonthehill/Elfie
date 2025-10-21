@@ -24,9 +24,9 @@ export default function MetricCard({ label, value, color = 'blue', className }: 
   }[color];
 
   return (
-    <Card className={cn("p-1.5 md:p-3 lg:p-4 bg-gray-900/50 border", colorClass, className)} data-testid={`metric-${label.toLowerCase().replace(/\s/g, '-')}`}>
-      <div className="text-[9px] md:text-xs lg:text-base text-gray-400 mb-0.5 md:mb-1 lg:mb-1.5 leading-tight">{label}</div>
-      <div className={cn("text-xs md:text-base lg:text-lg font-semibold font-mono", textColorClass)}>{value}</div>
+    <Card className={cn("p-1.5 md:p-4 lg:p-6 bg-gray-900/50 border", colorClass, className)} data-testid={`metric-${label.toLowerCase().replace(/\s/g, '-')}`}>
+      <div className="text-[9px] md:text-sm lg:text-lg text-gray-400 mb-0.5 md:mb-2 lg:mb-3 leading-tight">{label}</div>
+      <div className={cn("text-xs md:text-lg lg:text-2xl font-semibold font-mono", textColorClass)}>{value}</div>
     </Card>
   );
 }

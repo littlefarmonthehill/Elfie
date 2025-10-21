@@ -17,7 +17,7 @@ const dashboards = [
 
 export default function DashboardNav({ active, onSelect }: DashboardNavProps) {
   return (
-    <nav className="h-10 md:h-12 lg:h-14 border-b border-gray-800 flex items-center gap-1 md:gap-3 lg:gap-4 px-2 md:px-6 lg:px-8 overflow-x-auto scrollbar-hide">
+    <nav className="h-10 md:h-14 lg:h-16 border-b border-gray-800 flex items-center gap-1 md:gap-4 lg:gap-5 px-2 md:px-8 lg:px-10 overflow-x-auto scrollbar-hide">
       {dashboards.map((dashboard) => {
         const isActive = active === dashboard.id;
         const bgColor = `bg-${dashboard.color}`;
@@ -29,7 +29,7 @@ export default function DashboardNav({ active, onSelect }: DashboardNavProps) {
             onClick={() => onSelect(dashboard.id)}
             data-testid={`tab-${dashboard.id}`}
             className={cn(
-              "px-3 md:px-5 lg:px-6 py-1.5 md:py-2 lg:py-2.5 rounded-full text-xs md:text-sm lg:text-base font-semibold whitespace-nowrap transition-all",
+              "px-3 md:px-6 lg:px-8 py-1.5 md:py-2.5 lg:py-3 rounded-full text-xs md:text-base lg:text-lg font-semibold whitespace-nowrap transition-all",
               isActive && dashboard.color === 'lego-red' && "bg-lego-red text-white",
               !isActive && dashboard.color === 'lego-red' && "text-lego-red/60 hover:bg-lego-red/30",
               isActive && dashboard.color === 'lego-blue' && "bg-lego-blue text-white",

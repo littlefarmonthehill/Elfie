@@ -9,7 +9,7 @@ interface HeaderProps {
 
 export default function Header({ onSettingsClick, onElfieClick }: HeaderProps) {
   return (
-    <header className="h-14 md:h-16 lg:h-20 border-b border-gray-800 flex items-center justify-between px-4 md:px-6 lg:px-8 bg-gradient-to-r from-blue-950 to-black relative">
+    <header className="h-14 md:h-20 lg:h-24 border-b border-gray-800 flex items-center justify-between px-4 md:px-8 lg:px-10 bg-gradient-to-r from-blue-950 to-black relative">
       {/* Elfie Icon - Left */}
       <button
         onClick={onElfieClick}
@@ -20,11 +20,11 @@ export default function Header({ onSettingsClick, onElfieClick }: HeaderProps) {
         <div className="absolute inset-0 rounded-full bg-purple-500/30 blur-lg animate-pulse group-hover:bg-purple-400/40 transition-all duration-300" />
         
         {/* Robot icon */}
-        <div className="relative w-10 h-10 md:w-12 md:h-12 lg:w-14 lg:h-14 rounded-full bg-purple-500/20 border-2 border-purple-500/50 flex items-center justify-center group-hover:border-purple-400/70 group-hover:scale-110 transition-all duration-300">
+        <div className="relative w-10 h-10 md:w-14 md:h-14 lg:w-16 lg:h-16 rounded-full bg-purple-500/20 border-2 border-purple-500/50 flex items-center justify-center group-hover:border-purple-400/70 group-hover:scale-110 transition-all duration-300">
           <img 
             src={elfieRobot} 
             alt="E.L.F.I.E. AI Assistant" 
-            className="w-8 h-8 md:w-10 md:h-10 lg:w-12 lg:h-12 object-contain"
+            className="w-8 h-8 md:w-12 md:h-12 lg:w-14 lg:h-14 object-contain"
           />
         </div>
         
@@ -33,7 +33,7 @@ export default function Header({ onSettingsClick, onElfieClick }: HeaderProps) {
       </button>
 
       {/* App Name - Centered */}
-      <h1 className="absolute left-1/2 transform -translate-x-1/2 text-base md:text-lg lg:text-xl font-bold text-foreground">
+      <h1 className="absolute left-1/2 transform -translate-x-1/2 text-base md:text-2xl lg:text-3xl font-bold text-foreground">
         PlanetBrick
       </h1>
 
@@ -43,9 +43,9 @@ export default function Header({ onSettingsClick, onElfieClick }: HeaderProps) {
         variant="ghost"
         onClick={onSettingsClick}
         data-testid="button-settings"
-        className="md:h-10 md:w-10 lg:h-12 lg:w-12"
+        className="md:h-12 md:w-12 lg:h-14 lg:w-14"
       >
-        <Settings className="h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6" />
+        <Settings className="h-4 w-4 md:h-6 md:w-6 lg:h-7 lg:w-7" />
       </Button>
     </header>
   );

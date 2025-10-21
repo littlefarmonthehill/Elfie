@@ -375,7 +375,7 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, br
       
       {/* Always show the AI's text response when present */}
       {content && content.trim().length > 0 && (
-        <div className="space-y-1 bg-gray-800/80 text-gray-300 border border-purple-500/20 p-3 rounded-lg">
+        <div className="space-y-1 bg-gray-800/80 text-gray-300 border border-purple-500/20 p-3 md:p-4 lg:p-5 rounded-lg text-sm md:text-base lg:text-lg">
           {parseContent(content)}
         </div>
       )}
@@ -829,21 +829,21 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
       className={`flex flex-col ${isMinimized ? 'min-h-16' : 'h-full'} border-t-4 ${colors.border} bg-gradient-to-br ${colors.gradient} to-transparent ${colors.glow}`}
     >
       <div 
-        className={`flex items-center justify-between gap-2 p-3 border-b-2 ${colors.border} ${colors.headerBg} backdrop-blur-sm`}
+        className={`flex items-center justify-between gap-2 md:gap-3 lg:gap-4 p-3 md:p-4 lg:p-5 border-b-2 ${colors.border} ${colors.headerBg} backdrop-blur-sm`}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 px-2 py-1 rounded-full bg-purple-500/20 border border-purple-500/30">
+        <div className="flex items-center gap-2 md:gap-3 lg:gap-4">
+          <div className="flex items-center gap-2 md:gap-3 px-2 md:px-3 py-1 md:py-1.5 rounded-full bg-purple-500/20 border border-purple-500/30">
             <img 
               src={elfieRobot} 
               alt="Elfie Robot" 
-              className="h-6 w-6 md:h-7 md:w-7 lg:h-8 lg:w-8 object-contain"
+              className="h-6 w-6 md:h-8 md:w-8 lg:h-10 lg:w-10 object-contain"
             />
-            <span className="text-sm font-bold text-purple-300">E.L.F.I.E.</span>
+            <span className="text-sm md:text-lg lg:text-xl font-bold text-purple-300">E.L.F.I.E.</span>
           </div>
-          <span className="text-xs text-gray-400">AI Assistant</span>
+          <span className="text-xs md:text-sm lg:text-base text-gray-400">AI Assistant</span>
         </div>
         {onToggleMinimize && (
           <Button
@@ -853,13 +853,13 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
               e.stopPropagation();
               onToggleMinimize();
             }}
-            className="h-7 w-7 hover:bg-purple-500/20"
+            className="h-7 w-7 md:h-10 md:w-10 lg:h-12 lg:w-12 hover:bg-purple-500/20"
             data-testid="button-toggle-chat"
           >
             {isMinimized ? (
-              <Maximize2 className={`h-4 w-4 ${colors.icon}`} />
+              <Maximize2 className={`h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6 ${colors.icon}`} />
             ) : (
-              <Minimize2 className={`h-4 w-4 ${colors.icon}`} />
+              <Minimize2 className={`h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6 ${colors.icon}`} />
             )}
           </Button>
         )}
@@ -870,15 +870,15 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
         <>
           {/* Use native scrolling to avoid iOS keyboard issues */}
           <div 
-            className="flex-1 p-4 overflow-y-auto" 
+            className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto" 
             style={{ WebkitOverflowScrolling: 'touch' }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="space-y-4">
+            <div className="space-y-4 md:space-y-5 lg:space-y-6">
               {messages.map((message, i) => (
                 <div
                   key={i}
-                  className={`flex gap-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                  className={`flex gap-2 md:gap-3 lg:gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                   data-testid={`message-${message.role}-${i}`}
                 >
                   {/* Show Elfie avatar for assistant messages */}
@@ -887,14 +887,14 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
                       <img 
                         src={elfieRobot} 
                         alt="Elfie" 
-                        className="h-8 w-8 md:h-9 md:w-9 lg:h-10 lg:w-10 object-contain"
+                        className="h-8 w-8 md:h-10 md:w-10 lg:h-12 lg:w-12 object-contain"
                       />
                     </div>
                   )}
                   <div
-                    className={`max-w-[80%] rounded-lg text-sm ${
+                    className={`max-w-[80%] rounded-lg text-sm md:text-base lg:text-lg ${
                       message.role === 'user'
-                        ? colors.userBg + ' text-white p-3'
+                        ? colors.userBg + ' text-white p-3 md:p-4 lg:p-5'
                         : 'text-gray-300' // Assistant messages - MessageContent handles its own styling
                     }`}
                   >
@@ -919,16 +919,16 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
               
               {/* Thinking indicator when loading */}
               {isLoading && (
-                <div className="flex gap-2 justify-start" data-testid="thinking-indicator">
+                <div className="flex gap-2 md:gap-3 lg:gap-4 justify-start" data-testid="thinking-indicator">
                   <div className="flex-shrink-0">
                     <img 
                       src={elfieRobot} 
                       alt="Elfie thinking" 
-                      className="h-8 w-8 md:h-9 md:w-9 lg:h-10 lg:w-10 object-contain animate-bounce"
+                      className="h-8 w-8 md:h-10 md:w-10 lg:h-12 lg:w-12 object-contain animate-bounce"
                     />
                   </div>
-                  <div className="max-w-[80%] rounded-lg p-3 bg-purple-500/10 border border-purple-500/20">
-                    <div className="flex items-center gap-2 text-xs text-purple-300">
+                  <div className="max-w-[80%] rounded-lg p-3 md:p-4 lg:p-5 bg-purple-500/10 border border-purple-500/20">
+                    <div className="flex items-center gap-2 md:gap-3 text-xs md:text-sm lg:text-base text-purple-300">
                       <span>E.L.F.I.E. is thinking</span>
                       <div className="flex gap-1">
                         <span className="animate-pulse">.</span>
@@ -945,7 +945,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
           </div>
           
           <div className={`border-t-2 ${colors.border} bg-gray-900/50 backdrop-blur-sm`}>
-            <div className="flex gap-2 p-3">
+            <div className="flex gap-2 md:gap-3 lg:gap-4 p-3 md:p-4 lg:p-5">
               <input
                 ref={fileInputRef}
                 type="file"
@@ -961,12 +961,12 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
                   fileInputRef.current?.click();
                 }}
                 variant="ghost"
-                className="text-purple-400 hover:text-purple-300 hover:bg-purple-500/20"
+                className="text-purple-400 hover:text-purple-300 hover:bg-purple-500/20 md:h-12 md:w-12 lg:h-14 lg:w-14"
                 data-testid="button-camera"
                 disabled={isLoading}
                 title="Take photo or upload image"
               >
-                <Camera className="h-4 w-4" />
+                <Camera className="h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6" />
               </Button>
               <Input
                 ref={inputRef}
@@ -980,7 +980,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
                 onBlur={() => setIsInputFocused(false)}
                 onClick={(e) => e.stopPropagation()}
                 placeholder="Ask E.L.F.I.E. for help..."
-                className="text-sm bg-gray-800/80 border-purple-500/30 focus-visible:ring-purple-500/50"
+                className="text-sm md:text-base lg:text-lg bg-gray-800/80 border-purple-500/30 focus-visible:ring-purple-500/50"
                 data-testid="input-chat"
               />
               <Button 
@@ -989,14 +989,14 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
                   e.stopPropagation();
                   handleSend();
                 }}
-                className={colors.button} 
+                className={`${colors.button} md:h-12 md:w-12 lg:h-14 lg:w-14`} 
                 data-testid="button-send"
                 disabled={isLoading}
               >
                 {isLoading ? (
-                  <RefreshCcw className="h-4 w-4 animate-spin" />
+                  <RefreshCcw className="h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6 animate-spin" />
                 ) : (
-                  <Send className="h-4 w-4" />
+                  <Send className="h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6" />
                 )}
               </Button>
             </div>
@@ -1006,12 +1006,12 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
 
       {/* Always show prompts */}
       {prompts.length > 0 && (
-        <div className={`flex gap-2 flex-wrap p-3 ${!isMinimized ? 'border-t border-purple-500/20' : ''}`}>
+        <div className={`flex gap-2 md:gap-3 lg:gap-4 flex-wrap p-3 md:p-4 lg:p-5 ${!isMinimized ? 'border-t border-purple-500/20' : ''}`}>
           {prompts.map((prompt) => (
             <button
               key={prompt}
               onClick={() => handlePromptClick(prompt)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${colors.promptBg}`}
+              className={`px-3 md:px-4 lg:px-5 py-1.5 md:py-2 lg:py-2.5 rounded-full text-xs md:text-sm lg:text-base font-medium transition-all ${colors.promptBg}`}
               data-testid={`prompt-${prompt.toLowerCase().replace(/\s/g, '-')}`}
             >
               {prompt}

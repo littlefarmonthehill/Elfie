@@ -644,31 +644,31 @@ export default function Home() {
       )}
       
       {/* Sticky Dashboard Nav with soft gradient background */}
-      <div className="sticky top-14 md:top-16 lg:top-20 z-40 bg-gradient-to-r from-purple-950/40 via-blue-950/30 to-purple-950/40 backdrop-blur-sm">
+      <div className="sticky top-14 md:top-20 lg:top-24 z-40 bg-gradient-to-r from-purple-950/40 via-blue-950/30 to-purple-950/40 backdrop-blur-sm">
         <DashboardNav active={activeDashboard} onSelect={setActiveDashboard} />
       </div>
       
 
       {/* Tools Selector - Only show for inventory */}
       {activeDashboard === 'inventory' && (
-        <div className="sticky top-[calc(3.5rem+2.5rem)] md:top-[calc(4rem+3rem)] lg:top-[calc(5rem+3.5rem)] z-30 px-3 md:px-6 lg:px-8 py-2 md:py-3 lg:py-4 bg-gradient-to-r from-cyan-950/30 via-teal-950/20 to-cyan-950/30 border-b border-cyan-800/30 backdrop-blur-sm">
-          <div className="flex items-center justify-between gap-1.5 md:gap-3 lg:gap-4">
-            <div className="flex items-center gap-1.5 md:gap-3 lg:gap-4">
-              <div className="flex items-center gap-1 md:gap-2 lg:gap-2.5">
-                <Package className="h-3.5 w-3.5 md:h-4 md:w-4 lg:h-5 lg:w-5 text-gray-400" />
-                <span className="text-[10px] md:text-sm md:text-sm lg:text-base font-bold text-gray-400">TOOLS</span>
+        <div className="sticky top-24 md:top-[8.5rem] lg:top-40 z-30 px-3 md:px-8 lg:px-10 py-2 md:py-4 lg:py-5 bg-gradient-to-r from-cyan-950/30 via-teal-950/20 to-cyan-950/30 border-b border-cyan-800/30 backdrop-blur-sm">
+          <div className="flex items-center justify-between gap-1.5 md:gap-4 lg:gap-5">
+            <div className="flex items-center gap-1.5 md:gap-4 lg:gap-5">
+              <div className="flex items-center gap-1 md:gap-2.5 lg:gap-3">
+                <Package className="h-3.5 w-3.5 md:h-5 md:w-5 lg:h-6 lg:w-6 text-gray-400" />
+                <span className="text-[10px] md:text-base lg:text-lg font-bold text-gray-400">TOOLS</span>
               </div>
-              <div className="flex gap-1 md:gap-2 lg:gap-2.5">
+              <div className="flex gap-1 md:gap-3 lg:gap-4">
                 <button
                   onClick={() => setActiveInventoryDrawer('priceomatic')}
-                  className="text-[10px] md:text-sm md:text-sm lg:text-base font-bold py-1 md:py-1.5 lg:py-2 px-1.5 md:px-3 lg:px-4 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
+                  className="text-[10px] md:text-base lg:text-lg font-bold py-1 md:py-2 lg:py-2.5 px-1.5 md:px-4 lg:px-5 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
                   data-testid="button-priceomatic"
                 >
                   Price-O-Matic
                 </button>
                 <button
                   onClick={() => setActiveInventoryDrawer('warehouse')}
-                  className="text-[10px] md:text-sm md:text-sm lg:text-base font-bold py-1 md:py-1.5 lg:py-2 px-1.5 md:px-3 lg:px-4 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
+                  className="text-[10px] md:text-base lg:text-lg font-bold py-1 md:py-2 lg:py-2.5 px-1.5 md:px-4 lg:px-5 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
                   data-testid="button-warehouse"
                 >
                   Warehouse
@@ -677,13 +677,13 @@ export default function Home() {
             </div>
             <button
               onClick={() => setActiveInventoryDrawer('platformsync')}
-              className="relative flex items-center gap-1 md:gap-1.5 text-[10px] md:text-sm md:text-sm lg:text-base text-gray-400 hover:text-gray-300 transition-colors"
+              className="relative flex items-center gap-1 md:gap-2 text-[10px] md:text-base lg:text-lg text-gray-400 hover:text-gray-300 transition-colors"
               data-testid="button-platformsync"
             >
-              <RefreshCw className="h-3.5 w-3.5 md:h-4 md:w-4 lg:h-5 lg:w-5" />
+              <RefreshCw className="h-3.5 w-3.5 md:h-5 md:w-5 lg:h-6 lg:w-6" />
               <span className="font-medium">Sync</span>
               {totalDiscrepancies > 0 && (
-                <span className="absolute -top-1 -right-1 md:-top-1.5 md:-right-1.5 bg-yellow-500 text-black text-[9px] md:text-xs md:text-[11px] lg:text-xs font-bold rounded-full h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6 flex items-center justify-center">
+                <span className="absolute -top-1 -right-1 md:-top-2 md:-right-2 bg-yellow-500 text-black text-[9px] md:text-xs lg:text-sm font-bold rounded-full h-4 w-4 md:h-6 md:w-6 lg:h-7 lg:w-7 flex items-center justify-center">
                   {totalDiscrepancies}
                 </span>
               )}
@@ -694,41 +694,41 @@ export default function Home() {
 
       {/* Tools Selector - Only show for orders */}
       {activeDashboard === 'orders' && (
-        <div className="sticky top-[calc(3.5rem+2.5rem)] md:top-[calc(4rem+3rem)] lg:top-[calc(5rem+3.5rem)] z-30 px-3 md:px-6 lg:px-8 py-2 md:py-3 lg:py-4 bg-gradient-to-r from-orange-950/30 via-amber-950/20 to-orange-950/30 border-b border-orange-800/30 backdrop-blur-sm">
-          <div className="flex items-center justify-between gap-1.5 md:gap-3 lg:gap-4">
-            <div className="flex items-center gap-1.5 md:gap-3 lg:gap-4">
-              <div className="flex items-center gap-1 md:gap-2 lg:gap-2.5">
-                <ClipboardList className="h-3.5 w-3.5 md:h-4 md:w-4 lg:h-5 lg:w-5 text-gray-400" />
-                <span className="text-[10px] md:text-sm md:text-sm lg:text-base font-bold text-gray-400">TOOLS</span>
+        <div className="sticky top-24 md:top-[8.5rem] lg:top-40 z-30 px-3 md:px-8 lg:px-10 py-2 md:py-4 lg:py-5 bg-gradient-to-r from-orange-950/30 via-amber-950/20 to-orange-950/30 border-b border-orange-800/30 backdrop-blur-sm">
+          <div className="flex items-center justify-between gap-1.5 md:gap-4 lg:gap-5">
+            <div className="flex items-center gap-1.5 md:gap-4 lg:gap-5">
+              <div className="flex items-center gap-1 md:gap-2.5 lg:gap-3">
+                <ClipboardList className="h-3.5 w-3.5 md:h-5 md:w-5 lg:h-6 lg:w-6 text-gray-400" />
+                <span className="text-[10px] md:text-base lg:text-lg font-bold text-gray-400">TOOLS</span>
               </div>
-              <div className="flex gap-1 md:gap-2 lg:gap-2.5">
+              <div className="flex gap-1 md:gap-3 lg:gap-4">
                 <button
                   onClick={() => setActiveOrdersDrawer('picklist')}
-                  className="relative text-[10px] md:text-sm md:text-sm lg:text-base font-bold py-1 md:py-1.5 lg:py-2 px-1.5 md:px-3 lg:px-4 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
+                  className="relative text-[10px] md:text-base lg:text-lg font-bold py-1 md:py-2 lg:py-2.5 px-1.5 md:px-4 lg:px-5 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
                   data-testid="button-picklist"
                 >
                   Picklist
                   {picklistStats && (picklistStats.toPull + picklistStats.toReshelve) > 0 && (
-                    <span className="absolute -top-1 -right-1 md:-top-1.5 md:-right-1.5 bg-orange-500 text-white text-[9px] md:text-xs md:text-[11px] lg:text-xs font-bold rounded-full h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6 flex items-center justify-center">
+                    <span className="absolute -top-1 -right-1 md:-top-2 md:-right-2 bg-orange-500 text-white text-[9px] md:text-xs lg:text-sm font-bold rounded-full h-4 w-4 md:h-6 md:w-6 lg:h-7 lg:w-7 flex items-center justify-center">
                       {picklistStats.toPull + picklistStats.toReshelve}
                     </span>
                   )}
                 </button>
                 <button
                   onClick={() => setActiveOrdersDrawer('fulfillment')}
-                  className="relative text-[10px] md:text-sm md:text-sm lg:text-base font-bold py-1 md:py-1.5 lg:py-2 px-1.5 md:px-3 lg:px-4 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
+                  className="relative text-[10px] md:text-base lg:text-lg font-bold py-1 md:py-2 lg:py-2.5 px-1.5 md:px-4 lg:px-5 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
                   data-testid="button-fulfillment"
                 >
                   Fulfillment and Shipping
                   {fulfillmentStats && fulfillmentStats.unfulfilled > 0 && (
-                    <span className="absolute -top-1 -right-1 md:-top-1.5 md:-right-1.5 bg-green-500 text-white text-[9px] md:text-xs md:text-[11px] lg:text-xs font-bold rounded-full h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6 flex items-center justify-center">
+                    <span className="absolute -top-1 -right-1 md:-top-2 md:-right-2 bg-green-500 text-white text-[9px] md:text-xs lg:text-sm font-bold rounded-full h-4 w-4 md:h-6 md:w-6 lg:h-7 lg:w-7 flex items-center justify-center">
                       {fulfillmentStats.unfulfilled}
                     </span>
                   )}
                 </button>
                 <button
                   onClick={() => setActiveOrdersDrawer('shipped')}
-                  className="text-[10px] md:text-sm md:text-sm lg:text-base font-bold py-1 md:py-1.5 lg:py-2 px-1.5 md:px-3 lg:px-4 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
+                  className="text-[10px] md:text-base lg:text-lg font-bold py-1 md:py-2 lg:py-2.5 px-1.5 md:px-4 lg:px-5 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
                   data-testid="button-shipped"
                 >
                   Shipped
@@ -737,10 +737,10 @@ export default function Home() {
             </div>
             <button
               onClick={() => setActiveOrdersDrawer('platformsync')}
-              className="flex items-center gap-1 md:gap-1.5 text-[10px] md:text-sm md:text-sm lg:text-base text-gray-400 hover:text-gray-300 transition-colors"
+              className="flex items-center gap-1 md:gap-2 text-[10px] md:text-base lg:text-lg text-gray-400 hover:text-gray-300 transition-colors"
               data-testid="button-platformsync"
             >
-              <RefreshCw className="h-3.5 w-3.5 md:h-4 md:w-4 lg:h-5 lg:w-5" />
+              <RefreshCw className="h-3.5 w-3.5 md:h-5 md:w-5 lg:h-6 lg:w-6" />
               <span className="font-medium">Sync</span>
             </button>
           </div>
@@ -749,7 +749,7 @@ export default function Home() {
 
       {/* Date Range Selector - Only show for sales and marketing */}
       {(activeDashboard === 'sales' || activeDashboard === 'marketing') && (
-        <div className="sticky top-[calc(3.5rem+2.5rem)] md:top-[calc(4rem+3rem)] lg:top-[calc(5rem+3.5rem)] z-30 px-3 md:px-6 lg:px-8 py-2 md:py-3 lg:py-4 bg-gradient-to-r from-pink-950/30 via-fuchsia-950/20 to-pink-950/30 border-b border-pink-800/30 backdrop-blur-sm">
+        <div className="sticky top-24 md:top-[8.5rem] lg:top-40 z-30 px-3 md:px-8 lg:px-10 py-2 md:py-4 lg:py-5 bg-gradient-to-r from-pink-950/30 via-fuchsia-950/20 to-pink-950/30 border-b border-pink-800/30 backdrop-blur-sm">
           <DateRangeSelector value={dateRange} onChange={setDateRange} />
         </div>
       )}
