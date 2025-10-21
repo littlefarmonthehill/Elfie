@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -36,8 +37,24 @@ interface CartItem {
   quantity: number; // quantity being purchased
 }
 
-// Sample lots data - grouped by part number
-const productLots = [
+interface ProductLot {
+  id: number;
+  part: string;
+  name: string;
+  totalQty: number;
+  lotCount: number;
+  category: string;
+  variations: {
+    color: string;
+    colorHex: string;
+    condition: string;
+    qty: number;
+    price: string;
+  }[];
+}
+
+// Mock data for development (will be replaced with API data)
+const mockProductLots: ProductLot[] = [
   { 
     id: 1, 
     part: "3001", 
@@ -355,16 +372,8 @@ const productLots = [
   },
 ];
 
-// Group products by category
-const featuredLots = productLots.slice(0, 5);
-const brickLots = productLots.filter(lot => lot.category === "bricks");
-const plateLots = productLots.filter(lot => lot.category === "plates");
-const minifigLots = productLots.filter(lot => lot.category === "minifigs");
-const tileLots = productLots.filter(lot => lot.category === "tiles");
-const slopeLots = productLots.filter(lot => lot.category === "slopes");
-
 interface LotCardProps {
-  lot: typeof productLots[0];
+  lot: ProductLot;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   onAddToCart: (variation: any, quantity: number) => void;
@@ -517,7 +526,7 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
 
 interface HorizontalRowProps {
   title: string;
-  lots: typeof productLots;
+  lots: ProductLot[];
   categoryId: string;
   onAddToCart: (item: any, quantity: number) => void;
 }
@@ -560,11 +569,34 @@ function HorizontalRow({ title, lots, categoryId, onAddToCart }: HorizontalRowPr
 }
 
 export default function Shop() {
-  const totalLots = productLots.length;
-  const totalParts = productLots.reduce((sum, lot) => sum + lot.totalQty, 0);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const { toast } = useToast();
+
+  // Fetch real inventory data
+  const { data: inventoryData, isLoading: inventoryLoading } = useQuery<{ lots: ProductLot[] }>({
+    queryKey: ['/api/shop/inventory'],
+  });
+
+  // Fetch real stats (using public shop endpoint)
+  const { data: statsData, isLoading: statsLoading } = useQuery<{
+    totalLots: number;
+    totalParts: number;
+  }>({
+    queryKey: ['/api/shop/stats'],
+  });
+
+  const productLots = inventoryData?.lots || mockProductLots;
+  const totalLots = statsData?.totalLots || productLots.length;
+  const totalParts = statsData?.totalParts || productLots.reduce((sum, lot) => sum + lot.totalQty, 0);
+  
+  // Group products by category
+  const featuredLots = productLots.slice(0, 5);
+  const brickLots = productLots.filter(lot => lot.category.includes('brick'));
+  const plateLots = productLots.filter(lot => lot.category.includes('plate'));
+  const minifigLots = productLots.filter(lot => lot.category.includes('minifig'));
+  const tileLots = productLots.filter(lot => lot.category.includes('tile'));
+  const slopeLots = productLots.filter(lot => lot.category.includes('slope'));
 
   const handleAddToCart = (item: any, quantity: number = 1) => {
     const cartItem: CartItem = {

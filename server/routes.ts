@@ -2176,7 +2176,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
     }
   });
 
-  // Get Shop Inventory (for customer-facing shop page)
+  // Get Shop Inventory (for customer-facing shop page) - PUBLIC endpoint
   app.get("/api/shop/inventory", async (req, res) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
@@ -2227,13 +2227,16 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
         lot.totalQty += item.quantity || 0;
         lot.lotCount += 1;
 
+        // Convert unitPrice to number (it comes as string from decimal column)
+        const priceNum = item.unitPrice ? parseFloat(item.unitPrice.toString()) : 0;
+
         // Add variation
         lot.variations.push({
           color: item.colorName || 'Unknown',
           colorHex: item.colorRgb || '#CCCCCC',
           condition: item.newOrUsed === 'N' ? 'New' : 'Used',
           qty: item.quantity || 0,
-          price: `$${(item.unitPrice || 0).toFixed(2)}`,
+          price: `$${priceNum.toFixed(2)}`,
         });
       }
 
@@ -2254,6 +2257,27 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
     } catch (error) {
       console.error("Error fetching shop inventory:", error);
       res.status(500).json({ error: "Failed to fetch shop inventory" });
+    }
+  });
+  
+  // Get Shop Stats (for customer-facing shop page) - PUBLIC endpoint
+  app.get("/api/shop/stats", async (req, res) => {
+    try {
+      const stats = await db
+        .select({
+          totalLots: sql<number>`COUNT(*)`,
+          totalParts: sql<number>`SUM(${blInventory.quantity})`,
+        })
+        .from(blInventory)
+        .where(sql`${blInventory.quantity} > 0`); // Only count items in stock
+
+      res.json({
+        totalLots: Number(stats[0]?.totalLots) || 0,
+        totalParts: Number(stats[0]?.totalParts) || 0,
+      });
+    } catch (error) {
+      console.error("Error fetching shop stats:", error);
+      res.status(500).json({ error: "Failed to fetch shop stats" });
     }
   });
 
