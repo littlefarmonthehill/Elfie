@@ -227,3 +227,38 @@ export function getCacheStats(): { size: number; keys: string[] } {
     keys: Array.from(imageCache.keys())
   };
 }
+
+// Process any Rebrickable image URL directly (no database lookup needed)
+export async function processImageFromUrl(imageUrl: string): Promise<Buffer | null> {
+  // Use URL as cache key
+  const cacheKey = `url:${imageUrl}`;
+  
+  const cached = imageCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < CACHE_DURATION_MS) {
+    console.log(`[Image Proxy] Cache hit for URL`);
+    return cached.buffer;
+  }
+
+  try {
+    console.log(`[Image Proxy] Fetching and processing image from ${imageUrl}`);
+
+    const originalBuffer = await fetchImageFromUrl(imageUrl);
+    if (!originalBuffer) {
+      return null;
+    }
+
+    const processedBuffer = await removeWhiteBackground(originalBuffer);
+
+    evictOldestCacheEntries();
+    imageCache.set(cacheKey, {
+      buffer: processedBuffer,
+      timestamp: Date.now()
+    });
+
+    console.log(`[Image Proxy] Successfully processed and cached image from URL`);
+    return processedBuffer;
+  } catch (error) {
+    console.error(`[Image Proxy] Error processing image from URL:`, error);
+    return null;
+  }
+}

@@ -71,13 +71,16 @@ interface ProductLot {
     condition: string;
     qty: number;
     price: string;
+    imageUrl?: string | null;
+    thumbnailUrl?: string | null;
   }[];
   colorGroups: ColorGroup[];
 }
 
-function getProxyImageUrl(part: string, colorId: number | null | undefined): string | null {
-  if (colorId == null) return null;
-  return `/api/images/parts/${part}/${colorId}`;
+function getProxyImageUrl(imageUrl: string | null | undefined): string | null {
+  if (!imageUrl) return null;
+  // Proxy the Rebrickable URL through our white-background removal service
+  return `/api/images/proxy?url=${encodeURIComponent(imageUrl)}`;
 }
 
 // Mock data for development (will be replaced with API data)
@@ -410,7 +413,7 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
   const primaryColor = lot.variations[0];
   const [quantities, setQuantities] = useState<Record<number, number>>({});
   const [imageSrc, setImageSrc] = useState<string | null>(
-    getProxyImageUrl(lot.part, lot.firstColorId)
+    getProxyImageUrl(lot.imageUrl)
   );
 
   const updateQuantity = (idx: number, delta: number) => {

@@ -6,7 +6,7 @@ import { syncBricklinkData, fetchPriceOMagicData, searchBricklinkCatalogItem, sy
 import { syncShipStationOrders } from "./services/shipstation";
 import { syncBrickLinkToBrickOwl } from "./services/brickowl";
 import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBackup } from "./services/export";
-import { getProcessedPartImage } from "./services/image-proxy";
+import { getProcessedPartImage, processImageFromUrl } from "./services/image-proxy";
 import { db } from "./db";
 import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, setPartRelationships } from "@shared/schema";
 import { eq, desc, sql, inArray, like, or, and, isNotNull } from "drizzle-orm";
@@ -2247,7 +2247,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
         // Convert unitPrice to number (it comes as string from decimal column)
         const priceNum = item.unitPrice ? parseFloat(item.unitPrice.toString()) : 0;
 
-        // Add variation
+        // Add variation with its color-matched image URL
         lot.variations.push({
           color: item.colorName || 'Unknown',
           colorId: item.colorId,
@@ -2255,6 +2255,8 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
           condition: item.newOrUsed === 'N' ? 'New' : 'Used',
           qty: item.quantity || 0,
           price: `$${priceNum.toFixed(2)}`,
+          imageUrl: item.imageUrl, // Color-matched Rebrickable image URL
+          thumbnailUrl: item.thumbnailUrl,
         });
       }
 
@@ -2300,6 +2302,36 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Image proxy route - serves part images with white backgrounds removed
+  // Accepts URL parameter for direct image processing
+  app.get("/api/images/proxy", async (req, res) => {
+    try {
+      const imageUrl = req.query.url as string;
+
+      if (!imageUrl) {
+        return res.status(400).json({ error: "Missing url parameter" });
+      }
+
+      // Validate it's a Rebrickable URL for security
+      if (!imageUrl.startsWith('https://cdn.rebrickable.com/')) {
+        return res.status(400).json({ error: "Only Rebrickable CDN URLs are allowed" });
+      }
+
+      const imageBuffer = await processImageFromUrl(imageUrl);
+
+      if (!imageBuffer) {
+        return res.status(404).json({ error: "Image not found or failed to process" });
+      }
+
+      res.setHeader('Content-Type', 'image/png');
+      res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
+      res.send(imageBuffer);
+    } catch (error) {
+      console.error(`Error serving proxied image:`, error);
+      res.status(500).json({ error: "Failed to process image" });
+    }
+  });
+
+  // Legacy route - kept for backward compatibility
   app.get("/api/images/parts/:partNum/:colorId", async (req, res) => {
     try {
       const { partNum, colorId } = req.params;
