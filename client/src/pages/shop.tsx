@@ -37,12 +37,26 @@ interface CartItem {
   quantity: number; // quantity being purchased
 }
 
+interface ColorGroup {
+  colorName: string;
+  colorHex: string;
+  variations: {
+    color: string;
+    colorHex: string;
+    condition: string;
+    qty: number;
+    price: string;
+  }[];
+  totalQty: number;
+}
+
 interface ProductLot {
   id: number;
   part: string;
   name: string;
   totalQty: number;
   lotCount: number;
+  uniqueColorCount: number;
   category: string;
   variations: {
     color: string;
@@ -51,10 +65,11 @@ interface ProductLot {
     qty: number;
     price: string;
   }[];
+  colorGroups: ColorGroup[];
 }
 
 // Mock data for development (will be replaced with API data)
-const mockProductLots: ProductLot[] = [
+const mockProductLots: Omit<ProductLot, 'uniqueColorCount' | 'colorGroups'>[] = [
   { 
     id: 1, 
     part: "3001", 
@@ -426,7 +441,7 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
             
             <div className="flex items-center justify-between pt-1">
               <Badge variant="secondary" className="text-[9px] md:text-sm px-1 md:px-2 py-0.5 h-auto">
-                {lot.lotCount} colors
+                {lot.uniqueColorCount} {lot.uniqueColorCount === 1 ? 'color' : 'colors'}
               </Badge>
               <span className="text-[10px] md:text-sm font-bold text-cyan-400" data-testid={`text-qty-${lot.id}`}>
                 {lot.totalQty.toLocaleString()}
@@ -446,89 +461,100 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
             <DialogDescription className="text-xs md:text-sm text-gray-400 flex items-center gap-2">
               <span className="text-cyan-400">#{lot.part}</span>
               <span className="text-gray-600">•</span>
-              <span>{lot.lotCount} variations</span>
+              <span>{lot.uniqueColorCount} {lot.uniqueColorCount === 1 ? 'color' : 'colors'}</span>
               <span className="text-gray-600">•</span>
               <span>{lot.totalQty.toLocaleString()} pieces</span>
             </DialogDescription>
           </DialogHeader>
           
           <div className="flex-1 overflow-y-auto pr-2 mt-4">
-            <div className="grid grid-cols-1 gap-2.5">
-              {lot.variations.map((variation, idx) => {
-                const quantity = quantities[idx] || 1;
-                return (
-                  <div 
-                    key={idx} 
-                    className="p-3 bg-gray-900/60 border border-white/10 rounded-lg hover-elevate transition-all duration-300 group"
-                    data-testid={`variation-${lot.id}-${idx}`}
-                  >
-                    <div className="flex items-center gap-3">
-                      {/* Color Swatch */}
-                      <div className="relative">
-                        <div
-                          className="w-12 h-12 md:w-14 md:h-14 rounded-lg shrink-0 border-2 border-white/20 shadow-lg transition-all duration-300 group-hover:scale-105"
-                          style={{ 
-                            backgroundColor: variation.colorHex,
-                            boxShadow: `0 4px 12px ${variation.colorHex}50`
-                          }}
-                        />
-                        <div className="absolute -top-1 -right-1 w-3 h-3 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                      </div>
-
-                      {/* Info */}
-                      <div className="flex-1 min-w-0">
-                        <h4 className="text-sm md:text-base font-bold text-white truncate">{variation.color}</h4>
-                        <div className="flex items-center gap-3 mt-0.5">
-                          <span className="text-xs md:text-sm text-gray-400">{variation.condition}</span>
-                          <span className="text-xs text-gray-600">•</span>
-                          <span className="text-xs md:text-sm text-gray-500">{variation.qty.toLocaleString()} available</span>
-                        </div>
-                        <div className="text-base md:text-lg font-bold text-cyan-400 mt-1">{variation.price}</div>
-                      </div>
-
-                      {/* Quantity Controls */}
-                      <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-1 bg-gray-800/80 rounded-md p-0.5 border border-white/10">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-7 w-7 text-white hover:bg-white/10"
-                            onClick={() => updateQuantity(idx, -1)}
-                            disabled={quantity <= 1}
-                          >
-                            <Minus className="w-3 h-3" />
-                          </Button>
-                          <div className="w-10 md:w-12 text-center">
-                            <span className="text-sm md:text-base font-bold text-white">{quantity}</span>
-                          </div>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-7 w-7 text-white hover:bg-white/10"
-                            onClick={() => updateQuantity(idx, 1)}
-                            disabled={quantity >= variation.qty}
-                          >
-                            <Plus className="w-3 h-3" />
-                          </Button>
-                        </div>
-                        
-                        <Button
-                          size="sm"
-                          className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white px-4 text-xs md:text-sm shadow-lg transition-all duration-300 group-hover:shadow-cyan-500/50"
-                          onClick={() => {
-                            onAddToCart({ ...variation, lotId: lot.id, partNumber: lot.part, partName: lot.name }, quantity);
-                            setQuantities(prev => ({ ...prev, [idx]: 1 }));
-                          }}
-                          data-testid={`button-add-${lot.id}-${idx}`}
-                        >
-                          <ShoppingCart className="w-3 h-3 mr-1.5" />
-                          Add
-                        </Button>
-                      </div>
+            <div className="grid grid-cols-1 gap-3">
+              {lot.colorGroups.map((colorGroup, groupIdx) => (
+                <div key={groupIdx} className="space-y-2">
+                  {/* Color Header */}
+                  <div className="flex items-center gap-3 px-2">
+                    <div
+                      className="w-8 h-8 rounded-md shrink-0 border-2 border-white/30 shadow-md"
+                      style={{ 
+                        backgroundColor: colorGroup.colorHex,
+                        boxShadow: `0 2px 8px ${colorGroup.colorHex}40`
+                      }}
+                    />
+                    <div>
+                      <h4 className="text-sm md:text-base font-bold text-white">{colorGroup.colorName}</h4>
+                      <p className="text-xs text-gray-500">{colorGroup.totalQty.toLocaleString()} pieces total</p>
                     </div>
                   </div>
-                );
-              })}
+                  
+                  {/* Condition Variations */}
+                  <div className="space-y-1.5 pl-2">
+                    {colorGroup.variations.map((variation, varIdx) => {
+                      const idx = lot.variations.findIndex(v => v.color === variation.color && v.condition === variation.condition);
+                      const quantity = quantities[idx] || 1;
+                      return (
+                        <div 
+                          key={varIdx}
+                          className="p-2.5 bg-gray-900/40 border border-white/5 rounded-lg hover-elevate transition-all duration-300 group"
+                          data-testid={`variation-${lot.id}-${idx}`}
+                        >
+                          <div className="flex items-center gap-3">
+                            {/* Info */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <Badge variant="outline" className="text-[10px] md:text-xs text-gray-300 border-white/20">
+                                  {variation.condition}
+                                </Badge>
+                                <span className="text-xs md:text-sm text-gray-500">{variation.qty.toLocaleString()} available</span>
+                              </div>
+                              <div className="text-base md:text-lg font-bold text-cyan-400 mt-1">{variation.price}</div>
+                            </div>
+
+                            {/* Quantity Controls */}
+                            <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-1 bg-gray-800/80 rounded-md p-0.5 border border-white/10">
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-6 w-6 text-white hover:bg-white/10"
+                                  onClick={() => updateQuantity(idx, -1)}
+                                  disabled={quantity <= 1}
+                                >
+                                  <Minus className="w-3 h-3" />
+                                </Button>
+                                <div className="w-10 text-center">
+                                  <span className="text-sm font-bold text-white">{quantity}</span>
+                                </div>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-6 w-6 text-white hover:bg-white/10"
+                                  onClick={() => updateQuantity(idx, 1)}
+                                  disabled={quantity >= variation.qty}
+                                >
+                                  <Plus className="w-3 h-3" />
+                                </Button>
+                              </div>
+                              
+                              <Button
+                                size="sm"
+                                className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white px-3 text-xs shadow-lg transition-all duration-300 group-hover:shadow-cyan-500/50 h-6"
+                                onClick={() => {
+                                  onAddToCart({ ...variation, lotId: lot.id, partNumber: lot.part, partName: lot.name }, quantity);
+                                  setQuantities(prev => ({ ...prev, [idx]: 1 }));
+                                }}
+                                data-testid={`button-add-${lot.id}-${idx}`}
+                              >
+                                <ShoppingCart className="w-3 h-3 mr-1" />
+                                Add
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </DialogContent>
@@ -605,7 +631,35 @@ export default function Shop() {
     queryKey: ['/api/shop/stats'],
   });
 
-  const productLots = inventoryData?.lots || mockProductLots;
+  // Process lots to group by color
+  const processedLots = (inventoryData?.lots || mockProductLots).map(lot => {
+    // Group variations by color
+    const colorMap = new Map<string, ColorGroup>();
+    
+    lot.variations.forEach(variation => {
+      if (!colorMap.has(variation.color)) {
+        colorMap.set(variation.color, {
+          colorName: variation.color,
+          colorHex: variation.colorHex,
+          variations: [],
+          totalQty: 0
+        });
+      }
+      const group = colorMap.get(variation.color)!;
+      group.variations.push(variation);
+      group.totalQty += variation.qty;
+    });
+    
+    const colorGroups = Array.from(colorMap.values());
+    
+    return {
+      ...lot,
+      uniqueColorCount: colorGroups.length,
+      colorGroups
+    };
+  });
+
+  const productLots = processedLots;
   const totalLots = statsData?.totalLots || productLots.length;
   const totalParts = statsData?.totalParts || productLots.reduce((sum, lot) => sum + lot.totalQty, 0);
   
@@ -771,17 +825,17 @@ export default function Shop() {
           </div>
 
           {/* Centered Logo - Half In/Half Out */}
-          <div className="absolute left-1/2 -translate-x-1/2 top-2 md:top-3 z-[60]">
+          <div className="absolute left-1/2 -translate-x-1/2 top-1 md:top-2 z-[60]">
             <img 
               src={planetBrickLogo} 
               alt="PlanetBrick" 
-              className="h-16 md:h-24 w-auto object-contain drop-shadow-2xl"
+              className="h-12 md:h-20 w-auto object-contain drop-shadow-2xl"
               data-testid="logo-planetbrick"
             />
           </div>
 
           {/* Stats Row - Below Logo */}
-          <div className="absolute bottom-2 left-0 right-0 flex items-center justify-center gap-8 md:gap-16">
+          <div className="absolute bottom-1.5 left-0 right-0 flex items-center justify-center gap-8 md:gap-16 z-[50]">
             {/* Lots - Left with Comet Trail */}
             <div className="flex items-center gap-2 relative group">
               {/* Comet trail effect */}
