@@ -647,7 +647,7 @@ export default function Shop() {
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
-    <div className="min-h-screen bg-gray-950 relative overflow-hidden">
+    <div className="min-h-screen bg-black relative overflow-hidden">
       {/* Enhanced Retro-futuristic Space background */}
       <div className="fixed inset-0 pointer-events-none">
         {/* Color orbs */}
@@ -673,28 +673,30 @@ export default function Shop() {
       </div>
 
       <div className="relative z-10">
-        {/* Redesigned Header with Logo, Stats, Cart, Login */}
-        <header className="sticky top-0 z-50 bg-gradient-to-r from-purple-950/95 via-blue-950/90 to-purple-950/95 backdrop-blur-xl border-b border-purple-500/30">
-          {/* Top Row: Logo centered, Cart & Login on right */}
-          <div className="px-4 md:px-8 py-4 md:py-6 flex items-center justify-between">
-            {/* PlanetBrick Logo - Left/Center */}
-            <div className="flex-1 flex justify-start md:justify-center">
-              <img 
-                src={planetBrickLogo} 
-                alt="PlanetBrick" 
-                className="h-16 md:h-24 lg:h-32 w-auto object-contain drop-shadow-2xl"
-                data-testid="logo-planetbrick"
-              />
+        {/* Redesigned Header - Centered Logo, Comet Stats */}
+        <header className="sticky top-0 z-50 bg-black/95 backdrop-blur-xl border-b border-white/10 relative">
+          <div className="px-4 md:px-8 py-2 md:py-3 flex items-center justify-between relative">
+            {/* Lots - Left Side with Comet Trail */}
+            <div className="flex items-center gap-2 relative group">
+              {/* Comet trail effect */}
+              <div className="absolute -left-8 top-1/2 -translate-y-1/2 w-32 h-px bg-gradient-to-r from-transparent via-cyan-400/40 to-cyan-500/60 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              <div className="relative">
+                <Sparkles className="w-4 h-4 md:w-5 md:h-5 text-cyan-400" />
+              </div>
+              <div className="text-left">
+                <div className="text-sm md:text-lg font-bold text-white">{totalLots.toLocaleString()}</div>
+                <div className="text-[8px] md:text-[10px] text-gray-400">Unique Lots</div>
+              </div>
             </div>
 
-            {/* Cart & Login - Right */}
-            <div className="flex items-center gap-2 md:gap-4">
+            {/* Cart & Login - Right Side */}
+            <div className="flex items-center gap-1.5 md:gap-3">
               <Sheet open={isCartOpen} onOpenChange={setIsCartOpen}>
                 <SheetTrigger asChild>
-                  <Button size="icon" variant="ghost" className="text-cyan-300 h-10 w-10 md:h-14 md:w-14 relative hover-elevate" data-testid="button-cart">
-                    <ShoppingCart className="w-6 h-6 md:w-8 md:h-8" />
+                  <Button size="icon" variant="ghost" className="text-cyan-300 h-8 w-8 md:h-10 md:w-10 relative hover-elevate" data-testid="button-cart">
+                    <ShoppingCart className="w-4 h-4 md:w-5 md:h-5" />
                     {cartCount > 0 && (
-                      <Badge className="absolute -top-1 -right-1 h-6 w-6 md:h-7 md:w-7 flex items-center justify-center p-0 text-[10px] md:text-xs bg-cyan-500 border-none font-bold">
+                      <Badge className="absolute -top-1 -right-1 h-4 w-4 md:h-5 md:w-5 flex items-center justify-center p-0 text-[8px] md:text-[9px] bg-cyan-500 border-none font-bold">
                         {cartCount}
                       </Badge>
                     )}
@@ -761,43 +763,45 @@ export default function Shop() {
               </SheetContent>
             </Sheet>
             <Link href="/login">
-              <Button variant="ghost" size="default" className="text-cyan-300 text-[10px] md:text-base h-9 md:h-12 px-2 md:px-4" data-testid="button-login-header">
+              <Button variant="ghost" size="sm" className="text-cyan-300 text-[9px] md:text-sm h-8 md:h-10 px-2 md:px-3" data-testid="button-login-header">
                 Login
               </Button>
             </Link>
-          </div>
-          </div>
-          
-          {/* Inventory Stats Row */}
-          <div className="px-4 md:px-8 py-3 md:py-4 bg-gradient-to-r from-pink-950/40 via-purple-950/30 to-cyan-950/40 border-t border-purple-500/20">
-            <div className="flex items-center justify-center gap-6 md:gap-12">
-              <div className="flex items-center gap-2 md:gap-3">
-                <Sparkles className="w-5 h-5 md:w-6 md:h-6 text-pink-400" />
-                <div className="text-left">
-                  <div className="text-xl md:text-3xl font-bold text-white">{totalLots.toLocaleString()}</div>
-                  <div className="text-xs md:text-sm text-gray-400">Unique Lots</div>
-                </div>
-              </div>
-              <div className="w-px h-12 md:h-14 bg-purple-500/30" />
-              <div className="flex items-center gap-2 md:gap-3">
-                <Sparkles className="w-5 h-5 md:w-6 md:h-6 text-cyan-400" />
-                <div className="text-left">
-                  <div className="text-xl md:text-3xl font-bold text-white">{totalParts.toLocaleString()}</div>
-                  <div className="text-xs md:text-sm text-gray-400">Total Parts</div>
-                </div>
-              </div>
             </div>
+          </div>
+
+          {/* Centered Logo - Half In/Half Out */}
+          <div className="absolute left-1/2 -translate-x-1/2 -bottom-8 md:-bottom-12 z-[60]">
+            <img 
+              src={planetBrickLogo} 
+              alt="PlanetBrick" 
+              className="h-16 md:h-24 w-auto object-contain drop-shadow-2xl"
+              data-testid="logo-planetbrick"
+            />
+          </div>
+
+          {/* Parts - Right Side (positioned absolutely to align with left side) */}
+          <div className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 flex items-center gap-2 group">
+            <div className="text-right">
+              <div className="text-sm md:text-lg font-bold text-white">{totalParts.toLocaleString()}</div>
+              <div className="text-[8px] md:text-[10px] text-gray-400">Total Parts</div>
+            </div>
+            <div className="relative">
+              <Sparkles className="w-4 h-4 md:w-5 md:h-5 text-blue-400" />
+            </div>
+            {/* Comet trail effect */}
+            <div className="absolute -right-8 top-1/2 -translate-y-1/2 w-32 h-px bg-gradient-to-l from-transparent via-blue-400/40 to-blue-500/60 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
           </div>
         </header>
 
         {/* Search Bar */}
-        <div className="sticky top-[5.5rem] md:top-[9rem] z-30 bg-gradient-to-b from-gray-900/95 to-gray-950/95 backdrop-blur-xl px-3 md:px-6 py-2 md:py-3 border-b border-purple-500/20">
+        <div className="sticky top-[3.5rem] md:top-[4rem] z-30 bg-black/95 backdrop-blur-xl px-3 md:px-6 py-3 md:py-4 mt-8 md:mt-12 border-b border-white/10">
           <div className="relative max-w-3xl mx-auto">
             <Search className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-gray-500" />
             <input
               type="text"
               placeholder="Search for LEGO parts..."
-              className="w-full h-9 md:h-12 pl-9 md:pl-12 pr-4 md:pr-5 bg-gray-800/50 border border-purple-500/30 rounded-md text-xs md:text-base text-white placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
+              className="w-full h-9 md:h-12 pl-9 md:pl-12 pr-4 md:pr-5 bg-gray-900/80 border border-white/20 rounded-md text-xs md:text-base text-white placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
               data-testid="input-search"
             />
           </div>
@@ -805,24 +809,24 @@ export default function Shop() {
 
         {/* Colorful Category Bands */}
         <div className="pb-4 md:pb-8">
-          <HorizontalRow title="Featured Products" lots={featuredLots} categoryId="featured" onAddToCart={handleAddToCart} bandColor="from-purple-600 via-pink-500 to-cyan-500" />
-          <HorizontalRow title="Bricks" lots={brickLots} categoryId="bricks" onAddToCart={handleAddToCart} bandColor="from-red-600 via-orange-500 to-yellow-500" />
-          <HorizontalRow title="Plates" lots={plateLots} categoryId="plates" onAddToCart={handleAddToCart} bandColor="from-blue-600 via-cyan-500 to-teal-500" />
-          <HorizontalRow title="Tiles" lots={tileLots} categoryId="tiles" onAddToCart={handleAddToCart} bandColor="from-green-600 via-emerald-500 to-lime-500" />
-          <HorizontalRow title="Slopes" lots={slopeLots} categoryId="slopes" onAddToCart={handleAddToCart} bandColor="from-indigo-600 via-purple-500 to-pink-500" />
-          <HorizontalRow title="Minifigs" lots={minifigLots} categoryId="minifigs" onAddToCart={handleAddToCart} bandColor="from-yellow-500 via-amber-500 to-orange-500" />
+          <HorizontalRow title="Featured Products" lots={featuredLots} categoryId="featured" onAddToCart={handleAddToCart} bandColor="from-blue-500 via-cyan-400 to-white" />
+          <HorizontalRow title="Bricks" lots={brickLots} categoryId="bricks" onAddToCart={handleAddToCart} bandColor="from-gray-400 via-blue-400 to-red-500" />
+          <HorizontalRow title="Plates" lots={plateLots} categoryId="plates" onAddToCart={handleAddToCart} bandColor="from-blue-600 via-cyan-500 to-gray-300" />
+          <HorizontalRow title="Tiles" lots={tileLots} categoryId="tiles" onAddToCart={handleAddToCart} bandColor="from-white via-blue-300 to-cyan-500" />
+          <HorizontalRow title="Slopes" lots={slopeLots} categoryId="slopes" onAddToCart={handleAddToCart} bandColor="from-indigo-600 via-blue-400 to-white" />
+          <HorizontalRow title="Minifigs" lots={minifigLots} categoryId="minifigs" onAddToCart={handleAddToCart} bandColor="from-gray-500 via-red-400 to-blue-500" />
         </div>
 
         {/* Footer */}
-        <footer className="border-t border-purple-500/30 py-3 md:py-4 px-2 md:px-4 mt-4 md:mt-6 bg-gradient-to-r from-purple-900/20 via-pink-900/10 to-cyan-900/20">
+        <footer className="border-t border-white/10 py-3 md:py-4 px-2 md:px-4 mt-4 md:mt-6 bg-black/50">
           <div className="text-center">
             <p className="text-gray-500 text-[9px] md:text-sm mb-1.5 md:mb-2">
               © 2025 PlanetBrick.com
             </p>
             <div className="flex justify-center gap-3 md:gap-4">
-              <a href="#" className="text-gray-500 hover:text-cyan-400 text-[9px] md:text-sm transition-colors" data-testid="link-about">About</a>
-              <a href="#" className="text-gray-500 hover:text-cyan-400 text-[9px] md:text-sm transition-colors" data-testid="link-shipping">Shipping</a>
-              <a href="#" className="text-gray-500 hover:text-cyan-400 text-[9px] md:text-sm transition-colors" data-testid="link-contact">Contact</a>
+              <a href="#" className="text-gray-400 hover:text-cyan-400 text-[9px] md:text-sm transition-colors" data-testid="link-about">About</a>
+              <a href="#" className="text-gray-400 hover:text-cyan-400 text-[9px] md:text-sm transition-colors" data-testid="link-shipping">Shipping</a>
+              <a href="#" className="text-gray-400 hover:text-cyan-400 text-[9px] md:text-sm transition-colors" data-testid="link-contact">Contact</a>
             </div>
           </div>
         </footer>
@@ -835,10 +839,10 @@ export default function Shop() {
       >
         <div className="relative">
           {/* Pulsing glow effect */}
-          <div className="absolute inset-0 rounded-full bg-gradient-to-r from-purple-500 via-pink-500 to-cyan-500 blur-xl animate-pulse group-hover:blur-2xl transition-all duration-300 opacity-60" />
+          <div className="absolute inset-0 rounded-full bg-gradient-to-r from-blue-500 via-cyan-400 to-white blur-xl animate-pulse group-hover:blur-2xl transition-all duration-300 opacity-60" />
           
           {/* Main button */}
-          <div className="relative w-16 h-16 md:w-20 md:h-20 rounded-full bg-gradient-to-r from-purple-600 via-pink-500 to-cyan-500 border-4 border-white/20 flex items-center justify-center group-hover:scale-110 transition-all duration-300 shadow-2xl">
+          <div className="relative w-16 h-16 md:w-20 md:h-20 rounded-full bg-gradient-to-r from-blue-600 via-cyan-500 to-blue-400 border-4 border-white/20 flex items-center justify-center group-hover:scale-110 transition-all duration-300 shadow-2xl">
             <img 
               src={elfieRobot} 
               alt="E.L.F.I.E." 
@@ -855,7 +859,7 @@ export default function Shop() {
           </div>
 
           {/* Orbital ring animation */}
-          <div className="absolute inset-0 rounded-full border-2 border-purple-500/30 group-hover:border-cyan-500/50 group-hover:scale-150 transition-all duration-700 opacity-0 group-hover:opacity-100" />
+          <div className="absolute inset-0 rounded-full border-2 border-blue-500/30 group-hover:border-cyan-500/50 group-hover:scale-150 transition-all duration-700 opacity-0 group-hover:opacity-100" />
         </div>
       </button>
 
