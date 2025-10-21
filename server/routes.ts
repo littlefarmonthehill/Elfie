@@ -175,7 +175,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Optimized endpoint for Orders Dashboard - only fetches what's needed
-  app.get("/api/orders/dashboard", async (req, res) => {
+  app.get("/api/orders/dashboard", isApproved, async (req, res) => {
     try {
       // Fetch top 5 pending orders (awaiting_payment or awaiting_shipment)
       const pendingOrders = await db.select()
@@ -212,7 +212,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Fetch single order by ID with full details
-  app.get("/api/orders/:id", async (req, res) => {
+  app.get("/api/orders/:id", isApproved, async (req, res) => {
     try {
       const orderId = req.params.id;
       
@@ -308,7 +308,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update order status and trigger inventory adjustment
-  app.post("/api/orders/:id/status", async (req, res) => {
+  app.post("/api/orders/:id/status", isApproved, async (req, res) => {
     try {
       const orderId = req.params.id;
       const { status } = req.body;
@@ -330,7 +330,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Manual inventory adjustment endpoint (for testing/admin use)
-  app.post("/api/orders/:id/adjust-inventory", async (req, res) => {
+  app.post("/api/orders/:id/adjust-inventory", isApproved, async (req, res) => {
     try {
       const orderId = req.params.id;
 
@@ -346,7 +346,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/dashboard/stats", async (req, res) => {
+  app.get("/api/dashboard/stats", isApproved, async (req, res) => {
     try {
       // Parse date range parameter
       const range = req.query.range as string;
@@ -424,7 +424,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Settings Routes
-  app.get("/api/settings", async (req, res) => {
+  app.get("/api/settings", isApproved, async (req, res) => {
     try {
       const [settings] = await db
         .select()
@@ -451,7 +451,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/settings", async (req, res) => {
+  app.post("/api/settings", isApproved, async (req, res) => {
     try {
       const data = insertAppSettingsSchema.parse(req.body);
       
@@ -475,7 +475,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Export Routes
-  app.get("/api/export/bricklink-xml", async (req, res) => {
+  app.get("/api/export/bricklink-xml", isApproved, async (req, res) => {
     try {
       const xml = await generateBrickLinkXML();
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
@@ -490,7 +490,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/export/inventory-csv", async (req, res) => {
+  app.get("/api/export/inventory-csv", isApproved, async (req, res) => {
     try {
       const csv = await generateInventoryCSV();
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
@@ -506,7 +506,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // List available XML backups
-  app.get("/api/backups/list", async (req, res) => {
+  app.get("/api/backups/list", isApproved, async (req, res) => {
     try {
       const backups = await listXMLBackups();
       res.json({ success: true, backups });
@@ -517,7 +517,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Download specific XML backup
-  app.get("/api/backups/download/:filename", async (req, res) => {
+  app.get("/api/backups/download/:filename", isApproved, async (req, res) => {
     try {
       const { filename } = req.params;
       const xml = await getXMLBackup(filename);
@@ -532,7 +532,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // OpenAI Models Route (simplified - we use specific models)
-  app.get("/api/openai/models", async (req, res) => {
+  app.get("/api/openai/models", isApproved, async (req, res) => {
     try {
       // Return common OpenAI chat models
       const models = [
@@ -550,7 +550,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // E.L.F.I.E. Chat Route
-  app.post("/api/chat", async (req, res) => {
+  app.post("/api/chat", isApproved, async (req, res) => {
     try {
       const { messages, context } = req.body;
       
@@ -1654,7 +1654,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Semantic Search - Inventory
-  app.post("/api/search/inventory/semantic", async (req, res) => {
+  app.post("/api/search/inventory/semantic", isApproved, async (req, res) => {
     try {
       const { query, limit = 5 } = req.body;
       
@@ -1675,7 +1675,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Semantic Search - Orders
-  app.post("/api/search/orders/semantic", async (req, res) => {
+  app.post("/api/search/orders/semantic", isApproved, async (req, res) => {
     try {
       const { query, limit = 5 } = req.body;
       
@@ -1696,7 +1696,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Find Similar Items
-  app.get("/api/inventory/:id/similar", async (req, res) => {
+  app.get("/api/inventory/:id/similar", isApproved, async (req, res) => {
     try {
       const inventoryId = parseInt(req.params.id);
       const limit = parseInt(req.query.limit as string) || 5;
@@ -1715,7 +1715,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
 
   // Get Sets Containing This Part in a Specific Color
   // Returns sets that contain the part in the specified color
-  app.get("/api/inventory/:itemNo/:colorId/sets", async (req, res) => {
+  app.get("/api/inventory/:itemNo/:colorId/sets", isApproved, async (req, res) => {
     try {
       const { itemNo, colorId } = req.params;
       const colorIdNum = parseInt(colorId);
@@ -1781,7 +1781,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Batch Embed Inventory Items
-  app.post("/api/embeddings/inventory/batch", async (req, res) => {
+  app.post("/api/embeddings/inventory/batch", isApproved, async (req, res) => {
     try {
       const { inventoryIds } = req.body;
       
@@ -1802,7 +1802,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Embed Single Inventory Item
-  app.post("/api/embeddings/inventory/:id", async (req, res) => {
+  app.post("/api/embeddings/inventory/:id", isApproved, async (req, res) => {
     try {
       const inventoryId = parseInt(req.params.id);
       
@@ -1819,7 +1819,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Get Embedding Statistics
-  app.get("/api/embeddings/stats", async (req, res) => {
+  app.get("/api/embeddings/stats", isApproved, async (req, res) => {
     try {
       const { getEmbeddingStats } = await import('./services/embeddings');
       const stats = await getEmbeddingStats();
@@ -1834,7 +1834,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Get Inventory Items Without Embeddings
-  app.get("/api/embeddings/inventory/missing", async (req, res) => {
+  app.get("/api/embeddings/inventory/missing", isApproved, async (req, res) => {
     try {
       const limit = parseInt(req.query.limit as string) || 100;
       
@@ -1856,7 +1856,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Get Orders Without Embeddings
-  app.get("/api/embeddings/orders/missing", async (req, res) => {
+  app.get("/api/embeddings/orders/missing", isApproved, async (req, res) => {
     try {
       const limit = parseInt(req.query.limit as string) || 100;
       
@@ -1878,7 +1878,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Batch Embed Orders
-  app.post("/api/embeddings/orders/batch", async (req, res) => {
+  app.post("/api/embeddings/orders/batch", isApproved, async (req, res) => {
     try {
       const { orderIds } = req.body;
       
@@ -1907,7 +1907,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
   
   // Start background embedding job (now uses persistent worker)
-  app.post("/api/embeddings/jobs/start", async (req, res) => {
+  app.post("/api/embeddings/jobs/start", isApproved, async (req, res) => {
     try {
       // Validate input
       const validated = startJobSchema.parse(req.body);
@@ -1936,7 +1936,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Stop background embedding job
-  app.post("/api/embeddings/jobs/:jobId/stop", async (req, res) => {
+  app.post("/api/embeddings/jobs/:jobId/stop", isApproved, async (req, res) => {
     try {
       const { jobId } = req.params;
       
@@ -1957,7 +1957,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Get job status
-  app.get("/api/embeddings/jobs/:jobId", async (req, res) => {
+  app.get("/api/embeddings/jobs/:jobId", isApproved, async (req, res) => {
     try {
       const { jobId } = req.params;
       
@@ -1978,7 +1978,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Get active job for a type (now queries database)
-  app.get("/api/embeddings/jobs/active/:type", async (req, res) => {
+  app.get("/api/embeddings/jobs/active/:type", isApproved, async (req, res) => {
     try {
       const { type } = req.params;
       
@@ -2004,7 +2004,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Get all jobs
-  app.get("/api/embeddings/jobs", async (req, res) => {
+  app.get("/api/embeddings/jobs", isApproved, async (req, res) => {
     try {
       const { jobManager } = await import('./services/backgroundJobs');
       const jobs = jobManager.getAllJobs();
@@ -2019,7 +2019,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // BrickLink Catalog Search Endpoint
-  app.get("/api/bricklink/search", async (req, res) => {
+  app.get("/api/bricklink/search", isApproved, async (req, res) => {
     try {
       const { itemNo, itemType } = req.query;
       
@@ -2050,7 +2050,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   // Brickognize Image Recognition Endpoint
   const upload = multer({ storage: multer.memoryStorage() });
   
-  app.post("/api/brickognize/identify", upload.single('image'), async (req, res) => {
+  app.post("/api/brickognize/identify", upload.single('image'), isApproved, async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: "No image file provided" });
@@ -2094,7 +2094,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Get Inventory Items
-  app.get("/api/inventory", async (req, res) => {
+  app.get("/api/inventory", isApproved, async (req, res) => {
     try {
       const searchQuery = req.query.search as string;
       
@@ -2147,7 +2147,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Get Inventory Stats (MUST be before /api/inventory/:id to avoid route conflict)
-  app.get("/api/inventory/stats", async (req, res) => {
+  app.get("/api/inventory/stats", isApproved, async (req, res) => {
     try {
       const stats = await db
         .select({
@@ -2188,7 +2188,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   const boidLookupCache = new Map<string, string | null>();
 
   // Get Platform Sync Status
-  app.get("/api/platform-sync/status", async (req, res) => {
+  app.get("/api/platform-sync/status", isApproved, async (req, res) => {
     try {
       // Get BrickLink inventory stats (source of truth)
       const blStats = await db
@@ -2454,7 +2454,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Get detailed discrepancies for a specific platform and type
-  app.get("/api/platform-sync/discrepancies/:platform/:type", async (req, res) => {
+  app.get("/api/platform-sync/discrepancies/:platform/:type", isApproved, async (req, res) => {
     try {
       const { platform, type } = req.params;
       const limit = parseInt(req.query.limit as string) || 50;
@@ -2493,7 +2493,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Sync BrickLink inventory to platform
-  app.post("/api/platform-sync/sync", async (req, res) => {
+  app.post("/api/platform-sync/sync", isApproved, async (req, res) => {
     try {
       const { platform, limit } = req.body;
 
@@ -2525,7 +2525,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Verify BrickOwl lots endpoint
-  app.post('/api/platform-sync/verify-lots', async (req, res) => {
+  app.post('/api/platform-sync/verify-lots', isApproved, async (req, res) => {
     try {
       const { externalIds } = req.body;
       
@@ -2572,7 +2572,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   // ============================================
   
   // Get all sync issues (with optional filters)
-  app.get("/api/sync-issues", async (req, res) => {
+  app.get("/api/sync-issues", isApproved, async (req, res) => {
     try {
       const { status, syncType, platform, severity } = req.query;
       
@@ -2622,7 +2622,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
   
   // Get sync issue stats
-  app.get("/api/sync-issues/stats", async (req, res) => {
+  app.get("/api/sync-issues/stats", isApproved, async (req, res) => {
     try {
       const openIssues = await db
         .select({ count: sql<number>`count(*)` })
@@ -2651,7 +2651,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
   
   // Create a new sync issue
-  app.post("/api/sync-issues", async (req, res) => {
+  app.post("/api/sync-issues", isApproved, async (req, res) => {
     try {
       const issue = insertSyncIssueSchema.parse(req.body);
       
@@ -2671,7 +2671,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
   
   // Update sync issue (resolve, ignore, etc.)
-  app.patch("/api/sync-issues/:id", async (req, res) => {
+  app.patch("/api/sync-issues/:id", isApproved, async (req, res) => {
     try {
       const { id } = req.params;
       const { status, resolvedBy } = req.body;
@@ -2710,7 +2710,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
   
   // Delete a sync issue
-  app.delete("/api/sync-issues/:id", async (req, res) => {
+  app.delete("/api/sync-issues/:id", isApproved, async (req, res) => {
     try {
       const { id } = req.params;
       
@@ -2729,7 +2729,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Get Recently Updated/Added Inventory Items (MUST be before /api/inventory/:id)
-  app.get("/api/inventory/recent-updates", async (req, res) => {
+  app.get("/api/inventory/recent-updates", isApproved, async (req, res) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
       const type = req.query.type as string; // 'new' or 'updated'
@@ -2787,7 +2787,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Price-o-Matic: Get price guide for inventory item (MUST be before /api/inventory/:id)
-  app.get("/api/inventory/price-guide/:itemNo/:itemType", async (req, res) => {
+  app.get("/api/inventory/price-guide/:itemNo/:itemType", isApproved, async (req, res) => {
     try {
       const { itemNo, itemType } = req.params;
       const colorId = req.query.color_id ? parseInt(req.query.color_id as string) : undefined;
@@ -2813,7 +2813,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // BrickLink Catalog Search (MUST be before /api/inventory/:id)
-  app.get("/api/bricklink/catalog/:itemNo/:itemType", async (req, res) => {
+  app.get("/api/bricklink/catalog/:itemNo/:itemType", isApproved, async (req, res) => {
     try {
       const { itemNo, itemType } = req.params;
 
@@ -2836,7 +2836,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Get Inventory Item by ID (MUST be after /api/inventory/stats and price-guide to avoid route conflict)
-  app.get("/api/inventory/:id", async (req, res) => {
+  app.get("/api/inventory/:id", isApproved, async (req, res) => {
     try {
       const itemId = parseInt(req.params.id);
       if (isNaN(itemId)) {
@@ -2894,7 +2894,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Get Item Analytics
-  app.get("/api/inventory/:id/analytics", async (req, res) => {
+  app.get("/api/inventory/:id/analytics", isApproved, async (req, res) => {
     try {
       const itemId = parseInt(req.params.id);
       if (isNaN(itemId)) {
@@ -3067,7 +3067,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Rate Limit Status
-  app.get("/api/bricklink/rate-limit", async (req, res) => {
+  app.get("/api/bricklink/rate-limit", isApproved, async (req, res) => {
     try {
       const { checkRateLimit } = await import("./services/bricklink");
       const status = await checkRateLimit();
@@ -3079,7 +3079,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Sync Routes
-  app.post("/api/sync/bricklink/inventory", async (req, res) => {
+  app.post("/api/sync/bricklink/inventory", isApproved, async (req, res) => {
     try {
       const result = await syncBricklinkData();
       res.json({
@@ -3096,7 +3096,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Get BrickLink sync progress (for real-time UI updates)
-  app.get("/api/sync/bricklink/progress", async (req, res) => {
+  app.get("/api/sync/bricklink/progress", isApproved, async (req, res) => {
     try {
       const { syncProgressTracker } = await import('./services/sync-progress');
       const progress = syncProgressTracker.get();
@@ -3108,7 +3108,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Get ShipStation sync progress (for real-time UI updates)
-  app.get("/api/sync/shipstation/orders/progress", async (req, res) => {
+  app.get("/api/sync/shipstation/orders/progress", isApproved, async (req, res) => {
     try {
       const [metadata] = await db
         .select()
@@ -3134,7 +3134,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
     }
   });
 
-  app.post("/api/sync/shipstation/orders", async (req, res) => {
+  app.post("/api/sync/shipstation/orders", isApproved, async (req, res) => {
     try {
       // Check for fullSync query parameter
       const fullSync = req.query.fullSync === 'true' || req.body.fullSync === true;
@@ -3154,7 +3154,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // BrickLink order sync endpoint
-  app.post("/api/sync/bricklink/orders", async (req, res) => {
+  app.post("/api/sync/bricklink/orders", isApproved, async (req, res) => {
     try {
       const { limit, fullSync } = req.body;
       
@@ -3196,7 +3196,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // BrickOwl order sync endpoint
-  app.post("/api/sync/brickowl/orders", async (req, res) => {
+  app.post("/api/sync/brickowl/orders", isApproved, async (req, res) => {
     try {
       const { limit, fullSync } = req.body;
       
@@ -3234,7 +3234,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Multi-platform order sync endpoint (BrickLink + BrickOwl)
-  app.post("/api/sync/all-platforms/orders", async (req, res) => {
+  app.post("/api/sync/all-platforms/orders", isApproved, async (req, res) => {
     try {
       const { limit = 50, fullSync = false } = req.body; // Default to 50 orders for manual sync
       
@@ -3334,7 +3334,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Get Order Sync Status for all platforms
-  app.get("/api/order-sync/status", async (req, res) => {
+  app.get("/api/order-sync/status", isApproved, async (req, res) => {
     try {
       // Get local database order stats
       const dbOrderStats = await db
@@ -3447,7 +3447,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Marketplace diagnostic endpoint
-  app.get("/api/orders/marketplace-diagnostic", async (req, res) => {
+  app.get("/api/orders/marketplace-diagnostic", isApproved, async (req, res) => {
     try {
       // Get summary statistics
       const stats = await db.execute(sql`
@@ -3521,7 +3521,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Price-o-Matic sync endpoint
-  app.post("/api/sync/priceomatic", async (req, res) => {
+  app.post("/api/sync/priceomatic", isApproved, async (req, res) => {
     try {
       const maxItems = req.body.maxItems || 1500;
       
@@ -3631,7 +3631,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Get Price-o-Matic sync status
-  app.get("/api/sync/priceomatic/status", async (req, res) => {
+  app.get("/api/sync/priceomatic/status", isApproved, async (req, res) => {
     try {
       const [status] = await db
         .select()
@@ -3658,7 +3658,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Get Price-o-Matic insights (pricing discrepancies)
-  app.get("/api/priceomatic/insights", async (req, res) => {
+  app.get("/api/priceomatic/insights", isApproved, async (req, res) => {
     try {
       const { priceGuideCache } = await import("@shared/schema");
       
@@ -3741,7 +3741,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   // ========================================
 
   // Get all aisles with shelf and bin counts
-  app.get("/api/warehouse/aisles", async (req, res) => {
+  app.get("/api/warehouse/aisles", isApproved, async (req, res) => {
     try {
       const aislesWithCounts = await db
         .select({
@@ -3763,7 +3763,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Create aisle
-  app.post("/api/warehouse/aisles", async (req, res) => {
+  app.post("/api/warehouse/aisles", isApproved, async (req, res) => {
     try {
       const data = insertWhAisleSchema.parse(req.body);
       const [aisle] = await db
@@ -3778,7 +3778,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Update aisle
-  app.put("/api/warehouse/aisles/:id", async (req, res) => {
+  app.put("/api/warehouse/aisles/:id", isApproved, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const data = insertWhAisleSchema.parse(req.body);
@@ -3799,7 +3799,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Delete aisle
-  app.delete("/api/warehouse/aisles/:id", async (req, res) => {
+  app.delete("/api/warehouse/aisles/:id", isApproved, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       await db.delete(whAisles).where(eq(whAisles.id, id));
@@ -3811,7 +3811,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Get all shelves (with optional aisle filter)
-  app.get("/api/warehouse/shelves", async (req, res) => {
+  app.get("/api/warehouse/shelves", isApproved, async (req, res) => {
     try {
       const aisleId = req.query.aisleId ? parseInt(req.query.aisleId as string) : null;
       
@@ -3840,7 +3840,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Create shelf
-  app.post("/api/warehouse/shelves", async (req, res) => {
+  app.post("/api/warehouse/shelves", isApproved, async (req, res) => {
     try {
       const data = insertWhShelfSchema.parse(req.body);
       const [shelf] = await db
@@ -3855,7 +3855,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Update shelf
-  app.put("/api/warehouse/shelves/:id", async (req, res) => {
+  app.put("/api/warehouse/shelves/:id", isApproved, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const data = insertWhShelfSchema.parse(req.body);
@@ -3876,7 +3876,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Delete shelf
-  app.delete("/api/warehouse/shelves/:id", async (req, res) => {
+  app.delete("/api/warehouse/shelves/:id", isApproved, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       await db.delete(whShelves).where(eq(whShelves.id, id));
@@ -3888,7 +3888,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Get all bins (with optional shelf filter)
-  app.get("/api/warehouse/bins", async (req, res) => {
+  app.get("/api/warehouse/bins", isApproved, async (req, res) => {
     try {
       const shelfId = req.query.shelfId ? parseInt(req.query.shelfId as string) : null;
       
@@ -3920,7 +3920,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Create bin
-  app.post("/api/warehouse/bins", async (req, res) => {
+  app.post("/api/warehouse/bins", isApproved, async (req, res) => {
     try {
       const data = insertWhBinSchema.parse(req.body);
       const [bin] = await db
@@ -3935,7 +3935,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Update bin
-  app.put("/api/warehouse/bins/:id", async (req, res) => {
+  app.put("/api/warehouse/bins/:id", isApproved, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const data = insertWhBinSchema.parse(req.body);
@@ -3956,7 +3956,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Delete bin
-  app.delete("/api/warehouse/bins/:id", async (req, res) => {
+  app.delete("/api/warehouse/bins/:id", isApproved, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       await db.delete(whBins).where(eq(whBins.id, id));
@@ -3968,7 +3968,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Get unassigned inventory items (not in any bin)
-  app.get("/api/warehouse/unassigned/inventory", async (req, res) => {
+  app.get("/api/warehouse/unassigned/inventory", isApproved, async (req, res) => {
     try {
       const unassignedItems = await db
         .select({
@@ -3993,7 +3993,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Get unassigned bins (not on any shelf)
-  app.get("/api/warehouse/unassigned/bins", async (req, res) => {
+  app.get("/api/warehouse/unassigned/bins", isApproved, async (req, res) => {
     try {
       const unassignedBins = await db
         .select()
@@ -4008,7 +4008,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Get unassigned shelves (not in any aisle)
-  app.get("/api/warehouse/unassigned/shelves", async (req, res) => {
+  app.get("/api/warehouse/unassigned/shelves", isApproved, async (req, res) => {
     try {
       const unassignedShelves = await db
         .select()
@@ -4023,7 +4023,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Assign inventory to bin
-  app.post("/api/warehouse/assign/inventory", async (req, res) => {
+  app.post("/api/warehouse/assign/inventory", isApproved, async (req, res) => {
     try {
       const data = insertInventoryLocationSchema.parse(req.body);
       const [location] = await db
@@ -4038,7 +4038,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Assign bin to shelf
-  app.put("/api/warehouse/assign/bin/:binId/shelf/:shelfId", async (req, res) => {
+  app.put("/api/warehouse/assign/bin/:binId/shelf/:shelfId", isApproved, async (req, res) => {
     try {
       const binId = parseInt(req.params.binId);
       const shelfId = parseInt(req.params.shelfId);
@@ -4059,7 +4059,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Assign shelf to aisle
-  app.put("/api/warehouse/assign/shelf/:shelfId/aisle/:aisleId", async (req, res) => {
+  app.put("/api/warehouse/assign/shelf/:shelfId/aisle/:aisleId", isApproved, async (req, res) => {
     try {
       const shelfId = parseInt(req.params.shelfId);
       const aisleId = parseInt(req.params.aisleId);
@@ -4080,7 +4080,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Get inventory locations with full details
-  app.get("/api/warehouse/locations", async (req, res) => {
+  app.get("/api/warehouse/locations", isApproved, async (req, res) => {
     try {
       const locations = await db
         .select({
@@ -4116,7 +4116,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Update inventory location
-  app.put("/api/warehouse/locations/:id", async (req, res) => {
+  app.put("/api/warehouse/locations/:id", isApproved, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const data = insertInventoryLocationSchema.parse(req.body);
@@ -4137,7 +4137,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Delete inventory location (unassign item from bin)
-  app.delete("/api/warehouse/locations/:id", async (req, res) => {
+  app.delete("/api/warehouse/locations/:id", isApproved, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       await db.delete(inventoryLocations).where(eq(inventoryLocations.id, id));
@@ -4151,7 +4151,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   // Picklist Routes
   
   // Get picklist stats (number of pending bins)
-  app.get("/api/picklist/stats", async (req, res) => {
+  app.get("/api/picklist/stats", isApproved, async (req, res) => {
     try {
       // Get active orders
       const activeOrders = await db
@@ -4202,7 +4202,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
   
   // Get picklist items for active orders (awaiting payment, awaiting shipment, awaiting fulfillment)
-  app.get("/api/picklist", async (req, res) => {
+  app.get("/api/picklist", isApproved, async (req, res) => {
     try {
       const filter = req.query.filter as string; // 'to_pull' | 'to_reshelve' | undefined
       
@@ -4411,7 +4411,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Update bin pulled status (all items in bin)
-  app.put("/api/picklist/bin/:binId/pull", async (req, res) => {
+  app.put("/api/picklist/bin/:binId/pull", isApproved, async (req, res) => {
     try {
       const binId = parseInt(req.params.binId);
       const { pulled } = req.body;
@@ -4442,7 +4442,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Update bin reshelved status (all items in bin)
-  app.put("/api/picklist/bin/:binId/reshelve", async (req, res) => {
+  app.put("/api/picklist/bin/:binId/reshelve", isApproved, async (req, res) => {
     try {
       const binId = parseInt(req.params.binId);
       const { reshelved } = req.body;
@@ -4473,7 +4473,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Fulfillment Stats - Count unfulfilled orders
-  app.get("/api/fulfillment/stats", async (req, res) => {
+  app.get("/api/fulfillment/stats", isApproved, async (req, res) => {
     try {
       // Count orders that are awaiting payment, awaiting fulfillment, or awaiting shipment
       const unfulfilled = await db
@@ -4497,7 +4497,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Get fulfillment data - orders awaiting fulfillment with items grouped by bin
-  app.get("/api/fulfillment", async (req, res) => {
+  app.get("/api/fulfillment", isApproved, async (req, res) => {
     try {
       // Fetch orders that need fulfillment
       const fulfillmentOrders = await db
@@ -4588,7 +4588,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Update fulfilled status for an order detail item
-  app.put("/api/fulfillment/item/:itemId/fulfill", async (req, res) => {
+  app.put("/api/fulfillment/item/:itemId/fulfill", isApproved, async (req, res) => {
     try {
       const itemId = req.params.itemId;
       
@@ -4624,7 +4624,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Get packing slip data for one or more orders
-  app.post("/api/fulfillment/packing-slip", async (req, res) => {
+  app.post("/api/fulfillment/packing-slip", isApproved, async (req, res) => {
     try {
       const { orderIds } = req.body;
       
@@ -4715,7 +4715,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Get shipped orders with search functionality
-  app.get("/api/orders/shipped", async (req, res) => {
+  app.get("/api/orders/shipped", isApproved, async (req, res) => {
     try {
       const searchQuery = req.query.search as string;
       
@@ -4767,7 +4767,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   // Shipping Routes
   
   // Preview shipment - check if order will need to be split
-  app.post("/api/shipments/preview", async (req, res) => {
+  app.post("/api/shipments/preview", isApproved, async (req, res) => {
     try {
       const { orderId, itemIdsToShip } = req.body;
       
@@ -4786,7 +4786,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
   
   // Split an order
-  app.post("/api/orders/:orderId/split", async (req, res) => {
+  app.post("/api/orders/:orderId/split", isApproved, async (req, res) => {
     try {
       const { orderId } = req.params;
       const { itemIdsToKeep } = req.body;
@@ -4806,7 +4806,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
   
   // Create shipment and get rates
-  app.post("/api/shipments/create", async (req, res) => {
+  app.post("/api/shipments/create", isApproved, async (req, res) => {
     try {
       const { orderId, fromAddress, parcel, itemIdsToShip } = req.body;
       
@@ -4836,7 +4836,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
   
   // Purchase shipping label
-  app.post("/api/shipments/purchase", async (req, res) => {
+  app.post("/api/shipments/purchase", isApproved, async (req, res) => {
     try {
       const { orderId, shipmentId, rateId, insurance } = req.body;
       
@@ -4855,7 +4855,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
   
   // Get shipments for an order
-  app.get("/api/shipments/:orderId", async (req, res) => {
+  app.get("/api/shipments/:orderId", isApproved, async (req, res) => {
     try {
       const { orderId } = req.params;
       
@@ -4873,7 +4873,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Dry-Run Order Sync Tester - Test with historical orders
-  app.post("/api/orders/dry-run-test", async (req, res) => {
+  app.post("/api/orders/dry-run-test", isApproved, async (req, res) => {
     try {
       const { platform, limit = 5 } = req.body;
       
@@ -5181,7 +5181,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   const backupRestore = await import('./services/backup-restore');
   
   // POST /api/backup/restore - Initiate restore workflow
-  app.post("/api/backup/restore", async (req, res) => {
+  app.post("/api/backup/restore", isApproved, async (req, res) => {
     try {
       const { targetTimestamp, skipPlatformSync } = req.body;
       
@@ -5202,7 +5202,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
   
   // GET /api/backup/restore/status/:jobId - Check restore progress
-  app.get("/api/backup/restore/status/:jobId", async (req, res) => {
+  app.get("/api/backup/restore/status/:jobId", isApproved, async (req, res) => {
     try {
       const { jobId } = req.params;
       const status = await backupRestore.getRestoreStatus(jobId);
@@ -5219,7 +5219,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
   
   // POST /api/backup/differential/analyze - Analyze BrickOwl vs BrickLink differences
-  app.post("/api/backup/differential/analyze", async (req, res) => {
+  app.post("/api/backup/differential/analyze", isApproved, async (req, res) => {
     try {
       const { jobId } = req.body;
       
@@ -5236,7 +5236,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
   
   // POST /api/backup/differential/apply - Apply differential sync to BrickLink
-  app.post("/api/backup/differential/apply", async (req, res) => {
+  app.post("/api/backup/differential/apply", isApproved, async (req, res) => {
     try {
       const { jobId, overrideAnomalies } = req.body;
       
@@ -5257,7 +5257,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
   
   // GET /api/backup/verify/:jobId - Run verification checks
-  app.get("/api/backup/verify/:jobId", async (req, res) => {
+  app.get("/api/backup/verify/:jobId", isApproved, async (req, res) => {
     try {
       const { jobId } = req.params;
       const verification = await backupRestore.verifyRestoration(jobId);
