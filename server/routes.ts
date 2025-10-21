@@ -3208,23 +3208,29 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
 
   // Bulk Rebrickable Image Sync (one-time operation to fetch all images)
   app.post("/api/sync/rebrickable/bulk-images", isApproved, async (req, res) => {
+    console.log('🔍 [DEBUG] Bulk image sync route HIT');
     try {
+      console.log('🔍 [DEBUG] About to import bulkSyncRebrickableImages');
       const { bulkSyncRebrickableImages } = await import("./services/rebrickable-images");
-      const maxBatches = req.body.maxBatches || 500;
+      console.log('🔍 [DEBUG] Import successful, type:', typeof bulkSyncRebrickableImages);
+      
+      const maxBatches = req.body?.maxBatches || 500;
+      console.log(`🔍 [DEBUG] maxBatches: ${maxBatches}`);
       
       console.log(`[Rebrickable Bulk Sync] Starting bulk image sync (max ${maxBatches} batches)...`);
       
       const result = await bulkSyncRebrickableImages(maxBatches);
+      console.log('🔍 [DEBUG] Bulk sync complete, result:', JSON.stringify(result));
       
       res.json({
         success: true,
         data: result,
       });
     } catch (error) {
-      console.error("Rebrickable bulk sync error:", error);
+      console.error("🔍 [DEBUG] Rebrickable bulk sync error:", error);
       res.status(500).json({
         success: false,
-        error: "Failed to bulk sync Rebrickable images",
+        error: error instanceof Error ? error.message : "Failed to bulk sync Rebrickable images",
       });
     }
   });

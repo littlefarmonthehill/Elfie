@@ -200,23 +200,25 @@ export default function PlatformSyncTool() {
   // Bulk Rebrickable image sync mutation
   const bulkImageSyncMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch('/api/sync/rebrickable/bulk-images', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ maxBatches: 500 }),
-      });
-      if (!response.ok) throw new Error('Bulk image sync failed');
-      return response.json();
+      console.log('🔍 [CLIENT DEBUG] Starting bulk image sync mutation');
+      const response = await apiRequest('POST', '/api/sync/rebrickable/bulk-images', { maxBatches: 500 });
+      const data = await response.json();
+      console.log('🔍 [CLIENT DEBUG] Response data:', data);
+      return data;
     },
     onSuccess: (result) => {
+      console.log('🔍 [CLIENT DEBUG] Mutation success, result:', result);
       queryClient.invalidateQueries({ queryKey: ['/api/shop/inventory'] });
+      const message = `${result.data.totalImagesFetched} images fetched across ${result.data.totalBatches} batches. ${result.data.completed ? 'All images synced!' : 'Some images remain.'}`;
+      console.log('🔍 [CLIENT DEBUG] Toast message:', message);
       toast({
         title: "Bulk Image Sync Complete",
-        description: `${result.data.totalImagesFetched} images fetched across ${result.data.totalBatches} batches. ${result.data.completed ? 'All images synced!' : 'Some images remain.'}`,
+        description: message,
       });
       setSyncingBulkImages(false);
     },
     onError: (error: Error) => {
+      console.error('🔍 [CLIENT DEBUG] Mutation error:', error);
       toast({
         title: "Bulk Image Sync Failed",
         description: error.message,
