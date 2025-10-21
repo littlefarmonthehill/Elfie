@@ -61,6 +61,8 @@ interface ProductLot {
   lotCount: number;
   uniqueColorCount: number;
   category: string;
+  imageUrl?: string | null;
+  thumbnailUrl?: string | null;
   variations: {
     color: string;
     colorHex: string;
@@ -418,24 +420,35 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
       >
         <div>
           <div
-            className="w-full aspect-square rounded-md mb-2 md:mb-3 flex items-center justify-center border border-gray-700/50 relative overflow-hidden"
+            className="w-full aspect-square rounded-md mb-2 md:mb-3 flex items-center justify-center border border-gray-700/50 relative overflow-hidden bg-gray-800/50"
             style={{
-              background: `linear-gradient(135deg, ${primaryColor.colorHex}60 0%, ${primaryColor.colorHex}30 100%)`,
+              background: lot.imageUrl ? '#1a1a1a' : `linear-gradient(135deg, ${primaryColor.colorHex}60 0%, ${primaryColor.colorHex}30 100%)`,
               boxShadow: `0 4px 16px ${primaryColor.colorHex}40`
             }}
           >
-            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-transparent to-cyan-500/10" />
-            <div className="absolute top-0 left-0 w-full h-full">
-              <div className="absolute top-2 right-2 w-1.5 h-1.5 md:w-3 md:h-3 bg-white rounded-full animate-pulse" style={{ animationDelay: '0s' }} />
-              <div className="absolute bottom-3 left-3 w-1.5 h-1.5 md:w-3 md:h-3 bg-cyan-400 rounded-full animate-pulse" style={{ animationDelay: '0.5s' }} />
-              <div className="absolute top-1/2 left-1/4 w-1 h-1 md:w-2 md:h-2 bg-pink-400 rounded-full animate-pulse" style={{ animationDelay: '1s' }} />
-            </div>
-            <div className="text-base md:text-3xl font-bold relative z-10" style={{
-              color: primaryColor.colorHex === '#FCFCFC' || primaryColor.colorHex === '#F2F3F2' ? '#00000030' : '#FFFFFF50',
-              textShadow: '0 2px 4px rgba(0,0,0,0.4)'
-            }}>
-              LEGO
-            </div>
+            {lot.imageUrl ? (
+              <img 
+                src={lot.imageUrl} 
+                alt={lot.name}
+                className="w-full h-full object-contain p-1 md:p-2"
+                data-testid={`img-part-${lot.id}`}
+              />
+            ) : (
+              <>
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-transparent to-cyan-500/10" />
+                <div className="absolute top-0 left-0 w-full h-full">
+                  <div className="absolute top-2 right-2 w-1.5 h-1.5 md:w-3 md:h-3 bg-white rounded-full animate-pulse" style={{ animationDelay: '0s' }} />
+                  <div className="absolute bottom-3 left-3 w-1.5 h-1.5 md:w-3 md:h-3 bg-cyan-400 rounded-full animate-pulse" style={{ animationDelay: '0.5s' }} />
+                  <div className="absolute top-1/2 left-1/4 w-1 h-1 md:w-2 md:h-2 bg-pink-400 rounded-full animate-pulse" style={{ animationDelay: '1s' }} />
+                </div>
+                <div className="text-base md:text-3xl font-bold relative z-10" style={{
+                  color: primaryColor.colorHex === '#FCFCFC' || primaryColor.colorHex === '#F2F3F2' ? '#00000030' : '#FFFFFF50',
+                  textShadow: '0 2px 4px rgba(0,0,0,0.4)'
+                }}>
+                  LEGO
+                </div>
+              </>
+            )}
           </div>
           
           <div className="space-y-1 md:space-y-2">
@@ -471,6 +484,18 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
           </DialogHeader>
           
           <div className="flex-1 overflow-y-auto pr-0.5 mt-1.5">
+            {lot.imageUrl && (
+              <div className="mb-3 flex justify-center">
+                <div className="w-32 h-32 md:w-48 md:h-48 rounded-lg bg-gray-900/40 border border-white/10 flex items-center justify-center p-2">
+                  <img 
+                    src={lot.imageUrl} 
+                    alt={lot.name}
+                    className="w-full h-full object-contain"
+                    data-testid={`img-modal-${lot.id}`}
+                  />
+                </div>
+              </div>
+            )}
             <div className="grid grid-cols-1 gap-1.5">
               {lot.colorGroups.map((colorGroup, groupIdx) => (
                 <div key={groupIdx} className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
