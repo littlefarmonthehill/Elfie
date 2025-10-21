@@ -3206,6 +3206,29 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
     }
   });
 
+  // Bulk Rebrickable Image Sync (one-time operation to fetch all images)
+  app.post("/api/sync/rebrickable/bulk-images", isApproved, async (req, res) => {
+    try {
+      const { bulkSyncRebrickableImages } = await import("./services/rebrickable-images");
+      const maxBatches = req.body.maxBatches || 500;
+      
+      console.log(`[Rebrickable Bulk Sync] Starting bulk image sync (max ${maxBatches} batches)...`);
+      
+      const result = await bulkSyncRebrickableImages(maxBatches);
+      
+      res.json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      console.error("Rebrickable bulk sync error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to bulk sync Rebrickable images",
+      });
+    }
+  });
+
   // Get BrickLink sync progress (for real-time UI updates)
   app.get("/api/sync/bricklink/progress", isApproved, async (req, res) => {
     try {
