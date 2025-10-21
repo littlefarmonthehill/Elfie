@@ -470,9 +470,9 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
           <div className="flex-1 overflow-y-auto pr-1 mt-2">
             <div className="grid grid-cols-1 gap-2">
               {lot.colorGroups.map((colorGroup, groupIdx) => (
-                <div key={groupIdx} className="space-y-1">
-                  {/* Color Header */}
-                  <div className="flex items-center gap-2 px-1">
+                <div key={groupIdx} className="flex items-center gap-2 overflow-x-auto pb-1">
+                  {/* Color Header - Fixed on left */}
+                  <div className="flex items-center gap-2 shrink-0">
                     <div
                       className="w-6 h-6 rounded shrink-0 border border-white/30 shadow-sm"
                       style={{ 
@@ -480,14 +480,14 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
                         boxShadow: `0 1px 4px ${colorGroup.colorHex}40`
                       }}
                     />
-                    <div>
+                    <div className="min-w-[80px]">
                       <h4 className="text-xs md:text-sm font-bold text-white">{colorGroup.colorName}</h4>
                       <p className="text-[9px] md:text-[10px] text-gray-500">{colorGroup.totalQty.toLocaleString()} pcs</p>
                     </div>
                   </div>
                   
-                  {/* Condition Variations - Horizontal */}
-                  <div className="flex gap-1.5 pl-1 overflow-x-auto pb-1">
+                  {/* Condition Variations - Same line */}
+                  <div className="flex gap-1.5">
                     {colorGroup.variations.map((variation, varIdx) => {
                       const idx = lot.variations.findIndex(v => v.color === variation.color && v.condition === variation.condition);
                       const quantity = quantities[idx] || 1;
