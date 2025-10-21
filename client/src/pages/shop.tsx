@@ -2,10 +2,31 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Search, ShoppingCart, ChevronRight, Sparkles, Plus } from "lucide-react";
+import { Search, ShoppingCart, ChevronRight, Sparkles, Plus, X } from "lucide-react";
 import { Link } from "wouter";
+import { useToast } from "@/hooks/use-toast";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import elfieRobot from "@assets/PlanetBrick_good_robot_1760672362080.png";
 import planetBrickLogo from "@assets/PlanetBrick_dotcom_with_planet_and_robot_400_1760672362080.png";
+
+interface CartItem {
+  lotId: number;
+  partNumber: string;
+  partName: string;
+  color: string;
+  colorHex: string;
+  condition: string;
+  qty: number;
+  price: string;
+  quantity: number; // quantity being purchased
+}
 
 // Sample lots data - grouped by part number
 const productLots = [
@@ -453,15 +474,11 @@ interface HorizontalRowProps {
   title: string;
   lots: typeof productLots;
   categoryId: string;
+  onAddToCart: (item: any) => void;
 }
 
-function HorizontalRow({ title, lots, categoryId }: HorizontalRowProps) {
+function HorizontalRow({ title, lots, categoryId, onAddToCart }: HorizontalRowProps) {
   const [selectedLot, setSelectedLot] = useState<number | null>(null);
-
-  const handleAddToCart = (item: any) => {
-    console.log('Adding to cart:', item);
-    // TODO: Implement cart functionality
-  };
 
   return (
     <section className="py-3 md:py-6">
@@ -488,7 +505,7 @@ function HorizontalRow({ title, lots, categoryId }: HorizontalRowProps) {
               lot={lot}
               isSelected={selectedLot === lot.id}
               onClick={() => setSelectedLot(selectedLot === lot.id ? null : lot.id)}
-              onAddToCart={handleAddToCart}
+              onAddToCart={onAddToCart}
             />
           ))}
         </div>
@@ -500,6 +517,51 @@ function HorizontalRow({ title, lots, categoryId }: HorizontalRowProps) {
 export default function Shop() {
   const totalLots = productLots.length;
   const totalParts = productLots.reduce((sum, lot) => sum + lot.totalQty, 0);
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const { toast } = useToast();
+
+  const handleAddToCart = (item: any) => {
+    const cartItem: CartItem = {
+      ...item,
+      quantity: 1, // default quantity
+    };
+    
+    setCart(prevCart => {
+      // Check if item already in cart
+      const existingIndex = prevCart.findIndex(
+        i => i.lotId === item.lotId && 
+        i.color === item.color && 
+        i.condition === item.condition
+      );
+      
+      if (existingIndex >= 0) {
+        // Update quantity
+        const newCart = [...prevCart];
+        newCart[existingIndex].quantity += 1;
+        return newCart;
+      } else {
+        // Add new item
+        return [...prevCart, cartItem];
+      }
+    });
+    
+    toast({
+      title: "Added to cart",
+      description: `${item.partName} - ${item.color} (${item.condition})`,
+    });
+  };
+
+  const handleRemoveFromCart = (index: number) => {
+    setCart(prevCart => prevCart.filter((_, i) => i !== index));
+  };
+
+  const cartTotal = cart.reduce((sum, item) => {
+    const price = parseFloat(item.price.replace('$', ''));
+    return sum + (price * item.quantity);
+  }, 0);
+
+  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
     <div className="min-h-screen bg-gray-950 relative overflow-hidden">
@@ -558,9 +620,77 @@ export default function Shop() {
 
           {/* Cart & Login - Right */}
           <div className="flex items-center gap-1.5 md:gap-3">
-            <Button size="icon" variant="ghost" className="text-cyan-300 h-9 w-9 md:h-12 md:w-12" data-testid="button-cart">
-              <ShoppingCart className="w-5 h-5 md:w-7 md:h-7" />
-            </Button>
+            <Sheet open={isCartOpen} onOpenChange={setIsCartOpen}>
+              <SheetTrigger asChild>
+                <Button size="icon" variant="ghost" className="text-cyan-300 h-9 w-9 md:h-12 md:w-12 relative" data-testid="button-cart">
+                  <ShoppingCart className="w-5 h-5 md:w-7 md:h-7" />
+                  {cartCount > 0 && (
+                    <Badge className="absolute -top-1 -right-1 h-5 w-5 md:h-6 md:w-6 flex items-center justify-center p-0 text-[8px] md:text-[10px] bg-cyan-500 border-none">
+                      {cartCount}
+                    </Badge>
+                  )}
+                </Button>
+              </SheetTrigger>
+              <SheetContent className="w-full sm:max-w-lg bg-gray-900 border-purple-500/30">
+                <SheetHeader>
+                  <SheetTitle className="text-white">Shopping Cart</SheetTitle>
+                  <SheetDescription className="text-gray-400">
+                    {cartCount} {cartCount === 1 ? 'item' : 'items'} in cart
+                  </SheetDescription>
+                </SheetHeader>
+                <div className="mt-6 space-y-3 max-h-[60vh] overflow-y-auto">
+                  {cart.length === 0 ? (
+                    <p className="text-gray-500 text-center py-8">Your cart is empty</p>
+                  ) : (
+                    cart.map((item, index) => (
+                      <Card key={index} className="p-3 bg-gray-800/50 border-gray-700">
+                        <div className="flex items-start gap-3">
+                          <div
+                            className="w-8 h-8 rounded shrink-0 border border-gray-600"
+                            style={{ backgroundColor: item.colorHex }}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <h4 className="text-sm font-semibold text-white truncate">
+                              {item.partName}
+                            </h4>
+                            <p className="text-xs text-gray-400">#{item.partNumber}</p>
+                            <p className="text-xs text-gray-500">
+                              {item.color} • {item.condition}
+                            </p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-sm font-bold text-cyan-400">{item.price}</span>
+                              <span className="text-xs text-gray-500">× {item.quantity}</span>
+                            </div>
+                          </div>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 text-red-400 hover:text-red-300 shrink-0"
+                            onClick={() => handleRemoveFromCart(index)}
+                            data-testid={`button-remove-${index}`}
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </Card>
+                    ))
+                  )}
+                </div>
+                {cart.length > 0 && (
+                  <div className="mt-6 pt-4 border-t border-gray-700">
+                    <div className="flex items-center justify-between mb-4">
+                      <span className="text-lg font-bold text-white">Total:</span>
+                      <span className="text-xl font-bold text-cyan-400">
+                        ${cartTotal.toFixed(2)}
+                      </span>
+                    </div>
+                    <Button className="w-full bg-cyan-600 hover:bg-cyan-500 text-white" data-testid="button-checkout">
+                      Proceed to Checkout
+                    </Button>
+                  </div>
+                )}
+              </SheetContent>
+            </Sheet>
             <Link href="/login">
               <Button variant="ghost" size="default" className="text-cyan-300 text-[10px] md:text-base h-9 md:h-12 px-2 md:px-4" data-testid="button-login-header">
                 Login
@@ -601,12 +731,12 @@ export default function Shop() {
 
         {/* Netflix-style Horizontal Scrolling Rows */}
         <div className="pb-4 md:pb-8">
-          <HorizontalRow title="Featured Profits" lots={featuredLots} categoryId="featured" />
-          <HorizontalRow title="Bricks" lots={brickLots} categoryId="bricks" />
-          <HorizontalRow title="Plates" lots={plateLots} categoryId="plates" />
-          <HorizontalRow title="Tiles" lots={tileLots} categoryId="tiles" />
-          <HorizontalRow title="Slopes" lots={slopeLots} categoryId="slopes" />
-          <HorizontalRow title="Minifigs" lots={minifigLots} categoryId="minifigs" />
+          <HorizontalRow title="Featured Profits" lots={featuredLots} categoryId="featured" onAddToCart={handleAddToCart} />
+          <HorizontalRow title="Bricks" lots={brickLots} categoryId="bricks" onAddToCart={handleAddToCart} />
+          <HorizontalRow title="Plates" lots={plateLots} categoryId="plates" onAddToCart={handleAddToCart} />
+          <HorizontalRow title="Tiles" lots={tileLots} categoryId="tiles" onAddToCart={handleAddToCart} />
+          <HorizontalRow title="Slopes" lots={slopeLots} categoryId="slopes" onAddToCart={handleAddToCart} />
+          <HorizontalRow title="Minifigs" lots={minifigLots} categoryId="minifigs" onAddToCart={handleAddToCart} />
         </div>
 
         {/* Footer */}
