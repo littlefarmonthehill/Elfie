@@ -858,12 +858,12 @@ export default function Shop() {
             </div>
           </div>
 
-          {/* Centered Logo - Upper */}
-          <div className="absolute left-1/2 -translate-x-1/2 top-2 md:top-3 z-[60]">
+          {/* Centered Logo - Upper, larger and bleeding into stats row */}
+          <div className="absolute left-1/2 -translate-x-1/2 top-4 md:top-6 z-[60]">
             <img 
               src={planetBrickLogo} 
               alt="PlanetBrick" 
-              className="h-16 md:h-24 lg:h-28 w-auto object-contain drop-shadow-2xl"
+              className="h-24 md:h-32 lg:h-40 w-auto object-contain drop-shadow-2xl"
               data-testid="logo-planetbrick"
             />
           </div>
