@@ -7,6 +7,38 @@ export default function Shop() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-purple-900">
       
+      {/* Header */}
+      <header className="sticky top-0 z-50 border-b border-purple-500/20 backdrop-blur-xl bg-gray-900/80">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16 md:h-20">
+            <div className="flex items-center gap-2">
+              <img src={logoUrl} alt="PlanetBrick" className="h-8 md:h-10" />
+              <span className="text-lg md:text-xl font-bold bg-gradient-to-r from-purple-300 to-cyan-300 bg-clip-text text-transparent">
+                PlanetBrick
+              </span>
+            </div>
+            <div className="flex items-center gap-3">
+              <Button 
+                variant="ghost" 
+                className="text-cyan-300 hover:text-cyan-200"
+                onClick={() => window.location.href = '/login'}
+                data-testid="button-login-header"
+              >
+                Login
+              </Button>
+              <Button 
+                size="sm"
+                className="bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 text-white border-0"
+                onClick={() => window.location.href = '/signup'}
+                data-testid="button-signup-header"
+              >
+                Sign Up
+              </Button>
+            </div>
+          </div>
+        </div>
+      </header>
+      
       {/* Hero Section */}
       <section className="relative overflow-hidden border-b border-purple-500/20">
         {/* Animated Background */}
