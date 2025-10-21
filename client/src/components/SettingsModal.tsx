@@ -223,6 +223,58 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   const [restoreDate, setRestoreDate] = useState('2025-10-18');
   const [restoreTime, setRestoreTime] = useState('14:30');
   const [restoreProgress, setRestoreProgress] = useState(0);
+  
+  // Password change state
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  
+  const changePasswordMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest('POST', '/api/change-password', {
+        currentPassword,
+        newPassword,
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Password Changed",
+        description: "Your password has been updated successfully.",
+      });
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to change password",
+        variant: "destructive",
+      });
+    },
+  });
+  
+  const handlePasswordChange = () => {
+    if (newPassword !== confirmPassword) {
+      toast({
+        title: "Password Mismatch",
+        description: "New passwords do not match",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (newPassword.length < 8) {
+      toast({
+        title: "Weak Password",
+        description: "Password must be at least 8 characters",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    changePasswordMutation.mutate();
+  };
   const [restoreCurrentTask, setRestoreCurrentTask] = useState('');
   const [restoreJobId, setRestoreJobId] = useState<string | null>(null);
   const [differentialAnalysis, setDifferentialAnalysis] = useState<{
@@ -599,6 +651,71 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                       <CheckCircle2 className="h-3 w-3 text-green-400" />
                       <span>Up to date</span>
                     </div>
+                  </div>
+                </div>
+                
+                {/* Account Security - Password Change */}
+                <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Shield className="h-4 w-4 text-purple-400" />
+                    <h4 className="text-xs font-medium text-gray-300">Change Password</h4>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="currentPassword" className="text-[10px] text-gray-400">
+                        Current Password
+                      </Label>
+                      <Input
+                        id="currentPassword"
+                        type="password"
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
+                        className="bg-gray-900/50 border-gray-600 text-xs h-8"
+                        placeholder="••••••••"
+                        data-testid="input-currentPassword"
+                      />
+                    </div>
+                    
+                    <div className="space-y-1.5">
+                      <Label htmlFor="newPassword" className="text-[10px] text-gray-400">
+                        New Password
+                      </Label>
+                      <Input
+                        id="newPassword"
+                        type="password"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        className="bg-gray-900/50 border-gray-600 text-xs h-8"
+                        placeholder="••••••••"
+                        data-testid="input-newPassword"
+                      />
+                    </div>
+                    
+                    <div className="space-y-1.5">
+                      <Label htmlFor="confirmPassword" className="text-[10px] text-gray-400">
+                        Confirm New Password
+                      </Label>
+                      <Input
+                        id="confirmPassword"
+                        type="password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        className="bg-gray-900/50 border-gray-600 text-xs h-8"
+                        placeholder="••••••••"
+                        data-testid="input-confirmNewPassword"
+                      />
+                    </div>
+                    
+                    <Button
+                      size="sm"
+                      onClick={handlePasswordChange}
+                      disabled={changePasswordMutation.isPending || !currentPassword || !newPassword || !confirmPassword}
+                      className="w-full text-xs"
+                      data-testid="button-changePassword"
+                    >
+                      {changePasswordMutation.isPending ? 'Changing...' : 'Change Password'}
+                    </Button>
                   </div>
                 </div>
                 

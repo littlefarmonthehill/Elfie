@@ -7,10 +7,11 @@ import { useServiceWorker } from "@/hooks/use-service-worker";
 import { useAuth } from "@/hooks/useAuth";
 import Home from "@/pages/home";
 import Login from "@/pages/login";
+import Signup from "@/pages/signup";
 import PendingApproval from "@/pages/pending-approval";
 import NotFound from "@/pages/not-found";
 
-// Reference: blueprint:javascript_log_in_with_replit
+// Email/Password Authentication
 function Router() {
   const { isAuthenticated, isApproved, isLoading } = useAuth();
 
@@ -29,8 +30,12 @@ function Router() {
   return (
     <Switch>
       {!isAuthenticated ? (
-        // Not logged in - show login page
-        <Route path="/" component={Login} />
+        <>
+          {/* Not logged in - show login or signup pages */}
+          <Route path="/" component={Login} />
+          <Route path="/login" component={Login} />
+          <Route path="/signup" component={Signup} />
+        </>
       ) : !isApproved ? (
         // Logged in but not approved - show pending approval page
         <Route path="/" component={PendingApproval} />

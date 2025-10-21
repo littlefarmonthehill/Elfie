@@ -1,4 +1,5 @@
 import { useAuth } from "@/hooks/useAuth";
+import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Clock, LogOut, Sparkles } from "lucide-react";
 import logoUrl from "@assets/PlanetBrick_dotcom_with_planet_and_robot_400_1760672362080.png";
@@ -6,6 +7,16 @@ import elfieUrl from "@assets/PlanetBrick_good_robot_1760672362080.png";
 
 export default function PendingApproval() {
   const { user } = useAuth();
+  
+  const handleLogout = async () => {
+    try {
+      await apiRequest('POST', '/api/logout');
+      window.location.href = '/login';
+    } catch (error) {
+      console.error('Logout error:', error);
+      window.location.href = '/login';
+    }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center p-2 md:p-4 relative overflow-hidden bg-gradient-to-br from-purple-900 via-indigo-900 to-cyan-900">
@@ -114,7 +125,7 @@ export default function PendingApproval() {
               <Button 
                 variant="outline" 
                 className="w-full h-10 md:h-12 text-xs md:text-base border-gray-600 hover:border-gray-500 bg-gray-900/50 hover:bg-gray-800/50"
-                onClick={() => window.location.href = '/api/logout'}
+                onClick={handleLogout}
                 data-testid="button-logout"
               >
                 <LogOut className="w-3.5 h-3.5 md:w-5 md:h-5 mr-1.5 md:mr-2" />

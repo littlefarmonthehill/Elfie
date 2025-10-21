@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated, isApproved } from "./replitAuth";
+import { setupAuth, isAuthenticated, isApproved } from "./auth";
 import { syncBricklinkData, fetchPriceOMagicData, searchBricklinkCatalogItem, syncPriceOMagicCache } from "./services/bricklink";
 import { syncShipStationOrders } from "./services/shipstation";
 import { syncBrickLinkToBrickOwl } from "./services/brickowl";
@@ -39,15 +39,13 @@ function decodeHtmlEntities(text: string | null | undefined): string {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Auth middleware setup - REQUIRED for Replit Auth
-  // Reference: blueprint:javascript_log_in_with_replit
+  // Auth middleware setup - Email/Password Authentication
   await setupAuth(app);
 
   // Auth routes - authenticated but may not be approved
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      const user = req.user;
       res.json(user);
     } catch (error) {
       console.error("Error fetching user:", error);
@@ -58,8 +56,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin routes - get all users and manage approvals
   app.get('/api/admin/users', isApproved, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      const user = req.user;
       
       // Only admins can access this
       if (user?.role !== 'admin') {
@@ -76,8 +73,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch('/api/admin/users/:id/approval', isApproved, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      const user = req.user;
       
       // Only admins can access this
       if (user?.role !== 'admin') {
