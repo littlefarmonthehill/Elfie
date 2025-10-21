@@ -16,7 +16,7 @@ The frontend uses React 18+, TypeScript, Vite, Shadcn/ui, and Tailwind CSS, feat
 - **Backend:** Express.js with TypeScript and Node.js.
 - **Database:** Drizzle ORM with Neon serverless PostgreSQL, including `pgvector`.
 - **API:** RESTful endpoints.
-- **Authentication:** Basic username/password.
+- **Authentication:** Two-layer security system with Replit Auth (OIDC) for authentication and custom approval authorization. Only pre-approved users (Blake: bhnorby@gmail.com, Caleb: caleblauritsen@gmail.com with admin role) can access the platform. New users see a pending approval page until an admin approves them via the Settings/Users panel. Features robust transactional upsert algorithm handling OIDC sub-based sessions, email changes from IdP, and preservation of approval status. Session cookies hardened with httpOnly, secure, sameSite: 'lax'.
 - **Data Schema:** Comprehensive schema covering users, inventory, orders, sync metadata, app settings, embeddings (inventory, order, set-part, forum), BrickLink forum posts, warehouse management, picklists, sync issues, and shipping.
 - **Order Status & Inventory Automation:** Centralized configuration for platform-specific statuses and inventory impact, reducing inventory on shipment and restoring on cancellation/return. Supports BrickLink, BrickOwl, eBay, and Amazon.
 - **Shipping System:** Vendor-agnostic abstraction with EasyPost integration, supporting order splitting, automatic label generation, tracking, and automated platform status synchronization.
