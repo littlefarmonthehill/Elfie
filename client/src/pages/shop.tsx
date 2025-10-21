@@ -486,32 +486,32 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
                     </div>
                   </div>
                   
-                  {/* Condition Variations */}
-                  <div className="space-y-1 pl-1">
+                  {/* Condition Variations - Horizontal */}
+                  <div className="flex gap-1.5 pl-1 overflow-x-auto pb-1">
                     {colorGroup.variations.map((variation, varIdx) => {
                       const idx = lot.variations.findIndex(v => v.color === variation.color && v.condition === variation.condition);
                       const quantity = quantities[idx] || 1;
                       return (
                         <div 
                           key={varIdx}
-                          className="p-2 bg-gray-900/40 border border-white/5 rounded hover-elevate transition-all duration-300 group"
+                          className="p-2 bg-gray-900/40 border border-white/5 rounded hover-elevate transition-all duration-300 group shrink-0 min-w-[160px]"
                           data-testid={`variation-${lot.id}-${idx}`}
                         >
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-col gap-1.5">
                             {/* Info */}
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-1.5 flex-wrap">
+                            <div>
+                              <div className="flex items-center gap-1.5 mb-0.5">
                                 <Badge variant="outline" className="text-[9px] text-gray-300 border-white/20 h-4 px-1">
                                   {variation.condition}
                                 </Badge>
-                                <span className="text-[10px] md:text-xs text-gray-500">{variation.qty.toLocaleString()} avail</span>
+                                <span className="text-[9px] text-gray-500">{variation.qty.toLocaleString()}</span>
                               </div>
-                              <div className="text-sm md:text-base font-bold text-cyan-400 mt-0.5">{variation.price}</div>
+                              <div className="text-sm font-bold text-cyan-400">{variation.price}</div>
                             </div>
 
                             {/* Quantity Controls */}
-                            <div className="flex items-center gap-1.5">
-                              <div className="flex items-center gap-0.5 bg-gray-800/80 rounded p-0.5 border border-white/10">
+                            <div className="flex items-center gap-1">
+                              <div className="flex items-center gap-0.5 bg-gray-800/80 rounded p-0.5 border border-white/10 flex-1">
                                 <Button
                                   size="icon"
                                   variant="ghost"
@@ -521,7 +521,7 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
                                 >
                                   <Minus className="w-2.5 h-2.5" />
                                 </Button>
-                                <div className="w-8 text-center">
+                                <div className="flex-1 text-center">
                                   <span className="text-xs font-bold text-white">{quantity}</span>
                                 </div>
                                 <Button
@@ -741,8 +741,8 @@ export default function Shop() {
 
       <div className="relative z-10">
         {/* Redesigned Header - Centered Logo, Comet Stats */}
-        <header className="sticky top-0 z-50 bg-black/95 backdrop-blur-xl border-b border-white/10 relative pb-8 md:pb-12">
-          <div className="px-4 md:px-8 py-2 md:py-3 flex items-start justify-between relative">
+        <header className="sticky top-0 z-50 bg-black/95 backdrop-blur-xl border-b border-white/10 relative pb-6 md:pb-8">
+          <div className="px-4 md:px-8 py-2 flex items-start justify-between relative">
             {/* Cart & Login - Top Right */}
             <div className="flex items-center gap-1.5 md:gap-3 ml-auto">
               <Sheet open={isCartOpen} onOpenChange={setIsCartOpen}>
@@ -825,44 +825,47 @@ export default function Shop() {
           </div>
 
           {/* Centered Logo - Half In/Half Out */}
-          <div className="absolute left-1/2 -translate-x-1/2 -bottom-8 md:-bottom-12 z-[60]">
+          <div className="absolute left-1/2 -translate-x-1/2 -bottom-6 md:-bottom-8 z-[60]">
             <img 
               src={planetBrickLogo} 
               alt="PlanetBrick" 
-              className="h-16 md:h-24 lg:h-32 w-auto object-contain drop-shadow-2xl"
+              className="h-14 md:h-20 lg:h-24 w-auto object-contain drop-shadow-2xl"
               data-testid="logo-planetbrick"
             />
           </div>
 
-          {/* Lots - Left Side with Comet Trail */}
-          <div className="absolute left-4 md:left-8 top-1/2 -translate-y-1/2 flex items-center gap-2 relative group z-[50]">
-            {/* Comet trail effect */}
-            <div className="absolute -left-8 top-1/2 -translate-y-1/2 w-32 h-px bg-gradient-to-r from-transparent via-cyan-400/40 to-cyan-500/60 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-            <div className="relative">
-              <Sparkles className="w-4 h-4 md:w-5 md:h-5 text-cyan-400" />
+          {/* Stats Row - Centered Below Logo */}
+          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 flex items-center gap-6 md:gap-12 z-[50]">
+            {/* Lots - Left with Comet Trail */}
+            <div className="flex items-center gap-2 relative group">
+              {/* Comet trail effect */}
+              <div className="absolute -left-8 top-1/2 -translate-y-1/2 w-32 h-px bg-gradient-to-r from-transparent via-cyan-400/40 to-cyan-500/60 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              <div className="relative">
+                <Sparkles className="w-3 h-3 md:w-4 md:h-4 text-cyan-400" />
+              </div>
+              <div className="text-left">
+                <div className="text-xs md:text-base font-bold text-white">{totalLots.toLocaleString()}</div>
+                <div className="text-[7px] md:text-[9px] text-gray-400">Unique Lots</div>
+              </div>
             </div>
-            <div className="text-left">
-              <div className="text-sm md:text-lg font-bold text-white">{totalLots.toLocaleString()}</div>
-              <div className="text-[8px] md:text-[10px] text-gray-400">Unique Lots</div>
-            </div>
-          </div>
 
-          {/* Parts - Right Side with Comet Trail */}
-          <div className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 flex items-center gap-2 group z-[50]">
-            <div className="text-right">
-              <div className="text-sm md:text-lg font-bold text-white">{totalParts.toLocaleString()}</div>
-              <div className="text-[8px] md:text-[10px] text-gray-400">Total Parts</div>
+            {/* Parts - Right with Comet Trail */}
+            <div className="flex items-center gap-2 group">
+              <div className="text-right">
+                <div className="text-xs md:text-base font-bold text-white">{totalParts.toLocaleString()}</div>
+                <div className="text-[7px] md:text-[9px] text-gray-400">Total Parts</div>
+              </div>
+              <div className="relative">
+                <Sparkles className="w-3 h-3 md:w-4 md:h-4 text-blue-400" />
+              </div>
+              {/* Comet trail effect */}
+              <div className="absolute -right-8 top-1/2 -translate-y-1/2 w-32 h-px bg-gradient-to-l from-transparent via-blue-400/40 to-blue-500/60 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             </div>
-            <div className="relative">
-              <Sparkles className="w-4 h-4 md:w-5 md:h-5 text-blue-400" />
-            </div>
-            {/* Comet trail effect */}
-            <div className="absolute -right-8 top-1/2 -translate-y-1/2 w-32 h-px bg-gradient-to-l from-transparent via-blue-400/40 to-blue-500/60 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
           </div>
         </header>
 
         {/* Search Bar */}
-        <div className="sticky top-[5rem] md:top-[6rem] z-30 bg-black/95 backdrop-blur-xl px-3 md:px-6 py-3 md:py-4 mt-8 md:mt-12 border-b border-white/10">
+        <div className="sticky top-[3.5rem] md:top-[4rem] z-30 bg-black/95 backdrop-blur-xl px-3 md:px-6 py-3 md:py-4 mt-6 md:mt-8 border-b border-white/10">
           <div className="relative max-w-3xl mx-auto">
             <Search className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-gray-500" />
             <input
