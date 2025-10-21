@@ -16,12 +16,12 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
-// User storage table - REQUIRED for Replit Auth
-// Reference: blueprint:javascript_log_in_with_replit
-// NOTE: Keeping default config for id column as per blueprint requirements
+// User storage table - Email/Password Authentication
+// NOTE: Keeping default config for id column as per previous blueprint requirements
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  email: varchar("email").unique(),
+  email: varchar("email").unique().notNull(),
+  password: varchar("password"), // bcrypt hashed password
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
