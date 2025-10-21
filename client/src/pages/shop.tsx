@@ -1,310 +1,167 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Package, Search, Sparkles, Building2, Users, CheckCircle2, ArrowRight, Database, Zap, Shield } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Search, ShoppingCart, Star, Box, Grid3x3, Bot, Cog } from "lucide-react";
+import { Link } from "wouter";
 import logoUrl from "@assets/PlanetBrick_dotcom_with_planet_and_robot_400_1760672362080.png";
+
+const featuredProducts = [
+  { id: 1, name: "2x4 Brick", color: "Red", part: "3001", price: "$0.15", stock: 2847, rating: 4.9, colorHex: "#D50000" },
+  { id: 2, name: "1x2 Plate", color: "Blue", part: "3023", price: "$0.08", stock: 5621, rating: 5.0, colorHex: "#0055BF" },
+  { id: 3, name: "2x2 Brick", color: "Yellow", part: "3003", price: "$0.12", stock: 1893, rating: 4.8, colorHex: "#F2CD37" },
+  { id: 4, name: "1x1 Round", color: "Trans-Clear", part: "3062b", price: "$0.05", stock: 8234, rating: 4.9, colorHex: "#FCFCFC" },
+  { id: 5, name: "1x4 Tile", color: "Dark Gray", part: "2431", price: "$0.18", stock: 967, rating: 4.7, colorHex: "#6C6E68" },
+  { id: 6, name: "2x2 Slope", color: "Green", part: "3039", price: "$0.22", stock: 3421, rating: 5.0, colorHex: "#00852B" },
+  { id: 7, name: "1x2 Grill", color: "Black", part: "2877", price: "$0.14", stock: 2156, rating: 4.8, colorHex: "#05131D" },
+  { id: 8, name: "Minifig Head", color: "Yellow", part: "3626", price: "$0.45", stock: 534, rating: 5.0, colorHex: "#F2CD37" },
+  { id: 9, name: "1x1 Plate", color: "White", part: "3024", price: "$0.06", stock: 9821, rating: 4.9, colorHex: "#F2F3F2" },
+  { id: 10, name: "1x6 Brick", color: "Orange", part: "3009", price: "$0.28", stock: 1234, rating: 4.6, colorHex: "#FE8A18" },
+  { id: 11, name: "2x3 Plate", color: "Tan", part: "3021", price: "$0.16", stock: 2789, rating: 4.8, colorHex: "#E4CD9E" },
+  { id: 12, name: "1x2x2 Window", color: "Trans-Blue", part: "60592", price: "$0.35", stock: 876, rating: 4.9, colorHex: "#0081F0" },
+  { id: 13, name: "1x2 Brick", color: "Lime", part: "3004", price: "$0.12", stock: 1456, rating: 4.9, colorHex: "#BBE90B" },
+  { id: 14, name: "2x2 Tile", color: "Pink", part: "3068", price: "$0.14", stock: 2341, rating: 4.7, colorHex: "#FC97AC" },
+  { id: 15, name: "1x1 Cone", color: "Purple", part: "4589", price: "$0.09", stock: 3987, rating: 4.8, colorHex: "#81007B" },
+  { id: 16, name: "1x4 Brick", color: "Bright Orange", part: "3010", price: "$0.18", stock: 1765, rating: 5.0, colorHex: "#D67923" },
+];
 
 export default function Shop() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-purple-900">
+    <div className="min-h-screen bg-gray-950">
       
-      {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-purple-500/20 backdrop-blur-xl bg-gray-900/80">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16 md:h-20">
-            <div className="flex items-center gap-2">
-              <img src={logoUrl} alt="PlanetBrick" className="h-8 md:h-10" />
-              <span className="text-lg md:text-xl font-bold bg-gradient-to-r from-purple-300 to-cyan-300 bg-clip-text text-transparent">
-                PlanetBrick
-              </span>
+      {/* Compact Header */}
+      <header className="sticky top-0 z-50 border-b border-purple-500/20 backdrop-blur-xl bg-gray-900/95">
+        <div className="px-3 py-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <img src={logoUrl} alt="PlanetBrick" className="h-10" />
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <Button 
+                size="icon"
                 variant="ghost" 
-                className="text-cyan-300 hover:text-cyan-200"
-                onClick={() => window.location.href = '/login'}
-                data-testid="button-login-header"
+                className="text-cyan-300 h-9 w-9"
+                data-testid="button-cart"
               >
-                Login
+                <ShoppingCart className="w-5 h-5" />
               </Button>
-              <Button 
-                size="sm"
-                className="bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 text-white border-0"
-                onClick={() => window.location.href = '/signup'}
-                data-testid="button-signup-header"
-              >
-                Sign Up
-              </Button>
+              <Link href="/login">
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  className="text-cyan-300 text-xs h-9"
+                  data-testid="button-login-header"
+                >
+                  Login
+                </Button>
+              </Link>
             </div>
           </div>
         </div>
       </header>
+
+      {/* Search Bar */}
+      <div className="sticky top-14 z-40 bg-gradient-to-b from-gray-900 to-gray-950 px-3 py-3 border-b border-purple-500/10">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+          <input
+            type="text"
+            placeholder="Search by part #, color, or name..."
+            className="w-full h-10 pl-10 pr-4 bg-gray-800/50 border border-purple-500/20 rounded-lg text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+            data-testid="input-search"
+          />
+        </div>
+      </div>
       
-      {/* Hero Section */}
-      <section className="relative overflow-hidden border-b border-purple-500/20">
-        {/* Animated Background */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[1000px] border-2 border-purple-500/10 rounded-full animate-[spin_60s_linear_infinite]" />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] border-2 border-cyan-500/10 rounded-full animate-[spin_40s_linear_infinite_reverse]" />
+      {/* Featured Products Grid */}
+      <section className="px-3 py-4">
+        <h2 className="text-lg font-bold text-white mb-3">Featured Parts</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+          {featuredProducts.map((product) => (
+            <Card 
+              key={product.id}
+              className="bg-gray-900/50 border-purple-500/20 p-3 hover-elevate cursor-pointer"
+              data-testid={`card-product-${product.id}`}
+            >
+              <div 
+                className="w-full aspect-square rounded-lg mb-2 flex items-center justify-center border border-gray-700/50 shadow-lg"
+                style={{ 
+                  backgroundColor: product.colorHex,
+                  boxShadow: `0 4px 14px ${product.colorHex}40`
+                }}
+              >
+                <div className="text-4xl font-bold" style={{
+                  color: product.colorHex === '#FCFCFC' || product.colorHex === '#F2F3F2' || product.colorHex === '#F2CD37' ? '#00000030' : '#FFFFFF30',
+                  textShadow: '0 2px 4px rgba(0,0,0,0.3)'
+                }}>
+                  LEGO
+                </div>
+              </div>
+              
+              <div className="space-y-1">
+                <div className="flex items-start justify-between gap-1">
+                  <h3 className="text-xs font-semibold text-white leading-tight">{product.name}</h3>
+                  <div className="flex items-center gap-0.5 shrink-0">
+                    <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                    <span className="text-xs text-gray-400">{product.rating}</span>
+                  </div>
+                </div>
+                
+                <p className="text-xs text-gray-400">{product.color}</p>
+                <p className="text-xs text-gray-500">#{product.part}</p>
+                
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-sm font-bold text-cyan-400" data-testid={`text-price-${product.id}`}>{product.price}</span>
+                  <Badge variant="secondary" className="text-xs px-1.5 py-0.5 h-auto" data-testid={`text-stock-${product.id}`}>
+                    {product.stock.toLocaleString()} in stock
+                  </Badge>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      </section>
+
+      {/* Categories Quick Access */}
+      <section className="px-3 py-6 border-t border-purple-500/10">
+        <h2 className="text-lg font-bold text-white mb-3">Shop by Category</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <Card className="bg-gradient-to-br from-red-900/30 to-gray-900/50 border-red-500/20 p-4 text-center hover-elevate cursor-pointer" data-testid="category-bricks">
+            <Box className="w-8 h-8 mx-auto mb-2 text-red-400" />
+            <h3 className="text-sm font-semibold text-white">Bricks</h3>
+            <p className="text-xs text-gray-400 mt-1">12,847 parts</p>
+          </Card>
           
-          {/* Gradient orbs */}
-          <div className="absolute top-20 -left-40 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl animate-pulse" />
-          <div className="absolute bottom-20 -right-40 w-96 h-96 bg-cyan-500/20 rounded-full blur-3xl animate-pulse delay-1000" />
-        </div>
-
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-20 lg:py-24">
-          <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
-            
-            {/* Left: Content */}
-            <div className="space-y-6 md:space-y-8">
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-500/10 border border-purple-500/20">
-                <Sparkles className="w-4 h-4 text-purple-400" />
-                <span className="text-sm text-purple-300 font-medium">Rare & Discontinued LEGO Parts</span>
-              </div>
-
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight">
-                <span className="bg-gradient-to-r from-purple-300 via-pink-300 to-cyan-300 bg-clip-text text-transparent">
-                  The Galaxy's Deepest
-                </span>
-                <br />
-                <span className="text-white">LEGO Inventory</span>
-              </h1>
-
-              <p className="text-lg md:text-xl text-gray-300 leading-relaxed max-w-xl">
-                Access <span className="text-cyan-400 font-semibold">thousands of discontinued parts</span> from classic sets dating back decades. Whether you're restoring a vintage model or building custom creations at scale, we've got the breadth and depth you need.
-              </p>
-
-              <div className="flex flex-wrap gap-3">
-                <Button 
-                  size="lg"
-                  className="bg-gradient-to-r from-purple-600 via-pink-600 to-cyan-600 hover:from-purple-500 hover:via-pink-500 hover:to-cyan-500 text-white border-0 shadow-lg shadow-purple-500/50 h-12 px-8 text-base font-semibold"
-                  data-testid="button-browse-inventory"
-                >
-                  <Search className="w-5 h-5 mr-2" />
-                  Browse Inventory
-                </Button>
-                <Button 
-                  size="lg"
-                  variant="outline"
-                  className="border-cyan-500/50 text-cyan-300 hover:bg-cyan-500/10 h-12 px-8 text-base backdrop-blur-sm bg-gray-900/40"
-                  data-testid="button-bulk-inquiry"
-                >
-                  <Building2 className="w-5 h-5 mr-2" />
-                  Bulk Inquiry
-                </Button>
-              </div>
-
-              {/* Trust Indicators */}
-              <div className="flex flex-wrap gap-6 pt-4">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-green-400" />
-                  <span className="text-sm text-gray-400">BrickLink Verified</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-green-400" />
-                  <span className="text-sm text-gray-400">BrickOwl Seller</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-green-400" />
-                  <span className="text-sm text-gray-400">Fast Shipping</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Right: Logo & Visual */}
-            <div className="relative flex justify-center lg:justify-end">
-              <div className="relative">
-                <img 
-                  src={logoUrl} 
-                  alt="PlanetBrick.com" 
-                  className="w-full max-w-md lg:max-w-lg drop-shadow-2xl"
-                />
-                <div className="absolute inset-0 bg-gradient-to-r from-purple-500 via-pink-500 to-cyan-500 opacity-20 blur-3xl -z-10 scale-110" />
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Features Grid */}
-      <section className="relative py-16 md:py-24 border-b border-purple-500/20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12 md:mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              <span className="bg-gradient-to-r from-purple-300 via-pink-300 to-cyan-300 bg-clip-text text-transparent">
-                Why Serious Builders Choose PlanetBrick
-              </span>
-            </h2>
-            <p className="text-gray-400 text-lg max-w-2xl mx-auto">
-              From solo collectors to commercial builders, we supply the parts that power ambitious projects
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-            
-            {/* Feature 1: Deep Inventory */}
-            <Card className="bg-gradient-to-br from-purple-950/50 to-gray-900/90 border-purple-500/20 p-6 md:p-8 hover-elevate">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-500/20 to-purple-600/20 flex items-center justify-center mb-4 border border-purple-500/30">
-                <Database className="w-6 h-6 text-purple-400" />
-              </div>
-              <h3 className="text-xl font-bold text-white mb-3">Deep Catalog</h3>
-              <p className="text-gray-400 leading-relaxed">
-                Thousands of parts from sets spanning 1970s–2020s. If it's been discontinued, we probably have it in stock.
-              </p>
-            </Card>
-
-            {/* Feature 2: Bulk Friendly */}
-            <Card className="bg-gradient-to-br from-cyan-950/50 to-gray-900/90 border-cyan-500/20 p-6 md:p-8 hover-elevate">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-cyan-500/20 to-cyan-600/20 flex items-center justify-center mb-4 border border-cyan-500/30">
-                <Building2 className="w-6 h-6 text-cyan-400" />
-              </div>
-              <h3 className="text-xl font-bold text-white mb-3">Bulk Orders Welcome</h3>
-              <p className="text-gray-400 leading-relaxed">
-                Need 10,000 of a specific part? We handle commercial-scale orders with volume discounts.
-              </p>
-            </Card>
-
-            {/* Feature 3: Fast Shipping */}
-            <Card className="bg-gradient-to-br from-pink-950/50 to-gray-900/90 border-pink-500/20 p-6 md:p-8 hover-elevate">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-pink-500/20 to-pink-600/20 flex items-center justify-center mb-4 border border-pink-500/30">
-                <Zap className="w-6 h-6 text-pink-400" />
-              </div>
-              <h3 className="text-xl font-bold text-white mb-3">Lightning Fast</h3>
-              <p className="text-gray-400 leading-relaxed">
-                Same-day processing for orders placed before 2PM EST. Get your parts when you need them.
-              </p>
-            </Card>
-
-            {/* Feature 4: Quality Guarantee */}
-            <Card className="bg-gradient-to-br from-purple-950/50 to-gray-900/90 border-purple-500/20 p-6 md:p-8 hover-elevate">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-500/20 to-purple-600/20 flex items-center justify-center mb-4 border border-purple-500/30">
-                <Shield className="w-6 h-6 text-purple-400" />
-              </div>
-              <h3 className="text-xl font-bold text-white mb-3">Quality Verified</h3>
-              <p className="text-gray-400 leading-relaxed">
-                Every part inspected and graded. New means new. Used means honest condition descriptions.
-              </p>
-            </Card>
-
-            {/* Feature 5: Expert Search */}
-            <Card className="bg-gradient-to-br from-cyan-950/50 to-gray-900/90 border-cyan-500/20 p-6 md:p-8 hover-elevate">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-cyan-500/20 to-cyan-600/20 flex items-center justify-center mb-4 border border-cyan-500/30">
-                <Search className="w-6 h-6 text-cyan-400" />
-              </div>
-              <h3 className="text-xl font-bold text-white mb-3">Smart Search</h3>
-              <p className="text-gray-400 leading-relaxed">
-                Find parts by set number, part ID, color, or even describe what you need. Our AI helps you find it.
-              </p>
-            </Card>
-
-            {/* Feature 6: Collector Focus */}
-            <Card className="bg-gradient-to-br from-pink-950/50 to-gray-900/90 border-pink-500/20 p-6 md:p-8 hover-elevate">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-pink-500/20 to-pink-600/20 flex items-center justify-center mb-4 border border-pink-500/30">
-                <Users className="w-6 h-6 text-pink-400" />
-              </div>
-              <h3 className="text-xl font-bold text-white mb-3">Built by Collectors</h3>
-              <p className="text-gray-400 leading-relaxed">
-                We're LEGO enthusiasts too. We know what you're looking for because we've been there.
-              </p>
-            </Card>
-          </div>
-        </div>
-      </section>
-
-      {/* Use Cases */}
-      <section className="relative py-16 md:py-24 border-b border-purple-500/20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-white">
-              Who We Serve
-            </h2>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            {/* Adult Modelers */}
-            <Card className="bg-gradient-to-br from-gray-900/90 to-purple-950/50 border-purple-500/20 p-8 text-center hover-elevate">
-              <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-gradient-to-br from-purple-500/20 to-purple-600/20 flex items-center justify-center border-2 border-purple-500/30">
-                <Package className="w-8 h-8 text-purple-400" />
-              </div>
-              <h3 className="text-xl font-bold text-white mb-3">Adult Collectors</h3>
-              <p className="text-gray-400 leading-relaxed">
-                Restoring vintage sets, building MOCs (My Own Creations), or completing your childhood collection? We stock the rare parts you need.
-              </p>
-            </Card>
-
-            {/* Commercial Builders */}
-            <Card className="bg-gradient-to-br from-gray-900/90 to-cyan-950/50 border-cyan-500/20 p-8 text-center hover-elevate">
-              <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-gradient-to-br from-cyan-500/20 to-cyan-600/20 flex items-center justify-center border-2 border-cyan-500/30">
-                <Building2 className="w-8 h-8 text-cyan-400" />
-              </div>
-              <h3 className="text-xl font-bold text-white mb-3">Commercial Projects</h3>
-              <p className="text-gray-400 leading-relaxed">
-                Museums, exhibitions, corporate builds—we supply commercial-grade quantities with consistent quality and fast turnaround.
-              </p>
-            </Card>
-
-            {/* Professional Resellers */}
-            <Card className="bg-gradient-to-br from-gray-900/90 to-pink-950/50 border-pink-500/20 p-8 text-center hover-elevate">
-              <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-gradient-to-br from-pink-500/20 to-pink-600/20 flex items-center justify-center border-2 border-pink-500/30">
-                <Users className="w-8 h-8 text-pink-400" />
-              </div>
-              <h3 className="text-xl font-bold text-white mb-3">Fellow Resellers</h3>
-              <p className="text-gray-400 leading-relaxed">
-                Wholesale pricing available for verified resellers. Let's grow the LEGO community together.
-              </p>
-            </Card>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="relative py-16 md:py-24">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="relative bg-gradient-to-br from-purple-600/10 via-pink-600/10 to-cyan-600/10 p-1 rounded-3xl backdrop-blur-xl">
-            <div className="bg-gray-900/90 rounded-3xl p-8 md:p-12 border border-white/10">
-              <h2 className="text-3xl md:text-4xl font-bold mb-4">
-                <span className="bg-gradient-to-r from-purple-300 via-pink-300 to-cyan-300 bg-clip-text text-transparent">
-                  Ready to Find What You Need?
-                </span>
-              </h2>
-              <p className="text-gray-300 text-lg mb-8 max-w-2xl mx-auto">
-                Start browsing our inventory or reach out for bulk quotes. We're here to help you build something amazing.
-              </p>
-              <div className="flex flex-wrap gap-4 justify-center">
-                <Button 
-                  size="lg"
-                  className="bg-gradient-to-r from-purple-600 via-pink-600 to-cyan-600 hover:from-purple-500 hover:via-pink-500 hover:to-cyan-500 text-white border-0 shadow-lg shadow-purple-500/50 h-14 px-10 text-lg font-semibold"
-                  data-testid="button-start-shopping"
-                >
-                  Start Shopping
-                  <ArrowRight className="w-5 h-5 ml-2" />
-                </Button>
-                <Button 
-                  size="lg"
-                  variant="outline"
-                  className="border-cyan-500/50 text-cyan-300 hover:bg-cyan-500/10 h-14 px-10 text-lg backdrop-blur-sm bg-gray-900/40"
-                  data-testid="button-contact-us"
-                >
-                  Contact Us
-                </Button>
-              </div>
-            </div>
-          </div>
+          <Card className="bg-gradient-to-br from-blue-900/30 to-gray-900/50 border-blue-500/20 p-4 text-center hover-elevate cursor-pointer" data-testid="category-plates">
+            <Grid3x3 className="w-8 h-8 mx-auto mb-2 text-blue-400" />
+            <h3 className="text-sm font-semibold text-white">Plates</h3>
+            <p className="text-xs text-gray-400 mt-1">8,234 parts</p>
+          </Card>
+          
+          <Card className="bg-gradient-to-br from-yellow-900/30 to-gray-900/50 border-yellow-500/20 p-4 text-center hover-elevate cursor-pointer" data-testid="category-minifigs">
+            <Bot className="w-8 h-8 mx-auto mb-2 text-yellow-400" />
+            <h3 className="text-sm font-semibold text-white">Minifigs</h3>
+            <p className="text-xs text-gray-400 mt-1">3,456 parts</p>
+          </Card>
+          
+          <Card className="bg-gradient-to-br from-purple-900/30 to-gray-900/50 border-purple-500/20 p-4 text-center hover-elevate cursor-pointer" data-testid="category-technic">
+            <Cog className="w-8 h-8 mx-auto mb-2 text-purple-400" />
+            <h3 className="text-sm font-semibold text-white">Technic</h3>
+            <p className="text-xs text-gray-400 mt-1">5,678 parts</p>
+          </Card>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="relative border-t border-purple-500/20 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <p className="text-gray-500 text-sm">
-              © 2025 PlanetBrick.com. All rights reserved.
-            </p>
-            <div className="flex gap-6">
-              <a href="#" className="text-gray-500 hover:text-cyan-400 text-sm transition-colors" data-testid="link-about">About</a>
-              <a href="#" className="text-gray-500 hover:text-cyan-400 text-sm transition-colors" data-testid="link-shipping">Shipping</a>
-              <a href="#" className="text-gray-500 hover:text-cyan-400 text-sm transition-colors" data-testid="link-returns">Returns</a>
-              <a href="#" className="text-gray-500 hover:text-cyan-400 text-sm transition-colors" data-testid="link-contact">Contact</a>
-            </div>
+      <footer className="border-t border-purple-500/20 py-6 px-3 mt-8">
+        <div className="text-center">
+          <p className="text-gray-500 text-xs mb-3">
+            © 2025 PlanetBrick.com. All rights reserved.
+          </p>
+          <div className="flex justify-center gap-4">
+            <a href="#" className="text-gray-500 hover:text-cyan-400 text-xs transition-colors" data-testid="link-about">About</a>
+            <a href="#" className="text-gray-500 hover:text-cyan-400 text-xs transition-colors" data-testid="link-shipping">Shipping</a>
+            <a href="#" className="text-gray-500 hover:text-cyan-400 text-xs transition-colors" data-testid="link-returns">Returns</a>
+            <a href="#" className="text-gray-500 hover:text-cyan-400 text-xs transition-colors" data-testid="link-contact">Contact</a>
           </div>
         </div>
       </footer>
