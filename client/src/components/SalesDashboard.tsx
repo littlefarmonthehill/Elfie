@@ -183,7 +183,16 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
     
     if (dateRange === 'all') {
       // For 'all time', use the actual earliest to latest order dates
-      const orderDates = filteredOrders.map(o => parseISO(o.orderDate));
+      // Filter out invalid dates to prevent NaN/Invalid Date issues
+      const orderDates = filteredOrders
+        .map(o => parseISO(o.orderDate))
+        .filter(d => !isNaN(d.getTime())); // Remove invalid dates
+      
+      if (orderDates.length === 0) {
+        // No valid dates, return empty array
+        return [];
+      }
+      
       const earliestOrderDate = new Date(Math.min(...orderDates.map(d => d.getTime())));
       const latestOrderDate = new Date(Math.max(...orderDates.map(d => d.getTime())));
       
