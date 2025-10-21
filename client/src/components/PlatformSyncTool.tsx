@@ -58,6 +58,7 @@ type DiscrepancyItem = {
 export default function PlatformSyncTool() {
   const [syncingPlatform, setSyncingPlatform] = useState<string | null>(null);
   const [syncingBrickLink, setSyncingBrickLink] = useState(false);
+  const [syncingBulkImages, setSyncingBulkImages] = useState(false);
   const [discrepancyDrawer, setDiscrepancyDrawer] = useState<{
     open: boolean;
     platform: string;
@@ -196,6 +197,40 @@ export default function PlatformSyncTool() {
     bricklinkSyncMutation.mutate();
   };
 
+  // Bulk Rebrickable image sync mutation
+  const bulkImageSyncMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch('/api/sync/rebrickable/bulk-images', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ maxBatches: 500 }),
+      });
+      if (!response.ok) throw new Error('Bulk image sync failed');
+      return response.json();
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/shop/inventory'] });
+      toast({
+        title: "Bulk Image Sync Complete",
+        description: `${result.data.totalImagesFetched} images fetched across ${result.data.totalBatches} batches. ${result.data.completed ? 'All images synced!' : 'Some images remain.'}`,
+      });
+      setSyncingBulkImages(false);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Bulk Image Sync Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+      setSyncingBulkImages(false);
+    },
+  });
+
+  const handleBulkImageSync = () => {
+    setSyncingBulkImages(true);
+    bulkImageSyncMutation.mutate();
+  };
+
   // Fetch discrepancy details
   const { data: discrepancyData, isLoading: discrepancyLoading } = useQuery<{ discrepancies: DiscrepancyItem[]; total: number }>({
     queryKey: ['/api/platform-sync/discrepancies', discrepancyDrawer.platform, discrepancyDrawer.type],
@@ -263,27 +298,49 @@ export default function PlatformSyncTool() {
             </div>
           )}
           
-          {/* Sync Button */}
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleSyncBrickLink}
-            disabled={syncingBrickLink || rateLimit?.blocked}
-            className="w-full text-xs mb-2"
-            data-testid="button-sync-bricklink"
-          >
-            {syncingBrickLink ? (
-              <>
-                <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />
-                Syncing...
-              </>
-            ) : (
-              <>
-                <RefreshCw className="w-3 h-3 mr-1.5" />
-                Sync Inventory
-              </>
-            )}
-          </Button>
+          {/* Sync Buttons */}
+          <div className="grid grid-cols-2 gap-2 mb-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleSyncBrickLink}
+              disabled={syncingBrickLink || rateLimit?.blocked}
+              className="text-xs"
+              data-testid="button-sync-bricklink"
+            >
+              {syncingBrickLink ? (
+                <>
+                  <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />
+                  Syncing...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-3 h-3 mr-1.5" />
+                  Sync Inventory
+                </>
+              )}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleBulkImageSync}
+              disabled={syncingBulkImages}
+              className="text-xs"
+              data-testid="button-bulk-image-sync"
+            >
+              {syncingBulkImages ? (
+                <>
+                  <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />
+                  Syncing Images...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-3 h-3 mr-1.5" />
+                  Bulk Image Sync
+                </>
+              )}
+            </Button>
+          </div>
 
           {/* Sync Progress Display */}
           {syncProgress && syncProgress.status === 'syncing' && (
