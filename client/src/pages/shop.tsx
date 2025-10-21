@@ -824,8 +824,18 @@ export default function Shop() {
             </div>
           </div>
 
-          {/* All aligned on same row */}
-          <div className="absolute bottom-2 md:bottom-3 left-0 right-0 flex items-center justify-between px-4 md:px-8 lg:px-12 z-[50]">
+          {/* Centered Logo - Upper */}
+          <div className="absolute left-1/2 -translate-x-1/2 top-2 md:top-3 z-[60]">
+            <img 
+              src={planetBrickLogo} 
+              alt="PlanetBrick" 
+              className="h-14 md:h-20 lg:h-24 w-auto object-contain drop-shadow-2xl"
+              data-testid="logo-planetbrick"
+            />
+          </div>
+
+          {/* Stats Row - Lower in lighter band */}
+          <div className="absolute -bottom-8 md:-bottom-10 left-0 right-0 flex items-center justify-between px-4 md:px-8 lg:px-12 z-[50]">
             {/* Lots - Left */}
             <div className="flex items-center gap-2 relative group">
               {/* Comet trail effect */}
@@ -837,16 +847,6 @@ export default function Shop() {
                 <div className="text-xs md:text-base font-bold text-white">{totalLots.toLocaleString()}</div>
                 <div className="text-[7px] md:text-[9px] text-gray-400">Unique Lots</div>
               </div>
-            </div>
-
-            {/* Centered Logo */}
-            <div className="absolute left-1/2 -translate-x-1/2 -bottom-4 md:-bottom-6 z-[60]">
-              <img 
-                src={planetBrickLogo} 
-                alt="PlanetBrick" 
-                className="h-14 md:h-20 lg:h-24 w-auto object-contain drop-shadow-2xl"
-                data-testid="logo-planetbrick"
-              />
             </div>
 
             {/* Parts - Right */}
@@ -865,7 +865,7 @@ export default function Shop() {
         </header>
 
         {/* Search Bar */}
-        <div className="sticky top-[3.5rem] md:top-[4rem] z-30 bg-black/95 backdrop-blur-xl px-3 md:px-6 py-3 md:py-4 mt-6 md:mt-8 border-b border-white/10">
+        <div className="sticky top-[3.5rem] md:top-[4rem] z-30 bg-black/95 backdrop-blur-xl px-3 md:px-6 py-3 md:py-4 pt-10 md:pt-12 border-b border-white/10">
           <div className="relative max-w-3xl mx-auto">
             <Search className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-gray-500" />
             <input
