@@ -20,8 +20,8 @@ export interface BulkImageSyncResult {
 const REBRICKABLE_API_KEY = process.env.REBRICKABLE_API_KEY;
 const REBRICKABLE_API_BASE = 'https://rebrickable.com/api/v3';
 
-// Fetch part image URL from Rebrickable API
-async function fetchPartImageUrl(partNum: string, colorId: number): Promise<string | null> {
+// Fetch part image URL from Rebrickable API with retry logic
+async function fetchPartImageUrl(partNum: string, colorId: number, retryCount: number = 0): Promise<string | null> {
   if (!REBRICKABLE_API_KEY) {
     console.error('[Rebrickable Images] API key not configured');
     return null;
@@ -37,7 +37,7 @@ async function fetchPartImageUrl(partNum: string, colorId: number): Promise<stri
         data += chunk;
       });
       
-      response.on('end', () => {
+      response.on('end', async () => {
         try {
           if (response.statusCode === 200) {
             const json = JSON.parse(data);
@@ -52,6 +52,18 @@ async function fetchPartImageUrl(partNum: string, colorId: number): Promise<stri
           } else if (response.statusCode === 404) {
             // Part-color combination doesn't exist in Rebrickable
             resolve(null);
+          } else if (response.statusCode === 429) {
+            // Rate limit hit - implement exponential backoff
+            if (retryCount < 3) {
+              const waitTime = Math.min(30000, 5000 * Math.pow(2, retryCount)); // 5s, 10s, 20s
+              console.warn(`[Rebrickable Images] Rate limit hit for ${partNum} color ${colorId}. Waiting ${waitTime}ms before retry ${retryCount + 1}/3...`);
+              await new Promise(r => setTimeout(r, waitTime));
+              const result = await fetchPartImageUrl(partNum, colorId, retryCount + 1);
+              resolve(result);
+            } else {
+              console.error(`[Rebrickable Images] Max retries reached for part ${partNum} color ${colorId}`);
+              resolve(null);
+            }
           } else {
             console.error(`[Rebrickable Images] API error ${response.statusCode} for part ${partNum} color ${colorId}`);
             resolve(null);
@@ -140,8 +152,9 @@ export async function syncRebrickableImages(): Promise<RebrickableImageSyncResul
           }
         }
         
-        // Rate limiting: small delay between requests
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Rate limiting: longer delay between requests to respect API limits
+        // Rebrickable has strict rate limits, so we use 3 second delays
+        await new Promise(resolve => setTimeout(resolve, 3000));
         
       } catch (error) {
         console.error(`[Rebrickable Images] Error processing item ${item.itemNo}:`, error);
@@ -204,8 +217,8 @@ export async function bulkSyncRebrickableImages(maxBatches: number = 500): Promi
       } else {
         console.log(`[Rebrickable Images] 📊 Progress: ${totalImagesFetched} total images fetched across ${totalBatches} batches`);
         
-        // Small delay between batches to be respectful to API
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // Longer delay between batches to respect strict API rate limits
+        await new Promise(resolve => setTimeout(resolve, 10000)); // 10 second delay between batches
       }
     }
 
