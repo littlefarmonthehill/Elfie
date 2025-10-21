@@ -834,33 +834,30 @@ export default function Shop() {
             />
           </div>
 
-          {/* Stats Row - Centered Below Logo */}
-          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 flex items-center gap-6 md:gap-12 z-[50]">
-            {/* Lots - Left with Comet Trail */}
-            <div className="flex items-center gap-2 relative group">
-              {/* Comet trail effect */}
-              <div className="absolute -left-8 top-1/2 -translate-y-1/2 w-32 h-px bg-gradient-to-r from-transparent via-cyan-400/40 to-cyan-500/60 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <div className="relative">
-                <Sparkles className="w-3 h-3 md:w-4 md:h-4 text-cyan-400" />
-              </div>
-              <div className="text-left">
-                <div className="text-xs md:text-base font-bold text-white">{totalLots.toLocaleString()}</div>
-                <div className="text-[7px] md:text-[9px] text-gray-400">Unique Lots</div>
-              </div>
+          {/* Lots - Left Side Lower */}
+          <div className="absolute -bottom-1 left-4 md:left-8 lg:left-12 flex items-center gap-2 relative group z-[50]">
+            {/* Comet trail effect */}
+            <div className="absolute -left-8 top-1/2 -translate-y-1/2 w-32 h-px bg-gradient-to-r from-transparent via-cyan-400/40 to-cyan-500/60 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            <div className="relative">
+              <Sparkles className="w-3 h-3 md:w-4 md:h-4 text-cyan-400" />
             </div>
+            <div className="text-left">
+              <div className="text-xs md:text-base font-bold text-white">{totalLots.toLocaleString()}</div>
+              <div className="text-[7px] md:text-[9px] text-gray-400">Unique Lots</div>
+            </div>
+          </div>
 
-            {/* Parts - Right with Comet Trail */}
-            <div className="flex items-center gap-2 group">
-              <div className="text-right">
-                <div className="text-xs md:text-base font-bold text-white">{totalParts.toLocaleString()}</div>
-                <div className="text-[7px] md:text-[9px] text-gray-400">Total Parts</div>
-              </div>
-              <div className="relative">
-                <Sparkles className="w-3 h-3 md:w-4 md:h-4 text-blue-400" />
-              </div>
-              {/* Comet trail effect */}
-              <div className="absolute -right-8 top-1/2 -translate-y-1/2 w-32 h-px bg-gradient-to-l from-transparent via-blue-400/40 to-blue-500/60 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+          {/* Parts - Right Side Lower */}
+          <div className="absolute -bottom-1 right-4 md:right-8 lg:right-12 flex items-center gap-2 group z-[50]">
+            <div className="text-right">
+              <div className="text-xs md:text-base font-bold text-white">{totalParts.toLocaleString()}</div>
+              <div className="text-[7px] md:text-[9px] text-gray-400">Total Parts</div>
             </div>
+            <div className="relative">
+              <Sparkles className="w-3 h-3 md:w-4 md:h-4 text-blue-400" />
+            </div>
+            {/* Comet trail effect */}
+            <div className="absolute -right-8 top-1/2 -translate-y-1/2 w-32 h-px bg-gradient-to-l from-transparent via-blue-400/40 to-blue-500/60 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
           </div>
         </header>
 
