@@ -494,10 +494,10 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
                       return (
                         <div 
                           key={varIdx}
-                          className="p-1.5 bg-gray-900/40 border border-white/5 rounded hover-elevate transition-all duration-300 group shrink-0 min-w-[135px]"
+                          className="p-1.5 bg-gray-900/40 border border-white/5 rounded hover-elevate transition-all duration-300 group shrink-0"
                           data-testid={`variation-${lot.id}-${idx}`}
                         >
-                          <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-1">
                             {/* Info */}
                             <div>
                               <div className="flex items-center gap-1 mb-0.5">
@@ -511,7 +511,7 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
 
                             {/* Quantity Controls */}
                             <div className="flex items-center gap-0.5">
-                              <div className="flex items-center gap-0.5 bg-gray-800/80 rounded p-0.5 border border-white/10 flex-1">
+                              <div className="flex items-center gap-0.5 bg-gray-800/80 rounded p-0.5 border border-white/10">
                                 <Button
                                   size="icon"
                                   variant="ghost"
@@ -521,7 +521,7 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
                                 >
                                   <Minus className="w-2 h-2" />
                                 </Button>
-                                <div className="flex-1 text-center">
+                                <div className="w-5 text-center">
                                   <span className="text-[10px] font-bold text-white">{quantity}</span>
                                 </div>
                                 <Button
@@ -536,16 +536,15 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
                               </div>
                               
                               <Button
-                                size="sm"
-                                className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white px-1.5 text-[9px] shadow-lg transition-all duration-300 group-hover:shadow-cyan-500/50 h-4"
+                                size="icon"
+                                className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white shadow-lg transition-all duration-300 group-hover:shadow-cyan-500/50 h-4 w-4"
                                 onClick={() => {
                                   onAddToCart({ ...variation, lotId: lot.id, partNumber: lot.part, partName: lot.name }, quantity);
                                   setQuantities(prev => ({ ...prev, [idx]: 1 }));
                                 }}
                                 data-testid={`button-add-${lot.id}-${idx}`}
                               >
-                                <ShoppingCart className="w-2 h-2 mr-0.5" />
-                                Add
+                                <ShoppingCart className="w-2.5 h-2.5" />
                               </Button>
                             </div>
                           </div>
