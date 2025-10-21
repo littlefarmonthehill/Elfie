@@ -2197,6 +2197,8 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
           quantity: blInventory.quantity,
           newOrUsed: blInventory.newOrUsed,
           unitPrice: blInventory.unitPrice,
+          imageUrl: blInventory.imageUrl,
+          thumbnailUrl: blInventory.thumbnailUrl,
         })
         .from(blInventory)
         .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
@@ -2220,12 +2222,20 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
             lotCount: 0,
             category: item.categoryName?.toLowerCase() || 'other',
             variations: [],
+            imageUrl: null,
+            thumbnailUrl: null,
           });
         }
 
         const lot = lotsMap.get(key)!;
         lot.totalQty += item.quantity || 0;
         lot.lotCount += 1;
+
+        // Use the first available image for the lot
+        if (!lot.imageUrl && item.imageUrl) {
+          lot.imageUrl = item.imageUrl;
+          lot.thumbnailUrl = item.thumbnailUrl;
+        }
 
         // Convert unitPrice to number (it comes as string from decimal column)
         const priceNum = item.unitPrice ? parseFloat(item.unitPrice.toString()) : 0;
