@@ -2285,11 +2285,19 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Get Shop Inventory (for customer-facing shop page) - PUBLIC endpoint
-  // Returns top 12 lots per category for fast initial load
+  // Returns products by category (all if categoryIds specified, otherwise top 12 per category)
   app.get("/api/shop/inventory", async (req, res) => {
     try {
       const itemType = req.query.itemType as string | undefined;
-      const lotsPerCategory = 12; // Only fetch 12 per category for initial display
+      const categoryIdsParam = req.query.categoryIds as string | undefined;
+      
+      // Parse category IDs if provided (comma-separated)
+      const categoryIds = categoryIdsParam
+        ? categoryIdsParam.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id))
+        : undefined;
+
+      // If categories are specified, fetch ALL products; otherwise fetch top 12 per category
+      const lotsPerCategory = categoryIds ? undefined : 12;
 
       // Build where conditions
       let whereConditions = [sql`${blInventory.quantity} > 0`];
@@ -2297,7 +2305,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
         whereConditions.push(eq(blInventory.itemType, itemType));
       }
 
-      // Get categories first
+      // Get categories to fetch (either specified ones or all)
       const categories = await db
         .select({
           categoryId: blInventory.categoryId,
@@ -2305,7 +2313,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
         })
         .from(blInventory)
         .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
-        .where(and(...whereConditions))
+        .where(and(...whereConditions, categoryIds ? sql`${blInventory.categoryId} = ANY(${categoryIds})` : sql`1=1`))
         .groupBy(blInventory.categoryId, blCategories.name)
         .having(sql`COUNT(*) > 0`);
 
@@ -2394,9 +2402,9 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
             return { ...product, score };
           });
           
-          // Sort by score and take top 12
+          // Sort by score and optionally limit results
           products.sort((a, b) => b.score - a.score);
-          const topProducts = products.slice(0, lotsPerCategory);
+          const topProducts = lotsPerCategory ? products.slice(0, lotsPerCategory) : products;
           
           // Format for response
           return topProducts.map(product => ({
@@ -2501,6 +2509,201 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
     } catch (error) {
       console.error("Error fetching shop stats:", error);
       res.status(500).json({ error: "Failed to fetch shop stats" });
+    }
+  });
+
+  // Get Special Groups (New Items, Hot Items, Discounted Items) - PUBLIC endpoint
+  app.get("/api/shop/special-groups", async (req, res) => {
+    try {
+      const itemType = req.query.itemType as string | undefined;
+      const limit = 50;
+
+      const groupInventoryByPart = (items: any[]) => {
+        const productMap = new Map<string, any>();
+        
+        items.forEach(item => {
+          const key = item.itemNo;
+          const priceNum = item.unitPrice ? parseFloat(item.unitPrice.toString()) : 0;
+          const variation = {
+            color: item.colorName || 'Unknown',
+            colorId: item.colorId,
+            colorHex: item.colorRgb || '#CCCCCC',
+            condition: item.newOrUsed === 'N' ? 'New' : 'Used',
+            qty: item.quantity || 0,
+            price: `$${priceNum.toFixed(2)}`,
+            imageUrl: item.imageUrl,
+            thumbnailUrl: item.thumbnailUrl,
+          };
+          
+          if (!productMap.has(key)) {
+            productMap.set(key, {
+              id: item.id,
+              part: item.itemNo,
+              name: item.itemName || item.itemNo,
+              itemType: item.itemType,
+              categoryId: item.categoryId,
+              categoryName: item.categoryName,
+              variations: [],
+              totalQty: 0,
+              totalValue: 0,
+            });
+          }
+          
+          const product = productMap.get(key)!;
+          product.variations.push(variation);
+          product.totalQty += item.quantity || 0;
+          product.totalValue += priceNum * (item.quantity || 0);
+          
+          if (!product.imageUrl && item.imageUrl) {
+            product.imageUrl = item.imageUrl;
+            product.thumbnailUrl = item.thumbnailUrl;
+            product.firstColorId = item.colorId;
+          }
+        });
+        
+        return Array.from(productMap.values()).map(product => {
+          const score = (product.totalValue * 0.7) + (Math.log10(product.totalQty + 1) * 0.3);
+          return {
+            id: product.id,
+            part: product.part,
+            name: product.name,
+            itemType: product.itemType,
+            totalQty: product.totalQty,
+            lotCount: product.variations.length,
+            category: product.categoryName?.toLowerCase() || 'other',
+            categoryId: product.categoryId,
+            categoryName: product.categoryName,
+            imageUrl: product.imageUrl,
+            thumbnailUrl: product.thumbnailUrl,
+            firstColorId: product.firstColorId,
+            variations: product.variations,
+            score,
+          };
+        });
+      };
+
+      let baseConditions = [sql`${blInventory.quantity} > 0`];
+      if (itemType) {
+        baseConditions.push(eq(blInventory.itemType, itemType));
+      }
+
+      // 1. NEW ITEMS (last 30 days)
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      const newItems = await db
+        .select({
+          id: blInventory.id,
+          itemNo: blInventory.itemNo,
+          itemName: blInventory.itemName,
+          itemType: blInventory.itemType,
+          colorId: blInventory.colorId,
+          colorName: blColors.name,
+          colorRgb: blColors.rgb,
+          categoryId: blInventory.categoryId,
+          categoryName: blCategories.name,
+          quantity: blInventory.quantity,
+          newOrUsed: blInventory.newOrUsed,
+          unitPrice: blInventory.unitPrice,
+          imageUrl: blInventory.imageUrl,
+          thumbnailUrl: blInventory.thumbnailUrl,
+        })
+        .from(blInventory)
+        .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+        .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
+        .where(and(...baseConditions, sql`${blInventory.dateCreated} >= ${thirtyDaysAgo}`))
+        .limit(500);
+
+      const newProducts = groupInventoryByPart(newItems);
+      newProducts.sort((a, b) => b.score - a.score);
+      const topNewProducts = newProducts.slice(0, limit);
+
+      // 2. HOT ITEMS (trending by orders)
+      const hotItemsQuery = await db
+        .select({
+          sku: orderDetails.sku,
+          totalOrdered: sql<number>`SUM(${orderDetails.quantity})`,
+        })
+        .from(orderDetails)
+        .leftJoin(orders, eq(orderDetails.orderId, orders.id))
+        .where(sql`${orders.orderDate} >= ${thirtyDaysAgo}`)
+        .groupBy(orderDetails.sku)
+        .having(sql`SUM(${orderDetails.quantity}) > 0`)
+        .orderBy(desc(sql`SUM(${orderDetails.quantity})`))
+        .limit(100);
+
+      const hotSkus = hotItemsQuery.map(h => h.sku).filter(Boolean) as string[];
+      
+      let hotProducts: any[] = [];
+      if (hotSkus.length > 0) {
+        const hotInventoryItems = await db
+          .select({
+            id: blInventory.id,
+            itemNo: blInventory.itemNo,
+            itemName: blInventory.itemName,
+            itemType: blInventory.itemType,
+            colorId: blInventory.colorId,
+            colorName: blColors.name,
+            colorRgb: blColors.rgb,
+            categoryId: blInventory.categoryId,
+            categoryName: blCategories.name,
+            quantity: blInventory.quantity,
+            newOrUsed: blInventory.newOrUsed,
+            unitPrice: blInventory.unitPrice,
+            imageUrl: blInventory.imageUrl,
+            thumbnailUrl: blInventory.thumbnailUrl,
+          })
+          .from(blInventory)
+          .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+          .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
+          .where(and(...baseConditions, sql`${blInventory.itemNo} = ANY(${hotSkus})`));
+
+        hotProducts = groupInventoryByPart(hotInventoryItems);
+        hotProducts.sort((a, b) => {
+          const aIndex = hotSkus.indexOf(a.part);
+          const bIndex = hotSkus.indexOf(b.part);
+          return aIndex - bIndex;
+        });
+        hotProducts = hotProducts.slice(0, limit);
+      }
+
+      // 3. DISCOUNTED ITEMS (saleRate > 0)
+      const discountedItems = await db
+        .select({
+          id: blInventory.id,
+          itemNo: blInventory.itemNo,
+          itemName: blInventory.itemName,
+          itemType: blInventory.itemType,
+          colorId: blInventory.colorId,
+          colorName: blColors.name,
+          colorRgb: blColors.rgb,
+          categoryId: blInventory.categoryId,
+          categoryName: blCategories.name,
+          quantity: blInventory.quantity,
+          newOrUsed: blInventory.newOrUsed,
+          unitPrice: blInventory.unitPrice,
+          imageUrl: blInventory.imageUrl,
+          thumbnailUrl: blInventory.thumbnailUrl,
+          saleRate: blInventory.saleRate,
+        })
+        .from(blInventory)
+        .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+        .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
+        .where(and(...baseConditions, sql`${blInventory.saleRate} > 0`))
+        .limit(500);
+
+      const discountedProducts = groupInventoryByPart(discountedItems);
+      discountedProducts.sort((a, b) => b.score - a.score);
+      const topDiscountedProducts = discountedProducts.slice(0, limit);
+
+      res.json({
+        newItems: topNewProducts,
+        hotItems: hotProducts,
+        discountedItems: topDiscountedProducts,
+      });
+    } catch (error) {
+      console.error("Error fetching special groups:", error);
+      res.status(500).json({ error: "Failed to fetch special groups" });
     }
   });
 
