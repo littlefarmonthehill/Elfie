@@ -743,7 +743,7 @@ export default function Shop() {
 
   // Fetch categories and item types
   const { data: categoriesData } = useQuery<{
-    categories: Array<{ id: number; name: string; count: number }>;
+    categories: Array<{ id: number; name: string; lotCount: number; partCount: number }>;
     itemTypes: Array<{ type: string; count: number }>;
   }>({
     queryKey: ['/api/shop/categories', { itemType: selectedItemType }],
@@ -825,6 +825,15 @@ export default function Shop() {
     return (valueScore * 0.6) + (varietyScore * 0.3) + (quantityScore * 0.1);
   };
 
+  // Create a lookup map for category counts from API
+  const categoryCounts = new Map<string, { lotCount: number; partCount: number }>();
+  categoriesData?.categories.forEach(cat => {
+    categoryCounts.set(cat.name, {
+      lotCount: cat.lotCount,
+      partCount: cat.partCount
+    });
+  });
+
   // Group products by category from API data
   const categoryGroups = new Map<string, ProductLot[]>();
   
@@ -838,12 +847,15 @@ export default function Shop() {
 
   // Sort items within each category by score, then convert to array and sort categories alphabetically
   const sortedCategories = Array.from(categoryGroups.entries())
-    .map(([name, lots]) => ({
-      name,
-      lots: lots.sort((a, b) => calculateItemScore(b) - calculateItemScore(a)),
-      lotCount: lots.length, // Number of unique parts (lots)
-      partCount: lots.reduce((sum, lot) => sum + lot.totalQty, 0) // Total quantity (parts)
-    }))
+    .map(([name, lots]) => {
+      const counts = categoryCounts.get(name) || { lotCount: 0, partCount: 0 };
+      return {
+        name,
+        lots: lots.sort((a, b) => calculateItemScore(b) - calculateItemScore(a)),
+        lotCount: counts.lotCount, // Use API-provided lot count (inventory rows)
+        partCount: counts.partCount // Use API-provided part count (total quantity)
+      };
+    })
     .sort((a, b) => a.name.localeCompare(b.name));
 
   // Assign color gradients to categories

@@ -2409,19 +2409,20 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
         whereConditions.push(eq(blInventory.itemType, itemType));
       }
 
-      // Get categories with their counts
+      // Get categories with their counts (lots and parts)
       const categories = await db
         .select({
           categoryId: blInventory.categoryId,
           categoryName: blCategories.name,
-          itemCount: sql<number>`COUNT(DISTINCT ${blInventory.itemNo})`,
+          lotCount: sql<number>`COUNT(*)`, // Count all inventory rows (lots)
+          partCount: sql<number>`SUM(${blInventory.quantity})`, // Sum of quantities (parts)
         })
         .from(blInventory)
         .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
         .where(and(...whereConditions))
         .groupBy(blInventory.categoryId, blCategories.name)
-        .having(sql`COUNT(DISTINCT ${blInventory.itemNo}) > 0`)
-        .orderBy(desc(sql`COUNT(DISTINCT ${blInventory.itemNo})`));
+        .having(sql`COUNT(*) > 0`)
+        .orderBy(desc(sql`COUNT(*)`));
 
       // Get available item types (count all lots, not unique parts)
       const itemTypes = await db
@@ -2439,7 +2440,8 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
         categories: categories.map(c => ({
           id: c.categoryId,
           name: c.categoryName || 'Other',
-          count: Number(c.itemCount),
+          lotCount: Number(c.lotCount),
+          partCount: Number(c.partCount),
         })),
         itemTypes: itemTypes.map(t => ({
           type: t.itemType,
