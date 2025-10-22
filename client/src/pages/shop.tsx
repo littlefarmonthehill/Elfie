@@ -603,7 +603,11 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
                       >
                         <div 
                           className="w-2 h-2 rounded-full border border-white/20" 
-                          style={{ backgroundColor: colorGroup?.colorHex?.startsWith('#') ? colorGroup.colorHex : '#CCCCCC' }}
+                          style={{ 
+                            backgroundColor: colorGroup?.colorHex 
+                              ? (colorGroup.colorHex.startsWith('#') ? colorGroup.colorHex : `#${colorGroup.colorHex}`)
+                              : '#CCCCCC'
+                          }}
                         />
                         {color}
                       </button>
