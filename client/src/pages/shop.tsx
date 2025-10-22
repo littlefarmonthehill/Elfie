@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -713,7 +713,16 @@ export default function Shop() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [selectedItemType, setSelectedItemType] = useState<string | null>(null);
+  const [minLoadTimeElapsed, setMinLoadTimeElapsed] = useState(false);
   const { toast } = useToast();
+
+  // Ensure loading screen shows for minimum 3 seconds
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setMinLoadTimeElapsed(true);
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Logout mutation
   const logoutMutation = useMutation({
@@ -1134,9 +1143,16 @@ export default function Shop() {
 
         {/* Colorful Category Bands - Dynamic from API */}
         <div className="pb-4 md:pb-8">
-          {inventoryLoading ? (
+          {(inventoryLoading || !minLoadTimeElapsed) ? (
             <div className="flex items-center justify-center py-20">
-              <div className="text-gray-400">Loading products...</div>
+              <div className="flex flex-col items-center gap-4 animate-pulse">
+                <img 
+                  src={planetBrickLogo} 
+                  alt="PlanetBrick" 
+                  className="w-48 h-48 md:w-64 md:h-64 object-contain"
+                />
+                <div className="text-cyan-400 text-sm md:text-base">Loading amazing LEGO parts...</div>
+              </div>
             </div>
           ) : sortedCategories.length === 0 ? (
             <div className="flex items-center justify-center py-20">
