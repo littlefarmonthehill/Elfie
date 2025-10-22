@@ -84,7 +84,7 @@ function getProxyImageUrl(imageUrl: string | null | undefined): string | null {
 }
 
 // Mock data for development (will be replaced with API data)
-const mockProductLots: Array<Omit<ProductLot, 'uniqueColorCount' | 'colorGroups'> & { variations: Omit<ProductLot['variations'][0], 'colorId'>[] }> = [
+const mockProductLots: Array<Omit<ProductLot, 'uniqueColorCount' | 'colorGroups'>> = [
   { 
     id: 1, 
     part: "3001", 
@@ -93,11 +93,11 @@ const mockProductLots: Array<Omit<ProductLot, 'uniqueColorCount' | 'colorGroups'
     lotCount: 5,
     category: "bricks",
     variations: [
-      { color: "Red", colorHex: "#D50000", condition: "New", qty: 2847, price: "$0.15" },
-      { color: "Blue", colorHex: "#0055BF", condition: "New", qty: 1823, price: "$0.15" },
-      { color: "Yellow", colorHex: "#F2CD37", condition: "New", qty: 1456, price: "$0.14" },
-      { color: "Green", colorHex: "#00852B", condition: "Used", qty: 1789, price: "$0.10" },
-      { color: "Black", colorHex: "#05131D", condition: "New", qty: 632, price: "$0.16" },
+      { color: "Red", colorId: null, colorHex: "#D50000", condition: "New", qty: 2847, price: "$0.15" },
+      { color: "Blue", colorId: null, colorHex: "#0055BF", condition: "New", qty: 1823, price: "$0.15" },
+      { color: "Yellow", colorId: null, colorHex: "#F2CD37", condition: "New", qty: 1456, price: "$0.14" },
+      { color: "Green", colorId: null, colorHex: "#00852B", condition: "Used", qty: 1789, price: "$0.10" },
+      { color: "Black", colorId: null, colorHex: "#05131D", condition: "New", qty: 632, price: "$0.16" },
     ]
   },
   { 
@@ -108,12 +108,12 @@ const mockProductLots: Array<Omit<ProductLot, 'uniqueColorCount' | 'colorGroups'
     lotCount: 6,
     category: "plates",
     variations: [
-      { color: "Blue", colorHex: "#0055BF", condition: "New", qty: 5621, price: "$0.08" },
-      { color: "White", colorHex: "#F2F3F2", condition: "New", qty: 2987, price: "$0.07" },
-      { color: "Black", colorHex: "#05131D", condition: "New", qty: 1834, price: "$0.08" },
-      { color: "Red", colorHex: "#D50000", condition: "Used", qty: 1234, price: "$0.05" },
-      { color: "Gray", colorHex: "#6C6E68", condition: "New", qty: 567, price: "$0.08" },
-      { color: "Tan", colorHex: "#E4CD9E", condition: "Used", qty: 213, price: "$0.05" },
+      { color: "Blue", colorId: null, colorHex: "#0055BF", condition: "New", qty: 5621, price: "$0.08" },
+      { color: "White", colorId: null, colorHex: "#F2F3F2", condition: "New", qty: 2987, price: "$0.07" },
+      { color: "Black", colorId: null, colorHex: "#05131D", condition: "New", qty: 1834, price: "$0.08" },
+      { color: "Red", colorId: null, colorHex: "#D50000", condition: "Used", qty: 1234, price: "$0.05" },
+      { color: "Gray", colorId: null, colorHex: "#6C6E68", condition: "New", qty: 567, price: "$0.08" },
+      { color: "Tan", colorId: null, colorHex: "#E4CD9E", condition: "Used", qty: 213, price: "$0.05" },
     ]
   },
   { 
@@ -124,10 +124,10 @@ const mockProductLots: Array<Omit<ProductLot, 'uniqueColorCount' | 'colorGroups'
     lotCount: 4,
     category: "bricks",
     variations: [
-      { color: "Yellow", colorHex: "#F2CD37", condition: "New", qty: 1893, price: "$0.12" },
-      { color: "Red", colorHex: "#D50000", condition: "New", qty: 2341, price: "$0.12" },
-      { color: "White", colorHex: "#F2F3F2", condition: "Used", qty: 1456, price: "$0.08" },
-      { color: "Orange", colorHex: "#FE8A18", condition: "New", qty: 544, price: "$0.13" },
+      { color: "Yellow", colorId: null, colorHex: "#F2CD37", condition: "New", qty: 1893, price: "$0.12" },
+      { color: "Red", colorId: null, colorHex: "#D50000", condition: "New", qty: 2341, price: "$0.12" },
+      { color: "White", colorId: null, colorHex: "#F2F3F2", condition: "Used", qty: 1456, price: "$0.08" },
+      { color: "Orange", colorId: null, colorHex: "#FE8A18", condition: "New", qty: 544, price: "$0.13" },
     ]
   },
   { 
@@ -138,13 +138,13 @@ const mockProductLots: Array<Omit<ProductLot, 'uniqueColorCount' | 'colorGroups'
     lotCount: 7,
     category: "bricks",
     variations: [
-      { color: "Trans-Clear", colorHex: "#FCFCFC", condition: "New", qty: 8234, price: "$0.05" },
-      { color: "Trans-Blue", colorHex: "#0081F0", condition: "New", qty: 2987, price: "$0.06" },
-      { color: "Black", colorHex: "#05131D", condition: "New", qty: 1834, price: "$0.05" },
-      { color: "Red", colorHex: "#D50000", condition: "New", qty: 1234, price: "$0.05" },
-      { color: "Yellow", colorHex: "#F2CD37", condition: "New", qty: 789, price: "$0.05" },
-      { color: "Green", colorHex: "#00852B", condition: "Used", qty: 456, price: "$0.03" },
-      { color: "White", colorHex: "#F2F3F2", condition: "New", qty: 144, price: "$0.05" },
+      { color: "Trans-Clear", colorId: null, colorHex: "#FCFCFC", condition: "New", qty: 8234, price: "$0.05" },
+      { color: "Trans-Blue", colorId: null, colorHex: "#0081F0", condition: "New", qty: 2987, price: "$0.06" },
+      { color: "Black", colorId: null, colorHex: "#05131D", condition: "New", qty: 1834, price: "$0.05" },
+      { color: "Red", colorId: null, colorHex: "#D50000", condition: "New", qty: 1234, price: "$0.05" },
+      { color: "Yellow", colorId: null, colorHex: "#F2CD37", condition: "New", qty: 789, price: "$0.05" },
+      { color: "Green", colorId: null, colorHex: "#00852B", condition: "Used", qty: 456, price: "$0.03" },
+      { color: "White", colorId: null, colorHex: "#F2F3F2", condition: "New", qty: 144, price: "$0.05" },
     ]
   },
   { 
@@ -155,9 +155,9 @@ const mockProductLots: Array<Omit<ProductLot, 'uniqueColorCount' | 'colorGroups'
     lotCount: 3,
     category: "tiles",
     variations: [
-      { color: "Dark Gray", colorHex: "#6C6E68", condition: "New", qty: 967, price: "$0.18" },
-      { color: "White", colorHex: "#F2F3F2", condition: "New", qty: 1456, price: "$0.17" },
-      { color: "Black", colorHex: "#05131D", condition: "Used", qty: 1033, price: "$0.12" },
+      { color: "Dark Gray", colorId: null, colorHex: "#6C6E68", condition: "New", qty: 967, price: "$0.18" },
+      { color: "White", colorId: null, colorHex: "#F2F3F2", condition: "New", qty: 1456, price: "$0.17" },
+      { color: "Black", colorId: null, colorHex: "#05131D", condition: "Used", qty: 1033, price: "$0.12" },
     ]
   },
   { 
@@ -168,10 +168,10 @@ const mockProductLots: Array<Omit<ProductLot, 'uniqueColorCount' | 'colorGroups'
     lotCount: 4,
     category: "slopes",
     variations: [
-      { color: "Green", colorHex: "#00852B", condition: "New", qty: 3421, price: "$0.22" },
-      { color: "Tan", colorHex: "#E4CD9E", condition: "New", qty: 1234, price: "$0.20" },
-      { color: "Blue", colorHex: "#0055BF", condition: "Used", qty: 789, price: "$0.15" },
-      { color: "Red", colorHex: "#D50000", condition: "New", qty: 234, price: "$0.22" },
+      { color: "Green", colorId: null, colorHex: "#00852B", condition: "New", qty: 3421, price: "$0.22" },
+      { color: "Tan", colorId: null, colorHex: "#E4CD9E", condition: "New", qty: 1234, price: "$0.20" },
+      { color: "Blue", colorId: null, colorHex: "#0055BF", condition: "Used", qty: 789, price: "$0.15" },
+      { color: "Red", colorId: null, colorHex: "#D50000", condition: "New", qty: 234, price: "$0.22" },
     ]
   },
   { 
@@ -182,9 +182,9 @@ const mockProductLots: Array<Omit<ProductLot, 'uniqueColorCount' | 'colorGroups'
     lotCount: 3,
     category: "minifigs",
     variations: [
-      { color: "Yellow", colorHex: "#F2CD37", condition: "New", qty: 534, price: "$0.45" },
-      { color: "Yellow", colorHex: "#F2CD37", condition: "Used", qty: 987, price: "$0.30" },
-      { color: "Light Flesh", colorHex: "#F6D7B3", condition: "New", qty: 613, price: "$0.48" },
+      { color: "Yellow", colorId: null, colorHex: "#F2CD37", condition: "New", qty: 534, price: "$0.45" },
+      { color: "Yellow", colorId: null, colorHex: "#F2CD37", condition: "Used", qty: 987, price: "$0.30" },
+      { color: "Light Flesh", colorId: null, colorHex: "#F6D7B3", condition: "New", qty: 613, price: "$0.48" },
     ]
   },
   { 
@@ -195,11 +195,11 @@ const mockProductLots: Array<Omit<ProductLot, 'uniqueColorCount' | 'colorGroups'
     lotCount: 5,
     category: "bricks",
     variations: [
-      { color: "Orange", colorHex: "#FE8A18", condition: "New", qty: 1234, price: "$0.28" },
-      { color: "Bright Orange", colorHex: "#D67923", condition: "New", qty: 1765, price: "$0.18" },
-      { color: "White", colorHex: "#F2F3F2", condition: "New", qty: 2341, price: "$0.16" },
-      { color: "Blue", colorHex: "#0055BF", condition: "Used", qty: 1567, price: "$0.12" },
-      { color: "Black", colorHex: "#05131D", condition: "New", qty: 983, price: "$0.17" },
+      { color: "Orange", colorId: null, colorHex: "#FE8A18", condition: "New", qty: 1234, price: "$0.28" },
+      { color: "Bright Orange", colorId: null, colorHex: "#D67923", condition: "New", qty: 1765, price: "$0.18" },
+      { color: "White", colorId: null, colorHex: "#F2F3F2", condition: "New", qty: 2341, price: "$0.16" },
+      { color: "Blue", colorId: null, colorHex: "#0055BF", condition: "Used", qty: 1567, price: "$0.12" },
+      { color: "Black", colorId: null, colorHex: "#05131D", condition: "New", qty: 983, price: "$0.17" },
     ]
   },
   { 
@@ -210,14 +210,14 @@ const mockProductLots: Array<Omit<ProductLot, 'uniqueColorCount' | 'colorGroups'
     lotCount: 8,
     category: "plates",
     variations: [
-      { color: "Red", colorHex: "#D50000", condition: "New", qty: 4521, price: "$0.04" },
-      { color: "Blue", colorHex: "#0055BF", condition: "New", qty: 3892, price: "$0.04" },
-      { color: "Yellow", colorHex: "#F2CD37", condition: "New", qty: 2981, price: "$0.04" },
-      { color: "Green", colorHex: "#00852B", condition: "New", qty: 2341, price: "$0.04" },
-      { color: "White", colorHex: "#F2F3F2", condition: "New", qty: 1892, price: "$0.04" },
-      { color: "Black", colorHex: "#05131D", condition: "New", qty: 1567, price: "$0.05" },
-      { color: "Orange", colorHex: "#FE8A18", condition: "New", qty: 789, price: "$0.05" },
-      { color: "Tan", colorHex: "#E4CD9E", condition: "Used", qty: 251, price: "$0.03" },
+      { color: "Red", colorId: null, colorHex: "#D50000", condition: "New", qty: 4521, price: "$0.04" },
+      { color: "Blue", colorId: null, colorHex: "#0055BF", condition: "New", qty: 3892, price: "$0.04" },
+      { color: "Yellow", colorId: null, colorHex: "#F2CD37", condition: "New", qty: 2981, price: "$0.04" },
+      { color: "Green", colorId: null, colorHex: "#00852B", condition: "New", qty: 2341, price: "$0.04" },
+      { color: "White", colorId: null, colorHex: "#F2F3F2", condition: "New", qty: 1892, price: "$0.04" },
+      { color: "Black", colorId: null, colorHex: "#05131D", condition: "New", qty: 1567, price: "$0.05" },
+      { color: "Orange", colorId: null, colorHex: "#FE8A18", condition: "New", qty: 789, price: "$0.05" },
+      { color: "Tan", colorId: null, colorHex: "#E4CD9E", condition: "Used", qty: 251, price: "$0.03" },
     ]
   },
   { 
@@ -228,10 +228,10 @@ const mockProductLots: Array<Omit<ProductLot, 'uniqueColorCount' | 'colorGroups'
     lotCount: 4,
     category: "tiles",
     variations: [
-      { color: "White", colorHex: "#F2F3F2", condition: "New", qty: 892, price: "$0.25" },
-      { color: "Black", colorHex: "#05131D", condition: "New", qty: 634, price: "$0.26" },
-      { color: "Gray", colorHex: "#6C6E68", condition: "New", qty: 321, price: "$0.25" },
-      { color: "Blue", colorHex: "#0055BF", condition: "Used", qty: 140, price: "$0.18" },
+      { color: "White", colorId: null, colorHex: "#F2F3F2", condition: "New", qty: 892, price: "$0.25" },
+      { color: "Black", colorId: null, colorHex: "#05131D", condition: "New", qty: 634, price: "$0.26" },
+      { color: "Gray", colorId: null, colorHex: "#6C6E68", condition: "New", qty: 321, price: "$0.25" },
+      { color: "Blue", colorId: null, colorHex: "#0055BF", condition: "Used", qty: 140, price: "$0.18" },
     ]
   },
   { 
@@ -242,11 +242,11 @@ const mockProductLots: Array<Omit<ProductLot, 'uniqueColorCount' | 'colorGroups'
     lotCount: 5,
     category: "slopes",
     variations: [
-      { color: "Red", colorHex: "#D50000", condition: "New", qty: 1234, price: "$0.32" },
-      { color: "Blue", colorHex: "#0055BF", condition: "New", qty: 1089, price: "$0.32" },
-      { color: "Yellow", colorHex: "#F2CD37", condition: "New", qty: 892, price: "$0.31" },
-      { color: "Green", colorHex: "#00852B", condition: "Used", qty: 678, price: "$0.22" },
-      { color: "White", colorHex: "#F2F3F2", condition: "New", qty: 428, price: "$0.32" },
+      { color: "Red", colorId: null, colorHex: "#D50000", condition: "New", qty: 1234, price: "$0.32" },
+      { color: "Blue", colorId: null, colorHex: "#0055BF", condition: "New", qty: 1089, price: "$0.32" },
+      { color: "Yellow", colorId: null, colorHex: "#F2CD37", condition: "New", qty: 892, price: "$0.31" },
+      { color: "Green", colorId: null, colorHex: "#00852B", condition: "Used", qty: 678, price: "$0.22" },
+      { color: "White", colorId: null, colorHex: "#F2F3F2", condition: "New", qty: 428, price: "$0.32" },
     ]
   },
   { 
@@ -257,12 +257,12 @@ const mockProductLots: Array<Omit<ProductLot, 'uniqueColorCount' | 'colorGroups'
     lotCount: 6,
     category: "tiles",
     variations: [
-      { color: "White", colorHex: "#F2F3F2", condition: "New", qty: 2987, price: "$0.06" },
-      { color: "Black", colorHex: "#05131D", condition: "New", qty: 2456, price: "$0.07" },
-      { color: "Red", colorHex: "#D50000", condition: "New", qty: 1678, price: "$0.06" },
-      { color: "Blue", colorHex: "#0055BF", condition: "New", qty: 1234, price: "$0.06" },
-      { color: "Yellow", colorHex: "#F2CD37", condition: "Used", qty: 987, price: "$0.04" },
-      { color: "Green", colorHex: "#00852B", condition: "New", qty: 534, price: "$0.06" },
+      { color: "White", colorId: null, colorHex: "#F2F3F2", condition: "New", qty: 2987, price: "$0.06" },
+      { color: "Black", colorId: null, colorHex: "#05131D", condition: "New", qty: 2456, price: "$0.07" },
+      { color: "Red", colorId: null, colorHex: "#D50000", condition: "New", qty: 1678, price: "$0.06" },
+      { color: "Blue", colorId: null, colorHex: "#0055BF", condition: "New", qty: 1234, price: "$0.06" },
+      { color: "Yellow", colorId: null, colorHex: "#F2CD37", condition: "Used", qty: 987, price: "$0.04" },
+      { color: "Green", colorId: null, colorHex: "#00852B", condition: "New", qty: 534, price: "$0.06" },
     ]
   },
   { 
@@ -273,13 +273,13 @@ const mockProductLots: Array<Omit<ProductLot, 'uniqueColorCount' | 'colorGroups'
     lotCount: 7,
     category: "bricks",
     variations: [
-      { color: "Red", colorHex: "#D50000", condition: "New", qty: 2987, price: "$0.09" },
-      { color: "Blue", colorHex: "#0055BF", condition: "New", qty: 2456, price: "$0.09" },
-      { color: "Yellow", colorHex: "#F2CD37", condition: "New", qty: 1987, price: "$0.09" },
-      { color: "Green", colorHex: "#00852B", condition: "New", qty: 1678, price: "$0.09" },
-      { color: "White", colorHex: "#F2F3F2", condition: "New", qty: 1234, price: "$0.09" },
-      { color: "Black", colorHex: "#05131D", condition: "New", qty: 678, price: "$0.10" },
-      { color: "Gray", colorHex: "#6C6E68", condition: "Used", qty: 214, price: "$0.06" },
+      { color: "Red", colorId: null, colorHex: "#D50000", condition: "New", qty: 2987, price: "$0.09" },
+      { color: "Blue", colorId: null, colorHex: "#0055BF", condition: "New", qty: 2456, price: "$0.09" },
+      { color: "Yellow", colorId: null, colorHex: "#F2CD37", condition: "New", qty: 1987, price: "$0.09" },
+      { color: "Green", colorId: null, colorHex: "#00852B", condition: "New", qty: 1678, price: "$0.09" },
+      { color: "White", colorId: null, colorHex: "#F2F3F2", condition: "New", qty: 1234, price: "$0.09" },
+      { color: "Black", colorId: null, colorHex: "#05131D", condition: "New", qty: 678, price: "$0.10" },
+      { color: "Gray", colorId: null, colorHex: "#6C6E68", condition: "Used", qty: 214, price: "$0.06" },
     ]
   },
   { 
@@ -290,10 +290,10 @@ const mockProductLots: Array<Omit<ProductLot, 'uniqueColorCount' | 'colorGroups'
     lotCount: 4,
     category: "bricks",
     variations: [
-      { color: "Red", colorHex: "#D50000", condition: "New", qty: 1892, price: "$0.11" },
-      { color: "Blue", colorHex: "#0055BF", condition: "New", qty: 1567, price: "$0.11" },
-      { color: "Yellow", colorHex: "#F2CD37", condition: "New", qty: 1234, price: "$0.11" },
-      { color: "White", colorHex: "#F2F3F2", condition: "Used", qty: 985, price: "$0.07" },
+      { color: "Red", colorId: null, colorHex: "#D50000", condition: "New", qty: 1892, price: "$0.11" },
+      { color: "Blue", colorId: null, colorHex: "#0055BF", condition: "New", qty: 1567, price: "$0.11" },
+      { color: "Yellow", colorId: null, colorHex: "#F2CD37", condition: "New", qty: 1234, price: "$0.11" },
+      { color: "White", colorId: null, colorHex: "#F2F3F2", condition: "Used", qty: 985, price: "$0.07" },
     ]
   },
   { 
@@ -304,15 +304,15 @@ const mockProductLots: Array<Omit<ProductLot, 'uniqueColorCount' | 'colorGroups'
     lotCount: 9,
     category: "bricks",
     variations: [
-      { color: "Red", colorHex: "#D50000", condition: "New", qty: 4892, price: "$0.05" },
-      { color: "Blue", colorHex: "#0055BF", condition: "New", qty: 4123, price: "$0.05" },
-      { color: "Yellow", colorHex: "#F2CD37", condition: "New", qty: 3567, price: "$0.05" },
-      { color: "Green", colorHex: "#00852B", condition: "New", qty: 2987, price: "$0.05" },
-      { color: "White", colorHex: "#F2F3F2", condition: "New", qty: 2456, price: "$0.05" },
-      { color: "Black", colorHex: "#05131D", condition: "New", qty: 2134, price: "$0.06" },
-      { color: "Orange", colorHex: "#FE8A18", condition: "New", qty: 1678, price: "$0.06" },
-      { color: "Trans-Clear", colorHex: "#FCFCFC", condition: "New", qty: 1234, price: "$0.07" },
-      { color: "Gray", colorHex: "#6C6E68", condition: "Used", qty: 385, price: "$0.03" },
+      { color: "Red", colorId: null, colorHex: "#D50000", condition: "New", qty: 4892, price: "$0.05" },
+      { color: "Blue", colorId: null, colorHex: "#0055BF", condition: "New", qty: 4123, price: "$0.05" },
+      { color: "Yellow", colorId: null, colorHex: "#F2CD37", condition: "New", qty: 3567, price: "$0.05" },
+      { color: "Green", colorId: null, colorHex: "#00852B", condition: "New", qty: 2987, price: "$0.05" },
+      { color: "White", colorId: null, colorHex: "#F2F3F2", condition: "New", qty: 2456, price: "$0.05" },
+      { color: "Black", colorId: null, colorHex: "#05131D", condition: "New", qty: 2134, price: "$0.06" },
+      { color: "Orange", colorId: null, colorHex: "#FE8A18", condition: "New", qty: 1678, price: "$0.06" },
+      { color: "Trans-Clear", colorId: null, colorHex: "#FCFCFC", condition: "New", qty: 1234, price: "$0.07" },
+      { color: "Gray", colorId: null, colorHex: "#6C6E68", condition: "Used", qty: 385, price: "$0.03" },
     ]
   },
   { 
@@ -323,10 +323,10 @@ const mockProductLots: Array<Omit<ProductLot, 'uniqueColorCount' | 'colorGroups'
     lotCount: 4,
     category: "bricks",
     variations: [
-      { color: "Red", colorHex: "#D50000", condition: "New", qty: 1234, price: "$0.22" },
-      { color: "Blue", colorHex: "#0055BF", condition: "New", qty: 1089, price: "$0.22" },
-      { color: "Yellow", colorHex: "#F2CD37", condition: "New", qty: 892, price: "$0.22" },
-      { color: "White", colorHex: "#F2F3F2", condition: "Used", qty: 677, price: "$0.15" },
+      { color: "Red", colorId: null, colorHex: "#D50000", condition: "New", qty: 1234, price: "$0.22" },
+      { color: "Blue", colorId: null, colorHex: "#0055BF", condition: "New", qty: 1089, price: "$0.22" },
+      { color: "Yellow", colorId: null, colorHex: "#F2CD37", condition: "New", qty: 892, price: "$0.22" },
+      { color: "White", colorId: null, colorHex: "#F2F3F2", condition: "Used", qty: 677, price: "$0.15" },
     ]
   },
   { 
@@ -337,11 +337,11 @@ const mockProductLots: Array<Omit<ProductLot, 'uniqueColorCount' | 'colorGroups'
     lotCount: 5,
     category: "bricks",
     variations: [
-      { color: "Red", colorHex: "#D50000", condition: "New", qty: 1234, price: "$0.35" },
-      { color: "Blue", colorHex: "#0055BF", condition: "New", qty: 1089, price: "$0.35" },
-      { color: "Yellow", colorHex: "#F2CD37", condition: "New", qty: 892, price: "$0.34" },
-      { color: "White", colorHex: "#F2F3F2", condition: "New", qty: 789, price: "$0.35" },
-      { color: "Black", colorHex: "#05131D", condition: "Used", qty: 517, price: "$0.25" },
+      { color: "Red", colorId: null, colorHex: "#D50000", condition: "New", qty: 1234, price: "$0.35" },
+      { color: "Blue", colorId: null, colorHex: "#0055BF", condition: "New", qty: 1089, price: "$0.35" },
+      { color: "Yellow", colorId: null, colorHex: "#F2CD37", condition: "New", qty: 892, price: "$0.34" },
+      { color: "White", colorId: null, colorHex: "#F2F3F2", condition: "New", qty: 789, price: "$0.35" },
+      { color: "Black", colorId: null, colorHex: "#05131D", condition: "Used", qty: 517, price: "$0.25" },
     ]
   },
   { 
@@ -352,10 +352,10 @@ const mockProductLots: Array<Omit<ProductLot, 'uniqueColorCount' | 'colorGroups'
     lotCount: 4,
     category: "bricks",
     variations: [
-      { color: "Red", colorHex: "#D50000", condition: "New", qty: 1092, price: "$0.45" },
-      { color: "Blue", colorHex: "#0055BF", condition: "New", qty: 892, price: "$0.45" },
-      { color: "Yellow", colorHex: "#F2CD37", condition: "New", qty: 734, price: "$0.44" },
-      { color: "White", colorHex: "#F2F3F2", condition: "Used", qty: 496, price: "$0.32" },
+      { color: "Red", colorId: null, colorHex: "#D50000", condition: "New", qty: 1092, price: "$0.45" },
+      { color: "Blue", colorId: null, colorHex: "#0055BF", condition: "New", qty: 892, price: "$0.45" },
+      { color: "Yellow", colorId: null, colorHex: "#F2CD37", condition: "New", qty: 734, price: "$0.44" },
+      { color: "White", colorId: null, colorHex: "#F2F3F2", condition: "Used", qty: 496, price: "$0.32" },
     ]
   },
   { 
@@ -366,9 +366,9 @@ const mockProductLots: Array<Omit<ProductLot, 'uniqueColorCount' | 'colorGroups'
     lotCount: 3,
     category: "bricks",
     variations: [
-      { color: "Red", colorHex: "#D50000", condition: "New", qty: 892, price: "$0.58" },
-      { color: "Blue", colorHex: "#0055BF", condition: "New", qty: 734, price: "$0.58" },
-      { color: "Yellow", colorHex: "#F2CD37", condition: "Used", qty: 530, price: "$0.42" },
+      { color: "Red", colorId: null, colorHex: "#D50000", condition: "New", qty: 892, price: "$0.58" },
+      { color: "Blue", colorId: null, colorHex: "#0055BF", condition: "New", qty: 734, price: "$0.58" },
+      { color: "Yellow", colorId: null, colorHex: "#F2CD37", condition: "Used", qty: 530, price: "$0.42" },
     ]
   },
   { 
@@ -379,11 +379,11 @@ const mockProductLots: Array<Omit<ProductLot, 'uniqueColorCount' | 'colorGroups'
     lotCount: 5,
     category: "bricks",
     variations: [
-      { color: "Red", colorHex: "#D50000", condition: "New", qty: 1432, price: "$0.32" },
-      { color: "Blue", colorHex: "#0055BF", condition: "New", qty: 1234, price: "$0.32" },
-      { color: "Yellow", colorHex: "#F2CD37", condition: "New", qty: 1089, price: "$0.31" },
-      { color: "White", colorHex: "#F2F3F2", condition: "New", qty: 892, price: "$0.32" },
-      { color: "Green", colorHex: "#00852B", condition: "Used", qty: 245, price: "$0.22" },
+      { color: "Red", colorId: null, colorHex: "#D50000", condition: "New", qty: 1432, price: "$0.32" },
+      { color: "Blue", colorId: null, colorHex: "#0055BF", condition: "New", qty: 1234, price: "$0.32" },
+      { color: "Yellow", colorId: null, colorHex: "#F2CD37", condition: "New", qty: 1089, price: "$0.31" },
+      { color: "White", colorId: null, colorHex: "#F2F3F2", condition: "New", qty: 892, price: "$0.32" },
+      { color: "Green", colorId: null, colorHex: "#00852B", condition: "Used", qty: 245, price: "$0.22" },
     ]
   },
   { 
@@ -394,10 +394,10 @@ const mockProductLots: Array<Omit<ProductLot, 'uniqueColorCount' | 'colorGroups'
     lotCount: 4,
     category: "bricks",
     variations: [
-      { color: "Red", colorHex: "#D50000", condition: "New", qty: 1892, price: "$0.18" },
-      { color: "Blue", colorHex: "#0055BF", condition: "New", qty: 1567, price: "$0.18" },
-      { color: "Yellow", colorHex: "#F2CD37", condition: "New", qty: 1234, price: "$0.17" },
-      { color: "White", colorHex: "#F2F3F2", condition: "Used", qty: 985, price: "$0.12" },
+      { color: "Red", colorId: null, colorHex: "#D50000", condition: "New", qty: 1892, price: "$0.18" },
+      { color: "Blue", colorId: null, colorHex: "#0055BF", condition: "New", qty: 1567, price: "$0.18" },
+      { color: "Yellow", colorId: null, colorHex: "#F2CD37", condition: "New", qty: 1234, price: "$0.17" },
+      { color: "White", colorId: null, colorHex: "#F2F3F2", condition: "Used", qty: 985, price: "$0.12" },
     ]
   },
 ];
