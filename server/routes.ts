@@ -2620,7 +2620,11 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
         .limit(500);
 
       const newProducts = groupInventoryByPart(newItems);
-      newProducts.sort((a, b) => b.score - a.score);
+      // Sort by date added (newest first) - using the first variation's created date as proxy
+      newProducts.sort((a, b) => {
+        // If we had dateCreated, we'd use it. For now, sort by ID (higher ID = newer)
+        return b.id - a.id;
+      });
       const topNewProducts = newProducts.slice(0, limit);
 
       // 2. HOT ITEMS (trending by orders)
@@ -2664,10 +2668,13 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
           .where(and(...baseConditions, inArray(blInventory.itemNo, hotSkus)));
 
         hotProducts = groupInventoryByPart(hotInventoryItems);
+        // Sort by quantities sold (across all variations) - use the hotItemsQuery order
         hotProducts.sort((a, b) => {
-          const aIndex = hotSkus.indexOf(a.part);
-          const bIndex = hotSkus.indexOf(b.part);
-          return aIndex - bIndex;
+          const aOrderInfo = hotItemsQuery.find(h => h.sku === a.part);
+          const bOrderInfo = hotItemsQuery.find(h => h.sku === b.part);
+          const aQty = aOrderInfo?.totalOrdered || 0;
+          const bQty = bOrderInfo?.totalOrdered || 0;
+          return bQty - aQty; // Descending by quantity sold
         });
         hotProducts = hotProducts.slice(0, limit);
       }
@@ -2697,8 +2704,25 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
         .where(and(...baseConditions, sql`${blInventory.saleRate} > 0`))
         .limit(500);
 
-      const discountedProducts = groupInventoryByPart(discountedItems);
-      discountedProducts.sort((a, b) => b.score - a.score);
+      const discountedProducts = groupInventoryByPart(discountedItems).map(product => {
+        // Calculate the best discount percentage across all variations
+        let maxDiscount = 0;
+        discountedItems.forEach(item => {
+          if (item.itemNo === product.part && item.saleRate) {
+            const discount = parseInt(item.saleRate.toString());
+            if (discount > maxDiscount) {
+              maxDiscount = discount;
+            }
+          }
+        });
+        return {
+          ...product,
+          maxDiscount,
+        };
+      });
+      
+      // Sort by best discount offer (highest discount percentage)
+      discountedProducts.sort((a, b) => b.maxDiscount - a.maxDiscount);
       const topDiscountedProducts = discountedProducts.slice(0, limit);
 
       res.json({
