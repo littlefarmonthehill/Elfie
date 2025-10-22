@@ -438,9 +438,15 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
     ? sortedColorGroups.filter(g => g.colorName === selectedColor)
     : sortedColorGroups;
   
-  // Try lot imageUrl first, then first variation with an image
+  // Use first variation's image (first color we have)
   const getInitialImageUrl = () => {
+    // First try the lot-level image
     if (lot.imageUrl) return lot.imageUrl;
+    // Then try the first variation (first color)
+    if (lot.variations.length > 0 && lot.variations[0].imageUrl) {
+      return lot.variations[0].imageUrl;
+    }
+    // Fallback to any variation with an image
     const variationWithImage = lot.variations.find(v => v.imageUrl);
     return variationWithImage?.imageUrl || null;
   };
