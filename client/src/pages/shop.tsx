@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, ShoppingCart, ChevronRight, Sparkles, Plus, X, Minus } from "lucide-react";
+import { Search, ShoppingCart, ChevronRight, Sparkles, Plus, X, Minus, Check, ChevronDown, ChevronUp } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -459,7 +459,7 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
   return (
     <>
       <Card
-        className="shrink-0 w-44 md:w-72 p-2 md:p-4 bg-gray-900/60 border-purple-500/30 hover-elevate cursor-pointer transition-all"
+        className="shrink-0 w-52 md:w-80 p-2 md:p-4 bg-gray-900/60 border-purple-500/30 hover-elevate cursor-pointer transition-all"
         onClick={() => onOpenChange(true)}
         data-testid={`card-lot-${lot.id}`}
       >
@@ -775,6 +775,8 @@ export default function Shop() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [selectedItemType, setSelectedItemType] = useState<string | null>('PART');
+  const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
   // Logout mutation
@@ -834,6 +836,37 @@ export default function Shop() {
     retry: false,
   });
 
+  // Fetch special groups (New, Hot, Discounted)
+  const { data: specialGroupsData, isLoading: specialGroupsLoading } = useQuery<{
+    newItems: ProductLot[];
+    hotItems: ProductLot[];
+    discountedItems: ProductLot[];
+  }>({
+    queryKey: ['/api/shop/special-groups', { itemType: selectedItemType }],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (selectedItemType) params.append('itemType', selectedItemType);
+      const response = await fetch(`/api/shop/special-groups?${params.toString()}`);
+      if (!response.ok) throw new Error('Failed to fetch special groups');
+      return response.json();
+    },
+  });
+
+  // Fetch inventory for selected categories
+  const { data: categoryInventoryData, isLoading: categoryInventoryLoading } = useQuery<{ lots: ProductLot[] }>({
+    queryKey: ['/api/shop/inventory', { itemType: selectedItemType, categoryIds: selectedCategories }],
+    queryFn: async () => {
+      if (selectedCategories.length === 0) return { lots: [] };
+      const params = new URLSearchParams();
+      if (selectedItemType) params.append('itemType', selectedItemType);
+      params.append('categoryIds', selectedCategories.join(','));
+      const response = await fetch(`/api/shop/inventory?${params.toString()}`);
+      if (!response.ok) throw new Error('Failed to fetch category inventory');
+      return response.json();
+    },
+    enabled: selectedCategories.length > 0,
+  });
+
   // Process lots to group by color
   const processedLots = (inventoryData?.lots || mockProductLots).map(lot => {
     // Group variations by color
@@ -861,6 +894,80 @@ export default function Shop() {
       colorGroups
     };
   });
+
+  const processLots = (lots: any[]) => {
+    return lots.map(lot => {
+      const colorMap = new Map<string, ColorGroup>();
+      lot.variations.forEach((variation: any) => {
+        if (!colorMap.has(variation.color)) {
+          colorMap.set(variation.color, {
+            colorName: variation.color,
+            colorHex: variation.colorHex,
+            variations: [],
+            totalQty: 0
+          });
+        }
+        const group = colorMap.get(variation.color)!;
+        group.variations.push(variation);
+        group.totalQty += variation.qty;
+      });
+      return {
+        ...lot,
+        uniqueColorCount: colorMap.size,
+        colorGroups: Array.from(colorMap.values())
+      };
+    });
+  };
+
+  const toggleSection = (sectionId: string) => {
+    setCollapsedSections(prev => {
+      const next = new Set(prev);
+      if (next.has(sectionId)) {
+        next.delete(sectionId);
+      } else {
+        next.add(sectionId);
+      }
+      return next;
+    });
+  };
+
+  const specialGroups = {
+    newItems: processLots(specialGroupsData?.newItems || []),
+    hotItems: processLots(specialGroupsData?.hotItems || []),
+    discountedItems: processLots(specialGroupsData?.discountedItems || []),
+  };
+
+  const categoryProductMap = new Map<number, ProductLot[]>();
+  if (categoryInventoryData?.lots) {
+    const processedLots = processLots(categoryInventoryData.lots);
+    processedLots.forEach(lot => {
+      const catId = lot.categoryId;
+      if (catId) {
+        if (!categoryProductMap.has(catId)) {
+          categoryProductMap.set(catId, []);
+        }
+        categoryProductMap.get(catId)!.push(lot);
+      }
+    });
+  }
+
+  const sortedCategoryList = [...(categoriesData?.categories || [])].sort((a, b) => {
+    const aSelected = selectedCategories.includes(a.id);
+    const bSelected = selectedCategories.includes(b.id);
+    if (aSelected && !bSelected) return -1;
+    if (!aSelected && bSelected) return 1;
+    return a.name.localeCompare(b.name);
+  });
+
+  const handleCategoryToggle = (categoryId: number) => {
+    setSelectedCategories(prev => {
+      if (prev.includes(categoryId)) {
+        return prev.filter(id => id !== categoryId);
+      } else {
+        return [...prev, categoryId];
+      }
+    });
+  };
 
   const productLots = processedLots;
   const totalLots = statsData?.totalLots || productLots.length;
@@ -1175,6 +1282,44 @@ export default function Shop() {
                 className="w-full h-9 md:h-12 pl-9 md:pl-12 pr-4 md:pr-5 bg-gray-900/80 border border-white/20 rounded-md text-xs md:text-base text-white placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
                 data-testid="input-search"
               />
+            </div>
+          </div>
+        </div>
+
+        {/* Category Pills Selector */}
+        <div className="sticky top-[7rem] md:top-[8rem] z-20 bg-gradient-to-b from-black via-black/95 to-transparent border-b border-white/10 px-3 md:px-6 py-2">
+          <div className="overflow-x-auto scrollbar-hide">
+            <div className="flex gap-2 min-w-min">
+              {sortedCategoryList.map((category) => {
+                const isSelected = selectedCategories.includes(category.id);
+                return (
+                  <Button
+                    key={category.id}
+                    variant={isSelected ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handleCategoryToggle(category.id)}
+                    className={`shrink-0 text-xs ${
+                      isSelected 
+                        ? "bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white font-bold border-none"
+                        : "bg-gray-900/40 border-white/20 text-gray-300 hover:bg-gray-800"
+                    }`}
+                    data-testid={`button-category-${category.id}`}
+                  >
+                    {isSelected && <Check className="w-3 h-3 mr-1" />}
+                    {category.name}
+                    <Badge 
+                      variant="secondary"
+                      className={`ml-1.5 text-xs ${
+                        isSelected
+                          ? "bg-white/20 text-white"
+                          : "bg-purple-500/20 text-purple-300"
+                      }`}
+                    >
+                      {category.lotCount}
+                    </Badge>
+                  </Button>
+                );
+              })}
             </div>
           </div>
         </div>
