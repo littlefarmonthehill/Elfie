@@ -152,7 +152,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let dateFilter: Date | null = null;
       let endDateFilter: Date | null = null;
       
-      if (range) {
+      // Debug logging
+      console.log(`📊 Orders API called with range: ${range || 'none'}`);
+      
+      if (range && range !== 'all') {
         const now = new Date();
         switch (range) {
           case 'mtd':
@@ -189,6 +192,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               .where(sql`${orders.orderDate} >= ${dateFilter.toISOString()}`)
               .orderBy(desc(orders.orderDate))
         : await db.select().from(orders).orderBy(desc(orders.orderDate));
+      
+      console.log(`📊 Fetched ${allOrders.length} orders (dateFilter: ${dateFilter ? 'set' : 'none'})`);
       
       if (allOrders.length === 0) {
         res.json([]);
