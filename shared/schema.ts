@@ -108,7 +108,16 @@ export const blInventory = pgTable("bl_inventory", {
   thumbnailUrl: text("thumbnail_url"),
   syncedAt: timestamp("synced_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  // Composite index for shop queries with itemType filter
+  itemTypeCategoryQtyIdx: index("bl_inv_item_type_cat_qty_idx").on(table.itemType, table.categoryId, table.quantity),
+  // Index for shop queries without itemType filter
+  categoryQtyIdx: index("bl_inv_cat_qty_idx").on(table.categoryId, table.quantity),
+  // Index for quantity-based filtering (general queries)
+  quantityIdx: index("bl_inv_qty_idx").on(table.quantity),
+  // Index for item lookup
+  itemNoIdx: index("bl_inv_item_no_idx").on(table.itemNo),
+}));
 
 export const insertBlInventorySchema = createInsertSchema(blInventory).omit({
   syncedAt: true,

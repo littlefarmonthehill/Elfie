@@ -676,14 +676,14 @@ function HorizontalRow({ title, lots, lotCount, partCount, categoryId, onAddToCa
             <Sparkles className="w-6 h-6 md:w-8 md:h-8 text-white drop-shadow-lg" />
             {title}
           </h2>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between pl-8 md:pl-12">
             <div className="text-xs md:text-sm text-gray-400">
               {lotCount.toLocaleString()} lots · {partCount.toLocaleString()} parts
             </div>
             {lotCount > 12 && (
               <Link href={`/search?category=${categoryId}`}>
                 <button className={`text-sm md:text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r ${bandColor} hover:opacity-80 flex items-center gap-1.5 md:gap-2 transition-opacity`} data-testid={`button-more-${categoryId}`}>
-                  See More
+                  See All
                   <ChevronRight className="w-5 h-5 md:w-6 md:h-6" />
                 </button>
               </Link>
