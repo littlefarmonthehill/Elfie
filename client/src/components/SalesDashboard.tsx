@@ -38,6 +38,17 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
   const [selectedCompareYears, setSelectedCompareYears] = useState<number[]>([currentYear - 1, currentYear - 2]);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
   
+  // Helper function to safely parse dates with fallback
+  const safeParseDate = (dateString: string): Date => {
+    try {
+      const date = parseISO(dateString);
+      if (!isNaN(date.getTime())) return date;
+      return new Date(dateString);
+    } catch {
+      return new Date(dateString);
+    }
+  };
+  
   // Build query URL with date range parameter
   const buildQueryUrl = (baseUrl: string) => {
     if (dateRange === 'all') return baseUrl;
@@ -62,7 +73,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
   const availableYears = useMemo(() => {
     const years = new Set<number>();
     orders.forEach(order => {
-      const year = getYear(parseISO(order.orderDate));
+      const year = getYear(safeParseDate(order.orderDate));
       years.add(year);
     });
     return Array.from(years).sort((a, b) => b - a);
@@ -94,7 +105,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
       // Month-to-Date: from start of current month to today
       const startOfCurrentMonth = startOfMonth(new Date());
       return orders.filter(order => {
-        const orderDate = parseISO(order.orderDate);
+        const orderDate = safeParseDate(order.orderDate);
         return orderDate >= startOfCurrentMonth;
       });
     }
@@ -104,7 +115,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
       const startOfLastMonth = startOfMonth(subMonths(new Date(), 1));
       const startOfCurrentMonth = startOfMonth(new Date());
       return orders.filter(order => {
-        const orderDate = parseISO(order.orderDate);
+        const orderDate = safeParseDate(order.orderDate);
         return orderDate >= startOfLastMonth && orderDate < startOfCurrentMonth;
       });
     }
@@ -118,7 +129,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
     const cutoffDate = startOfMonth(subMonths(new Date(), monthsToShow - 1));
     
     return orders.filter(order => {
-      const orderDate = parseISO(order.orderDate);
+      const orderDate = safeParseDate(order.orderDate);
       return orderDate >= cutoffDate;
     });
   };
@@ -170,7 +181,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
       // Aggregate orders into days
       filteredOrders.forEach(order => {
         if (order.orderTotal && !isNaN(Number(order.orderTotal))) {
-          const orderDay = startOfDay(parseISO(order.orderDate));
+          const orderDay = startOfDay(safeParseDate(order.orderDate));
           const dayData = days.find(d => d.day.getTime() === orderDay.getTime());
           if (dayData) {
             dayData.sales += Number(order.orderTotal);
@@ -193,7 +204,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
         .map(o => {
           // Try parseISO first, then fallback to new Date()
           try {
-            const date = parseISO(o.orderDate);
+            const date = safeParseDate(o.orderDate);
             return !isNaN(date.getTime()) ? date : new Date(o.orderDate);
           } catch {
             return new Date(o.orderDate);
@@ -256,7 +267,24 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
     // Aggregate orders into months
     filteredOrders.forEach(order => {
       if (order.orderTotal && !isNaN(Number(order.orderTotal))) {
-        const orderMonth = startOfMonth(parseISO(order.orderDate));
+        // Use fallback date parser to handle various date formats
+        let orderDate: Date;
+        try {
+          orderDate = safeParseDate(order.orderDate);
+          if (isNaN(orderDate.getTime())) {
+            orderDate = new Date(order.orderDate);
+          }
+        } catch {
+          orderDate = new Date(order.orderDate);
+        }
+        
+        // Skip if still invalid
+        if (isNaN(orderDate.getTime())) {
+          console.warn('Invalid order date:', order.orderDate, 'for order:', order.id);
+          return;
+        }
+        
+        const orderMonth = startOfMonth(orderDate);
         const monthData = months.find(m => m.month.getTime() === orderMonth.getTime());
         if (monthData) {
           monthData.sales += Number(order.orderTotal);
@@ -301,7 +329,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
     } else {
       // 'all' - get oldest order date
       const oldestOrder = orders.reduce((oldest, order) => {
-        const orderDate = parseISO(order.orderDate);
+        const orderDate = safeParseDate(order.orderDate);
         return !oldest || orderDate < oldest ? orderDate : oldest;
       }, null as Date | null);
       startDate = oldestOrder || subYears(now, 10);
@@ -347,7 +375,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
     orders.forEach(order => {
       if (!order.orderTotal || isNaN(Number(order.orderTotal))) return;
       
-      const orderDate = parseISO(order.orderDate);
+      const orderDate = safeParseDate(order.orderDate);
       const year = getYear(orderDate);
       
       // Only process orders from the comparison years
@@ -421,7 +449,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
     } else {
       // 'all' - get oldest order date
       const oldestOrder = orders.reduce((oldest, order) => {
-        const orderDate = parseISO(order.orderDate);
+        const orderDate = safeParseDate(order.orderDate);
         return !oldest || orderDate < oldest ? orderDate : oldest;
       }, null as Date | null);
       startDate = oldestOrder || subYears(now, 10);
@@ -470,7 +498,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
       const platform = order.marketplace || 'Unknown';
       if (!platforms.includes(platform)) return;
       
-      const orderDate = parseISO(order.orderDate);
+      const orderDate = safeParseDate(order.orderDate);
       const orderMonth = startOfMonth(orderDate);
       
       const bucketIndex = comparisonData.findIndex(bucket => {
