@@ -459,7 +459,7 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
   return (
     <>
       <Card
-        className="shrink-0 w-44 md:w-72 p-2 md:p-4 bg-gray-900/60 border-purple-500/30 hover-elevate cursor-pointer transition-all"
+        className="shrink-0 w-52 md:w-80 p-2 md:p-4 bg-gray-900/60 border-purple-500/30 hover-elevate cursor-pointer transition-all"
         onClick={() => onOpenChange(true)}
         data-testid={`card-lot-${lot.id}`}
       >
