@@ -417,6 +417,7 @@ interface LotCardProps {
 function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
   const primaryColor = lot.variations[0];
   const [quantities, setQuantities] = useState<Record<number, number>>({});
+  const [selectedColor, setSelectedColor] = useState<string | null>(null);
   
   // Calculate total quantities for New and Used
   const totalNewQty = lot.variations
@@ -425,6 +426,17 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
   const totalUsedQty = lot.variations
     .filter(v => v.condition === 'Used')
     .reduce((sum, v) => sum + v.qty, 0);
+  
+  // Get unique colors sorted alphabetically
+  const uniqueColors = Array.from(new Set(lot.colorGroups.map(g => g.colorName))).sort();
+  
+  // Sort color groups alphabetically
+  const sortedColorGroups = [...lot.colorGroups].sort((a, b) => a.colorName.localeCompare(b.colorName));
+  
+  // Filter variations by selected color
+  const displayedColorGroups = selectedColor 
+    ? sortedColorGroups.filter(g => g.colorName === selectedColor)
+    : sortedColorGroups;
   
   // Try lot imageUrl first, then first variation with an image
   const getInitialImageUrl = () => {
@@ -553,6 +565,34 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
               <span className="text-gray-600">•</span>
               <span>{lot.totalQty.toLocaleString()} pieces available</span>
             </DialogDescription>
+            
+            {/* Color Filter */}
+            <div className="mt-3 pt-3 border-t border-white/10">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs text-gray-400 mr-1">Filter by color:</span>
+                <Button
+                  size="sm"
+                  variant={selectedColor === null ? "default" : "outline"}
+                  onClick={() => setSelectedColor(null)}
+                  className="h-7 text-xs"
+                  data-testid="filter-color-all"
+                >
+                  All Colors
+                </Button>
+                {uniqueColors.map((color) => (
+                  <Button
+                    key={color}
+                    size="sm"
+                    variant={selectedColor === color ? "default" : "outline"}
+                    onClick={() => setSelectedColor(color)}
+                    className="h-7 text-xs"
+                    data-testid={`filter-color-${color.toLowerCase().replace(/\s+/g, '-')}`}
+                  >
+                    {color}
+                  </Button>
+                ))}
+              </div>
+            </div>
           </DialogHeader>
           
           <div className="flex-1 overflow-y-auto pr-2 mt-3 space-y-4">
@@ -584,7 +624,7 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
             )}
             
             <div className="space-y-3">
-              {lot.colorGroups.map((colorGroup, groupIdx) => (
+              {displayedColorGroups.map((colorGroup, groupIdx) => (
                 <div key={groupIdx} className="bg-gray-900/40 border border-white/10 rounded-lg p-3 md:p-4 hover-elevate">
                   {/* Color Header */}
                   <div className="flex items-center gap-3 mb-3">
