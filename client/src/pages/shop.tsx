@@ -520,34 +520,34 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
       </Card>
 
       <Dialog open={isOpen} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-xl max-h-[70vh] bg-black/98 border-white/20 overflow-hidden flex flex-col backdrop-blur-xl p-3">
-          <DialogHeader className="pb-1.5 border-b border-white/10">
-            <DialogTitle className="text-sm md:text-base font-bold text-white flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+        <DialogContent className="max-w-2xl max-h-[85vh] bg-black/98 border-white/20 overflow-hidden flex flex-col backdrop-blur-xl p-4 md:p-6">
+          <DialogHeader className="pb-3 border-b border-white/10">
+            <DialogTitle className="text-base md:text-lg font-bold text-white flex items-center gap-2">
+              <Sparkles className="w-4 h-4 md:w-5 md:h-5 text-cyan-400" />
               {lot.name}
             </DialogTitle>
-            <DialogDescription className="text-[9px] md:text-[10px] text-gray-400 flex items-center gap-1">
+            <DialogDescription className="text-xs md:text-sm text-gray-400 flex items-center gap-2 flex-wrap">
               <span className="text-cyan-400">#{lot.part}</span>
               <span className="text-gray-600">•</span>
               <span>{lot.uniqueColorCount} {lot.uniqueColorCount === 1 ? 'color' : 'colors'}</span>
               <span className="text-gray-600">•</span>
-              <span>{lot.totalQty.toLocaleString()} pieces</span>
+              <span>{lot.totalQty.toLocaleString()} pieces available</span>
             </DialogDescription>
           </DialogHeader>
           
-          <div className="flex-1 overflow-y-auto pr-0.5 mt-1.5">
+          <div className="flex-1 overflow-y-auto pr-2 mt-3 space-y-4">
             {imageSrc && (
-              <div className="mb-3 flex justify-center">
+              <div className="flex justify-center mb-4">
                 <div 
-                  className="w-32 h-32 md:w-48 md:h-48 rounded-lg border border-white/10 flex items-center justify-center p-2 relative overflow-hidden"
+                  className="w-40 h-40 md:w-56 md:h-56 rounded-lg border border-white/10 flex items-center justify-center p-3 relative overflow-hidden"
                   style={{
                     background: 'radial-gradient(ellipse at center, #1e3a8a 0%, #0f172a 50%, #000000 100%)'
                   }}
                 >
                   <div className="absolute inset-0 opacity-60">
-                    <div className="absolute top-[15%] left-[10%] w-12 md:w-20 h-12 md:h-20 bg-cyan-500/40 rounded-full blur-2xl animate-pulse" style={{ animationDelay: '0s', animationDuration: '3s' }} />
-                    <div className="absolute bottom-[15%] right-[15%] w-10 md:w-16 h-10 md:h-16 bg-blue-400/40 rounded-full blur-xl animate-pulse" style={{ animationDelay: '1.5s', animationDuration: '4s' }} />
-                    <div className="absolute top-[50%] right-[60%] w-6 md:w-10 h-6 md:h-10 bg-purple-400/30 rounded-full blur-lg animate-pulse" style={{ animationDelay: '3s', animationDuration: '5s' }} />
+                    <div className="absolute top-[15%] left-[10%] w-16 md:w-24 h-16 md:h-24 bg-cyan-500/40 rounded-full blur-2xl animate-pulse" style={{ animationDelay: '0s', animationDuration: '3s' }} />
+                    <div className="absolute bottom-[15%] right-[15%] w-12 md:w-20 h-12 md:h-20 bg-blue-400/40 rounded-full blur-xl animate-pulse" style={{ animationDelay: '1.5s', animationDuration: '4s' }} />
+                    <div className="absolute top-[50%] right-[60%] w-8 md:w-12 h-8 md:h-12 bg-purple-400/30 rounded-full blur-lg animate-pulse" style={{ animationDelay: '3s', animationDuration: '5s' }} />
                   </div>
                   <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-transparent to-cyan-500/10" />
                   <div className="relative z-10 w-full h-full p-2 flex items-center justify-center">
@@ -562,85 +562,86 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
                 </div>
               </div>
             )}
-            <div className="grid grid-cols-1 gap-1.5">
+            
+            <div className="space-y-3">
               {lot.colorGroups.map((colorGroup, groupIdx) => (
-                <div key={groupIdx} className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
-                  {/* Color Header - Fixed on left */}
-                  <div className="flex items-center gap-1.5 shrink-0">
+                <div key={groupIdx} className="bg-gray-900/40 border border-white/10 rounded-lg p-3 md:p-4 hover-elevate">
+                  {/* Color Header */}
+                  <div className="flex items-center gap-3 mb-3">
                     <div
-                      className="w-5 h-5 rounded shrink-0 border border-white/30 shadow-sm"
+                      className="w-8 h-8 md:w-10 md:h-10 rounded-md border-2 border-white/30 shadow-md"
                       style={{ 
                         backgroundColor: colorGroup.colorHex,
-                        boxShadow: `0 1px 4px ${colorGroup.colorHex}40`
+                        boxShadow: `0 2px 8px ${colorGroup.colorHex}60`
                       }}
                     />
-                    <div className="min-w-[70px]">
-                      <h4 className="text-[10px] md:text-xs font-bold text-white">{colorGroup.colorName}</h4>
-                      <p className="text-[8px] md:text-[9px] text-gray-500">{colorGroup.totalQty.toLocaleString()}</p>
+                    <div>
+                      <h4 className="text-sm md:text-base font-bold text-white">{colorGroup.colorName}</h4>
+                      <p className="text-xs text-gray-400">{colorGroup.totalQty.toLocaleString()} pieces</p>
                     </div>
                   </div>
                   
-                  {/* Condition Variations - Same line */}
-                  <div className="flex gap-1">
+                  {/* Condition Variations - Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                     {colorGroup.variations.map((variation, varIdx) => {
                       const idx = lot.variations.findIndex(v => v.color === variation.color && v.condition === variation.condition);
                       const quantity = quantities[idx] || 1;
                       return (
                         <div 
                           key={varIdx}
-                          className="p-1.5 bg-gray-900/40 border border-white/5 rounded hover-elevate transition-all duration-300 group shrink-0"
+                          className="flex items-center justify-between p-3 bg-gray-800/60 border border-white/5 rounded-md hover-elevate"
                           data-testid={`variation-${lot.id}-${idx}`}
                         >
-                          <div className="flex items-center gap-1">
-                            {/* Info */}
-                            <div>
-                              <div className="flex items-center gap-1 mb-0.5">
-                                <Badge variant="outline" className="text-[8px] text-gray-300 border-white/20 h-3.5 px-1">
-                                  {variation.condition}
-                                </Badge>
-                                <span className="text-[8px] text-gray-500">{variation.qty.toLocaleString()}</span>
-                              </div>
-                              <div className="text-xs font-bold text-cyan-400">{variation.price}</div>
+                          {/* Left: Info */}
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Badge variant="outline" className="text-xs text-white border-cyan-500/50 bg-cyan-500/10">
+                                {variation.condition}
+                              </Badge>
+                              <span className="text-xs text-gray-400">Stock: {variation.qty.toLocaleString()}</span>
                             </div>
+                            <div className="text-lg md:text-xl font-bold text-cyan-400">{variation.price}</div>
+                          </div>
 
-                            {/* Quantity Controls */}
-                            <div className="flex items-center gap-0.5">
-                              <div className="flex items-center gap-0.5 bg-gray-800/80 rounded p-0.5 border border-white/10">
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-4 w-4 text-white hover:bg-white/10"
-                                  onClick={() => updateQuantity(idx, -1)}
-                                  disabled={quantity <= 1}
-                                >
-                                  <Minus className="w-2 h-2" />
-                                </Button>
-                                <div className="w-5 text-center">
-                                  <span className="text-[10px] font-bold text-white">{quantity}</span>
-                                </div>
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-4 w-4 text-white hover:bg-white/10"
-                                  onClick={() => updateQuantity(idx, 1)}
-                                  disabled={quantity >= variation.qty}
-                                >
-                                  <Plus className="w-2 h-2" />
-                                </Button>
-                              </div>
-                              
+                          {/* Right: Controls */}
+                          <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1 bg-gray-900/80 rounded-md p-1 border border-white/20">
                               <Button
                                 size="icon"
-                                className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white shadow-lg transition-all duration-300 group-hover:shadow-cyan-500/50 h-4 w-4"
-                                onClick={() => {
-                                  onAddToCart({ ...variation, lotId: lot.id, partNumber: lot.part, partName: lot.name }, quantity);
-                                  setQuantities(prev => ({ ...prev, [idx]: 1 }));
-                                }}
-                                data-testid={`button-add-${lot.id}-${idx}`}
+                                variant="ghost"
+                                className="h-8 w-8 text-white hover:bg-white/10"
+                                onClick={() => updateQuantity(idx, -1)}
+                                disabled={quantity <= 1}
+                                data-testid={`button-minus-${lot.id}-${idx}`}
                               >
-                                <ShoppingCart className="w-2.5 h-2.5" />
+                                <Minus className="w-4 h-4" />
+                              </Button>
+                              <div className="w-10 text-center">
+                                <span className="text-sm font-bold text-white">{quantity}</span>
+                              </div>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-8 w-8 text-white hover:bg-white/10"
+                                onClick={() => updateQuantity(idx, 1)}
+                                disabled={quantity >= variation.qty}
+                                data-testid={`button-plus-${lot.id}-${idx}`}
+                              >
+                                <Plus className="w-4 h-4" />
                               </Button>
                             </div>
+                            
+                            <Button
+                              className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white shadow-lg h-10 px-4 gap-2"
+                              onClick={() => {
+                                onAddToCart({ ...variation, lotId: lot.id, partNumber: lot.part, partName: lot.name }, quantity);
+                                setQuantities(prev => ({ ...prev, [idx]: 1 }));
+                              }}
+                              data-testid={`button-add-${lot.id}-${idx}`}
+                            >
+                              <ShoppingCart className="w-4 h-4" />
+                              <span className="hidden sm:inline text-sm">Add</span>
+                            </Button>
                           </div>
                         </div>
                       );
