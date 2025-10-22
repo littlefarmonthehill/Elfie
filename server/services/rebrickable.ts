@@ -247,7 +247,7 @@ export async function syncRebrickableSetParts(): Promise<RebrickableSyncResult> 
 // Helper function to create a download stream (follows redirects)
 function downloadStream(url: string): Promise<Readable> {
   return new Promise((resolve, reject) => {
-    https.get(url, (response) => {
+    const request = https.get(url, (response) => {
       if (response.statusCode === 302 || response.statusCode === 301) {
         // Follow redirect
         const redirectUrl = response.headers.location;
@@ -266,6 +266,12 @@ function downloadStream(url: string): Promise<Readable> {
       resolve(response as Readable);
     }).on('error', (error) => {
       reject(error);
+    });
+
+    // Add 30-second timeout to prevent indefinite hanging
+    request.setTimeout(30000, () => {
+      request.destroy();
+      reject(new Error(`Request timeout after 30 seconds for URL: ${url}`));
     });
   });
 }
