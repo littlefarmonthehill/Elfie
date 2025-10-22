@@ -797,6 +797,27 @@ export default function Shop() {
   const totalLots = statsData?.totalLots || productLots.length;
   const totalParts = statsData?.totalParts || productLots.reduce((sum, lot) => sum + lot.totalQty, 0);
   
+  // Helper function to calculate item score for sorting
+  const calculateItemScore = (lot: ProductLot) => {
+    // Calculate total value (price * quantity)
+    const totalValue = lot.variations.reduce((sum, v) => {
+      const price = parseFloat(v.price.replace('$', '') || '0');
+      return sum + (price * v.qty);
+    }, 0);
+    
+    // Higher value items get higher scores
+    const valueScore = totalValue;
+    
+    // More colors/variations = more appealing = higher score
+    const varietyScore = lot.uniqueColorCount * 10;
+    
+    // More total quantity = better availability = higher score
+    const quantityScore = Math.log(lot.totalQty + 1) * 5;
+    
+    // Combine scores (weighted)
+    return (valueScore * 0.6) + (varietyScore * 0.3) + (quantityScore * 0.1);
+  };
+
   // Group products by category from API data
   const categoryGroups = new Map<string, ProductLot[]>();
   
@@ -808,10 +829,14 @@ export default function Shop() {
     categoryGroups.get(categoryKey)!.push(lot);
   });
 
-  // Convert to array and sort by count (most items first)
+  // Sort items within each category by score, then convert to array and sort categories alphabetically
   const sortedCategories = Array.from(categoryGroups.entries())
-    .map(([name, lots]) => ({ name, lots, count: lots.length }))
-    .sort((a, b) => b.count - a.count);
+    .map(([name, lots]) => ({
+      name,
+      lots: lots.sort((a, b) => calculateItemScore(b) - calculateItemScore(a)),
+      count: lots.length
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   // Assign color gradients to categories
   const colorGradients = [
@@ -1042,13 +1067,16 @@ export default function Shop() {
               <Button
                 size="sm"
                 variant={selectedItemType === null ? "default" : "outline"}
-                onClick={() => setSelectedItemType(null)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  setSelectedItemType(null);
+                }}
                 className="whitespace-nowrap text-xs h-8"
                 data-testid="filter-all"
               >
                 All Types
-                {!selectedItemType && categoriesData && (
-                  <Badge className="ml-2 h-4 px-1.5 text-[10px] bg-cyan-500/20">{categoriesData.itemTypes.reduce((sum, t) => sum + t.count, 0)}</Badge>
+                {!selectedItemType && statsData && (
+                  <Badge className="ml-2 h-4 px-1.5 text-[10px] bg-cyan-500/20">{statsData.totalLots.toLocaleString()}</Badge>
                 )}
               </Button>
               {categoriesData?.itemTypes.map((itemType) => (
@@ -1056,7 +1084,10 @@ export default function Shop() {
                   key={itemType.type}
                   size="sm"
                   variant={selectedItemType === itemType.type ? "default" : "outline"}
-                  onClick={() => setSelectedItemType(itemType.type)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setSelectedItemType(itemType.type);
+                  }}
                   className="whitespace-nowrap text-xs h-8"
                   data-testid={`filter-${itemType.type?.toLowerCase()}`}
                 >
