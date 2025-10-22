@@ -20,7 +20,7 @@ export interface BulkImageSyncResult {
 const REBRICKABLE_API_KEY = process.env.REBRICKABLE_API_KEY;
 const REBRICKABLE_API_BASE = 'https://rebrickable.com/api/v3';
 
-// Fetch part image URL from Rebrickable API with retry logic
+// Fetch part image URL from Rebrickable API with retry logic and timeout
 async function fetchPartImageUrl(partNum: string, colorId: number, retryCount: number = 0): Promise<string | null> {
   if (!REBRICKABLE_API_KEY) {
     console.error('[Rebrickable Images] API key not configured');
@@ -30,7 +30,9 @@ async function fetchPartImageUrl(partNum: string, colorId: number, retryCount: n
   return new Promise((resolve) => {
     const url = `${REBRICKABLE_API_BASE}/lego/parts/${partNum}/colors/${colorId}/?key=${REBRICKABLE_API_KEY}`;
     
-    https.get(url, (response) => {
+    console.log(`[Rebrickable Images] Fetching image for part ${partNum} color ${colorId}...`);
+    
+    const request = https.get(url, (response) => {
       let data = '';
       
       response.on('data', (chunk) => {
@@ -44,6 +46,7 @@ async function fetchPartImageUrl(partNum: string, colorId: number, retryCount: n
             // Return the part_img_url which points to LDraw renders
             const imageUrl = json.part_img_url;
             if (imageUrl) {
+              console.log(`[Rebrickable Images] ✓ Found image for part ${partNum} color ${colorId}`);
               resolve(imageUrl);
             } else {
               console.warn(`[Rebrickable Images] No image URL for part ${partNum} color ${colorId}`);
@@ -51,6 +54,7 @@ async function fetchPartImageUrl(partNum: string, colorId: number, retryCount: n
             }
           } else if (response.statusCode === 404) {
             // Part-color combination doesn't exist in Rebrickable
+            console.log(`[Rebrickable Images] Part ${partNum} color ${colorId} not found (404)`);
             resolve(null);
           } else if (response.statusCode === 429) {
             // Rate limit hit - implement exponential backoff
@@ -75,6 +79,13 @@ async function fetchPartImageUrl(partNum: string, colorId: number, retryCount: n
       });
     }).on('error', (error) => {
       console.error(`[Rebrickable Images] Request error for part ${partNum}:`, error);
+      resolve(null);
+    });
+
+    // Set 30 second timeout for the request
+    request.setTimeout(30000, () => {
+      console.error(`[Rebrickable Images] Timeout for part ${partNum} color ${colorId} - request took >30s`);
+      request.destroy();
       resolve(null);
     });
   });
@@ -123,12 +134,16 @@ export async function syncRebrickableImages(): Promise<RebrickableImageSyncResul
     }
 
     // Process each item
-    for (const item of itemsWithoutImages) {
+    for (let i = 0; i < itemsWithoutImages.length; i++) {
+      const item = itemsWithoutImages[i];
       try {
         imagesProcessed++;
         
+        console.log(`[Rebrickable Images] Processing item ${i + 1}/${itemsWithoutImages.length}: ${item.itemNo} (color ${item.colorId})`);
+        
         // Skip if colorId is null
         if (item.colorId === null) {
+          console.log(`[Rebrickable Images] Skipping ${item.itemNo} - no color ID`);
           continue;
         }
         
@@ -146,14 +161,14 @@ export async function syncRebrickableImages(): Promise<RebrickableImageSyncResul
             .where(sql`${blInventory.id} = ${item.id}`);
           
           imagesFetched++;
-          
-          if (imagesFetched % 10 === 0) {
-            console.log(`[Rebrickable Images] Fetched ${imagesFetched}/${itemsWithoutImages.length} images...`);
-          }
+          console.log(`[Rebrickable Images] ✓ Updated database for ${item.itemNo} (${imagesFetched}/${itemsWithoutImages.length} fetched so far)`);
+        } else {
+          console.log(`[Rebrickable Images] ✗ No image found for ${item.itemNo} color ${item.colorId}`);
         }
         
         // Rate limiting: longer delay between requests to respect API limits
         // Rebrickable has strict rate limits, so we use 3 second delays
+        console.log(`[Rebrickable Images] Waiting 3 seconds before next request...`);
         await new Promise(resolve => setTimeout(resolve, 3000));
         
       } catch (error) {
