@@ -989,6 +989,22 @@ export default function Shop() {
       }
     });
   };
+  
+  // Format item type labels to be plural and readable
+  const formatItemType = (type: string): string => {
+    const typeMap: Record<string, string> = {
+      'PART': 'Parts',
+      'MINIFIG': 'Minifigs',
+      'SET': 'Sets',
+      'BOOK': 'Books',
+      'GEAR': 'Gear',
+      'CATALOG': 'Catalogs',
+      'INSTRUCTION': 'Instructions',
+      'ORIGINAL_BOX': 'Original Boxes',
+      'UNSORTED_LOT': 'Unsorted Lots',
+    };
+    return typeMap[type] || type;
+  };
 
   const productLots = processedLots;
   const totalLots = statsData?.totalLots || productLots.length;
@@ -1286,7 +1302,7 @@ export default function Shop() {
                   className="whitespace-nowrap text-xs h-8"
                   data-testid={`filter-${itemType.type?.toLowerCase()}`}
                 >
-                  {itemType.type}
+                  {formatItemType(itemType.type)}
                   {selectedItemType === itemType.type && (
                     <Badge className="ml-2 h-4 px-1.5 text-[10px] bg-cyan-500/20">{itemType.count}</Badge>
                   )}
