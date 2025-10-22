@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Search, ShoppingCart, ChevronRight, Sparkles, Plus, X, Minus } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
@@ -662,6 +663,48 @@ interface HorizontalRowProps {
   bandColor: string;
 }
 
+function CategorySkeleton({ bandColor }: { bandColor: string }) {
+  return (
+    <section className="py-6 md:py-8 relative">
+      {/* Colorful Band Background */}
+      <div className={`absolute inset-0 bg-gradient-to-r ${bandColor} opacity-10`} />
+      
+      <div className="relative z-10">
+        <div className="px-3 md:px-6 mb-4 md:mb-6">
+          {/* Title skeleton */}
+          <div className="flex items-center gap-2 md:gap-4 mb-2">
+            <Skeleton className="w-6 h-6 md:w-8 md:h-8 rounded-full" />
+            <Skeleton className="h-8 md:h-10 w-48 md:w-64" />
+          </div>
+          {/* Stats skeleton */}
+          <div className="pl-8 md:pl-12">
+            <Skeleton className="h-4 w-32 md:w-40" />
+          </div>
+        </div>
+        
+        {/* Product cards skeleton */}
+        <div className="overflow-x-auto scrollbar-hide">
+          <div className="flex gap-2 md:gap-4 px-3 md:px-6">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex-shrink-0 w-32 md:w-40 lg:w-48">
+                <Card className="bg-gray-900/50 border-gray-800 p-2 md:p-3 h-full">
+                  <Skeleton className="w-full aspect-square mb-2 md:mb-3 rounded" />
+                  <Skeleton className="h-3 md:h-4 w-full mb-1.5 md:mb-2" />
+                  <Skeleton className="h-3 md:h-4 w-3/4 mb-2 md:mb-3" />
+                  <div className="flex items-center justify-between">
+                    <Skeleton className="h-4 md:h-5 w-12 md:w-16" />
+                    <Skeleton className="h-6 md:h-8 w-6 md:w-8 rounded-full" />
+                  </div>
+                </Card>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function HorizontalRow({ title, lots, lotCount, partCount, categoryId, onAddToCart, bandColor }: HorizontalRowProps) {
   const [openLotId, setOpenLotId] = useState<number | null>(null);
 
@@ -1120,7 +1163,19 @@ export default function Shop() {
         {/* Colorful Category Bands - Dynamic from API */}
         <div className="pb-4 md:pb-8">
           {inventoryLoading ? (
-            <div className="min-h-[60vh]" />
+            <div className="space-y-0">
+              <div className="text-center py-6 md:py-8">
+                <p className="text-cyan-400 text-sm md:text-base font-semibold animate-pulse">
+                  Loading products...
+                </p>
+              </div>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <CategorySkeleton 
+                  key={i} 
+                  bandColor={colorGradients[i % colorGradients.length]}
+                />
+              ))}
+            </div>
           ) : sortedCategories.length === 0 ? (
             <div className="flex items-center justify-center py-20">
               <div className="text-gray-400">No products found</div>
