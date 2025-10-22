@@ -459,13 +459,13 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
   return (
     <>
       <Card
-        className="shrink-0 w-44 md:w-72 p-2 md:p-4 bg-gray-900/60 border-purple-500/30 hover-elevate cursor-pointer transition-all"
+        className="shrink-0 w-36 md:w-56 p-1.5 md:p-3 bg-gray-900/60 border-purple-500/30 hover-elevate cursor-pointer transition-all"
         onClick={() => onOpenChange(true)}
         data-testid={`card-lot-${lot.id}`}
       >
         <div>
           <div
-            className="w-full aspect-square rounded-md mb-2 md:mb-3 flex items-center justify-center border border-gray-700/50 relative overflow-hidden"
+            className="w-full aspect-square rounded-md mb-1.5 md:mb-2 flex items-center justify-center border border-gray-700/50 relative overflow-hidden"
             style={{
               background: imageSrc
                 ? 'radial-gradient(ellipse at 30% 30%, #1e3a8a 0%, #0f172a 50%, #000000 100%)'

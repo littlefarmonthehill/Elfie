@@ -2306,6 +2306,11 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
       }
 
       // Get categories to fetch (either specified ones or all)
+      let categoryConditions = [...whereConditions];
+      if (categoryIds && categoryIds.length > 0) {
+        categoryConditions.push(inArray(blInventory.categoryId, categoryIds));
+      }
+      
       const categories = await db
         .select({
           categoryId: blInventory.categoryId,
@@ -2313,7 +2318,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
         })
         .from(blInventory)
         .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
-        .where(and(...whereConditions, categoryIds ? sql`${blInventory.categoryId} = ANY(${categoryIds})` : sql`1=1`))
+        .where(and(...categoryConditions))
         .groupBy(blInventory.categoryId, blCategories.name)
         .having(sql`COUNT(*) > 0`);
 
@@ -2656,7 +2661,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
           .from(blInventory)
           .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
           .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
-          .where(and(...baseConditions, sql`${blInventory.itemNo} = ANY(${hotSkus})`));
+          .where(and(...baseConditions, inArray(blInventory.itemNo, hotSkus)));
 
         hotProducts = groupInventoryByPart(hotInventoryItems);
         hotProducts.sort((a, b) => {
