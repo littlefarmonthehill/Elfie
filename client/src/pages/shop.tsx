@@ -569,7 +569,7 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
             {/* Color Filter */}
             <div className="mt-3 pt-3 border-t border-white/10">
               <div className="text-[10px] text-gray-400 mb-2">Filter by color:</div>
-              <div className="overflow-x-auto scrollbar-hide">
+              <div className="overflow-x-auto scrollbar-hide bg-gradient-to-r from-cyan-950/30 via-blue-950/30 to-purple-950/30 rounded-lg p-2 border border-cyan-500/10">
                 <div className="flex items-center gap-3 min-w-min">
                   <button
                     onClick={() => setSelectedColor(null)}
