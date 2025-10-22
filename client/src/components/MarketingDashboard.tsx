@@ -26,7 +26,6 @@ interface MarketingDashboardProps {
 export default function MarketingDashboard({ dateRange = 'mtd', onItemClick }: MarketingDashboardProps) {
   // Build query URL with date range parameter
   const buildQueryUrl = (baseUrl: string) => {
-    if (dateRange === 'all') return baseUrl;
     return `${baseUrl}?range=${dateRange}`;
   };
 

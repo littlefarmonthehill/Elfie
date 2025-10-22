@@ -51,7 +51,6 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
   
   // Build query URL with date range parameter
   const buildQueryUrl = (baseUrl: string) => {
-    if (dateRange === 'all') return baseUrl;
     return `${baseUrl}?range=${dateRange}`;
   };
 
