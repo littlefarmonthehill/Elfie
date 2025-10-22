@@ -2309,7 +2309,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
         .groupBy(blInventory.categoryId, blCategories.name)
         .having(sql`COUNT(*) > 0`);
 
-      // Fetch top 12 lots for each category in parallel using SQL-based scoring
+      // Fetch top 12 products (grouped by part number) for each category
       const lotsByCategory = await Promise.all(
         categories.filter(cat => cat.categoryId !== null).map(async (cat) => {
           const categoryConditions = [
@@ -2320,11 +2320,8 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
             categoryConditions.push(eq(blInventory.itemType, itemType));
           }
           
-          // Use SQL to calculate score and sort - this ensures we get true top 12
-          // Score formula: (price * quantity * 0.7) + (log10(quantity + 1) * 0.3)
-          // PostgreSQL LOG(10, x) = base-10 logarithm, matching JavaScript Math.log10()
-          // COALESCE handles NULL values same as JavaScript || 0 fallback
-          const items = await db
+          // Get all inventory items for this category
+          const allItems = await db
             .select({
               id: blInventory.id,
               itemNo: blInventory.itemNo,
@@ -2340,43 +2337,83 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
               unitPrice: blInventory.unitPrice,
               imageUrl: blInventory.imageUrl,
               thumbnailUrl: blInventory.thumbnailUrl,
-              score: sql<number>`(COALESCE(CAST(${blInventory.unitPrice} AS NUMERIC), 0) * COALESCE(${blInventory.quantity}, 0) * 0.7) + (LOG(10, COALESCE(${blInventory.quantity}, 0) + 1) * 0.3)`.as('score'),
             })
             .from(blInventory)
             .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
             .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
-            .where(and(...categoryConditions))
-            .orderBy(desc(sql`(COALESCE(CAST(${blInventory.unitPrice} AS NUMERIC), 0) * COALESCE(${blInventory.quantity}, 0) * 0.7) + (LOG(10, COALESCE(${blInventory.quantity}, 0) + 1) * 0.3)`))
-            .limit(lotsPerCategory); // Get exactly top 12 per category
+            .where(and(...categoryConditions));
           
-          // Transform to lot format
-          return items.map(item => {
+          // Group by part number (itemNo) to combine all color/condition variations
+          const productMap = new Map<string, any>();
+          
+          allItems.forEach(item => {
+            const key = item.itemNo;
             const priceNum = item.unitPrice ? parseFloat(item.unitPrice.toString()) : 0;
-            return {
-              id: item.id,
-              part: item.itemNo,
-              name: item.itemName || item.itemNo,
-              itemType: item.itemType,
-              totalQty: item.quantity || 0,
-              lotCount: 1,
-              category: item.categoryName?.toLowerCase() || 'other',
-              categoryId: item.categoryId,
-              categoryName: item.categoryName,
+            const variation = {
+              color: item.colorName || 'Unknown',
+              colorId: item.colorId,
+              colorHex: item.colorRgb || '#CCCCCC',
+              condition: item.newOrUsed === 'N' ? 'New' : 'Used',
+              qty: item.quantity || 0,
+              price: `$${priceNum.toFixed(2)}`,
               imageUrl: item.imageUrl,
               thumbnailUrl: item.thumbnailUrl,
-              firstColorId: item.colorId,
-              variations: [{
-                color: item.colorName || 'Unknown',
-                colorId: item.colorId,
-                colorHex: item.colorRgb || '#CCCCCC',
-                condition: item.newOrUsed === 'N' ? 'New' : 'Used',
-                qty: item.quantity || 0,
-                price: `$${priceNum.toFixed(2)}`,
-                imageUrl: item.imageUrl,
-                thumbnailUrl: item.thumbnailUrl,
-              }],
             };
+            
+            if (!productMap.has(key)) {
+              productMap.set(key, {
+                id: item.id,
+                part: item.itemNo,
+                name: item.itemName || item.itemNo,
+                itemType: item.itemType,
+                categoryId: item.categoryId,
+                categoryName: item.categoryName,
+                variations: [],
+                totalQty: 0,
+                totalValue: 0,
+              });
+            }
+            
+            const product = productMap.get(key)!;
+            product.variations.push(variation);
+            product.totalQty += item.quantity || 0;
+            product.totalValue += priceNum * (item.quantity || 0);
+            
+            // Use first available image
+            if (!product.imageUrl && item.imageUrl) {
+              product.imageUrl = item.imageUrl;
+              product.thumbnailUrl = item.thumbnailUrl;
+              product.firstColorId = item.colorId;
+            }
           });
+          
+          // Convert map to array and calculate scores
+          const products = Array.from(productMap.values()).map(product => {
+            // Score formula: (total value * 0.7) + (log10(total quantity + 1) * 0.3)
+            const score = (product.totalValue * 0.7) + (Math.log10(product.totalQty + 1) * 0.3);
+            return { ...product, score };
+          });
+          
+          // Sort by score and take top 12
+          products.sort((a, b) => b.score - a.score);
+          const topProducts = products.slice(0, lotsPerCategory);
+          
+          // Format for response
+          return topProducts.map(product => ({
+            id: product.id,
+            part: product.part,
+            name: product.name,
+            itemType: product.itemType,
+            totalQty: product.totalQty,
+            lotCount: product.variations.length,
+            category: product.categoryName?.toLowerCase() || 'other',
+            categoryId: product.categoryId,
+            categoryName: product.categoryName,
+            imageUrl: product.imageUrl,
+            thumbnailUrl: product.thumbnailUrl,
+            firstColorId: product.firstColorId,
+            variations: product.variations,
+          }));
         })
       );
 
