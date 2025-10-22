@@ -671,24 +671,24 @@ function HorizontalRow({ title, lots, lotCount, partCount, categoryId, onAddToCa
       <div className={`absolute inset-0 bg-gradient-to-r ${bandColor} opacity-10`} />
       
       <div className="relative z-10">
-        <div className="px-3 md:px-6 mb-4 md:mb-6 flex items-center justify-between">
-          <div className="flex items-center gap-2 md:gap-4">
-            <h2 className={`text-2xl md:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r ${bandColor} flex items-center gap-2 md:gap-4`}>
-              <Sparkles className="w-6 h-6 md:w-8 md:h-8 text-white drop-shadow-lg" />
-              {title}
-            </h2>
-            <div className="text-xs md:text-sm text-gray-400 mt-1">
+        <div className="px-3 md:px-6 mb-4 md:mb-6">
+          <h2 className={`text-2xl md:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r ${bandColor} flex items-center gap-2 md:gap-4 mb-2`}>
+            <Sparkles className="w-6 h-6 md:w-8 md:h-8 text-white drop-shadow-lg" />
+            {title}
+          </h2>
+          <div className="flex items-center justify-between">
+            <div className="text-xs md:text-sm text-gray-400">
               {lotCount.toLocaleString()} lots · {partCount.toLocaleString()} parts
             </div>
+            {lotCount > 12 && (
+              <Link href={`/search?category=${categoryId}`}>
+                <button className={`text-sm md:text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r ${bandColor} hover:opacity-80 flex items-center gap-1.5 md:gap-2 transition-opacity`} data-testid={`button-more-${categoryId}`}>
+                  See More
+                  <ChevronRight className="w-5 h-5 md:w-6 md:h-6" />
+                </button>
+              </Link>
+            )}
           </div>
-          {lotCount > 12 && (
-            <Link href={`/search?category=${categoryId}`}>
-              <button className={`text-sm md:text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r ${bandColor} hover:opacity-80 flex items-center gap-1.5 md:gap-2 transition-opacity`} data-testid={`button-more-${categoryId}`}>
-                See More
-                <ChevronRight className="w-5 h-5 md:w-6 md:h-6" />
-              </button>
-            </Link>
-          )}
         </div>
       
         <div className="overflow-x-auto scrollbar-hide smooth-scroll">
@@ -712,7 +712,7 @@ function HorizontalRow({ title, lots, lotCount, partCount, categoryId, onAddToCa
 export default function Shop() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const [selectedItemType, setSelectedItemType] = useState<string | null>(null);
+  const [selectedItemType, setSelectedItemType] = useState<string | null>('PART');
   const { toast } = useToast();
 
   // Logout mutation
@@ -1084,21 +1084,6 @@ export default function Shop() {
           <div className="max-w-4xl mx-auto space-y-3">
             {/* Item Type Filter */}
             <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-              <Button
-                size="sm"
-                variant={selectedItemType === null ? "default" : "outline"}
-                onClick={(e) => {
-                  e.preventDefault();
-                  setSelectedItemType(null);
-                }}
-                className="whitespace-nowrap text-xs h-8"
-                data-testid="filter-all"
-              >
-                All Types
-                {!selectedItemType && statsData && (
-                  <Badge className="ml-2 h-4 px-1.5 text-[10px] bg-cyan-500/20">{statsData.totalLots.toLocaleString()}</Badge>
-                )}
-              </Button>
               {categoriesData?.itemTypes.map((itemType) => (
                 <Button
                   key={itemType.type}
