@@ -2287,7 +2287,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   // Get Shop Inventory (for customer-facing shop page) - PUBLIC endpoint
   app.get("/api/shop/inventory", async (req, res) => {
     try {
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 500; // Increased to show more items per category
       const category = req.query.category as string | undefined;
       const itemType = req.query.itemType as string | undefined;
 
@@ -2457,7 +2457,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
     try {
       const stats = await db
         .select({
-          totalLots: sql<number>`COUNT(*)`,
+          totalLots: sql<number>`COUNT(DISTINCT ${blInventory.itemNo})`, // Count unique parts, not rows
           totalParts: sql<number>`SUM(${blInventory.quantity})`,
         })
         .from(blInventory)

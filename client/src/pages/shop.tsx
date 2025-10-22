@@ -664,7 +664,7 @@ function HorizontalRow({ title, lots, categoryId, onAddToCart, bandColor }: Hori
   const [openLotId, setOpenLotId] = useState<number | null>(null);
 
   return (
-    <section className="py-6 md:py-8 relative">
+    <section className="py-6 md:py-8 relative" data-testid={`category-section-${categoryId}`}>
       {/* Colorful Band Background */}
       <div className={`absolute inset-0 bg-gradient-to-r ${bandColor} opacity-10`} />
       
@@ -677,7 +677,7 @@ function HorizontalRow({ title, lots, categoryId, onAddToCart, bandColor }: Hori
           {lots.length > 12 && (
             <Link href={`/search?category=${categoryId}`}>
               <button className={`text-sm md:text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r ${bandColor} hover:opacity-80 flex items-center gap-1.5 md:gap-2 transition-opacity`} data-testid={`button-more-${categoryId}`}>
-                More
+                See More
                 <ChevronRight className="w-5 h-5 md:w-6 md:h-6" />
               </button>
             </Link>
@@ -1127,7 +1127,7 @@ export default function Shop() {
               <HorizontalRow
                 key={category.name}
                 title={category.name}
-                lots={category.lots.slice(0, 12)}
+                lots={category.lots}
                 categoryId={category.name.toLowerCase().replace(/\s+/g, '-')}
                 onAddToCart={handleAddToCart}
                 bandColor={colorGradients[index % colorGradients.length]}
