@@ -1,6 +1,6 @@
 // Auto-generated version using build timestamp
 // DO NOT EDIT THIS LINE - Updated automatically on each build
-const BUILD_TIMESTAMP = 1729444611000;
+const BUILD_TIMESTAMP = 1761111481482;
 const CACHE_VERSION = BUILD_TIMESTAMP;
 const CACHE_NAME = `planetbrick-v${CACHE_VERSION}`;
 const urlsToCache = [
