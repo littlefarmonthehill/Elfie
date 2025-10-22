@@ -418,6 +418,14 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
   const primaryColor = lot.variations[0];
   const [quantities, setQuantities] = useState<Record<number, number>>({});
   
+  // Calculate total quantities for New and Used
+  const totalNewQty = lot.variations
+    .filter(v => v.condition === 'New')
+    .reduce((sum, v) => sum + v.qty, 0);
+  const totalUsedQty = lot.variations
+    .filter(v => v.condition === 'Used')
+    .reduce((sum, v) => sum + v.qty, 0);
+  
   // Try lot imageUrl first, then first variation with an image
   const getInitialImageUrl = () => {
     if (lot.imageUrl) return lot.imageUrl;
@@ -451,7 +459,7 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
   return (
     <>
       <Card
-        className="shrink-0 w-36 md:w-64 p-2 md:p-4 bg-gray-900/60 border-purple-500/30 hover-elevate cursor-pointer transition-all"
+        className="shrink-0 w-44 md:w-72 p-2 md:p-4 bg-gray-900/60 border-purple-500/30 hover-elevate cursor-pointer transition-all"
         onClick={() => onOpenChange(true)}
         data-testid={`card-lot-${lot.id}`}
       >
@@ -507,25 +515,20 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
             <h3 className="text-xs md:text-base font-bold text-white leading-tight truncate">{lot.name}</h3>
             <p className="text-[10px] md:text-sm text-gray-400">#{lot.part}</p>
             
-            <div className="flex flex-col gap-1 pt-1">
-              <div className="flex items-center gap-1 flex-wrap">
-                <Badge variant="secondary" className="text-[9px] md:text-xs px-1 md:px-1.5 py-0.5 h-auto">
-                  {lot.uniqueColorCount} {lot.uniqueColorCount === 1 ? 'color' : 'colors'}
+            <div className="flex items-center gap-1 flex-wrap pt-1">
+              <Badge variant="secondary" className="text-[9px] md:text-xs px-1 md:px-1.5 py-0.5 h-auto">
+                {lot.uniqueColorCount} {lot.uniqueColorCount === 1 ? 'color' : 'colors'}
+              </Badge>
+              {totalNewQty > 0 && (
+                <Badge variant="secondary" className="text-[9px] md:text-xs px-1 md:px-1.5 py-0.5 h-auto bg-emerald-500/20 text-emerald-300 border-emerald-500/30">
+                  {totalNewQty.toLocaleString()} New
                 </Badge>
-                {lot.variations.some(v => v.condition === 'New') && (
-                  <Badge variant="secondary" className="text-[9px] md:text-xs px-1 md:px-1.5 py-0.5 h-auto bg-emerald-500/20 text-emerald-300 border-emerald-500/30">
-                    {lot.variations.filter(v => v.condition === 'New').length} New
-                  </Badge>
-                )}
-                {lot.variations.some(v => v.condition === 'Used') && (
-                  <Badge variant="secondary" className="text-[9px] md:text-xs px-1 md:px-1.5 py-0.5 h-auto bg-amber-500/20 text-amber-300 border-amber-500/30">
-                    {lot.variations.filter(v => v.condition === 'Used').length} Used
-                  </Badge>
-                )}
-              </div>
-              <span className="text-[10px] md:text-sm font-bold text-cyan-400" data-testid={`text-qty-${lot.id}`}>
-                {lot.totalQty.toLocaleString()} pcs
-              </span>
+              )}
+              {totalUsedQty > 0 && (
+                <Badge variant="secondary" className="text-[9px] md:text-xs px-1 md:px-1.5 py-0.5 h-auto bg-amber-500/20 text-amber-300 border-amber-500/30">
+                  {totalUsedQty.toLocaleString()} Used
+                </Badge>
+              )}
             </div>
           </div>
         </div>
