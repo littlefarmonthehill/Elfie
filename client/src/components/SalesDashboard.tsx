@@ -185,11 +185,23 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
       // For 'all time', use the actual earliest to latest order dates
       // Filter out invalid dates to prevent NaN/Invalid Date issues
       const orderDates = filteredOrders
-        .map(o => parseISO(o.orderDate))
+        .map(o => {
+          // Try parseISO first, then fallback to new Date()
+          try {
+            const date = parseISO(o.orderDate);
+            return !isNaN(date.getTime()) ? date : new Date(o.orderDate);
+          } catch {
+            return new Date(o.orderDate);
+          }
+        })
         .filter(d => !isNaN(d.getTime())); // Remove invalid dates
       
       if (orderDates.length === 0) {
-        // No valid dates, return empty array
+        // No valid dates - this shouldn't happen, but log it
+        console.error('SalesDashboard: No valid order dates found in "all" timeframe', {
+          totalOrders: filteredOrders.length,
+          sampleDates: filteredOrders.slice(0, 3).map(o => o.orderDate)
+        });
         return [];
       }
       
