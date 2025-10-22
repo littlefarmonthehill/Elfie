@@ -2457,7 +2457,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
     try {
       const stats = await db
         .select({
-          totalLots: sql<number>`COUNT(DISTINCT ${blInventory.itemNo})`, // Count unique parts, not rows
+          totalLots: sql<number>`COUNT(*)`, // Count all inventory rows (each unique part+color+condition = 1 lot)
           totalParts: sql<number>`SUM(${blInventory.quantity})`,
         })
         .from(blInventory)
