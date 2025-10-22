@@ -49,6 +49,15 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
     }
   };
   
+  // Helper function to parse order totals that may have currency formatting
+  const parseOrderTotal = (orderTotal: string | null | undefined): number => {
+    if (!orderTotal) return 0;
+    // Remove currency symbols, thousands separators, and other non-numeric chars except digits, minus, and decimal
+    const cleaned = orderTotal.replace(/[^0-9.-]/g, '');
+    const parsed = parseFloat(cleaned);
+    return isNaN(parsed) ? 0 : parsed;
+  };
+  
   // Build query URL with date range parameter
   const buildQueryUrl = (baseUrl: string) => {
     return `${baseUrl}?range=${dateRange}`;
@@ -179,11 +188,12 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
 
       // Aggregate orders into days
       filteredOrders.forEach(order => {
-        if (order.orderTotal && !isNaN(Number(order.orderTotal))) {
+        const total = parseOrderTotal(order.orderTotal);
+        if (total > 0) {
           const orderDay = startOfDay(safeParseDate(order.orderDate));
           const dayData = days.find(d => d.day.getTime() === orderDay.getTime());
           if (dayData) {
-            dayData.sales += Number(order.orderTotal);
+            dayData.sales += total;
           }
         }
       });
@@ -265,7 +275,8 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
 
     // Aggregate orders into months
     filteredOrders.forEach(order => {
-      if (order.orderTotal && !isNaN(Number(order.orderTotal))) {
+      const total = parseOrderTotal(order.orderTotal);
+      if (total > 0) {
         // Use fallback date parser to handle various date formats
         let orderDate: Date;
         try {
@@ -286,7 +297,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
         const orderMonth = startOfMonth(orderDate);
         const monthData = months.find(m => m.month.getTime() === orderMonth.getTime());
         if (monthData) {
-          monthData.sales += Number(order.orderTotal);
+          monthData.sales += total;
         }
       }
     });
@@ -372,7 +383,8 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
 
     // Aggregate orders by year and month, respecting the same date range window
     orders.forEach(order => {
-      if (!order.orderTotal || isNaN(Number(order.orderTotal))) return;
+      const total = parseOrderTotal(order.orderTotal);
+      if (total <= 0) return;
       
       const orderDate = safeParseDate(order.orderDate);
       const year = getYear(orderDate);
@@ -401,7 +413,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
         if (bucketIndex !== -1) {
           const monthData = comparisonData[bucketIndex];
           const currentValue = monthData[`${year}`] as number || 0;
-          monthData[`${year}`] = currentValue + Number(order.orderTotal);
+          monthData[`${year}`] = currentValue + total;
         }
       }
     });
@@ -492,7 +504,8 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
 
     // Aggregate orders by platform and month
     filteredOrders.forEach(order => {
-      if (!order.orderTotal || isNaN(Number(order.orderTotal))) return;
+      const total = parseOrderTotal(order.orderTotal);
+      if (total <= 0) return;
       
       const platform = order.marketplace || 'Unknown';
       if (!platforms.includes(platform)) return;
@@ -508,7 +521,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
       if (bucketIndex !== -1) {
         const monthData = comparisonData[bucketIndex];
         const currentValue = monthData[platform] as number || 0;
-        monthData[platform] = currentValue + Number(order.orderTotal);
+        monthData[platform] = currentValue + total;
       }
     });
 
@@ -528,19 +541,19 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
 
   // Get top revenue orders
   const topRevenueOrders = filteredOrders
-    .filter(order => order.orderTotal && !isNaN(Number(order.orderTotal)))
-    .sort((a, b) => Number(b.orderTotal) - Number(a.orderTotal))
+    .filter(order => parseOrderTotal(order.orderTotal) > 0)
+    .sort((a, b) => parseOrderTotal(b.orderTotal) - parseOrderTotal(a.orderTotal))
     .slice(0, 5);
 
   // Get recent high-value sales
   const recentHighValueSales = filteredOrders
-    .filter(order => order.orderTotal && Number(order.orderTotal) >= 100)
+    .filter(order => parseOrderTotal(order.orderTotal) >= 100)
     .sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime())
     .slice(0, 5);
 
   // Calculate total revenue and average
   const totalRevenue = filteredOrders.reduce((sum, order) => 
-    sum + (order.orderTotal && !isNaN(Number(order.orderTotal)) ? Number(order.orderTotal) : 0), 0
+    sum + parseOrderTotal(order.orderTotal), 0
   );
   const averageOrderValue = filteredOrders.length > 0 ? totalRevenue / filteredOrders.length : 0;
 
@@ -921,7 +934,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
                   <span className="text-gray-200 font-mono text-xs md:text-base lg:text-lg font-medium">#{order.orderNumber}</span>
                   <span className="text-gray-400 text-[11px] md:text-sm lg:text-base">{order.customerUsername}</span>
                 </div>
-                <span className="text-lego-green font-mono font-medium text-xs md:text-base lg:text-lg ml-2 flex-shrink-0">${Number(order.orderTotal).toFixed(2)}</span>
+                <span className="text-lego-green font-mono font-medium text-xs md:text-base lg:text-lg ml-2 flex-shrink-0">${parseOrderTotal(order.orderTotal).toFixed(2)}</span>
               </div>
             ))
           ) : (
@@ -951,7 +964,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
                   <span className="text-gray-400 text-[11px] md:text-sm lg:text-base">{order.customerUsername}</span>
                   <span className="text-gray-400 text-[11px] md:text-sm lg:text-base">{new Date(order.orderDate).toLocaleDateString()}</span>
                 </div>
-                <span className="text-lego-green font-mono font-medium text-xs md:text-base lg:text-lg ml-2 flex-shrink-0">${Number(order.orderTotal).toFixed(2)}</span>
+                <span className="text-lego-green font-mono font-medium text-xs md:text-base lg:text-lg ml-2 flex-shrink-0">${parseOrderTotal(order.orderTotal).toFixed(2)}</span>
               </div>
             ))
           ) : (

@@ -24,6 +24,15 @@ interface MarketingDashboardProps {
 }
 
 export default function MarketingDashboard({ dateRange = 'mtd', onItemClick }: MarketingDashboardProps) {
+  // Helper function to parse order totals that may have currency formatting
+  const parseOrderTotal = (orderTotal: string | null | undefined): number => {
+    if (!orderTotal) return 0;
+    // Remove currency symbols, thousands separators, and other non-numeric chars except digits, minus, and decimal
+    const cleaned = orderTotal.replace(/[^0-9.-]/g, '');
+    const parsed = parseFloat(cleaned);
+    return isNaN(parsed) ? 0 : parsed;
+  };
+
   // Build query URL with date range parameter
   const buildQueryUrl = (baseUrl: string) => {
     return `${baseUrl}?range=${dateRange}`;
@@ -49,7 +58,7 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick }: M
 
     orders.forEach(order => {
       const customer = order.customerUsername || 'Unknown';
-      const revenue = order.orderTotal && !isNaN(Number(order.orderTotal)) ? Number(order.orderTotal) : 0;
+      const revenue = parseOrderTotal(order.orderTotal);
       
       if (customerMap.has(customer)) {
         const existing = customerMap.get(customer)!;
