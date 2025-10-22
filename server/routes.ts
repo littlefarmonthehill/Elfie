@@ -3343,27 +3343,37 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   app.post("/api/sync/rebrickable/bulk-images", isApproved, async (req, res) => {
     console.log('🔍 [DEBUG] Bulk image sync route HIT');
     try {
-      console.log('🔍 [DEBUG] About to import bulkSyncRebrickableImages');
-      const { bulkSyncRebrickableImages } = await import("./services/rebrickable-images");
-      console.log('🔍 [DEBUG] Import successful, type:', typeof bulkSyncRebrickableImages);
-      
       const maxBatches = req.body?.maxBatches || 500;
       console.log(`🔍 [DEBUG] maxBatches: ${maxBatches}`);
       
-      console.log(`[Rebrickable Bulk Sync] Starting bulk image sync (max ${maxBatches} batches)...`);
+      // Start the sync in background - don't await it
+      console.log(`[Rebrickable Bulk Sync] Starting bulk image sync in background (max ${maxBatches} batches)...`);
       
-      const result = await bulkSyncRebrickableImages(maxBatches);
-      console.log('🔍 [DEBUG] Bulk sync complete, result:', JSON.stringify(result));
+      // Import and start the sync without awaiting
+      import("./services/rebrickable-images").then(async ({ bulkSyncRebrickableImages }) => {
+        console.log('[Rebrickable Bulk Sync] Background sync process started');
+        try {
+          const result = await bulkSyncRebrickableImages(maxBatches);
+          console.log('[Rebrickable Bulk Sync] Background sync complete:', JSON.stringify(result));
+        } catch (error) {
+          console.error('[Rebrickable Bulk Sync] Background sync error:', error);
+        }
+      });
       
+      // Return immediately to client
       res.json({
         success: true,
-        data: result,
+        message: "Image sync started in background. This will continue even if you close this page.",
+        data: {
+          status: "started",
+          maxBatches
+        }
       });
     } catch (error) {
       console.error("🔍 [DEBUG] Rebrickable bulk sync error:", error);
       res.status(500).json({
         success: false,
-        error: error instanceof Error ? error.message : "Failed to bulk sync Rebrickable images",
+        error: error instanceof Error ? error.message : "Failed to start bulk sync",
       });
     }
   });

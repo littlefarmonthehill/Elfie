@@ -997,12 +997,12 @@ export default function Shop() {
 
         {/* Colorful Category Bands */}
         <div className="pb-4 md:pb-8">
-          <HorizontalRow title="Featured Products" lots={featuredLots} categoryId="featured" onAddToCart={handleAddToCart} bandColor="from-blue-500 via-cyan-400 to-white" />
-          <HorizontalRow title="Bricks" lots={brickLots} categoryId="bricks" onAddToCart={handleAddToCart} bandColor="from-gray-400 via-blue-400 to-red-500" />
-          <HorizontalRow title="Plates" lots={plateLots} categoryId="plates" onAddToCart={handleAddToCart} bandColor="from-blue-600 via-cyan-500 to-gray-300" />
-          <HorizontalRow title="Tiles" lots={tileLots} categoryId="tiles" onAddToCart={handleAddToCart} bandColor="from-white via-blue-300 to-cyan-500" />
-          <HorizontalRow title="Slopes" lots={slopeLots} categoryId="slopes" onAddToCart={handleAddToCart} bandColor="from-indigo-600 via-blue-400 to-white" />
-          <HorizontalRow title="Minifigs" lots={minifigLots} categoryId="minifigs" onAddToCart={handleAddToCart} bandColor="from-gray-500 via-red-400 to-blue-500" />
+          <HorizontalRow title="Featured Products" lots={featuredLots} categoryId="featured" onAddToCart={handleAddToCart} bandColor="from-cyan-500 via-blue-500 to-purple-600" />
+          <HorizontalRow title="Bricks" lots={brickLots} categoryId="bricks" onAddToCart={handleAddToCart} bandColor="from-red-500 via-orange-500 to-yellow-500" />
+          <HorizontalRow title="Plates" lots={plateLots} categoryId="plates" onAddToCart={handleAddToCart} bandColor="from-emerald-500 via-teal-500 to-cyan-500" />
+          <HorizontalRow title="Tiles" lots={tileLots} categoryId="tiles" onAddToCart={handleAddToCart} bandColor="from-violet-500 via-fuchsia-500 to-pink-500" />
+          <HorizontalRow title="Slopes" lots={slopeLots} categoryId="slopes" onAddToCart={handleAddToCart} bandColor="from-blue-600 via-indigo-600 to-purple-600" />
+          <HorizontalRow title="Minifigs" lots={minifigLots} categoryId="minifigs" onAddToCart={handleAddToCart} bandColor="from-amber-500 via-rose-500 to-red-600" />
         </div>
 
         {/* Footer */}

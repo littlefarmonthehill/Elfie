@@ -201,19 +201,15 @@ export default function PlatformSyncTool() {
   const bulkImageSyncMutation = useMutation({
     mutationFn: async () => {
       console.log('🔍 [CLIENT DEBUG] Starting bulk image sync mutation');
-      const response = await apiRequest('POST', '/api/sync/rebrickable/bulk-images', { maxBatches: 500 });
-      const data = await response.json();
-      console.log('🔍 [CLIENT DEBUG] Response data:', data);
-      return data;
+      const result = await apiRequest('POST', '/api/sync/rebrickable/bulk-images', { maxBatches: 500 });
+      console.log('🔍 [CLIENT DEBUG] Response data:', result);
+      return result;
     },
     onSuccess: (result) => {
       console.log('🔍 [CLIENT DEBUG] Mutation success, result:', result);
-      queryClient.invalidateQueries({ queryKey: ['/api/shop/inventory'] });
-      const message = `${result.data.totalImagesFetched} images fetched across ${result.data.totalBatches} batches. ${result.data.completed ? 'All images synced!' : 'Some images remain.'}`;
-      console.log('🔍 [CLIENT DEBUG] Toast message:', message);
       toast({
-        title: "Bulk Image Sync Complete",
-        description: message,
+        title: "Image Sync Started",
+        description: result.message || "Image sync is running in the background. You can close this page and it will continue syncing. Check server logs for progress.",
       });
       setSyncingBulkImages(false);
     },
