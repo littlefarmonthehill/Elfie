@@ -57,10 +57,13 @@ interface ProductLot {
   id: number;
   part: string;
   name: string;
+  itemType?: string;
   totalQty: number;
   lotCount: number;
   uniqueColorCount: number;
   category: string;
+  categoryId?: number | null;
+  categoryName?: string | null;
   imageUrl?: string | null;
   thumbnailUrl?: string | null;
   firstColorId?: number | null;
@@ -702,6 +705,7 @@ function HorizontalRow({ title, lots, categoryId, onAddToCart, bandColor }: Hori
 export default function Shop() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [selectedItemType, setSelectedItemType] = useState<string | null>(null);
   const { toast } = useToast();
 
   // Logout mutation
@@ -716,9 +720,35 @@ export default function Shop() {
     },
   });
 
-  // Fetch real inventory data
+  // Fetch real inventory data with itemType filter
   const { data: inventoryData, isLoading: inventoryLoading } = useQuery<{ lots: ProductLot[] }>({
-    queryKey: ['/api/shop/inventory'],
+    queryKey: ['/api/shop/inventory', { itemType: selectedItemType }],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (selectedItemType) {
+        params.append('itemType', selectedItemType);
+      }
+      const response = await fetch(`/api/shop/inventory?${params.toString()}`);
+      if (!response.ok) throw new Error('Failed to fetch inventory');
+      return response.json();
+    },
+  });
+
+  // Fetch categories and item types
+  const { data: categoriesData } = useQuery<{
+    categories: Array<{ id: number; name: string; count: number }>;
+    itemTypes: Array<{ type: string; count: number }>;
+  }>({
+    queryKey: ['/api/shop/categories', { itemType: selectedItemType }],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (selectedItemType) {
+        params.append('itemType', selectedItemType);
+      }
+      const response = await fetch(`/api/shop/categories?${params.toString()}`);
+      if (!response.ok) throw new Error('Failed to fetch categories');
+      return response.json();
+    },
   });
 
   // Fetch real stats (using public shop endpoint)
@@ -767,13 +797,35 @@ export default function Shop() {
   const totalLots = statsData?.totalLots || productLots.length;
   const totalParts = statsData?.totalParts || productLots.reduce((sum, lot) => sum + lot.totalQty, 0);
   
-  // Group products by category
-  const featuredLots = productLots.slice(0, 5);
-  const brickLots = productLots.filter(lot => lot.category.includes('brick'));
-  const plateLots = productLots.filter(lot => lot.category.includes('plate'));
-  const minifigLots = productLots.filter(lot => lot.category.includes('minifig'));
-  const tileLots = productLots.filter(lot => lot.category.includes('tile'));
-  const slopeLots = productLots.filter(lot => lot.category.includes('slope'));
+  // Group products by category from API data
+  const categoryGroups = new Map<string, ProductLot[]>();
+  
+  productLots.forEach(lot => {
+    const categoryKey = lot.categoryName || 'Other';
+    if (!categoryGroups.has(categoryKey)) {
+      categoryGroups.set(categoryKey, []);
+    }
+    categoryGroups.get(categoryKey)!.push(lot);
+  });
+
+  // Convert to array and sort by count (most items first)
+  const sortedCategories = Array.from(categoryGroups.entries())
+    .map(([name, lots]) => ({ name, lots, count: lots.length }))
+    .sort((a, b) => b.count - a.count);
+
+  // Assign color gradients to categories
+  const colorGradients = [
+    "from-cyan-500 via-blue-500 to-purple-600",
+    "from-red-500 via-orange-500 to-yellow-500",
+    "from-emerald-500 via-teal-500 to-cyan-500",
+    "from-violet-500 via-fuchsia-500 to-pink-500",
+    "from-blue-600 via-indigo-600 to-purple-600",
+    "from-amber-500 via-rose-500 to-red-600",
+    "from-lime-500 via-green-500 to-emerald-500",
+    "from-sky-500 via-blue-500 to-indigo-500",
+    "from-pink-500 via-rose-500 to-red-500",
+    "from-purple-500 via-violet-500 to-indigo-500",
+  ];
 
   const handleAddToCart = (item: any, quantity: number = 1) => {
     const cartItem: CartItem = {
@@ -982,27 +1034,75 @@ export default function Shop() {
           </div>
         </header>
 
-        {/* Search Bar - More spacing from logo */}
+        {/* Search Bar and Item Type Filter */}
         <div className="sticky top-[3.5rem] md:top-[4rem] z-30 bg-black/95 backdrop-blur-xl px-3 md:px-6 py-3 md:py-4 pt-14 md:pt-16 lg:pt-20 border-b border-white/10">
-          <div className="relative max-w-3xl mx-auto">
-            <Search className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-gray-500" />
-            <input
-              type="text"
-              placeholder="Search for LEGO parts..."
-              className="w-full h-9 md:h-12 pl-9 md:pl-12 pr-4 md:pr-5 bg-gray-900/80 border border-white/20 rounded-md text-xs md:text-base text-white placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
-              data-testid="input-search"
-            />
+          <div className="max-w-4xl mx-auto space-y-3">
+            {/* Item Type Filter */}
+            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+              <Button
+                size="sm"
+                variant={selectedItemType === null ? "default" : "outline"}
+                onClick={() => setSelectedItemType(null)}
+                className="whitespace-nowrap text-xs h-8"
+                data-testid="filter-all"
+              >
+                All Types
+                {!selectedItemType && categoriesData && (
+                  <Badge className="ml-2 h-4 px-1.5 text-[10px] bg-cyan-500/20">{categoriesData.itemTypes.reduce((sum, t) => sum + t.count, 0)}</Badge>
+                )}
+              </Button>
+              {categoriesData?.itemTypes.map((itemType) => (
+                <Button
+                  key={itemType.type}
+                  size="sm"
+                  variant={selectedItemType === itemType.type ? "default" : "outline"}
+                  onClick={() => setSelectedItemType(itemType.type)}
+                  className="whitespace-nowrap text-xs h-8"
+                  data-testid={`filter-${itemType.type?.toLowerCase()}`}
+                >
+                  {itemType.type}
+                  {selectedItemType === itemType.type && (
+                    <Badge className="ml-2 h-4 px-1.5 text-[10px] bg-cyan-500/20">{itemType.count}</Badge>
+                  )}
+                </Button>
+              ))}
+            </div>
+
+            {/* Search Bar */}
+            <div className="relative">
+              <Search className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-gray-500" />
+              <input
+                type="text"
+                placeholder="Search for LEGO parts..."
+                className="w-full h-9 md:h-12 pl-9 md:pl-12 pr-4 md:pr-5 bg-gray-900/80 border border-white/20 rounded-md text-xs md:text-base text-white placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
+                data-testid="input-search"
+              />
+            </div>
           </div>
         </div>
 
-        {/* Colorful Category Bands */}
+        {/* Colorful Category Bands - Dynamic from API */}
         <div className="pb-4 md:pb-8">
-          <HorizontalRow title="Featured Products" lots={featuredLots} categoryId="featured" onAddToCart={handleAddToCart} bandColor="from-cyan-500 via-blue-500 to-purple-600" />
-          <HorizontalRow title="Bricks" lots={brickLots} categoryId="bricks" onAddToCart={handleAddToCart} bandColor="from-red-500 via-orange-500 to-yellow-500" />
-          <HorizontalRow title="Plates" lots={plateLots} categoryId="plates" onAddToCart={handleAddToCart} bandColor="from-emerald-500 via-teal-500 to-cyan-500" />
-          <HorizontalRow title="Tiles" lots={tileLots} categoryId="tiles" onAddToCart={handleAddToCart} bandColor="from-violet-500 via-fuchsia-500 to-pink-500" />
-          <HorizontalRow title="Slopes" lots={slopeLots} categoryId="slopes" onAddToCart={handleAddToCart} bandColor="from-blue-600 via-indigo-600 to-purple-600" />
-          <HorizontalRow title="Minifigs" lots={minifigLots} categoryId="minifigs" onAddToCart={handleAddToCart} bandColor="from-amber-500 via-rose-500 to-red-600" />
+          {inventoryLoading ? (
+            <div className="flex items-center justify-center py-20">
+              <div className="text-gray-400">Loading products...</div>
+            </div>
+          ) : sortedCategories.length === 0 ? (
+            <div className="flex items-center justify-center py-20">
+              <div className="text-gray-400">No products found</div>
+            </div>
+          ) : (
+            sortedCategories.map((category, index) => (
+              <HorizontalRow
+                key={category.name}
+                title={category.name}
+                lots={category.lots.slice(0, 12)}
+                categoryId={category.name.toLowerCase().replace(/\s+/g, '-')}
+                onAddToCart={handleAddToCart}
+                bandColor={colorGradients[index % colorGradients.length]}
+              />
+            ))
+          )}
         </div>
 
         {/* Footer */}

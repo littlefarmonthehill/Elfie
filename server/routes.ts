@@ -2289,8 +2289,16 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
       const category = req.query.category as string | undefined;
+      const itemType = req.query.itemType as string | undefined;
 
       // Fetch inventory with color and category information
+      let whereConditions = [sql`${blInventory.quantity} > 0`];
+      
+      // Filter by itemType if provided
+      if (itemType) {
+        whereConditions.push(eq(blInventory.itemType, itemType));
+      }
+
       let inventoryQuery = db
         .select({
           id: blInventory.id,
@@ -2311,9 +2319,9 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
         .from(blInventory)
         .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
         .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
-        .where(sql`${blInventory.quantity} > 0`); // Only show items in stock
+        .where(and(...whereConditions));
 
-      const inventoryItems = await inventoryQuery.limit(1000); // Get more items to group
+      const inventoryItems = await inventoryQuery.limit(5000); // Get more items to group
 
       // Group by itemNo to create "lots"
       const lotsMap = new Map<string, any>();
@@ -2326,9 +2334,12 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
             id: item.id,
             part: item.itemNo,
             name: item.itemName || item.itemNo,
+            itemType: item.itemType,
             totalQty: 0,
             lotCount: 0,
             category: item.categoryName?.toLowerCase() || 'other',
+            categoryId: item.categoryId,
+            categoryName: item.categoryName,
             variations: [],
             imageUrl: null,
             thumbnailUrl: null,
@@ -2387,6 +2398,60 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
     }
   });
   
+  // Get Shop Categories (for customer-facing shop page) - PUBLIC endpoint
+  app.get("/api/shop/categories", async (req, res) => {
+    try {
+      const itemType = req.query.itemType as string | undefined;
+
+      let whereConditions = [sql`${blInventory.quantity} > 0`];
+      
+      if (itemType) {
+        whereConditions.push(eq(blInventory.itemType, itemType));
+      }
+
+      // Get categories with their counts
+      const categories = await db
+        .select({
+          categoryId: blInventory.categoryId,
+          categoryName: blCategories.name,
+          itemCount: sql<number>`COUNT(DISTINCT ${blInventory.itemNo})`,
+        })
+        .from(blInventory)
+        .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
+        .where(and(...whereConditions))
+        .groupBy(blInventory.categoryId, blCategories.name)
+        .having(sql`COUNT(DISTINCT ${blInventory.itemNo}) > 0`)
+        .orderBy(desc(sql`COUNT(DISTINCT ${blInventory.itemNo})`));
+
+      // Get available item types
+      const itemTypes = await db
+        .select({
+          itemType: blInventory.itemType,
+          count: sql<number>`COUNT(DISTINCT ${blInventory.itemNo})`,
+        })
+        .from(blInventory)
+        .where(sql`${blInventory.quantity} > 0`)
+        .groupBy(blInventory.itemType)
+        .having(sql`COUNT(DISTINCT ${blInventory.itemNo}) > 0`)
+        .orderBy(desc(sql`COUNT(DISTINCT ${blInventory.itemNo})`));
+
+      res.json({
+        categories: categories.map(c => ({
+          id: c.categoryId,
+          name: c.categoryName || 'Other',
+          count: Number(c.itemCount),
+        })),
+        itemTypes: itemTypes.map(t => ({
+          type: t.itemType,
+          count: Number(t.count),
+        })),
+      });
+    } catch (error) {
+      console.error("Error fetching shop categories:", error);
+      res.status(500).json({ error: "Failed to fetch shop categories" });
+    }
+  });
+
   // Get Shop Stats (for customer-facing shop page) - PUBLIC endpoint
   app.get("/api/shop/stats", async (req, res) => {
     try {
