@@ -2423,17 +2423,17 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
         .having(sql`COUNT(DISTINCT ${blInventory.itemNo}) > 0`)
         .orderBy(desc(sql`COUNT(DISTINCT ${blInventory.itemNo})`));
 
-      // Get available item types
+      // Get available item types (count all lots, not unique parts)
       const itemTypes = await db
         .select({
           itemType: blInventory.itemType,
-          count: sql<number>`COUNT(DISTINCT ${blInventory.itemNo})`,
+          count: sql<number>`COUNT(*)`, // Count all inventory rows (lots)
         })
         .from(blInventory)
         .where(sql`${blInventory.quantity} > 0`)
         .groupBy(blInventory.itemType)
-        .having(sql`COUNT(DISTINCT ${blInventory.itemNo}) > 0`)
-        .orderBy(desc(sql`COUNT(DISTINCT ${blInventory.itemNo})`));
+        .having(sql`COUNT(*) > 0`)
+        .orderBy(desc(sql`COUNT(*)`));
 
       res.json({
         categories: categories.map(c => ({
