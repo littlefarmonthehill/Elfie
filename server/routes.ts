@@ -2309,11 +2309,21 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
         .groupBy(blInventory.categoryId, blCategories.name)
         .having(sql`COUNT(*) > 0`);
 
-      // Fetch top 12 lots for each category in parallel
+      // Fetch top 12 lots for each category in parallel using SQL-based scoring
       const lotsByCategory = await Promise.all(
-        categories.map(async (cat) => {
-          const categoryWhere = [...whereConditions, eq(blInventory.categoryId, cat.categoryId)];
+        categories.filter(cat => cat.categoryId !== null).map(async (cat) => {
+          const categoryConditions = [
+            sql`${blInventory.quantity} > 0`,
+            sql`${blInventory.categoryId} = ${cat.categoryId}`
+          ];
+          if (itemType) {
+            categoryConditions.push(eq(blInventory.itemType, itemType));
+          }
           
+          // Use SQL to calculate score and sort - this ensures we get true top 12
+          // Score formula: (price * quantity * 0.7) + (log10(quantity + 1) * 0.3)
+          // PostgreSQL LOG(10, x) = base-10 logarithm, matching JavaScript Math.log10()
+          // COALESCE handles NULL values same as JavaScript || 0 fallback
           const items = await db
             .select({
               id: blInventory.id,
@@ -2330,26 +2340,17 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
               unitPrice: blInventory.unitPrice,
               imageUrl: blInventory.imageUrl,
               thumbnailUrl: blInventory.thumbnailUrl,
+              score: sql<number>`(COALESCE(CAST(${blInventory.unitPrice} AS NUMERIC), 0) * COALESCE(${blInventory.quantity}, 0) * 0.7) + (LOG(10, COALESCE(${blInventory.quantity}, 0) + 1) * 0.3)`.as('score'),
             })
             .from(blInventory)
             .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
             .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
-            .where(and(...categoryWhere))
-            .limit(1000); // Get enough to sort
-
-          // Calculate scores and sort
-          const scored = items.map(item => {
-            const priceNum = item.unitPrice ? parseFloat(item.unitPrice.toString()) : 0;
-            const value = priceNum * (item.quantity || 0);
-            const logQty = Math.log10((item.quantity || 0) + 1);
-            const score = (value * 0.7) + (logQty * 0.3);
-            return { item, score };
-          });
-
-          scored.sort((a, b) => b.score - a.score);
+            .where(and(...categoryConditions))
+            .orderBy(desc(sql`(COALESCE(CAST(${blInventory.unitPrice} AS NUMERIC), 0) * COALESCE(${blInventory.quantity}, 0) * 0.7) + (LOG(10, COALESCE(${blInventory.quantity}, 0) + 1) * 0.3)`))
+            .limit(lotsPerCategory); // Get exactly top 12 per category
           
-          // Take top 12 and transform
-          return scored.slice(0, lotsPerCategory).map(({ item }) => {
+          // Transform to lot format
+          return items.map(item => {
             const priceNum = item.unitPrice ? parseFloat(item.unitPrice.toString()) : 0;
             return {
               id: item.id,
