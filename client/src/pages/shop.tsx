@@ -568,29 +568,43 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
             
             {/* Color Filter */}
             <div className="mt-3 pt-3 border-t border-white/10">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs text-gray-400 mr-1">Filter by color:</span>
-                <Button
-                  size="sm"
-                  variant={selectedColor === null ? "default" : "outline"}
-                  onClick={() => setSelectedColor(null)}
-                  className="h-7 text-xs"
-                  data-testid="filter-color-all"
-                >
-                  All Colors
-                </Button>
-                {uniqueColors.map((color) => (
-                  <Button
-                    key={color}
-                    size="sm"
-                    variant={selectedColor === color ? "default" : "outline"}
-                    onClick={() => setSelectedColor(color)}
-                    className="h-7 text-xs"
-                    data-testid={`filter-color-${color.toLowerCase().replace(/\s+/g, '-')}`}
+              <div className="text-[10px] text-gray-400 mb-2">Filter by color:</div>
+              <div className="overflow-x-auto scrollbar-hide">
+                <div className="flex items-center gap-3 min-w-min">
+                  <button
+                    onClick={() => setSelectedColor(null)}
+                    className={`flex items-center gap-1.5 text-xs whitespace-nowrap cursor-pointer hover-elevate px-2 py-1 rounded transition-all ${
+                      selectedColor === null 
+                        ? 'text-white font-semibold' 
+                        : 'text-gray-400 hover:text-gray-200'
+                    }`}
+                    data-testid="filter-color-all"
                   >
-                    {color}
-                  </Button>
-                ))}
+                    <div className="w-2 h-2 rounded-full bg-gradient-to-r from-red-500 via-green-500 to-blue-500" />
+                    All
+                  </button>
+                  {uniqueColors.map((color) => {
+                    const colorGroup = lot.colorGroups.find(g => g.colorName === color);
+                    return (
+                      <button
+                        key={color}
+                        onClick={() => setSelectedColor(color)}
+                        className={`flex items-center gap-1.5 text-xs whitespace-nowrap cursor-pointer hover-elevate px-2 py-1 rounded transition-all ${
+                          selectedColor === color 
+                            ? 'text-white font-semibold' 
+                            : 'text-gray-400 hover:text-gray-200'
+                        }`}
+                        data-testid={`filter-color-${color.toLowerCase().replace(/\s+/g, '-')}`}
+                      >
+                        <div 
+                          className="w-2 h-2 rounded-full border border-white/20" 
+                          style={{ backgroundColor: colorGroup?.colorHex || '#CCCCCC' }}
+                        />
+                        {color}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           </DialogHeader>
