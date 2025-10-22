@@ -655,12 +655,14 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
 interface HorizontalRowProps {
   title: string;
   lots: ProductLot[];
+  lotCount: number;
+  partCount: number;
   categoryId: string;
   onAddToCart: (item: any, quantity: number) => void;
   bandColor: string;
 }
 
-function HorizontalRow({ title, lots, categoryId, onAddToCart, bandColor }: HorizontalRowProps) {
+function HorizontalRow({ title, lots, lotCount, partCount, categoryId, onAddToCart, bandColor }: HorizontalRowProps) {
   const [openLotId, setOpenLotId] = useState<number | null>(null);
 
   return (
@@ -670,10 +672,15 @@ function HorizontalRow({ title, lots, categoryId, onAddToCart, bandColor }: Hori
       
       <div className="relative z-10">
         <div className="px-3 md:px-6 mb-4 md:mb-6 flex items-center justify-between">
-          <h2 className={`text-2xl md:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r ${bandColor} flex items-center gap-2 md:gap-4`}>
-            <Sparkles className="w-6 h-6 md:w-8 md:h-8 text-white drop-shadow-lg" />
-            {title}
-          </h2>
+          <div className="flex items-center gap-2 md:gap-4">
+            <h2 className={`text-2xl md:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r ${bandColor} flex items-center gap-2 md:gap-4`}>
+              <Sparkles className="w-6 h-6 md:w-8 md:h-8 text-white drop-shadow-lg" />
+              {title}
+            </h2>
+            <div className="text-xs md:text-sm text-gray-400 mt-1">
+              {lotCount.toLocaleString()} lots · {partCount.toLocaleString()} parts
+            </div>
+          </div>
           {lots.length > 12 && (
             <Link href={`/search?category=${categoryId}`}>
               <button className={`text-sm md:text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r ${bandColor} hover:opacity-80 flex items-center gap-1.5 md:gap-2 transition-opacity`} data-testid={`button-more-${categoryId}`}>
@@ -834,7 +841,8 @@ export default function Shop() {
     .map(([name, lots]) => ({
       name,
       lots: lots.sort((a, b) => calculateItemScore(b) - calculateItemScore(a)),
-      count: lots.length
+      lotCount: lots.length, // Number of unique parts (lots)
+      partCount: lots.reduce((sum, lot) => sum + lot.totalQty, 0) // Total quantity (parts)
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
@@ -1128,6 +1136,8 @@ export default function Shop() {
                 key={category.name}
                 title={category.name}
                 lots={category.lots}
+                lotCount={category.lotCount}
+                partCount={category.partCount}
                 categoryId={category.name.toLowerCase().replace(/\s+/g, '-')}
                 onAddToCart={handleAddToCart}
                 bandColor={colorGradients[index % colorGradients.length]}
