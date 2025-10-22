@@ -1364,36 +1364,36 @@ export default function Shop() {
           ) : (
             <>
               {/* Special Groups - Always Visible */}
-              {specialGroupsData?.newItems && specialGroupsData.newItems.length > 0 && (
+              {specialGroups.newItems && specialGroups.newItems.length > 0 && (
                 <HorizontalRow
                   title="New Items"
-                  lots={specialGroupsData.newItems}
-                  lotCount={specialGroupsData.newItems.length}
-                  partCount={specialGroupsData.newItems.reduce((sum, lot) => sum + lot.totalQty, 0)}
+                  lots={specialGroups.newItems}
+                  lotCount={specialGroups.newItems.length}
+                  partCount={specialGroups.newItems.reduce((sum, lot) => sum + lot.totalQty, 0)}
                   categoryId="new-items"
                   onAddToCart={handleAddToCart}
                   bandColor="from-emerald-500 via-teal-500 to-cyan-500"
                 />
               )}
               
-              {specialGroupsData?.hotItems && specialGroupsData.hotItems.length > 0 && (
+              {specialGroups.hotItems && specialGroups.hotItems.length > 0 && (
                 <HorizontalRow
                   title="Hot Items"
-                  lots={specialGroupsData.hotItems}
-                  lotCount={specialGroupsData.hotItems.length}
-                  partCount={specialGroupsData.hotItems.reduce((sum, lot) => sum + lot.totalQty, 0)}
+                  lots={specialGroups.hotItems}
+                  lotCount={specialGroups.hotItems.length}
+                  partCount={specialGroups.hotItems.reduce((sum, lot) => sum + lot.totalQty, 0)}
                   categoryId="hot-items"
                   onAddToCart={handleAddToCart}
                   bandColor="from-red-500 via-orange-500 to-yellow-500"
                 />
               )}
               
-              {specialGroupsData?.discountedItems && specialGroupsData.discountedItems.length > 0 && (
+              {specialGroups.discountedItems && specialGroups.discountedItems.length > 0 && (
                 <HorizontalRow
                   title="Discounted Items"
-                  lots={specialGroupsData.discountedItems}
-                  lotCount={specialGroupsData.discountedItems.length}
-                  partCount={specialGroupsData.discountedItems.reduce((sum, lot) => sum + lot.totalQty, 0)}
+                  lots={specialGroups.discountedItems}
+                  lotCount={specialGroups.discountedItems.length}
+                  partCount={specialGroups.discountedItems.reduce((sum, lot) => sum + lot.totalQty, 0)}
                   categoryId="discounted-items"
                   onAddToCart={handleAddToCart}
                   bandColor="from-violet-500 via-fuchsia-500 to-pink-500"
@@ -1414,7 +1414,7 @@ export default function Shop() {
                 />
               ))}
               
-              {selectedCategories.length === 0 && !specialGroupsData?.newItems?.length && (
+              {selectedCategories.length === 0 && !specialGroups.newItems?.length && (
                 <div className="flex items-center justify-center py-20">
                   <div className="text-gray-400">Select categories to browse products</div>
                 </div>
