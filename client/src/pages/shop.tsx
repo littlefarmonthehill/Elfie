@@ -459,7 +459,7 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
   return (
     <>
       <Card
-        className="shrink-0 w-48 md:w-76 p-2 md:p-4 bg-gray-900/60 border-purple-500/30 hover-elevate cursor-pointer transition-all"
+        className="shrink-0 w-44 md:w-72 p-2 md:p-4 bg-gray-900/60 border-purple-500/30 hover-elevate cursor-pointer transition-all"
         onClick={() => onOpenChange(true)}
         data-testid={`card-lot-${lot.id}`}
       >
@@ -513,12 +513,17 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
           
           <div className="space-y-1 md:space-y-2">
             <h3 className="text-xs md:text-base font-bold text-white leading-tight truncate">{lot.name}</h3>
-            <p className="text-[10px] md:text-sm text-gray-400">#{lot.part}</p>
             
-            <div className="flex items-center gap-1 flex-wrap pt-1">
+            {/* Part number and color count on same line */}
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] md:text-sm text-gray-400">#{lot.part}</p>
               <Badge variant="secondary" className="text-[9px] md:text-xs px-1 md:px-1.5 py-0.5 h-auto">
                 {lot.uniqueColorCount} {lot.uniqueColorCount === 1 ? 'color' : 'colors'}
               </Badge>
+            </div>
+            
+            {/* New and Used badges below */}
+            <div className="flex items-center gap-1 flex-wrap pt-1">
               {totalNewQty > 0 && (
                 <Badge variant="secondary" className="text-[9px] md:text-xs px-1 md:px-1.5 py-0.5 h-auto bg-emerald-500/20 text-emerald-300 border-emerald-500/30">
                   {totalNewQty.toLocaleString()} New
@@ -950,6 +955,22 @@ export default function Shop() {
       }
     });
   }
+  
+  // Build selectedCategoryData from categoryProductMap
+  const selectedCategoryData = selectedCategories.map((catId: number) => {
+    const category = categoriesData?.categories.find((c: any) => c.id === catId);
+    if (!category) return null;
+    
+    const categoryLots = categoryProductMap.get(catId) || [];
+    
+    return {
+      id: catId,
+      name: category.name,
+      lots: categoryLots,
+      lotCount: categoryLots.length,
+      partCount: categoryLots.reduce((sum, lot) => sum + lot.totalQty, 0),
+    };
+  }).filter(Boolean);
 
   const sortedCategoryList = [...(categoriesData?.categories || [])].sort((a, b) => {
     const aSelected = selectedCategories.includes(a.id);
@@ -1324,7 +1345,7 @@ export default function Shop() {
           </div>
         </div>
 
-        {/* Colorful Category Bands - Dynamic from API */}
+        {/* Product Groups - Special Groups + Selected Categories */}
         <div className="pb-4 md:pb-8">
           {inventoryLoading ? (
             <div className="space-y-0">
@@ -1333,30 +1354,72 @@ export default function Shop() {
                   Loading products...
                 </p>
               </div>
-              {Array.from({ length: 5 }).map((_, i) => (
+              {Array.from({ length: 3 }).map((_, i) => (
                 <CategorySkeleton 
                   key={i} 
                   bandColor={colorGradients[i % colorGradients.length]}
                 />
               ))}
             </div>
-          ) : sortedCategories.length === 0 ? (
-            <div className="flex items-center justify-center py-20">
-              <div className="text-gray-400">No products found</div>
-            </div>
           ) : (
-            sortedCategories.map((category, index) => (
-              <HorizontalRow
-                key={category.name}
-                title={category.name}
-                lots={category.lots}
-                lotCount={category.lotCount}
-                partCount={category.partCount}
-                categoryId={category.name.toLowerCase().replace(/\s+/g, '-')}
-                onAddToCart={handleAddToCart}
-                bandColor={colorGradients[index % colorGradients.length]}
-              />
-            ))
+            <>
+              {/* Special Groups - Always Visible */}
+              {specialGroupsData?.newItems && specialGroupsData.newItems.length > 0 && (
+                <HorizontalRow
+                  title="New Items"
+                  lots={specialGroupsData.newItems}
+                  lotCount={specialGroupsData.newItems.length}
+                  partCount={specialGroupsData.newItems.reduce((sum, lot) => sum + lot.totalQty, 0)}
+                  categoryId="new-items"
+                  onAddToCart={handleAddToCart}
+                  bandColor="from-emerald-500 via-teal-500 to-cyan-500"
+                />
+              )}
+              
+              {specialGroupsData?.hotItems && specialGroupsData.hotItems.length > 0 && (
+                <HorizontalRow
+                  title="Hot Items"
+                  lots={specialGroupsData.hotItems}
+                  lotCount={specialGroupsData.hotItems.length}
+                  partCount={specialGroupsData.hotItems.reduce((sum, lot) => sum + lot.totalQty, 0)}
+                  categoryId="hot-items"
+                  onAddToCart={handleAddToCart}
+                  bandColor="from-red-500 via-orange-500 to-yellow-500"
+                />
+              )}
+              
+              {specialGroupsData?.discountedItems && specialGroupsData.discountedItems.length > 0 && (
+                <HorizontalRow
+                  title="Discounted Items"
+                  lots={specialGroupsData.discountedItems}
+                  lotCount={specialGroupsData.discountedItems.length}
+                  partCount={specialGroupsData.discountedItems.reduce((sum, lot) => sum + lot.totalQty, 0)}
+                  categoryId="discounted-items"
+                  onAddToCart={handleAddToCart}
+                  bandColor="from-violet-500 via-fuchsia-500 to-pink-500"
+                />
+              )}
+              
+              {/* Selected Category Sections - Collapsible */}
+              {selectedCategoryData.map((category, index) => category && (
+                <HorizontalRow
+                  key={category.id}
+                  title={category.name}
+                  lots={category.lots}
+                  lotCount={category.lotCount}
+                  partCount={category.partCount}
+                  categoryId={category.id.toString()}
+                  onAddToCart={handleAddToCart}
+                  bandColor={colorGradients[index % colorGradients.length]}
+                />
+              ))}
+              
+              {selectedCategories.length === 0 && !specialGroupsData?.newItems?.length && (
+                <div className="flex items-center justify-center py-20">
+                  <div className="text-gray-400">Select categories to browse products</div>
+                </div>
+              )}
+            </>
           )}
         </div>
 
