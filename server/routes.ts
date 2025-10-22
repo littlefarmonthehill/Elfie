@@ -2285,9 +2285,10 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Get Shop Inventory (for customer-facing shop page) - PUBLIC endpoint
+  // Returns individual lots (inventory rows) without grouping
   app.get("/api/shop/inventory", async (req, res) => {
     try {
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 500; // Increased to show more items per category
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 25000; // Fetch all lots
       const category = req.query.category as string | undefined;
       const itemType = req.query.itemType as string | undefined;
 
@@ -2299,7 +2300,12 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
         whereConditions.push(eq(blInventory.itemType, itemType));
       }
 
-      let inventoryQuery = db
+      // If category filter is provided, apply it
+      if (category) {
+        whereConditions.push(eq(blCategories.name, category));
+      }
+
+      const inventoryItems = await db
         .select({
           id: blInventory.id,
           itemNo: blInventory.itemNo,
@@ -2319,77 +2325,56 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
         .from(blInventory)
         .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
         .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
-        .where(and(...whereConditions));
+        .where(and(...whereConditions))
+        .limit(limit);
 
-      const inventoryItems = await inventoryQuery.limit(5000); // Get more items to group
-
-      // Group by itemNo to create "lots"
-      const lotsMap = new Map<string, any>();
-
-      for (const item of inventoryItems) {
-        const key = item.itemNo;
-
-        if (!lotsMap.has(key)) {
-          lotsMap.set(key, {
-            id: item.id,
-            part: item.itemNo,
-            name: item.itemName || item.itemNo,
-            itemType: item.itemType,
-            totalQty: 0,
-            lotCount: 0,
-            category: item.categoryName?.toLowerCase() || 'other',
-            categoryId: item.categoryId,
-            categoryName: item.categoryName,
-            variations: [],
-            imageUrl: null,
-            thumbnailUrl: null,
-            firstColorId: null,
-          });
-        }
-
-        const lot = lotsMap.get(key)!;
-        lot.totalQty += item.quantity || 0;
-        lot.lotCount += 1;
-
-        // Store the first colorId for proxy URL generation
-        if (typeof lot.firstColorId !== 'number' && item.colorId !== null) {
-          lot.firstColorId = item.colorId;
-        }
-
-        // Use the first available image for the lot
-        if (!lot.imageUrl && item.imageUrl) {
-          lot.imageUrl = item.imageUrl;
-          lot.thumbnailUrl = item.thumbnailUrl;
-        }
-
-        // Convert unitPrice to number (it comes as string from decimal column)
+      // Transform each inventory row into a lot (no grouping)
+      const lots = inventoryItems.map(item => {
         const priceNum = item.unitPrice ? parseFloat(item.unitPrice.toString()) : 0;
-
-        // Add variation with its color-matched image URL
-        lot.variations.push({
-          color: item.colorName || 'Unknown',
-          colorId: item.colorId,
-          colorHex: item.colorRgb || '#CCCCCC',
-          condition: item.newOrUsed === 'N' ? 'New' : 'Used',
-          qty: item.quantity || 0,
-          price: `$${priceNum.toFixed(2)}`,
-          imageUrl: item.imageUrl, // Color-matched Rebrickable image URL
+        
+        return {
+          id: item.id,
+          part: item.itemNo,
+          name: item.itemName || item.itemNo,
+          itemType: item.itemType,
+          totalQty: item.quantity || 0,
+          lotCount: 1, // Each inventory row is 1 lot
+          category: item.categoryName?.toLowerCase() || 'other',
+          categoryId: item.categoryId,
+          categoryName: item.categoryName,
+          imageUrl: item.imageUrl,
           thumbnailUrl: item.thumbnailUrl,
-        });
-      }
+          firstColorId: item.colorId,
+          // Single variation (the lot itself)
+          variations: [{
+            color: item.colorName || 'Unknown',
+            colorId: item.colorId,
+            colorHex: item.colorRgb || '#CCCCCC',
+            condition: item.newOrUsed === 'N' ? 'New' : 'Used',
+            qty: item.quantity || 0,
+            price: `$${priceNum.toFixed(2)}`,
+            imageUrl: item.imageUrl,
+            thumbnailUrl: item.thumbnailUrl,
+          }],
+        };
+      });
 
-      // Convert map to array and apply category filter if provided
-      let lots = Array.from(lotsMap.values());
-
-      if (category) {
-        lots = lots.filter(lot => lot.category.includes(category.toLowerCase()));
-      }
-
-      // Sort by totalQty descending (most inventory first)
-      lots.sort((a, b) => b.totalQty - a.totalQty);
-
-      // Apply final limit
-      lots = lots.slice(0, limit);
+      // Sort by a scoring formula for "trending/profitable" items
+      // Score = (totalValue * 0.6) + (colorVariety * 0.3) + (logQuantity * 0.1)
+      // Since individual lots don't have color variety, simplify to value + log quantity
+      lots.sort((a, b) => {
+        const priceA = parseFloat(a.variations[0]?.price.replace('$', '') || '0');
+        const priceB = parseFloat(b.variations[0]?.price.replace('$', '') || '0');
+        const valueA = priceA * a.totalQty;
+        const valueB = priceB * b.totalQty;
+        const logQtyA = Math.log10(a.totalQty + 1);
+        const logQtyB = Math.log10(b.totalQty + 1);
+        
+        const scoreA = (valueA * 0.7) + (logQtyA * 0.3);
+        const scoreB = (valueB * 0.7) + (logQtyB * 0.3);
+        
+        return scoreB - scoreA;
+      });
 
       res.json({ lots });
     } catch (error) {
