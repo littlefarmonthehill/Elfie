@@ -240,14 +240,30 @@ export async function processImageFromUrl(imageUrl: string): Promise<Buffer | nu
   }
 
   try {
-    console.log(`[Image Proxy] Fetching and processing image from ${imageUrl}`);
+    console.log(`[Image Proxy] Fetching image from ${imageUrl}`);
 
     const originalBuffer = await fetchImageFromUrl(imageUrl);
     if (!originalBuffer) {
       return null;
     }
 
-    const processedBuffer = await removeWhiteBackground(originalBuffer);
+    // Check if Remove.bg API key is available for better background removal
+    const removeBgApiKey = process.env.REMOVEBG_API_KEY;
+    let processedBuffer: Buffer;
+
+    if (removeBgApiKey) {
+      console.log(`[Image Proxy] Using Remove.bg API for background removal`);
+      try {
+        processedBuffer = await removeBackgroundWithRemoveBg(originalBuffer, removeBgApiKey);
+      } catch (error) {
+        console.warn(`[Image Proxy] Remove.bg failed, falling back to original image:`, error);
+        processedBuffer = originalBuffer;
+      }
+    } else {
+      // No API key - just return original image without processing
+      console.log(`[Image Proxy] No Remove.bg API key, serving original image`);
+      processedBuffer = originalBuffer;
+    }
 
     evictOldestCacheEntries();
     imageCache.set(cacheKey, {
@@ -261,4 +277,27 @@ export async function processImageFromUrl(imageUrl: string): Promise<Buffer | nu
     console.error(`[Image Proxy] Error processing image from URL:`, error);
     return null;
   }
+}
+
+async function removeBackgroundWithRemoveBg(imageBuffer: Buffer, apiKey: string): Promise<Buffer> {
+  const FormData = (await import('form-data')).default;
+  const formData = new FormData();
+  formData.append('image_file', imageBuffer, { filename: 'image.png' });
+  formData.append('size', 'auto');
+  formData.append('format', 'png');
+
+  const response = await fetch('https://api.remove.bg/v1.0/removebg', {
+    method: 'POST',
+    headers: {
+      'X-Api-Key': apiKey,
+    },
+    body: formData as any,
+  });
+
+  if (!response.ok) {
+    throw new Error(`Remove.bg API error: ${response.status} ${response.statusText}`);
+  }
+
+  const arrayBuffer = await response.arrayBuffer();
+  return Buffer.from(arrayBuffer);
 }

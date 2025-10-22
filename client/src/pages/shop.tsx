@@ -84,8 +84,8 @@ interface ProductLot {
 
 function getProxyImageUrl(imageUrl: string | null | undefined): string | null {
   if (!imageUrl) return null;
-  // Return original image URL without background removal to avoid jagged edges
-  return imageUrl;
+  // Proxy through our server which uses Remove.bg if API key is available
+  return `/api/images/proxy?url=${encodeURIComponent(imageUrl)}`;
 }
 
 // Mock data for development (will be replaced with API data)
@@ -603,7 +603,7 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
                       >
                         <div 
                           className="w-2 h-2 rounded-full border border-white/20" 
-                          style={{ backgroundColor: colorGroup?.colorHex || '#CCCCCC' }}
+                          style={{ backgroundColor: colorGroup?.colorHex?.startsWith('#') ? colorGroup.colorHex : '#CCCCCC' }}
                         />
                         {color}
                       </button>
@@ -662,10 +662,9 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
                       {colorImageUrl ? (
                         <button
                           onClick={() => setImageSrc(colorImageUrl)}
-                          className="w-12 h-12 md:w-14 md:h-14 rounded-md border-2 border-white/30 shadow-md flex items-center justify-center overflow-hidden hover-elevate cursor-pointer"
+                          className="w-12 h-12 md:w-14 md:h-14 rounded-md border-2 border-white/30 shadow-md flex items-center justify-center overflow-hidden hover-elevate cursor-pointer bg-slate-900/50"
                           style={{ 
-                            backgroundColor: '#0f172a',
-                            boxShadow: `0 2px 8px ${colorGroup.colorHex}60`
+                            boxShadow: `0 2px 8px ${colorGroup.colorHex || '#666'}60`
                           }}
                           data-testid={`button-color-image-${groupIdx}`}
                         >
@@ -677,12 +676,17 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
                         </button>
                       ) : (
                         <div
-                          className="w-8 h-8 md:w-10 md:h-10 rounded-md border-2 border-white/30 shadow-md"
+                          className="w-12 h-12 md:w-14 md:h-14 rounded-md border-2 border-white/30 shadow-md flex items-center justify-center overflow-hidden bg-slate-900/50"
                           style={{ 
-                            backgroundColor: colorGroup.colorHex,
-                            boxShadow: `0 2px 8px ${colorGroup.colorHex}60`
+                            boxShadow: `0 2px 8px ${colorGroup.colorHex || '#666'}60`
                           }}
-                        />
+                        >
+                          <img 
+                            src={noImagePlaceholder} 
+                            alt="No image available"
+                            className="w-8 h-8 md:w-10 md:h-10 object-contain opacity-40"
+                          />
+                        </div>
                       )}
                       <div className="flex-1">
                         <h4 className="text-sm md:text-base font-bold text-white">{colorGroup.colorName}</h4>
