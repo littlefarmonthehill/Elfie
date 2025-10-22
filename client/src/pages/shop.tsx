@@ -137,7 +137,7 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
   return (
     <>
       <Card
-        className="shrink-0 w-52 md:w-80 p-2 md:p-4 bg-gray-900/60 border-purple-500/30 hover-elevate cursor-pointer transition-all"
+        className="shrink-0 w-48 md:w-72 p-2 md:p-4 bg-gray-900/60 border-purple-500/30 hover-elevate cursor-pointer transition-all"
         onClick={() => onOpenChange(true)}
         data-testid={`card-lot-${lot.id}`}
       >
@@ -624,7 +624,7 @@ export default function Shop() {
                 <img 
                   src={planetBrickLogo} 
                   alt="PlanetBrick" 
-                  className="h-12 md:h-16 w-auto cursor-pointer hover:scale-105 transition-transform"
+                  className="h-24 md:h-32 lg:h-40 w-auto cursor-pointer hover:scale-105 transition-transform"
                   data-testid="logo-planetbrick"
                 />
               </div>
