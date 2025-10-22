@@ -681,7 +681,7 @@ function HorizontalRow({ title, lots, lotCount, partCount, categoryId, onAddToCa
               {lotCount.toLocaleString()} lots · {partCount.toLocaleString()} parts
             </div>
           </div>
-          {lots.length > 12 && (
+          {lotCount > 12 && (
             <Link href={`/search?category=${categoryId}`}>
               <button className={`text-sm md:text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r ${bandColor} hover:opacity-80 flex items-center gap-1.5 md:gap-2 transition-opacity`} data-testid={`button-more-${categoryId}`}>
                 See More
@@ -691,8 +691,8 @@ function HorizontalRow({ title, lots, lotCount, partCount, categoryId, onAddToCa
           )}
         </div>
       
-        <div className="overflow-x-auto scrollbar-hide">
-          <div className="flex gap-2 md:gap-4 px-3 md:px-6">
+        <div className="overflow-x-auto scrollbar-hide smooth-scroll">
+          <div className="flex gap-2 md:gap-4 px-3 md:px-6 will-change-scroll">
             {lots.slice(0, 12).map((lot) => (
               <LotCard
                 key={lot.id}
@@ -1135,9 +1135,7 @@ export default function Shop() {
         {/* Colorful Category Bands - Dynamic from API */}
         <div className="pb-4 md:pb-8">
           {inventoryLoading ? (
-            <div className="flex items-center justify-center py-20">
-              <div className="text-gray-400">Loading products...</div>
-            </div>
+            <div className="min-h-[60vh]" />
           ) : sortedCategories.length === 0 ? (
             <div className="flex items-center justify-center py-20">
               <div className="text-gray-400">No products found</div>
@@ -1211,6 +1209,16 @@ export default function Shop() {
         .scrollbar-hide {
           -ms-overflow-style: none;
           scrollbar-width: none;
+        }
+        .smooth-scroll {
+          scroll-behavior: smooth;
+          -webkit-overflow-scrolling: touch;
+          transform: translateZ(0);
+          backface-visibility: hidden;
+          perspective: 1000px;
+        }
+        .will-change-scroll {
+          will-change: transform;
         }
       `}</style>
     </div>
