@@ -84,8 +84,8 @@ interface ProductLot {
 
 function getProxyImageUrl(imageUrl: string | null | undefined): string | null {
   if (!imageUrl) return null;
-  // Proxy the Rebrickable URL through our white-background removal service
-  return `/api/images/proxy?url=${encodeURIComponent(imageUrl)}`;
+  // Return original image URL without background removal to avoid jagged edges
+  return imageUrl;
 }
 
 // Mock data for development (will be replaced with API data)
@@ -643,22 +643,52 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
             )}
             
             <div className="space-y-3">
-              {displayedColorGroups.map((colorGroup, groupIdx) => (
-                <div key={groupIdx} className="bg-gray-900/40 border border-white/10 rounded-lg p-3 md:p-4 hover-elevate">
-                  {/* Color Header */}
-                  <div className="flex items-center gap-3 mb-3">
-                    <div
-                      className="w-8 h-8 md:w-10 md:h-10 rounded-md border-2 border-white/30 shadow-md"
-                      style={{ 
-                        backgroundColor: colorGroup.colorHex,
-                        boxShadow: `0 2px 8px ${colorGroup.colorHex}60`
-                      }}
-                    />
-                    <div>
-                      <h4 className="text-sm md:text-base font-bold text-white">{colorGroup.colorName}</h4>
-                      <p className="text-xs text-gray-400">{colorGroup.totalQty.toLocaleString()} pieces</p>
+              {displayedColorGroups.map((colorGroup, groupIdx) => {
+                // Find a variation with an image for this color
+                const colorVariationWithImage = colorGroup.variations.find(v => {
+                  const fullVariation = lot.variations.find(fv => fv.color === v.color && fv.condition === v.condition);
+                  return fullVariation?.imageUrl;
+                });
+                const fullColorVariation = colorVariationWithImage 
+                  ? lot.variations.find(fv => fv.color === colorVariationWithImage.color && fv.condition === colorVariationWithImage.condition)
+                  : null;
+                const colorImageUrl = fullColorVariation?.imageUrl;
+                
+                return (
+                  <div key={groupIdx} className="bg-gray-900/40 border border-white/10 rounded-lg p-3 md:p-4 hover-elevate">
+                    {/* Color Header */}
+                    <div className="flex items-center gap-3 mb-3">
+                      {/* Color thumbnail - clickable to view larger */}
+                      {colorImageUrl ? (
+                        <button
+                          onClick={() => setImageSrc(colorImageUrl)}
+                          className="w-12 h-12 md:w-14 md:h-14 rounded-md border-2 border-white/30 shadow-md flex items-center justify-center overflow-hidden hover-elevate cursor-pointer"
+                          style={{ 
+                            backgroundColor: '#0f172a',
+                            boxShadow: `0 2px 8px ${colorGroup.colorHex}60`
+                          }}
+                          data-testid={`button-color-image-${groupIdx}`}
+                        >
+                          <img 
+                            src={colorImageUrl} 
+                            alt={colorGroup.colorName}
+                            className="max-w-full max-h-full object-contain"
+                          />
+                        </button>
+                      ) : (
+                        <div
+                          className="w-8 h-8 md:w-10 md:h-10 rounded-md border-2 border-white/30 shadow-md"
+                          style={{ 
+                            backgroundColor: colorGroup.colorHex,
+                            boxShadow: `0 2px 8px ${colorGroup.colorHex}60`
+                          }}
+                        />
+                      )}
+                      <div className="flex-1">
+                        <h4 className="text-sm md:text-base font-bold text-white">{colorGroup.colorName}</h4>
+                        <p className="text-xs text-gray-400">{colorGroup.totalQty.toLocaleString()} pieces</p>
+                      </div>
                     </div>
-                  </div>
                   
                   {/* Condition Variations - Grid */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -727,7 +757,8 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
                     })}
                   </div>
                 </div>
-              ))}
+              );
+            })}
             </div>
           </div>
         </DialogContent>
