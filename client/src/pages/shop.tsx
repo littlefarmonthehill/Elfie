@@ -137,7 +137,7 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
   return (
     <>
       <Card
-        className="shrink-0 w-48 md:w-72 p-2 md:p-4 bg-gray-900/60 border-purple-500/30 hover-elevate cursor-pointer transition-all"
+        className="shrink-0 w-44 md:w-80 p-2 md:p-4 bg-gray-900/60 border-purple-500/30 hover-elevate cursor-pointer transition-all"
         onClick={() => onOpenChange(true)}
         data-testid={`card-lot-${lot.id}`}
       >
@@ -615,22 +615,22 @@ export default function Shop() {
   return (
     <div className="min-h-screen bg-black text-white">
       <header className="bg-black border-b-2 border-purple-500/30 sticky top-0 z-50">
-        <div className="relative px-3 md:px-6 py-2 md:py-3">
-          <div className="flex items-center justify-between mb-2">
-            <div className="w-24 md:w-32" />
+        <div className="relative px-3 md:px-6 py-3 md:py-4">
+          <div className="flex items-start justify-between mb-3 md:mb-4">
+            <div className="flex-1" />
             
             <Link href="/shop">
-              <div className="flex items-center justify-center">
+              <div className="flex items-center justify-center flex-1">
                 <img 
                   src={planetBrickLogo} 
                   alt="PlanetBrick" 
-                  className="h-24 md:h-32 lg:h-40 w-auto cursor-pointer hover:scale-105 transition-transform"
+                  className="h-32 md:h-48 lg:h-56 w-auto cursor-pointer hover:scale-105 transition-transform"
                   data-testid="logo-planetbrick"
                 />
               </div>
             </Link>
 
-            <div className="flex items-center gap-2 w-24 md:w-32 justify-end">
+            <div className="flex items-start gap-2 flex-1 justify-end">
               <Sheet open={isCartOpen} onOpenChange={setIsCartOpen}>
                 <SheetTrigger asChild>
                   <Button 
