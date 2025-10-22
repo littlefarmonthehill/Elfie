@@ -47,10 +47,15 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
   const { data: orders = [], isLoading } = useQuery<Order[]>({
     queryKey: ['/api/orders', dateRange],
     queryFn: async () => {
-      const response = await fetch(buildQueryUrl('/api/orders'));
+      const url = buildQueryUrl('/api/orders');
+      console.log(`[SalesDashboard] Fetching orders with dateRange="${dateRange}", URL: ${url}`);
+      const response = await fetch(url);
       if (!response.ok) throw new Error('Failed to fetch orders');
-      return response.json();
-    }
+      const data = await response.json();
+      console.log(`[SalesDashboard] Received ${data.length} orders for dateRange="${dateRange}"`);
+      return data;
+    },
+    staleTime: 30000, // Cache for 30 seconds
   });
 
   // Get available years from orders
