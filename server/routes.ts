@@ -2285,96 +2285,102 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // Get Shop Inventory (for customer-facing shop page) - PUBLIC endpoint
-  // Returns individual lots (inventory rows) without grouping
+  // Returns top 12 lots per category for fast initial load
   app.get("/api/shop/inventory", async (req, res) => {
     try {
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 25000; // Fetch all lots
-      const category = req.query.category as string | undefined;
       const itemType = req.query.itemType as string | undefined;
+      const lotsPerCategory = 12; // Only fetch 12 per category for initial display
 
-      // Fetch inventory with color and category information
+      // Build where conditions
       let whereConditions = [sql`${blInventory.quantity} > 0`];
-      
-      // Filter by itemType if provided
       if (itemType) {
         whereConditions.push(eq(blInventory.itemType, itemType));
       }
 
-      // If category filter is provided, apply it
-      if (category) {
-        whereConditions.push(eq(blCategories.name, category));
-      }
-
-      const inventoryItems = await db
+      // Get categories first
+      const categories = await db
         .select({
-          id: blInventory.id,
-          itemNo: blInventory.itemNo,
-          itemName: blInventory.itemName,
-          itemType: blInventory.itemType,
-          colorId: blInventory.colorId,
-          colorName: blColors.name,
-          colorRgb: blColors.rgb,
           categoryId: blInventory.categoryId,
           categoryName: blCategories.name,
-          quantity: blInventory.quantity,
-          newOrUsed: blInventory.newOrUsed,
-          unitPrice: blInventory.unitPrice,
-          imageUrl: blInventory.imageUrl,
-          thumbnailUrl: blInventory.thumbnailUrl,
         })
         .from(blInventory)
-        .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
         .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
         .where(and(...whereConditions))
-        .limit(limit);
+        .groupBy(blInventory.categoryId, blCategories.name)
+        .having(sql`COUNT(*) > 0`);
 
-      // Transform each inventory row into a lot (no grouping)
-      const lots = inventoryItems.map(item => {
-        const priceNum = item.unitPrice ? parseFloat(item.unitPrice.toString()) : 0;
-        
-        return {
-          id: item.id,
-          part: item.itemNo,
-          name: item.itemName || item.itemNo,
-          itemType: item.itemType,
-          totalQty: item.quantity || 0,
-          lotCount: 1, // Each inventory row is 1 lot
-          category: item.categoryName?.toLowerCase() || 'other',
-          categoryId: item.categoryId,
-          categoryName: item.categoryName,
-          imageUrl: item.imageUrl,
-          thumbnailUrl: item.thumbnailUrl,
-          firstColorId: item.colorId,
-          // Single variation (the lot itself)
-          variations: [{
-            color: item.colorName || 'Unknown',
-            colorId: item.colorId,
-            colorHex: item.colorRgb || '#CCCCCC',
-            condition: item.newOrUsed === 'N' ? 'New' : 'Used',
-            qty: item.quantity || 0,
-            price: `$${priceNum.toFixed(2)}`,
-            imageUrl: item.imageUrl,
-            thumbnailUrl: item.thumbnailUrl,
-          }],
-        };
-      });
+      // Fetch top 12 lots for each category in parallel
+      const lotsByCategory = await Promise.all(
+        categories.map(async (cat) => {
+          const categoryWhere = [...whereConditions, eq(blInventory.categoryId, cat.categoryId)];
+          
+          const items = await db
+            .select({
+              id: blInventory.id,
+              itemNo: blInventory.itemNo,
+              itemName: blInventory.itemName,
+              itemType: blInventory.itemType,
+              colorId: blInventory.colorId,
+              colorName: blColors.name,
+              colorRgb: blColors.rgb,
+              categoryId: blInventory.categoryId,
+              categoryName: blCategories.name,
+              quantity: blInventory.quantity,
+              newOrUsed: blInventory.newOrUsed,
+              unitPrice: blInventory.unitPrice,
+              imageUrl: blInventory.imageUrl,
+              thumbnailUrl: blInventory.thumbnailUrl,
+            })
+            .from(blInventory)
+            .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+            .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
+            .where(and(...categoryWhere))
+            .limit(1000); // Get enough to sort
 
-      // Sort by a scoring formula for "trending/profitable" items
-      // Score = (totalValue * 0.6) + (colorVariety * 0.3) + (logQuantity * 0.1)
-      // Since individual lots don't have color variety, simplify to value + log quantity
-      lots.sort((a, b) => {
-        const priceA = parseFloat(a.variations[0]?.price.replace('$', '') || '0');
-        const priceB = parseFloat(b.variations[0]?.price.replace('$', '') || '0');
-        const valueA = priceA * a.totalQty;
-        const valueB = priceB * b.totalQty;
-        const logQtyA = Math.log10(a.totalQty + 1);
-        const logQtyB = Math.log10(b.totalQty + 1);
-        
-        const scoreA = (valueA * 0.7) + (logQtyA * 0.3);
-        const scoreB = (valueB * 0.7) + (logQtyB * 0.3);
-        
-        return scoreB - scoreA;
-      });
+          // Calculate scores and sort
+          const scored = items.map(item => {
+            const priceNum = item.unitPrice ? parseFloat(item.unitPrice.toString()) : 0;
+            const value = priceNum * (item.quantity || 0);
+            const logQty = Math.log10((item.quantity || 0) + 1);
+            const score = (value * 0.7) + (logQty * 0.3);
+            return { item, score };
+          });
+
+          scored.sort((a, b) => b.score - a.score);
+          
+          // Take top 12 and transform
+          return scored.slice(0, lotsPerCategory).map(({ item }) => {
+            const priceNum = item.unitPrice ? parseFloat(item.unitPrice.toString()) : 0;
+            return {
+              id: item.id,
+              part: item.itemNo,
+              name: item.itemName || item.itemNo,
+              itemType: item.itemType,
+              totalQty: item.quantity || 0,
+              lotCount: 1,
+              category: item.categoryName?.toLowerCase() || 'other',
+              categoryId: item.categoryId,
+              categoryName: item.categoryName,
+              imageUrl: item.imageUrl,
+              thumbnailUrl: item.thumbnailUrl,
+              firstColorId: item.colorId,
+              variations: [{
+                color: item.colorName || 'Unknown',
+                colorId: item.colorId,
+                colorHex: item.colorRgb || '#CCCCCC',
+                condition: item.newOrUsed === 'N' ? 'New' : 'Used',
+                qty: item.quantity || 0,
+                price: `$${priceNum.toFixed(2)}`,
+                imageUrl: item.imageUrl,
+                thumbnailUrl: item.thumbnailUrl,
+              }],
+            };
+          });
+        })
+      );
+
+      // Flatten the results
+      const lots = lotsByCategory.flat();
 
       res.json({ lots });
     } catch (error) {
