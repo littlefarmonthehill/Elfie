@@ -28,6 +28,7 @@ import {
 import { Input } from "@/components/ui/input";
 import elfieRobot from "@assets/PlanetBrick_good_robot_1760672362080.png";
 import planetBrickLogo from "@assets/PlanetBrick_with_planet_1761030158394.png";
+import noImagePlaceholder from "@assets/generated_images/LEGO_image_unavailable_placeholder_957f3211.png";
 
 interface CartItem {
   lotId: number;
@@ -490,11 +491,13 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
                   <div className="absolute bottom-3 left-3 w-1.5 h-1.5 md:w-3 md:h-3 bg-cyan-400 rounded-full animate-pulse" style={{ animationDelay: '0.5s' }} />
                   <div className="absolute top-1/2 left-1/4 w-1 h-1 md:w-2 md:h-2 bg-pink-400 rounded-full animate-pulse" style={{ animationDelay: '1s' }} />
                 </div>
-                <div className="text-base md:text-3xl font-bold relative z-10" style={{
-                  color: primaryColor.colorHex === '#FCFCFC' || primaryColor.colorHex === '#F2F3F2' ? '#00000030' : '#FFFFFF50',
-                  textShadow: '0 2px 4px rgba(0,0,0,0.4)'
-                }}>
-                  LEGO
+                <div className="relative z-10 w-full h-full p-2 md:p-4 flex items-center justify-center">
+                  <img 
+                    src={noImagePlaceholder} 
+                    alt="Image not available"
+                    className="max-w-full max-h-full object-contain opacity-60"
+                    data-testid={`img-placeholder-${lot.id}`}
+                  />
                 </div>
               </>
             )}
