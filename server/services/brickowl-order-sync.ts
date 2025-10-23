@@ -251,6 +251,7 @@ async function processBrickOwlOrder(
         // Debug: Log first few items to see what API returns
         if (result.ordersAdded + result.ordersUpdated < 3) {
           console.log(`🔍 Item check: SKU=${existingItem.sku}, BL_ID=${existingItem.bricklinkInventoryId}, API_external=${item.external_lot_ids?.other}, hasBoidSku=${hasBoidSku}, hasBrickLinkId=${hasBrickLinkId}`);
+          console.log(`🔍 Full item from API:`, JSON.stringify(item).slice(0, 500));
         }
         
         if (hasBoidSku && hasBrickLinkId) {
