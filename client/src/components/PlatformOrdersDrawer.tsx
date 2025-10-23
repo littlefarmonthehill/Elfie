@@ -17,6 +17,7 @@ interface PlatformOrdersDrawerProps {
   platform: string;
   orders: Order[];
   onOrderClick: (orderId: string) => void;
+  productLine?: string;
 }
 
 export default function PlatformOrdersDrawer({ 
@@ -24,7 +25,8 @@ export default function PlatformOrdersDrawer({
   onClose, 
   platform, 
   orders,
-  onOrderClick 
+  onOrderClick,
+  productLine
 }: PlatformOrdersDrawerProps) {
   return (
     <Drawer open={open} onOpenChange={onClose}>
@@ -32,7 +34,7 @@ export default function PlatformOrdersDrawer({
         <DrawerHeader className="border-b border-gray-700 py-3 flex-shrink-0">
           <div className="flex items-center justify-between">
             <DrawerTitle className="text-sm font-black text-white uppercase tracking-wide">
-              📦 {platform} Orders
+              📦 {productLine ? `${productLine} - ` : ''}{platform} Orders
             </DrawerTitle>
             <button
               onClick={onClose}

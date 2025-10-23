@@ -27,9 +27,10 @@ interface Order {
 }
 
 export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick }: SalesDashboardProps) {
-  const [platformDrawer, setPlatformDrawer] = useState<{ open: boolean; platform: string }>({
+  const [platformDrawer, setPlatformDrawer] = useState<{ open: boolean; platform: string; productLine?: string }>({
     open: false,
     platform: '',
+    productLine: undefined,
   });
   
   const currentYear = new Date().getFullYear();
@@ -153,7 +154,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
   }, [selectedCompareYears, availableYears, currentYear]);
 
   const handlePlatformClick = (platform: string) => {
-    setPlatformDrawer({ open: true, platform });
+    setPlatformDrawer({ open: true, platform, productLine: undefined });
   };
 
   const handlePlatformOrderClick = (orderId: string) => {
@@ -222,10 +223,16 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
     return selectedPlatforms.filter(p => availablePlatforms.includes(p));
   }, [selectedPlatforms, availablePlatforms]);
 
-  // Filter orders for selected platform
+  // Filter orders for selected platform and product line
+  // Note: Since we don't have order item details in the summary, we'll fetch them in the drawer
   const platformOrders = filteredOrders.filter(
     order => (order.marketplace || 'Unknown') === platformDrawer.platform
   );
+  
+  // Handler for clicking on a platform within a product line breakdown
+  const handleProductLinePlatformClick = (productLine: string, platform: string) => {
+    setPlatformDrawer({ open: true, platform, productLine });
+  };
 
   // Calculate sales data by month - adjust based on date range
   const getSalesData = () => {
@@ -1238,8 +1245,12 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
                           .map(([marketplace, data]) => (
                             <div 
                               key={marketplace}
-                              className="flex justify-between items-center px-2 py-1"
+                              className="flex justify-between items-center px-2 py-1 hover-elevate rounded cursor-pointer"
                               data-testid={`platform-breakdown-${marketplace}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleProductLinePlatformClick(line.product_line, marketplace);
+                              }}
                             >
                               <span className="text-[11px] md:text-sm text-gray-300">{marketplace}</span>
                               <div className="flex items-center gap-2">
@@ -1267,10 +1278,11 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
       {/* Platform Orders Drawer */}
       <PlatformOrdersDrawer
         open={platformDrawer.open}
-        onClose={() => setPlatformDrawer({ open: false, platform: '' })}
+        onClose={() => setPlatformDrawer({ open: false, platform: '', productLine: undefined })}
         platform={platformDrawer.platform}
         orders={platformOrders}
         onOrderClick={handlePlatformOrderClick}
+        productLine={platformDrawer.productLine}
       />
     </div>
   );
