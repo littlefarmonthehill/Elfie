@@ -38,6 +38,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
   const [selectedCompareYears, setSelectedCompareYears] = useState<number[]>([currentYear - 1, currentYear - 2]);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
   const [categoryFilter, setCategoryFilter] = useState<'all' | 'moving' | 'stagnant'>('all');
+  const [selectedProductLine, setSelectedProductLine] = useState<string | null>(null);
   
   // Helper function to safely parse dates with fallback
   const safeParseDate = (dateString: string): Date => {
@@ -105,6 +106,30 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
       const url = buildQueryUrl('/api/analytics/categories');
       const response = await fetch(url);
       if (!response.ok) throw new Error('Failed to fetch category analysis');
+      return response.json();
+    },
+    staleTime: 30000,
+  });
+
+  // Fetch product line analysis data
+  interface ProductLineAnalysis {
+    product_line: string;
+    order_count: number;
+    total_units: number;
+    total_revenue: string;
+    platforms: Array<{
+      marketplace: string;
+      order_count: number;
+      revenue: string;
+    }>;
+  }
+
+  const { data: productLineAnalysis = [], isLoading: isProductLineLoading } = useQuery<ProductLineAnalysis[]>({
+    queryKey: ['/api/analytics/product-lines', dateRange],
+    queryFn: async () => {
+      const url = buildQueryUrl('/api/analytics/product-lines');
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Failed to fetch product line analysis');
       return response.json();
     },
     staleTime: 30000,
@@ -1154,6 +1179,89 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
             <div className="text-[11px] text-gray-500 italic">No category data available</div>
           );
         })()}
+      </div>
+
+      {/* Product Line Analysis */}
+      <div className="bg-gray-900/50 border border-cyan-500/20 rounded-lg p-3" data-testid="section-product-lines">
+        <div className="flex items-center gap-2 mb-2">
+          <GitCompare className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-cyan-400" />
+          <h3 className="text-xs md:text-base lg:text-lg font-semibold text-cyan-400 uppercase tracking-wide">Product Lines</h3>
+        </div>
+        {isProductLineLoading ? (
+          <div className="text-[11px] text-gray-500 italic">Loading product line data...</div>
+        ) : productLineAnalysis.length > 0 ? (
+          <div className="space-y-1">
+            {productLineAnalysis.map((line) => {
+              const revenue = parseFloat(line.total_revenue || "0");
+              const isSelected = selectedProductLine === line.product_line;
+              
+              return (
+                <div key={line.product_line}>
+                  <div 
+                    className="flex justify-between items-center hover-elevate rounded px-2 py-1.5 cursor-pointer"
+                    data-testid={`product-line-${line.product_line}`}
+                    onClick={() => setSelectedProductLine(isSelected ? null : line.product_line)}
+                  >
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <div className={`w-2 h-2 rounded-full ${isSelected ? 'bg-cyan-400' : 'bg-cyan-600'} flex-shrink-0`} />
+                      <span className={`text-xs md:text-base lg:text-lg font-medium ${isSelected ? 'text-cyan-300' : 'text-gray-200'}`}>
+                        {line.product_line}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 ml-2 flex-shrink-0">
+                      <span className="text-gray-400 text-[11px] md:text-sm lg:text-base">
+                        {line.order_count} orders • {line.total_units.toLocaleString()} units
+                      </span>
+                      <span className="font-mono font-bold text-xs md:text-base lg:text-lg text-cyan-300 min-w-[80px] text-right">
+                        ${revenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  {/* Platform Breakdown - shown when product line is selected */}
+                  {isSelected && line.platforms && (
+                    <div className="ml-6 mt-1 space-y-1 bg-gray-800/30 rounded p-2">
+                      <div className="text-[10px] text-gray-500 mb-1 uppercase tracking-wide">Platform Breakdown</div>
+                      {(() => {
+                        // Deduplicate and aggregate platforms
+                        const platformMap = new Map<string, { order_count: number; revenue: number }>();
+                        line.platforms.forEach(p => {
+                          const existing = platformMap.get(p.marketplace) || { order_count: 0, revenue: 0 };
+                          platformMap.set(p.marketplace, {
+                            order_count: existing.order_count + p.order_count,
+                            revenue: existing.revenue + parseFloat(p.revenue || "0")
+                          });
+                        });
+                        
+                        return Array.from(platformMap.entries())
+                          .sort((a, b) => b[1].revenue - a[1].revenue)
+                          .map(([marketplace, data]) => (
+                            <div 
+                              key={marketplace}
+                              className="flex justify-between items-center px-2 py-1"
+                              data-testid={`platform-breakdown-${marketplace}`}
+                            >
+                              <span className="text-[11px] md:text-sm text-gray-300">{marketplace}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[11px] md:text-sm text-gray-400">
+                                  {data.order_count} orders
+                                </span>
+                                <span className="font-mono text-[11px] md:text-sm text-cyan-400">
+                                  ${data.revenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </span>
+                              </div>
+                            </div>
+                          ));
+                      })()}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-[11px] text-gray-500 italic">No product line data available</div>
+        )}
       </div>
 
       {/* Platform Orders Drawer */}
