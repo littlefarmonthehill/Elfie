@@ -1441,6 +1441,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
         onClose={() => setCategoryDrawer({ open: false, categoryId: null, categoryName: '' })}
         categoryName={categoryDrawer.categoryName}
         items={categoryItems}
+        onItemClick={onItemClick}
       />
     </div>
   );

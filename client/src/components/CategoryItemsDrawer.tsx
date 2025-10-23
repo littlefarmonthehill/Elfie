@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
 import { ChevronDown, Package } from "lucide-react";
-import ItemDetailDrawer from "./ItemDetailDrawer";
+import InventoryDetail from "./details/InventoryDetail";
+import { useQuery } from "@tanstack/react-query";
 
 interface CategoryItem {
   item_no: string;
@@ -17,22 +18,32 @@ interface CategoryItemsDrawerProps {
   onClose: () => void;
   categoryName: string;
   items: CategoryItem[];
+  onItemClick?: (type: 'inventory', id: number) => void;
 }
 
 export default function CategoryItemsDrawer({ 
   open, 
   onClose, 
   categoryName,
-  items
+  items,
+  onItemClick
 }: CategoryItemsDrawerProps) {
-  const [selectedItemNo, setSelectedItemNo] = useState<string | null>(null);
-
-  const handleItemClick = (itemNo: string) => {
-    setSelectedItemNo(itemNo);
-  };
-
-  const handleCloseItemDetail = () => {
-    setSelectedItemNo(null);
+  const handleItemClickInternal = (itemNo: string) => {
+    // Use the parent's onItemClick if provided
+    // For now, we'll need to fetch the inventory lot ID
+    // This will open the detail in the parent component's drawer
+    if (onItemClick) {
+      // We need to get the first inventory lot for this item
+      // The parent will handle showing the detail drawer
+      fetch(`/api/inventory/search?itemNo=${encodeURIComponent(itemNo)}&limit=1`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.length > 0) {
+            onItemClick('inventory', data[0].id);
+          }
+        })
+        .catch(err => console.error('Error finding inventory:', err));
+    }
   };
 
   return (
@@ -68,7 +79,7 @@ export default function CategoryItemsDrawer({
                 {items.map((item, index) => (
                   <div
                     key={`${item.item_no}-${index}`}
-                    onClick={() => handleItemClick(item.item_no)}
+                    onClick={() => handleItemClickInternal(item.item_no)}
                     className="flex justify-between items-start p-3 rounded-lg bg-gray-800/50 border border-gray-700 hover-elevate active-elevate-2 cursor-pointer"
                     data-testid={`category-item-${index}`}
                   >
@@ -112,15 +123,6 @@ export default function CategoryItemsDrawer({
         </div>
         </DrawerContent>
       </Drawer>
-
-      {/* Item Detail Drawer */}
-      {selectedItemNo && (
-        <ItemDetailDrawer
-          open={!!selectedItemNo}
-          onClose={handleCloseItemDetail}
-          itemNo={selectedItemNo}
-        />
-      )}
     </>
   );
 }

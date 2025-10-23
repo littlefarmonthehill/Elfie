@@ -6222,6 +6222,37 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   // ITEM DETAIL ROUTES
   // ============================================================================
 
+  // GET /api/inventory/search - Search for inventory by item number
+  app.get("/api/inventory/search", isApproved, async (req, res) => {
+    try {
+      const { itemNo, limit = 10 } = req.query;
+
+      if (!itemNo || typeof itemNo !== 'string') {
+        return res.status(400).json({ error: "itemNo is required" });
+      }
+
+      const inventoryLots = await db
+        .select({
+          id: blInventory.id,
+          itemNo: blInventory.itemNo,
+          itemName: blInventory.itemName,
+          colorId: blInventory.colorId,
+          colorName: blColors.name,
+          newOrUsed: blInventory.newOrUsed,
+          quantity: blInventory.quantity,
+        })
+        .from(blInventory)
+        .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+        .where(eq(blInventory.itemNo, itemNo))
+        .limit(parseInt(limit as string) || 10);
+
+      res.json(inventoryLots);
+    } catch (error) {
+      console.error("Error searching inventory:", error);
+      res.status(500).json({ error: "Failed to search inventory" });
+    }
+  });
+
   // GET /api/items/detail/:itemNo - Get detailed information about a specific item
   app.get("/api/items/detail/:itemNo", isApproved, async (req, res) => {
     try {
