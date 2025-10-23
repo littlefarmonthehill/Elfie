@@ -134,6 +134,15 @@ export async function syncBrickOwlOrders(
 }
 
 /**
+ * Safely parse Unix timestamp to Date, returns null if invalid
+ */
+function safeTimestampToDate(timestamp: number | null | undefined): Date | null {
+  if (!timestamp) return null;
+  const date = new Date(timestamp * 1000);
+  return isNaN(date.getTime()) ? null : date;
+}
+
+/**
  * Process a single BrickOwl order
  */
 async function processBrickOwlOrder(
@@ -156,13 +165,21 @@ async function processBrickOwlOrder(
   // Fetch full order details (including items)
   const orderDetails = await getBrickOwlOrderDetails(apiKey, boOrder.order_id);
   
+  // Safely parse order date
+  const orderDate = safeTimestampToDate(boOrder.order_time);
+  if (!orderDate) {
+    console.warn(`⚠️ Skipping order ${orderId}: invalid order_time timestamp`);
+    result.errors.push(`Order ${orderId}: invalid order_time`);
+    return;
+  }
+  
   // Prepare order data
   const orderData = {
     id: orderId,
     orderNumber: boOrder.order_id.toString(),
     orderKey: `BO.${boOrder.order_id}`,
     marketplace: 'BrickOwl',
-    orderDate: new Date(boOrder.order_time * 1000), // Unix timestamp to Date
+    orderDate: orderDate,
     orderStatus: normalizedStatus,
     previousStatus: existingOrder?.orderStatus || null,
     customerUsername: orderDetails.buyer_name || null,
@@ -186,7 +203,6 @@ async function processBrickOwlOrder(
     requestedShippingService: orderDetails.ship_method_name || null,
     carrierCode: null,
     serviceCode: null,
-    updatedAt: new Date(),
   };
   
   // Insert or update order
