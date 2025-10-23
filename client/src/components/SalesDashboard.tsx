@@ -64,9 +64,9 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
   };
 
   const { data: orders = [], isLoading } = useQuery<Order[]>({
-    queryKey: ['/api/orders', dateRange],
+    queryKey: ['/api/orders/summary', dateRange],
     queryFn: async () => {
-      const url = buildQueryUrl('/api/orders');
+      const url = buildQueryUrl('/api/orders/summary');
       console.log(`[SalesDashboard] Fetching orders with dateRange="${dateRange}", URL: ${url}`);
       const startTime = Date.now();
       const response = await fetch(url);
@@ -86,8 +86,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
       });
       return data;
     },
-    staleTime: dateRange === 'all' ? 0 : 30000, // Always refetch for "all", cache others for 30s
-    gcTime: 0, // Don't cache at all for debugging
+    staleTime: 30000,
   });
 
   // Fetch category analysis data

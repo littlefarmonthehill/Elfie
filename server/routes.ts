@@ -144,6 +144,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Lightweight endpoint for Sales Dashboard - orders without details
+  app.get("/api/orders/summary", isApproved, async (req, res) => {
+    try {
+      // Parse date range parameter
+      const range = req.query.range as string;
+      let dateFilter: Date | null = null;
+      let endDateFilter: Date | null = null;
+      
+      // Debug logging
+      console.log(`📊 Orders Summary API called with range: ${range || 'none'}`);
+      
+      if (range && range !== 'all') {
+        const now = new Date();
+        switch (range) {
+          case 'mtd':
+            // Month-to-Date: start of current month
+            dateFilter = new Date(now.getFullYear(), now.getMonth(), 1);
+            break;
+          case 'lastmonth':
+            // Last Month: entire previous calendar month
+            dateFilter = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            endDateFilter = new Date(now.getFullYear(), now.getMonth(), 1);
+            break;
+          case '3months':
+            dateFilter = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+            break;
+          case '6months':
+            dateFilter = new Date(now.getFullYear(), now.getMonth() - 6, 1);
+            break;
+          case '1year':
+            dateFilter = new Date(now.getFullYear() - 1, now.getMonth(), 1);
+            break;
+          case '2years':
+            dateFilter = new Date(now.getFullYear() - 2, now.getMonth(), 1);
+            break;
+        }
+      }
+
+      // Fetch orders WITHOUT details - just headers
+      const allOrders = dateFilter
+        ? endDateFilter
+          ? await db.select().from(orders)
+              .where(sql`${orders.orderDate} >= ${dateFilter.toISOString()} AND ${orders.orderDate} < ${endDateFilter.toISOString()}`)
+              .orderBy(desc(orders.orderDate))
+          : await db.select().from(orders)
+              .where(sql`${orders.orderDate} >= ${dateFilter.toISOString()}`)
+              .orderBy(desc(orders.orderDate))
+        : await db.select().from(orders).orderBy(desc(orders.orderDate));
+      
+      const responseSize = JSON.stringify(allOrders).length;
+      console.log(`📊 Sending ${allOrders.length} order summaries (no details), response size: ${(responseSize / 1024 / 1024).toFixed(2)} MB (dateFilter: ${dateFilter ? 'set' : 'none'})`);
+      
+      res.json(allOrders);
+    } catch (error) {
+      console.error("Error fetching order summaries:", error);
+      res.status(500).json({ error: "Failed to fetch order summaries" });
+    }
+  });
+
   // Data Fetch Routes - all protected by isApproved middleware
   app.get("/api/orders", isApproved, async (req, res) => {
     try {
@@ -220,6 +279,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...order,
         items: detailsByOrder[order.id] || [],
       }));
+      
+      // Log response size for debugging
+      const responseSize = JSON.stringify(ordersWithDetails).length;
+      console.log(`📊 Sending ${ordersWithDetails.length} orders, response size: ${(responseSize / 1024 / 1024).toFixed(2)} MB`);
       
       res.json(ordersWithDetails);
     } catch (error) {

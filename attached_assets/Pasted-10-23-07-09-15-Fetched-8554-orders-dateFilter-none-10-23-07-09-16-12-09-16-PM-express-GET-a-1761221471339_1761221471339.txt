@@ -1,0 +1,56 @@
+10-23 07:09:15
+📊 Fetched 8554 orders (dateFilter: none)
+10-23 07:09:16
+12:09:16 PM [express] GET /api/analytics/categories 304 in 489ms :: [{"category_id":9,"category_name"…
+10-23 07:09:26
+✅ Generated 1 forum embeddings
+10-23 07:09:26
+✅ BrickLink forum sync complete
+10-23 07:09:27
+12:09:27 PM [express] GET /api/auth/user 304 in 69ms :: {"id":"5219be32-12fb-46c6-bd09-6f5f0fa9459f",…
+10-23 07:09:27
+📊 Orders API called with range: none
+10-23 07:09:27
+📊 Orders API called with range: none
+10-23 07:09:27
+12:09:27 PM [express] GET /api/priceomatic/insights 304 in 251ms :: {"success":true,"data":{"tooHigh"…
+10-23 07:09:27
+12:09:27 PM [express] GET /api/sync-issues 304 in 329ms :: {"success":true,"issues":[],"count":0}
+10-23 07:09:28
+📊 Fetched 8554 orders (dateFilter: none)
+10-23 07:09:32
+12:09:32 PM [express] GET /api/orders 200 in 4670ms :: [{"id":"754390016","orderNumber":"BL.23954021"…
+10-23 07:09:33
+📊 Orders API called with range: none
+10-23 07:09:33
+📊 Orders API called with range: none
+10-23 07:09:33
+12:09:33 PM [express] GET /api/sync-issues 304 in 92ms :: {"success":true,"issues":[],"count":0}
+10-23 07:09:33
+12:09:33 PM [express] GET /api/priceomatic/insights 304 in 116ms :: {"success":true,"data":{"tooHigh"…
+10-23 07:09:33
+12:09:33 PM [express] GET /api/dashboard/stats 304 in 163ms :: {"totalOrders":8554,"totalInventoryIte…
+10-23 07:09:34
+📊 Fetched 8554 orders (dateFilter: none)
+10-23 07:09:38
+12:09:38 PM [express] GET /api/orders 200 in 4464ms :: [{"id":"754390016","orderNumber":"BL.23954021"…
+10-23 07:09:38
+📊 Orders API called with range: all
+10-23 07:09:38
+📊 Orders API called with range: mtd
+10-23 07:09:39
+12:09:39 PM [express] GET /api/orders 200 in 5014ms :: [{"id":"754390016","orderNumber":"BL.23954021"…
+10-23 07:09:39
+📊 Fetched 0 orders (dateFilter: set)
+10-23 07:09:39
+12:09:39 PM [express] GET /api/analytics/categories 304 in 676ms :: [{"category_id":9,"category_name"…
+10-23 07:09:39
+12:09:39 PM [express] GET /api/orders 304 in 689ms :: []
+10-23 07:09:39
+📊 Fetched 8554 orders (dateFilter: none)
+10-23 07:09:39
+12:09:39 PM [express] GET /api/analytics/categories 304 in 850ms :: [{"category_id":516,"category_nam…
+10-23 07:10:01
+system: received signal terminated
+10-23 07:10:03
+12:10:03 PM [express] GET /api/orders 200 in 2897ms :: [{"id":"754390016","orderNumber":"BL.23954021"…
