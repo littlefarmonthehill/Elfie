@@ -350,7 +350,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Build SQL query for category sell-through analysis
       // Build sold items subquery with date filter
-      // Use DISTINCT to avoid multiplying quantities when same item exists in multiple colors/conditions
       
       // Build WHERE conditions for the inner query
       let whereConditions = sql`o.order_status NOT IN ('cancelled', 'Cancelled')`;
@@ -360,18 +359,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         whereConditions = sql`${whereConditions} AND o.order_date >= ${dateFilter} AND o.order_date < ${endDateFilter}`;
       }
       
+      // Get sold quantities by category
+      // Join to inventory just to get category_id (take any one inventory row per sku)
       const soldSubquery = sql`
-        SELECT category_id, SUM(total_qty) as total_qty
-        FROM (
-          SELECT DISTINCT ON (od.order_id, od.sku) 
-            i.category_id, 
-            od.quantity as total_qty
-          FROM ${orderDetails} od
-          JOIN ${orders} o ON od.order_id = o.id
-          JOIN ${blInventory} i ON od.sku = i.item_no
-          WHERE ${whereConditions}
-        ) distinct_sales
-        GROUP BY category_id
+        SELECT i.category_id, SUM(od.quantity) as total_qty
+        FROM ${orderDetails} od
+        JOIN ${orders} o ON od.order_id = o.id
+        JOIN (
+          SELECT DISTINCT ON (item_no) item_no, category_id
+          FROM ${blInventory}
+        ) i ON od.sku = i.item_no
+        WHERE ${whereConditions}
+        GROUP BY i.category_id
       `;
       
       // Main query combining current inventory and sold data
