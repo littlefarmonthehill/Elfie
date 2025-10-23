@@ -540,8 +540,8 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
               </Badge>
             </div>
             
-            {/* New and Used badges stacked vertically (New on top) */}
-            <div className="flex flex-col items-start gap-0.5 pt-1">
+            {/* New and Used badges horizontal */}
+            <div className="flex items-center gap-1 flex-wrap pt-1">
               {totalNewQty > 0 && (
                 <Badge variant="secondary" className="text-[9px] md:text-xs px-1 md:px-1.5 py-0.5 h-auto bg-emerald-500/20 text-emerald-300 border-emerald-500/30">
                   {totalNewQty.toLocaleString()} New
@@ -1014,10 +1014,24 @@ export default function Shop() {
         group.variations.push(variation);
         group.totalQty += variation.qty;
       });
+      
+      // Sort variations within each color group: New items first, then Used
+      const sortedColorGroups = Array.from(colorMap.values()).map(group => ({
+        ...group,
+        variations: [...group.variations].sort((a, b) => {
+          // New items first
+          if (a.condition !== b.condition) {
+            return a.condition === 'New' ? -1 : 1;
+          }
+          // Then by quantity descending
+          return b.qty - a.qty;
+        })
+      }));
+      
       return {
         ...lot,
         uniqueColorCount: colorMap.size,
-        colorGroups: Array.from(colorMap.values())
+        colorGroups: sortedColorGroups
       };
     });
   };
