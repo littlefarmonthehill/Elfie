@@ -149,11 +149,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // Parse date range parameter
       const range = req.query.range as string;
+      const productLine = req.query.productLine as string;
+      const platform = req.query.platform as string;
       let dateFilter: Date | null = null;
       let endDateFilter: Date | null = null;
       
       // Debug logging
-      console.log(`📊 Orders Summary API called with range: ${range || 'none'}`);
+      console.log(`📊 Orders Summary API called with range: ${range || 'none'}, productLine: ${productLine || 'none'}, platform: ${platform || 'none'}`);
       
       if (range && range !== 'all') {
         const now = new Date();
@@ -182,7 +184,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Fetch orders WITHOUT details - just headers
+      // If filtering by product line, we need to find orders that contain items from that product line
+      if (productLine) {
+        // Build WHERE conditions for product line classification
+        let productLineCondition: any;
+        switch (productLine) {
+          case 'K\'NEX':
+            productLineCondition = sql`(od.name ILIKE '%K''NEX%' OR od.name ILIKE '%KNEX%')`;
+            break;
+          case 'Erector/Meccano':
+            productLineCondition = sql`(od.name ILIKE '%Erector%' OR od.name ILIKE '%Meccano%')`;
+            break;
+          case 'Capsela':
+            productLineCondition = sql`od.name ILIKE '%Capsela%'`;
+            break;
+          case 'Marbleworks':
+            productLineCondition = sql`(od.name ILIKE '%Marbleworks%' OR od.name ILIKE '%Discovery Toys%')`;
+            break;
+          case 'Little Tikes':
+            productLineCondition = sql`od.name ILIKE '%Little Tikes%'`;
+            break;
+          case 'Fisher-Price':
+            productLineCondition = sql`od.name ILIKE '%Fisher-Price%'`;
+            break;
+          case 'LEGO':
+          default:
+            // LEGO is the default - any item that doesn't match other product lines
+            productLineCondition = sql`NOT (
+              (od.name ILIKE '%K''NEX%' OR od.name ILIKE '%KNEX%') OR
+              (od.name ILIKE '%Erector%' OR od.name ILIKE '%Meccano%') OR
+              od.name ILIKE '%Capsela%' OR
+              (od.name ILIKE '%Marbleworks%' OR od.name ILIKE '%Discovery Toys%') OR
+              od.name ILIKE '%Little Tikes%' OR
+              od.name ILIKE '%Fisher-Price%'
+            )`;
+            break;
+        }
+
+        // Query orders that have at least one item matching the product line
+        let whereConditions = sql`o.order_status NOT IN ('cancelled', 'Cancelled') AND ${productLineCondition}`;
+        
+        if (platform) {
+          whereConditions = sql`${whereConditions} AND (o.marketplace = ${platform} OR (o.marketplace IS NULL AND ${platform} = 'Unknown'))`;
+        }
+        
+        if (dateFilter && !endDateFilter) {
+          whereConditions = sql`${whereConditions} AND o.order_date >= ${dateFilter}`;
+        } else if (dateFilter && endDateFilter) {
+          whereConditions = sql`${whereConditions} AND o.order_date >= ${dateFilter} AND o.order_date < ${endDateFilter}`;
+        }
+
+        const query = sql`
+          SELECT DISTINCT o.*
+          FROM ${orders} o
+          JOIN ${orderDetails} od ON o.id = od.order_id
+          WHERE ${whereConditions}
+          ORDER BY o.order_date DESC
+        `;
+
+        const result = await db.execute(query);
+        console.log(`📊 Sending ${result.rows.length} orders filtered by product line "${productLine}" and platform "${platform || 'all'}"`);
+        res.json(result.rows);
+        return;
+      }
+
+      // Standard query without product line filter
       const allOrders = dateFilter
         ? endDateFilter
           ? await db.select().from(orders)

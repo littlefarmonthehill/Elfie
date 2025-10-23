@@ -92,6 +92,36 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
     staleTime: 30000,
   });
 
+  // Fetch orders filtered by product line and platform for the drawer
+  const { data: productLineOrders = [] } = useQuery<Order[]>({
+    queryKey: ['/api/orders/summary', dateRange, platformDrawer.productLine, platformDrawer.platform],
+    queryFn: async () => {
+      if (!platformDrawer.open || !platformDrawer.productLine) {
+        return [];
+      }
+      
+      const params = new URLSearchParams({
+        range: dateRange,
+        productLine: platformDrawer.productLine,
+        platform: platformDrawer.platform,
+      });
+      
+      const url = `/api/orders/summary?${params.toString()}`;
+      console.log(`[SalesDashboard] Fetching product line orders: ${url}`);
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch product line orders');
+      }
+      
+      const data = await response.json();
+      console.log(`[SalesDashboard] Received ${data.length} orders for ${platformDrawer.productLine} - ${platformDrawer.platform}`);
+      return data;
+    },
+    enabled: platformDrawer.open && !!platformDrawer.productLine,
+    staleTime: 30000,
+  });
+
   // Fetch category analysis data
   interface CategoryAnalysis {
     category_id: number;
@@ -224,10 +254,10 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
   }, [selectedPlatforms, availablePlatforms]);
 
   // Filter orders for selected platform and product line
-  // Note: Since we don't have order item details in the summary, we'll fetch them in the drawer
-  const platformOrders = filteredOrders.filter(
-    order => (order.marketplace || 'Unknown') === platformDrawer.platform
-  );
+  // If productLine is specified, use the filtered query result, otherwise filter from all orders
+  const platformOrders = platformDrawer.productLine 
+    ? productLineOrders
+    : filteredOrders.filter(order => (order.marketplace || 'Unknown') === platformDrawer.platform);
   
   // Handler for clicking on a platform within a product line breakdown
   const handleProductLinePlatformClick = (productLine: string, platform: string) => {
