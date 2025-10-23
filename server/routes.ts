@@ -243,8 +243,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         `;
 
         const result = await db.execute(query);
-        console.log(`📊 Sending ${result.rows.length} orders filtered by product line "${productLine}" and platform "${platform || 'all'}"`);
-        res.json(result.rows);
+        
+        // Map snake_case DB columns to camelCase to match the Order interface
+        const mappedOrders = result.rows.map((row: any) => ({
+          id: row.id,
+          orderNumber: row.order_number,
+          marketplace: row.marketplace,
+          orderDate: row.order_date,
+          orderTotal: row.order_total,
+          customerUsername: row.customer_username,
+          orderStatus: row.order_status,
+          // Include other fields if needed
+          blOrderId: row.bl_order_id,
+          customerEmail: row.customer_email,
+          customerName: row.customer_name,
+          paymentStatus: row.payment_status,
+          shippingMethod: row.shipping_method,
+          trackingNumber: row.tracking_number,
+          shippingCost: row.shipping_cost,
+          taxAmount: row.tax_amount,
+          shippingAddress: row.shipping_address,
+          boOrderId: row.bo_order_id,
+          boOrderTime: row.bo_order_time,
+          shippedDate: row.shipped_date,
+        }));
+        
+        console.log(`📊 Sending ${mappedOrders.length} orders filtered by product line "${productLine}" and platform "${platform || 'all'}"`, 
+          mappedOrders.length > 0 ? `Sample: orderNumber=${mappedOrders[0].orderNumber}, orderTotal=${mappedOrders[0].orderTotal}` : '');
+        res.json(mappedOrders);
         return;
       }
 
