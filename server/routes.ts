@@ -315,6 +315,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get category analysis (sell-through percentages)
+  app.get("/api/analytics/categories", isApproved, async (req, res) => {
+    try {
+      const range = req.query.range as string;
+      let dateFilter: Date | null = null;
+      let endDateFilter: Date | null = null;
+      
+      // Parse date range (same logic as orders endpoint)
+      if (range && range !== 'all') {
+        const now = new Date();
+        switch (range) {
+          case 'mtd':
+            dateFilter = new Date(now.getFullYear(), now.getMonth(), 1);
+            break;
+          case 'lastmonth':
+            dateFilter = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            endDateFilter = new Date(now.getFullYear(), now.getMonth(), 1);
+            break;
+          case '3months':
+            dateFilter = new Date(now.setMonth(now.getMonth() - 3));
+            break;
+          case '6months':
+            dateFilter = new Date(now.setMonth(now.getMonth() - 6));
+            break;
+          case '1year':
+            dateFilter = new Date(now.setFullYear(now.getFullYear() - 1));
+            break;
+          case '2years':
+            dateFilter = new Date(now.setFullYear(now.getFullYear() - 2));
+            break;
+        }
+      }
+      
+      // Build SQL query for category sell-through analysis
+      let query = sql`
+        SELECT 
+          c.id as category_id,
+          c.name as category_name,
+          COALESCE(SUM(od.quantity), 0)::integer as total_sold,
+          COALESCE(SUM(i.quantity), 0)::integer as current_inventory,
+          CASE 
+            WHEN SUM(i.quantity) > 0 
+            THEN ROUND((SUM(od.quantity)::numeric / SUM(i.quantity)::numeric * 100), 2)
+            ELSE 0 
+          END as sell_through_pct
+        FROM ${blCategories} c
+        LEFT JOIN ${blInventory} i ON c.id = i.category_id
+        LEFT JOIN ${orderDetails} od ON i.item_no = od.sku
+        LEFT JOIN ${orders} o ON od.order_id = o.id
+      `;
+      
+      // Add date filters
+      const conditions: any[] = [];
+      if (dateFilter && !endDateFilter) {
+        conditions.push(sql`o.order_date >= ${dateFilter}`);
+      } else if (dateFilter && endDateFilter) {
+        conditions.push(sql`o.order_date >= ${dateFilter} AND o.order_date < ${endDateFilter}`);
+      }
+      
+      // Exclude cancelled orders
+      conditions.push(sql`(o.order_status IS NULL OR o.order_status NOT IN ('cancelled', 'Cancelled'))`);
+      
+      if (conditions.length > 0) {
+        query = sql`${query} WHERE ${sql.join(conditions, sql` AND `)}`;
+      }
+      
+      query = sql`
+        ${query}
+        GROUP BY c.id, c.name
+        ORDER BY sell_through_pct DESC, c.name ASC
+      `;
+      
+      const result = await db.execute(query);
+      res.json(result.rows);
+    } catch (error) {
+      console.error("Error fetching category analysis:", error);
+      res.status(500).json({ error: "Failed to fetch category analysis" });
+    }
+  });
+
   // Fetch single order by ID with full details
   app.get("/api/orders/:id", isApproved, async (req, res) => {
     try {

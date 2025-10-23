@@ -77,6 +77,26 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
     staleTime: 30000, // Cache for 30 seconds
   });
 
+  // Fetch category analysis data
+  interface CategoryAnalysis {
+    category_id: number;
+    category_name: string;
+    total_sold: number;
+    current_inventory: number;
+    sell_through_pct: number;
+  }
+
+  const { data: categoryAnalysis = [], isLoading: isCategoryLoading } = useQuery<CategoryAnalysis[]>({
+    queryKey: ['/api/analytics/categories', dateRange],
+    queryFn: async () => {
+      const url = buildQueryUrl('/api/analytics/categories');
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Failed to fetch category analysis');
+      return response.json();
+    },
+    staleTime: 30000,
+  });
+
   // Get available years from orders
   const availableYears = useMemo(() => {
     const years = new Set<number>();
@@ -998,6 +1018,47 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
       {/* Platform Performance */}
       <div className="bg-gray-900/50 border border-blue-500/20 rounded-lg p-3" data-testid="section-platform-performance">
         <PlatformPerformance orders={filteredOrders} onPlatformClick={handlePlatformClick} />
+      </div>
+
+      {/* Category Analysis */}
+      <div className="bg-gray-900/50 border border-purple-500/20 rounded-lg p-3" data-testid="section-category-analysis">
+        <div className="flex items-center gap-2 mb-2">
+          <Target className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-purple-400" />
+          <h3 className="text-xs md:text-base lg:text-lg font-semibold text-purple-400 uppercase tracking-wide">Category Analysis - Sell-Through</h3>
+        </div>
+        {isCategoryLoading ? (
+          <div className="text-[11px] text-gray-500 italic">Loading category data...</div>
+        ) : categoryAnalysis.length > 0 ? (
+          <div className="space-y-1">
+            {categoryAnalysis.map((category) => (
+              <div 
+                key={category.category_id}
+                className="flex justify-between items-center hover-elevate rounded px-2 py-1.5"
+                data-testid={`category-${category.category_id}`}
+              >
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <div className="w-2 h-2 rounded-full bg-purple-400 flex-shrink-0" />
+                  <span className="text-gray-200 text-xs md:text-base lg:text-lg font-medium">{category.category_name}</span>
+                </div>
+                <div className="flex items-center gap-3 ml-2 flex-shrink-0">
+                  <span className="text-gray-400 text-[11px] md:text-sm lg:text-base">
+                    {category.total_sold.toLocaleString()} / {category.current_inventory.toLocaleString()}
+                  </span>
+                  <span className={`font-mono font-bold text-xs md:text-base lg:text-lg min-w-[60px] text-right ${
+                    category.sell_through_pct > 50 ? 'text-red-400' :
+                    category.sell_through_pct > 25 ? 'text-yellow-400' :
+                    category.sell_through_pct > 10 ? 'text-green-400' :
+                    'text-gray-500'
+                  }`}>
+                    {category.sell_through_pct.toFixed(1)}%
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-[11px] text-gray-500 italic">No category data available</div>
+        )}
       </div>
 
       {/* Platform Orders Drawer */}
