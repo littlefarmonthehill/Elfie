@@ -1096,9 +1096,9 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
         </div>
         {isCategoryLoading ? (
           <div className="text-[11px] text-gray-500 italic">Loading category data...</div>
-        ) : categoryAnalysis.length > 0 ? (
+        ) : categoryAnalysis.filter(cat => cat.total_sold > 0).length > 0 ? (
           <div className="space-y-1">
-            {categoryAnalysis.map((category) => (
+            {categoryAnalysis.filter(cat => cat.total_sold > 0).map((category) => (
               <div 
                 key={category.category_id}
                 className="flex justify-between items-center hover-elevate rounded px-2 py-1.5"
