@@ -61,6 +61,27 @@ export async function syncBrickOwlOrders(
       }
     } else {
       console.log(`🔄 Full sync requested`);
+      
+      // For full syncs: Run batch migration of historical data FIRST (much faster than item-by-item)
+      console.log(`🔄 Running batch migration for historical BrickOwl orders...`);
+      const migrationResult = await db.execute(`
+        UPDATE order_details od
+        SET bricklink_inventory_id = CAST(od.sku AS INTEGER)
+        FROM orders o
+        WHERE od.order_id = o.id
+          AND o.marketplace = 'BrickOwl'
+          AND od.sku ~ '^\\d+$'
+          AND od.sku != '0'
+          AND od.bricklink_inventory_id IS NULL
+      `);
+      
+      const rowsUpdated = (migrationResult as any).rowCount || 0;
+      if (rowsUpdated > 0) {
+        console.log(`✅ Batch migrated ${rowsUpdated} historical BrickOwl items`);
+        result.skusMigrated += rowsUpdated;
+      } else {
+        console.log(`✅ No historical items need migration`);
+      }
     }
     
     // Fetch orders from BrickOwl API
@@ -244,36 +265,10 @@ async function processBrickOwlOrder(
         .limit(1);
       
       if (existingItem) {
-        // Migration: Populate bricklink_inventory_id if missing
-        // Strategy: Use API external_lot_ids.other if available, otherwise use existing SKU if it's numeric
-        const needsMigration = !existingItem.bricklinkInventoryId;
-        
-        if (needsMigration) {
-          let brickLinkInvId: number | null = null;
-          
-          // Try API's external_lot_ids.other first (most reliable)
-          if (item.external_lot_ids?.other) {
-            brickLinkInvId = parseInt(item.external_lot_ids.other, 10);
-          } 
-          // Fallback: Use existing SKU if it's all digits (BrickLink inventory ID format)
-          else if (existingItem.sku && /^\d+$/.test(existingItem.sku) && existingItem.sku !== '0') {
-            brickLinkInvId = parseInt(existingItem.sku, 10);
-          }
-          
-          if (brickLinkInvId) {
-            // Update bricklink_inventory_id (keep SKU as-is for now)
-            await db
-              .update(orderDetails)
-              .set({
-                bricklinkInventoryId: brickLinkInvId,
-              })
-              .where(eq(orderDetails.id, existingItem.id));
-            
-            result.skusMigrated++;
-          }
-        }
-        
-        continue; // Skip to next item
+        // Item already exists - skip it
+        // Note: Historical SKU migration is handled in bulk at the start of full syncs
+        // Only new orders/items from this point forward
+        continue;
       }
       
       // Determine BrickLink inventory ID
@@ -297,9 +292,9 @@ async function processBrickOwlOrder(
         sku: skuValue,  // BrickLink inventory ID (standardized)
         name: `${item.boid || ''} - ${item.name || ''}`,
         quantity: item.ordered_quantity,
-        unitPrice: item.base_price ? parseFloat(item.base_price) : 0,
+        unitPrice: item.base_price ? item.base_price.toString() : '0',
         taxAmount: null,
-        weight: item.weight ? parseFloat(item.weight) : null,
+        weight: item.weight ? item.weight.toString() : null,
         weightUnits: null,
         description: item.public_note || null,
         options: null,
@@ -313,7 +308,7 @@ async function processBrickOwlOrder(
         fulfilledAt: null,
       };
       
-      await db.insert(orderDetails).values(orderDetailData);
+      await db.insert(orderDetails).values([orderDetailData]);
       result.orderDetailsAdded++;
       
     } catch (error: any) {
