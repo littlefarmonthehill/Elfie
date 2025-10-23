@@ -6219,6 +6219,143 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
   });
 
   // ============================================================================
+  // ITEM DETAIL ROUTES
+  // ============================================================================
+
+  // GET /api/items/detail/:itemNo - Get detailed information about a specific item
+  app.get("/api/items/detail/:itemNo", isApproved, async (req, res) => {
+    try {
+      const { itemNo } = req.params;
+
+      // Get all inventory lots for this item
+      const inventoryLots = await db
+        .select({
+          id: blInventory.id,
+          itemNo: blInventory.itemNo,
+          itemName: blInventory.itemName,
+          colorId: blInventory.colorId,
+          colorName: blColors.name,
+          colorRgb: blColors.rgb,
+          categoryId: blInventory.categoryId,
+          categoryName: blCategories.name,
+          quantity: blInventory.quantity,
+          newOrUsed: blInventory.newOrUsed,
+          unitPrice: blInventory.unitPrice,
+        })
+        .from(blInventory)
+        .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+        .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
+        .where(eq(blInventory.itemNo, itemNo));
+
+      if (inventoryLots.length === 0) {
+        return res.status(404).json({ error: "Item not found" });
+      }
+
+      // Get warehouse locations for each inventory lot
+      const inventoryIds = inventoryLots.map(lot => lot.id);
+      const warehouseLocations = await db
+        .select({
+          inventoryId: inventoryLocations.inventoryId,
+          binId: inventoryLocations.binId,
+          binName: whBins.name,
+          shelfName: whShelves.name,
+          aisleName: whAisles.name,
+        })
+        .from(inventoryLocations)
+        .leftJoin(whBins, eq(inventoryLocations.binId, whBins.id))
+        .leftJoin(whShelves, eq(whBins.shelfId, whShelves.id))
+        .leftJoin(whAisles, eq(whShelves.aisleId, whAisles.id))
+        .where(inArray(inventoryLocations.inventoryId, inventoryIds));
+
+      // Get sales data for this item
+      // Note: sku contains the item number for most platforms
+      const salesData = await db
+        .select({
+          quantitySold: sql<number>`COALESCE(SUM(${orderDetails.quantity}), 0)`,
+          revenue: sql<number>`COALESCE(SUM(CAST(${orderDetails.unitPrice} AS DECIMAL) * ${orderDetails.quantity}), 0)`,
+        })
+        .from(orderDetails)
+        .where(eq(orderDetails.sku, itemNo));
+
+      // Build color variations array with warehouse locations
+      const colors = inventoryLots.map(lot => {
+        const location = warehouseLocations.find(loc => loc.inventoryId === lot.id);
+        let warehouseLocation = null;
+        if (location?.binName) {
+          const parts = [];
+          if (location.aisleName) parts.push(location.aisleName);
+          if (location.shelfName) parts.push(location.shelfName);
+          parts.push(location.binName);
+          warehouseLocation = parts.join(' / ');
+        }
+
+        return {
+          colorId: lot.colorId || 0,
+          colorName: lot.colorName || 'Unknown',
+          colorRgb: lot.colorRgb,
+          quantity: lot.quantity || 0,
+          condition: lot.newOrUsed || 'U',
+          price: lot.unitPrice,
+          warehouseLocation,
+        };
+      });
+
+      // Calculate totals
+      const totalQuantity = inventoryLots.reduce((sum, lot) => sum + (lot.quantity || 0), 0);
+      const newQuantity = inventoryLots
+        .filter(lot => lot.newOrUsed === 'N')
+        .reduce((sum, lot) => sum + (lot.quantity || 0), 0);
+      const usedQuantity = inventoryLots
+        .filter(lot => lot.newOrUsed === 'U')
+        .reduce((sum, lot) => sum + (lot.quantity || 0), 0);
+      
+      const colorCount = new Set(inventoryLots.map(lot => lot.colorId).filter(Boolean)).size;
+
+      // Calculate price statistics
+      const prices = inventoryLots
+        .map(lot => parseFloat(lot.unitPrice || '0'))
+        .filter(price => price > 0);
+      
+      const avgPrice = prices.length > 0 
+        ? (prices.reduce((sum, price) => sum + price, 0) / prices.length).toFixed(3)
+        : null;
+      const minPrice = prices.length > 0 ? Math.min(...prices).toFixed(3) : null;
+      const maxPrice = prices.length > 0 ? Math.max(...prices).toFixed(3) : null;
+
+      // Calculate total value
+      const totalValue = inventoryLots
+        .reduce((sum, lot) => {
+          const price = parseFloat(lot.unitPrice || '0');
+          const qty = lot.quantity || 0;
+          return sum + (price * qty);
+        }, 0)
+        .toFixed(2);
+
+      const itemDetail = {
+        itemNo,
+        itemName: inventoryLots[0].itemName,
+        categoryName: inventoryLots[0].categoryName,
+        totalQuantity,
+        newQuantity,
+        usedQuantity,
+        colorCount,
+        avgPrice,
+        minPrice,
+        maxPrice,
+        totalValue,
+        quantitySold: Number(salesData[0]?.quantitySold || 0),
+        revenue: Number(salesData[0]?.revenue || 0).toFixed(2),
+        colors,
+      };
+
+      res.json(itemDetail);
+    } catch (error) {
+      console.error("Error fetching item details:", error);
+      res.status(500).json({ error: "Failed to fetch item details" });
+    }
+  });
+
+  // ============================================================================
   // BACKUP & RESTORE ROUTES
   // ============================================================================
   
