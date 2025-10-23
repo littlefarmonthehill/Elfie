@@ -528,14 +528,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
             quantity,
             unit_price,
             CASE
-              WHEN name ILIKE '%LEGO%' THEN 'LEGO'
               WHEN name ILIKE '%K''NEX%' OR name ILIKE '%KNEX%' THEN 'K''NEX'
               WHEN name ILIKE '%Erector%' OR name ILIKE '%Meccano%' THEN 'Erector/Meccano'
               WHEN name ILIKE '%Capsela%' THEN 'Capsela'
               WHEN name ILIKE '%Marbleworks%' OR name ILIKE '%Discovery Toys%' THEN 'Marbleworks'
               WHEN name ILIKE '%Little Tikes%' THEN 'Little Tikes'
               WHEN name ILIKE '%Fisher-Price%' THEN 'Fisher-Price'
-              ELSE 'Other'
+              ELSE 'LEGO'
             END as product_line
           FROM order_items
         ),
