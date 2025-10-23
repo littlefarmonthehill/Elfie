@@ -244,37 +244,57 @@ async function processBrickOwlOrder(
         .limit(1);
       
       if (existingItem) {
-        // Migration: Check if existing item has BOID SKU and needs to be updated
-        const hasBoidSku = existingItem.sku && /^\d+$/.test(existingItem.sku) && !existingItem.bricklinkInventoryId;
-        const hasBrickLinkId = item.external_lot_ids?.other;
+        // Migration: Populate bricklink_inventory_id if missing
+        // Strategy: Use API external_lot_ids.other if available, otherwise use existing SKU if it's numeric
+        const needsMigration = !existingItem.bricklinkInventoryId;
         
-        // Debug: Log first few items to see what API returns
-        if (result.ordersAdded + result.ordersUpdated < 3) {
-          console.log(`🔍 Item check: SKU=${existingItem.sku}, BL_ID=${existingItem.bricklinkInventoryId}, API_external=${item.external_lot_ids?.other}, hasBoidSku=${hasBoidSku}, hasBrickLinkId=${hasBrickLinkId}`);
-          console.log(`🔍 Full item from API:`, JSON.stringify(item).slice(0, 500));
-        }
-        
-        if (hasBoidSku && hasBrickLinkId) {
-          // Update the SKU to use BrickLink inventory ID
-          await db
-            .update(orderDetails)
-            .set({
-              sku: item.external_lot_ids.other,
-              bricklinkInventoryId: parseInt(item.external_lot_ids.other, 10),
-            })
-            .where(eq(orderDetails.id, existingItem.id));
+        if (needsMigration) {
+          let brickLinkInvId: number | null = null;
           
-          console.log(`🔄 Migrated SKU for item ${lineItemKey}: BOID ${existingItem.sku} → BL Inv ${item.external_lot_ids.other}`);
-          result.skusMigrated++;
+          // Try API's external_lot_ids.other first (most reliable)
+          if (item.external_lot_ids?.other) {
+            brickLinkInvId = parseInt(item.external_lot_ids.other, 10);
+          } 
+          // Fallback: Use existing SKU if it's all digits (BrickLink inventory ID format)
+          else if (existingItem.sku && /^\d+$/.test(existingItem.sku) && existingItem.sku !== '0') {
+            brickLinkInvId = parseInt(existingItem.sku, 10);
+          }
+          
+          if (brickLinkInvId) {
+            // Update bricklink_inventory_id (keep SKU as-is for now)
+            await db
+              .update(orderDetails)
+              .set({
+                bricklinkInventoryId: brickLinkInvId,
+              })
+              .where(eq(orderDetails.id, existingItem.id));
+            
+            result.skusMigrated++;
+          }
         }
         
         continue; // Skip to next item
       }
       
+      // Determine BrickLink inventory ID
+      // Priority: API external_lot_ids.other > BOID (if numeric)
+      let brickLinkInvId: number | null = null;
+      let skuValue: string | null = null;
+      
+      if (item.external_lot_ids?.other) {
+        // API provides BrickLink inventory ID - use it
+        brickLinkInvId = parseInt(item.external_lot_ids.other, 10);
+        skuValue = item.external_lot_ids.other;
+      } else if (item.boid && /^\d+$/.test(item.boid.toString())) {
+        // Fallback: Use BOID if it's numeric (often equals BrickLink inventory ID)
+        brickLinkInvId = parseInt(item.boid.toString(), 10);
+        skuValue = item.boid.toString();
+      }
+      
       const orderDetailData = {
         orderId,
         lineItemKey,
-        sku: item.external_lot_ids?.other || null,  // BrickLink inventory ID from external_lot_ids.other
+        sku: skuValue,  // BrickLink inventory ID (standardized)
         name: `${item.boid || ''} - ${item.name || ''}`,
         quantity: item.ordered_quantity,
         unitPrice: item.base_price ? parseFloat(item.base_price) : 0,
@@ -286,7 +306,7 @@ async function processBrickOwlOrder(
         customField1: null,
         customField2: null,
         customField3: null,
-        bricklinkInventoryId: item.external_lot_ids?.other ? parseInt(item.external_lot_ids.other, 10) : null,
+        bricklinkInventoryId: brickLinkInvId,
         colorId: item.color_id,
         condition: mapBrickOwlCondition(item.condition),
         fulfilled: false,

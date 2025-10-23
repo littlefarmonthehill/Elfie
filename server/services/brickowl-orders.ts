@@ -60,12 +60,6 @@ export async function getBrickOwlOrderDetails(
     orderData.items = [];
   } else {
     const items = await itemsResponse.json();
-    
-    // Debug: Log first item structure to see what API returns
-    if (Array.isArray(items) && items.length > 0 && parseInt(orderId) < 8374485) {
-      console.log(`🔍 BrickOwl API /order/items sample for order ${orderId}:`, JSON.stringify(items[0]));
-    }
-    
     orderData.items = Array.isArray(items) ? items : [];
   }
   
