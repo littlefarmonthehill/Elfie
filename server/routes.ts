@@ -466,6 +466,115 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get product line analysis (sales by product type with platform breakdown)
+  app.get("/api/analytics/product-lines", isApproved, async (req, res) => {
+    try {
+      const range = req.query.range as string;
+      let dateFilter: Date | null = null;
+      let endDateFilter: Date | null = null;
+      
+      // Parse date range (same logic as other analytics endpoints)
+      if (range && range !== 'all') {
+        const now = new Date();
+        switch (range) {
+          case 'mtd':
+            dateFilter = new Date(now.getFullYear(), now.getMonth(), 1);
+            break;
+          case 'lastmonth':
+            dateFilter = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            endDateFilter = new Date(now.getFullYear(), now.getMonth(), 1);
+            break;
+          case '3months':
+            dateFilter = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+            break;
+          case '6months':
+            dateFilter = new Date(now.getFullYear(), now.getMonth() - 6, 1);
+            break;
+          case '1year':
+            dateFilter = new Date(now.getFullYear() - 1, now.getMonth(), 1);
+            break;
+          case '2years':
+            dateFilter = new Date(now.getFullYear() - 2, now.getMonth(), 1);
+            break;
+        }
+      }
+      
+      // Build WHERE conditions
+      let whereConditions = sql`o.order_status NOT IN ('cancelled', 'Cancelled')`;
+      if (dateFilter && !endDateFilter) {
+        whereConditions = sql`${whereConditions} AND o.order_date >= ${dateFilter}`;
+      } else if (dateFilter && endDateFilter) {
+        whereConditions = sql`${whereConditions} AND o.order_date >= ${dateFilter} AND o.order_date < ${endDateFilter}`;
+      }
+      
+      // Query to classify orders into product lines based on item names
+      const query = sql`
+        WITH order_items AS (
+          SELECT 
+            o.id as order_id,
+            o.marketplace,
+            o.order_total,
+            od.name,
+            od.quantity,
+            od.unit_price
+          FROM ${orders} o
+          JOIN ${orderDetails} od ON o.id = od.order_id
+          WHERE ${whereConditions}
+        ),
+        classified_items AS (
+          SELECT 
+            order_id,
+            marketplace,
+            order_total,
+            quantity,
+            unit_price,
+            CASE
+              WHEN name ILIKE '%LEGO%' THEN 'LEGO'
+              WHEN name ILIKE '%K''NEX%' OR name ILIKE '%KNEX%' THEN 'K''NEX'
+              WHEN name ILIKE '%Erector%' OR name ILIKE '%Meccano%' THEN 'Erector/Meccano'
+              WHEN name ILIKE '%Capsela%' THEN 'Capsela'
+              WHEN name ILIKE '%Marbleworks%' OR name ILIKE '%Discovery Toys%' THEN 'Marbleworks'
+              WHEN name ILIKE '%Little Tikes%' THEN 'Little Tikes'
+              WHEN name ILIKE '%Fisher-Price%' THEN 'Fisher-Price'
+              ELSE 'Other'
+            END as product_line
+          FROM order_items
+        )
+        SELECT 
+          product_line,
+          COUNT(DISTINCT order_id) as order_count,
+          SUM(quantity) as total_units,
+          COALESCE(SUM(quantity * COALESCE(unit_price::numeric, 0)), 0) as total_revenue,
+          json_agg(
+            json_build_object(
+              'marketplace', COALESCE(marketplace, 'Unknown'),
+              'order_count', platform_orders,
+              'revenue', platform_revenue
+            )
+          ) as platforms
+        FROM (
+          SELECT DISTINCT
+            product_line,
+            order_id,
+            marketplace,
+            quantity,
+            unit_price,
+            COUNT(DISTINCT order_id) OVER (PARTITION BY product_line, marketplace) as platform_orders,
+            SUM(quantity * COALESCE(unit_price::numeric, 0)) OVER (PARTITION BY product_line, marketplace) as platform_revenue
+          FROM classified_items
+        ) subq
+        GROUP BY product_line
+        ORDER BY total_revenue DESC
+      `;
+      
+      const result = await db.execute(query);
+      res.json(result.rows);
+    } catch (error) {
+      console.error("Error fetching product line analysis:", error);
+      res.status(500).json({ error: "Failed to fetch product line analysis" });
+    }
+  });
+
   // Fetch single order by ID with full details
   app.get("/api/orders/:id", isApproved, async (req, res) => {
     try {
