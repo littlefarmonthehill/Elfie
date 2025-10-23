@@ -247,26 +247,24 @@ export async function embedOrderDetail(orderDetailId: string) {
     }
     
     // Try to enrich with inventory data (category/color) by matching SKU
+    // SKU is now standardized to BrickLink inventory ID
     let inventoryItem = null;
     if (orderDetail.sku) {
-      // Parse SKU format: "itemNo-colorId" or just "itemNo"
-      const skuParts = orderDetail.sku.split('-');
-      const itemNo = skuParts[0];
-      const colorId = skuParts[1] ? parseInt(skuParts[1]) : null;
+      const inventoryId = parseInt(orderDetail.sku, 10);
       
-      // Look up in inventory with category relation
-      const foundItem = await db.query.blInventory.findFirst({
-        where: colorId 
-          ? and(eq(blInventory.itemNo, itemNo), eq(blInventory.colorId, colorId))
-          : eq(blInventory.itemNo, itemNo),
-        with: { category: true },
-      });
-      
-      if (foundItem) {
-        inventoryItem = {
-          ...foundItem,
-          categoryName: foundItem.category?.name,
-        };
+      if (!isNaN(inventoryId)) {
+        // Look up in inventory by ID with category relation
+        const foundItem = await db.query.blInventory.findFirst({
+          where: eq(blInventory.id, inventoryId),
+          with: { category: true },
+        });
+        
+        if (foundItem) {
+          inventoryItem = {
+            ...foundItem,
+            categoryName: foundItem.category?.name,
+          };
+        }
       }
     }
     

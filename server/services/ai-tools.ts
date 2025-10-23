@@ -401,6 +401,7 @@ export async function getSalesByCategory(params?: {
     }
     
     // Join orders -> orderDetails -> blInventory -> blCategories
+    // SKU is now standardized to BrickLink inventory ID
     let queryBuilder = db
       .select({
         categoryId: blCategories.id,
@@ -411,7 +412,7 @@ export async function getSalesByCategory(params?: {
       })
       .from(orderDetails)
       .innerJoin(orders, eq(orderDetails.orderId, orders.id))
-      .leftJoin(blInventory, sql`${orderDetails.sku} = ${blInventory.itemNo} || '-' || ${blInventory.colorId}`)
+      .leftJoin(blInventory, sql`${orderDetails.sku} = CAST(${blInventory.id} AS TEXT)`)
       .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
       .where(
         conditions.length > 0
@@ -801,11 +802,8 @@ export async function searchOrdersByItem(params: {
     }
     
     // STEP 2: Search for orders containing these inventory IDs in their SKU
-    // SKU format: "16-{inventory_id}.LGO-{part_number}"
+    // SKU is now standardized to BrickLink inventory ID
     const inventoryIds = inventoryItems.map(item => item.id.toString());
-    const skuPatterns = inventoryIds.map(id => 
-      like(orderDetails.sku, `%-${id}.LGO-%`)
-    );
     
     const results = await db
       .select({
@@ -825,7 +823,7 @@ export async function searchOrdersByItem(params: {
       })
       .from(orderDetails)
       .innerJoin(orders, eq(orderDetails.orderId, orders.id))
-      .where(or(...skuPatterns))
+      .where(inArray(orderDetails.sku, inventoryIds))
       .orderBy(desc(orders.orderDate))
       .limit(limit);
     
@@ -898,15 +896,13 @@ export async function getCopurchasedItems(params: {
     }
     
     // STEP 2: SQL-based exact co-purchases
+    // SKU is now standardized to BrickLink inventory ID
     const inventoryIds = inventoryItems.map(item => item.id.toString());
-    const skuPatterns = inventoryIds.map(id => 
-      like(orderDetails.sku, `%-${id}.LGO-%`)
-    );
     
     const ordersWithThisPart = await db
       .select({ orderId: orderDetails.orderId })
       .from(orderDetails)
-      .where(or(...skuPatterns))
+      .where(inArray(orderDetails.sku, inventoryIds))
       .groupBy(orderDetails.orderId);
     
     let exactCopurchases: any[] = [];
@@ -914,15 +910,18 @@ export async function getCopurchasedItems(params: {
     if (ordersWithThisPart.length > 0) {
       const orderIds = ordersWithThisPart.map(o => o.orderId);
       
-      // Get all items from those orders
+      // Get all items from those orders, joining to inventory to get part numbers
+      // SKU is now the inventory ID, so we join directly
       const allItemsInOrders = await db
         .select({
           orderId: orderDetails.orderId,
           sku: orderDetails.sku,
           name: orderDetails.name,
           quantity: orderDetails.quantity,
+          itemNo: blInventory.itemNo,
         })
         .from(orderDetails)
+        .leftJoin(blInventory, sql`${orderDetails.sku} = CAST(${blInventory.id} AS TEXT)`)
         .where(inArray(orderDetails.orderId, orderIds));
       
       // Aggregate co-purchased items (counting unique orders)
@@ -937,11 +936,8 @@ export async function getCopurchasedItems(params: {
       const copurchaseMap = new Map<string, CopurchaseItem>();
       
       allItemsInOrders.forEach(item => {
-        const match = item.sku?.match(/\.LGO-([^-]+)/);
-        if (!match) return;
-        
-        const partNumber = match[1];
-        if (partNumber === itemNo) return; // Skip the searched part itself
+        const partNumber = item.itemNo;
+        if (!partNumber || partNumber === itemNo) return; // Skip the searched part itself
         
         if (!copurchaseMap.has(partNumber)) {
           copurchaseMap.set(partNumber, {

@@ -242,7 +242,7 @@ async function processBrickOwlOrder(
       const orderDetailData = {
         orderId,
         lineItemKey,
-        sku: item.boid || null,
+        sku: item.external_lot_ids?.other || null,  // BrickLink inventory ID from external_lot_ids.other
         name: `${item.boid || ''} - ${item.name || ''}`,
         quantity: item.ordered_quantity,
         unitPrice: item.base_price ? parseFloat(item.base_price) : 0,
