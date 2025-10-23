@@ -418,6 +418,7 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
   const primaryColor = lot.variations[0];
   const [quantities, setQuantities] = useState<Record<number, number>>({});
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   
   // Calculate total quantities for New and Used
   const totalNewQty = lot.variations
@@ -438,7 +439,7 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
     ? sortedColorGroups.filter(g => g.colorName === selectedColor)
     : sortedColorGroups;
   
-  // Use first variation's image (first color we have)
+  // Use first variation's image (first color we have) for the card
   const getInitialImageUrl = () => {
     // First try the lot-level image
     if (lot.imageUrl) return lot.imageUrl;
@@ -619,32 +620,6 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
           </DialogHeader>
           
           <div className="flex-1 overflow-y-auto pr-2 mt-3 space-y-4">
-            {imageSrc && (
-              <div className="flex justify-center mb-4">
-                <div 
-                  className="w-40 h-40 md:w-56 md:h-56 rounded-lg border border-white/10 flex items-center justify-center p-3 relative overflow-hidden"
-                  style={{
-                    background: 'radial-gradient(ellipse at center, #1e3a8a 0%, #0f172a 50%, #000000 100%)'
-                  }}
-                >
-                  <div className="absolute inset-0 opacity-60">
-                    <div className="absolute top-[15%] left-[10%] w-16 md:w-24 h-16 md:h-24 bg-cyan-500/40 rounded-full blur-2xl animate-pulse" style={{ animationDelay: '0s', animationDuration: '3s' }} />
-                    <div className="absolute bottom-[15%] right-[15%] w-12 md:w-20 h-12 md:h-20 bg-blue-400/40 rounded-full blur-xl animate-pulse" style={{ animationDelay: '1.5s', animationDuration: '4s' }} />
-                    <div className="absolute top-[50%] right-[60%] w-8 md:w-12 h-8 md:h-12 bg-purple-400/30 rounded-full blur-lg animate-pulse" style={{ animationDelay: '3s', animationDuration: '5s' }} />
-                  </div>
-                  <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-transparent to-cyan-500/10" />
-                  <div className="relative z-10 w-full h-full p-2 flex items-center justify-center">
-                    <img 
-                      src={imageSrc} 
-                      alt={lot.name}
-                      className="max-w-full max-h-full object-contain"
-                      onError={handleImageError}
-                      data-testid={`img-modal-${lot.id}`}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
             
             <div className="space-y-3">
               {displayedColorGroups.map((colorGroup, groupIdx) => {
@@ -665,7 +640,7 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
                       {/* Color thumbnail - clickable to view larger */}
                       {colorImageUrl ? (
                         <button
-                          onClick={() => setImageSrc(colorImageUrl)}
+                          onClick={() => setLightboxImage(getProxyImageUrl(colorImageUrl) || colorImageUrl)}
                           className="w-12 h-12 md:w-14 md:h-14 rounded-md border-2 border-white/30 shadow-md flex items-center justify-center overflow-hidden hover-elevate cursor-pointer bg-slate-900/50"
                           style={{ 
                             boxShadow: `0 2px 8px ${colorGroup.colorHex || '#666'}60`
@@ -673,7 +648,7 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
                           data-testid={`button-color-image-${groupIdx}`}
                         >
                           <img 
-                            src={colorImageUrl} 
+                            src={getProxyImageUrl(colorImageUrl) || colorImageUrl} 
                             alt={colorGroup.colorName}
                             className="max-w-full max-h-full object-contain"
                           />
@@ -767,6 +742,43 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
                 </div>
               );
             })}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Image Lightbox */}
+      <Dialog open={!!lightboxImage} onOpenChange={(open) => !open && setLightboxImage(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] bg-black/95 border-white/20 p-2 md:p-4">
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-cyan-400" />
+              {lot.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex items-center justify-center p-4">
+            <div 
+              className="w-full max-w-3xl aspect-square rounded-lg flex items-center justify-center relative overflow-hidden"
+              style={{
+                background: 'radial-gradient(ellipse at center, #1e3a8a 0%, #0f172a 50%, #000000 100%)'
+              }}
+            >
+              <div className="absolute inset-0 opacity-60">
+                <div className="absolute top-[15%] left-[10%] w-24 md:w-32 h-24 md:h-32 bg-cyan-500/40 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '0s', animationDuration: '3s' }} />
+                <div className="absolute bottom-[15%] right-[15%] w-20 md:w-28 h-20 md:h-28 bg-blue-400/40 rounded-full blur-2xl animate-pulse" style={{ animationDelay: '1.5s', animationDuration: '4s' }} />
+                <div className="absolute top-[50%] right-[60%] w-16 md:w-20 h-16 md:h-20 bg-purple-400/30 rounded-full blur-xl animate-pulse" style={{ animationDelay: '3s', animationDuration: '5s' }} />
+              </div>
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-transparent to-cyan-500/10" />
+              {lightboxImage && (
+                <div className="relative z-10 w-full h-full p-4 md:p-8 flex items-center justify-center">
+                  <img 
+                    src={lightboxImage} 
+                    alt={lot.name}
+                    className="max-w-full max-h-full object-contain"
+                    data-testid={`img-lightbox-${lot.id}`}
+                  />
+                </div>
+              )}
             </div>
           </div>
         </DialogContent>
