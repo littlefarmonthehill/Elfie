@@ -39,7 +39,6 @@ export async function getBrickOwlOrderDetails(
   const params = new URLSearchParams({
     key: apiKey,
     order_id: orderId,
-    include_items: '1', // ⭐ Required to get order items!
   });
 
   const url = `${BRICKOWL_API_BASE}/order/view?${params.toString()}`;
@@ -50,10 +49,21 @@ export async function getBrickOwlOrderDetails(
     throw new Error(`BrickOwl API error: ${response.statusText}`);
   }
 
-  const text = await response.text();
-  console.log(`BrickOwl API raw response for order ${orderId}:`, text.slice(0, 3000));
+  const orderData = await response.json();
   
-  return JSON.parse(text);
+  // Fetch order items separately (BrickOwl uses a separate endpoint)
+  const itemsUrl = `${BRICKOWL_API_BASE}/order/items?${params.toString()}`;
+  const itemsResponse = await fetch(itemsUrl);
+  
+  if (!itemsResponse.ok) {
+    console.warn(`⚠️ Failed to fetch items for order ${orderId}: ${itemsResponse.statusText}`);
+    orderData.items = [];
+  } else {
+    const items = await itemsResponse.json();
+    orderData.items = Array.isArray(items) ? items : [];
+  }
+  
+  return orderData;
 }
 
 // Map BrickOwl status ID to normalized status
