@@ -68,13 +68,26 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
     queryFn: async () => {
       const url = buildQueryUrl('/api/orders');
       console.log(`[SalesDashboard] Fetching orders with dateRange="${dateRange}", URL: ${url}`);
+      const startTime = Date.now();
       const response = await fetch(url);
-      if (!response.ok) throw new Error('Failed to fetch orders');
+      const fetchTime = Date.now() - startTime;
+      console.log(`[SalesDashboard] Response received in ${fetchTime}ms, status: ${response.status}`);
+      
+      if (!response.ok) {
+        console.error(`[SalesDashboard] Response not OK: ${response.status} ${response.statusText}`);
+        throw new Error('Failed to fetch orders');
+      }
+      
       const data = await response.json();
-      console.log(`[SalesDashboard] Received ${data.length} orders for dateRange="${dateRange}"`);
+      console.log(`[SalesDashboard] Received ${data.length} orders for dateRange="${dateRange}"`, {
+        isArray: Array.isArray(data),
+        firstOrder: data[0]?.id,
+        dataType: typeof data
+      });
       return data;
     },
     staleTime: dateRange === 'all' ? 0 : 30000, // Always refetch for "all", cache others for 30s
+    gcTime: 0, // Don't cache at all for debugging
   });
 
   // Fetch category analysis data
