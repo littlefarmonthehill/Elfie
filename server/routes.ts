@@ -350,22 +350,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Build SQL query for category sell-through analysis
       // Build sold items subquery with date filter
-      let soldSubquery = sql`
-        SELECT i.category_id, SUM(od.quantity) as total_qty
-        FROM ${orderDetails} od
-        JOIN ${orders} o ON od.order_id = o.id
-        JOIN ${blInventory} i ON od.sku = i.item_no
-        WHERE o.order_status NOT IN ('cancelled', 'Cancelled')
-      `;
+      // Use DISTINCT to avoid multiplying quantities when same item exists in multiple colors/conditions
       
-      // Add date filters to sold subquery
+      // Build WHERE conditions for the inner query
+      let whereConditions = sql`o.order_status NOT IN ('cancelled', 'Cancelled')`;
       if (dateFilter && !endDateFilter) {
-        soldSubquery = sql`${soldSubquery} AND o.order_date >= ${dateFilter}`;
+        whereConditions = sql`${whereConditions} AND o.order_date >= ${dateFilter}`;
       } else if (dateFilter && endDateFilter) {
-        soldSubquery = sql`${soldSubquery} AND o.order_date >= ${dateFilter} AND o.order_date < ${endDateFilter}`;
+        whereConditions = sql`${whereConditions} AND o.order_date >= ${dateFilter} AND o.order_date < ${endDateFilter}`;
       }
       
-      soldSubquery = sql`${soldSubquery} GROUP BY i.category_id`;
+      const soldSubquery = sql`
+        SELECT category_id, SUM(total_qty) as total_qty
+        FROM (
+          SELECT DISTINCT ON (od.order_id, od.sku) 
+            i.category_id, 
+            od.quantity as total_qty
+          FROM ${orderDetails} od
+          JOIN ${orders} o ON od.order_id = o.id
+          JOIN ${blInventory} i ON od.sku = i.item_no
+          WHERE ${whereConditions}
+        ) distinct_sales
+        GROUP BY category_id
+      `;
       
       // Main query combining current inventory and sold data
       const query = sql`
@@ -388,6 +395,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         LEFT JOIN (
           ${soldSubquery}
         ) sold ON c.id = sold.category_id
+        WHERE COALESCE(inv.total_qty, 0) > 0
         ORDER BY sell_through_pct DESC, c.name ASC
       `;
       
