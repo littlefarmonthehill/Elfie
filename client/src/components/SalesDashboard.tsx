@@ -577,13 +577,49 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
     .slice(0, 5);
 
   // Calculate total revenue and average
-  const totalRevenue = filteredOrders.reduce((sum, order) => 
-    sum + parseOrderTotal(order.orderTotal), 0
-  );
+  const totalRevenue = filteredOrders.reduce((sum, order) => {
+    const orderTotal = parseOrderTotal(order.orderTotal);
+    return sum + orderTotal;
+  }, 0);
   const averageOrderValue = filteredOrders.length > 0 ? totalRevenue / filteredOrders.length : 0;
+  
+  // Debug revenue calculation
+  console.log(`[SalesDashboard] Revenue Calculation for dateRange="${dateRange}":`, {
+    filteredOrdersCount: filteredOrders.length,
+    totalRevenue: totalRevenue,
+    averageOrderValue: averageOrderValue,
+    sampleOrderTotals: filteredOrders.slice(0, 5).map(o => ({
+      id: o.id,
+      orderTotal: o.orderTotal,
+      parsed: parseOrderTotal(o.orderTotal)
+    }))
+  });
 
   const data = getSalesData();
   const average = data.length > 0 ? Math.round(data.reduce((sum, d) => sum + d.sales, 0) / data.length) : 0;
+  
+  // Debug chart data
+  console.log(`[SalesDashboard] Chart Data for dateRange="${dateRange}":`, {
+    dataPointsCount: data.length,
+    averagePerPeriod: average,
+    totalInChart: data.reduce((sum, d) => sum + d.sales, 0),
+    sampleData: data.slice(0, 3)
+  });
+  
+  // Diagnostic warnings - visible on page
+  const warnings: string[] = [];
+  if (dateRange === 'all' && orders.length > 0 && filteredOrders.length === 0) {
+    warnings.push(`⚠️ DATE FILTER ERROR: ${orders.length} orders fetched but 0 filtered for "all" range`);
+  }
+  if (filteredOrders.length > 0 && totalRevenue === 0) {
+    warnings.push(`⚠️ REVENUE PARSING ERROR: ${filteredOrders.length} orders but $0 revenue. Sample: ${filteredOrders[0]?.orderTotal}`);
+  }
+  if (filteredOrders.length > 0 && data.length === 0) {
+    warnings.push(`⚠️ CHART DATA ERROR: ${filteredOrders.length} orders but 0 chart data points generated`);
+  }
+  if (dateRange === 'all' && orders.length === 0) {
+    warnings.push(`⚠️ NO ORDERS FETCHED: Backend returned 0 orders for "all" range`);
+  }
 
   if (isLoading) {
     return (
@@ -632,6 +668,21 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
 
   return (
     <div className="p-2 space-y-1.5 bg-gradient-to-br from-lego-green/5 to-transparent rounded-lg border border-lego-green/10 shadow-[0_0_15px_rgba(34,197,94,0.1)]">
+      {/* Diagnostic Warnings - Visible Error Messages */}
+      {warnings.length > 0 && (
+        <div className="bg-red-900/30 border-2 border-red-500 rounded-lg p-3" data-testid="diagnostic-warnings">
+          <div className="text-red-400 font-bold text-sm mb-2">⚠️ DIAGNOSTIC WARNINGS:</div>
+          {warnings.map((warning, idx) => (
+            <div key={idx} className="text-red-300 text-xs font-mono mb-1">
+              {warning}
+            </div>
+          ))}
+          <div className="text-red-400 text-xs mt-2">
+            Debug Info: dateRange={dateRange}, orders={orders.length}, filtered={filteredOrders.length}, revenue=${totalRevenue.toFixed(2)}
+          </div>
+        </div>
+      )}
+      
       {/* Comparison Controls */}
       <div className="bg-gray-900/50 border border-lego-green/20 rounded-lg p-2 space-y-2">
         {/* Row 1: Compare toggle and Year/Platform mode buttons */}
