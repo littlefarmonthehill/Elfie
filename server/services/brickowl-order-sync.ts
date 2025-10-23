@@ -134,12 +134,23 @@ export async function syncBrickOwlOrders(
 }
 
 /**
- * Safely parse Unix timestamp to Date, returns null if invalid
+ * Safely parse timestamp to Date
+ * Prefers ISO format over Unix timestamp
  */
-function safeTimestampToDate(timestamp: number | null | undefined): Date | null {
-  if (!timestamp) return null;
-  const date = new Date(timestamp * 1000);
-  return isNaN(date.getTime()) ? null : date;
+function safeTimestampToDate(isoString: string | null | undefined, unixTimestamp: number | null | undefined): Date | null {
+  // Try ISO string first (more reliable)
+  if (isoString) {
+    const date = new Date(isoString);
+    if (!isNaN(date.getTime())) return date;
+  }
+  
+  // Fallback to Unix timestamp
+  if (unixTimestamp) {
+    const date = new Date(unixTimestamp * 1000);
+    if (!isNaN(date.getTime())) return date;
+  }
+  
+  return null;
 }
 
 /**
@@ -165,8 +176,8 @@ async function processBrickOwlOrder(
   // Fetch full order details (including items)
   const orderDetails = await getBrickOwlOrderDetails(apiKey, boOrder.order_id);
   
-  // Safely parse order date
-  const orderDate = safeTimestampToDate(boOrder.order_time);
+  // Safely parse order date - prefer ISO format from API
+  const orderDate = safeTimestampToDate(boOrder.iso_order_time, boOrder.order_time);
   
   // Only update/insert order if we have valid data AND order doesn't exist
   // If order exists, we'll skip updating it but STILL process items for SKU migration
