@@ -1045,12 +1045,12 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
                     {category.total_sold.toLocaleString()} / {category.current_inventory.toLocaleString()}
                   </span>
                   <span className={`font-mono font-bold text-xs md:text-base lg:text-lg min-w-[60px] text-right ${
-                    category.sell_through_pct > 50 ? 'text-red-400' :
-                    category.sell_through_pct > 25 ? 'text-yellow-400' :
-                    category.sell_through_pct > 10 ? 'text-green-400' :
+                    Number(category.sell_through_pct || 0) > 50 ? 'text-red-400' :
+                    Number(category.sell_through_pct || 0) > 25 ? 'text-yellow-400' :
+                    Number(category.sell_through_pct || 0) > 10 ? 'text-green-400' :
                     'text-gray-500'
                   }`}>
-                    {category.sell_through_pct.toFixed(1)}%
+                    {Number(category.sell_through_pct || 0).toFixed(1)}%
                   </span>
                 </div>
               </div>

@@ -349,41 +349,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Build SQL query for category sell-through analysis
-      let query = sql`
+      // Build sold items subquery with date filter
+      let soldSubquery = sql`
+        SELECT i.category_id, SUM(od.quantity) as total_qty
+        FROM ${orderDetails} od
+        JOIN ${orders} o ON od.order_id = o.id
+        JOIN ${blInventory} i ON od.sku = i.item_no
+        WHERE o.order_status NOT IN ('cancelled', 'Cancelled')
+      `;
+      
+      // Add date filters to sold subquery
+      if (dateFilter && !endDateFilter) {
+        soldSubquery = sql`${soldSubquery} AND o.order_date >= ${dateFilter}`;
+      } else if (dateFilter && endDateFilter) {
+        soldSubquery = sql`${soldSubquery} AND o.order_date >= ${dateFilter} AND o.order_date < ${endDateFilter}`;
+      }
+      
+      soldSubquery = sql`${soldSubquery} GROUP BY i.category_id`;
+      
+      // Main query combining current inventory and sold data
+      const query = sql`
         SELECT 
           c.id as category_id,
           c.name as category_name,
-          COALESCE(SUM(od.quantity), 0)::integer as total_sold,
-          COALESCE(SUM(i.quantity), 0)::integer as current_inventory,
+          COALESCE(sold.total_qty, 0)::integer as total_sold,
+          COALESCE(inv.total_qty, 0)::integer as current_inventory,
           CASE 
-            WHEN SUM(i.quantity) > 0 
-            THEN ROUND((SUM(od.quantity)::numeric / SUM(i.quantity)::numeric * 100), 2)
+            WHEN COALESCE(inv.total_qty, 0) > 0 
+            THEN ROUND((COALESCE(sold.total_qty, 0)::numeric / inv.total_qty::numeric * 100), 2)
             ELSE 0 
           END as sell_through_pct
         FROM ${blCategories} c
-        LEFT JOIN ${blInventory} i ON c.id = i.category_id
-        LEFT JOIN ${orderDetails} od ON i.item_no = od.sku
-        LEFT JOIN ${orders} o ON od.order_id = o.id
-      `;
-      
-      // Add date filters
-      const conditions: any[] = [];
-      if (dateFilter && !endDateFilter) {
-        conditions.push(sql`o.order_date >= ${dateFilter}`);
-      } else if (dateFilter && endDateFilter) {
-        conditions.push(sql`o.order_date >= ${dateFilter} AND o.order_date < ${endDateFilter}`);
-      }
-      
-      // Exclude cancelled orders
-      conditions.push(sql`(o.order_status IS NULL OR o.order_status NOT IN ('cancelled', 'Cancelled'))`);
-      
-      if (conditions.length > 0) {
-        query = sql`${query} WHERE ${sql.join(conditions, sql` AND `)}`;
-      }
-      
-      query = sql`
-        ${query}
-        GROUP BY c.id, c.name
+        LEFT JOIN (
+          SELECT category_id, SUM(quantity) as total_qty
+          FROM ${blInventory}
+          GROUP BY category_id
+        ) inv ON c.id = inv.category_id
+        LEFT JOIN (
+          ${soldSubquery}
+        ) sold ON c.id = sold.category_id
         ORDER BY sell_through_pct DESC, c.name ASC
       `;
       
