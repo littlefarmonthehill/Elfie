@@ -525,7 +525,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           SELECT 
             order_id,
             marketplace,
-            order_total,
             quantity,
             unit_price,
             CASE
@@ -539,32 +538,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
               ELSE 'Other'
             END as product_line
           FROM order_items
+        ),
+        platform_aggregates AS (
+          SELECT 
+            product_line,
+            COALESCE(marketplace, 'Unknown') as marketplace,
+            COUNT(DISTINCT order_id) as platform_orders,
+            COALESCE(SUM(quantity * COALESCE(unit_price::numeric, 0)), 0) as platform_revenue
+          FROM classified_items
+          GROUP BY product_line, marketplace
         )
         SELECT 
           product_line,
-          COUNT(DISTINCT order_id) as order_count,
-          SUM(quantity) as total_units,
-          COALESCE(SUM(quantity * COALESCE(unit_price::numeric, 0)), 0) as total_revenue,
+          SUM(platform_orders)::integer as order_count,
+          (SELECT SUM(quantity)::integer FROM classified_items ci WHERE ci.product_line = pa.product_line) as total_units,
+          SUM(platform_revenue) as total_revenue,
           json_agg(
             json_build_object(
-              'marketplace', COALESCE(marketplace, 'Unknown'),
+              'marketplace', marketplace,
               'order_count', platform_orders,
-              'revenue', platform_revenue
-            )
+              'revenue', platform_revenue::text
+            ) ORDER BY platform_revenue DESC
           ) as platforms
-        FROM (
-          SELECT DISTINCT
-            product_line,
-            order_id,
-            marketplace,
-            quantity,
-            unit_price,
-            COUNT(DISTINCT order_id) OVER (PARTITION BY product_line, marketplace) as platform_orders,
-            SUM(quantity * COALESCE(unit_price::numeric, 0)) OVER (PARTITION BY product_line, marketplace) as platform_revenue
-          FROM classified_items
-        ) subq
+        FROM platform_aggregates pa
         GROUP BY product_line
-        ORDER BY total_revenue DESC
+        ORDER BY SUM(platform_revenue) DESC
       `;
       
       const result = await db.execute(query);
