@@ -174,7 +174,7 @@ async function processBrickOwlOrder(
   const normalizedStatus = mapBrickOwlStatus(boOrder.status_id);
   
   // Fetch full order details (including items)
-  const orderDetails = await getBrickOwlOrderDetails(apiKey, boOrder.order_id);
+  const brickOwlOrderData = await getBrickOwlOrderDetails(apiKey, boOrder.order_id);
   
   // Safely parse order date - prefer ISO format from API
   const orderDate = safeTimestampToDate(boOrder.iso_order_time, boOrder.order_time);
@@ -191,25 +191,25 @@ async function processBrickOwlOrder(
       orderDate: orderDate,
       orderStatus: normalizedStatus,
       previousStatus: null,
-      customerUsername: orderDetails.buyer_name || null,
-      customerEmail: orderDetails.buyer_email || null,
+      customerUsername: brickOwlOrderData.buyer_name || null,
+      customerEmail: brickOwlOrderData.buyer_email || null,
       shipTo: JSON.stringify({
-        name: orderDetails.ship_name || '',
-        address1: orderDetails.ship_street_1 || '',
-        address2: orderDetails.ship_street_2 || '',
-        city: orderDetails.ship_city || '',
-        state: orderDetails.ship_region || '',
-        postalCode: orderDetails.ship_post_code || '',
-        country: orderDetails.ship_country_code || '',
+        name: brickOwlOrderData.ship_name || '',
+        address1: brickOwlOrderData.ship_street_1 || '',
+        address2: brickOwlOrderData.ship_street_2 || '',
+        city: brickOwlOrderData.ship_city || '',
+        state: brickOwlOrderData.ship_region || '',
+        postalCode: brickOwlOrderData.ship_post_code || '',
+        country: brickOwlOrderData.ship_country_code || '',
       }),
       billTo: null,
       shipByDate: null,
-      orderTotal: orderDetails.total_price ? orderDetails.total_price.toString() : '0',
-      shippingAmount: orderDetails.shipping_cost ? orderDetails.shipping_cost.toString() : '0',
-      taxAmount: orderDetails.vat ? orderDetails.vat.toString() : '0',
+      orderTotal: brickOwlOrderData.total_price ? brickOwlOrderData.total_price.toString() : '0',
+      shippingAmount: brickOwlOrderData.shipping_cost ? brickOwlOrderData.shipping_cost.toString() : '0',
+      taxAmount: brickOwlOrderData.vat ? brickOwlOrderData.vat.toString() : '0',
       internalNotes: null,
-      customerNotes: orderDetails.buyer_notes || null,
-      requestedShippingService: orderDetails.ship_method_name || null,
+      customerNotes: brickOwlOrderData.buyer_notes || null,
+      requestedShippingService: brickOwlOrderData.ship_method_name || null,
       carrierCode: null,
       serviceCode: null,
     };
@@ -223,7 +223,7 @@ async function processBrickOwlOrder(
   }
   
   // Process order items
-  const items = orderDetails.items || [];
+  const items = brickOwlOrderData.items || [];
   console.log(`🦉 Order ${orderId}: Processing ${items.length} items`);
   
   for (const item of items) {
