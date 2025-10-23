@@ -74,7 +74,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
       console.log(`[SalesDashboard] Received ${data.length} orders for dateRange="${dateRange}"`);
       return data;
     },
-    staleTime: 30000, // Cache for 30 seconds
+    staleTime: dateRange === 'all' ? 0 : 30000, // Always refetch for "all", cache others for 30s
   });
 
   // Fetch category analysis data
