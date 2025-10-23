@@ -1,6 +1,6 @@
 // Auto-generated version using build timestamp
 // DO NOT EDIT THIS LINE - Updated automatically on each build
-const BUILD_TIMESTAMP = 1761111481482;
+const BUILD_TIMESTAMP = 1729686000000;
 const CACHE_VERSION = BUILD_TIMESTAMP;
 const CACHE_NAME = `planetbrick-v${CACHE_VERSION}`;
 const urlsToCache = [
@@ -41,12 +41,20 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Network-first strategy for all requests to ensure fresh content
+  const url = new URL(event.request.url);
+  
+  // NEVER cache API requests - always go to network
+  if (url.pathname.startsWith('/api/')) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+  
+  // Network-first strategy for non-API requests
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        // Cache successful responses
-        if (response.status === 200) {
+        // Cache successful responses (but NOT API responses)
+        if (response.status === 200 && !url.pathname.startsWith('/api/')) {
           const responseClone = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
             cache.put(event.request, responseClone);
