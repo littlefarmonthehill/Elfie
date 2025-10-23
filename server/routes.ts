@@ -470,6 +470,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get items sold in a specific category
+  app.get("/api/analytics/categories/:categoryId/items", isApproved, async (req, res) => {
+    try {
+      const categoryId = parseInt(req.params.categoryId);
+      const range = req.query.range as string;
+      let dateFilter: Date | null = null;
+      let endDateFilter: Date | null = null;
+      
+      // Parse date range
+      if (range && range !== 'all') {
+        const now = new Date();
+        switch (range) {
+          case 'mtd':
+            dateFilter = new Date(now.getFullYear(), now.getMonth(), 1);
+            break;
+          case 'lastmonth':
+            dateFilter = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            endDateFilter = new Date(now.getFullYear(), now.getMonth(), 1);
+            break;
+          case '3months':
+            dateFilter = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+            break;
+          case '6months':
+            dateFilter = new Date(now.getFullYear(), now.getMonth() - 6, 1);
+            break;
+          case '1year':
+            dateFilter = new Date(now.getFullYear() - 1, now.getMonth(), 1);
+            break;
+          case '2years':
+            dateFilter = new Date(now.getFullYear() - 2, now.getMonth(), 1);
+            break;
+        }
+      }
+      
+      // Build WHERE conditions
+      let whereConditions = sql`o.order_status NOT IN ('cancelled', 'Cancelled')`;
+      if (dateFilter && !endDateFilter) {
+        whereConditions = sql`${whereConditions} AND o.order_date >= ${dateFilter}`;
+      } else if (dateFilter && endDateFilter) {
+        whereConditions = sql`${whereConditions} AND o.order_date >= ${dateFilter} AND o.order_date < ${endDateFilter}`;
+      }
+      
+      // Get items sold in this category with quantities
+      const query = sql`
+        SELECT 
+          i.item_no,
+          i.name,
+          i.color_name,
+          i.condition,
+          SUM(od.quantity)::integer as quantity_sold
+        FROM ${orderDetails} od
+        JOIN ${orders} o ON od.order_id = o.id
+        JOIN ${blInventory} i ON od.sku = CAST(i.id AS TEXT)
+        WHERE i.category_id = ${categoryId} AND ${whereConditions}
+        GROUP BY i.item_no, i.name, i.color_name, i.condition
+        ORDER BY quantity_sold DESC
+      `;
+      
+      const result = await db.execute(query);
+      res.json(result.rows);
+    } catch (error) {
+      console.error("Error fetching category items:", error);
+      res.status(500).json({ error: "Failed to fetch category items" });
+    }
+  });
+
   // Get category analysis (sell-through percentages)
   app.get("/api/analytics/categories", isApproved, async (req, res) => {
     try {

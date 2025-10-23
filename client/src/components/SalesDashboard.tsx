@@ -6,6 +6,7 @@ import { TrendingUp, DollarSign, Target, GitCompare } from "lucide-react";
 import { DateRangeValue } from "./DateRangeSelector";
 import PlatformPerformance from "./PlatformPerformance";
 import PlatformOrdersDrawer from "./PlatformOrdersDrawer";
+import CategoryItemsDrawer from "./CategoryItemsDrawer";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type TimePeriod = 'mtd' | 'ytd' | '1y' | '5y';
@@ -31,6 +32,11 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
     open: false,
     platform: '',
     productLine: undefined,
+  });
+  const [categoryDrawer, setCategoryDrawer] = useState<{ open: boolean; categoryId: number | null; categoryName: string }>({
+    open: false,
+    categoryId: null,
+    categoryName: '',
   });
   
   const currentYear = new Date().getFullYear();
@@ -139,6 +145,28 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
       if (!response.ok) throw new Error('Failed to fetch category analysis');
       return response.json();
     },
+    staleTime: 30000,
+  });
+
+  // Fetch items for selected category
+  interface CategoryItem {
+    item_no: string;
+    name: string;
+    color_name: string | null;
+    condition: string;
+    quantity_sold: number;
+  }
+
+  const { data: categoryItems = [] } = useQuery<CategoryItem[]>({
+    queryKey: ['/api/analytics/categories', categoryDrawer.categoryId, 'items', dateRange],
+    queryFn: async () => {
+      if (!categoryDrawer.categoryId) return [];
+      const url = `/api/analytics/categories/${categoryDrawer.categoryId}/items?range=${dateRange}`;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Failed to fetch category items');
+      return response.json();
+    },
+    enabled: categoryDrawer.open && categoryDrawer.categoryId !== null,
     staleTime: 30000,
   });
 
@@ -1189,7 +1217,8 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
               {sortedCategories.map((category) => (
               <div 
                 key={category.category_id}
-                className="flex justify-between items-center hover-elevate rounded px-2 py-1.5"
+                onClick={() => setCategoryDrawer({ open: true, categoryId: category.category_id, categoryName: category.category_name })}
+                className="flex justify-between items-center hover-elevate active-elevate-2 rounded px-2 py-1.5 cursor-pointer"
                 data-testid={`category-${category.category_id}`}
               >
                 <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -1313,6 +1342,14 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
         orders={platformOrders}
         onOrderClick={handlePlatformOrderClick}
         productLine={platformDrawer.productLine}
+      />
+
+      {/* Category Items Drawer */}
+      <CategoryItemsDrawer
+        open={categoryDrawer.open}
+        onClose={() => setCategoryDrawer({ open: false, categoryId: null, categoryName: '' })}
+        categoryName={categoryDrawer.categoryName}
+        items={categoryItems}
       />
     </div>
   );
