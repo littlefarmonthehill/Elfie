@@ -623,13 +623,21 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
             
             <div className="space-y-3">
               {displayedColorGroups.map((colorGroup, groupIdx) => {
-                // Find a variation with an image for this color
+                // Find a variation with an image for this SPECIFIC color only
                 const colorVariationWithImage = colorGroup.variations.find(v => {
-                  const fullVariation = lot.variations.find(fv => fv.color === v.color && fv.condition === v.condition);
+                  const fullVariation = lot.variations.find(fv => 
+                    fv.color === v.color && 
+                    fv.color === colorGroup.colorName && // Ensure it matches the color group
+                    fv.condition === v.condition
+                  );
                   return fullVariation?.imageUrl;
                 });
                 const fullColorVariation = colorVariationWithImage 
-                  ? lot.variations.find(fv => fv.color === colorVariationWithImage.color && fv.condition === colorVariationWithImage.condition)
+                  ? lot.variations.find(fv => 
+                      fv.color === colorVariationWithImage.color && 
+                      fv.color === colorGroup.colorName && // Double-check color match
+                      fv.condition === colorVariationWithImage.condition
+                    )
                   : null;
                 const colorImageUrl = fullColorVariation?.imageUrl;
                 
