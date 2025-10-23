@@ -512,18 +512,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         whereConditions = sql`${whereConditions} AND o.order_date >= ${dateFilter} AND o.order_date < ${endDateFilter}`;
       }
       
-      // Get items sold in this category with quantities (combining New and Used)
+      // Get items sold in this category with quantities (grouped by part number only)
       const query = sql`
         SELECT 
           i.item_no,
           i.item_name as name,
-          i.color_name,
+          COUNT(DISTINCT i.color_name)::integer as color_count,
+          SUM(CASE WHEN i.new_or_used = 'N' THEN od.quantity ELSE 0 END)::integer as new_qty,
+          SUM(CASE WHEN i.new_or_used = 'U' THEN od.quantity ELSE 0 END)::integer as used_qty,
           SUM(od.quantity)::integer as quantity_sold
         FROM ${orderDetails} od
         JOIN ${orders} o ON od.order_id = o.id
         JOIN ${blInventory} i ON od.sku = CAST(i.id AS TEXT)
         WHERE i.category_id = ${categoryId} AND ${whereConditions}
-        GROUP BY i.item_no, i.item_name, i.color_name
+        GROUP BY i.item_no, i.item_name
         ORDER BY quantity_sold DESC
       `;
       

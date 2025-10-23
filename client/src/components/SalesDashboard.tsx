@@ -152,7 +152,9 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
   interface CategoryItem {
     item_no: string;
     name: string;
-    color_name: string | null;
+    color_count: number;
+    new_qty: number;
+    used_qty: number;
     quantity_sold: number;
   }
 

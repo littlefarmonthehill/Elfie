@@ -4,7 +4,9 @@ import { ChevronDown, Package } from "lucide-react";
 interface CategoryItem {
   item_no: string;
   name: string;
-  color_name: string | null;
+  color_count: number;
+  new_qty: number;
+  used_qty: number;
   quantity_sold: number;
 }
 
@@ -52,7 +54,7 @@ export default function CategoryItemsDrawer({
             <div className="space-y-2">
               {items.map((item, index) => (
                 <div
-                  key={`${item.item_no}-${item.color_name}-${index}`}
+                  key={`${item.item_no}-${index}`}
                   className="flex justify-between items-start p-3 rounded-lg bg-gray-800/50 border border-gray-700"
                   data-testid={`category-item-${index}`}
                 >
@@ -62,17 +64,31 @@ export default function CategoryItemsDrawer({
                         {item.item_no}
                       </span>
                     </div>
-                    <div className="text-xs md:text-sm text-gray-200 mb-1">{item.name}</div>
-                    {item.color_name && (
-                      <div className="text-[10px] md:text-xs text-gray-400">{item.color_name}</div>
-                    )}
+                    <div className="text-xs md:text-sm text-gray-200 mb-2">{item.name}</div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {item.color_count > 0 && (
+                        <span className="text-[9px] md:text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400">
+                          {item.color_count} {item.color_count === 1 ? 'color' : 'colors'}
+                        </span>
+                      )}
+                      {item.new_qty > 0 && (
+                        <span className="text-[9px] md:text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400">
+                          {item.new_qty.toLocaleString()} New
+                        </span>
+                      )}
+                      {item.used_qty > 0 && (
+                        <span className="text-[9px] md:text-xs px-2 py-0.5 rounded bg-amber-500/20 text-amber-400">
+                          {item.used_qty.toLocaleString()} Used
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div className="text-right flex-shrink-0 ml-3">
                     <div className="text-lg md:text-2xl font-mono font-bold text-purple-400">
                       {item.quantity_sold.toLocaleString()}
                     </div>
                     <div className="text-[9px] md:text-xs text-gray-500">
-                      qty sold
+                      total
                     </div>
                   </div>
                 </div>
