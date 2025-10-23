@@ -228,7 +228,8 @@ async function processBrickOwlOrder(
   
   for (const item of items) {
     try {
-      const lineItemKey = `bo-${boOrder.order_id}-${item.lot_id}`;
+      // Match existing line item key format: {order_id}-{lot_id} (without "bo-" prefix)
+      const lineItemKey = `${boOrder.order_id}-${item.lot_id}`;
       
       // Check if line item already exists
       const [existingItem] = await db
