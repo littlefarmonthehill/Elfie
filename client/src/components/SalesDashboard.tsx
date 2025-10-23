@@ -126,6 +126,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
   // Filter orders based on date range
   const getFilteredOrders = () => {
     if (dateRange === 'all') {
+      console.log(`[SalesDashboard] Filtering with dateRange="all", returning ${orders.length} orders`);
       return orders;
     }
 
@@ -163,6 +164,10 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
   };
 
   const filteredOrders = getFilteredOrders();
+  
+  // Debug logging for revenue calculations
+  console.log(`[SalesDashboard] filteredOrders.length = ${filteredOrders.length}`);
+  console.log(`[SalesDashboard] Sample order totals:`, filteredOrders.slice(0, 3).map(o => o.orderTotal));
 
   // Get available platforms from FILTERED orders (only show platforms with data in selected date range)
   const availablePlatforms = useMemo(() => {
