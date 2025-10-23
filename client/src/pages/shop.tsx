@@ -540,8 +540,8 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
               </Badge>
             </div>
             
-            {/* New and Used badges below */}
-            <div className="flex items-center gap-1 flex-wrap pt-1">
+            {/* New and Used badges stacked vertically (New on top) */}
+            <div className="flex flex-col items-start gap-0.5 pt-1">
               {totalNewQty > 0 && (
                 <Badge variant="secondary" className="text-[9px] md:text-xs px-1 md:px-1.5 py-0.5 h-auto bg-emerald-500/20 text-emerald-300 border-emerald-500/30">
                   {totalNewQty.toLocaleString()} New
@@ -1423,7 +1423,7 @@ export default function Shop() {
 
         {/* Category Pills Selector */}
         <div className="sticky top-[7rem] md:top-[8rem] z-20 bg-gradient-to-b from-black via-black/95 to-transparent border-b border-white/10 px-3 md:px-6 py-2">
-          <div className="overflow-x-auto scrollbar-hide">
+          <div className="overflow-x-auto overflow-y-hidden scrollbar-hide" style={{ touchAction: 'pan-x' }}>
             <div className="flex gap-2 min-w-min">
               {sortedCategoryList.map((category) => {
                 const isSelected = selectedCategories.includes(category.id);

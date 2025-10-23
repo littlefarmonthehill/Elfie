@@ -2356,6 +2356,19 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
             .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
             .where(and(...categoryConditions));
           
+          // Sort items to ensure consistent variation order (New first, then by quantity descending, then alphabetically)
+          allItems.sort((a, b) => {
+            // New items first
+            if (a.newOrUsed !== b.newOrUsed) {
+              return a.newOrUsed === 'N' ? -1 : 1;
+            }
+            // Higher quantity first
+            const qtyDiff = (b.quantity || 0) - (a.quantity || 0);
+            if (qtyDiff !== 0) return qtyDiff;
+            // Alphabetically by color name
+            return (a.colorName || '').localeCompare(b.colorName || '');
+          });
+
           // Group by part number (itemNo) to combine all color/condition variations
           const productMap = new Map<string, any>();
           
@@ -2392,7 +2405,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
             product.totalQty += item.quantity || 0;
             product.totalValue += priceNum * (item.quantity || 0);
             
-            // Use first available image
+            // Use image from first variation (sorted: New first, highest qty, then alphabetically)
             if (!product.imageUrl && item.imageUrl) {
               product.imageUrl = item.imageUrl;
               product.thumbnailUrl = item.thumbnailUrl;
