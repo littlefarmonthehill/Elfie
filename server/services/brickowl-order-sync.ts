@@ -8,6 +8,7 @@ export interface BrickOwlOrderSyncResult {
   ordersAdded: number;
   ordersUpdated: number;
   orderDetailsAdded: number;
+  skusMigrated: number;
   totalOrders: number;
   errors: string[];
 }
@@ -32,6 +33,7 @@ export async function syncBrickOwlOrders(
     ordersAdded: 0,
     ordersUpdated: 0,
     orderDetailsAdded: 0,
+    skusMigrated: 0,
     totalOrders: 0,
     errors: [],
   };
@@ -103,6 +105,7 @@ export async function syncBrickOwlOrders(
       ordersAdded: result.ordersAdded,
       ordersUpdated: result.ordersUpdated,
       orderDetailsAdded: result.orderDetailsAdded,
+      skusMigrated: result.skusMigrated,
       errors: result.errors.length,
     });
     
@@ -236,7 +239,25 @@ async function processBrickOwlOrder(
         .limit(1);
       
       if (existingItem) {
-        continue; // Skip if already exists
+        // Migration: Check if existing item has BOID SKU and needs to be updated
+        const hasBoidSku = existingItem.sku && /^\d+$/.test(existingItem.sku) && !existingItem.bricklinkInventoryId;
+        const hasBrickLinkId = item.external_lot_ids?.other;
+        
+        if (hasBoidSku && hasBrickLinkId) {
+          // Update the SKU to use BrickLink inventory ID
+          await db
+            .update(orderDetails)
+            .set({
+              sku: item.external_lot_ids.other,
+              bricklinkInventoryId: parseInt(item.external_lot_ids.other, 10),
+            })
+            .where(eq(orderDetails.id, existingItem.id));
+          
+          console.log(`🔄 Migrated SKU for item ${lineItemKey}: BOID ${existingItem.sku} → BL Inv ${item.external_lot_ids.other}`);
+          result.skusMigrated++;
+        }
+        
+        continue; // Skip to next item
       }
       
       const orderDetailData = {
