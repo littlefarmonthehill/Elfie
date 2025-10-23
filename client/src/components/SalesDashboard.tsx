@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { format, subMonths, startOfMonth, parseISO, startOfDay, getYear, subYears, addYears } from "date-fns";
+import { format, subMonths, startOfMonth, parseISO, startOfDay, getYear, subYears, addYears, startOfWeek } from "date-fns";
 import { TrendingUp, DollarSign, Target, GitCompare } from "lucide-react";
 import { DateRangeValue } from "./DateRangeSelector";
 import PlatformPerformance from "./PlatformPerformance";
@@ -293,21 +293,30 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
     setPlatformDrawer({ open: true, platform, productLine });
   };
 
-  // Calculate sales data by month - adjust based on date range
+  // Calculate sales data with intelligent granularity based on date range
   const getSalesData = () => {
     if (filteredOrders.length === 0) {
       return [];
     }
 
-    // For MTD, show daily data for current month
-    if (dateRange === 'mtd') {
-      const today = new Date();
-      const startOfCurrentMonth = startOfMonth(today);
-      const daysInMonth = today.getDate(); // Number of days from start to today
+    // MTD and Last Month: show daily data
+    if (dateRange === 'mtd' || dateRange === 'lastmonth') {
+      let startDate: Date, endDate: Date;
       
-      const days = Array.from({ length: daysInMonth }, (_, i) => {
-        const dayDate = new Date(startOfCurrentMonth);
-        dayDate.setDate(i + 1);
+      if (dateRange === 'mtd') {
+        startDate = startOfMonth(new Date());
+        endDate = new Date();
+      } else {
+        // Last month
+        startDate = startOfMonth(subMonths(new Date(), 1));
+        endDate = startOfMonth(new Date());
+      }
+      
+      const dayCount = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      
+      const days = Array.from({ length: dayCount }, (_, i) => {
+        const dayDate = new Date(startDate);
+        dayDate.setDate(startDate.getDate() + i);
         return {
           date: format(dayDate, 'MMM d'),
           day: startOfDay(dayDate),
@@ -328,6 +337,45 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
       });
 
       return days.map(({ date, sales }) => ({
+        date,
+        sales: Math.round(sales),
+      }));
+    }
+
+    // 3 months and 6 months: show weekly data
+    if (dateRange === '3months' || dateRange === '6months') {
+      const monthsBack = dateRange === '3months' ? 2 : 5;
+      const startDate = startOfMonth(subMonths(new Date(), monthsBack));
+      const endDate = new Date();
+      
+      // Get start of first week
+      const firstWeek = startOfWeek(startDate, { weekStartsOn: 0 }); // Sunday
+      const weekCount = Math.ceil((endDate.getTime() - firstWeek.getTime()) / (1000 * 60 * 60 * 24 * 7));
+      
+      const weeks = Array.from({ length: weekCount }, (_, i) => {
+        const weekDate = new Date(firstWeek);
+        weekDate.setDate(firstWeek.getDate() + (i * 7));
+        return {
+          date: format(weekDate, 'MMM d'),
+          week: startOfWeek(weekDate, { weekStartsOn: 0 }),
+          sales: 0,
+        };
+      });
+
+      // Aggregate orders into weeks
+      filteredOrders.forEach(order => {
+        const total = parseOrderTotal(order.orderTotal);
+        if (total > 0) {
+          const orderDate = safeParseDate(order.orderDate);
+          const orderWeek = startOfWeek(orderDate, { weekStartsOn: 0 });
+          const weekData = weeks.find(w => w.week.getTime() === orderWeek.getTime());
+          if (weekData) {
+            weekData.sales += total;
+          }
+        }
+      });
+
+      return weeks.map(({ date, sales }) => ({
         date,
         sales: Math.round(sales),
       }));
