@@ -516,15 +516,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const query = sql`
         SELECT 
           i.item_no,
-          i.name,
+          i.item_name as name,
           i.color_name,
-          i.condition,
+          i.new_or_used as condition,
           SUM(od.quantity)::integer as quantity_sold
         FROM ${orderDetails} od
         JOIN ${orders} o ON od.order_id = o.id
         JOIN ${blInventory} i ON od.sku = CAST(i.id AS TEXT)
         WHERE i.category_id = ${categoryId} AND ${whereConditions}
-        GROUP BY i.item_no, i.name, i.color_name, i.condition
+        GROUP BY i.item_no, i.item_name, i.color_name, i.new_or_used
         ORDER BY quantity_sold DESC
       `;
       
