@@ -362,7 +362,54 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
       const earliestOrderDate = new Date(Math.min(...orderDates.map(d => d.getTime())));
       const latestOrderDate = new Date(Math.max(...orderDates.map(d => d.getTime())));
       
-      // Start from the earliest order's month
+      // Calculate year span
+      const startYear = earliestOrderDate.getFullYear();
+      const endYear = latestOrderDate.getFullYear();
+      const yearSpan = endYear - startYear + 1;
+      
+      // If data spans more than 2 years, aggregate by year instead of month
+      if (yearSpan > 2) {
+        // Generate yearly data points
+        const years = Array.from({ length: yearSpan }, (_, i) => {
+          const year = startYear + i;
+          return {
+            date: year.toString(),
+            month: new Date(year, 0, 1), // Jan 1st of each year
+            sales: 0,
+          };
+        });
+        
+        // Aggregate orders by year
+        filteredOrders.forEach(order => {
+          const total = parseOrderTotal(order.orderTotal);
+          if (total > 0) {
+            let orderDate: Date;
+            try {
+              orderDate = safeParseDate(order.orderDate);
+              if (isNaN(orderDate.getTime())) {
+                orderDate = new Date(order.orderDate);
+              }
+            } catch {
+              orderDate = new Date(order.orderDate);
+            }
+            
+            if (!isNaN(orderDate.getTime())) {
+              const orderYear = orderDate.getFullYear();
+              const yearData = years.find(y => y.date === orderYear.toString());
+              if (yearData) {
+                yearData.sales += total;
+              }
+            }
+          }
+        });
+        
+        return years.map(({ date, sales }) => ({
+          date,
+          sales: Math.round(sales),
+        }));
+      }
+      
+      // For 2 years or less, show monthly data
       const startMonth = startOfMonth(earliestOrderDate);
       const endMonth = startOfMonth(latestOrderDate);
       
@@ -370,16 +417,10 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
       const monthDiff = (endMonth.getFullYear() - startMonth.getFullYear()) * 12 + 
                         (endMonth.getMonth() - startMonth.getMonth()) + 1;
       
-      // Limit to most recent 120 months (10 years) if history is very long
-      const monthsToShow = Math.min(monthDiff, 120);
-      const adjustedStartMonth = monthsToShow < monthDiff 
-        ? new Date(endMonth.getFullYear(), endMonth.getMonth() - monthsToShow + 1, 1)
-        : startMonth;
-      
-      // Generate months from adjusted start to latest
-      months = Array.from({ length: monthsToShow }, (_, i) => {
-        const monthDate = new Date(adjustedStartMonth);
-        monthDate.setMonth(adjustedStartMonth.getMonth() + i);
+      // Generate months from start to latest
+      months = Array.from({ length: monthDiff }, (_, i) => {
+        const monthDate = new Date(startMonth);
+        monthDate.setMonth(startMonth.getMonth() + i);
         return {
           date: format(monthDate, 'MMM yy'),
           month: startOfMonth(monthDate),
