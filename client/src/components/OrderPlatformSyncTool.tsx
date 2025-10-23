@@ -4,6 +4,7 @@ import { RefreshCw, Loader2, ArrowRight, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -37,6 +38,7 @@ type OrderSyncStatus = {
 export default function OrderPlatformSyncTool() {
   const { toast } = useToast();
   const [syncingPlatform, setSyncingPlatform] = useState<string | null>(null);
+  const [brickowlFullSync, setBrickowlFullSync] = useState(false);
 
   // Fetch order sync status
   const { data, isLoading } = useQuery<OrderSyncStatus>({
@@ -75,16 +77,22 @@ export default function OrderPlatformSyncTool() {
   const brickowlSyncMutation = useMutation({
     mutationFn: async () => {
       const result = await apiRequest('POST', '/api/sync/brickowl/orders', {
-        fullSync: false,
+        fullSync: brickowlFullSync,
       });
       return result;
     },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['/api/order-sync/status'] });
       queryClient.invalidateQueries({ queryKey: ['/api/orders/dashboard'] });
+      
+      const parts = [`${result.data.ordersAdded} added, ${result.data.ordersUpdated} updated`];
+      if (result.data.skusMigrated > 0) {
+        parts.push(`${result.data.skusMigrated} SKUs migrated`);
+      }
+      
       toast({
         title: "BrickOwl Sync Complete",
-        description: `${result.data.ordersAdded} added, ${result.data.ordersUpdated} updated`,
+        description: parts.join(', '),
       });
       setSyncingPlatform(null);
     },
@@ -287,6 +295,25 @@ export default function OrderPlatformSyncTool() {
                     )}
                   </Button>
                 </div>
+
+                {/* BrickOwl Full Sync Option */}
+                {platform.name === 'BrickOwl' && platform.enabled && (
+                  <div className="flex items-center space-x-2 mb-2">
+                    <Checkbox
+                      id="brickowl-full-sync"
+                      checked={brickowlFullSync}
+                      onCheckedChange={(checked) => setBrickowlFullSync(checked === true)}
+                      disabled={isSyncing}
+                      data-testid="checkbox-brickowl-full-sync"
+                    />
+                    <label
+                      htmlFor="brickowl-full-sync"
+                      className="text-xs text-gray-400 cursor-pointer select-none"
+                    >
+                      Full Sync (migrate historical SKUs)
+                    </label>
+                  </div>
+                )}
 
                 {/* Last Synced Info */}
                 {platform.enabled && platform.stats.lastSyncedAt && (
