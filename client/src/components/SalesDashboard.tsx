@@ -470,21 +470,22 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
         const monthDate = new Date(startMonth);
         monthDate.setMonth(startMonth.getMonth() + i);
         return {
-          date: format(monthDate, 'MMM yy'),
+          date: format(monthDate, 'MMM yyyy'),
           month: startOfMonth(monthDate),
           sales: 0,
         };
       });
     } else {
-      // For specific date ranges, use predefined periods from current date
+      // For 1 year and 2 years, use monthly data
       const monthsToShow = dateRange === '2years' ? 24 :
                           dateRange === '1year' ? 12 :
                           dateRange === '6months' ? 6 : 3;
       
       months = Array.from({ length: monthsToShow }, (_, i) => {
         const date = subMonths(new Date(), monthsToShow - 1 - i);
+        // Use full year format for clarity (Nov 2023 instead of Nov 23)
         return {
-          date: format(date, 'MMM yy'),
+          date: format(date, 'MMM yyyy'),
           month: startOfMonth(date),
           sales: 0,
         };
