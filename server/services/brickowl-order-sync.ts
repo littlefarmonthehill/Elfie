@@ -247,6 +247,11 @@ async function processBrickOwlOrder(
         const hasBoidSku = existingItem.sku && /^\d+$/.test(existingItem.sku) && !existingItem.bricklinkInventoryId;
         const hasBrickLinkId = item.external_lot_ids?.other;
         
+        // Debug: Log first few items to see what API returns
+        if (result.ordersAdded + result.ordersUpdated < 3) {
+          console.log(`🔍 Item check: SKU=${existingItem.sku}, BL_ID=${existingItem.bricklinkInventoryId}, API_external=${item.external_lot_ids?.other}, hasBoidSku=${hasBoidSku}, hasBrickLinkId=${hasBrickLinkId}`);
+        }
+        
         if (hasBoidSku && hasBrickLinkId) {
           // Update the SKU to use BrickLink inventory ID
           await db
