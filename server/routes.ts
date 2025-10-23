@@ -168,16 +168,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
             endDateFilter = new Date(now.getFullYear(), now.getMonth(), 1);
             break;
           case '3months':
-            dateFilter = new Date(now.setMonth(now.getMonth() - 3));
+            dateFilter = new Date(now.getFullYear(), now.getMonth() - 3, 1);
             break;
           case '6months':
-            dateFilter = new Date(now.setMonth(now.getMonth() - 6));
+            dateFilter = new Date(now.getFullYear(), now.getMonth() - 6, 1);
             break;
           case '1year':
-            dateFilter = new Date(now.setFullYear(now.getFullYear() - 1));
+            dateFilter = new Date(now.getFullYear() - 1, now.getMonth(), 1);
             break;
           case '2years':
-            dateFilter = new Date(now.setFullYear(now.getFullYear() - 2));
+            dateFilter = new Date(now.getFullYear() - 2, now.getMonth(), 1);
             break;
         }
       }
