@@ -6253,19 +6253,21 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
 
       // Get warehouse locations for each inventory lot
       const inventoryIds = inventoryLots.map(lot => lot.id);
-      const warehouseLocations = await db
-        .select({
-          inventoryId: inventoryLocations.inventoryId,
-          binId: inventoryLocations.binId,
-          binName: whBins.name,
-          shelfName: whShelves.name,
-          aisleName: whAisles.name,
-        })
-        .from(inventoryLocations)
-        .leftJoin(whBins, eq(inventoryLocations.binId, whBins.id))
-        .leftJoin(whShelves, eq(whBins.shelfId, whShelves.id))
-        .leftJoin(whAisles, eq(whShelves.aisleId, whAisles.id))
-        .where(inArray(inventoryLocations.inventoryId, inventoryIds));
+      const warehouseLocations = inventoryIds.length > 0 
+        ? await db
+            .select({
+              inventoryId: inventoryLocations.inventoryId,
+              binId: inventoryLocations.binId,
+              binName: whBins.name,
+              shelfName: whShelves.name,
+              aisleName: whAisles.name,
+            })
+            .from(inventoryLocations)
+            .leftJoin(whBins, eq(inventoryLocations.binId, whBins.id))
+            .leftJoin(whShelves, eq(whBins.shelfId, whShelves.id))
+            .leftJoin(whAisles, eq(whShelves.aisleId, whAisles.id))
+            .where(inArray(inventoryLocations.inventoryId, inventoryIds))
+        : [];
 
       // Get sales data for this item
       // Note: sku contains the item number for most platforms
