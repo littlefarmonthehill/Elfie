@@ -37,7 +37,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
   const [comparisonType, setComparisonType] = useState<'year' | 'platform'>('year'); // Toggle between year/platform
   const [selectedCompareYears, setSelectedCompareYears] = useState<number[]>([currentYear - 1, currentYear - 2]);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
-  const [categoryFilter, setCategoryFilter] = useState<'all' | 'moving' | 'stagnant'>('all');
+  const [categoryFilter, setCategoryFilter] = useState<'all' | 'moving' | 'stagnant'>('moving');
   const [selectedProductLine, setSelectedProductLine] = useState<string | null>(null);
   
   // Helper function to safely parse dates with fallback
@@ -1148,7 +1148,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
             : [...filteredCategories].sort((a, b) => b.sell_through_pct - a.sell_through_pct);
           
           return sortedCategories.length > 0 ? (
-            <div className="space-y-1">
+            <div className="space-y-1 max-h-64 overflow-y-auto">
               {sortedCategories.map((category) => (
               <div 
                 key={category.category_id}
