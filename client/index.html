@@ -58,6 +58,22 @@
         animation: pulse 2s ease-in-out infinite;
       }
       
+      /* iPad mini (768px width) */
+      @media only screen and (min-width: 768px) and (max-width: 820px) {
+        .loader-logo {
+          width: 320px;
+          height: 320px;
+        }
+      }
+      
+      /* iPad (1024px width and larger tablets) */
+      @media only screen and (min-width: 821px) {
+        .loader-logo {
+          width: 384px;
+          height: 384px;
+        }
+      }
+      
       .loader-spinner {
         width: 50px;
         height: 50px;

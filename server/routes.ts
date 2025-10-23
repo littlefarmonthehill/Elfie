@@ -8,7 +8,7 @@ import { syncBrickLinkToBrickOwl } from "./services/brickowl";
 import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBackup } from "./services/export";
 import { getProcessedPartImage, processImageFromUrl } from "./services/image-proxy";
 import { db } from "./db";
-import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, setPartRelationships } from "@shared/schema";
+import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, setPartRelationships, blForumPosts } from "@shared/schema";
 import { eq, desc, sql, inArray, like, or, and, isNotNull } from "drizzle-orm";
 import { z } from "zod";
 import multer from "multer";
@@ -6385,6 +6385,48 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
     } catch (error) {
       console.error("Error fetching item details:", error);
       res.status(500).json({ error: "Failed to fetch item details" });
+    }
+  });
+
+  // ============================================================================
+  // FORUM NEWS ROUTES
+  // ============================================================================
+
+  // GET /api/forum/recent - Get recent forum posts for news notification
+  app.get("/api/forum/recent", isApproved, async (req, res) => {
+    try {
+      const daysAgo = parseInt(req.query.days as string) || 7;
+      const limit = parseInt(req.query.limit as string) || 10;
+      
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - daysAgo);
+      
+      const recentPosts = await db
+        .select({
+          id: blForumPosts.id,
+          threadId: blForumPosts.threadId,
+          title: blForumPosts.title,
+          excerpt: blForumPosts.excerpt,
+          username: blForumPosts.username,
+          postedAt: blForumPosts.postedAt,
+          postUrl: blForumPosts.postUrl,
+          threadUrl: blForumPosts.threadUrl,
+          hasReplies: blForumPosts.hasReplies,
+        })
+        .from(blForumPosts)
+        .where(sql`${blForumPosts.postedAt} >= ${cutoffDate}`)
+        .orderBy(sql`${blForumPosts.postedAt} DESC`)
+        .limit(limit);
+      
+      res.json({
+        success: true,
+        count: recentPosts.length,
+        posts: recentPosts,
+        cutoffDate: cutoffDate.toISOString(),
+      });
+    } catch (error: any) {
+      console.error("Error fetching recent forum posts:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch recent forum posts" });
     }
   });
 

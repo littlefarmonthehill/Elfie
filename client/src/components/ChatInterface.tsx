@@ -424,6 +424,16 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, br
   );
 }
 
+interface ForumNews {
+  count: number;
+  posts: Array<{
+    title: string;
+    username: string;
+    postedAt: string;
+    threadUrl: string;
+  }>;
+}
+
 interface ChatInterfaceProps {
   dashboardContext: string;
   themeColor: 'red' | 'blue' | 'yellow' | 'green' | 'orange' | 'purple';
@@ -433,9 +443,10 @@ interface ChatInterfaceProps {
   isMinimized?: boolean;
   onToggleMinimize?: () => void;
   onThinkingChange?: (isThinking: boolean) => void;
+  forumNews?: ForumNews | null;
 }
 
-export default function ChatInterface({ dashboardContext, themeColor, prompts, onPromptAction, onItemClick, isMinimized = true, onToggleMinimize, onThinkingChange }: ChatInterfaceProps) {
+export default function ChatInterface({ dashboardContext, themeColor, prompts, onPromptAction, onItemClick, isMinimized = true, onToggleMinimize, onThinkingChange, forumNews }: ChatInterfaceProps) {
   // Chat has its own distinct purple/violet color scheme
   const colors = {
     gradient: 'from-purple-500/20 via-violet-500/15 to-purple-600/10',
@@ -453,10 +464,22 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
     return stored || `session-${Date.now()}`;
   });
 
+  // Create welcome message with forum news if available
+  const getWelcomeMessage = () => {
+    let message = `Hello! I'm E.L.F.I.E., your ${dashboardContext} operations assistant. How can I help you optimize your LEGO business today?`;
+    
+    if (forumNews && forumNews.count > 0) {
+      const topPost = forumNews.posts[0];
+      message += `\n\n**LEGO News Update:** There ${forumNews.count === 1 ? 'is' : 'are'} ${forumNews.count} new discussion${forumNews.count === 1 ? '' : 's'} on the BrickLink forum in the past week! The latest: "${topPost.title}" by ${topPost.username}. Ask me to search forum discussions for more details!`;
+    }
+    
+    return message;
+  };
+
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: 'assistant',
-      content: `Hello! I'm E.L.F.I.E., your ${dashboardContext} operations assistant. How can I help you optimize your LEGO business today?`
+      content: getWelcomeMessage()
     }
   ]);
   const [input, setInput] = useState('');

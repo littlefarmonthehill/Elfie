@@ -27,6 +27,15 @@ export default function Home() {
   const [elfieClosing, setElfieClosing] = useState(false);
   const [elfieResting, setElfieResting] = useState(false);
   const [elfieThinking, setElfieThinking] = useState(false);
+  const [forumNews, setForumNews] = useState<{
+    count: number;
+    posts: Array<{
+      title: string;
+      username: string;
+      postedAt: string;
+      threadUrl: string;
+    }>;
+  } | null>(null);
   const [activeInventoryDrawer, setActiveInventoryDrawer] = useState<'priceomatic' | 'warehouse' | 'platformsync' | null>(null);
   const [activeOrdersDrawer, setActiveOrdersDrawer] = useState<'picklist' | 'fulfillment' | 'platformsync' | 'shipped' | null>(null);
   const [detailModal, setDetailModal] = useState<{ open: boolean; data: DetailData | null }>({
@@ -593,7 +602,7 @@ export default function Home() {
     }
   };
 
-  const handleElfieClick = () => {
+  const handleElfieClick = async () => {
     // Start Elfie animation - fly down, pull drawer, then zigzag to upper-right
     setShowElfie(true);
     setElfieClosing(false);
@@ -601,12 +610,44 @@ export default function Home() {
     
     // Open drawer immediately
     setChatOpen(true);
+    
+    // Fetch recent forum news (last 7 days, limit 5 posts)
+    try {
+      const response = await fetch('/api/forum/recent?days=7&limit=5');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.count > 0) {
+          setForumNews({
+            count: data.count,
+            posts: data.posts.map((post: any) => ({
+              title: post.title,
+              username: post.username,
+              postedAt: post.postedAt,
+              threadUrl: post.threadUrl,
+            })),
+          });
+        } else {
+          // Clear forum news if no recent posts
+          setForumNews(null);
+        }
+      } else {
+        // Clear forum news on failed fetch
+        setForumNews(null);
+      }
+    } catch (error) {
+      console.error('Error fetching forum news:', error);
+      // Clear forum news on error
+      setForumNews(null);
+    }
   };
 
   const handleChatClose = () => {
     // Close drawer first
     setChatOpen(false);
     setElfieResting(false);
+    
+    // Clear forum news to avoid stale alerts on next open
+    setForumNews(null);
     
     // Elfie is already visible, just trigger closing animation
     setElfieClosing(true);
@@ -823,6 +864,7 @@ export default function Home() {
               isMinimized={false}
               onToggleMinimize={handleChatClose}
               onThinkingChange={setElfieThinking}
+              forumNews={forumNews}
             />
           </div>
         </SheetContent>
