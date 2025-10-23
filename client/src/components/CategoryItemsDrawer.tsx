@@ -5,7 +5,6 @@ interface CategoryItem {
   item_no: string;
   name: string;
   color_name: string | null;
-  condition: string;
   quantity_sold: number;
 }
 
@@ -53,7 +52,7 @@ export default function CategoryItemsDrawer({
             <div className="space-y-2">
               {items.map((item, index) => (
                 <div
-                  key={`${item.item_no}-${item.color_name}-${item.condition}-${index}`}
+                  key={`${item.item_no}-${item.color_name}-${index}`}
                   className="flex justify-between items-start p-3 rounded-lg bg-gray-800/50 border border-gray-700"
                   data-testid={`category-item-${index}`}
                 >
@@ -62,15 +61,6 @@ export default function CategoryItemsDrawer({
                       <span className="text-sm md:text-base font-mono font-bold text-cyan-400">
                         {item.item_no}
                       </span>
-                      {item.condition && (
-                        <span className={`text-[9px] md:text-xs px-2 py-0.5 rounded ${
-                          item.condition === 'N' || item.condition === 'New' 
-                            ? 'bg-emerald-500/20 text-emerald-400' 
-                            : 'bg-amber-500/20 text-amber-400'
-                        }`}>
-                          {item.condition === 'N' || item.condition === 'New' ? 'New' : 'Used'}
-                        </span>
-                      )}
                     </div>
                     <div className="text-xs md:text-sm text-gray-200 mb-1">{item.name}</div>
                     {item.color_name && (

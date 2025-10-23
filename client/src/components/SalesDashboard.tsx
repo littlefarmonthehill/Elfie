@@ -153,7 +153,6 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
     item_no: string;
     name: string;
     color_name: string | null;
-    condition: string;
     quantity_sold: number;
   }
 
