@@ -29,20 +29,32 @@ export default function CategoryItemsDrawer({
   onItemClick
 }: CategoryItemsDrawerProps) {
   const handleItemClickInternal = (itemNo: string) => {
+    console.log('[CategoryItemsDrawer] Item clicked:', itemNo, 'onItemClick available:', !!onItemClick);
+    
     // Use the parent's onItemClick if provided
     // For now, we'll need to fetch the inventory lot ID
     // This will open the detail in the parent component's drawer
     if (onItemClick) {
+      console.log('[CategoryItemsDrawer] Fetching inventory for:', itemNo);
       // We need to get the first inventory lot for this item
       // The parent will handle showing the detail drawer
       fetch(`/api/inventory/search?itemNo=${encodeURIComponent(itemNo)}&limit=1`)
-        .then(res => res.json())
+        .then(res => {
+          console.log('[CategoryItemsDrawer] Fetch response status:', res.status);
+          return res.json();
+        })
         .then(data => {
+          console.log('[CategoryItemsDrawer] Inventory data:', data);
           if (data.length > 0) {
+            console.log('[CategoryItemsDrawer] Calling onItemClick with id:', data[0].id);
             onItemClick('inventory', data[0].id);
+          } else {
+            console.warn('[CategoryItemsDrawer] No inventory found for:', itemNo);
           }
         })
-        .catch(err => console.error('Error finding inventory:', err));
+        .catch(err => console.error('[CategoryItemsDrawer] Error finding inventory:', err));
+    } else {
+      console.warn('[CategoryItemsDrawer] onItemClick not provided');
     }
   };
 
