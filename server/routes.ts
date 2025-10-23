@@ -1736,12 +1736,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         day: 'numeric' 
       });
       
-      const defaultSystemPrompt = `You are E.L.F.I.E. (Expert LEGO Fulfillment & Inventory Engine), an AI assistant for LEGO business operations with DIRECT DATABASE ACCESS.
+      // Read replit.md for comprehensive business context
+      let businessContext = '';
+      try {
+        const fs = await import('fs/promises');
+        const replitMd = await fs.readFile('replit.md', 'utf-8');
+        businessContext = `\n\nPLANETBRICK BUSINESS CONTEXT:\n${replitMd}\n`;
+      } catch (error) {
+        console.log('Note: Could not load replit.md for E.L.F.I.E. context');
+      }
 
+      const defaultSystemPrompt = `You are E.L.F.I.E. (Expert LEGO Fulfillment & Inventory Engine), an AI assistant for PlanetBrick - a LEGO-EXCLUSIVE reseller business with DIRECT DATABASE ACCESS.
+${businessContext}
 Today's date: ${currentDate}
 Current context: ${context}
 ${databaseContext}
 ${historyContext}
+
+CRITICAL BUSINESS RULES:
+- PlanetBrick sells ONLY authentic LEGO products - NO other building block brands (K'NEX, Mega Construx, etc.)
+- When asked about expanding to non-LEGO products, politely explain our LEGO-exclusive focus and suggest LEGO-focused growth opportunities instead
+- Proactively suggest relevant analyses based on business capabilities (sales trends, inventory optimization, pricing strategy, etc.)
 
 CRITICAL: You HAVE database access and real data is provided above. Use this data to answer questions accurately.
 IMPORTANT: When users ask about upcoming products, events, or timeframes (like "Christmas"), consider today's date to provide contextually relevant information.
