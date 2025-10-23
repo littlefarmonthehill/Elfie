@@ -37,6 +37,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
   const [comparisonType, setComparisonType] = useState<'year' | 'platform'>('year'); // Toggle between year/platform
   const [selectedCompareYears, setSelectedCompareYears] = useState<number[]>([currentYear - 1, currentYear - 2]);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
+  const [categoryFilter, setCategoryFilter] = useState<'all' | 'moving' | 'stagnant'>('all');
   
   // Helper function to safely parse dates with fallback
   const safeParseDate = (dateString: string): Date => {
@@ -1090,15 +1091,40 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
 
       {/* Category Analysis */}
       <div className="bg-gray-900/50 border border-purple-500/20 rounded-lg p-3" data-testid="section-category-analysis">
-        <div className="flex items-center gap-2 mb-2">
-          <Target className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-purple-400" />
-          <h3 className="text-xs md:text-base lg:text-lg font-semibold text-purple-400 uppercase tracking-wide">Category Analysis - Sell-Through</h3>
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <div className="flex items-center gap-2">
+            <Target className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-purple-400" />
+            <h3 className="text-xs md:text-base lg:text-lg font-semibold text-purple-400 uppercase tracking-wide">Category Analysis</h3>
+          </div>
+          <Select value={categoryFilter} onValueChange={(value: 'all' | 'moving' | 'stagnant') => setCategoryFilter(value)}>
+            <SelectTrigger className="w-auto h-7 text-xs" data-testid="select-category-filter">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              <SelectItem value="moving">Moving Items</SelectItem>
+              <SelectItem value="stagnant">Stagnant Stock</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         {isCategoryLoading ? (
           <div className="text-[11px] text-gray-500 italic">Loading category data...</div>
-        ) : categoryAnalysis.filter(cat => cat.total_sold > 0).length > 0 ? (
-          <div className="space-y-1">
-            {categoryAnalysis.filter(cat => cat.total_sold > 0).map((category) => (
+        ) : (() => {
+          // Filter categories based on selection
+          const filteredCategories = categoryFilter === 'all' 
+            ? categoryAnalysis
+            : categoryFilter === 'moving'
+            ? categoryAnalysis.filter(cat => cat.total_sold > 0)
+            : categoryAnalysis.filter(cat => cat.total_sold === 0);
+          
+          // Sort based on filter
+          const sortedCategories = categoryFilter === 'stagnant'
+            ? [...filteredCategories].sort((a, b) => b.current_inventory - a.current_inventory)
+            : [...filteredCategories].sort((a, b) => b.sell_through_pct - a.sell_through_pct);
+          
+          return sortedCategories.length > 0 ? (
+            <div className="space-y-1">
+              {sortedCategories.map((category) => (
               <div 
                 key={category.category_id}
                 className="flex justify-between items-center hover-elevate rounded px-2 py-1.5"
@@ -1123,10 +1149,11 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
                 </div>
               </div>
             ))}
-          </div>
-        ) : (
-          <div className="text-[11px] text-gray-500 italic">No category data available</div>
-        )}
+            </div>
+          ) : (
+            <div className="text-[11px] text-gray-500 italic">No category data available</div>
+          );
+        })()}
       </div>
 
       {/* Platform Orders Drawer */}
