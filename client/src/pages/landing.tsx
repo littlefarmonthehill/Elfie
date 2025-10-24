@@ -11,9 +11,8 @@ export default function Landing() {
       icon: Sparkles,
       neonColor: "#06B6D4",
       glowColor: "rgba(6, 182, 212, 0.6)",
-      position: "top-[18%] right-[22%]",
+      position: "top-[25%] right-[18%]",
       rotation: "-3deg",
-      description: "Browse collection",
       swayDelay: "0s"
     },
     {
@@ -23,9 +22,8 @@ export default function Landing() {
       icon: Calendar,
       neonColor: "#F59E0B",
       glowColor: "rgba(245, 158, 11, 0.6)",
-      position: "bottom-[20%] right-[18%]",
+      position: "bottom-[35%] right-[12%]",
       rotation: "4deg",
-      description: "Workshops",
       swayDelay: "0.5s"
     },
     {
@@ -35,9 +33,8 @@ export default function Landing() {
       icon: Gift,
       neonColor: "#A855F7",
       glowColor: "rgba(168, 85, 247, 0.6)",
-      position: "bottom-[16%] left-[25%]",
+      position: "bottom-[25%] left-[18%]",
       rotation: "-4deg",
-      description: "Bundles",
       swayDelay: "1s"
     },
     {
@@ -47,9 +44,8 @@ export default function Landing() {
       icon: Users,
       neonColor: "#10B981",
       glowColor: "rgba(16, 185, 129, 0.6)",
-      position: "top-[25%] left-[20%]",
+      position: "top-[25%] left-[15%]",
       rotation: "3deg",
-      description: "Videos & news",
       swayDelay: "1.5s"
     }
   ];
@@ -187,21 +183,16 @@ export default function Landing() {
                         }}
                       />
                       
-                      {/* Sign text */}
-                      <div className="flex flex-col">
-                        <span 
-                          className="text-xs md:text-base font-black uppercase tracking-wider"
-                          style={{ 
-                            color: sign.neonColor,
-                            textShadow: `0 0 10px ${sign.glowColor}, 0 0 20px ${sign.glowColor}`
-                          }}
-                        >
-                          {sign.name}
-                        </span>
-                        <span className="text-[9px] md:text-[10px] text-gray-400 font-light">
-                          {sign.description}
-                        </span>
-                      </div>
+                      {/* Sign text - name only */}
+                      <span 
+                        className="text-xs md:text-base font-black uppercase tracking-wider"
+                        style={{ 
+                          color: sign.neonColor,
+                          textShadow: `0 0 10px ${sign.glowColor}, 0 0 20px ${sign.glowColor}`
+                        }}
+                      >
+                        {sign.name}
+                      </span>
 
                       {/* Arrow pointer */}
                       <ArrowRight 
@@ -233,13 +224,8 @@ export default function Landing() {
           <div className="absolute -inset-4 bg-gradient-to-r from-cyan-500/10 via-purple-500/10 to-pink-500/10 blur-2xl opacity-60 animate-pulse" style={{ animationDuration: '3s' }} />
           
           {/* Main tagline */}
-          <p className="relative text-base md:text-xl lg:text-2xl text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400 font-bold tracking-wide mb-2">
+          <p className="relative text-base md:text-xl lg:text-2xl text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400 font-bold tracking-wide">
             Your Universe of LEGO® Parts & Community
-          </p>
-          
-          {/* Subtitle */}
-          <p className="relative text-xs md:text-sm text-gray-400 font-light tracking-wider">
-            Explore • Build • Connect
           </p>
         </div>
       </div>
