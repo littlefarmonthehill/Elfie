@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, ShoppingCart, ChevronRight, Sparkles, Plus, X, Minus, Check, ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
+import { Search, ShoppingCart, ChevronRight, Sparkles, Plus, X, Minus, Check, ChevronDown, ChevronUp, ExternalLink, LayoutGrid, List } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -417,9 +417,10 @@ interface LotCardProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   onAddToCart: (variation: any, quantity: number) => void;
+  viewMode?: 'gallery' | 'list';
 }
 
-function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
+function LotCard({ lot, isOpen, onOpenChange, onAddToCart, viewMode = 'gallery' }: LotCardProps) {
   const primaryColor = lot.variations[0];
   const [quantities, setQuantities] = useState<Record<number, number>>({});
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
@@ -483,7 +484,7 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
   return (
     <>
       <Card
-        className="shrink-0 w-36 md:w-56 p-1.5 md:p-3 bg-gray-900/60 border-purple-500/30 hover-elevate cursor-pointer transition-all"
+        className={`${viewMode === 'list' ? 'w-full' : 'shrink-0 w-36 md:w-56'} p-1.5 md:p-3 bg-gray-900/60 border-purple-500/30 hover-elevate cursor-pointer transition-all`}
         onClick={() => onOpenChange(true)}
         data-testid={`card-lot-${lot.id}`}
       >
@@ -536,7 +537,7 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
           </div>
           
           <div className="space-y-1 md:space-y-2">
-            <h3 className="text-xs md:text-base font-bold text-white leading-tight truncate">{formatProductDisplayName(lot.name)}</h3>
+            <h3 className={`text-xs md:text-base font-bold text-white leading-tight ${viewMode === 'list' ? '' : 'truncate'}`}>{formatProductDisplayName(lot.name)}</h3>
             
             {/* Part number and color count on same line */}
             <div className="flex items-center justify-between">
@@ -709,26 +710,26 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
                           </div>
 
                           {/* Right: Store Links */}
-                          <div className="flex gap-1.5 shrink-0">
+                          <div className="flex flex-col gap-1.5 shrink-0">
                             <Button
                               size="sm"
                               variant="outline"
-                              className="border-orange-500/40 text-orange-400 hover:bg-orange-500/10 gap-1 text-[10px] px-2 h-7"
+                              className="border-orange-500/40 text-orange-400 hover:bg-orange-500/10 gap-1.5 text-[10px] px-2.5 h-7 whitespace-nowrap"
                               onClick={() => window.open(BRICKLINK_STORE_URL, '_blank')}
                               data-testid={`button-bricklink-${lot.id}-${idx}`}
                             >
                               <ExternalLink className="w-3 h-3" />
-                              BrickLink
+                              Buy on BrickLink
                             </Button>
                             <Button
                               size="sm"
                               variant="outline"
-                              className="border-purple-500/40 text-purple-400 hover:bg-purple-500/10 gap-1 text-[10px] px-2 h-7"
+                              className="border-purple-500/40 text-purple-400 hover:bg-purple-500/10 gap-1.5 text-[10px] px-2.5 h-7 whitespace-nowrap"
                               onClick={() => window.open(BRICKOWL_STORE_URL, '_blank')}
                               data-testid={`button-brickowl-${lot.id}-${idx}`}
                             >
                               <ExternalLink className="w-3 h-3" />
-                              BrickOwl
+                              Buy on BrickOwl
                             </Button>
                           </div>
                         </div>
@@ -791,6 +792,7 @@ interface HorizontalRowProps {
   categoryId: string;
   onAddToCart: (item: any, quantity: number) => void;
   bandColor: string;
+  viewMode?: 'gallery' | 'list';
 }
 
 function CategorySkeleton({ bandColor }: { bandColor: string }) {
@@ -835,7 +837,7 @@ function CategorySkeleton({ bandColor }: { bandColor: string }) {
   );
 }
 
-function HorizontalRow({ title, lots, lotCount, partCount, categoryId, onAddToCart, bandColor }: HorizontalRowProps) {
+function HorizontalRow({ title, lots, lotCount, partCount, categoryId, onAddToCart, bandColor, viewMode = 'gallery' }: HorizontalRowProps) {
   const [openLotId, setOpenLotId] = useState<number | null>(null);
 
   return (
@@ -864,19 +866,39 @@ function HorizontalRow({ title, lots, lotCount, partCount, categoryId, onAddToCa
           </div>
         </div>
       
-        <div className="overflow-x-auto scrollbar-hide smooth-scroll">
-          <div className="flex gap-2 md:gap-4 px-3 md:px-6 will-change-scroll">
-            {lots.slice(0, 12).map((lot) => (
-              <LotCard
-                key={lot.id}
-                lot={lot}
-                isOpen={openLotId === lot.id}
-                onOpenChange={(open) => setOpenLotId(open ? lot.id : null)}
-                onAddToCart={onAddToCart}
-              />
-            ))}
+        {viewMode === 'gallery' ? (
+          /* Gallery View - Horizontal Scroll */
+          <div className="overflow-x-auto scrollbar-hide smooth-scroll">
+            <div className="flex gap-2 md:gap-4 px-3 md:px-6 will-change-scroll">
+              {lots.slice(0, 12).map((lot) => (
+                <LotCard
+                  key={lot.id}
+                  lot={lot}
+                  isOpen={openLotId === lot.id}
+                  onOpenChange={(open) => setOpenLotId(open ? lot.id : null)}
+                  onAddToCart={onAddToCart}
+                  viewMode="gallery"
+                />
+              ))}
+            </div>
           </div>
-        </div>
+        ) : (
+          /* List View - Responsive Grid with Full Titles */
+          <div className="px-3 md:px-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
+              {lots.slice(0, 20).map((lot) => (
+                <LotCard
+                  key={lot.id}
+                  lot={lot}
+                  isOpen={openLotId === lot.id}
+                  onOpenChange={(open) => setOpenLotId(open ? lot.id : null)}
+                  onAddToCart={onAddToCart}
+                  viewMode="list"
+                />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </section>
   );
@@ -885,6 +907,7 @@ function HorizontalRow({ title, lots, lotCount, partCount, categoryId, onAddToCa
 export default function Shop() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'gallery' | 'list'>('gallery');
   const [selectedItemType, setSelectedItemType] = useState<string | null>('PART');
   const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
@@ -1433,15 +1456,38 @@ export default function Shop() {
               ))}
             </div>
 
-            {/* Search Bar */}
-            <div className="relative">
-              <Search className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-gray-500" />
-              <input
-                type="text"
-                placeholder="Search for LEGO parts..."
-                className="w-full h-9 md:h-12 pl-9 md:pl-12 pr-4 md:pr-5 bg-gray-900/80 border border-white/20 rounded-md text-xs md:text-base text-white placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
-                data-testid="input-search"
-              />
+            {/* Search Bar + View Toggle */}
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-gray-500" />
+                <input
+                  type="text"
+                  placeholder="Search for LEGO parts..."
+                  className="w-full h-9 md:h-12 pl-9 md:pl-12 pr-4 md:pr-5 bg-gray-900/80 border border-white/20 rounded-md text-xs md:text-base text-white placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
+                  data-testid="input-search"
+                />
+              </div>
+              {/* View Toggle */}
+              <div className="flex gap-0.5 bg-gray-900/80 border border-white/20 rounded-md p-0.5">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className={`h-8 w-8 ${viewMode === 'gallery' ? 'bg-cyan-600 hover:bg-cyan-500 text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+                  onClick={() => setViewMode('gallery')}
+                  data-testid="button-view-gallery"
+                >
+                  <LayoutGrid className="w-4 h-4" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className={`h-8 w-8 ${viewMode === 'list' ? 'bg-cyan-600 hover:bg-cyan-500 text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+                  onClick={() => setViewMode('list')}
+                  data-testid="button-view-list"
+                >
+                  <List className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -1512,6 +1558,7 @@ export default function Shop() {
                   categoryId="new-items"
                   onAddToCart={handleAddToCart}
                   bandColor="from-emerald-500 via-teal-500 to-cyan-500"
+                  viewMode={viewMode}
                 />
               )}
               
@@ -1524,6 +1571,7 @@ export default function Shop() {
                   categoryId="hot-items"
                   onAddToCart={handleAddToCart}
                   bandColor="from-red-500 via-orange-500 to-yellow-500"
+                  viewMode={viewMode}
                 />
               )}
               
@@ -1536,6 +1584,7 @@ export default function Shop() {
                   categoryId="discounted-items"
                   onAddToCart={handleAddToCart}
                   bandColor="from-violet-500 via-fuchsia-500 to-pink-500"
+                  viewMode={viewMode}
                 />
               )}
               
@@ -1550,6 +1599,7 @@ export default function Shop() {
                   categoryId={category.id.toString()}
                   onAddToCart={handleAddToCart}
                   bandColor={colorGradients[index % colorGradients.length]}
+                  viewMode={viewMode}
                 />
               ))}
               
@@ -1560,6 +1610,57 @@ export default function Shop() {
               )}
             </>
           )}
+        </div>
+
+        {/* Placeholder Sections - Coming Soon */}
+        <div className="space-y-0 mt-8">
+          {/* Curated Bundles Section */}
+          <section className="py-8 md:py-12 relative border-t border-white/10">
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 opacity-5" />
+            <div className="relative z-10 px-4 md:px-8 text-center">
+              <h2 className="text-3xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 mb-4">
+                🎁 Curated Bundles
+              </h2>
+              <p className="text-gray-400 text-sm md:text-lg max-w-2xl mx-auto mb-6">
+                Exclusive bundle sets and collections not available on BrickLink or BrickOwl. Use the shopping cart for these special offerings.
+              </p>
+              <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/30 px-4 py-2 text-sm">
+                Coming Soon
+              </Badge>
+            </div>
+          </section>
+
+          {/* Workshops & Events Section */}
+          <section className="py-8 md:py-12 relative border-t border-white/10">
+            <div className="absolute inset-0 bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 opacity-5" />
+            <div className="relative z-10 px-4 md:px-8 text-center">
+              <h2 className="text-3xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 mb-4">
+                🎓 Workshops & Events
+              </h2>
+              <p className="text-gray-400 text-sm md:text-lg max-w-2xl mx-auto mb-6">
+                Join us for building workshops, classes, and special LEGO® events. Learn techniques, share builds, and connect with fellow enthusiasts.
+              </p>
+              <Badge className="bg-orange-500/20 text-orange-300 border-orange-500/30 px-4 py-2 text-sm">
+                Coming Soon
+              </Badge>
+            </div>
+          </section>
+
+          {/* Community Hub Section */}
+          <section className="py-8 md:py-12 relative border-t border-white/10">
+            <div className="absolute inset-0 bg-gradient-to-r from-cyan-500 via-teal-500 to-green-500 opacity-5" />
+            <div className="relative z-10 px-4 md:px-8 text-center">
+              <h2 className="text-3xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-500 via-teal-500 to-green-500 mb-4">
+                🌟 Community Hub
+              </h2>
+              <p className="text-gray-400 text-sm md:text-lg max-w-2xl mx-auto mb-6">
+                E.L.F.I.E.'s tips & tricks, building tutorials, community spotlights, and exclusive content. Your destination for LEGO® creativity and inspiration.
+              </p>
+              <Badge className="bg-cyan-500/20 text-cyan-300 border-cyan-500/30 px-4 py-2 text-sm">
+                Coming Soon
+              </Badge>
+            </div>
+          </section>
         </div>
 
         {/* Footer */}
