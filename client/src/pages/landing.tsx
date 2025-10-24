@@ -1,48 +1,56 @@
 import { Link } from "wouter";
-import { Sparkles, Calendar, Gift, Users } from "lucide-react";
+import { Sparkles, Calendar, Gift, Users, ArrowRight } from "lucide-react";
 import planetBrickLogo from "@assets/PlanetBrick_with_planet_1761236028491.png";
 
 export default function Landing() {
-  const planets = [
+  const signs = [
     {
       id: "showroom",
       name: "Showroom",
       path: "/showroom",
       icon: Sparkles,
-      color: "from-cyan-500 to-blue-600",
-      position: "top-[8%] left-[50%] -translate-x-1/2",
-      orbitDelay: "0s",
-      description: "Browse our LEGO® collection"
+      neonColor: "#06B6D4",
+      glowColor: "rgba(6, 182, 212, 0.6)",
+      position: "top-[5%] left-[50%] -translate-x-1/2",
+      rotation: "-3deg",
+      description: "Browse collection",
+      swayDelay: "0s"
     },
     {
       id: "events",
       name: "Events",
       path: "/events",
       icon: Calendar,
-      color: "from-amber-500 to-orange-600",
-      position: "top-[50%] right-[8%] -translate-y-1/2",
-      orbitDelay: "0.75s",
-      description: "Workshops & special events"
+      neonColor: "#F59E0B",
+      glowColor: "rgba(245, 158, 11, 0.6)",
+      position: "top-[50%] right-[1%] -translate-y-1/2",
+      rotation: "4deg",
+      description: "Workshops",
+      swayDelay: "0.5s"
     },
     {
       id: "deals",
       name: "Deals",
       path: "/deals",
       icon: Gift,
-      color: "from-purple-500 to-pink-600",
-      position: "bottom-[8%] left-[50%] -translate-x-1/2",
-      orbitDelay: "1.5s",
-      description: "Exclusive bundles & offers"
+      neonColor: "#A855F7",
+      glowColor: "rgba(168, 85, 247, 0.6)",
+      position: "bottom-[5%] left-[50%] -translate-x-1/2",
+      rotation: "-4deg",
+      description: "Bundles",
+      swayDelay: "1s"
     },
     {
       id: "community",
       name: "Community",
       path: "/community",
       icon: Users,
-      color: "from-emerald-500 to-teal-600",
-      position: "top-[50%] left-[8%] -translate-y-1/2",
-      orbitDelay: "2.25s",
-      description: "Videos, blogs & news"
+      neonColor: "#10B981",
+      glowColor: "rgba(16, 185, 129, 0.6)",
+      position: "top-[50%] left-[1%] -translate-y-1/2",
+      rotation: "3deg",
+      description: "Videos & news",
+      swayDelay: "1.5s"
     }
   ];
 
@@ -65,90 +73,149 @@ export default function Landing() {
         ))}
       </div>
 
-      {/* Orbital paths */}
-      <div className="absolute inset-0 flex items-center justify-center">
-        <div className="relative w-[90vmin] h-[90vmin]">
-          {/* Outer orbit ring */}
-          <div className="absolute inset-0 rounded-full border border-cyan-500/20 animate-spin-slow" style={{ animationDuration: '60s' }} />
-          <div className="absolute inset-[10%] rounded-full border border-purple-500/20 animate-spin-slow" style={{ animationDuration: '45s', animationDirection: 'reverse' }} />
-          <div className="absolute inset-[20%] rounded-full border border-blue-500/20 animate-spin-slow" style={{ animationDuration: '30s' }} />
+      {/* Atomic age decorative rings */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <div className="relative w-[85vmin] h-[85vmin]">
+          <div className="absolute inset-0 rounded-full border-2 border-cyan-400/10" />
+          <div className="absolute inset-[15%] rounded-full border border-purple-400/10" />
+          <div className="absolute inset-[30%] rounded-full border border-pink-400/10" />
         </div>
       </div>
 
-      {/* Center logo */}
-      <div className="absolute inset-0 flex items-center justify-center">
-        <div className="relative z-10">
+      {/* Center logo with soft glow (no border) */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <div className="relative z-10 pointer-events-auto">
           <div className="relative">
-            {/* Glow effect */}
-            <div className="absolute -inset-8 bg-gradient-to-r from-cyan-500/20 via-blue-500/20 to-purple-500/20 rounded-full blur-3xl animate-pulse" style={{ animationDuration: '4s' }} />
+            {/* Multi-layer soft glow effect */}
+            <div className="absolute -inset-8 md:-inset-12 rounded-full blur-3xl opacity-60" 
+              style={{ 
+                background: 'radial-gradient(circle, rgba(6, 182, 212, 0.3), rgba(168, 85, 247, 0.2), rgba(245, 158, 11, 0.15), transparent)',
+                animation: 'gentlePulse 4s ease-in-out infinite'
+              }} 
+            />
+            <div className="absolute -inset-6 md:-inset-10 rounded-full blur-2xl opacity-40" 
+              style={{ 
+                background: 'radial-gradient(circle, rgba(16, 185, 129, 0.3), rgba(6, 182, 212, 0.2), transparent)',
+                animation: 'gentlePulse 4s ease-in-out infinite 0.5s'
+              }} 
+            />
             
             {/* Logo */}
             <img 
               src={planetBrickLogo} 
               alt="PlanetBrick"
-              className="relative w-48 h-48 md:w-64 md:h-64 object-contain drop-shadow-2xl"
+              className="relative w-40 h-40 md:w-56 md:h-56 object-contain"
               data-testid="img-logo-center"
+              style={{ 
+                animation: 'gentleFloat 6s ease-in-out infinite',
+                filter: 'drop-shadow(0 0 30px rgba(6, 182, 212, 0.4)) drop-shadow(0 0 60px rgba(168, 85, 247, 0.3))'
+              }}
             />
           </div>
         </div>
       </div>
 
-      {/* Planet navigation buttons */}
-      <div className="absolute inset-0">
+      {/* Mid-century signage navigation */}
+      <div className="absolute inset-0 pointer-events-none">
         <div className="relative w-full h-full">
-          {planets.map((planet) => (
+          {signs.map((sign) => (
             <Link
-              key={planet.id}
-              href={planet.path}
-              className={`absolute ${planet.position} group`}
-              data-testid={`link-${planet.id}`}
+              key={sign.id}
+              href={sign.path}
+              className={`absolute ${sign.position} group pointer-events-auto`}
+              data-testid={`link-${sign.id}`}
             >
               <div className="relative">
-                {/* Orbit animation */}
+                {/* Sign post/pole */}
                 <div 
-                  className="absolute -inset-4 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute left-1/2 top-full w-1 md:w-1.5 h-8 md:h-12 -translate-x-1/2 opacity-70"
                   style={{
-                    background: `radial-gradient(circle, ${planet.color.split(' ')[1]} 0%, transparent 70%)`,
-                    filter: 'blur(20px)'
+                    background: `linear-gradient(to bottom, ${sign.neonColor}, transparent)`,
+                    boxShadow: `0 0 10px ${sign.glowColor}`
                   }}
                 />
-                
-                {/* LEGO Brick-style Planet button */}
-                <div 
-                  className={`relative w-24 h-24 md:w-32 md:h-32 bg-gradient-to-br ${planet.color} 
-                    hover:scale-110 transition-all duration-300 cursor-pointer
-                    flex flex-col items-center justify-center gap-1 md:gap-2
-                    shadow-2xl
-                    hover-elevate active-elevate-2`}
+
+                {/* Jetsons-style angled sign plaque */}
+                <div
+                  className="relative hover-elevate active-elevate-2 transition-all duration-300"
                   style={{
-                    animation: `float 3s ease-in-out infinite`,
-                    animationDelay: planet.orbitDelay,
-                    borderRadius: '8px',
-                    boxShadow: 'inset 0 -4px 8px rgba(0,0,0,0.3), 0 8px 16px rgba(0,0,0,0.5)'
+                    transform: `rotate(${sign.rotation})`,
+                    animation: `sway 4s ease-in-out infinite`,
+                    animationDelay: sign.swayDelay
                   }}
                 >
-                  {/* LEGO studs on top */}
-                  <div className="absolute -top-2 left-1/2 -translate-x-1/2 flex gap-1">
-                    <div 
-                      className={`w-3 h-3 md:w-4 md:h-4 rounded-full bg-gradient-to-br ${planet.color} border-2 border-white/30`}
-                      style={{ boxShadow: '0 2px 4px rgba(0,0,0,0.4)' }}
-                    />
-                    <div 
-                      className={`w-3 h-3 md:w-4 md:h-4 rounded-full bg-gradient-to-br ${planet.color} border-2 border-white/30`}
-                      style={{ boxShadow: '0 2px 4px rgba(0,0,0,0.4)' }}
-                    />
-                  </div>
-                  
-                  <planet.icon className="w-8 h-8 md:w-10 md:h-10 text-white drop-shadow-lg" />
-                  <span className="text-xs md:text-sm font-bold text-white drop-shadow-lg">
-                    {planet.name}
-                  </span>
-                </div>
+                  {/* Neon glow effect with flicker */}
+                  <div 
+                    className="absolute -inset-2 rounded-lg opacity-60 group-hover:opacity-100 transition-opacity blur-md"
+                    style={{
+                      background: sign.glowColor,
+                      boxShadow: `0 0 20px ${sign.glowColor}, 0 0 40px ${sign.glowColor}`,
+                      animation: 'neonFlicker 4s ease-in-out infinite'
+                    }}
+                  />
 
-                {/* Description tooltip */}
-                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                  <div className="bg-black/90 backdrop-blur-sm border border-white/20 rounded-lg px-3 py-1.5 whitespace-nowrap">
-                    <p className="text-xs text-gray-300">{planet.description}</p>
+                  {/* Main sign plaque with chrome trim - SMALLER */}
+                  <div 
+                    className="relative px-2 py-1.5 md:px-4 md:py-2.5 rounded-lg border-2 group-hover:scale-105 transition-transform cursor-pointer"
+                    style={{
+                      background: `linear-gradient(135deg, #1a1a1a 0%, #000000 100%)`,
+                      borderColor: sign.neonColor,
+                      boxShadow: `
+                        inset 0 1px 0 rgba(255,255,255,0.1),
+                        inset 0 -1px 0 rgba(0,0,0,0.5),
+                        0 0 15px ${sign.glowColor}
+                      `
+                    }}
+                  >
+                    {/* Chrome accent bar */}
+                    <div 
+                      className="absolute top-0 left-0 right-0 h-0.5 rounded-t-lg opacity-40"
+                      style={{
+                        background: `linear-gradient(90deg, transparent, ${sign.neonColor}, transparent)`
+                      }}
+                    />
+
+                    <div className="flex items-center gap-1.5 md:gap-2">
+                      {/* Icon with neon effect */}
+                      <sign.icon 
+                        className="w-4 h-4 md:w-5 md:h-5 shrink-0" 
+                        style={{ 
+                          color: sign.neonColor,
+                          filter: `drop-shadow(0 0 4px ${sign.glowColor})`
+                        }}
+                      />
+                      
+                      {/* Sign text */}
+                      <div className="flex flex-col">
+                        <span 
+                          className="text-xs md:text-base font-black uppercase tracking-wider"
+                          style={{ 
+                            color: sign.neonColor,
+                            textShadow: `0 0 10px ${sign.glowColor}, 0 0 20px ${sign.glowColor}`
+                          }}
+                        >
+                          {sign.name}
+                        </span>
+                        <span className="text-[9px] md:text-[10px] text-gray-400 font-light">
+                          {sign.description}
+                        </span>
+                      </div>
+
+                      {/* Arrow pointer */}
+                      <ArrowRight 
+                        className="w-3 h-3 md:w-4 md:h-4 shrink-0 opacity-60 group-hover:opacity-100 group-hover:translate-x-1 transition-all"
+                        style={{ color: sign.neonColor }}
+                      />
+                    </div>
+
+                    {/* Starburst accent (optional decorative element) */}
+                    <div 
+                      className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 md:w-2 md:h-2 rounded-full opacity-80 animate-pulse"
+                      style={{
+                        background: sign.neonColor,
+                        boxShadow: `0 0 8px ${sign.glowColor}`
+                      }}
+                    />
                   </div>
                 </div>
               </div>
@@ -157,26 +224,57 @@ export default function Landing() {
         </div>
       </div>
 
-      {/* Bottom tagline */}
+      {/* Bottom tagline with retro styling */}
       <div className="absolute bottom-8 left-0 right-0 text-center z-10">
-        <p className="text-sm md:text-base text-gray-400 drop-shadow-lg">
-          Your Universe of LEGO® Parts & Community
-        </p>
+        <div className="relative inline-block">
+          <div className="absolute inset-0 bg-cyan-500/5 blur-xl" />
+          <p className="relative text-sm md:text-base text-gray-400 font-light tracking-widest uppercase">
+            Your Universe of LEGO® Parts & Community
+          </p>
+        </div>
       </div>
 
       {/* Custom CSS for animations */}
       <style>{`
-        @keyframes float {
-          0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-10px); }
+        @keyframes sway {
+          0%, 100% { 
+            transform: rotate(var(--base-rotation)) translateY(0px); 
+          }
+          50% { 
+            transform: rotate(var(--base-rotation)) translateY(-5px); 
+          }
         }
-        @keyframes spin-slow {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
+        
+        @keyframes gentlePulse {
+          0%, 100% { 
+            opacity: 0.6;
+            transform: scale(1);
+          }
+          50% { 
+            opacity: 0.8;
+            transform: scale(1.05);
+          }
         }
-        .animate-spin-slow {
-          animation: spin-slow 60s linear infinite;
+        
+        @keyframes gentleFloat {
+          0%, 100% { transform: translateY(0px) scale(1); }
+          50% { transform: translateY(-8px) scale(1.02); }
         }
+        
+        @keyframes neonFlicker {
+          0%, 100% { opacity: 0.6; }
+          5%, 95% { opacity: 0.5; }
+          10%, 90% { opacity: 0.65; }
+          15%, 85% { opacity: 0.55; }
+          20%, 80% { opacity: 0.7; }
+          50% { opacity: 0.8; }
+        }
+        
+        ${signs.map(sign => `
+          [data-testid="link-${sign.id}"] > div > div:first-child {
+            --base-rotation: ${sign.rotation};
+          }
+        `).join('\n')}
       `}</style>
     </div>
   );

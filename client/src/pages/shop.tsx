@@ -536,19 +536,19 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart, viewMode = 'gallery' 
             )}
           </div>
           
-          <div className={`${viewMode === 'list' ? 'flex-1 min-w-0' : ''} space-y-1 md:space-y-2`}>
-            <h3 className={`text-xs md:text-base font-bold text-white leading-tight ${viewMode === 'list' ? '' : 'truncate'}`}>{formatProductDisplayName(lot.name)}</h3>
+          <div className={`${viewMode === 'list' ? 'flex-1 min-w-0' : ''}`}>
+            {/* Line 1: Combined name and part number */}
+            <div className="mb-1.5 md:mb-2">
+              <h3 className={`text-xs md:text-base font-bold text-white leading-tight ${viewMode === 'list' ? '' : 'truncate'}`}>
+                {formatProductDisplayName(lot.name)} #{lot.part}
+              </h3>
+            </div>
             
-            {/* Part number and color count on same line */}
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-[10px] md:text-sm text-gray-400">#{lot.part}</p>
+            {/* Line 2: Badges row (color count and stock status) */}
+            <div className="flex items-center gap-1 flex-wrap">
               <Badge variant="secondary" className="text-[9px] md:text-xs px-1 md:px-1.5 py-0.5 h-auto">
                 {lot.uniqueColorCount} {lot.uniqueColorCount === 1 ? 'color' : 'colors'}
               </Badge>
-            </div>
-            
-            {/* New and Used badges horizontal */}
-            <div className="flex items-center gap-1 flex-wrap pt-1">
               {totalNewQty > 0 && (
                 <Badge variant="secondary" className="text-[9px] md:text-xs px-1 md:px-1.5 py-0.5 h-auto bg-emerald-500/20 text-emerald-300 border-emerald-500/30">
                   {totalNewQty.toLocaleString()} New
@@ -590,67 +590,69 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart, viewMode = 'gallery' 
             </div>
           </div>
           
-          {/* Sticker-style content */}
-          <div className="flex-1 overflow-y-auto px-4 md:px-6 pb-4">
-            {/* Available Colors Section */}
-            <div className="mb-4 p-3 md:p-4 bg-white/5 rounded-lg border-2 border-cyan-400/30">
-              <h3 className="text-sm font-bold text-cyan-300 mb-2 uppercase tracking-wide">Available Colors</h3>
-              <div className="flex flex-wrap gap-2">
-                {sortedColorGroups.map((colorGroup, idx) => (
-                  <div 
-                    key={idx}
-                    className="flex items-center gap-1.5 px-2 py-1 bg-black/30 rounded border border-white/20"
-                    data-testid={`color-chip-${idx}`}
-                  >
+          {/* Compact 2-column content */}
+          <div className="flex-1 overflow-y-auto p-3 md:p-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {/* LEFT COLUMN: Colors List */}
+              <div className="bg-white/5 rounded border border-cyan-400/30 p-2 md:p-3">
+                <h3 className="text-xs font-bold text-cyan-300 mb-2 uppercase tracking-wide">Colors</h3>
+                <div className="space-y-1.5">
+                  {sortedColorGroups.map((colorGroup, idx) => (
                     <div 
-                      className="w-4 h-4 rounded-full border-2 border-white/50" 
-                      style={{ 
-                        backgroundColor: colorGroup.colorHex 
-                          ? (colorGroup.colorHex.startsWith('#') ? colorGroup.colorHex : `#${colorGroup.colorHex}`)
-                          : '#CCCCCC'
-                      }}
-                    />
-                    <span className="text-xs text-white font-medium">{formatColorDisplayName(colorGroup.colorName)}</span>
+                      key={idx}
+                      className="flex items-center gap-2 px-2 py-1 bg-black/30 rounded border border-white/10 hover-elevate"
+                      data-testid={`color-chip-${idx}`}
+                    >
+                      <div 
+                        className="w-3 h-3 md:w-4 md:h-4 rounded-full border border-white/50 shrink-0" 
+                        style={{ 
+                          backgroundColor: colorGroup.colorHex 
+                            ? (colorGroup.colorHex.startsWith('#') ? colorGroup.colorHex : `#${colorGroup.colorHex}`)
+                            : '#CCCCCC'
+                        }}
+                      />
+                      <span className="text-[10px] md:text-xs text-white font-medium truncate">{formatColorDisplayName(colorGroup.colorName)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* RIGHT COLUMN: Stats */}
+              <div className="space-y-3">
+                {/* Total Parts */}
+                <div className="bg-gradient-to-br from-emerald-500/20 to-teal-500/20 rounded border-2 border-emerald-400/50 p-2 md:p-3">
+                  <div className="text-[10px] md:text-xs text-emerald-300 font-bold uppercase tracking-wide mb-1">Total Parts</div>
+                  <div className="text-xl md:text-2xl font-black text-white">{lot.totalQty.toLocaleString()}</div>
+                  <div className="flex gap-2 mt-1">
+                    {totalNewQty > 0 && (
+                      <span className="text-[10px] md:text-xs text-emerald-200">
+                        <span className="font-bold">{totalNewQty.toLocaleString()}</span> New
+                      </span>
+                    )}
+                    {totalUsedQty > 0 && (
+                      <span className="text-[10px] md:text-xs text-amber-200">
+                        <span className="font-bold">{totalUsedQty.toLocaleString()}</span> Used
+                      </span>
+                    )}
                   </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Quantity & Price Section */}
-            <div className="grid grid-cols-2 gap-3 md:gap-4 mb-4">
-              {/* Total Quantity */}
-              <div className="p-3 md:p-4 bg-gradient-to-br from-emerald-500/20 to-teal-500/20 rounded-lg border-2 border-emerald-400/50">
-                <div className="text-xs text-emerald-300 font-bold uppercase tracking-wide mb-1">Total Parts</div>
-                <div className="text-2xl md:text-3xl font-black text-white">{lot.totalQty.toLocaleString()}</div>
-                <div className="flex gap-2 mt-2">
-                  {totalNewQty > 0 && (
-                    <span className="text-xs text-emerald-200">
-                      <span className="font-bold">{totalNewQty.toLocaleString()}</span> New
-                    </span>
-                  )}
-                  {totalUsedQty > 0 && (
-                    <span className="text-xs text-amber-200">
-                      <span className="font-bold">{totalUsedQty.toLocaleString()}</span> Used
-                    </span>
-                  )}
                 </div>
-              </div>
 
-              {/* Price Range */}
-              <div className="p-3 md:p-4 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-lg border-2 border-purple-400/50">
-                <div className="text-xs text-purple-300 font-bold uppercase tracking-wide mb-1">Price Range</div>
-                <div className="text-xl md:text-2xl font-black text-white">
-                  {(() => {
-                    const prices = lot.variations.map(v => parseFloat(v.price.replace('$', '')));
-                    const minPrice = Math.min(...prices);
-                    const maxPrice = Math.max(...prices);
-                    if (minPrice === maxPrice) {
-                      return `$${minPrice.toFixed(2)}`;
-                    }
-                    return `$${minPrice.toFixed(2)} - $${maxPrice.toFixed(2)}`;
-                  })()}
+                {/* Price Range */}
+                <div className="bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded border-2 border-purple-400/50 p-2 md:p-3">
+                  <div className="text-[10px] md:text-xs text-purple-300 font-bold uppercase tracking-wide mb-1">Price Range</div>
+                  <div className="text-lg md:text-xl font-black text-white">
+                    {(() => {
+                      const prices = lot.variations.map(v => parseFloat(v.price.replace('$', '')));
+                      const minPrice = Math.min(...prices);
+                      const maxPrice = Math.max(...prices);
+                      if (minPrice === maxPrice) {
+                        return `$${minPrice.toFixed(2)}`;
+                      }
+                      return `$${minPrice.toFixed(2)} - $${maxPrice.toFixed(2)}`;
+                    })()}
+                  </div>
+                  <div className="text-[10px] md:text-xs text-purple-200 mt-0.5">per piece</div>
                 </div>
-                <div className="text-xs text-purple-200 mt-1">per piece</div>
               </div>
             </div>
           </div>
