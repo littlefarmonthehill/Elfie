@@ -565,180 +565,120 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart, viewMode = 'gallery' 
       </Card>
 
       <Dialog open={isOpen} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-2xl max-h-[85vh] bg-black/98 border-white/20 overflow-hidden flex flex-col backdrop-blur-xl p-4 md:p-6">
-          <DialogHeader className="pb-3 border-b border-white/10">
-            <DialogTitle className="text-base md:text-lg font-bold text-white flex items-center gap-2">
-              <Sparkles className="w-4 h-4 md:w-5 md:h-5 text-cyan-400" />
-              {formatProductDisplayName(lot.name)}
-            </DialogTitle>
-            <DialogDescription className="text-xs md:text-sm text-gray-400 flex items-center gap-2 flex-wrap">
-              <span className="text-cyan-400">#{lot.part}</span>
-              <span className="text-gray-600">•</span>
-              <span>{lot.uniqueColorCount} {lot.uniqueColorCount === 1 ? 'color' : 'colors'}</span>
-              <span className="text-gray-600">•</span>
-              <span>{lot.totalQty.toLocaleString()} pieces available</span>
-            </DialogDescription>
-            
-            {/* Color Filter */}
-            <div className="mt-3 pt-3 border-t border-white/10">
-              <div className="overflow-x-auto scrollbar-hide bg-gradient-to-r from-cyan-950/30 via-blue-950/30 to-purple-950/30 rounded-lg p-2 border border-cyan-500/10">
-                <div className="flex items-center gap-3 min-w-min">
-                  <button
-                    onClick={() => setSelectedColor(null)}
-                    className={`flex items-center gap-1.5 text-xs whitespace-nowrap cursor-pointer hover-elevate px-2 py-1 rounded transition-all ${
-                      selectedColor === null 
-                        ? 'text-white font-semibold' 
-                        : 'text-gray-400 hover:text-gray-200'
-                    }`}
-                    data-testid="filter-color-all"
-                  >
-                    <div className="w-2 h-2 rounded-full bg-gradient-to-r from-red-500 via-green-500 to-blue-500" />
-                    All
-                  </button>
-                  {uniqueColors.map((color) => {
-                    const colorGroup = lot.colorGroups.find(g => g.colorName === color);
-                    return (
-                      <button
-                        key={color}
-                        onClick={() => setSelectedColor(color)}
-                        className={`flex items-center gap-1.5 text-xs whitespace-nowrap cursor-pointer hover-elevate px-2 py-1 rounded transition-all ${
-                          selectedColor === color 
-                            ? 'text-white font-semibold' 
-                            : 'text-gray-400 hover:text-gray-200'
-                        }`}
-                        data-testid={`filter-color-${color.toLowerCase().replace(/\s+/g, '-')}`}
-                      >
-                        <div 
-                          className="w-2 h-2 rounded-full border border-white/20" 
-                          style={{ 
-                            backgroundColor: colorGroup?.colorHex 
-                              ? (colorGroup.colorHex.startsWith('#') ? colorGroup.colorHex : `#${colorGroup.colorHex}`)
-                              : '#CCCCCC'
-                          }}
-                        />
-                        {formatColorDisplayName(color)}
-                      </button>
-                    );
-                  })}
-                </div>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col p-0" style={{
+          background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
+          border: '4px solid',
+          borderImage: 'linear-gradient(135deg, #00d4ff, #0066ff, #9900ff) 1',
+          boxShadow: '0 0 30px rgba(0, 212, 255, 0.3), inset 0 0 20px rgba(0, 100, 255, 0.1)'
+        }}>
+          <DialogHeader className="sr-only">
+            <DialogTitle>{formatProductDisplayName(lot.name)}</DialogTitle>
+            <DialogDescription>Part #{lot.part} - {lot.uniqueColorCount} colors available</DialogDescription>
+          </DialogHeader>
+          {/* Sticker-style header */}
+          <div className="relative p-4 md:p-6" style={{
+            background: 'linear-gradient(90deg, #00d4ff 0%, #0066ff 50%, #9900ff 100%)',
+            boxShadow: '0 4px 10px rgba(0, 0, 0, 0.3)'
+          }}>
+            <div className="text-center">
+              <div className="text-2xl md:text-3xl font-black text-white drop-shadow-lg uppercase tracking-wide">
+                {formatProductDisplayName(lot.name)}
+              </div>
+              <div className="text-lg md:text-xl font-bold text-white/90 mt-1">
+                Part #{lot.part}
               </div>
             </div>
-          </DialogHeader>
+          </div>
           
-          <div className="flex-1 overflow-y-auto pr-2 mt-3 space-y-4">
-            
-            <div className="space-y-3">
-              {displayedColorGroups.map((colorGroup, groupIdx) => {
-                // Find a variation with an image for this SPECIFIC color only
-                const colorVariationWithImage = colorGroup.variations.find(v => {
-                  const fullVariation = lot.variations.find(fv => 
-                    fv.color === v.color && 
-                    fv.color === colorGroup.colorName && // Ensure it matches the color group
-                    fv.condition === v.condition
-                  );
-                  return fullVariation?.imageUrl;
-                });
-                const fullColorVariation = colorVariationWithImage 
-                  ? lot.variations.find(fv => 
-                      fv.color === colorVariationWithImage.color && 
-                      fv.color === colorGroup.colorName && // Double-check color match
-                      fv.condition === colorVariationWithImage.condition
-                    )
-                  : null;
-                const colorImageUrl = fullColorVariation?.imageUrl;
-                
-                return (
-                  <div key={groupIdx} className="bg-gray-900/40 border border-white/10 rounded-lg p-3 md:p-4 hover-elevate">
-                    {/* Color Header */}
-                    <div className="flex items-center gap-3 mb-3">
-                      {/* Color thumbnail - clickable to view larger */}
-                      {colorImageUrl ? (
-                        <button
-                          onClick={() => setLightboxImage(getProxyImageUrl(colorImageUrl) || colorImageUrl)}
-                          className="w-12 h-12 md:w-14 md:h-14 rounded-md border-2 border-white/30 shadow-md flex items-center justify-center overflow-hidden hover-elevate cursor-pointer bg-slate-900/50"
-                          style={{ 
-                            boxShadow: `0 2px 8px ${colorGroup.colorHex || '#666'}60`
-                          }}
-                          data-testid={`button-color-image-${groupIdx}`}
-                        >
-                          <img 
-                            src={getProxyImageUrl(colorImageUrl) || colorImageUrl} 
-                            alt={colorGroup.colorName}
-                            className="max-w-full max-h-full object-contain"
-                          />
-                        </button>
-                      ) : (
-                        <div
-                          className="w-12 h-12 md:w-14 md:h-14 rounded-md border-2 border-white/30 shadow-md flex items-center justify-center overflow-hidden bg-slate-900/50"
-                          style={{ 
-                            boxShadow: `0 2px 8px ${colorGroup.colorHex || '#666'}60`
-                          }}
-                        >
-                          <img 
-                            src={noImagePlaceholder} 
-                            alt="No image available"
-                            className="w-8 h-8 md:w-10 md:h-10 object-contain opacity-40"
-                          />
-                        </div>
-                      )}
-                      <div className="flex-1">
-                        <h4 className="text-sm md:text-base font-bold text-white">{formatColorDisplayName(colorGroup.colorName)}</h4>
-                        <p className="text-xs text-gray-400">{colorGroup.totalQty.toLocaleString()} pieces</p>
-                      </div>
-                    </div>
-                  
-                  {/* Condition Variations - Grid */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    {colorGroup.variations.map((variation, varIdx) => {
-                      const idx = lot.variations.findIndex(v => v.color === variation.color && v.condition === variation.condition);
-                      const quantity = quantities[idx] || 1;
-                      return (
-                        <div 
-                          key={varIdx}
-                          className="flex items-center justify-between p-3 bg-gray-800/60 border border-white/5 rounded-md hover-elevate"
-                          data-testid={`variation-${lot.id}-${idx}`}
-                        >
-                          {/* Left: Info */}
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <Badge variant="outline" className="text-xs text-white border-cyan-500/50 bg-cyan-500/10">
-                                {variation.condition}
-                              </Badge>
-                              <span className="text-xs text-gray-400">Stock: {variation.qty.toLocaleString()}</span>
-                            </div>
-                            <div className="text-lg md:text-xl font-bold text-cyan-400">{variation.price}</div>
-                          </div>
-
-                          {/* Right: Store Links */}
-                          <div className="flex flex-col gap-1.5 shrink-0">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="border-orange-500/40 text-orange-400 hover:bg-orange-500/10 gap-1.5 text-[10px] px-2.5 h-7 whitespace-nowrap"
-                              onClick={() => window.open(BRICKLINK_STORE_URL, '_blank')}
-                              data-testid={`button-bricklink-${lot.id}-${idx}`}
-                            >
-                              <ExternalLink className="w-3 h-3" />
-                              Buy on BrickLink
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="border-purple-500/40 text-purple-400 hover:bg-purple-500/10 gap-1.5 text-[10px] px-2.5 h-7 whitespace-nowrap"
-                              onClick={() => window.open(BRICKOWL_STORE_URL, '_blank')}
-                              data-testid={`button-brickowl-${lot.id}-${idx}`}
-                            >
-                              <ExternalLink className="w-3 h-3" />
-                              Buy on BrickOwl
-                            </Button>
-                          </div>
-                        </div>
-                      );
-                    })}
+          {/* Sticker-style content */}
+          <div className="flex-1 overflow-y-auto px-4 md:px-6 pb-4">
+            {/* Available Colors Section */}
+            <div className="mb-4 p-3 md:p-4 bg-white/5 rounded-lg border-2 border-cyan-400/30">
+              <h3 className="text-sm font-bold text-cyan-300 mb-2 uppercase tracking-wide">Available Colors</h3>
+              <div className="flex flex-wrap gap-2">
+                {sortedColorGroups.map((colorGroup, idx) => (
+                  <div 
+                    key={idx}
+                    className="flex items-center gap-1.5 px-2 py-1 bg-black/30 rounded border border-white/20"
+                    data-testid={`color-chip-${idx}`}
+                  >
+                    <div 
+                      className="w-4 h-4 rounded-full border-2 border-white/50" 
+                      style={{ 
+                        backgroundColor: colorGroup.colorHex 
+                          ? (colorGroup.colorHex.startsWith('#') ? colorGroup.colorHex : `#${colorGroup.colorHex}`)
+                          : '#CCCCCC'
+                      }}
+                    />
+                    <span className="text-xs text-white font-medium">{formatColorDisplayName(colorGroup.colorName)}</span>
                   </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Quantity & Price Section */}
+            <div className="grid grid-cols-2 gap-3 md:gap-4 mb-4">
+              {/* Total Quantity */}
+              <div className="p-3 md:p-4 bg-gradient-to-br from-emerald-500/20 to-teal-500/20 rounded-lg border-2 border-emerald-400/50">
+                <div className="text-xs text-emerald-300 font-bold uppercase tracking-wide mb-1">Total Parts</div>
+                <div className="text-2xl md:text-3xl font-black text-white">{lot.totalQty.toLocaleString()}</div>
+                <div className="flex gap-2 mt-2">
+                  {totalNewQty > 0 && (
+                    <span className="text-xs text-emerald-200">
+                      <span className="font-bold">{totalNewQty.toLocaleString()}</span> New
+                    </span>
+                  )}
+                  {totalUsedQty > 0 && (
+                    <span className="text-xs text-amber-200">
+                      <span className="font-bold">{totalUsedQty.toLocaleString()}</span> Used
+                    </span>
+                  )}
                 </div>
-              );
-            })}
+              </div>
+
+              {/* Price Range */}
+              <div className="p-3 md:p-4 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-lg border-2 border-purple-400/50">
+                <div className="text-xs text-purple-300 font-bold uppercase tracking-wide mb-1">Price Range</div>
+                <div className="text-xl md:text-2xl font-black text-white">
+                  {(() => {
+                    const prices = lot.variations.map(v => parseFloat(v.price.replace('$', '')));
+                    const minPrice = Math.min(...prices);
+                    const maxPrice = Math.max(...prices);
+                    if (minPrice === maxPrice) {
+                      return `$${minPrice.toFixed(2)}`;
+                    }
+                    return `$${minPrice.toFixed(2)} - $${maxPrice.toFixed(2)}`;
+                  })()}
+                </div>
+                <div className="text-xs text-purple-200 mt-1">per piece</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Prominent Store Buttons at Bottom */}
+          <div className="p-4 md:p-6 bg-gradient-to-r from-gray-900 to-black border-t-4 border-cyan-400/50">
+            <div className="text-center mb-3">
+              <p className="text-sm md:text-base text-white font-bold">Purchase from our official stores:</p>
+            </div>
+            <div className="grid grid-cols-2 gap-3 md:gap-4">
+              <Button
+                size="lg"
+                className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white font-bold py-6 text-base md:text-lg shadow-xl hover:shadow-2xl transition-all"
+                onClick={() => window.open(BRICKLINK_STORE_URL, '_blank')}
+                data-testid="button-bricklink-main"
+              >
+                <ExternalLink className="w-5 h-5 mr-2" />
+                Buy on BrickLink
+              </Button>
+              <Button
+                size="lg"
+                className="bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white font-bold py-6 text-base md:text-lg shadow-xl hover:shadow-2xl transition-all"
+                onClick={() => window.open(BRICKOWL_STORE_URL, '_blank')}
+                data-testid="button-brickowl-main"
+              >
+                <ExternalLink className="w-5 h-5 mr-2" />
+                Buy on BrickOwl
+              </Button>
             </div>
           </div>
         </DialogContent>
@@ -1390,14 +1330,14 @@ export default function Shop() {
           </div>
 
           {/* Centered Logo - Upper, larger and bleeding into stats row */}
-          <div className="absolute left-1/2 -translate-x-1/2 top-4 md:top-6 z-[60]">
+          <Link href="/" className="absolute left-1/2 -translate-x-1/2 top-4 md:top-6 z-[60] cursor-pointer hover:opacity-80 transition-opacity">
             <img 
               src={planetBrickLogo} 
               alt="PlanetBrick" 
               className="h-24 md:h-32 lg:h-40 w-auto object-contain drop-shadow-2xl"
               data-testid="logo-planetbrick"
             />
-          </div>
+          </Link>
 
           {/* Stats Row - Lower in lighter band, closer to edges */}
           <div className="absolute -bottom-8 md:-bottom-10 left-0 right-0 flex items-center justify-between px-4 md:px-8 lg:px-12 z-[50]">

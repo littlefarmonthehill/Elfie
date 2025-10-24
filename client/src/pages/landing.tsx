@@ -10,7 +10,7 @@ export default function Landing() {
       path: "/showroom",
       icon: Sparkles,
       color: "from-cyan-500 to-blue-600",
-      position: "top-[10%] left-[50%] -translate-x-1/2",
+      position: "top-[8%] left-[50%] -translate-x-1/2",
       orbitDelay: "0s",
       description: "Browse our LEGO® collection"
     },
@@ -20,7 +20,7 @@ export default function Landing() {
       path: "/events",
       icon: Calendar,
       color: "from-amber-500 to-orange-600",
-      position: "top-[50%] right-[10%] -translate-y-1/2",
+      position: "top-[50%] right-[8%] -translate-y-1/2",
       orbitDelay: "0.75s",
       description: "Workshops & special events"
     },
@@ -30,7 +30,7 @@ export default function Landing() {
       path: "/deals",
       icon: Gift,
       color: "from-purple-500 to-pink-600",
-      position: "bottom-[10%] left-[50%] -translate-x-1/2",
+      position: "bottom-[8%] left-[50%] -translate-x-1/2",
       orbitDelay: "1.5s",
       description: "Exclusive bundles & offers"
     },
@@ -40,7 +40,7 @@ export default function Landing() {
       path: "/community",
       icon: Users,
       color: "from-emerald-500 to-teal-600",
-      position: "top-[50%] left-[10%] -translate-y-1/2",
+      position: "top-[50%] left-[8%] -translate-y-1/2",
       orbitDelay: "2.25s",
       description: "Videos, blogs & news"
     }
@@ -113,18 +113,32 @@ export default function Landing() {
                   }}
                 />
                 
-                {/* Planet button */}
+                {/* LEGO Brick-style Planet button */}
                 <div 
-                  className={`relative w-24 h-24 md:w-32 md:h-32 rounded-full bg-gradient-to-br ${planet.color} 
+                  className={`relative w-24 h-24 md:w-32 md:h-32 bg-gradient-to-br ${planet.color} 
                     hover:scale-110 transition-all duration-300 cursor-pointer
                     flex flex-col items-center justify-center gap-1 md:gap-2
-                    border-2 border-white/20 shadow-2xl
+                    shadow-2xl
                     hover-elevate active-elevate-2`}
                   style={{
                     animation: `float 3s ease-in-out infinite`,
-                    animationDelay: planet.orbitDelay
+                    animationDelay: planet.orbitDelay,
+                    borderRadius: '8px',
+                    boxShadow: 'inset 0 -4px 8px rgba(0,0,0,0.3), 0 8px 16px rgba(0,0,0,0.5)'
                   }}
                 >
+                  {/* LEGO studs on top */}
+                  <div className="absolute -top-2 left-1/2 -translate-x-1/2 flex gap-1">
+                    <div 
+                      className={`w-3 h-3 md:w-4 md:h-4 rounded-full bg-gradient-to-br ${planet.color} border-2 border-white/30`}
+                      style={{ boxShadow: '0 2px 4px rgba(0,0,0,0.4)' }}
+                    />
+                    <div 
+                      className={`w-3 h-3 md:w-4 md:h-4 rounded-full bg-gradient-to-br ${planet.color} border-2 border-white/30`}
+                      style={{ boxShadow: '0 2px 4px rgba(0,0,0,0.4)' }}
+                    />
+                  </div>
+                  
                   <planet.icon className="w-8 h-8 md:w-10 md:h-10 text-white drop-shadow-lg" />
                   <span className="text-xs md:text-sm font-bold text-white drop-shadow-lg">
                     {planet.name}
