@@ -814,21 +814,19 @@ function CategorySkeleton({ bandColor }: { bandColor: string }) {
           </div>
         </div>
         
-        {/* Product cards skeleton */}
-        <div className="overflow-x-auto scrollbar-hide">
-          <div className="flex gap-2 md:gap-4 px-3 md:px-6">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="flex-shrink-0 w-32 md:w-40 lg:w-48">
-                <Card className="bg-gray-900/50 border-gray-800 p-2 md:p-3 h-full">
-                  <Skeleton className="w-full aspect-square mb-2 md:mb-3 rounded" />
-                  <Skeleton className="h-3 md:h-4 w-full mb-1.5 md:mb-2" />
-                  <Skeleton className="h-3 md:h-4 w-3/4 mb-2 md:mb-3" />
-                  <div className="flex items-center justify-between">
-                    <Skeleton className="h-4 md:h-5 w-12 md:w-16" />
-                    <Skeleton className="h-6 md:h-8 w-6 md:w-8 rounded-full" />
-                  </div>
-                </Card>
-              </div>
+        {/* Product cards skeleton - Grid layout */}
+        <div className="px-3 md:px-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
+            {Array.from({ length: 10 }).map((_, i) => (
+              <Card key={i} className="bg-gray-900/50 border-gray-800 p-2 md:p-3">
+                <Skeleton className="w-full aspect-square mb-2 md:mb-3 rounded" />
+                <Skeleton className="h-3 md:h-4 w-full mb-1.5 md:mb-2" />
+                <Skeleton className="h-3 md:h-4 w-3/4 mb-2 md:mb-3" />
+                <div className="flex items-center justify-between">
+                  <Skeleton className="h-4 md:h-5 w-12 md:w-16" />
+                  <Skeleton className="h-6 md:h-8 w-6 md:w-8 rounded-full" />
+                </div>
+              </Card>
             ))}
           </div>
         </div>
