@@ -11,7 +11,7 @@ export default function Landing() {
       icon: Sparkles,
       neonColor: "#06B6D4",
       glowColor: "rgba(6, 182, 212, 0.6)",
-      position: "top-[12%] right-[12%]",
+      position: "top-[8%] right-[15%]",
       rotation: "-3deg",
       description: "Browse collection",
       swayDelay: "0s"
@@ -23,7 +23,7 @@ export default function Landing() {
       icon: Calendar,
       neonColor: "#F59E0B",
       glowColor: "rgba(245, 158, 11, 0.6)",
-      position: "bottom-[12%] right-[12%]",
+      position: "bottom-[15%] right-[8%]",
       rotation: "4deg",
       description: "Workshops",
       swayDelay: "0.5s"
@@ -35,7 +35,7 @@ export default function Landing() {
       icon: Gift,
       neonColor: "#A855F7",
       glowColor: "rgba(168, 85, 247, 0.6)",
-      position: "bottom-[12%] left-[12%]",
+      position: "bottom-[10%] left-[18%]",
       rotation: "-4deg",
       description: "Bundles",
       swayDelay: "1s"
@@ -47,7 +47,7 @@ export default function Landing() {
       icon: Users,
       neonColor: "#10B981",
       glowColor: "rgba(16, 185, 129, 0.6)",
-      position: "top-[12%] left-[12%]",
+      position: "top-[18%] left-[10%]",
       rotation: "3deg",
       description: "Videos & news",
       swayDelay: "1.5s"
