@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, ShoppingCart, ChevronRight, Sparkles, Plus, X, Minus, Check, ChevronDown, ChevronUp } from "lucide-react";
+import { Search, ShoppingCart, ChevronRight, Sparkles, Plus, X, Minus, Check, ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -31,9 +31,9 @@ import elfieRobot from "@assets/PlanetBrick_good_robot_1760672362080.png";
 import planetBrickLogo from "@assets/PlanetBrick_with_planet_1761030158394.png";
 import noImagePlaceholder from "@assets/generated_images/LEGO_image_unavailable_placeholder_957f3211.png";
 
-// Store URLs for showroom links
-const BRICKLINK_STORE_URL = "https://www.bricklink.com/store/home.page?p=planetbrick";
-const BRICKOWL_STORE_URL = "https://www.brickowl.com/store/planetbrick";
+// Store URLs for showroom links (placeholders - update with actual store URLs)
+const BRICKLINK_STORE_URL = "#bricklink-store";
+const BRICKOWL_STORE_URL = "#brickowl-store";
 
 interface CartItem {
   lotId: number;
@@ -706,72 +706,27 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
                               <span className="text-xs text-gray-400">Stock: {variation.qty.toLocaleString()}</span>
                             </div>
                             <div className="text-lg md:text-xl font-bold text-cyan-400">{variation.price}</div>
-                            
-                            {/* Quantity Controls */}
-                            <div className="flex items-center gap-1 bg-gray-900/80 rounded-md p-1 border border-white/20 mt-2 w-fit">
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-6 w-6 text-white hover:bg-white/10"
-                                onClick={() => updateQuantity(idx, -1)}
-                                disabled={quantity <= 1}
-                                data-testid={`button-minus-${lot.id}-${idx}`}
-                              >
-                                <Minus className="w-3 h-3" />
-                              </Button>
-                              <div className="w-8 text-center">
-                                <span className="text-xs font-bold text-white">{quantity}</span>
-                              </div>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-6 w-6 text-white hover:bg-white/10"
-                                onClick={() => updateQuantity(idx, 1)}
-                                disabled={quantity >= variation.qty}
-                                data-testid={`button-plus-${lot.id}-${idx}`}
-                              >
-                                <Plus className="w-3 h-3" />
-                              </Button>
-                            </div>
                           </div>
 
-                          {/* Right: Actions */}
-                          <div className="flex flex-col gap-2 shrink-0">
-                            {/* Store Links */}
-                            <div className="flex gap-1.5">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="flex-1 border-orange-500/30 text-orange-400 hover:bg-orange-500/10 gap-1 text-xs px-2"
-                                onClick={() => window.open(BRICKLINK_STORE_URL, '_blank')}
-                                data-testid={`button-bricklink-${lot.id}-${idx}`}
-                              >
-                                <ChevronRight className="w-3 h-3" />
-                                BL
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="flex-1 border-purple-500/30 text-purple-400 hover:bg-purple-500/10 gap-1 text-xs px-2"
-                                onClick={() => window.open(BRICKOWL_STORE_URL, '_blank')}
-                                data-testid={`button-brickowl-${lot.id}-${idx}`}
-                              >
-                                <ChevronRight className="w-3 h-3" />
-                                BO
-                              </Button>
-                            </div>
-                            {/* Add to Cart for Bundles */}
+                          {/* Right: Store Links */}
+                          <div className="flex gap-2 shrink-0">
                             <Button
                               size="sm"
-                              className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white shadow-lg gap-2"
-                              onClick={() => {
-                                onAddToCart({ ...variation, lotId: lot.id, partNumber: lot.part, partName: lot.name }, quantity);
-                                setQuantities(prev => ({ ...prev, [idx]: 1 }));
-                              }}
-                              data-testid={`button-add-${lot.id}-${idx}`}
+                              className="bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400 text-white shadow-lg gap-2"
+                              onClick={() => window.open(BRICKLINK_STORE_URL, '_blank')}
+                              data-testid={`button-bricklink-${lot.id}-${idx}`}
                             >
-                              <ShoppingCart className="w-4 h-4" />
-                              <span className="text-xs">Add to Cart</span>
+                              <ExternalLink className="w-4 h-4" />
+                              <span className="text-xs">BrickLink</span>
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-500 hover:to-purple-400 text-white shadow-lg gap-2"
+                              onClick={() => window.open(BRICKOWL_STORE_URL, '_blank')}
+                              data-testid={`button-brickowl-${lot.id}-${idx}`}
+                            >
+                              <ExternalLink className="w-4 h-4" />
+                              <span className="text-xs">BrickOwl</span>
                             </Button>
                           </div>
                         </div>
