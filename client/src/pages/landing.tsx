@@ -11,7 +11,7 @@ export default function Landing() {
       icon: Sparkles,
       neonColor: "#06B6D4",
       glowColor: "rgba(6, 182, 212, 0.6)",
-      position: "top-[8%] right-[15%]",
+      position: "top-[18%] right-[22%]",
       rotation: "-3deg",
       description: "Browse collection",
       swayDelay: "0s"
@@ -23,7 +23,7 @@ export default function Landing() {
       icon: Calendar,
       neonColor: "#F59E0B",
       glowColor: "rgba(245, 158, 11, 0.6)",
-      position: "bottom-[15%] right-[8%]",
+      position: "bottom-[20%] right-[18%]",
       rotation: "4deg",
       description: "Workshops",
       swayDelay: "0.5s"
@@ -35,7 +35,7 @@ export default function Landing() {
       icon: Gift,
       neonColor: "#A855F7",
       glowColor: "rgba(168, 85, 247, 0.6)",
-      position: "bottom-[10%] left-[18%]",
+      position: "bottom-[16%] left-[25%]",
       rotation: "-4deg",
       description: "Bundles",
       swayDelay: "1s"
@@ -47,7 +47,7 @@ export default function Landing() {
       icon: Users,
       neonColor: "#10B981",
       glowColor: "rgba(16, 185, 129, 0.6)",
-      position: "top-[18%] left-[10%]",
+      position: "top-[25%] left-[20%]",
       rotation: "3deg",
       description: "Videos & news",
       swayDelay: "1.5s"
@@ -100,11 +100,11 @@ export default function Landing() {
               }} 
             />
             
-            {/* Logo */}
+            {/* Logo - LARGER */}
             <img 
               src={planetBrickLogo} 
               alt="PlanetBrick"
-              className="relative w-40 h-40 md:w-56 md:h-56 object-contain"
+              className="relative w-48 h-48 md:w-72 md:h-72 lg:w-80 lg:h-80 object-contain"
               data-testid="img-logo-center"
               style={{ 
                 animation: 'gentleFloat 6s ease-in-out infinite',
@@ -131,7 +131,8 @@ export default function Landing() {
                   className="absolute left-1/2 top-full w-1 md:w-1.5 h-8 md:h-12 -translate-x-1/2 opacity-70"
                   style={{
                     background: `linear-gradient(to bottom, ${sign.neonColor}, transparent)`,
-                    boxShadow: `0 0 10px ${sign.glowColor}`
+                    boxShadow: `0 0 10px ${sign.glowColor}`,
+                    animation: sign.id === 'showroom' ? 'postGlow 2s ease-in-out infinite' : 'none'
                   }}
                 />
 
@@ -160,11 +161,12 @@ export default function Landing() {
                     style={{
                       background: `linear-gradient(135deg, #1a1a1a 0%, #000000 100%)`,
                       borderColor: sign.neonColor,
-                      boxShadow: `
-                        inset 0 1px 0 rgba(255,255,255,0.1),
-                        inset 0 -1px 0 rgba(0,0,0,0.5),
-                        0 0 15px ${sign.glowColor}
-                      `
+                      boxShadow: sign.id === 'showroom' 
+                        ? `inset 0 1px 0 rgba(255,255,255,0.1), inset 0 -1px 0 rgba(0,0,0,0.5), 0 0 20px ${sign.glowColor}, 0 0 40px ${sign.glowColor}`
+                        : `inset 0 1px 0 rgba(255,255,255,0.1), inset 0 -1px 0 rgba(0,0,0,0.5), 0 0 15px ${sign.glowColor}`,
+                      animation: sign.id === 'showroom' ? 'primaryPulse 3s ease-in-out infinite' : 'fadeIn 0.8s ease-out forwards',
+                      animationDelay: sign.id === 'showroom' ? '0s' : `${parseFloat(sign.swayDelay) + 0.2}s`,
+                      opacity: sign.id === 'showroom' ? 1 : 0
                     }}
                   >
                     {/* Chrome accent bar */}
@@ -224,12 +226,20 @@ export default function Landing() {
         </div>
       </div>
 
-      {/* Bottom tagline with retro styling */}
-      <div className="absolute bottom-8 left-0 right-0 text-center z-10">
-        <div className="relative inline-block">
-          <div className="absolute inset-0 bg-cyan-500/5 blur-xl" />
-          <p className="relative text-sm md:text-base text-gray-400 font-light tracking-widest uppercase">
+      {/* Enhanced tagline with better prominence */}
+      <div className="absolute bottom-12 md:bottom-16 left-0 right-0 text-center z-10 px-4">
+        <div className="relative inline-block max-w-2xl">
+          {/* Glow effects */}
+          <div className="absolute -inset-4 bg-gradient-to-r from-cyan-500/10 via-purple-500/10 to-pink-500/10 blur-2xl opacity-60 animate-pulse" style={{ animationDuration: '3s' }} />
+          
+          {/* Main tagline */}
+          <p className="relative text-base md:text-xl lg:text-2xl text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400 font-bold tracking-wide mb-2">
             Your Universe of LEGO® Parts & Community
+          </p>
+          
+          {/* Subtitle */}
+          <p className="relative text-xs md:text-sm text-gray-400 font-light tracking-wider">
+            Explore • Build • Connect
           </p>
         </div>
       </div>
@@ -268,6 +278,37 @@ export default function Landing() {
           15%, 85% { opacity: 0.55; }
           20%, 80% { opacity: 0.7; }
           50% { opacity: 0.8; }
+        }
+        
+        @keyframes fadeIn {
+          from { 
+            opacity: 0; 
+            transform: translateY(10px);
+          }
+          to { 
+            opacity: 1; 
+            transform: translateY(0);
+          }
+        }
+        
+        @keyframes primaryPulse {
+          0%, 100% { 
+            transform: scale(1);
+            filter: brightness(1);
+          }
+          50% { 
+            transform: scale(1.03);
+            filter: brightness(1.1);
+          }
+        }
+        
+        @keyframes postGlow {
+          0%, 100% { 
+            opacity: 0.5;
+          }
+          50% { 
+            opacity: 0.9;
+          }
         }
         
         ${signs.map(sign => `
