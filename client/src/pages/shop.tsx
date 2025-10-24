@@ -709,24 +709,26 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
                           </div>
 
                           {/* Right: Store Links */}
-                          <div className="flex gap-2 shrink-0">
+                          <div className="flex gap-1.5 shrink-0">
                             <Button
                               size="sm"
-                              className="bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400 text-white shadow-lg gap-2"
+                              variant="outline"
+                              className="border-orange-500/40 text-orange-400 hover:bg-orange-500/10 gap-1 text-[10px] px-2 h-7"
                               onClick={() => window.open(BRICKLINK_STORE_URL, '_blank')}
                               data-testid={`button-bricklink-${lot.id}-${idx}`}
                             >
-                              <ExternalLink className="w-4 h-4" />
-                              <span className="text-xs">BrickLink</span>
+                              <ExternalLink className="w-3 h-3" />
+                              BrickLink
                             </Button>
                             <Button
                               size="sm"
-                              className="bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-500 hover:to-purple-400 text-white shadow-lg gap-2"
+                              variant="outline"
+                              className="border-purple-500/40 text-purple-400 hover:bg-purple-500/10 gap-1 text-[10px] px-2 h-7"
                               onClick={() => window.open(BRICKOWL_STORE_URL, '_blank')}
                               data-testid={`button-brickowl-${lot.id}-${idx}`}
                             >
-                              <ExternalLink className="w-4 h-4" />
-                              <span className="text-xs">BrickOwl</span>
+                              <ExternalLink className="w-3 h-3" />
+                              BrickOwl
                             </Button>
                           </div>
                         </div>
