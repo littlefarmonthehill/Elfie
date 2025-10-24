@@ -9,6 +9,7 @@ import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useMutation } from "@tanstack/react-query";
+import { formatProductDisplayName, formatColorDisplayName } from "@/lib/lego-branding";
 import { LogOut } from "lucide-react";
 import {
   Sheet,
@@ -29,6 +30,10 @@ import { Input } from "@/components/ui/input";
 import elfieRobot from "@assets/PlanetBrick_good_robot_1760672362080.png";
 import planetBrickLogo from "@assets/PlanetBrick_with_planet_1761030158394.png";
 import noImagePlaceholder from "@assets/generated_images/LEGO_image_unavailable_placeholder_957f3211.png";
+
+// Store URLs for showroom links
+const BRICKLINK_STORE_URL = "https://www.bricklink.com/store/home.page?p=planetbrick";
+const BRICKOWL_STORE_URL = "https://www.brickowl.com/store/planetbrick";
 
 interface CartItem {
   lotId: number;
@@ -531,7 +536,7 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
           </div>
           
           <div className="space-y-1 md:space-y-2">
-            <h3 className="text-xs md:text-base font-bold text-white leading-tight truncate">{lot.name}</h3>
+            <h3 className="text-xs md:text-base font-bold text-white leading-tight truncate">{formatProductDisplayName(lot.name)}</h3>
             
             {/* Part number and color count on same line */}
             <div className="flex items-center justify-between">
@@ -563,7 +568,7 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
           <DialogHeader className="pb-3 border-b border-white/10">
             <DialogTitle className="text-base md:text-lg font-bold text-white flex items-center gap-2">
               <Sparkles className="w-4 h-4 md:w-5 md:h-5 text-cyan-400" />
-              {lot.name}
+              {formatProductDisplayName(lot.name)}
             </DialogTitle>
             <DialogDescription className="text-xs md:text-sm text-gray-400 flex items-center gap-2 flex-wrap">
               <span className="text-cyan-400">#{lot.part}</span>
@@ -610,7 +615,7 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
                               : '#CCCCCC'
                           }}
                         />
-                        {color}
+                        {formatColorDisplayName(color)}
                       </button>
                     );
                   })}
@@ -676,7 +681,7 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
                         </div>
                       )}
                       <div className="flex-1">
-                        <h4 className="text-sm md:text-base font-bold text-white">{colorGroup.colorName}</h4>
+                        <h4 className="text-sm md:text-base font-bold text-white">{formatColorDisplayName(colorGroup.colorName)}</h4>
                         <p className="text-xs text-gray-400">{colorGroup.totalQty.toLocaleString()} pieces</p>
                       </div>
                     </div>
@@ -701,38 +706,64 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
                               <span className="text-xs text-gray-400">Stock: {variation.qty.toLocaleString()}</span>
                             </div>
                             <div className="text-lg md:text-xl font-bold text-cyan-400">{variation.price}</div>
-                          </div>
-
-                          {/* Right: Controls */}
-                          <div className="flex items-center gap-2">
-                            <div className="flex items-center gap-1 bg-gray-900/80 rounded-md p-1 border border-white/20">
+                            
+                            {/* Quantity Controls */}
+                            <div className="flex items-center gap-1 bg-gray-900/80 rounded-md p-1 border border-white/20 mt-2 w-fit">
                               <Button
                                 size="icon"
                                 variant="ghost"
-                                className="h-8 w-8 text-white hover:bg-white/10"
+                                className="h-6 w-6 text-white hover:bg-white/10"
                                 onClick={() => updateQuantity(idx, -1)}
                                 disabled={quantity <= 1}
                                 data-testid={`button-minus-${lot.id}-${idx}`}
                               >
-                                <Minus className="w-4 h-4" />
+                                <Minus className="w-3 h-3" />
                               </Button>
-                              <div className="w-10 text-center">
-                                <span className="text-sm font-bold text-white">{quantity}</span>
+                              <div className="w-8 text-center">
+                                <span className="text-xs font-bold text-white">{quantity}</span>
                               </div>
                               <Button
                                 size="icon"
                                 variant="ghost"
-                                className="h-8 w-8 text-white hover:bg-white/10"
+                                className="h-6 w-6 text-white hover:bg-white/10"
                                 onClick={() => updateQuantity(idx, 1)}
                                 disabled={quantity >= variation.qty}
                                 data-testid={`button-plus-${lot.id}-${idx}`}
                               >
-                                <Plus className="w-4 h-4" />
+                                <Plus className="w-3 h-3" />
                               </Button>
                             </div>
-                            
+                          </div>
+
+                          {/* Right: Actions */}
+                          <div className="flex flex-col gap-2 shrink-0">
+                            {/* Store Links */}
+                            <div className="flex gap-1.5">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="flex-1 border-orange-500/30 text-orange-400 hover:bg-orange-500/10 gap-1 text-xs px-2"
+                                onClick={() => window.open(BRICKLINK_STORE_URL, '_blank')}
+                                data-testid={`button-bricklink-${lot.id}-${idx}`}
+                              >
+                                <ChevronRight className="w-3 h-3" />
+                                BL
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="flex-1 border-purple-500/30 text-purple-400 hover:bg-purple-500/10 gap-1 text-xs px-2"
+                                onClick={() => window.open(BRICKOWL_STORE_URL, '_blank')}
+                                data-testid={`button-brickowl-${lot.id}-${idx}`}
+                              >
+                                <ChevronRight className="w-3 h-3" />
+                                BO
+                              </Button>
+                            </div>
+                            {/* Add to Cart for Bundles */}
                             <Button
-                              className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white shadow-lg h-10 px-4 gap-2"
+                              size="sm"
+                              className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white shadow-lg gap-2"
                               onClick={() => {
                                 onAddToCart({ ...variation, lotId: lot.id, partNumber: lot.part, partName: lot.name }, quantity);
                                 setQuantities(prev => ({ ...prev, [idx]: 1 }));
@@ -740,7 +771,7 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
                               data-testid={`button-add-${lot.id}-${idx}`}
                             >
                               <ShoppingCart className="w-4 h-4" />
-                              <span className="hidden sm:inline text-sm">Add</span>
+                              <span className="text-xs">Add to Cart</span>
                             </Button>
                           </div>
                         </div>
@@ -761,7 +792,7 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart }: LotCardProps) {
           <DialogHeader>
             <DialogTitle className="text-white flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-cyan-400" />
-              {lot.name}
+              {formatProductDisplayName(lot.name)}
             </DialogTitle>
           </DialogHeader>
           <div className="flex items-center justify-center p-4">
@@ -1295,67 +1326,70 @@ export default function Shop() {
                     )}
                   </Button>
                 </SheetTrigger>
-              <SheetContent className="w-full sm:max-w-lg bg-gray-900 border-purple-500/30">
-                <SheetHeader>
-                  <SheetTitle className="text-white">Shopping Cart</SheetTitle>
-                  <SheetDescription className="text-gray-400">
-                    {cartCount} {cartCount === 1 ? 'item' : 'items'} in cart
-                  </SheetDescription>
-                </SheetHeader>
-                <div className="mt-6 space-y-3 max-h-[60vh] overflow-y-auto">
-                  {cart.length === 0 ? (
-                    <p className="text-gray-500 text-center py-8">Your cart is empty</p>
-                  ) : (
-                    cart.map((item, index) => (
-                      <Card key={index} className="p-3 bg-gray-800/50 border-gray-700">
-                        <div className="flex items-start gap-3">
-                          <div
-                            className="w-8 h-8 rounded shrink-0 border border-gray-600"
-                            style={{ backgroundColor: item.colorHex }}
-                          />
-                          <div className="flex-1 min-w-0">
-                            <h4 className="text-sm font-semibold text-white truncate">
-                              {item.partName}
-                            </h4>
-                            <p className="text-xs text-gray-400">#{item.partNumber}</p>
-                            <p className="text-xs text-gray-500">
-                              {item.color} • {item.condition}
-                            </p>
-                            <div className="flex items-center gap-2 mt-1">
-                              <span className="text-sm font-bold text-cyan-400">{item.price}</span>
-                              <span className="text-xs text-gray-500">× {item.quantity}</span>
+                <SheetContent className="w-full sm:max-w-lg bg-gray-900 border-purple-500/30">
+                  <SheetHeader>
+                    <SheetTitle className="text-white">Shopping Cart</SheetTitle>
+                    <SheetDescription className="text-gray-400">
+                      {cartCount} {cartCount === 1 ? 'item' : 'items'} • For bundles & special items
+                    </SheetDescription>
+                  </SheetHeader>
+                  <div className="mt-6 space-y-3 max-h-[60vh] overflow-y-auto">
+                    {cart.length === 0 ? (
+                      <div className="text-center py-8 space-y-2">
+                        <p className="text-gray-500">Your cart is empty</p>
+                        <p className="text-xs text-gray-600">Individual parts available on BrickLink & BrickOwl</p>
+                      </div>
+                    ) : (
+                      cart.map((item, index) => (
+                        <Card key={index} className="p-3 bg-gray-800/50 border-gray-700">
+                          <div className="flex items-start gap-3">
+                            <div
+                              className="w-8 h-8 rounded shrink-0 border border-gray-600"
+                              style={{ backgroundColor: item.colorHex }}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <h4 className="text-sm font-semibold text-white truncate">
+                                {formatProductDisplayName(item.partName)}
+                              </h4>
+                              <p className="text-xs text-gray-400">#{item.partNumber}</p>
+                              <p className="text-xs text-gray-500">
+                                {formatColorDisplayName(item.color)} • {item.condition}
+                              </p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="text-sm font-bold text-cyan-400">{item.price}</span>
+                                <span className="text-xs text-gray-500">× {item.quantity}</span>
+                              </div>
                             </div>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8 text-red-400 hover:text-red-300 shrink-0"
+                              onClick={() => handleRemoveFromCart(index)}
+                              data-testid={`button-remove-${index}`}
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
                           </div>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-8 w-8 text-red-400 hover:text-red-300 shrink-0"
-                            onClick={() => handleRemoveFromCart(index)}
-                            data-testid={`button-remove-${index}`}
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </Card>
-                    ))
-                  )}
-                </div>
-                {cart.length > 0 && (
-                  <div className="mt-6 pt-4 border-t border-gray-700">
-                    <div className="flex items-center justify-between mb-4">
-                      <span className="text-lg font-bold text-white">Total:</span>
-                      <span className="text-xl font-bold text-cyan-400">
-                        ${cartTotal.toFixed(2)}
-                      </span>
-                    </div>
-                    <Button className="w-full bg-cyan-600 hover:bg-cyan-500 text-white" data-testid="button-checkout">
-                      Proceed to Checkout
-                    </Button>
+                        </Card>
+                      ))
+                    )}
                   </div>
-                )}
-              </SheetContent>
-            </Sheet>
-            {user ? (
+                  {cart.length > 0 && (
+                    <div className="mt-6 pt-4 border-t border-gray-700">
+                      <div className="flex items-center justify-between mb-4">
+                        <span className="text-lg font-bold text-white">Total:</span>
+                        <span className="text-xl font-bold text-cyan-400">
+                          ${cartTotal.toFixed(2)}
+                        </span>
+                      </div>
+                      <Button className="w-full bg-cyan-600 hover:bg-cyan-500 text-white" data-testid="button-checkout">
+                        Proceed to Checkout
+                      </Button>
+                    </div>
+                  )}
+                </SheetContent>
+              </Sheet>
+              {user ? (
               <Button 
                 variant="ghost" 
                 size="sm" 
