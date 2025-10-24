@@ -6,7 +6,11 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useServiceWorker } from "@/hooks/use-service-worker";
 import { useAuth } from "@/hooks/useAuth";
 import Home from "@/pages/home";
+import Landing from "@/pages/landing";
 import Shop from "@/pages/shop";
+import Events from "@/pages/events";
+import Deals from "@/pages/deals";
+import Community from "@/pages/community";
 import Search from "@/pages/search";
 import Login from "@/pages/login";
 import Signup from "@/pages/signup";
@@ -20,7 +24,10 @@ function Router() {
   return (
     <Switch>
       {/* Public routes - anyone can access (render immediately without waiting for auth) */}
-      <Route path="/shop" component={Shop} />
+      <Route path="/showroom" component={Shop} />
+      <Route path="/events" component={Events} />
+      <Route path="/deals" component={Deals} />
+      <Route path="/community" component={Community} />
       <Route path="/search" component={Search} />
       <Route path="/login" component={Login} />
       <Route path="/signup" component={Signup} />
@@ -41,11 +48,16 @@ function Router() {
         ) : isAdmin ? (
           <Home />
         ) : (
-          <Redirect to="/shop" />
+          <Redirect to="/showroom" />
         )}
       </Route>
 
-      {/* Home route - different behavior based on auth state */}
+      {/* Landing page - public */}
+      <Route path="/home">
+        <Landing />
+      </Route>
+
+      {/* Root route - different behavior based on auth state */}
       <Route path="/">
         {isLoading ? (
           <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-lego-red/20">
@@ -55,13 +67,13 @@ function Router() {
             </div>
           </div>
         ) : !isAuthenticated ? (
-          <Redirect to="/shop" />
+          <Landing />
         ) : !isApproved ? (
           <PendingApproval />
         ) : isAdmin ? (
           <Redirect to="/admin" />
         ) : (
-          <Redirect to="/shop" />
+          <Landing />
         )}
       </Route>
 

@@ -484,13 +484,13 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart, viewMode = 'gallery' 
   return (
     <>
       <Card
-        className={`${viewMode === 'list' ? 'w-full' : 'shrink-0 w-36 md:w-56'} p-1.5 md:p-3 bg-gray-900/60 border-purple-500/30 hover-elevate cursor-pointer transition-all`}
+        className={`${viewMode === 'list' ? 'w-full' : 'w-full'} p-1.5 md:p-3 bg-gray-900/60 border-purple-500/30 hover-elevate cursor-pointer transition-all`}
         onClick={() => onOpenChange(true)}
         data-testid={`card-lot-${lot.id}`}
       >
-        <div>
+        <div className={viewMode === 'list' ? 'flex gap-3 md:gap-4 items-center' : ''}>
           <div
-            className="w-full aspect-square rounded-md mb-1.5 md:mb-2 flex items-center justify-center border border-gray-700/50 relative overflow-hidden"
+            className={`${viewMode === 'list' ? 'w-16 h-16 md:w-20 md:h-20 shrink-0' : 'w-full aspect-square'} rounded-md ${viewMode === 'gallery' ? 'mb-1.5 md:mb-2' : ''} flex items-center justify-center border border-gray-700/50 relative overflow-hidden`}
             style={{
               background: imageSrc
                 ? 'radial-gradient(ellipse at 30% 30%, #1e3a8a 0%, #0f172a 50%, #000000 100%)'
@@ -536,11 +536,11 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart, viewMode = 'gallery' 
             )}
           </div>
           
-          <div className="space-y-1 md:space-y-2">
+          <div className={`${viewMode === 'list' ? 'flex-1 min-w-0' : ''} space-y-1 md:space-y-2`}>
             <h3 className={`text-xs md:text-base font-bold text-white leading-tight ${viewMode === 'list' ? '' : 'truncate'}`}>{formatProductDisplayName(lot.name)}</h3>
             
             {/* Part number and color count on same line */}
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               <p className="text-[10px] md:text-sm text-gray-400">#{lot.part}</p>
               <Badge variant="secondary" className="text-[9px] md:text-xs px-1 md:px-1.5 py-0.5 h-auto">
                 {lot.uniqueColorCount} {lot.uniqueColorCount === 1 ? 'color' : 'colors'}
@@ -867,10 +867,10 @@ function HorizontalRow({ title, lots, lotCount, partCount, categoryId, onAddToCa
         </div>
       
         {viewMode === 'gallery' ? (
-          /* Gallery View - Horizontal Scroll */
-          <div className="overflow-x-auto scrollbar-hide smooth-scroll">
-            <div className="flex gap-2 md:gap-4 px-3 md:px-6 will-change-scroll">
-              {lots.slice(0, 12).map((lot) => (
+          /* Gallery View - Responsive Grid */
+          <div className="px-3 md:px-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
+              {lots.slice(0, 20).map((lot) => (
                 <LotCard
                   key={lot.id}
                   lot={lot}
@@ -883,9 +883,9 @@ function HorizontalRow({ title, lots, lotCount, partCount, categoryId, onAddToCa
             </div>
           </div>
         ) : (
-          /* List View - Responsive Grid with Full Titles */
+          /* List View - Full Width Rows with Smaller Images */
           <div className="px-3 md:px-6">
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
+            <div className="space-y-2 md:space-y-3">
               {lots.slice(0, 20).map((lot) => (
                 <LotCard
                   key={lot.id}
