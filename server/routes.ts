@@ -1882,12 +1882,13 @@ AVAILABLE TOOLS:
 5. get_order_analytics - Get sales and order analytics
 6. get_sales_by_category - Get historical sales performance by category
 7. get_category_throughput - **CRITICAL FOR STRATEGY**: Get sell-through rates (sales ÷ inventory) by category
-8. get_customer_metrics - **CRITICAL FOR STRATEGY**: Get repeat customer rates and loyalty metrics
-9. get_sales_by_geography - **NEW**: Analyze sales by state/country with demographic breakdowns (residential vs commercial, business indicators)
-10. search_orders_by_item - Search order history to find if a specific part has been sold
-11. get_copurchased_items - Find what other parts customers frequently bought together with a specific part
-12. get_set_parts - Get complete parts list with quantities for any LEGO set
-13. search_web - **CRITICAL FOR STRATEGY**: Search the internet for current LEGO market trends, news, and demand
+8. get_customer_metrics - **CRITICAL FOR STRATEGY**: Get repeat customer rates and loyalty metrics with TOP REPEAT CUSTOMER USERNAMES
+9. get_sales_by_geography - Analyze sales by state/country with demographic breakdowns (residential vs commercial, business indicators)
+10. get_business_customers - **CRITICAL FOR DEMOGRAPHICS**: Get list of ACTUAL COMPANY NAMES with order history and locations
+11. search_orders_by_item - Search order history to find if a specific part has been sold
+12. get_copurchased_items - Find what other parts customers frequently bought together with a specific part
+13. get_set_parts - Get complete parts list with quantities for any LEGO set
+14. search_web - **CRITICAL FOR STRATEGY**: Search the internet for current LEGO market trends, news, and demand
 
 WHEN TO USE TOOLS:
 - If a user asks about a part/set that's NOT in inventory → ALWAYS use search_bricklink_catalog
@@ -1901,7 +1902,8 @@ WHEN TO USE TOOLS:
   1. FIRST: Use get_category_throughput to see which categories have high demand vs inventory
   2. SECOND: Use search_web to research current LEGO market trends and AFOL community interests
   3. THIRD: Synthesize BOTH internal performance AND external market trends into recommendations
-- If a user asks about customer loyalty or repeat business → use get_customer_metrics
+- If a user asks about customer loyalty or repeat business → use get_customer_metrics (returns topRepeatCustomers with usernames)
+- If a user asks for "business names", "company names", "list businesses", "corporate customers" → use get_business_customers
 - If a user asks about geographic sales, top states, where customers are located → use get_sales_by_geography
 - If a user asks about current events, market trends, recent news, or topics requiring up-to-date information → use search_web
 

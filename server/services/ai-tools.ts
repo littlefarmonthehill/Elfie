@@ -785,6 +785,114 @@ export async function getCustomerMetrics(params?: {
 }
 
 /**
+ * Tool: Get business customers - list of all customers with company names
+ */
+export async function getBusinessCustomers(params?: {
+  limit?: number;
+  sortBy?: 'orderCount' | 'revenue';
+}) {
+  const { limit = 50, sortBy = 'revenue' } = params || {};
+  
+  try {
+    // Get all orders with company names in ship_to
+    const allOrders = await db
+      .select({
+        orderId: orders.id,
+        customerUsername: orders.customerUsername,
+        shipTo: orders.shipTo,
+        orderTotal: orders.orderTotal,
+        orderDate: orders.orderDate,
+      })
+      .from(orders)
+      .where(sql`${orders.shipTo} IS NOT NULL AND ${orders.shipTo} != ''`);
+    
+    // Extract businesses (those with company names)
+    const businessMap = new Map<string, {
+      companyName: string;
+      customerName: string;
+      orderCount: number;
+      totalRevenue: number;
+      firstOrder: string;
+      lastOrder: string;
+      locations: Set<string>;
+    }>();
+    
+    allOrders.forEach(order => {
+      try {
+        const shipToData = JSON.parse(order.shipTo || '{}');
+        const companyName = shipToData.company?.trim();
+        
+        // Only include if there's an actual company name
+        if (!companyName) return;
+        
+        const customerName = shipToData.name || order.customerUsername || 'Unknown';
+        const location = shipToData.state && shipToData.country 
+          ? `${shipToData.state}, ${shipToData.country}`
+          : (shipToData.country || 'Unknown');
+        const revenue = Number(order.orderTotal) || 0;
+        const orderDate = order.orderDate || new Date().toISOString();
+        
+        const key = `${companyName}|${order.customerUsername}`;
+        const existing = businessMap.get(key);
+        
+        if (existing) {
+          existing.orderCount++;
+          existing.totalRevenue += revenue;
+          if (orderDate < existing.firstOrder) existing.firstOrder = orderDate;
+          if (orderDate > existing.lastOrder) existing.lastOrder = orderDate;
+          existing.locations.add(location);
+        } else {
+          businessMap.set(key, {
+            companyName,
+            customerName,
+            orderCount: 1,
+            totalRevenue: revenue,
+            firstOrder: orderDate,
+            lastOrder: orderDate,
+            locations: new Set([location]),
+          });
+        }
+      } catch (e) {
+        // Skip orders with invalid JSON
+      }
+    });
+    
+    // Convert to array and sort
+    const businesses = Array.from(businessMap.values())
+      .map(biz => ({
+        companyName: biz.companyName,
+        customerName: biz.customerName,
+        orderCount: biz.orderCount,
+        totalRevenue: Number(biz.totalRevenue.toFixed(2)),
+        avgOrderValue: Number((biz.totalRevenue / biz.orderCount).toFixed(2)),
+        firstOrder: biz.firstOrder,
+        lastOrder: biz.lastOrder,
+        locations: Array.from(biz.locations),
+      }))
+      .sort((a, b) => {
+        if (sortBy === 'orderCount') {
+          return b.orderCount - a.orderCount;
+        }
+        return b.totalRevenue - a.totalRevenue;
+      })
+      .slice(0, limit);
+    
+    return {
+      success: true,
+      data: businesses,
+      totalBusinessCustomers: businesses.length,
+      explanation: 'Business customers are identified by having a company name in their shipping address. This list shows all business customers with their order history and locations.',
+    };
+  } catch (error: any) {
+    console.error('Error getting business customers:', error);
+    return {
+      success: false,
+      message: error.message || 'Failed to get business customers',
+    };
+  }
+}
+
+/**
  * Tool: Get margin analysis - analyze profit margins by category or item
  */
 export async function getMarginAnalysis(params?: {
@@ -1716,6 +1824,28 @@ export const AI_TOOLS = [
   {
     type: 'function',
     function: {
+      name: 'get_business_customers',
+      description: 'CRITICAL FOR DEMOGRAPHICS: Get list of all business/corporate customers with company names, order history, and locations. Returns actual company names extracted from shipping addresses. Essential for answering "what businesses buy from us", "list business customers", "show me company names", or "which corporations purchase from us". Returns company name, customer name, order count, revenue, and locations for each business.',
+      parameters: {
+        type: 'object',
+        properties: {
+          limit: {
+            type: 'number',
+            description: 'Maximum number of businesses to return (default: 50)',
+          },
+          sortBy: {
+            type: 'string',
+            enum: ['orderCount', 'revenue'],
+            description: 'Sort by order count or total revenue (default: revenue)',
+          },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'get_inventory_aging',
       description: 'Analyze slow-moving inventory by finding items that have been in stock for a long time. Returns items with days in stock, estimated value. Useful for answering "which items are slow-moving", "what inventory should we discount", or identifying aging stock.',
       parameters: {
@@ -1932,6 +2062,9 @@ export async function executeToolCall(toolName: string, params: any): Promise<an
     
     case 'get_sales_by_geography':
       return await getSalesByGeography(params);
+    
+    case 'get_business_customers':
+      return await getBusinessCustomers(params);
     
     case 'get_inventory_aging':
       return await getInventoryAging(params);
