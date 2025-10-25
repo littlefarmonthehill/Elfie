@@ -60,8 +60,8 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
         messages: conversationMessages as any,
         tools: AI_TOOLS as any,
         tool_choice: 'auto',
-        temperature: 0.7,
-        max_tokens: 800,
+        temperature: 0.5,  // Lower temperature for more focused, analytical responses
+        max_tokens: 1600,  // Increased for deeper insights and explanations
       }, {
         timeout: 30000, // 30 second timeout
       });
