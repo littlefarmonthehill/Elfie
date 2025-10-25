@@ -538,6 +538,138 @@ export async function getCategoryThroughput(params?: {
 }
 
 /**
+ * Tool: Get sales by geography (state, country)
+ */
+export async function getSalesByGeography(params?: {
+  groupBy?: 'state' | 'country';
+  limit?: number;
+  startDate?: string;
+  endDate?: string;
+}) {
+  const { groupBy = 'state', limit = 20, startDate, endDate } = params || {};
+  
+  try {
+    const conditions: any[] = [];
+    
+    if (startDate) {
+      conditions.push(sql`${orders.orderDate} >= ${startDate}`);
+    }
+    if (endDate) {
+      conditions.push(sql`${orders.orderDate} <= ${endDate}`);
+    }
+    
+    // Build conditions including ship_to filter
+    const allConditions = [
+      sql`${orders.shipTo} IS NOT NULL AND ${orders.shipTo} != ''`,
+      ...conditions
+    ];
+    
+    // Get all orders with ship_to data
+    const allOrders = await db
+      .select({
+        shipTo: orders.shipTo,
+        orderTotal: orders.orderTotal,
+        orderDate: orders.orderDate,
+      })
+      .from(orders)
+      .where(and(...allConditions));
+    
+    // Parse JSON and aggregate by geography with demographics
+    const geoMap = new Map<string, { 
+      orderCount: number; 
+      totalRevenue: number; 
+      customers: Set<string>;
+      residentialOrders: number;
+      commercialOrders: number;
+      hasCompany: number;
+      phoneNumbers: Set<string>;
+    }>();
+    
+    allOrders.forEach(order => {
+      try {
+        const shipToData = JSON.parse(order.shipTo || '{}');
+        const geoKey = groupBy === 'state' 
+          ? `${shipToData.state || 'Unknown'}, ${shipToData.country || 'Unknown'}`
+          : shipToData.country || 'Unknown';
+        
+        // Skip if no valid geographic data
+        if (!shipToData.state && groupBy === 'state') return;
+        if (!shipToData.country && groupBy === 'country') return;
+        
+        const revenue = Number(order.orderTotal) || 0;
+        const customerName = shipToData.name || 'Unknown';
+        const isResidential = shipToData.residential === true;
+        const hasCompany = !!(shipToData.company && shipToData.company.trim());
+        const phone = shipToData.phone || '';
+        
+        const existing = geoMap.get(geoKey);
+        if (existing) {
+          existing.orderCount++;
+          existing.totalRevenue += revenue;
+          existing.customers.add(customerName);
+          if (isResidential) existing.residentialOrders++;
+          else existing.commercialOrders++;
+          if (hasCompany) existing.hasCompany++;
+          if (phone) existing.phoneNumbers.add(phone);
+        } else {
+          geoMap.set(geoKey, {
+            orderCount: 1,
+            totalRevenue: revenue,
+            customers: new Set([customerName]),
+            residentialOrders: isResidential ? 1 : 0,
+            commercialOrders: isResidential ? 0 : 1,
+            hasCompany: hasCompany ? 1 : 0,
+            phoneNumbers: new Set(phone ? [phone] : []),
+          });
+        }
+      } catch (e) {
+        // Skip orders with invalid JSON
+      }
+    });
+    
+    // Convert to array and sort by revenue
+    const results = Array.from(geoMap.entries())
+      .map(([location, data]) => {
+        const residentialPercent = data.orderCount > 0 
+          ? Number((data.residentialOrders / data.orderCount * 100).toFixed(1))
+          : 0;
+        
+        return {
+          location,
+          orderCount: data.orderCount,
+          totalRevenue: Number(data.totalRevenue.toFixed(2)),
+          uniqueCustomers: data.customers.size,
+          avgOrderValue: Number((data.totalRevenue / data.orderCount).toFixed(2)),
+          demographics: {
+            residentialPercent,
+            commercialPercent: Number((100 - residentialPercent).toFixed(1)),
+            businessOrders: data.hasCompany,
+            uniquePhoneNumbers: data.phoneNumbers.size,
+          }
+        };
+      })
+      .sort((a, b) => b.totalRevenue - a.totalRevenue)
+      .slice(0, limit);
+    
+    return {
+      success: true,
+      data: results,
+      groupBy,
+      totalLocations: results.length,
+      explanation: groupBy === 'state' 
+        ? 'Sales aggregated by state and country with demographic breakdown. Location format: "STATE, COUNTRY". Demographics include residential vs commercial delivery addresses and business indicators.'
+        : 'Sales aggregated by country with demographic breakdown. Demographics include residential vs commercial delivery addresses and business indicators.',
+    };
+  } catch (error: any) {
+    console.error('Error getting sales by geography:', error);
+    return {
+      success: false,
+      message: error.message || 'Failed to get sales by geography',
+    };
+  }
+}
+
+/**
  * Tool: Get customer metrics (repeating customers, new customers, etc.)
  */
 export async function getCustomerMetrics(params?: {
@@ -586,8 +718,8 @@ export async function getCustomerMetrics(params?: {
       if (existing) {
         existing.orderCount++;
         existing.totalRevenue += revenue;
-        existing.firstOrder = orderDate < existing.firstOrder ? orderDate : existing.firstOrder;
-        existing.lastOrder = orderDate > existing.lastOrder ? orderDate : existing.lastOrder;
+        if (orderDate < existing.firstOrder) existing.firstOrder = orderDate;
+        if (orderDate > existing.lastOrder) existing.lastOrder = orderDate;
       } else {
         customerMap.set(order.customerUsername, {
           orderCount: 1,
@@ -1554,6 +1686,36 @@ export const AI_TOOLS = [
   {
     type: 'function',
     function: {
+      name: 'get_sales_by_geography',
+      description: 'Analyze sales performance by geographic location (state or country). Returns order count, total revenue, unique customers, and average order value for each location. Essential for answering "what states sell best", "where are our customers", "sales by location", or geographic analysis. Use groupBy="state" for state-level analysis or groupBy="country" for country-level analysis.',
+      parameters: {
+        type: 'object',
+        properties: {
+          groupBy: {
+            type: 'string',
+            enum: ['state', 'country'],
+            description: 'Group results by state or country (default: state)',
+          },
+          limit: {
+            type: 'number',
+            description: 'Maximum number of locations to return (default: 20)',
+          },
+          startDate: {
+            type: 'string',
+            description: 'Start date for date range filter (ISO format)',
+          },
+          endDate: {
+            type: 'string',
+            description: 'End date for date range filter (ISO format)',
+          },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'get_inventory_aging',
       description: 'Analyze slow-moving inventory by finding items that have been in stock for a long time. Returns items with days in stock, estimated value. Useful for answering "which items are slow-moving", "what inventory should we discount", or identifying aging stock.',
       parameters: {
@@ -1767,6 +1929,9 @@ export async function executeToolCall(toolName: string, params: any): Promise<an
     
     case 'get_customer_metrics':
       return await getCustomerMetrics(params);
+    
+    case 'get_sales_by_geography':
+      return await getSalesByGeography(params);
     
     case 'get_inventory_aging':
       return await getInventoryAging(params);

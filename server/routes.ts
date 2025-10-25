@@ -1883,10 +1883,11 @@ AVAILABLE TOOLS:
 6. get_sales_by_category - Get historical sales performance by category
 7. get_category_throughput - **CRITICAL FOR STRATEGY**: Get sell-through rates (sales ÷ inventory) by category
 8. get_customer_metrics - **CRITICAL FOR STRATEGY**: Get repeat customer rates and loyalty metrics
-9. search_orders_by_item - Search order history to find if a specific part has been sold
-10. get_copurchased_items - Find what other parts customers frequently bought together with a specific part
-11. get_set_parts - Get complete parts list with quantities for any LEGO set
-12. search_web - **CRITICAL FOR STRATEGY**: Search the internet for current LEGO market trends, news, and demand
+9. get_sales_by_geography - **NEW**: Analyze sales by state/country with demographic breakdowns (residential vs commercial, business indicators)
+10. search_orders_by_item - Search order history to find if a specific part has been sold
+11. get_copurchased_items - Find what other parts customers frequently bought together with a specific part
+12. get_set_parts - Get complete parts list with quantities for any LEGO set
+13. search_web - **CRITICAL FOR STRATEGY**: Search the internet for current LEGO market trends, news, and demand
 
 WHEN TO USE TOOLS:
 - If a user asks about a part/set that's NOT in inventory → ALWAYS use search_bricklink_catalog
@@ -1901,6 +1902,7 @@ WHEN TO USE TOOLS:
   2. SECOND: Use search_web to research current LEGO market trends and AFOL community interests
   3. THIRD: Synthesize BOTH internal performance AND external market trends into recommendations
 - If a user asks about customer loyalty or repeat business → use get_customer_metrics
+- If a user asks about geographic sales, top states, where customers are located → use get_sales_by_geography
 - If a user asks about current events, market trends, recent news, or topics requiring up-to-date information → use search_web
 
 CRITICAL BEHAVIOR FOR UNKNOWN PARTS:
