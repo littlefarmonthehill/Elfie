@@ -444,6 +444,215 @@ export async function getSalesByCategory(params?: {
 }
 
 /**
+ * Tool: Get category throughput (sell-through rate)
+ * Compares sales velocity to current inventory levels by category
+ */
+export async function getCategoryThroughput(params?: {
+  startDate?: string;
+  endDate?: string;
+  limit?: number;
+}) {
+  const { startDate, endDate, limit = 10 } = params || {};
+  
+  try {
+    // Get sales by category
+    const salesConditions: any[] = [];
+    
+    if (startDate) {
+      salesConditions.push(sql`${orders.orderDate} >= ${startDate}`);
+    }
+    if (endDate) {
+      salesConditions.push(sql`${orders.orderDate} <= ${endDate}`);
+    }
+    
+    // Query sales data
+    let salesQuery = db
+      .select({
+        categoryId: blCategories.id,
+        categoryName: blCategories.name,
+        totalQuantitySold: sql<number>`SUM(CAST(${orderDetails.quantity} AS INTEGER))`,
+        totalRevenue: sql<number>`SUM(CAST(${orderDetails.quantity} AS INTEGER) * CAST(${orderDetails.unitPrice} AS DECIMAL))`,
+      })
+      .from(orderDetails)
+      .innerJoin(orders, eq(orderDetails.orderId, orders.id))
+      .leftJoin(blInventory, sql`${orderDetails.sku} = CAST(${blInventory.id} AS TEXT)`)
+      .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
+      .where(
+        salesConditions.length > 0
+          ? and(sql`${blCategories.name} IS NOT NULL`, ...salesConditions)
+          : sql`${blCategories.name} IS NOT NULL`
+      )
+      .groupBy(blCategories.id, blCategories.name);
+    
+    const categoryStats = await salesQuery;
+    
+    // Get current inventory by category
+    const inventoryStats = await db
+      .select({
+        categoryId: blCategories.id,
+        categoryName: blCategories.name,
+        totalQuantityInStock: sql<number>`SUM(${blInventory.quantity})`,
+        totalInventoryValue: sql<number>`SUM(${blInventory.quantity} * CAST(${blInventory.unitPrice} AS DECIMAL))`,
+      })
+      .from(blInventory)
+      .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
+      .where(sql`${blCategories.name} IS NOT NULL`)
+      .groupBy(blCategories.id, blCategories.name);
+    
+    // Combine sales and inventory data
+    const throughputData = categoryStats.map(sales => {
+      const inventory = inventoryStats.find(inv => inv.categoryId === sales.categoryId);
+      const quantitySold = Number(sales.totalQuantitySold) || 0;
+      const quantityInStock = Number(inventory?.totalQuantityInStock) || 0;
+      
+      // Calculate throughput rate (sales / inventory)
+      // Higher throughput = higher demand relative to stock
+      const throughputRate = quantityInStock > 0 ? quantitySold / quantityInStock : 0;
+      
+      return {
+        categoryName: sales.categoryName,
+        quantitySold,
+        revenue: Number(sales.totalRevenue) || 0,
+        quantityInStock,
+        inventoryValue: Number(inventory?.totalInventoryValue) || 0,
+        throughputRate: Number(throughputRate.toFixed(4)),
+        throughputPercentage: Number((throughputRate * 100).toFixed(2)),
+      };
+    });
+    
+    // Sort by throughput rate descending
+    const sorted = throughputData.sort((a, b) => b.throughputRate - a.throughputRate).slice(0, limit);
+    
+    return {
+      success: true,
+      data: sorted,
+      explanation: 'Throughput rate = quantity sold ÷ quantity in stock. Higher throughput means strong demand relative to inventory. Categories with high throughput may need more stock; categories with low throughput may be overstocked.',
+    };
+  } catch (error: any) {
+    console.error('Error getting category throughput:', error);
+    return {
+      success: false,
+      message: error.message || 'Failed to get category throughput',
+    };
+  }
+}
+
+/**
+ * Tool: Get customer metrics (repeating customers, new customers, etc.)
+ */
+export async function getCustomerMetrics(params?: {
+  startDate?: string;
+  endDate?: string;
+}) {
+  const { startDate, endDate } = params || {};
+  
+  try {
+    const conditions: any[] = [];
+    
+    if (startDate) {
+      conditions.push(sql`${orders.orderDate} >= ${startDate}`);
+    }
+    if (endDate) {
+      conditions.push(sql`${orders.orderDate} <= ${endDate}`);
+    }
+    
+    // Build conditions including customer username filter
+    const allConditions = [
+      sql`${orders.customerUsername} IS NOT NULL AND ${orders.customerUsername} != ''`,
+      ...conditions
+    ];
+    
+    // Get all orders with filters
+    const allOrders = await db
+      .select({
+        id: orders.id,
+        customerUsername: orders.customerUsername,
+        orderDate: orders.orderDate,
+        orderTotal: orders.orderTotal,
+      })
+      .from(orders)
+      .where(and(...allConditions));
+    
+    // Group by customer
+    const customerMap = new Map<string, { orderCount: number; totalRevenue: number; firstOrder: string; lastOrder: string }>();
+    
+    allOrders.forEach(order => {
+      if (!order.customerUsername) return; // Skip if no customer username
+      
+      const existing = customerMap.get(order.customerUsername);
+      const revenue = Number(order.orderTotal) || 0;
+      const orderDate = order.orderDate || new Date().toISOString();
+      
+      if (existing) {
+        existing.orderCount++;
+        existing.totalRevenue += revenue;
+        existing.firstOrder = orderDate < existing.firstOrder ? orderDate : existing.firstOrder;
+        existing.lastOrder = orderDate > existing.lastOrder ? orderDate : existing.lastOrder;
+      } else {
+        customerMap.set(order.customerUsername, {
+          orderCount: 1,
+          totalRevenue: revenue,
+          firstOrder: orderDate,
+          lastOrder: orderDate,
+        });
+      }
+    });
+    
+    // Calculate metrics
+    const totalCustomers = customerMap.size;
+    const repeatCustomers = Array.from(customerMap.values()).filter(c => c.orderCount > 1).length;
+    const repeatCustomerRate = totalCustomers > 0 ? (repeatCustomers / totalCustomers * 100) : 0;
+    const totalOrders = allOrders.length;
+    const avgOrdersPerCustomer = totalCustomers > 0 ? (totalOrders / totalCustomers) : 0;
+    
+    // Top repeat customers
+    const topRepeatCustomers = Array.from(customerMap.entries())
+      .filter(([_, data]) => data.orderCount > 1)
+      .map(([username, data]) => ({
+        username,
+        orderCount: data.orderCount,
+        totalRevenue: data.totalRevenue,
+        firstOrder: data.firstOrder,
+        lastOrder: data.lastOrder,
+      }))
+      .sort((a, b) => b.orderCount - a.orderCount)
+      .slice(0, 10);
+    
+    // Recent new customers (first order in last 30 days)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const recentNewCustomers = Array.from(customerMap.entries())
+      .filter(([_, data]) => data.orderCount === 1 && new Date(data.firstOrder) >= thirtyDaysAgo)
+      .map(([username, data]) => ({
+        username,
+        firstOrder: data.firstOrder,
+        totalRevenue: data.totalRevenue,
+      }))
+      .sort((a, b) => new Date(b.firstOrder).getTime() - new Date(a.firstOrder).getTime())
+      .slice(0, 10);
+    
+    return {
+      success: true,
+      data: {
+        totalCustomers,
+        repeatCustomers,
+        repeatCustomerRate: Number(repeatCustomerRate.toFixed(1)),
+        avgOrdersPerCustomer: Number(avgOrdersPerCustomer.toFixed(1)),
+        topRepeatCustomers,
+        recentNewCustomers,
+      },
+      explanation: 'Repeat customer rate = (customers with >1 order) ÷ total customers. Higher repeat rates indicate strong customer loyalty and satisfaction.',
+    };
+  } catch (error: any) {
+    console.error('Error getting customer metrics:', error);
+    return {
+      success: false,
+      message: error.message || 'Failed to get customer metrics',
+    };
+  }
+}
+
+/**
  * Tool: Get margin analysis - analyze profit margins by category or item
  */
 export async function getMarginAnalysis(params?: {
@@ -1299,6 +1508,52 @@ export const AI_TOOLS = [
   {
     type: 'function',
     function: {
+      name: 'get_category_throughput',
+      description: 'CRITICAL DASHBOARD METRIC: Calculate category sell-through rates (throughput = sales ÷ inventory). Shows which categories have HIGH DEMAND relative to stock levels. Use this to identify: (1) Categories that are selling well vs their inventory (high throughput = restock opportunity), (2) Categories that are overstocked (low throughput = reduce listings). Essential for strategic inventory decisions and answering "what should we stock more of based on demand" or "which categories have best throughput".',
+      parameters: {
+        type: 'object',
+        properties: {
+          startDate: {
+            type: 'string',
+            description: 'Start date for sales analysis (ISO format)',
+          },
+          endDate: {
+            type: 'string',
+            description: 'End date for sales analysis (ISO format)',
+          },
+          limit: {
+            type: 'number',
+            description: 'Maximum number of categories to return (default: 10)',
+          },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_customer_metrics',
+      description: 'CRITICAL DASHBOARD METRIC: Get customer loyalty and repeat purchase metrics. Returns total customers, repeat customer count, repeat rate percentage, average orders per customer, top repeat buyers, and recent new customers. Use this to understand customer loyalty, identify valuable repeat customers, track new customer acquisition, and answer "how many repeat customers do we have" or "what\'s our customer retention".',
+      parameters: {
+        type: 'object',
+        properties: {
+          startDate: {
+            type: 'string',
+            description: 'Start date for customer analysis (ISO format)',
+          },
+          endDate: {
+            type: 'string',
+            description: 'End date for customer analysis (ISO format)',
+          },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'get_inventory_aging',
       description: 'Analyze slow-moving inventory by finding items that have been in stock for a long time. Returns items with days in stock, estimated value. Useful for answering "which items are slow-moving", "what inventory should we discount", or identifying aging stock.',
       parameters: {
@@ -1506,6 +1761,12 @@ export async function executeToolCall(toolName: string, params: any): Promise<an
     
     case 'get_sales_by_category':
       return await getSalesByCategory(params);
+    
+    case 'get_category_throughput':
+      return await getCategoryThroughput(params);
+    
+    case 'get_customer_metrics':
+      return await getCustomerMetrics(params);
     
     case 'get_inventory_aging':
       return await getInventoryAging(params);
