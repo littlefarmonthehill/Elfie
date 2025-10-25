@@ -1998,14 +1998,10 @@ WHEN IN DOUBT → Be comprehensive. It's better to consult extra departments tha
 - If user asks "recent" or "last month/year", FIRST call the tool WITHOUT dates to see the actual data range, THEN ask user to clarify the time period
 
 **WRONG**:
-```
-get_category_throughput({ startDate: '2024-10-25', endDate: '2025-10-25' })  // ❌ Returns NOTHING - no data in 2024-2025
-```
+  get_category_throughput({ startDate: '2024-10-25', endDate: '2025-10-25' })  // ❌ Returns NOTHING - no data in 2024-2025
 
 **CORRECT**:
-```
-get_category_throughput({ limit: 10 })  // ✅ Returns ALL historical data from when store was operating
-```
+  get_category_throughput({ limit: 10 })  // ✅ Returns ALL historical data from when store was operating
 
 **If data tools return empty results** - This means you're filtering incorrectly. Remove date filters and try again with ALL data.
 
