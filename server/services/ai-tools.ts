@@ -713,13 +713,13 @@ export async function getCustomerMetrics(params?: {
       
       const existing = customerMap.get(order.customerUsername);
       const revenue = Number(order.orderTotal) || 0;
-      const orderDate = order.orderDate || new Date().toISOString();
+      const orderDate = (order.orderDate instanceof Date ? order.orderDate.toISOString() : order.orderDate) || new Date().toISOString();
       
       if (existing) {
         existing.orderCount++;
         existing.totalRevenue += revenue;
-        if (orderDate < existing.firstOrder) existing.firstOrder = orderDate;
-        if (orderDate > existing.lastOrder) existing.lastOrder = orderDate;
+        existing.firstOrder = orderDate < existing.firstOrder ? orderDate : existing.firstOrder;
+        existing.lastOrder = orderDate > existing.lastOrder ? orderDate : existing.lastOrder;
       } else {
         customerMap.set(order.customerUsername, {
           orderCount: 1,
@@ -830,7 +830,7 @@ export async function getBusinessCustomers(params?: {
           ? `${shipToData.state}, ${shipToData.country}`
           : (shipToData.country || 'Unknown');
         const revenue = Number(order.orderTotal) || 0;
-        const orderDate = order.orderDate || new Date().toISOString();
+        const orderDate = (order.orderDate instanceof Date ? order.orderDate.toISOString() : order.orderDate) || new Date().toISOString();
         
         const key = `${companyName}|${order.customerUsername}`;
         const existing = businessMap.get(key);
@@ -838,8 +838,8 @@ export async function getBusinessCustomers(params?: {
         if (existing) {
           existing.orderCount++;
           existing.totalRevenue += revenue;
-          if (orderDate < existing.firstOrder) existing.firstOrder = orderDate;
-          if (orderDate > existing.lastOrder) existing.lastOrder = orderDate;
+          existing.firstOrder = orderDate < existing.firstOrder ? orderDate : existing.firstOrder;
+          existing.lastOrder = orderDate > existing.lastOrder ? orderDate : existing.lastOrder;
           existing.locations.add(location);
         } else {
           businessMap.set(key, {
