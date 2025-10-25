@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, Bot, RefreshCcw, ChevronUp, ChevronDown, Minimize2, Maximize2, ExternalLink, X, Camera, Image } from "lucide-react";
+import { Send, Bot, RefreshCcw, ChevronUp, ChevronDown, Minimize2, Maximize2, ExternalLink, X, Camera, Image, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -95,9 +95,10 @@ interface MessageContentProps {
   onItemClick?: (type: 'inventory' | 'order', id: string) => void;
   onBrickLinkClick?: (url: string) => void;
   onBrickLinkSearch?: (itemNo: string, itemType: string) => void;
+  onPromptClick?: (prompt: string) => void;
 }
 
-function MessageContent({ content, imageUrl, items, orders, forumDiscussions, bricklinkSearchSuggestion, onItemClick, onBrickLinkClick, onBrickLinkSearch }: MessageContentProps) {
+function MessageContent({ content, imageUrl, items, orders, forumDiscussions, bricklinkSearchSuggestion, onItemClick, onBrickLinkClick, onBrickLinkSearch, onPromptClick }: MessageContentProps) {
   // Group items by itemNo for grouped display
   const groupedItems = items && items.length > 0 ? items.reduce((acc, item) => {
     if (!acc[item.itemNo]) {
@@ -130,39 +131,69 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, br
       const parts: (string | JSX.Element)[] = [];
       let lastIndex = 0;
 
+      // Match **PROMPT:** "text here" patterns
+      // Pattern: **PROMPT:** "text" or **PROMPT:** 'text' or **PROMPT:** text without quotes
+      const promptRegex = /\*\*PROMPT:\*\*\s*["']?([^"'\n]+)["']?/g;
+      
       // Match markdown links: [text](url) AND bare URLs: https://...
       // Markdown format takes priority
       const markdownLinkRegex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
       const bareUrlRegex = /https?:\/\/[^\s)]+/g;
       
-      // First pass: Find all markdown links
-      const markdownMatches: Array<{ start: number; end: number; text: string; url: string }> = [];
-      let mdMatch;
-      while ((mdMatch = markdownLinkRegex.exec(text)) !== null) {
-        markdownMatches.push({
-          start: mdMatch.index,
-          end: mdMatch.index + mdMatch[0].length,
-          text: mdMatch[1],
-          url: mdMatch[2]
+      // First pass: Find all prompts
+      const promptMatches: Array<{ start: number; end: number; prompt: string; type: 'prompt' }> = [];
+      let promptMatch;
+      while ((promptMatch = promptRegex.exec(text)) !== null) {
+        promptMatches.push({
+          start: promptMatch.index,
+          end: promptMatch.index + promptMatch[0].length,
+          prompt: promptMatch[1].trim(),
+          type: 'prompt'
         });
       }
       
-      // Second pass: Find bare URLs that aren't inside markdown links
-      const allMatches: Array<{ start: number; end: number; text: string | null; url: string }> = [...markdownMatches];
+      // Second pass: Find all markdown links
+      const markdownMatches: Array<{ start: number; end: number; text: string; url: string; type: 'link' }> = [];
+      let mdMatch;
+      while ((mdMatch = markdownLinkRegex.exec(text)) !== null) {
+        // Skip if covered by a prompt
+        const isCoveredByPrompt = promptMatches.some(
+          p => mdMatch!.index >= p.start && mdMatch!.index < p.end
+        );
+        if (!isCoveredByPrompt) {
+          markdownMatches.push({
+            start: mdMatch.index,
+            end: mdMatch.index + mdMatch[0].length,
+            text: mdMatch[1],
+            url: mdMatch[2],
+            type: 'link'
+          });
+        }
+      }
+      
+      // Third pass: Find bare URLs that aren't inside markdown links or prompts
+      const bareUrlMatches: Array<{ start: number; end: number; text: string | null; url: string; type: 'link' }> = [];
       let bareMatch: RegExpExecArray | null;
       while ((bareMatch = bareUrlRegex.exec(text)) !== null) {
         const isCoveredByMarkdown = markdownMatches.some(
           md => bareMatch!.index >= md.start && bareMatch!.index < md.end
         );
-        if (!isCoveredByMarkdown) {
-          allMatches.push({
+        const isCoveredByPrompt = promptMatches.some(
+          p => bareMatch!.index >= p.start && bareMatch!.index < p.end
+        );
+        if (!isCoveredByMarkdown && !isCoveredByPrompt) {
+          bareUrlMatches.push({
             start: bareMatch.index,
             end: bareMatch.index + bareMatch[0].length,
             text: null,
-            url: bareMatch[0]
+            url: bareMatch[0],
+            type: 'link'
           });
         }
       }
+      
+      // Combine all matches
+      const allMatches = [...promptMatches, ...markdownMatches, ...bareUrlMatches];
       
       // Sort by position
       allMatches.sort((a, b) => a.start - b.start);
@@ -175,27 +206,48 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, br
           parts.push(...parsePartNumbers(beforeText));
         }
         
-        const displayText = match.text || getShortUrlText(match.url);
-        
-        // On iOS: Opens in-app Safari sheet with "Done" button (stays in app)
-        // On Desktop: Opens in new tab
-        const handleLinkClick = (e: React.MouseEvent) => {
-          e.preventDefault();
-          e.stopPropagation();
-          window.open(match.url, '_blank', 'noopener,noreferrer');
-        };
-        
-        parts.push(
-          <button
-            key={`url-${idx}`}
-            onClick={handleLinkClick}
-            className="inline-flex items-center gap-1 text-purple-400 hover:text-purple-300 underline"
-            data-testid={`link-${displayText.toLowerCase().replace(/\s+/g, '-')}`}
-          >
-            {displayText}
-            <ExternalLink className="h-3 w-3" />
-          </button>
-        );
+        if (match.type === 'prompt') {
+          // Render clickable prompt button
+          const promptText = (match as any).prompt;
+          parts.push(
+            <button
+              key={`prompt-${idx}`}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onPromptClick?.(promptText);
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 my-1 mr-2 rounded-full bg-gradient-to-r from-cyan-500/20 to-purple-500/20 border border-cyan-500/40 text-cyan-300 hover:from-cyan-500/30 hover:to-purple-500/30 hover:border-cyan-400 transition-all text-sm font-medium"
+              data-testid={`prompt-${promptText.toLowerCase().replace(/\s+/g, '-').substring(0, 30)}`}
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              {promptText}
+            </button>
+          );
+        } else {
+          // Render link
+          const displayText = (match as any).text || getShortUrlText((match as any).url);
+          
+          // On iOS: Opens in-app Safari sheet with "Done" button (stays in app)
+          // On Desktop: Opens in new tab
+          const handleLinkClick = (e: React.MouseEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            window.open((match as any).url, '_blank', 'noopener,noreferrer');
+          };
+          
+          parts.push(
+            <button
+              key={`url-${idx}`}
+              onClick={handleLinkClick}
+              className="inline-flex items-center gap-1 text-purple-400 hover:text-purple-300 underline"
+              data-testid={`link-${displayText.toLowerCase().replace(/\s+/g, '-')}`}
+            >
+              {displayText}
+              <ExternalLink className="h-3 w-3" />
+            </button>
+          );
+        }
         
         lastIndex = match.end;
       });
@@ -934,6 +986,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
                         onItemClick={onItemClick}
                         onBrickLinkClick={undefined}
                         onBrickLinkSearch={handleBrickLinkSearch}
+                        onPromptClick={handleSend}
                       />
                     )}
                   </div>
