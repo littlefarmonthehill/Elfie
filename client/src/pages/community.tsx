@@ -1,48 +1,14 @@
 import { Link } from "wouter";
-import { ArrowLeft, Users, Video, BookOpen, Sparkles } from "lucide-react";
+import { Users, Video, BookOpen, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { PublicHeader } from "@/components/PublicHeader";
 
 export default function Community() {
   return (
     <div className="min-h-screen bg-black">
       {/* Header with Navigation */}
-      <header className="sticky top-0 z-50 border-b border-white/10 bg-black/80 backdrop-blur-xl">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-3">
-            <Link href="/">
-              <Button variant="ghost" size="sm" data-testid="button-back-home">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Home
-              </Button>
-            </Link>
-            
-            {/* Navigation Links */}
-            <nav className="flex flex-wrap items-center justify-center gap-2 md:gap-3">
-              <Link href="/showroom">
-                <Button variant="ghost" size="sm" className="text-cyan-400 hover:text-cyan-300" data-testid="nav-showroom">
-                  Showroom
-                </Button>
-              </Link>
-              <Link href="/events">
-                <Button variant="ghost" size="sm" className="text-amber-400 hover:text-amber-300" data-testid="nav-events">
-                  Events
-                </Button>
-              </Link>
-              <Link href="/deals">
-                <Button variant="ghost" size="sm" className="text-purple-400 hover:text-purple-300" data-testid="nav-deals">
-                  Deals
-                </Button>
-              </Link>
-              <Link href="/community">
-                <Button variant="ghost" size="sm" className="text-emerald-400 hover:text-emerald-300 font-bold" data-testid="nav-community">
-                  Community
-                </Button>
-              </Link>
-            </nav>
-          </div>
-        </div>
-      </header>
+      <PublicHeader />
 
       {/* Coming Soon Content */}
       <div className="container mx-auto px-4 py-16">

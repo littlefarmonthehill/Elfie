@@ -3188,7 +3188,8 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
         baseConditions.push(eq(blInventory.itemType, itemType));
       }
 
-      // 1. NEW ITEMS (last 30 days)
+      // 1. NEW ITEMS (last 10 newly added items, regardless of date)
+      // Get items ordered by creation date, most recent first
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       
@@ -3208,19 +3209,17 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
           unitPrice: blInventory.unitPrice,
           imageUrl: blInventory.imageUrl,
           thumbnailUrl: blInventory.thumbnailUrl,
+          dateCreated: blInventory.dateCreated,
         })
         .from(blInventory)
         .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
         .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
-        .where(and(...baseConditions, sql`${blInventory.dateCreated} >= ${thirtyDaysAgo}`))
-        .limit(500);
+        .where(and(...baseConditions))
+        .orderBy(desc(blInventory.dateCreated))
+        .limit(100); // Get top 100 most recent to ensure we have 10 unique parts
 
       const newProducts = groupInventoryByPart(newItems);
-      // Sort by date added (newest first) - using the first variation's created date as proxy
-      newProducts.sort((a, b) => {
-        // If we had dateCreated, we'd use it. For now, sort by ID (higher ID = newer)
-        return b.id - a.id;
-      });
+      // Already sorted by dateCreated DESC from query, just take top limit
       const topNewProducts = newProducts.slice(0, limit);
 
       // 2. HOT ITEMS (trending by orders)

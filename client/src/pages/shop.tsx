@@ -4,13 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, ShoppingCart, ChevronRight, Sparkles, Plus, X, Minus, Check, ChevronDown, ChevronUp, ExternalLink, LayoutGrid, List, Calendar, Gift, Users } from "lucide-react";
+import { Search, ShoppingCart, ChevronRight, Sparkles, Plus, X, Minus, Check, ChevronDown, ChevronUp, ExternalLink, LayoutGrid, List } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useMutation } from "@tanstack/react-query";
 import { formatProductDisplayName, formatColorDisplayName } from "@/lib/lego-branding";
-import { LogOut } from "lucide-react";
+import { PublicHeader } from "@/components/PublicHeader";
 import {
   Sheet,
   SheetContent,
@@ -28,7 +28,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import elfieRobot from "@assets/PlanetBrick_good_robot_1760672362080.png";
-import planetBrickLogo from "@assets/PlanetBrick_with_planet_1761030158394.png";
 import noImagePlaceholder from "@assets/generated_images/LEGO_image_unavailable_placeholder_957f3211.png";
 
 // Store URLs for showroom links (placeholders - update with actual store URLs)
@@ -630,54 +629,54 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart, viewMode = 'gallery' 
               </div>
             </div>
 
-            {/* Colors in 3 columns */}
+            {/* Colors - compact inline layout */}
             <div className="bg-white/5 rounded border border-cyan-400/30 p-2 md:p-3">
               <h3 className="text-xs md:text-sm font-bold text-cyan-300 mb-3 uppercase tracking-wide">Available Colors</h3>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 gap-1.5">
                 {sortedColorGroups.map((colorGroup, idx) => (
                   <div 
                     key={idx}
-                    className="flex flex-col items-center gap-1.5 px-2 py-2 bg-black/30 rounded border border-white/10 hover-elevate"
+                    className="flex items-center gap-1.5 px-1.5 py-1 bg-black/30 rounded border border-white/10 hover-elevate"
                     data-testid={`color-chip-${idx}`}
                   >
                     <div 
-                      className="w-6 h-6 md:w-8 md:h-8 rounded-full border-2 border-white/50 shrink-0" 
+                      className="w-3 h-3 rounded-full border border-white/50 shrink-0" 
                       style={{ 
                         backgroundColor: colorGroup.colorHex 
                           ? (colorGroup.colorHex.startsWith('#') ? colorGroup.colorHex : `#${colorGroup.colorHex}`)
                           : '#CCCCCC'
                       }}
                     />
-                    <span className="text-[9px] md:text-xs text-white font-medium text-center leading-tight">{formatColorDisplayName(colorGroup.colorName)}</span>
+                    <span className="text-xs text-white font-medium leading-tight truncate">{formatColorDisplayName(colorGroup.colorName)}</span>
                   </div>
                 ))}
               </div>
             </div>
           </div>
 
-          {/* Prominent Store Buttons at Bottom */}
-          <div className="p-4 md:p-6 bg-gradient-to-r from-gray-900 to-black border-t-4 border-cyan-400/50">
-            <div className="text-center mb-3">
-              <p className="text-sm md:text-base text-white font-bold">Purchase from our official stores:</p>
+          {/* Prominent Store Buttons at Bottom - Smaller, more compact */}
+          <div className="p-3 md:p-4 bg-gradient-to-r from-gray-900 to-black border-t-4 border-cyan-400/50">
+            <div className="text-center mb-2">
+              <p className="text-xs text-white font-semibold">Purchase from our official stores:</p>
             </div>
-            <div className="grid grid-cols-2 gap-3 md:gap-4">
+            <div className="grid grid-cols-2 gap-2">
               <Button
-                size="lg"
-                className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white font-bold py-6 text-base md:text-lg shadow-xl hover:shadow-2xl transition-all"
+                size="sm"
+                className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white font-semibold text-xs shadow-lg"
                 onClick={() => window.open(BRICKLINK_STORE_URL, '_blank')}
                 data-testid="button-bricklink-main"
               >
-                <ExternalLink className="w-5 h-5 mr-2" />
-                Buy on BrickLink
+                <ExternalLink className="w-3 h-3 mr-1.5" />
+                Shop on BrickLink
               </Button>
               <Button
-                size="lg"
-                className="bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white font-bold py-6 text-base md:text-lg shadow-xl hover:shadow-2xl transition-all"
+                size="sm"
+                className="bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white font-semibold text-xs shadow-lg"
                 onClick={() => window.open(BRICKOWL_STORE_URL, '_blank')}
                 data-testid="button-brickowl-main"
               >
-                <ExternalLink className="w-5 h-5 mr-2" />
-                Buy on BrickOwl
+                <ExternalLink className="w-3 h-3 mr-1.5" />
+                Shop on BrickOwl
               </Button>
             </div>
           </div>
@@ -1228,22 +1227,17 @@ export default function Shop() {
       </div>
 
       <div className="relative z-10">
-        {/* Redesigned Header - Centered Logo, Comet Stats */}
-        <header className="sticky top-0 z-50 bg-black/95 backdrop-blur-xl border-b border-white/10 relative pb-6 md:pb-8">
-          <div className="px-4 md:px-8 py-2 flex items-start justify-between relative">
-            {/* Cart & Login - Top Right */}
-            <div className="flex items-center gap-1.5 md:gap-3 ml-auto">
-              <Sheet open={isCartOpen} onOpenChange={setIsCartOpen}>
-                <SheetTrigger asChild>
-                  <Button size="icon" variant="ghost" className="text-cyan-300 h-8 w-8 md:h-10 md:w-10 relative hover-elevate" data-testid="button-cart">
-                    <ShoppingCart className="w-4 h-4 md:w-5 md:h-5" />
-                    {cartCount > 0 && (
-                      <Badge className="absolute -top-1 -right-1 h-4 w-4 md:h-5 md:w-5 flex items-center justify-center p-0 text-[8px] md:text-[9px] bg-cyan-500 border-none font-bold">
-                        {cartCount}
-                      </Badge>
-                    )}
-                  </Button>
-                </SheetTrigger>
+        {/* Public Header with Cart Sheet */}
+        <PublicHeader 
+          cartCount={cartCount} 
+          onCartClick={() => setIsCartOpen(true)} 
+        />
+
+        {/* Shopping Cart Sheet */}
+        <Sheet open={isCartOpen} onOpenChange={setIsCartOpen}>
+          <SheetTrigger asChild>
+            <button className="hidden" data-testid="hidden-cart-trigger" />
+          </SheetTrigger>
                 <SheetContent className="w-full sm:max-w-lg bg-gray-900 border-purple-500/30">
                   <SheetHeader>
                     <SheetTitle className="text-white">Shopping Cart</SheetTitle>
@@ -1306,116 +1300,7 @@ export default function Shop() {
                     </div>
                   )}
                 </SheetContent>
-              </Sheet>
-              {user ? (
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="text-cyan-300 text-[9px] md:text-sm h-8 md:h-10 px-2 md:px-3" 
-                onClick={() => logoutMutation.mutate()}
-                disabled={logoutMutation.isPending}
-                data-testid="button-logout-header"
-              >
-                <LogOut className="w-3 h-3 md:w-4 md:h-4 mr-1" />
-                Logout
-              </Button>
-            ) : (
-              <Link href="/login">
-                <Button variant="ghost" size="sm" className="text-cyan-300 text-[9px] md:text-sm h-8 md:h-10 px-2 md:px-3" data-testid="button-login-header">
-                  Login
-                </Button>
-              </Link>
-            )}
-            </div>
-          </div>
-
-          {/* Centered Logo - Upper, larger and bleeding into stats row */}
-          <Link href="/" className="absolute left-1/2 -translate-x-1/2 top-4 md:top-6 z-[60] cursor-pointer hover:opacity-80 transition-opacity">
-            <img 
-              src={planetBrickLogo} 
-              alt="PlanetBrick" 
-              className="h-24 md:h-32 lg:h-40 w-auto object-contain drop-shadow-2xl"
-              data-testid="logo-planetbrick"
-            />
-          </Link>
-
-          {/* Stats Row - Lower in lighter band, closer to edges */}
-          <div className="absolute -bottom-8 md:-bottom-10 left-0 right-0 flex items-center justify-between px-4 md:px-8 lg:px-12 z-[50]">
-            {/* Lots - Left */}
-            <div className="flex items-center gap-2 md:gap-3 relative group">
-              {/* Comet trail effect */}
-              <div className="absolute -left-8 top-1/2 -translate-y-1/2 w-32 h-px bg-gradient-to-r from-transparent via-cyan-400/40 to-cyan-500/60 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <div className="relative">
-                <Sparkles className="w-4 h-4 md:w-5 md:h-5 lg:w-6 lg:h-6 text-cyan-400" />
-              </div>
-              <div className="text-left">
-                <div className="text-sm md:text-lg lg:text-xl font-bold text-white">{totalLots.toLocaleString()}</div>
-                <div className="text-[9px] md:text-xs lg:text-sm text-gray-400">Unique Lots</div>
-              </div>
-            </div>
-
-            {/* Parts - Right */}
-            <div className="flex items-center gap-2 md:gap-3 group">
-              <div className="text-right">
-                <div className="text-sm md:text-lg lg:text-xl font-bold text-white">{totalParts.toLocaleString()}</div>
-                <div className="text-[9px] md:text-xs lg:text-sm text-gray-400">Total Parts</div>
-              </div>
-              <div className="relative">
-                <Sparkles className="w-4 h-4 md:w-5 md:h-5 lg:w-6 lg:h-6 text-blue-400" />
-              </div>
-              {/* Comet trail effect */}
-              <div className="absolute -right-8 top-1/2 -translate-y-1/2 w-32 h-px bg-gradient-to-l from-transparent via-blue-400/40 to-blue-500/60 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-            </div>
-          </div>
-        </header>
-
-        {/* Navigation Links - Above Search */}
-        <div className="sticky top-[3.5rem] md:top-[4rem] z-30 bg-black/95 backdrop-blur-xl border-b border-white/10">
-          <div className="px-3 md:px-6 pt-14 md:pt-16 lg:pt-20">
-            <div className="flex gap-1 md:gap-2 overflow-x-auto scrollbar-hide border-b border-white/10">
-              <Link href="/showroom">
-                <Button
-                  variant="ghost"
-                  className="rounded-none border-b-2 border-transparent hover:border-cyan-400 text-white hover:text-cyan-400 transition-colors px-3 md:px-4 py-2 h-auto"
-                  data-testid="nav-showroom"
-                >
-                  <Sparkles className="w-3 h-3 md:w-4 md:h-4 mr-1.5 md:mr-2" />
-                  <span className="text-xs md:text-sm font-semibold">Showroom</span>
-                </Button>
-              </Link>
-              <Link href="/community">
-                <Button
-                  variant="ghost"
-                  className="rounded-none border-b-2 border-transparent hover:border-emerald-400 text-gray-400 hover:text-emerald-400 transition-colors px-3 md:px-4 py-2 h-auto"
-                  data-testid="nav-community"
-                >
-                  <Users className="w-3 h-3 md:w-4 md:h-4 mr-1.5 md:mr-2" />
-                  <span className="text-xs md:text-sm font-semibold">Community</span>
-                </Button>
-              </Link>
-              <Link href="/events">
-                <Button
-                  variant="ghost"
-                  className="rounded-none border-b-2 border-transparent hover:border-amber-400 text-gray-400 hover:text-amber-400 transition-colors px-3 md:px-4 py-2 h-auto"
-                  data-testid="nav-events"
-                >
-                  <Calendar className="w-3 h-3 md:w-4 md:h-4 mr-1.5 md:mr-2" />
-                  <span className="text-xs md:text-sm font-semibold">Events</span>
-                </Button>
-              </Link>
-              <Link href="/deals">
-                <Button
-                  variant="ghost"
-                  className="rounded-none border-b-2 border-transparent hover:border-purple-400 text-gray-400 hover:text-purple-400 transition-colors px-3 md:px-4 py-2 h-auto"
-                  data-testid="nav-deals"
-                >
-                  <Gift className="w-3 h-3 md:w-4 md:h-4 mr-1.5 md:mr-2" />
-                  <span className="text-xs md:text-sm font-semibold">Deals</span>
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </div>
+        </Sheet>
 
         {/* Search Bar and Filters */}
         <div className="sticky top-[6.5rem] md:top-[7rem] z-20 bg-black/95 backdrop-blur-xl px-3 md:px-6 py-3 md:py-4 border-b border-white/10">
