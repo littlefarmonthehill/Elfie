@@ -539,7 +539,7 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart, viewMode = 'gallery' 
       </Card>
 
       <Dialog open={isOpen} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col p-0" style={{
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col p-0 pt-10" style={{
           background: 'linear-gradient(135deg, #1a1a2e 0%, #1e2640 50%, #1f3a5f 100%)',
           border: '3px solid',
           borderImage: 'linear-gradient(135deg, #4a9fb8, #5a7eb8, #7a6ba8) 1',
@@ -840,10 +840,10 @@ export default function Shop() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'gallery' | 'list'>('gallery');
-  const [selectedItemType, setSelectedItemType] = useState<string | null>('PART');
+  const [selectedItemType, setSelectedItemType] = useState<string | null>(null);
   const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
-  const [showDiscounts, setShowDiscounts] = useState(false);
+  const [showDiscounts, setShowDiscounts] = useState(true);
   const [showNewItems, setShowNewItems] = useState(true);
   const { toast } = useToast();
 
@@ -1432,6 +1432,30 @@ export default function Shop() {
           </div>
         </div>
 
+        {/* Selected Categories Display */}
+        {selectedCategories.length > 0 && (
+          <div className="px-3 md:px-6 py-2 bg-gray-900/40 border-y border-white/10">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[10px] text-gray-400 mr-1">Filtering:</span>
+              {selectedCategories.map(catId => {
+                const category = categoriesData?.categories.find(c => c.id === catId);
+                if (!category) return null;
+                return (
+                  <button
+                    key={catId}
+                    onClick={() => handleCategoryToggle(catId)}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] bg-gray-800/80 text-white rounded border border-white/20 hover:bg-gray-700 transition-colors"
+                    data-testid={`remove-category-${catId}`}
+                  >
+                    {category.name}
+                    <X className="w-3 h-3" />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Product Groups - Special Groups + Selected Categories */}
         <div className="pb-4 md:pb-8">
           {inventoryLoading ? (
@@ -1450,7 +1474,7 @@ export default function Shop() {
             </div>
           ) : (
             <>
-              {/* Special Groups - Conditionally Visible */}
+              {/* Special Groups - New Items First, Then Discounts */}
               {showNewItems && specialGroups.newItems && specialGroups.newItems.length > 0 && (
                 <HorizontalRow
                   title="New Items"
