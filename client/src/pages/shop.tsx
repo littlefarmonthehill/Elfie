@@ -1326,7 +1326,7 @@ export default function Shop() {
                   }}
                   className={`whitespace-nowrap text-[10px] h-7 px-2.5 ${
                     selectedItemType === itemType.type
-                      ? "bg-red-600/90 hover:bg-red-500 text-white font-bold"
+                      ? "bg-orange-600/60 hover:bg-orange-600/70 text-white font-semibold"
                       : "bg-gray-900/60 text-gray-400 hover:text-gray-300 hover:bg-gray-800/80"
                   }`}
                   data-testid={`filter-${itemType.type?.toLowerCase()}`}
@@ -1339,32 +1339,29 @@ export default function Shop() {
           </div>
         </div>
 
-        {/* Special Filters - Sticky (Discounts & New Items) */}
-        <div className="sticky top-[8.5rem] md:top-[9rem] z-15 bg-black/90 backdrop-blur-sm px-3 md:px-6 py-1.5 border-b border-white/5">
-          <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
-            <Button
-              size="sm"
-              variant="ghost"
-              className="whitespace-nowrap text-[10px] h-7 px-2.5 bg-purple-600/20 text-purple-300 hover:bg-purple-600/40 hover:text-purple-200"
-              data-testid="filter-discounts"
-            >
-              Discounts
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="whitespace-nowrap text-[10px] h-7 px-2.5 bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/40 hover:text-emerald-200"
-              data-testid="filter-new-items"
-            >
-              New Items
-            </Button>
-          </div>
-        </div>
-
-        {/* Category Pills Selector - Compact and subtle */}
-        <div className="sticky top-[10rem] md:top-[10.5rem] z-10 bg-gradient-to-b from-black via-black/95 to-transparent border-b border-white/5 px-3 md:px-6 py-1.5">
+        {/* Category Pills Selector with Discounts/New Items - Compact and subtle */}
+        <div className="sticky top-[8.5rem] md:top-[9rem] z-10 bg-gradient-to-b from-black via-black/95 to-transparent border-b border-white/5 px-3 md:px-6 py-1.5">
           <div className="overflow-x-auto overflow-y-hidden scrollbar-hide" style={{ touchAction: 'pan-x' }}>
             <div className="flex gap-1.5 min-w-min">
+              {/* Special Filters First */}
+              <Button
+                size="sm"
+                variant="ghost"
+                className="shrink-0 whitespace-nowrap text-[10px] h-7 px-2.5 bg-purple-600/20 text-purple-300 hover:bg-purple-600/40 hover:text-purple-200 border border-purple-500/30"
+                data-testid="filter-discounts"
+              >
+                Discounts
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="shrink-0 whitespace-nowrap text-[10px] h-7 px-2.5 bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/40 hover:text-emerald-200 border border-emerald-500/30"
+                data-testid="filter-new-items"
+              >
+                New Items
+              </Button>
+              
+              {/* Category Filters */}
               {sortedCategoryList.map((category) => {
                 const isSelected = selectedCategories.includes(category.id);
                 return (

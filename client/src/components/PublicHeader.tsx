@@ -135,7 +135,7 @@ export function PublicHeader({ cartCount = 0, onCartClick }: PublicHeaderProps) 
 
       {/* Navigation Tabs - Single row, no wrapping */}
       <div className="border-t border-white/10 bg-black/80 py-2">
-        <div className="px-3 md:px-6">
+        <div className="px-4 md:px-6">
           <div className="flex flex-row gap-1.5 md:gap-3 justify-center">
             {navItems.map((item) => {
               const Icon = item.icon;
@@ -145,10 +145,10 @@ export function PublicHeader({ cartCount = 0, onCartClick }: PublicHeaderProps) 
                   <Button
                     variant="ghost"
                     size="sm"
-                    className={`rounded-full border ${
+                    className={`rounded-full ${
                       isActive 
-                        ? `border-current ${item.color.split(' ')[0]} font-bold` 
-                        : `border-transparent text-gray-400 hover:text-gray-300`
+                        ? `border border-current ${item.color.split(' ')[0]} font-bold` 
+                        : `border border-transparent text-gray-400 hover:text-gray-300`
                     } transition-colors px-3 md:px-4 h-8 md:h-9`}
                     data-testid={`nav-${item.label.toLowerCase()}`}
                   >
