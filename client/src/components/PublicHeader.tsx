@@ -43,10 +43,10 @@ export function PublicHeader({ cartCount = 0, onCartClick }: PublicHeaderProps) 
   });
 
   const navItems = [
-    { path: "/community", label: "Community", icon: Users, color: "text-emerald-400 hover:text-emerald-400 hover:border-emerald-400" },
     { path: "/showroom", label: "Showroom", icon: Sparkles, color: "text-cyan-400 hover:text-cyan-400 hover:border-cyan-400" },
-    { path: "/events", label: "Events", icon: Calendar, color: "text-amber-400 hover:text-amber-400 hover:border-amber-400" },
     { path: "/deals", label: "Deals", icon: Gift, color: "text-purple-400 hover:text-purple-400 hover:border-purple-400" },
+    { path: "/events", label: "Events", icon: Calendar, color: "text-amber-400 hover:text-amber-400 hover:border-amber-400" },
+    { path: "/community", label: "Community", icon: Users, color: "text-emerald-400 hover:text-emerald-400 hover:border-emerald-400" },
   ];
 
   const totalLots = statsData?.totalLots || 0;
@@ -55,7 +55,7 @@ export function PublicHeader({ cartCount = 0, onCartClick }: PublicHeaderProps) 
   return (
     <header className="sticky top-0 z-50 bg-black/95 backdrop-blur-xl border-b border-white/10">
       {/* Top section with logo, stats, and user controls */}
-      <div className="relative pb-12 md:pb-14">
+      <div className="relative pb-16 md:pb-20">
         <div className="px-4 md:px-8 py-2 flex items-start justify-between relative">
           {/* Cart & Login - Top Right */}
           <div className="flex items-center gap-1.5 md:gap-3 ml-auto">
@@ -135,10 +135,10 @@ export function PublicHeader({ cartCount = 0, onCartClick }: PublicHeaderProps) 
         </div>
       </div>
 
-      {/* Navigation Tabs - Clearly below the logo/stats banner */}
-      <div className="border-t border-white/10 bg-black/80">
+      {/* Navigation Tabs - Grid layout that wraps on mobile */}
+      <div className="border-t border-white/10 bg-black/80 pt-3 pb-2">
         <div className="px-3 md:px-6">
-          <div className="flex gap-1 md:gap-2 overflow-x-auto scrollbar-hide">
+          <div className="grid grid-cols-2 md:flex md:flex-row gap-2 md:gap-3">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = location === item.path;
@@ -146,14 +146,14 @@ export function PublicHeader({ cartCount = 0, onCartClick }: PublicHeaderProps) 
                 <Link key={item.path} href={item.path}>
                   <Button
                     variant="ghost"
-                    className={`rounded-none border-b-2 ${
+                    className={`w-full md:w-auto rounded-md border ${
                       isActive 
                         ? `border-current ${item.color.split(' ')[0]} font-bold` 
                         : `border-transparent text-gray-400 hover:text-gray-300`
-                    } transition-colors px-3 md:px-4 py-2 h-auto`}
+                    } transition-colors px-3 md:px-4 py-2.5 h-auto`}
                     data-testid={`nav-${item.label.toLowerCase()}`}
                   >
-                    <Icon className="w-3 h-3 md:w-4 md:h-4 mr-1.5 md:mr-2" />
+                    <Icon className="w-4 h-4 md:w-4 md:h-4 mr-2" />
                     <span className="text-xs md:text-sm font-semibold">{item.label}</span>
                   </Button>
                 </Link>

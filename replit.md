@@ -9,7 +9,22 @@ Preferred communication style: Simple, everyday language.
 ## System Architecture
 
 ### UI/UX Decisions
-The frontend uses React 18+, TypeScript, Vite, Shadcn/ui, and Tailwind CSS, featuring a dark mode with a LEGO-themed color palette and a 3-Tier Responsive Design System. It includes modular dashboards with tab-based navigation, reusable metric cards, drawer-based detail modals, and a dismissible notification system. E.L.F.I.E., the AI Assistant, features an animated mascot and retro-futuristic chat drawer theming. The UI incorporates layered sticky navigation controls and comprehensive scaling optimization for tablet and desktop views, maintaining a cohesive aesthetic with distinct gradient backgrounds for different sections. The customer portal features a retro-futuristic design with neon signage navigation, starfield backgrounds, and themed sections for showroom, events, deals, and community. The showroom offers part-number-based product grouping, category navigation, and view modes (gallery/list) with specific product card and detail modal designs.
+The frontend uses React 18+, TypeScript, Vite, Shadcn/ui, and Tailwind CSS, featuring a dark mode with a LEGO-themed color palette and a 3-Tier Responsive Design System. It includes modular dashboards with tab-based navigation, reusable metric cards, drawer-based detail modals, and a dismissible notification system. E.L.F.I.E., the AI Assistant, features an animated mascot and retro-futuristic chat drawer theming. The UI incorporates layered sticky navigation controls and comprehensive scaling optimization for tablet and desktop views, maintaining a cohesive aesthetic with distinct gradient backgrounds for different sections.
+
+**Public-Facing Customer Portal** (as of October 2025):
+- **Routing:** `/showroom` is the default home page for all users (replaces previous landing page)
+- **SharedPublicHeader:** Consistent navigation across Showroom, Deals, Events, and Community pages with:
+  - Mobile-responsive 2x2 grid layout (no horizontal scrolling)
+  - Navigation order: Showroom, Deals, Events, Community
+  - Color-coded tabs: Showroom (cyan), Deals (purple), Events (amber), Community (emerald)
+  - Increased padding (pb-16/md:pb-20) between banner and navigation for clear visual separation
+- **Spotify-Style Product Display:** Compact, high-density showroom inspired by Spotify's mobile UX:
+  - Dense grids: 3-8 columns (mobile to desktop) showing 40+ products per section
+  - Compact cards: 12px images in list view, tiny fonts (text-[10px]), minimal padding
+  - Gallery view optimized for maximum product visibility
+  - Product details: Simple comma-separated color list with small dots (w-2 h-2)
+  - Simplified badges showing essential info only
+- **Content Strategy:** Showroom is a product showcase (not a shopping cart) emphasizing breadth and depth of inventory to drive traffic to BrickLink/BrickOwl stores
 
 ### Technical Implementations
 -   **Frontend:** React 18+, TypeScript, Vite, Wouter, TanStack Query, Shadcn/ui, Tailwind CSS.
@@ -28,7 +43,14 @@ The frontend uses React 18+, TypeScript, Vite, Shadcn/ui, and Tailwind CSS, feat
 -   **Price-o-Matic:** Bulk pricing intelligence with caching.
 -   **Set-Part Relationships:** Integrates Rebrickable data to display LEGO set-part relationships.
 -   **Dashboard Layout:** Default dashboard with notifications, plus dedicated Inventory, Orders, Sales, and Marketing dashboards.
--   **Customer Shopping Platform:** Mobile-first brand showcase and showroom at `/showroom` featuring part-number-based product grouping, category-based navigation, and dual sales approach (external marketplace links and internal cart for curated bundles).
+-   **Customer Shopping Platform:** Mobile-first brand showcase at `/showroom` (default home page) featuring:
+  - Spotify-inspired compact product cards with dense grid layouts
+  - Part-number-based product grouping with simplified presentation
+  - Category-based navigation
+  - Dual sales approach: external marketplace links (BrickLink/BrickOwl) for individual parts, internal cart reserved for future curated bundles
+  - View modes: Gallery (dense grid) and List (compact rows)
+  - "Newly listed" items show last 10 products added (by dateCreated DESC), regardless of age
+  - "Hot items" use 30-day order trending logic
 -   **Notification System:** Dismissible, severity-grouped notification center for sync errors.
 -   **Platform Sync:** Multi-platform inventory synchronization system with BrickLink as the source of truth, offering manual sync, real-time progress, and discrepancy detection.
 -   **Picklist & Fulfillment:** Bin-level picking system and an order fulfillment system with actions for packing slips, shipping, and order splitting.

@@ -483,79 +483,57 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart, viewMode = 'gallery' 
   return (
     <>
       <Card
-        className={`${viewMode === 'list' ? 'w-full' : 'w-full'} p-1.5 md:p-3 bg-gray-900/60 border-purple-500/30 hover-elevate cursor-pointer transition-all`}
+        className={`${viewMode === 'list' ? 'w-full' : 'w-full'} p-1 md:p-2 bg-gray-900/60 border-purple-500/30 hover-elevate cursor-pointer transition-all`}
         onClick={() => onOpenChange(true)}
         data-testid={`card-lot-${lot.id}`}
       >
-        <div className={viewMode === 'list' ? 'flex gap-3 md:gap-4 items-center' : ''}>
+        <div className={viewMode === 'list' ? 'flex gap-1.5 items-center' : ''}>
+          {/* Compact Image - Spotify-style */}
           <div
-            className={`${viewMode === 'list' ? 'w-16 h-16 md:w-20 md:h-20 shrink-0' : 'w-full aspect-square'} rounded-md ${viewMode === 'gallery' ? 'mb-1.5 md:mb-2' : ''} flex items-center justify-center border border-gray-700/50 relative overflow-hidden`}
+            className={`${viewMode === 'list' ? 'w-10 h-10 md:w-12 md:h-12 shrink-0' : 'w-full aspect-square'} rounded ${viewMode === 'gallery' ? 'mb-1' : ''} flex items-center justify-center border border-gray-700/50 relative overflow-hidden`}
             style={{
               background: imageSrc
                 ? 'radial-gradient(ellipse at 30% 30%, #1e3a8a 0%, #0f172a 50%, #000000 100%)'
                 : `linear-gradient(135deg, ${primaryColor.colorHex}60 0%, ${primaryColor.colorHex}30 100%)`,
-              boxShadow: `0 4px 16px ${primaryColor.colorHex}40`
             }}
           >
             {imageSrc ? (
-              <>
-                <div className="absolute inset-0 opacity-60">
-                  <div className="absolute top-[10%] left-[15%] w-8 h-8 md:w-16 md:h-16 bg-cyan-500/40 rounded-full blur-xl animate-pulse" style={{ animationDelay: '0s', animationDuration: '3s' }} />
-                  <div className="absolute bottom-[20%] right-[20%] w-6 h-6 md:w-12 md:h-12 bg-blue-400/40 rounded-full blur-lg animate-pulse" style={{ animationDelay: '1s', animationDuration: '4s' }} />
-                  <div className="absolute top-[60%] left-[70%] w-4 h-4 md:w-8 md:h-8 bg-purple-400/30 rounded-full blur-md animate-pulse" style={{ animationDelay: '2s', animationDuration: '5s' }} />
-                </div>
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-transparent to-cyan-500/10" />
-                <div className="relative z-10 w-full h-full p-1 md:p-2 flex items-center justify-center">
-                  <img 
-                    src={imageSrc} 
-                    alt={lot.name}
-                    className="max-w-full max-h-full object-contain"
-                    onError={handleImageError}
-                    data-testid={`img-part-${lot.id}`}
-                  />
-                </div>
-              </>
+              <div className="relative z-10 w-full h-full p-0.5 flex items-center justify-center">
+                <img 
+                  src={imageSrc} 
+                  alt={lot.name}
+                  className="max-w-full max-h-full object-contain"
+                  onError={handleImageError}
+                  data-testid={`img-part-${lot.id}`}
+                />
+              </div>
             ) : (
-              <>
-                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-transparent to-cyan-500/10" />
-                <div className="absolute top-0 left-0 w-full h-full">
-                  <div className="absolute top-2 right-2 w-1.5 h-1.5 md:w-3 md:h-3 bg-white rounded-full animate-pulse" style={{ animationDelay: '0s' }} />
-                  <div className="absolute bottom-3 left-3 w-1.5 h-1.5 md:w-3 md:h-3 bg-cyan-400 rounded-full animate-pulse" style={{ animationDelay: '0.5s' }} />
-                  <div className="absolute top-1/2 left-1/4 w-1 h-1 md:w-2 md:h-2 bg-pink-400 rounded-full animate-pulse" style={{ animationDelay: '1s' }} />
-                </div>
-                <div className="relative z-10 w-full h-full p-2 md:p-4 flex items-center justify-center">
-                  <img 
-                    src={noImagePlaceholder} 
-                    alt="Image not available"
-                    className="max-w-full max-h-full object-contain opacity-60"
-                    data-testid={`img-placeholder-${lot.id}`}
-                  />
-                </div>
-              </>
+              <div className="relative z-10 w-full h-full p-1 flex items-center justify-center">
+                <img 
+                  src={noImagePlaceholder} 
+                  alt="Image not available"
+                  className="max-w-full max-h-full object-contain opacity-60"
+                  data-testid={`img-placeholder-${lot.id}`}
+                />
+              </div>
             )}
           </div>
           
           <div className={`${viewMode === 'list' ? 'flex-1 min-w-0' : ''}`}>
-            {/* Line 1: Combined name and part number */}
-            <div className="mb-1.5 md:mb-2">
-              <h3 className={`text-xs md:text-base font-bold text-white leading-tight ${viewMode === 'list' ? '' : 'truncate'}`}>
-                {formatProductDisplayName(lot.name)} #{lot.part}
-              </h3>
-            </div>
+            {/* Compact name and part */}
+            <h3 className={`text-[10px] md:text-xs font-semibold text-white leading-tight mb-0.5 ${viewMode === 'list' ? '' : 'line-clamp-2'}`}>
+              {formatProductDisplayName(lot.name)}
+            </h3>
+            <p className="text-[9px] md:text-[10px] text-gray-400 mb-1">#{lot.part}</p>
             
-            {/* Line 2: Badges row (color count and stock status) */}
-            <div className="flex items-center gap-1 flex-wrap">
-              <Badge variant="secondary" className="text-[9px] md:text-xs px-1 md:px-1.5 py-0.5 h-auto">
-                {lot.uniqueColorCount} {lot.uniqueColorCount === 1 ? 'color' : 'colors'}
+            {/* Compact badges */}
+            <div className="flex items-center gap-0.5 flex-wrap text-[8px] md:text-[9px]">
+              <Badge variant="secondary" className="px-1 py-0 h-auto leading-tight">
+                {lot.uniqueColorCount} color{lot.uniqueColorCount !== 1 ? 's' : ''}
               </Badge>
               {totalNewQty > 0 && (
-                <Badge variant="secondary" className="text-[9px] md:text-xs px-1 md:px-1.5 py-0.5 h-auto bg-emerald-500/20 text-emerald-300 border-emerald-500/30">
-                  {totalNewQty.toLocaleString()} New
-                </Badge>
-              )}
-              {totalUsedQty > 0 && (
-                <Badge variant="secondary" className="text-[9px] md:text-xs px-1 md:px-1.5 py-0.5 h-auto bg-amber-500/20 text-amber-300 border-amber-500/30">
-                  {totalUsedQty.toLocaleString()} Used
+                <Badge variant="secondary" className="px-1 py-0 h-auto leading-tight bg-emerald-500/20 text-emerald-300 border-emerald-500/30">
+                  {totalNewQty.toLocaleString()}
                 </Badge>
               )}
             </div>
@@ -629,28 +607,24 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart, viewMode = 'gallery' 
               </div>
             </div>
 
-            {/* Colors - compact inline layout */}
+            {/* Colors - simple text list with color dots */}
             <div className="bg-white/5 rounded border border-cyan-400/30 p-2 md:p-3">
-              <h3 className="text-xs md:text-sm font-bold text-cyan-300 mb-3 uppercase tracking-wide">Available Colors</h3>
-              <div className="grid grid-cols-3 gap-1.5">
+              <h3 className="text-xs md:text-sm font-bold text-cyan-300 mb-2 uppercase tracking-wide">Available Colors</h3>
+              <p className="text-[10px] md:text-xs text-white leading-relaxed flex flex-wrap gap-x-2 gap-y-1">
                 {sortedColorGroups.map((colorGroup, idx) => (
-                  <div 
-                    key={idx}
-                    className="flex items-center gap-1.5 px-1.5 py-1 bg-black/30 rounded border border-white/10 hover-elevate"
-                    data-testid={`color-chip-${idx}`}
-                  >
-                    <div 
-                      className="w-3 h-3 rounded-full border border-white/50 shrink-0" 
+                  <span key={idx} className="inline-flex items-center gap-1" data-testid={`color-text-${idx}`}>
+                    <span 
+                      className="w-2 h-2 rounded-full border border-white/50 shrink-0 inline-block" 
                       style={{ 
                         backgroundColor: colorGroup.colorHex 
                           ? (colorGroup.colorHex.startsWith('#') ? colorGroup.colorHex : `#${colorGroup.colorHex}`)
                           : '#CCCCCC'
                       }}
                     />
-                    <span className="text-xs text-white font-medium leading-tight truncate">{formatColorDisplayName(colorGroup.colorName)}</span>
-                  </div>
+                    <span>{formatColorDisplayName(colorGroup.colorName)}{idx < sortedColorGroups.length - 1 ? ',' : ''}</span>
+                  </span>
                 ))}
-              </div>
+              </p>
             </div>
           </div>
 
@@ -804,10 +778,10 @@ function HorizontalRow({ title, lots, lotCount, partCount, categoryId, onAddToCa
         </div>
       
         {viewMode === 'gallery' ? (
-          /* Gallery View - Responsive Grid */
+          /* Gallery View - Dense Grid (Spotify-style) */
           <div className="px-3 md:px-6">
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
-              {lots.slice(0, 20).map((lot) => (
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-2 md:gap-3">
+              {lots.slice(0, 40).map((lot) => (
                 <LotCard
                   key={lot.id}
                   lot={lot}
@@ -820,10 +794,10 @@ function HorizontalRow({ title, lots, lotCount, partCount, categoryId, onAddToCa
             </div>
           </div>
         ) : (
-          /* List View - Full Width Rows with Smaller Images */
+          /* List View - Compact Rows */
           <div className="px-3 md:px-6">
-            <div className="space-y-2 md:space-y-3">
-              {lots.slice(0, 20).map((lot) => (
+            <div className="space-y-1">
+              {lots.slice(0, 40).map((lot) => (
                 <LotCard
                   key={lot.id}
                   lot={lot}
@@ -1483,56 +1457,6 @@ export default function Shop() {
           )}
         </div>
 
-        {/* Placeholder Sections - Coming Soon */}
-        <div className="space-y-0 mt-8">
-          {/* Curated Bundles Section */}
-          <section className="py-8 md:py-12 relative border-t border-white/10">
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 opacity-5" />
-            <div className="relative z-10 px-4 md:px-8 text-center">
-              <h2 className="text-3xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 mb-4">
-                🎁 Curated Bundles
-              </h2>
-              <p className="text-gray-400 text-sm md:text-lg max-w-2xl mx-auto mb-6">
-                Exclusive bundle sets and collections not available on BrickLink or BrickOwl. Use the shopping cart for these special offerings.
-              </p>
-              <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/30 px-4 py-2 text-sm">
-                Coming Soon
-              </Badge>
-            </div>
-          </section>
-
-          {/* Workshops & Events Section */}
-          <section className="py-8 md:py-12 relative border-t border-white/10">
-            <div className="absolute inset-0 bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 opacity-5" />
-            <div className="relative z-10 px-4 md:px-8 text-center">
-              <h2 className="text-3xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 mb-4">
-                🎓 Workshops & Events
-              </h2>
-              <p className="text-gray-400 text-sm md:text-lg max-w-2xl mx-auto mb-6">
-                Join us for building workshops, classes, and special LEGO® events. Learn techniques, share builds, and connect with fellow enthusiasts.
-              </p>
-              <Badge className="bg-orange-500/20 text-orange-300 border-orange-500/30 px-4 py-2 text-sm">
-                Coming Soon
-              </Badge>
-            </div>
-          </section>
-
-          {/* Community Hub Section */}
-          <section className="py-8 md:py-12 relative border-t border-white/10">
-            <div className="absolute inset-0 bg-gradient-to-r from-cyan-500 via-teal-500 to-green-500 opacity-5" />
-            <div className="relative z-10 px-4 md:px-8 text-center">
-              <h2 className="text-3xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-500 via-teal-500 to-green-500 mb-4">
-                🌟 Community Hub
-              </h2>
-              <p className="text-gray-400 text-sm md:text-lg max-w-2xl mx-auto mb-6">
-                E.L.F.I.E.'s tips & tricks, building tutorials, community spotlights, and exclusive content. Your destination for LEGO® creativity and inspiration.
-              </p>
-              <Badge className="bg-cyan-500/20 text-cyan-300 border-cyan-500/30 px-4 py-2 text-sm">
-                Coming Soon
-              </Badge>
-            </div>
-          </section>
-        </div>
 
         {/* Footer */}
         <footer className="border-t border-white/10 py-3 md:py-4 px-2 md:px-4 mt-4 md:mt-6 bg-black/50">

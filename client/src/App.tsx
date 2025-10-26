@@ -57,7 +57,7 @@ function Router() {
         <Landing />
       </Route>
 
-      {/* Root route - different behavior based on auth state */}
+      {/* Root route - redirect to showroom as the new home page */}
       <Route path="/">
         {isLoading ? (
           <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-lego-red/20">
@@ -67,13 +67,13 @@ function Router() {
             </div>
           </div>
         ) : !isAuthenticated ? (
-          <Landing />
+          <Redirect to="/showroom" />
         ) : !isApproved ? (
           <PendingApproval />
         ) : isAdmin ? (
           <Redirect to="/admin" />
         ) : (
-          <Landing />
+          <Redirect to="/showroom" />
         )}
       </Route>
 
