@@ -97,12 +97,12 @@ export function PublicHeader({ cartCount = 0, onCartClick }: PublicHeaderProps) 
           </div>
         </div>
 
-        {/* Centered Logo - Upper, larger */}
-        <Link href="/" className="absolute left-1/2 -translate-x-1/2 top-4 md:top-6 z-[60] cursor-pointer hover:opacity-80 transition-opacity">
+        {/* Centered Logo - Smaller to prevent overlap */}
+        <Link href="/" className="absolute left-1/2 -translate-x-1/2 top-2 md:top-4 z-[60] cursor-pointer hover:opacity-80 transition-opacity">
           <img 
             src={planetBrickLogo} 
             alt="PlanetBrick" 
-            className="h-20 md:h-24 lg:h-28 w-auto object-contain drop-shadow-2xl"
+            className="h-16 md:h-20 lg:h-24 w-auto object-contain drop-shadow-2xl"
             data-testid="logo-planetbrick"
           />
         </Link>
