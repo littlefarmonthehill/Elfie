@@ -799,7 +799,7 @@ function HorizontalRow({ title, lots, lotCount, partCount, categoryId, onAddToCa
                   className={`bg-gradient-to-r ${bandColor} text-white font-semibold px-6 py-2 h-10`}
                   data-testid={`button-load-more-${categoryId}`}
                 >
-                  Load More ({lots.length - displayCount} remaining)
+                  Show next {Math.min(ITEMS_PER_PAGE, lots.length - displayCount)}
                 </Button>
               </div>
             )}
@@ -828,7 +828,7 @@ function HorizontalRow({ title, lots, lotCount, partCount, categoryId, onAddToCa
                   className={`bg-gradient-to-r ${bandColor} text-white font-semibold px-6 py-2 h-10`}
                   data-testid={`button-load-more-${categoryId}`}
                 >
-                  Load More ({lots.length - displayCount} remaining)
+                  Show next {Math.min(ITEMS_PER_PAGE, lots.length - displayCount)}
                 </Button>
               </div>
             )}
@@ -1480,25 +1480,37 @@ export default function Shop() {
                 />
               )}
               
-              {/* Selected Category Sections - Collapsible */}
-              {selectedCategoryData.map((category, index) => category && (
-                <HorizontalRow
-                  key={category.id}
-                  title={category.name}
-                  lots={category.lots}
-                  lotCount={category.lotCount}
-                  partCount={category.partCount}
-                  categoryId={category.id.toString()}
-                  onAddToCart={handleAddToCart}
-                  bandColor={colorGradients[index % colorGradients.length]}
-                  viewMode={viewMode}
-                />
-              ))}
-              
-              {selectedCategories.length === 0 && !specialGroups.newItems?.length && (
-                <div className="flex items-center justify-center py-20">
-                  <div className="text-gray-400">Select categories to browse products</div>
-                </div>
+              {/* Category Sections - Show selected OR all if none selected */}
+              {selectedCategories.length > 0 ? (
+                // Show only selected categories
+                selectedCategoryData.map((category, index) => category && (
+                  <HorizontalRow
+                    key={category.id}
+                    title={category.name}
+                    lots={category.lots}
+                    lotCount={category.lotCount}
+                    partCount={category.partCount}
+                    categoryId={category.id.toString()}
+                    onAddToCart={handleAddToCart}
+                    bandColor={colorGradients[index % colorGradients.length]}
+                    viewMode={viewMode}
+                  />
+                ))
+              ) : (
+                // Show all categories when none selected
+                sortedCategories.map((category, index) => (
+                  <HorizontalRow
+                    key={category.name}
+                    title={category.name}
+                    lots={category.lots}
+                    lotCount={category.lotCount}
+                    partCount={category.partCount}
+                    categoryId={category.name.toLowerCase().replace(/\s+/g, '-')}
+                    onAddToCart={handleAddToCart}
+                    bandColor={colorGradients[index % colorGradients.length]}
+                    viewMode={viewMode}
+                  />
+                ))
               )}
             </>
           )}
