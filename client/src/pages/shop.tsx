@@ -520,22 +520,19 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart, viewMode = 'gallery' 
           </div>
           
           <div className={`${viewMode === 'list' ? 'flex-1 min-w-0' : ''}`}>
-            {/* Compact name and part */}
-            <h3 className={`text-[10px] md:text-xs font-semibold text-white leading-tight mb-0.5 ${viewMode === 'list' ? '' : 'line-clamp-2'}`}>
+            {/* Compact name - single line in list view */}
+            <h3 className={`text-[10px] md:text-xs font-semibold text-white leading-tight mb-1 ${viewMode === 'list' ? 'line-clamp-1' : 'line-clamp-2'}`}>
               {formatProductDisplayName(lot.name)}
             </h3>
-            <p className="text-[9px] md:text-[10px] text-gray-400 mb-1">#{lot.part}</p>
             
-            {/* Compact badges */}
-            <div className="flex items-center gap-0.5 flex-wrap text-[8px] md:text-[9px]">
-              <Badge variant="secondary" className="px-1 py-0 h-auto leading-tight">
-                {lot.uniqueColorCount} color{lot.uniqueColorCount !== 1 ? 's' : ''}
+            {/* Smaller badges with labels */}
+            <div className="flex items-center gap-1 flex-wrap">
+              <Badge variant="secondary" className="px-1 py-0 h-3.5 text-[8px] md:text-[9px] bg-cyan-500/20 text-cyan-300 border-cyan-500/30">
+                {lot.uniqueColorCount} {lot.uniqueColorCount === 1 ? 'color' : 'colors'}
               </Badge>
-              {totalNewQty > 0 && (
-                <Badge variant="secondary" className="px-1 py-0 h-auto leading-tight bg-emerald-500/20 text-emerald-300 border-emerald-500/30">
-                  {totalNewQty.toLocaleString()}
-                </Badge>
-              )}
+              <Badge variant="secondary" className="px-1 py-0 h-3.5 text-[8px] md:text-[9px] bg-purple-500/20 text-purple-300 border-purple-500/30">
+                {lot.totalQty.toLocaleString()} qty
+              </Badge>
             </div>
           </div>
         </div>
@@ -822,6 +819,8 @@ export default function Shop() {
   const [selectedItemType, setSelectedItemType] = useState<string | null>('PART');
   const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+  const [showDiscounts, setShowDiscounts] = useState(false);
+  const [showNewItems, setShowNewItems] = useState(true);
   const { toast } = useToast();
 
   // Logout mutation
@@ -1341,13 +1340,18 @@ export default function Shop() {
 
         {/* Category Pills Selector with Discounts/New Items - Compact and subtle */}
         <div className="sticky top-[8.5rem] md:top-[9rem] z-10 bg-gradient-to-b from-black via-black/95 to-transparent border-b border-white/5 px-3 md:px-6 py-1.5">
-          <div className="overflow-x-auto overflow-y-hidden scrollbar-hide" style={{ touchAction: 'pan-x' }}>
-            <div className="flex gap-1.5 min-w-min">
-              {/* Special Filters First */}
+          <div className="flex gap-1.5">
+            {/* Special Filters - Fixed/Frozen */}
+            <div className="flex gap-1.5 shrink-0">
               <Button
                 size="sm"
                 variant="ghost"
-                className="shrink-0 whitespace-nowrap text-[10px] h-7 px-2.5 bg-purple-600/20 text-purple-300 hover:bg-purple-600/40 hover:text-purple-200 border border-purple-500/30"
+                onClick={() => setShowDiscounts(!showDiscounts)}
+                className={`whitespace-nowrap text-[10px] h-7 px-2.5 ${
+                  showDiscounts
+                    ? "bg-purple-600/60 text-white font-semibold border border-purple-400"
+                    : "bg-purple-600/20 text-purple-300 hover:bg-purple-600/40 hover:text-purple-200 border border-purple-500/30"
+                }`}
                 data-testid="filter-discounts"
               >
                 Discounts
@@ -1355,42 +1359,51 @@ export default function Shop() {
               <Button
                 size="sm"
                 variant="ghost"
-                className="shrink-0 whitespace-nowrap text-[10px] h-7 px-2.5 bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/40 hover:text-emerald-200 border border-emerald-500/30"
+                onClick={() => setShowNewItems(!showNewItems)}
+                className={`whitespace-nowrap text-[10px] h-7 px-2.5 ${
+                  showNewItems
+                    ? "bg-emerald-600/60 text-white font-semibold border border-emerald-400"
+                    : "bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/40 hover:text-emerald-200 border border-emerald-500/30"
+                }`}
                 data-testid="filter-new-items"
               >
                 New Items
               </Button>
-              
-              {/* Category Filters */}
-              {sortedCategoryList.map((category) => {
-                const isSelected = selectedCategories.includes(category.id);
-                return (
-                  <Button
-                    key={category.id}
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleCategoryToggle(category.id)}
-                    className={`shrink-0 text-[10px] h-7 px-2.5 ${
-                      isSelected 
-                        ? "bg-gray-800/80 text-white font-semibold border border-white/30"
-                        : "bg-gray-900/30 border border-white/10 text-gray-400 hover:bg-gray-800/60 hover:text-gray-300"
-                    }`}
-                    data-testid={`button-category-${category.id}`}
-                  >
-                    {category.name}
-                    <Badge 
-                      variant="secondary"
-                      className={`ml-1 text-[9px] h-3.5 px-1 ${
-                        isSelected
-                          ? "bg-white/30 text-white"
-                          : "bg-gray-700/50 text-gray-400"
+            </div>
+            
+            {/* Category Filters - Scrollable */}
+            <div className="overflow-x-auto overflow-y-hidden scrollbar-hide flex-1" style={{ touchAction: 'pan-x' }}>
+              <div className="flex gap-1.5 min-w-min">
+                {sortedCategoryList.map((category) => {
+                  const isSelected = selectedCategories.includes(category.id);
+                  return (
+                    <Button
+                      key={category.id}
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleCategoryToggle(category.id)}
+                      className={`shrink-0 text-[10px] h-7 px-2.5 ${
+                        isSelected 
+                          ? "bg-gray-800/80 text-white font-semibold border border-white/30"
+                          : "bg-gray-900/30 border border-white/10 text-gray-400 hover:bg-gray-800/60 hover:text-gray-300"
                       }`}
+                      data-testid={`button-category-${category.id}`}
                     >
-                      {category.lotCount}
-                    </Badge>
-                  </Button>
-                );
-              })}
+                      {category.name}
+                      <Badge 
+                        variant="secondary"
+                        className={`ml-1 text-[9px] h-3.5 px-1 ${
+                          isSelected
+                            ? "bg-white/30 text-white"
+                            : "bg-gray-700/50 text-gray-400"
+                        }`}
+                      >
+                        {category.lotCount}
+                      </Badge>
+                    </Button>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
@@ -1413,8 +1426,8 @@ export default function Shop() {
             </div>
           ) : (
             <>
-              {/* Special Groups - Always Visible */}
-              {specialGroups.newItems && specialGroups.newItems.length > 0 && (
+              {/* Special Groups - Conditionally Visible */}
+              {showNewItems && specialGroups.newItems && specialGroups.newItems.length > 0 && (
                 <HorizontalRow
                   title="New Items"
                   lots={specialGroups.newItems}
@@ -1427,20 +1440,7 @@ export default function Shop() {
                 />
               )}
               
-              {specialGroups.hotItems && specialGroups.hotItems.length > 0 && (
-                <HorizontalRow
-                  title="Hot Items"
-                  lots={specialGroups.hotItems}
-                  lotCount={specialGroups.hotItems.length}
-                  partCount={specialGroups.hotItems.reduce((sum, lot) => sum + lot.totalQty, 0)}
-                  categoryId="hot-items"
-                  onAddToCart={handleAddToCart}
-                  bandColor="from-red-500 via-orange-500 to-yellow-500"
-                  viewMode={viewMode}
-                />
-              )}
-              
-              {specialGroups.discountedItems && specialGroups.discountedItems.length > 0 && (
+              {showDiscounts && specialGroups.discountedItems && specialGroups.discountedItems.length > 0 && (
                 <HorizontalRow
                   title="Discounted Items"
                   lots={specialGroups.discountedItems}

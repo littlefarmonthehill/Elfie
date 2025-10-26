@@ -135,7 +135,7 @@ export function PublicHeader({ cartCount = 0, onCartClick }: PublicHeaderProps) 
 
       {/* Navigation Tabs - Single row, no wrapping */}
       <div className="border-t border-white/10 bg-black/80 py-2">
-        <div className="px-4 md:px-6">
+        <div className="px-6 md:px-8">
           <div className="flex flex-row gap-1.5 md:gap-3 justify-center">
             {navItems.map((item) => {
               const Icon = item.icon;
