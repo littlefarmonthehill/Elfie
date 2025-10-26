@@ -540,26 +540,23 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart, viewMode = 'gallery' 
 
       <Dialog open={isOpen} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col p-0" style={{
-          background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
-          border: '4px solid',
-          borderImage: 'linear-gradient(135deg, #00d4ff, #0066ff, #9900ff) 1',
-          boxShadow: '0 0 30px rgba(0, 212, 255, 0.3), inset 0 0 20px rgba(0, 100, 255, 0.1)'
+          background: 'linear-gradient(135deg, #1a1a2e 0%, #1e2640 50%, #1f3a5f 100%)',
+          border: '3px solid',
+          borderImage: 'linear-gradient(135deg, #4a9fb8, #5a7eb8, #7a6ba8) 1',
+          boxShadow: '0 0 20px rgba(74, 159, 184, 0.2), inset 0 0 15px rgba(90, 126, 184, 0.08)'
         }}>
           <DialogHeader className="sr-only">
             <DialogTitle>{formatProductDisplayName(lot.name)}</DialogTitle>
             <DialogDescription>Part #{lot.part} - {lot.uniqueColorCount} colors available</DialogDescription>
           </DialogHeader>
           {/* Sticker-style header */}
-          <div className="relative p-4 md:p-6" style={{
-            background: 'linear-gradient(90deg, #00d4ff 0%, #0066ff 50%, #9900ff 100%)',
-            boxShadow: '0 4px 10px rgba(0, 0, 0, 0.3)'
+          <div className="relative p-3 md:p-4" style={{
+            background: 'linear-gradient(90deg, #4a9fb8 0%, #5a7eb8 50%, #7a6ba8 100%)',
+            boxShadow: '0 3px 8px rgba(0, 0, 0, 0.25)'
           }}>
             <div className="text-center">
-              <div className="text-2xl md:text-3xl font-black text-white drop-shadow-lg uppercase tracking-wide">
+              <div className="text-base md:text-lg font-bold text-white drop-shadow-md uppercase tracking-wide">
                 {formatProductDisplayName(lot.name)}
-              </div>
-              <div className="text-lg md:text-xl font-bold text-white/90 mt-1">
-                Part #{lot.part}
               </div>
             </div>
           </div>
@@ -569,12 +566,12 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart, viewMode = 'gallery' 
             {/* Stats at top - side by side */}
             <div className="grid grid-cols-2 gap-2 md:gap-3 mb-4">
               {/* Total Parts */}
-              <div className="bg-gradient-to-br from-emerald-500/20 to-teal-500/20 rounded border-2 border-emerald-400/50 p-2 md:p-3">
-                <div className="text-[10px] md:text-xs text-emerald-300 font-bold uppercase tracking-wide mb-1">Total Parts</div>
+              <div className="bg-gradient-to-br from-teal-600/25 to-cyan-700/25 rounded border-2 border-teal-500/40 p-2 md:p-3">
+                <div className="text-[10px] md:text-xs text-teal-300 font-bold uppercase tracking-wide mb-1">Total Parts</div>
                 <div className="text-lg md:text-2xl font-black text-white">{lot.totalQty.toLocaleString()}</div>
                 <div className="flex flex-wrap gap-1.5 mt-1">
                   {totalNewQty > 0 && (
-                    <span className="text-[9px] md:text-xs text-emerald-200">
+                    <span className="text-[9px] md:text-xs text-teal-200">
                       <span className="font-bold">{totalNewQty.toLocaleString()}</span> New
                     </span>
                   )}
@@ -587,7 +584,7 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart, viewMode = 'gallery' 
               </div>
 
               {/* Price Range */}
-              <div className="bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded border-2 border-purple-400/50 p-2 md:p-3">
+              <div className="bg-gradient-to-br from-purple-600/25 to-indigo-700/25 rounded border-2 border-purple-500/40 p-2 md:p-3">
                 <div className="text-[10px] md:text-xs text-purple-300 font-bold uppercase tracking-wide mb-1">Price Range</div>
                 <div className="text-lg md:text-2xl font-black text-white">
                   {(() => {
