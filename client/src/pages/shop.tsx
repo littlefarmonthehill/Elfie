@@ -1339,7 +1339,7 @@ export default function Shop() {
         </div>
 
         {/* Category Pills Selector with Discounts/New Items - Compact and subtle */}
-        <div className="sticky top-[8.5rem] md:top-[9rem] z-10 bg-gradient-to-b from-black via-black/95 to-transparent border-b border-white/5 px-3 md:px-6 py-1.5">
+        <div className="sticky top-[8.5rem] md:top-[9rem] z-10 bg-gray-950/95 backdrop-blur-sm border-b border-white/10 px-3 md:px-6 py-2">
           <div className="flex gap-1.5">
             {/* Special Filters - Fixed/Frozen */}
             <div className="flex gap-1.5 shrink-0">

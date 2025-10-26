@@ -133,12 +133,11 @@ export function PublicHeader({ cartCount = 0, onCartClick }: PublicHeaderProps) 
         </div>
       </div>
 
-      {/* Navigation Tabs - Single row, no wrapping */}
+      {/* Navigation Tabs - Single row, no wrapping, no icons */}
       <div className="border-t border-white/10 bg-black/80 py-2">
-        <div className="px-8 md:px-12">
-          <div className="flex flex-row gap-1.5 md:gap-3 justify-center">
+        <div className="px-3 md:px-6">
+          <div className="flex flex-row gap-1.5 md:gap-2 justify-center">
             {navItems.map((item) => {
-              const Icon = item.icon;
               const isActive = location === item.path;
               return (
                 <Link key={item.path} href={item.path}>
@@ -147,13 +146,12 @@ export function PublicHeader({ cartCount = 0, onCartClick }: PublicHeaderProps) 
                     size="sm"
                     className={`rounded-full ${
                       isActive 
-                        ? `border border-current ${item.color.split(' ')[0]} font-bold` 
-                        : `border border-transparent text-gray-400 hover:text-gray-300`
-                    } transition-colors px-3 md:px-4 h-8 md:h-9`}
+                        ? `${item.color.split(' ')[0]} font-bold` 
+                        : `text-gray-400 hover:text-gray-300`
+                    } transition-colors px-3 md:px-4 h-8 md:h-9 border-0`}
                     data-testid={`nav-${item.label.toLowerCase()}`}
                   >
-                    <Icon className="w-3 h-3 md:w-4 md:h-4 mr-1.5 md:mr-2" />
-                    <span className="text-[10px] md:text-sm font-semibold whitespace-nowrap">{item.label}</span>
+                    <span className="text-[11px] md:text-sm font-semibold whitespace-nowrap">{item.label}</span>
                   </Button>
                 </Link>
               );
