@@ -97,40 +97,38 @@ export function PublicHeader({ cartCount = 0, onCartClick }: PublicHeaderProps) 
           </div>
         </div>
 
-        {/* Centered Logo - Compact */}
-        <Link href="/" className="absolute left-1/2 -translate-x-1/2 top-1 md:top-2 z-[60] cursor-pointer hover:opacity-80 transition-opacity">
+        {/* Centered Logo - Vertically centered and prominent */}
+        <Link href="/" className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[60] cursor-pointer hover:opacity-80 transition-opacity">
           <img 
             src={planetBrickLogo} 
             alt="PlanetBrick" 
-            className="h-12 md:h-14 lg:h-16 w-auto object-contain drop-shadow-2xl"
+            className="h-14 md:h-16 lg:h-20 w-auto object-contain drop-shadow-2xl"
             data-testid="logo-planetbrick"
           />
         </Link>
 
-        {/* Stats Row - Lower in lighter band, closer to edges */}
-        <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-4 md:px-8 lg:px-12 z-[50]">
+        {/* Stats Row - Smaller text */}
+        <div className="absolute bottom-2 left-0 right-0 flex items-center justify-between px-4 md:px-8 lg:px-12 z-[50]">
           {/* Lots - Left */}
-          <div className="flex items-center gap-2 md:gap-3 relative group">
-            <div className="absolute -left-8 top-1/2 -translate-y-1/2 w-32 h-px bg-gradient-to-r from-transparent via-cyan-400/40 to-cyan-500/60 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+          <div className="flex items-center gap-2 relative">
             <div className="relative">
-              <Sparkles className="w-4 h-4 md:w-5 md:h-5 lg:w-6 lg:h-6 text-cyan-400" />
+              <Sparkles className="w-4 h-4 md:w-5 md:h-5 text-cyan-400" />
             </div>
             <div className="text-left">
-              <div className="text-sm md:text-lg lg:text-xl font-bold text-white">{totalLots.toLocaleString()}</div>
-              <div className="text-[9px] md:text-xs lg:text-sm text-gray-400">Unique Lots</div>
+              <div className="text-[10px] md:text-xs font-bold text-white">{totalLots.toLocaleString()}</div>
+              <div className="text-[10px] md:text-xs text-gray-400">Unique Lots</div>
             </div>
           </div>
 
           {/* Parts - Right */}
-          <div className="flex items-center gap-2 md:gap-3 group">
+          <div className="flex items-center gap-2">
             <div className="text-right">
-              <div className="text-sm md:text-lg lg:text-xl font-bold text-white">{totalParts.toLocaleString()}</div>
-              <div className="text-[9px] md:text-xs lg:text-sm text-gray-400">Total Parts</div>
+              <div className="text-[10px] md:text-xs font-bold text-white">{totalParts.toLocaleString()}</div>
+              <div className="text-[10px] md:text-xs text-gray-400">Total Parts</div>
             </div>
             <div className="relative">
-              <Sparkles className="w-4 h-4 md:w-5 md:h-5 lg:w-6 lg:h-6 text-blue-400" />
+              <Sparkles className="w-4 h-4 md:w-5 md:h-5 text-blue-400" />
             </div>
-            <div className="absolute -right-8 top-1/2 -translate-y-1/2 w-32 h-px bg-gradient-to-l from-transparent via-blue-400/40 to-blue-500/60 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
           </div>
         </div>
       </div>
