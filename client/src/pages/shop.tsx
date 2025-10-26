@@ -1277,16 +1277,16 @@ export default function Shop() {
         </Sheet>
 
         {/* Search Bar and Filters */}
-        <div className="sticky top-[6.5rem] md:top-[7rem] z-20 bg-black/95 backdrop-blur-xl px-3 md:px-6 py-3 md:py-4 border-b border-white/10">
-          <div className="max-w-4xl mx-auto space-y-3">
+        <div className="sticky top-[6.5rem] md:top-[7rem] z-20 bg-black/95 backdrop-blur-xl px-3 md:px-6 py-2 border-b border-white/10">
+          <div className="max-w-4xl mx-auto space-y-2">
             {/* Search Bar + View Toggle */}
             <div className="flex items-center gap-2">
               <div className="relative flex-1">
-                <Search className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-gray-500" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                 <input
                   type="text"
                   placeholder="Search for LEGO parts..."
-                  className="w-full h-9 md:h-12 pl-9 md:pl-12 pr-4 md:pr-5 bg-gray-900/80 border border-white/20 rounded-md text-xs md:text-base text-white placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
+                  className="w-full h-9 pl-9 pr-4 bg-gray-900/80 border border-white/20 rounded-md text-xs text-white placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
                   data-testid="input-search"
                 />
               </div>
@@ -1313,57 +1313,80 @@ export default function Shop() {
               </div>
             </div>
 
-            {/* Item Type Filter - Below Search */}
-            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+            {/* Item Type Filter - Compact with counts */}
+            <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
               {categoriesData?.itemTypes.map((itemType) => (
                 <Button
                   key={itemType.type}
                   size="sm"
-                  variant={selectedItemType === itemType.type ? "default" : "outline"}
+                  variant="ghost"
                   onClick={(e) => {
                     e.preventDefault();
                     setSelectedItemType(itemType.type);
                   }}
-                  className="whitespace-nowrap text-xs h-8"
+                  className={`whitespace-nowrap text-[10px] h-7 px-2.5 ${
+                    selectedItemType === itemType.type
+                      ? "bg-red-600/90 hover:bg-red-500 text-white font-bold"
+                      : "bg-gray-900/60 text-gray-400 hover:text-gray-300 hover:bg-gray-800/80"
+                  }`}
                   data-testid={`filter-${itemType.type?.toLowerCase()}`}
                 >
                   {formatItemType(itemType.type)}
-                  {selectedItemType === itemType.type && (
-                    <Badge className="ml-2 h-4 px-1.5 text-[10px] bg-cyan-500/20">{itemType.count}</Badge>
-                  )}
+                  <Badge className="ml-1.5 h-4 px-1 text-[9px] bg-white/20 border-none">{itemType.count}</Badge>
                 </Button>
               ))}
             </div>
           </div>
         </div>
 
-        {/* Category Pills Selector */}
-        <div className="sticky top-[9.5rem] md:top-[10rem] z-10 bg-gradient-to-b from-black via-black/95 to-transparent border-b border-white/10 px-3 md:px-6 py-2">
+        {/* Special Filters - Sticky (Discounts & New Items) */}
+        <div className="sticky top-[8.5rem] md:top-[9rem] z-15 bg-black/90 backdrop-blur-sm px-3 md:px-6 py-1.5 border-b border-white/5">
+          <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="whitespace-nowrap text-[10px] h-7 px-2.5 bg-purple-600/20 text-purple-300 hover:bg-purple-600/40 hover:text-purple-200"
+              data-testid="filter-discounts"
+            >
+              Discounts
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="whitespace-nowrap text-[10px] h-7 px-2.5 bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/40 hover:text-emerald-200"
+              data-testid="filter-new-items"
+            >
+              New Items
+            </Button>
+          </div>
+        </div>
+
+        {/* Category Pills Selector - Compact and subtle */}
+        <div className="sticky top-[10rem] md:top-[10.5rem] z-10 bg-gradient-to-b from-black via-black/95 to-transparent border-b border-white/5 px-3 md:px-6 py-1.5">
           <div className="overflow-x-auto overflow-y-hidden scrollbar-hide" style={{ touchAction: 'pan-x' }}>
-            <div className="flex gap-2 min-w-min">
+            <div className="flex gap-1.5 min-w-min">
               {sortedCategoryList.map((category) => {
                 const isSelected = selectedCategories.includes(category.id);
                 return (
                   <Button
                     key={category.id}
-                    variant={isSelected ? "default" : "outline"}
+                    variant="ghost"
                     size="sm"
                     onClick={() => handleCategoryToggle(category.id)}
-                    className={`shrink-0 text-xs ${
+                    className={`shrink-0 text-[10px] h-7 px-2.5 ${
                       isSelected 
-                        ? "bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white font-bold border-none"
-                        : "bg-gray-900/40 border-white/20 text-gray-300 hover:bg-gray-800"
+                        ? "bg-gray-800/80 text-white font-semibold border border-white/30"
+                        : "bg-gray-900/30 border border-white/10 text-gray-400 hover:bg-gray-800/60 hover:text-gray-300"
                     }`}
                     data-testid={`button-category-${category.id}`}
                   >
-                    {isSelected && <Check className="w-3 h-3 mr-1" />}
                     {category.name}
                     <Badge 
                       variant="secondary"
-                      className={`ml-1.5 text-xs ${
+                      className={`ml-1 text-[9px] h-3.5 px-1 ${
                         isSelected
-                          ? "bg-white/20 text-white"
-                          : "bg-purple-500/20 text-purple-300"
+                          ? "bg-white/30 text-white"
+                          : "bg-gray-700/50 text-gray-400"
                       }`}
                     >
                       {category.lotCount}
