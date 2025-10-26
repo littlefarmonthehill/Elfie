@@ -145,7 +145,7 @@ export default function Login() {
                 <Button 
                   type="button"
                   variant="outline"
-                  onClick={() => setLocation("/shop")}
+                  onClick={() => setLocation("/showroom")}
                   className="w-full h-9 md:h-10 lg:h-12 text-xs md:text-sm lg:text-base font-medium bg-gray-800/50 border-gray-600 text-gray-300 hover:bg-gray-700/50 hover:text-white transition-all duration-300"
                   data-testid="button-back-to-shop"
                 >

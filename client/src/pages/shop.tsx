@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, ShoppingCart, ChevronRight, Sparkles, Plus, X, Minus, Check, ChevronDown, ChevronUp, ExternalLink, LayoutGrid, List } from "lucide-react";
+import { Search, ShoppingCart, ChevronRight, Sparkles, Plus, X, Minus, Check, ChevronDown, ChevronUp, ExternalLink, LayoutGrid, List, Calendar, Gift, Users } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -590,69 +590,67 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart, viewMode = 'gallery' 
             </div>
           </div>
           
-          {/* Compact 2-column content */}
+          {/* Mobile-first content layout */}
           <div className="flex-1 overflow-y-auto p-3 md:p-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {/* LEFT COLUMN: Colors List */}
-              <div className="bg-white/5 rounded border border-cyan-400/30 p-2 md:p-3">
-                <h3 className="text-xs font-bold text-cyan-300 mb-2 uppercase tracking-wide">Colors</h3>
-                <div className="space-y-1.5">
-                  {sortedColorGroups.map((colorGroup, idx) => (
-                    <div 
-                      key={idx}
-                      className="flex items-center gap-2 px-2 py-1 bg-black/30 rounded border border-white/10 hover-elevate"
-                      data-testid={`color-chip-${idx}`}
-                    >
-                      <div 
-                        className="w-3 h-3 md:w-4 md:h-4 rounded-full border border-white/50 shrink-0" 
-                        style={{ 
-                          backgroundColor: colorGroup.colorHex 
-                            ? (colorGroup.colorHex.startsWith('#') ? colorGroup.colorHex : `#${colorGroup.colorHex}`)
-                            : '#CCCCCC'
-                        }}
-                      />
-                      <span className="text-[10px] md:text-xs text-white font-medium truncate">{formatColorDisplayName(colorGroup.colorName)}</span>
-                    </div>
-                  ))}
+            {/* Stats at top - side by side */}
+            <div className="grid grid-cols-2 gap-2 md:gap-3 mb-4">
+              {/* Total Parts */}
+              <div className="bg-gradient-to-br from-emerald-500/20 to-teal-500/20 rounded border-2 border-emerald-400/50 p-2 md:p-3">
+                <div className="text-[10px] md:text-xs text-emerald-300 font-bold uppercase tracking-wide mb-1">Total Parts</div>
+                <div className="text-lg md:text-2xl font-black text-white">{lot.totalQty.toLocaleString()}</div>
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {totalNewQty > 0 && (
+                    <span className="text-[9px] md:text-xs text-emerald-200">
+                      <span className="font-bold">{totalNewQty.toLocaleString()}</span> New
+                    </span>
+                  )}
+                  {totalUsedQty > 0 && (
+                    <span className="text-[9px] md:text-xs text-amber-200">
+                      <span className="font-bold">{totalUsedQty.toLocaleString()}</span> Used
+                    </span>
+                  )}
                 </div>
               </div>
 
-              {/* RIGHT COLUMN: Stats */}
-              <div className="space-y-3">
-                {/* Total Parts */}
-                <div className="bg-gradient-to-br from-emerald-500/20 to-teal-500/20 rounded border-2 border-emerald-400/50 p-2 md:p-3">
-                  <div className="text-[10px] md:text-xs text-emerald-300 font-bold uppercase tracking-wide mb-1">Total Parts</div>
-                  <div className="text-xl md:text-2xl font-black text-white">{lot.totalQty.toLocaleString()}</div>
-                  <div className="flex gap-2 mt-1">
-                    {totalNewQty > 0 && (
-                      <span className="text-[10px] md:text-xs text-emerald-200">
-                        <span className="font-bold">{totalNewQty.toLocaleString()}</span> New
-                      </span>
-                    )}
-                    {totalUsedQty > 0 && (
-                      <span className="text-[10px] md:text-xs text-amber-200">
-                        <span className="font-bold">{totalUsedQty.toLocaleString()}</span> Used
-                      </span>
-                    )}
-                  </div>
+              {/* Price Range */}
+              <div className="bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded border-2 border-purple-400/50 p-2 md:p-3">
+                <div className="text-[10px] md:text-xs text-purple-300 font-bold uppercase tracking-wide mb-1">Price Range</div>
+                <div className="text-lg md:text-2xl font-black text-white">
+                  {(() => {
+                    const prices = lot.variations.map(v => parseFloat(v.price.replace('$', '')));
+                    const minPrice = Math.min(...prices);
+                    const maxPrice = Math.max(...prices);
+                    if (minPrice === maxPrice) {
+                      return `$${minPrice.toFixed(2)}`;
+                    }
+                    return `$${minPrice.toFixed(2)} - $${maxPrice.toFixed(2)}`;
+                  })()}
                 </div>
+                <div className="text-[9px] md:text-xs text-purple-200 mt-0.5">per piece</div>
+              </div>
+            </div>
 
-                {/* Price Range */}
-                <div className="bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded border-2 border-purple-400/50 p-2 md:p-3">
-                  <div className="text-[10px] md:text-xs text-purple-300 font-bold uppercase tracking-wide mb-1">Price Range</div>
-                  <div className="text-lg md:text-xl font-black text-white">
-                    {(() => {
-                      const prices = lot.variations.map(v => parseFloat(v.price.replace('$', '')));
-                      const minPrice = Math.min(...prices);
-                      const maxPrice = Math.max(...prices);
-                      if (minPrice === maxPrice) {
-                        return `$${minPrice.toFixed(2)}`;
-                      }
-                      return `$${minPrice.toFixed(2)} - $${maxPrice.toFixed(2)}`;
-                    })()}
+            {/* Colors in 3 columns */}
+            <div className="bg-white/5 rounded border border-cyan-400/30 p-2 md:p-3">
+              <h3 className="text-xs md:text-sm font-bold text-cyan-300 mb-3 uppercase tracking-wide">Available Colors</h3>
+              <div className="grid grid-cols-3 gap-2">
+                {sortedColorGroups.map((colorGroup, idx) => (
+                  <div 
+                    key={idx}
+                    className="flex flex-col items-center gap-1.5 px-2 py-2 bg-black/30 rounded border border-white/10 hover-elevate"
+                    data-testid={`color-chip-${idx}`}
+                  >
+                    <div 
+                      className="w-6 h-6 md:w-8 md:h-8 rounded-full border-2 border-white/50 shrink-0" 
+                      style={{ 
+                        backgroundColor: colorGroup.colorHex 
+                          ? (colorGroup.colorHex.startsWith('#') ? colorGroup.colorHex : `#${colorGroup.colorHex}`)
+                          : '#CCCCCC'
+                      }}
+                    />
+                    <span className="text-[9px] md:text-xs text-white font-medium text-center leading-tight">{formatColorDisplayName(colorGroup.colorName)}</span>
                   </div>
-                  <div className="text-[10px] md:text-xs text-purple-200 mt-0.5">per piece</div>
-                </div>
+                ))}
               </div>
             </div>
           </div>
@@ -1371,31 +1369,57 @@ export default function Shop() {
           </div>
         </header>
 
-        {/* Search Bar and Item Type Filter */}
-        <div className="sticky top-[3.5rem] md:top-[4rem] z-30 bg-black/95 backdrop-blur-xl px-3 md:px-6 py-3 md:py-4 pt-14 md:pt-16 lg:pt-20 border-b border-white/10">
-          <div className="max-w-4xl mx-auto space-y-3">
-            {/* Item Type Filter */}
-            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-              {categoriesData?.itemTypes.map((itemType) => (
+        {/* Navigation Links - Above Search */}
+        <div className="sticky top-[3.5rem] md:top-[4rem] z-30 bg-black/95 backdrop-blur-xl border-b border-white/10">
+          <div className="px-3 md:px-6 pt-14 md:pt-16 lg:pt-20">
+            <div className="flex gap-1 md:gap-2 overflow-x-auto scrollbar-hide border-b border-white/10">
+              <Link href="/showroom">
                 <Button
-                  key={itemType.type}
-                  size="sm"
-                  variant={selectedItemType === itemType.type ? "default" : "outline"}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setSelectedItemType(itemType.type);
-                  }}
-                  className="whitespace-nowrap text-xs h-8"
-                  data-testid={`filter-${itemType.type?.toLowerCase()}`}
+                  variant="ghost"
+                  className="rounded-none border-b-2 border-transparent hover:border-cyan-400 text-white hover:text-cyan-400 transition-colors px-3 md:px-4 py-2 h-auto"
+                  data-testid="nav-showroom"
                 >
-                  {formatItemType(itemType.type)}
-                  {selectedItemType === itemType.type && (
-                    <Badge className="ml-2 h-4 px-1.5 text-[10px] bg-cyan-500/20">{itemType.count}</Badge>
-                  )}
+                  <Sparkles className="w-3 h-3 md:w-4 md:h-4 mr-1.5 md:mr-2" />
+                  <span className="text-xs md:text-sm font-semibold">Showroom</span>
                 </Button>
-              ))}
+              </Link>
+              <Link href="/community">
+                <Button
+                  variant="ghost"
+                  className="rounded-none border-b-2 border-transparent hover:border-emerald-400 text-gray-400 hover:text-emerald-400 transition-colors px-3 md:px-4 py-2 h-auto"
+                  data-testid="nav-community"
+                >
+                  <Users className="w-3 h-3 md:w-4 md:h-4 mr-1.5 md:mr-2" />
+                  <span className="text-xs md:text-sm font-semibold">Community</span>
+                </Button>
+              </Link>
+              <Link href="/events">
+                <Button
+                  variant="ghost"
+                  className="rounded-none border-b-2 border-transparent hover:border-amber-400 text-gray-400 hover:text-amber-400 transition-colors px-3 md:px-4 py-2 h-auto"
+                  data-testid="nav-events"
+                >
+                  <Calendar className="w-3 h-3 md:w-4 md:h-4 mr-1.5 md:mr-2" />
+                  <span className="text-xs md:text-sm font-semibold">Events</span>
+                </Button>
+              </Link>
+              <Link href="/deals">
+                <Button
+                  variant="ghost"
+                  className="rounded-none border-b-2 border-transparent hover:border-purple-400 text-gray-400 hover:text-purple-400 transition-colors px-3 md:px-4 py-2 h-auto"
+                  data-testid="nav-deals"
+                >
+                  <Gift className="w-3 h-3 md:w-4 md:h-4 mr-1.5 md:mr-2" />
+                  <span className="text-xs md:text-sm font-semibold">Deals</span>
+                </Button>
+              </Link>
             </div>
+          </div>
+        </div>
 
+        {/* Search Bar and Filters */}
+        <div className="sticky top-[6.5rem] md:top-[7rem] z-20 bg-black/95 backdrop-blur-xl px-3 md:px-6 py-3 md:py-4 border-b border-white/10">
+          <div className="max-w-4xl mx-auto space-y-3">
             {/* Search Bar + View Toggle */}
             <div className="flex items-center gap-2">
               <div className="relative flex-1">
@@ -1429,11 +1453,33 @@ export default function Shop() {
                 </Button>
               </div>
             </div>
+
+            {/* Item Type Filter - Below Search */}
+            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+              {categoriesData?.itemTypes.map((itemType) => (
+                <Button
+                  key={itemType.type}
+                  size="sm"
+                  variant={selectedItemType === itemType.type ? "default" : "outline"}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setSelectedItemType(itemType.type);
+                  }}
+                  className="whitespace-nowrap text-xs h-8"
+                  data-testid={`filter-${itemType.type?.toLowerCase()}`}
+                >
+                  {formatItemType(itemType.type)}
+                  {selectedItemType === itemType.type && (
+                    <Badge className="ml-2 h-4 px-1.5 text-[10px] bg-cyan-500/20">{itemType.count}</Badge>
+                  )}
+                </Button>
+              ))}
+            </div>
           </div>
         </div>
 
         {/* Category Pills Selector */}
-        <div className="sticky top-[7rem] md:top-[8rem] z-20 bg-gradient-to-b from-black via-black/95 to-transparent border-b border-white/10 px-3 md:px-6 py-2">
+        <div className="sticky top-[9.5rem] md:top-[10rem] z-10 bg-gradient-to-b from-black via-black/95 to-transparent border-b border-white/10 px-3 md:px-6 py-2">
           <div className="overflow-x-auto overflow-y-hidden scrollbar-hide" style={{ touchAction: 'pan-x' }}>
             <div className="flex gap-2 min-w-min">
               {sortedCategoryList.map((category) => {

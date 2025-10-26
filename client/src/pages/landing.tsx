@@ -5,15 +5,26 @@ import planetBrickLogo from "@assets/PlanetBrick_with_planet_1761236028491.png";
 export default function Landing() {
   const signs = [
     {
+      id: "community",
+      name: "Community",
+      path: "/community",
+      icon: Users,
+      neonColor: "#10B981",
+      glowColor: "rgba(16, 185, 129, 0.6)",
+      position: "top-[20%] left-[22%]",
+      rotation: "2deg",
+      swayDelay: "0s"
+    },
+    {
       id: "showroom",
       name: "Showroom",
       path: "/showroom",
       icon: Sparkles,
       neonColor: "#06B6D4",
       glowColor: "rgba(6, 182, 212, 0.6)",
-      position: "top-[25%] right-[18%]",
-      rotation: "-3deg",
-      swayDelay: "0s"
+      position: "top-[20%] right-[22%]",
+      rotation: "-2deg",
+      swayDelay: "0.5s"
     },
     {
       id: "events",
@@ -22,9 +33,9 @@ export default function Landing() {
       icon: Calendar,
       neonColor: "#F59E0B",
       glowColor: "rgba(245, 158, 11, 0.6)",
-      position: "bottom-[35%] right-[12%]",
-      rotation: "4deg",
-      swayDelay: "0.5s"
+      position: "bottom-[20%] right-[22%]",
+      rotation: "2deg",
+      swayDelay: "1s"
     },
     {
       id: "deals",
@@ -33,19 +44,8 @@ export default function Landing() {
       icon: Gift,
       neonColor: "#A855F7",
       glowColor: "rgba(168, 85, 247, 0.6)",
-      position: "bottom-[25%] left-[18%]",
-      rotation: "-4deg",
-      swayDelay: "1s"
-    },
-    {
-      id: "community",
-      name: "Community",
-      path: "/community",
-      icon: Users,
-      neonColor: "#10B981",
-      glowColor: "rgba(16, 185, 129, 0.6)",
-      position: "top-[25%] left-[15%]",
-      rotation: "3deg",
+      position: "bottom-[20%] left-[22%]",
+      rotation: "-2deg",
       swayDelay: "1.5s"
     }
   ];
