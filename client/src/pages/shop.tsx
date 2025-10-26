@@ -747,6 +747,15 @@ function CategorySkeleton({ bandColor }: { bandColor: string }) {
 
 function HorizontalRow({ title, lots, lotCount, partCount, categoryId, onAddToCart, bandColor, viewMode = 'gallery' }: HorizontalRowProps) {
   const [openLotId, setOpenLotId] = useState<number | null>(null);
+  const [displayCount, setDisplayCount] = useState(40);
+  const ITEMS_PER_PAGE = 40;
+
+  const handleLoadMore = () => {
+    setDisplayCount(prev => prev + ITEMS_PER_PAGE);
+  };
+
+  const displayedLots = lots.slice(0, displayCount);
+  const hasMore = displayCount < lots.length;
 
   return (
     <section className="py-6 md:py-8 relative" data-testid={`category-section-${categoryId}`}>
@@ -759,18 +768,10 @@ function HorizontalRow({ title, lots, lotCount, partCount, categoryId, onAddToCa
             <Sparkles className="w-6 h-6 md:w-8 md:h-8 text-white drop-shadow-lg" />
             {title}
           </h2>
-          <div className="flex items-center justify-between pl-8 md:pl-12">
+          <div className="pl-8 md:pl-12">
             <div className="text-xs md:text-sm text-gray-400">
               {lotCount.toLocaleString()} lots · {partCount.toLocaleString()} parts
             </div>
-            {lotCount > 12 && (
-              <Link href={`/search?category=${categoryId}`}>
-                <button className={`text-sm md:text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r ${bandColor} hover:opacity-80 flex items-center gap-1.5 md:gap-2 transition-opacity`} data-testid={`button-more-${categoryId}`}>
-                  See All
-                  <ChevronRight className="w-5 h-5 md:w-6 md:h-6" />
-                </button>
-              </Link>
-            )}
           </div>
         </div>
       
@@ -778,7 +779,7 @@ function HorizontalRow({ title, lots, lotCount, partCount, categoryId, onAddToCa
           /* Gallery View - Dense Grid (Spotify-style) */
           <div className="px-3 md:px-6">
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-2 md:gap-3">
-              {lots.slice(0, 40).map((lot) => (
+              {displayedLots.map((lot) => (
                 <LotCard
                   key={lot.id}
                   lot={lot}
@@ -789,12 +790,25 @@ function HorizontalRow({ title, lots, lotCount, partCount, categoryId, onAddToCa
                 />
               ))}
             </div>
+            
+            {/* Load More Button */}
+            {hasMore && (
+              <div className="mt-6 text-center">
+                <Button
+                  onClick={handleLoadMore}
+                  className={`bg-gradient-to-r ${bandColor} text-white font-semibold px-6 py-2 h-10`}
+                  data-testid={`button-load-more-${categoryId}`}
+                >
+                  Load More ({lots.length - displayCount} remaining)
+                </Button>
+              </div>
+            )}
           </div>
         ) : (
           /* List View - Compact Rows */
           <div className="px-3 md:px-6">
             <div className="space-y-1">
-              {lots.slice(0, 40).map((lot) => (
+              {displayedLots.map((lot) => (
                 <LotCard
                   key={lot.id}
                   lot={lot}
@@ -805,6 +819,19 @@ function HorizontalRow({ title, lots, lotCount, partCount, categoryId, onAddToCa
                 />
               ))}
             </div>
+            
+            {/* Load More Button */}
+            {hasMore && (
+              <div className="mt-6 text-center">
+                <Button
+                  onClick={handleLoadMore}
+                  className={`bg-gradient-to-r ${bandColor} text-white font-semibold px-6 py-2 h-10`}
+                  data-testid={`button-load-more-${categoryId}`}
+                >
+                  Load More ({lots.length - displayCount} remaining)
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </div>
