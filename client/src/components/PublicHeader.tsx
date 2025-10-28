@@ -144,7 +144,7 @@ export function PublicHeader({ cartCount = 0, onCartClick }: PublicHeaderProps) 
                 <Link key={item.path} href={item.path}>
                   <button
                     className={cn(
-                      "px-3 md:px-6 lg:px-8 py-1.5 md:py-2.5 rounded-full text-[11px] md:text-sm lg:text-base font-semibold whitespace-nowrap transition-all",
+                      "px-3 md:px-6 lg:px-8 py-1.5 md:py-2.5 lg:py-3 rounded-full text-sm md:text-base lg:text-lg font-semibold whitespace-nowrap transition-all",
                       isActive && item.color === 'lego-blue' && "bg-lego-blue text-white",
                       !isActive && item.color === 'lego-blue' && "text-lego-blue/60 hover:bg-lego-blue/30",
                       isActive && item.color === 'lego-red' && "bg-lego-red text-white",

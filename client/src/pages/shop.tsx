@@ -1198,7 +1198,7 @@ export default function Shop() {
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
-    <div className="min-h-screen bg-black relative overflow-hidden">
+    <div className="min-h-screen bg-black relative">
       {/* Enhanced Retro-futuristic Space background */}
       <div className="fixed inset-0 pointer-events-none">
         {/* Color orbs */}
