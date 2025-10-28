@@ -13,12 +13,13 @@ The frontend uses React 18+, TypeScript, Vite, Shadcn/ui, and Tailwind CSS, feat
 
 **Public-Facing Customer Portal** (as of October 2025):
 - **Routing:** `/showroom` is the default home page for all users (replaces previous landing page)
-- **SharedPublicHeader:** Consistent sticky navigation across Showroom, Deals, Events, and Community pages with:
+- **SharedPublicHeader:** Consistent navigation across Showroom, Deals, Events, and Community pages with:
   - Mobile-responsive single-row layout with horizontal scrolling support
   - Navigation order: Showroom, Deals, Events, Community
   - LEGO-themed color-coded tabs matching operations dashboard style: Showroom (lego-blue), Deals (lego-red), Events (lego-orange), Community (lego-green)
   - Rounded pill buttons with solid backgrounds for active tabs and semi-transparent backgrounds with hover states for inactive tabs
-  - Sticky header with proper viewport sizing to prevent overflow on mobile devices
+  - Larger font sizes (text-sm/base/lg) for better readability
+  - Sticky top banner (logo, stats, cart/login) that stays frozen while navigation tabs scroll with page content
 - **Spotify-Style Product Display:** Compact, high-density showroom inspired by Spotify's mobile UX:
   - Dense grids: 3-8 columns (mobile to desktop) showing 40+ products per section
   - Compact cards: 12px images in list view, tiny fonts (text-[10px]), minimal padding

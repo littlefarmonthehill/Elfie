@@ -54,9 +54,9 @@ export function PublicHeader({ cartCount = 0, onCartClick }: PublicHeaderProps) 
   const totalParts = statsData?.totalParts || 0;
 
   return (
-    <header className="sticky top-0 z-50 bg-gradient-to-b from-blue-950 via-blue-950/90 to-black/95 backdrop-blur-xl border-b border-white/10 max-h-screen overflow-visible">
-      {/* Top section with logo, stats, and user controls */}
-      <div className="relative pb-12 md:pb-14 min-h-0">
+    <header className="relative border-b border-white/10">
+      {/* Top Banner - Frozen at Top */}
+      <div className="sticky top-0 z-50 bg-gradient-to-b from-blue-950 via-blue-950/90 to-black/95 backdrop-blur-xl relative pb-12 md:pb-14 min-h-0">
         <div className="px-4 md:px-8 py-1.5 md:py-2 flex items-start justify-between relative">
           {/* Cart & Login - Top Right */}
           <div className="flex items-center gap-1.5 md:gap-3 ml-auto">
@@ -134,8 +134,8 @@ export function PublicHeader({ cartCount = 0, onCartClick }: PublicHeaderProps) 
         </div>
       </div>
 
-      {/* Navigation Tabs - Dashboard Style with LEGO Colors */}
-      <div className="border-t border-white/10 bg-black/95 backdrop-blur-xl py-2">
+      {/* Navigation Tabs - Scrolls with Page */}
+      <div className="relative border-t border-white/10 bg-black/95 backdrop-blur-xl py-2">
         <div className="px-3 md:px-6">
           <div className="flex flex-row gap-1.5 md:gap-2 justify-center items-center overflow-x-auto scrollbar-hide">
             {navItems.map((item) => {
