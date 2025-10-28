@@ -1300,7 +1300,7 @@ export default function Shop() {
         </Sheet>
 
         {/* Search Bar and Filters */}
-        <div className="sticky top-[6.5rem] md:top-[7rem] z-20 bg-black/95 backdrop-blur-xl px-3 md:px-6 py-2 border-b border-white/10">
+        <div className="relative bg-black/95 backdrop-blur-xl px-3 md:px-6 py-2 border-b border-white/10">
           <div className="max-w-4xl mx-auto space-y-2">
             {/* Search Bar + View Toggle */}
             <div className="flex items-center gap-2">
@@ -1363,7 +1363,7 @@ export default function Shop() {
         </div>
 
         {/* Category Pills Selector with Discounts/New Items - Compact and subtle */}
-        <div className="sticky top-[8.5rem] md:top-[9rem] z-10 bg-gray-800/40 backdrop-blur-sm border-y border-white/10 px-3 md:px-6 py-2">
+        <div className="relative bg-gray-800/40 backdrop-blur-sm border-y border-white/10 px-3 md:px-6 py-2">
           <div className="flex gap-1.5">
             {/* Special Filters - Fixed/Frozen */}
             <div className="flex gap-1.5 shrink-0">
