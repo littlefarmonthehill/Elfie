@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 import planetBrickLogo from "@assets/PlanetBrick_with_planet_1761236028491.png";
 
 interface PublicHeaderProps {
@@ -43,19 +44,19 @@ export function PublicHeader({ cartCount = 0, onCartClick }: PublicHeaderProps) 
   });
 
   const navItems = [
-    { path: "/showroom", label: "Showroom", icon: Sparkles, color: "text-cyan-400 hover:text-cyan-400 hover:border-cyan-400" },
-    { path: "/deals", label: "Deals", icon: Gift, color: "text-purple-400 hover:text-purple-400 hover:border-purple-400" },
-    { path: "/events", label: "Events", icon: Calendar, color: "text-amber-400 hover:text-amber-400 hover:border-amber-400" },
-    { path: "/community", label: "Community", icon: Users, color: "text-emerald-400 hover:text-emerald-400 hover:border-emerald-400" },
+    { path: "/showroom", label: "Showroom", icon: Sparkles, color: "lego-blue" },
+    { path: "/deals", label: "Deals", icon: Gift, color: "lego-red" },
+    { path: "/events", label: "Events", icon: Calendar, color: "lego-orange" },
+    { path: "/community", label: "Community", icon: Users, color: "lego-green" },
   ];
 
   const totalLots = statsData?.totalLots || 0;
   const totalParts = statsData?.totalParts || 0;
 
   return (
-    <header className="sticky top-0 z-50 bg-gradient-to-b from-blue-950 via-blue-950/90 to-black/95 backdrop-blur-xl border-b border-white/10">
+    <header className="sticky top-0 z-50 bg-gradient-to-b from-blue-950 via-blue-950/90 to-black/95 backdrop-blur-xl border-b border-white/10 max-h-screen overflow-visible">
       {/* Top section with logo, stats, and user controls */}
-      <div className="relative pb-12 md:pb-14">
+      <div className="relative pb-12 md:pb-14 min-h-0">
         <div className="px-4 md:px-8 py-1.5 md:py-2 flex items-start justify-between relative">
           {/* Cart & Login - Top Right */}
           <div className="flex items-center gap-1.5 md:gap-3 ml-auto">
@@ -133,26 +134,30 @@ export function PublicHeader({ cartCount = 0, onCartClick }: PublicHeaderProps) 
         </div>
       </div>
 
-      {/* Navigation Tabs - Single row, no wrapping, no icons */}
-      <div className="border-t border-white/10 bg-black/80 py-2">
+      {/* Navigation Tabs - Dashboard Style with LEGO Colors */}
+      <div className="border-t border-white/10 bg-black/95 backdrop-blur-xl py-2">
         <div className="px-3 md:px-6">
-          <div className="flex flex-row gap-1.5 md:gap-2 justify-center">
+          <div className="flex flex-row gap-1.5 md:gap-2 justify-center items-center overflow-x-auto scrollbar-hide">
             {navItems.map((item) => {
               const isActive = location === item.path;
               return (
                 <Link key={item.path} href={item.path}>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className={`rounded-full ${
-                      isActive 
-                        ? `${item.color.split(' ')[0]} font-bold` 
-                        : `text-gray-400 hover:text-gray-300`
-                    } transition-colors px-3 md:px-4 h-8 md:h-9 border-0`}
+                  <button
+                    className={cn(
+                      "px-3 md:px-6 lg:px-8 py-1.5 md:py-2.5 rounded-full text-[11px] md:text-sm lg:text-base font-semibold whitespace-nowrap transition-all",
+                      isActive && item.color === 'lego-blue' && "bg-lego-blue text-white",
+                      !isActive && item.color === 'lego-blue' && "text-lego-blue/60 hover:bg-lego-blue/30",
+                      isActive && item.color === 'lego-red' && "bg-lego-red text-white",
+                      !isActive && item.color === 'lego-red' && "text-lego-red/60 hover:bg-lego-red/30",
+                      isActive && item.color === 'lego-orange' && "bg-lego-orange text-white",
+                      !isActive && item.color === 'lego-orange' && "text-lego-orange/60 hover:bg-lego-orange/30",
+                      isActive && item.color === 'lego-green' && "bg-lego-green text-white",
+                      !isActive && item.color === 'lego-green' && "text-lego-green/60 hover:bg-lego-green/30"
+                    )}
                     data-testid={`nav-${item.label.toLowerCase()}`}
                   >
-                    <span className="text-[11px] md:text-sm font-semibold whitespace-nowrap">{item.label}</span>
-                  </Button>
+                    {item.label}
+                  </button>
                 </Link>
               );
             })}

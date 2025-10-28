@@ -13,17 +13,19 @@ The frontend uses React 18+, TypeScript, Vite, Shadcn/ui, and Tailwind CSS, feat
 
 **Public-Facing Customer Portal** (as of October 2025):
 - **Routing:** `/showroom` is the default home page for all users (replaces previous landing page)
-- **SharedPublicHeader:** Consistent navigation across Showroom, Deals, Events, and Community pages with:
-  - Mobile-responsive 2x2 grid layout (no horizontal scrolling)
+- **SharedPublicHeader:** Consistent sticky navigation across Showroom, Deals, Events, and Community pages with:
+  - Mobile-responsive single-row layout with horizontal scrolling support
   - Navigation order: Showroom, Deals, Events, Community
-  - Color-coded tabs: Showroom (cyan), Deals (purple), Events (amber), Community (emerald)
-  - Increased padding (pb-16/md:pb-20) between banner and navigation for clear visual separation
+  - LEGO-themed color-coded tabs matching operations dashboard style: Showroom (lego-blue), Deals (lego-red), Events (lego-orange), Community (lego-green)
+  - Rounded pill buttons with solid backgrounds for active tabs and semi-transparent backgrounds with hover states for inactive tabs
+  - Sticky header with proper viewport sizing to prevent overflow on mobile devices
 - **Spotify-Style Product Display:** Compact, high-density showroom inspired by Spotify's mobile UX:
   - Dense grids: 3-8 columns (mobile to desktop) showing 40+ products per section
   - Compact cards: 12px images in list view, tiny fonts (text-[10px]), minimal padding
   - Gallery view optimized for maximum product visibility
   - Product details: Simple comma-separated color list with small dots (w-2 h-2)
   - Simplified badges showing essential info only
+  - Product detail dialog: Enhanced close button with white background, backdrop blur, larger icon (5x5), drop shadow, and proper spacing to prevent overlap with title
 - **Content Strategy:** Showroom is a product showcase (not a shopping cart) emphasizing breadth and depth of inventory to drive traffic to BrickLink/BrickOwl stores
 
 ### Technical Implementations
@@ -46,9 +48,10 @@ The frontend uses React 18+, TypeScript, Vite, Shadcn/ui, and Tailwind CSS, feat
 -   **Customer Shopping Platform:** Mobile-first brand showcase at `/showroom` (default home page) featuring:
   - Spotify-inspired compact product cards with dense grid layouts
   - Part-number-based product grouping with simplified presentation
-  - Category-based navigation
+  - Category-based navigation with selected categories displayed as removable pills below filters (no scrolling needed)
   - Dual sales approach: external marketplace links (BrickLink/BrickOwl) for individual parts, internal cart reserved for future curated bundles
   - View modes: Gallery (dense grid) and List (compact rows)
+  - Default state on first visit: New Items and Discounts toggles ON, no item type filter selected (shows all inventory), New Items displayed first
   - "Newly listed" items show last 10 products added (by dateCreated DESC), regardless of age
   - "Hot items" use 30-day order trending logic
 -   **Notification System:** Dismissible, severity-grouped notification center for sync errors.
