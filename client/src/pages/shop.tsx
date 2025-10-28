@@ -845,7 +845,39 @@ export default function Shop() {
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
   const [showDiscounts, setShowDiscounts] = useState(true);
   const [showNewItems, setShowNewItems] = useState(true);
+  const [showFilters, setShowFilters] = useState(true);
+  const [lastScrollY, setLastScrollY] = useState(0);
   const { toast } = useToast();
+
+  // Smart scroll detection for filters
+  useEffect(() => {
+    let ticking = false;
+    const threshold = 50; // Minimum scroll distance before hiding/showing
+
+    const handleScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const currentScrollY = window.scrollY;
+          
+          // Show filters when scrolling up, hide when scrolling down
+          if (currentScrollY < lastScrollY) {
+            // Scrolling up - show filters
+            setShowFilters(true);
+          } else if (currentScrollY > lastScrollY && currentScrollY > threshold) {
+            // Scrolling down and past threshold - hide filters
+            setShowFilters(false);
+          }
+          
+          setLastScrollY(currentScrollY);
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [lastScrollY]);
 
   // Logout mutation
   const logoutMutation = useMutation({
@@ -1299,8 +1331,10 @@ export default function Shop() {
                 </SheetContent>
         </Sheet>
 
-        {/* Search Bar and Filters */}
-        <div className="sticky top-[6.5rem] md:top-[7rem] z-20 bg-black/95 backdrop-blur-xl px-3 md:px-6 py-2 border-b border-white/10">
+        {/* Search Bar and Filters - Smart hide/show */}
+        <div className={`sticky top-[6.5rem] md:top-[7rem] z-20 bg-black/95 backdrop-blur-xl px-3 md:px-6 py-2 border-b border-white/10 transition-transform duration-300 ${
+          showFilters ? 'translate-y-0' : '-translate-y-full'
+        }`}>
           <div className="max-w-4xl mx-auto space-y-2">
             {/* Search Bar + View Toggle */}
             <div className="flex items-center gap-2">
@@ -1362,8 +1396,10 @@ export default function Shop() {
           </div>
         </div>
 
-        {/* Category Pills Selector with Discounts/New Items - Compact and subtle */}
-        <div className="sticky top-[8.5rem] md:top-[9rem] z-10 bg-gray-800/40 backdrop-blur-sm border-y border-white/10 px-3 md:px-6 py-2">
+        {/* Category Pills Selector with Discounts/New Items - Smart hide/show */}
+        <div className={`sticky top-[8.5rem] md:top-[9rem] z-10 bg-gray-800/40 backdrop-blur-sm border-y border-white/10 px-3 md:px-6 py-2 transition-transform duration-300 ${
+          showFilters ? 'translate-y-0' : '-translate-y-full'
+        }`}>
           <div className="flex gap-1.5">
             {/* Special Filters - Fixed/Frozen */}
             <div className="flex gap-1.5 shrink-0">
@@ -1432,9 +1468,11 @@ export default function Shop() {
           </div>
         </div>
 
-        {/* Selected Categories Display */}
+        {/* Selected Categories Display - Smart hide/show */}
         {selectedCategories.length > 0 && (
-          <div className="px-3 md:px-6 py-2 bg-gray-900/40 border-y border-white/10">
+          <div className={`px-3 md:px-6 py-2 bg-gray-900/40 border-y border-white/10 transition-transform duration-300 ${
+            showFilters ? 'translate-y-0' : '-translate-y-full'
+          }`}>
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="text-[10px] text-gray-400 mr-1">Filtering:</span>
               {selectedCategories.map(catId => {

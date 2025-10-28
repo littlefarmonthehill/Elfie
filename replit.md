@@ -19,6 +19,7 @@ The frontend uses React 18+, TypeScript, Vite, Shadcn/ui, and Tailwind CSS, feat
   - LEGO-themed color-coded tabs matching operations dashboard style: Showroom (lego-blue), Deals (lego-red), Events (lego-orange), Community (lego-green)
   - Rounded pill buttons with solid backgrounds for active tabs and semi-transparent backgrounds with hover states for inactive tabs
   - Sticky header with proper viewport sizing to prevent overflow on mobile devices
+  - Smart scroll behavior: Banner stays fixed at top, search/filters hide on scroll down and reappear on scroll up
 - **Spotify-Style Product Display:** Compact, high-density showroom inspired by Spotify's mobile UX:
   - Dense grids: 3-8 columns (mobile to desktop) showing 40+ products per section
   - Compact cards: 12px images in list view, tiny fonts (text-[10px]), minimal padding
