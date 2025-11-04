@@ -30,8 +30,8 @@ interface PackingSlipProps {
   orders: PackingSlipOrder[];
 }
 
-// Split items across pages (max 12 items per page for 4x5)
-function paginateItems(items: any[], itemsPerPage: number = 12) {
+// Split items across pages (max 20 items per half-page for 5.5x8)
+function paginateItems(items: any[], itemsPerPage: number = 20) {
   const pages = [];
   for (let i = 0; i < items.length; i += itemsPerPage) {
     pages.push(items.slice(i, i + itemsPerPage));
@@ -48,9 +48,6 @@ export default function PackingSlip({ orders }: PackingSlipProps) {
           <div 
             key={`${order.orderNumber}-page-${pageIndex}`}
             className="packing-slip"
-            style={{
-              pageBreakAfter: 'always'
-            }}
           >
             {/* Header with Logo */}
             <div className="slip-header">
@@ -138,54 +135,74 @@ export default function PackingSlip({ orders }: PackingSlipProps) {
       <style>{`
         @media print {
           @page {
-            size: 4in 5in portrait;
-            margin: 0.2in;
+            size: 11in 8.5in landscape;
+            margin: 0.25in;
           }
           
-          /* Force white background */
           html, body {
             background: white !important;
             margin: 0 !important;
             padding: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
           }
           
-          /* Hide everything initially */
-          * {
-            color: black !important;
-            background: transparent !important;
-          }
-          
-          body > * {
+          /* Hide dialog and overlay elements */
+          body > *:not(#root) {
             display: none !important;
           }
           
-          /* Show only print container hierarchy */
-          body,
-          #root,
-          [role="dialog"],
-          .print-container,
-          .print-container * {
-            display: block !important;
-            visibility: visible !important;
+          [data-radix-portal],
+          [data-overlay],
+          [role="dialog"] > button {
+            display: none !important;
           }
           
-          /* Ensure proper layout */
+          /* Show only the print container */
           .print-container {
-            position: static !important;
+            display: block !important;
+            column-count: 2 !important;
+            column-gap: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
             margin: 0 !important;
             padding: 0 !important;
-            width: 100% !important;
+            background: white !important;
           }
           
           .packing-slip {
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+            width: 5.25in !important;
+            padding: 0.25in !important;
             background: white !important;
+            color: black !important;
+          }
+          
+          /* Force black text on white background */
+          .packing-slip,
+          .packing-slip * {
+            color: black !important;
+            background: white !important;
+          }
+          
+          .slip-header {
+            border-bottom-color: #000 !important;
+          }
+          
+          .slip-footer {
+            border-top-color: #ddd !important;
+          }
+          
+          .slip-item {
+            border-bottom-color: #ddd !important;
           }
         }
 
         .packing-slip {
-          width: 4in;
-          height: 5in;
-          padding: 0.2in;
+          width: 5.5in;
+          min-height: 7.5in;
+          padding: 0.25in;
           background: white;
           color: black;
           font-family: Arial, sans-serif;
@@ -198,42 +215,42 @@ export default function PackingSlip({ orders }: PackingSlipProps) {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          margin-bottom: 0.12in;
-          padding-bottom: 0.08in;
+          margin-bottom: 0.15in;
+          padding-bottom: 0.1in;
           border-bottom: 2px solid #000;
         }
 
         .slip-logo {
-          height: 0.35in;
+          height: 0.4in;
           width: auto;
         }
 
         .slip-title h1 {
           margin: 0;
-          font-size: 14pt;
+          font-size: 16pt;
           font-weight: bold;
         }
 
         .slip-section {
-          margin-bottom: 0.1in;
+          margin-bottom: 0.12in;
         }
 
         .slip-info-row {
           display: flex;
           justify-content: space-between;
-          font-size: 9pt;
+          font-size: 10pt;
         }
 
         .slip-page-info {
           text-align: center;
-          font-size: 8pt;
+          font-size: 9pt;
           color: #666;
-          margin-top: 0.03in;
+          margin-top: 0.04in;
         }
 
         .slip-label {
           font-weight: bold;
-          margin-right: 0.08in;
+          margin-right: 0.1in;
         }
 
         .slip-value {
@@ -242,13 +259,13 @@ export default function PackingSlip({ orders }: PackingSlipProps) {
 
         .slip-label-header {
           font-weight: bold;
-          font-size: 9pt;
-          margin-bottom: 0.04in;
+          font-size: 10pt;
+          margin-bottom: 0.05in;
         }
 
         .slip-address {
-          font-size: 8pt;
-          line-height: 1.25;
+          font-size: 9pt;
+          line-height: 1.3;
         }
 
         .slip-items {
@@ -263,8 +280,8 @@ export default function PackingSlip({ orders }: PackingSlipProps) {
         }
 
         .slip-item {
-          margin-bottom: 0.06in;
-          padding-bottom: 0.05in;
+          margin-bottom: 0.08in;
+          padding-bottom: 0.06in;
           border-bottom: 1px solid #ddd;
         }
 
@@ -275,48 +292,48 @@ export default function PackingSlip({ orders }: PackingSlipProps) {
         .slip-item-line1 {
           display: flex;
           align-items: baseline;
-          gap: 0.06in;
-          font-size: 7pt;
-          margin-bottom: 0.02in;
+          gap: 0.08in;
+          font-size: 8pt;
+          margin-bottom: 0.03in;
         }
 
         .slip-sku {
           font-family: 'Courier New', monospace;
           font-weight: bold;
-          min-width: 0.5in;
-          font-size: 7pt;
+          min-width: 0.6in;
+          font-size: 8pt;
         }
 
         .slip-part-name {
           flex: 1;
-          font-size: 7pt;
+          font-size: 8pt;
         }
 
         .slip-qty {
           font-weight: bold;
           white-space: nowrap;
-          font-size: 7pt;
+          font-size: 8pt;
         }
 
         .slip-item-line2 {
-          font-size: 6pt;
+          font-size: 7pt;
           color: #666;
-          padding-left: 0.56in;
+          padding-left: 0.68in;
         }
 
         .slip-footer {
           margin-top: auto;
-          padding-top: 0.08in;
+          padding-top: 0.1in;
           border-top: 1px solid #ddd;
           text-align: center;
-          font-size: 7pt;
+          font-size: 8pt;
           line-height: 1.4;
         }
 
         .slip-company {
           font-weight: bold;
-          font-size: 8pt;
-          margin-top: 0.02in;
+          font-size: 9pt;
+          margin-top: 0.03in;
         }
 
         .slip-company-address {
