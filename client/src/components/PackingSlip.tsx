@@ -142,14 +142,29 @@ export default function PackingSlip({ orders }: PackingSlipProps) {
             margin: 0.2in;
           }
           
-          body {
+          /* Hide everything except the print container */
+          body * {
+            visibility: hidden;
+          }
+          
+          .print-container,
+          .print-container * {
+            visibility: visible;
+          }
+          
+          .print-container {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
             margin: 0;
             padding: 0;
           }
           
-          .print-container {
-            width: 100%;
-            height: 100%;
+          /* Hide dialog chrome */
+          [role="dialog"] > *:not(.print-container) {
+            display: none !important;
           }
         }
 
