@@ -142,29 +142,43 @@ export default function PackingSlip({ orders }: PackingSlipProps) {
             margin: 0.2in;
           }
           
-          /* Hide everything except the print container */
-          body * {
-            visibility: hidden;
+          /* Force white background */
+          html, body {
+            background: white !important;
+            margin: 0 !important;
+            padding: 0 !important;
           }
           
+          /* Hide everything initially */
+          * {
+            color: black !important;
+            background: transparent !important;
+          }
+          
+          body > * {
+            display: none !important;
+          }
+          
+          /* Show only print container hierarchy */
+          body,
+          #root,
+          [role="dialog"],
           .print-container,
           .print-container * {
-            visibility: visible;
+            display: block !important;
+            visibility: visible !important;
           }
           
+          /* Ensure proper layout */
           .print-container {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            margin: 0;
-            padding: 0;
+            position: static !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100% !important;
           }
           
-          /* Hide dialog chrome */
-          [role="dialog"] > *:not(.print-container) {
-            display: none !important;
+          .packing-slip {
+            background: white !important;
           }
         }
 
