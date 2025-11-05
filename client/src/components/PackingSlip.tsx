@@ -161,7 +161,7 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
       <style>
         @page {
           size: letter portrait;
-          margin: 0.5in;
+          margin: 0.3in 0.5in;
         }
         
         * {
@@ -212,13 +212,13 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
         }
         
         .slip-section {
-          margin-bottom: 1rem;
+          margin-bottom: 0.75rem;
         }
         
         .slip-info-row {
           display: flex;
           justify-content: space-between;
-          margin-bottom: 0.5rem;
+          margin-bottom: 0.3rem;
         }
         
         .slip-label {
@@ -254,11 +254,11 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
         .slip-items-list {
           display: flex;
           flex-direction: column;
-          gap: 0.5rem;
+          gap: 0;
         }
         
         .slip-item {
-          padding: 0.5rem 0;
+          padding: 0.3rem 0;
           border-bottom: 1px solid #ddd;
         }
         
