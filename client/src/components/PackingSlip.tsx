@@ -30,15 +30,6 @@ interface PackingSlipProps {
   orders: PackingSlipOrder[];
 }
 
-// Split items across slips only for very large orders (for picker convenience)
-function paginateItems(items: any[], itemsPerPage: number = 50) {
-  const pages = [];
-  for (let i = 0; i < items.length; i += itemsPerPage) {
-    pages.push(items.slice(i, i + itemsPerPage));
-  }
-  return pages;
-}
-
 // Function to open packing slips in a new print window
 export function printPackingSlips(orders: PackingSlipOrder[]) {
   // Debug: Log order details
@@ -76,35 +67,9 @@ export function printPackingSlips(orders: PackingSlipOrder[]) {
 
 // Generate the complete HTML document for printing
 function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
-  // Build all slips across all orders and track total page count
-  const allSlips: Array<{
-    order: PackingSlipOrder;
-    pageItems: any[];
-    slipIndex: number;
-    totalSlipsInOrder: number;
-  }> = [];
-  
-  orders.forEach((order) => {
-    const pages = paginateItems(order.items);
-    console.log(`Order ${order.orderNumber}: ${order.items.length} items → ${pages.length} slips`);
-    
-    pages.forEach((pageItems, slipIndex) => {
-      allSlips.push({
-        order,
-        pageItems,
-        slipIndex,
-        totalSlipsInOrder: pages.length
-      });
-      console.log(`  Slip ${slipIndex + 1}/${pages.length}: ${pageItems.length} items`);
-    });
-  });
-  
-  const totalPages = allSlips.length;
-  console.log(`Total pages: ${totalPages}`);
-
-  // Generate HTML for each page
-  const pagesHTML = allSlips.map((slip, pageIndex) => {
-    const isLastPage = pageIndex === totalPages - 1;
+  // Generate HTML for each order (one slip per order)
+  const pagesHTML = orders.map((order, orderIndex) => {
+    const isLastPage = orderIndex === orders.length - 1;
     
     return `
       <div class="page-wrapper${isLastPage ? ' last-page' : ''}">
@@ -120,36 +85,35 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
             <div class="slip-info-row">
               <div>
                 <span class="slip-label">Order:</span>
-                <span class="slip-value">${slip.order.orderNumber}</span>
+                <span class="slip-value">${order.orderNumber}</span>
               </div>
               <div>
                 <span class="slip-label">Ship Date:</span>
-                <span class="slip-value">${slip.order.shipDate ? new Date(slip.order.shipDate).toLocaleDateString() : 'Pending'}</span>
+                <span class="slip-value">${order.shipDate ? new Date(order.shipDate).toLocaleDateString() : 'Pending'}</span>
               </div>
             </div>
-            ${slip.totalSlipsInOrder > 1 ? `<div class="slip-continuation-info">Slip ${slip.slipIndex + 1} of ${slip.totalSlipsInOrder}</div>` : ''}
           </div>
 
           <div class="slip-section">
             <div class="slip-label-header">SHIP TO:</div>
             <div class="slip-address">
-              ${slip.order.shipTo.name ? `<div>${slip.order.shipTo.name}</div>` : ''}
-              ${slip.order.shipTo.company ? `<div>${slip.order.shipTo.company}</div>` : ''}
-              ${slip.order.shipTo.street1 ? `<div>${slip.order.shipTo.street1}</div>` : ''}
-              ${slip.order.shipTo.street2 ? `<div>${slip.order.shipTo.street2}</div>` : ''}
+              ${order.shipTo.name ? `<div>${order.shipTo.name}</div>` : ''}
+              ${order.shipTo.company ? `<div>${order.shipTo.company}</div>` : ''}
+              ${order.shipTo.street1 ? `<div>${order.shipTo.street1}</div>` : ''}
+              ${order.shipTo.street2 ? `<div>${order.shipTo.street2}</div>` : ''}
               <div>
-                ${slip.order.shipTo.city ? `${slip.order.shipTo.city}, ` : ''}
-                ${slip.order.shipTo.state ? `${slip.order.shipTo.state} ` : ''}
-                ${slip.order.shipTo.postalCode || ''}
+                ${order.shipTo.city ? `${order.shipTo.city}, ` : ''}
+                ${order.shipTo.state ? `${order.shipTo.state} ` : ''}
+                ${order.shipTo.postalCode || ''}
               </div>
-              ${slip.order.shipTo.country ? `<div>${slip.order.shipTo.country}</div>` : ''}
+              ${order.shipTo.country ? `<div>${order.shipTo.country}</div>` : ''}
             </div>
           </div>
 
           <div class="slip-section slip-items">
             <div class="slip-label-header">ITEMS:</div>
             <div class="slip-items-list">
-              ${slip.pageItems.map((item: any) => `
+              ${order.items.map((item: any) => `
                 <div class="slip-item">
                   <div class="slip-item-line1">
                     <span class="slip-sku">${item.inventoryId || '-'}</span>
@@ -168,7 +132,6 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
 
           <div class="slip-footer">
             <div class="slip-footer-left">Thank you for your order!</div>
-            <div class="slip-page-number">Page ${slip.slipIndex + 1} of ${slip.totalSlipsInOrder}</div>
           </div>
         </div>
       </div>
@@ -372,282 +335,7 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
   `;
 }
 
+// React component is not used - packing slips are generated via printPackingSlips() function
 export default function PackingSlip({ orders }: PackingSlipProps) {
-  return (
-    <div className="print-container">
-      {orders.flatMap((order) => {
-        const pages = paginateItems(order.items);
-        return pages.map((pageItems, pageIndex) => (
-          <div 
-            key={`${order.orderNumber}-page-${pageIndex}`}
-            className="packing-slip"
-          >
-            {/* Header with Logo */}
-            <div className="slip-header">
-              <img 
-                src={planetLogo} 
-                alt="PlanetBrick" 
-                className="slip-logo"
-              />
-              <div className="slip-title">
-                <h1>PACKING SLIP</h1>
-              </div>
-            </div>
-
-            {/* Order Info */}
-            <div className="slip-section">
-              <div className="slip-info-row">
-                <div>
-                  <span className="slip-label">Order:</span>
-                  <span className="slip-value">{order.orderNumber}</span>
-                </div>
-                <div>
-                  <span className="slip-label">Ship Date:</span>
-                  <span className="slip-value">
-                    {order.shipDate ? new Date(order.shipDate).toLocaleDateString() : 'Pending'}
-                  </span>
-                </div>
-              </div>
-              {pages.length > 1 && (
-                <div className="slip-page-info">
-                  Page {pageIndex + 1} of {pages.length}
-                </div>
-              )}
-            </div>
-
-            {/* Ship To Address */}
-            <div className="slip-section">
-              <div className="slip-label-header">SHIP TO:</div>
-              <div className="slip-address">
-                {order.shipTo.name && <div>{order.shipTo.name}</div>}
-                {order.shipTo.company && <div>{order.shipTo.company}</div>}
-                {order.shipTo.street1 && <div>{order.shipTo.street1}</div>}
-                {order.shipTo.street2 && <div>{order.shipTo.street2}</div>}
-                <div>
-                  {order.shipTo.city && `${order.shipTo.city}, `}
-                  {order.shipTo.state && `${order.shipTo.state} `}
-                  {order.shipTo.postalCode}
-                </div>
-                {order.shipTo.country && <div>{order.shipTo.country}</div>}
-              </div>
-            </div>
-
-            {/* Items List */}
-            <div className="slip-section slip-items">
-              <div className="slip-label-header">ITEMS:</div>
-              <div className="slip-items-list">
-                {pageItems.map((item, idx) => (
-                  <div key={idx} className="slip-item">
-                    <div className="slip-item-line1">
-                      <span className="slip-sku">{item.inventoryId || '-'}</span>
-                      <span className="slip-part-name">
-                        {item.bricklinkPartNumber || '-'}: {item.name}
-                      </span>
-                      <span className="slip-qty">Qty: {item.quantity}</span>
-                    </div>
-                    <div className="slip-item-line2">
-                      {item.colorName && <span>{item.colorName}</span>}
-                      {item.colorName && item.condition && <span> • </span>}
-                      {item.condition && <span>{item.condition}</span>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="slip-footer">
-              <div>Thank you for your order!</div>
-              <div className="slip-company">PlanetBrick.com</div>
-              <div className="slip-company-address">PO Box 202, Lanesboro, MN 55949</div>
-            </div>
-          </div>
-        ));
-      })}
-
-      <style>{`
-        @media print {
-          @page {
-            size: letter portrait;
-            margin: 0.5in;
-          }
-          
-          body * {
-            visibility: hidden;
-          }
-          
-          .print-container,
-          .print-container * {
-            visibility: visible;
-          }
-          
-          .print-container {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-          }
-          
-          .packing-slip {
-            page-break-after: always;
-            page-break-inside: avoid;
-            width: 100%;
-            background: white;
-            color: black;
-            border: none;
-            margin: 0;
-            padding: 0;
-          }
-          
-          .packing-slip:last-child {
-            page-break-after: auto;
-          }
-        }
-
-        .packing-slip {
-          width: 8in;
-          max-width: 100%;
-          min-height: 10in;
-          padding: 0.75in;
-          background: white;
-          color: black;
-          font-family: Arial, sans-serif;
-          box-sizing: border-box;
-          display: flex;
-          flex-direction: column;
-          border: 1px solid #ddd;
-          margin: 0 auto 1rem auto;
-        }
-
-        .slip-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 0.15in;
-          padding-bottom: 0.1in;
-          border-bottom: 2px solid #000;
-        }
-
-        .slip-logo {
-          height: 0.4in;
-          width: auto;
-        }
-
-        .slip-title h1 {
-          margin: 0;
-          font-size: 16pt;
-          font-weight: bold;
-        }
-
-        .slip-section {
-          margin-bottom: 0.12in;
-        }
-
-        .slip-info-row {
-          display: flex;
-          justify-content: space-between;
-          font-size: 10pt;
-        }
-
-        .slip-page-info {
-          text-align: center;
-          font-size: 9pt;
-          color: #666;
-          margin-top: 0.04in;
-        }
-
-        .slip-label {
-          font-weight: bold;
-          margin-right: 0.1in;
-        }
-
-        .slip-value {
-          font-family: 'Courier New', monospace;
-        }
-
-        .slip-label-header {
-          font-weight: bold;
-          font-size: 10pt;
-          margin-bottom: 0.05in;
-        }
-
-        .slip-address {
-          font-size: 9pt;
-          line-height: 1.3;
-        }
-
-        .slip-items {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-        }
-
-        .slip-items-list {
-          flex: 1;
-          overflow: hidden;
-        }
-
-        .slip-item {
-          margin-bottom: 0.08in;
-          padding-bottom: 0.06in;
-          border-bottom: 1px solid #ddd;
-        }
-
-        .slip-item:last-child {
-          border-bottom: none;
-        }
-
-        .slip-item-line1 {
-          display: flex;
-          align-items: baseline;
-          gap: 0.08in;
-          font-size: 8pt;
-          margin-bottom: 0.03in;
-        }
-
-        .slip-sku {
-          font-family: 'Courier New', monospace;
-          font-weight: bold;
-          min-width: 0.6in;
-          font-size: 8pt;
-        }
-
-        .slip-part-name {
-          flex: 1;
-          font-size: 8pt;
-        }
-
-        .slip-qty {
-          font-weight: bold;
-          white-space: nowrap;
-          font-size: 8pt;
-        }
-
-        .slip-item-line2 {
-          font-size: 7pt;
-          color: #666;
-          padding-left: 0.68in;
-        }
-
-        .slip-footer {
-          margin-top: auto;
-          padding-top: 0.1in;
-          border-top: 1px solid #ddd;
-          text-align: center;
-          font-size: 8pt;
-          line-height: 1.4;
-        }
-
-        .slip-company {
-          font-weight: bold;
-          font-size: 9pt;
-          margin-top: 0.03in;
-        }
-
-        .slip-company-address {
-          color: #666;
-        }
-      `}</style>
-    </div>
-  );
+  return null;
 }
