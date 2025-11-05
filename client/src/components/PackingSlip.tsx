@@ -41,6 +41,11 @@ function paginateItems(items: any[], itemsPerPage: number = 30) {
 
 // Function to open packing slips in a new print window
 export function printPackingSlips(orders: PackingSlipOrder[]) {
+  // Debug: Log order details
+  orders.forEach((order, idx) => {
+    console.log(`Order ${idx + 1}: ${order.orderNumber} with ${order.items.length} items`);
+  });
+  
   const printWindow = window.open('', '_blank', 'width=800,height=600');
   if (!printWindow) {
     alert('Please allow popups to print packing slips');
@@ -74,6 +79,10 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
   // Create all slips first to determine total count
   const allSlips = orders.flatMap((order, orderIndex) => {
     const pages = paginateItems(order.items);
+    console.log(`Order ${order.orderNumber}: ${order.items.length} items → ${pages.length} pages (slips)`);
+    pages.forEach((page, idx) => {
+      console.log(`  Slip ${idx + 1}: ${page.length} items`);
+    });
     return pages.map((pageItems, pageIndex) => ({
       order,
       pageItems,
@@ -88,6 +97,8 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
   for (let i = 0; i < allSlips.length; i += 2) {
     pages.push(allSlips.slice(i, i + 2));
   }
+  
+  console.log(`Total slips: ${allSlips.length}, Total physical pages: ${pages.length}`);
 
   const pagesHTML = pages.map((pageSlips, pageIndex) => {
     const isLastPage = pageIndex === pages.length - 1;

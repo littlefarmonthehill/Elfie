@@ -1,0 +1,56 @@
+11-04 20:59:53
+2:59:53 AM [express] GET /api/picklist/stats 304 in 3009ms :: {"toPull":0,"toReshelve":0}
+11-04 20:59:54
+> rest-express@1.0.0 start
+11-04 20:59:54
+> NODE_ENV=production node dist/index.js
+11-04 20:59:55
+2:59:55 AM [express] GET /api/settings 304 in 90ms :: {"id":"default","aiEnabled":true,"openaiApiKey…
+11-04 20:59:55
+2:59:55 AM [express] GET /api/fulfillment 304 in 176ms :: {"orders":[{"id":"378581627","orderNumber"…
+11-04 20:59:55
+2:59:55 AM [express] GET /api/openai/models 304 in 65ms :: {"models":[{"id":"gpt-4o","name":"GPT-4o"…
+11-04 20:59:55
+2:59:55 AM [express] serving on port 5000
+11-04 20:59:55
+🕒 Order sync scheduler initialized
+11-04 20:59:55
+📦 Inventory sync scheduler initialized
+11-04 20:59:55
+🕒 Forum sync scheduler initialized
+11-04 20:59:55
+🤖 Embedding worker started
+11-04 20:59:55
+📡 Running scheduled BrickLink forum sync...
+11-04 20:59:55
+📡 Starting BrickLink forum sync...
+11-04 20:59:55
+🗑️ Purging forum posts with no replies since 5/5/2025...
+11-04 20:59:55
+✅ No stale posts to purge
+11-04 20:59:55
+🔍 Scraping BrickLink forum list...
+11-04 20:59:56
+✅ Scraped 100 forum posts
+11-04 20:59:59
+2:59:59 AM [express] POST /api/fulfillment/packing-slip 200 in 148ms :: [{"orderNumber":"BL.7473435"…
+11-04 21:00:33
+✅ Generated 1 forum embeddings
+11-04 21:00:33
+✅ BrickLink forum sync complete
+11-04 21:00:42
+3:00:42 AM [express] POST /api/fulfillment/packing-slip 200 in 152ms :: [{"orderNumber":"BL.7492231"…
+11-04 21:00:53
+3:00:53 AM [express] POST /api/fulfillment/packing-slip 200 in 153ms :: [{"orderNumber":"BL.7492231"…
+11-04 21:01:04
+3:01:04 AM [express] POST /api/fulfillment/packing-slip 200 in 153ms :: [{"orderNumber":"BL.7492231"…
+11-04 21:01:18
+3:01:18 AM [express] POST /api/fulfillment/packing-slip 200 in 166ms :: [{"orderNumber":"BL.7492231"…
+11-04 21:01:49
+3:01:49 AM [express] POST /api/fulfillment/packing-slip 200 in 152ms :: [{"orderNumber":"BL.7492231"…
+11-04 21:02:00
+3:02:00 AM [express] POST /api/fulfillment/packing-slip 200 in 307ms :: [{"orderNumber":"BL.6858452"…
+11-04 21:02:19
+3:02:19 AM [express] POST /api/fulfillment/packing-slip 200 in 171ms :: [{"orderNumber":"BL.6858452"…
+11-04 21:03:06
+3:03:06 AM [express] POST /api/fulfillment/packing-slip 200 in 280ms :: [{"orderNumber":"BL.7492231"…
