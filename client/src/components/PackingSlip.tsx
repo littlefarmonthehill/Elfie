@@ -30,8 +30,8 @@ interface PackingSlipProps {
   orders: PackingSlipOrder[];
 }
 
-// Split items across pages (max 18 items per slip to fit in 5.35in height)
-function paginateItems(items: any[], itemsPerPage: number = 18) {
+// Split items across slips (reasonable limit for readability and picking)
+function paginateItems(items: any[], itemsPerPage: number = 25) {
   const pages = [];
   for (let i = 0; i < items.length; i += itemsPerPage) {
     pages.push(items.slice(i, i + itemsPerPage));
@@ -218,12 +218,10 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
           page-break-inside: avoid;
           break-inside: avoid;
           width: 100%;
-          height: 5.35in;
           padding: 0.15in 0.3in;
           display: flex;
           flex-direction: column;
-          overflow: hidden;
-          margin-bottom: 0.1in;
+          margin-bottom: 0.25in;
         }
         
         .packing-slip:last-child {
