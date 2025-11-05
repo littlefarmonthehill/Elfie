@@ -139,35 +139,42 @@ export default function PackingSlip({ orders }: PackingSlipProps) {
             margin: 0.25in;
           }
           
-          html, body {
+          /* Force white background on everything */
+          * {
             background: white !important;
+            color: black !important;
+          }
+          
+          html, body {
             margin: 0 !important;
             padding: 0 !important;
             width: 100% !important;
             height: 100% !important;
           }
           
-          /* Hide dialog and overlay elements */
-          body > *:not(#root) {
-            display: none !important;
-          }
-          
-          [data-radix-portal],
-          [data-overlay],
-          [role="dialog"] > button {
+          /* Hide everything except print container */
+          body > *,
+          #root > *,
+          [role="dialog"] > * {
             display: none !important;
           }
           
           /* Show only the print container */
-          .print-container {
+          body,
+          #root,
+          [role="dialog"],
+          .print-container,
+          .print-container * {
             display: block !important;
+          }
+          
+          .print-container {
             column-count: 2 !important;
             column-gap: 0 !important;
             width: 100% !important;
-            height: 100% !important;
+            height: auto !important;
             margin: 0 !important;
             padding: 0 !important;
-            background: white !important;
           }
           
           .packing-slip {
@@ -175,27 +182,22 @@ export default function PackingSlip({ orders }: PackingSlipProps) {
             page-break-inside: avoid !important;
             width: 5.25in !important;
             padding: 0.25in !important;
-            background: white !important;
-            color: black !important;
-          }
-          
-          /* Force black text on white background */
-          .packing-slip,
-          .packing-slip * {
-            color: black !important;
-            background: white !important;
           }
           
           .slip-header {
-            border-bottom-color: #000 !important;
+            border-bottom: 2px solid #000 !important;
           }
           
           .slip-footer {
-            border-top-color: #ddd !important;
+            border-top: 1px solid #ddd !important;
           }
           
           .slip-item {
-            border-bottom-color: #ddd !important;
+            border-bottom: 1px solid #ddd !important;
+          }
+          
+          .slip-item:last-child {
+            border-bottom: none !important;
           }
         }
 
