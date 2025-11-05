@@ -30,8 +30,8 @@ interface PackingSlipProps {
   orders: PackingSlipOrder[];
 }
 
-// Split items across pages (max 20 items per half-page for 5.5x8)
-function paginateItems(items: any[], itemsPerPage: number = 20) {
+// Split items across pages (max 30 items per full page)
+function paginateItems(items: any[], itemsPerPage: number = 30) {
   const pages = [];
   for (let i = 0; i < items.length; i += itemsPerPage) {
     pages.push(items.slice(i, i + itemsPerPage));
@@ -135,53 +135,55 @@ export default function PackingSlip({ orders }: PackingSlipProps) {
       <style>{`
         @media print {
           @page {
-            size: 11in 8.5in landscape;
-            margin: 0.25in;
-          }
-          
-          /* Force white background on everything */
-          * {
-            background: white !important;
-            color: black !important;
+            size: 8.5in 11in;
+            margin: 0.5in;
           }
           
           html, body {
+            background: white !important;
             margin: 0 !important;
             padding: 0 !important;
-            width: 100% !important;
-            height: 100% !important;
           }
           
-          /* Hide everything except print container */
-          body > *,
-          #root > *,
-          [role="dialog"] > * {
+          /* Hide everything except packing slips */
+          body > *:not(#root) {
             display: none !important;
           }
           
-          /* Show only the print container */
-          body,
-          #root,
-          [role="dialog"],
-          .print-container,
-          .print-container * {
-            display: block !important;
+          #root > *:not([role="dialog"]) {
+            display: none !important;
           }
           
+          [role="dialog"] > *:not(.print-container) {
+            display: none !important;
+          }
+          
+          /* Force display and proper styling */
           .print-container {
-            column-count: 2 !important;
-            column-gap: 0 !important;
+            display: block !important;
             width: 100% !important;
-            height: auto !important;
             margin: 0 !important;
             padding: 0 !important;
           }
           
           .packing-slip {
-            break-inside: avoid !important;
+            page-break-after: always !important;
             page-break-inside: avoid !important;
-            width: 5.25in !important;
-            padding: 0.25in !important;
+            width: 7.5in !important;
+            min-height: 10in !important;
+            padding: 0.5in !important;
+            background: white !important;
+            color: black !important;
+            margin: 0 auto !important;
+          }
+          
+          .packing-slip:last-child {
+            page-break-after: avoid !important;
+          }
+          
+          /* Ensure proper text colors */
+          .packing-slip * {
+            color: black !important;
           }
           
           .slip-header {
@@ -202,15 +204,17 @@ export default function PackingSlip({ orders }: PackingSlipProps) {
         }
 
         .packing-slip {
-          width: 5.5in;
-          min-height: 7.5in;
-          padding: 0.25in;
+          width: 7.5in;
+          min-height: 10in;
+          padding: 0.5in;
           background: white;
           color: black;
           font-family: Arial, sans-serif;
           box-sizing: border-box;
           display: flex;
           flex-direction: column;
+          border: 1px solid #ddd;
+          margin-bottom: 0.5in;
         }
 
         .slip-header {
