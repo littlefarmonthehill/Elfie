@@ -179,12 +179,18 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
         .packing-slip {
           page-break-after: always;
           page-break-inside: avoid;
+          page-break-before: auto;
+          break-after: page;
+          break-inside: avoid;
+          break-before: auto;
           width: 100%;
+          height: 100%;
           padding: 0;
         }
         
         .packing-slip.last-slip {
-          page-break-after: avoid;
+          page-break-after: auto;
+          break-after: auto;
         }
         
         .slip-header {
