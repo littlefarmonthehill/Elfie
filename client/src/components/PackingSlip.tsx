@@ -293,6 +293,8 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
         .slip-item {
           padding: 0.25rem 0;
           border-bottom: 1px solid #ddd;
+          page-break-inside: avoid;
+          break-inside: avoid;
         }
         
         .slip-item:last-child {
@@ -308,7 +310,8 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
         
         .slip-sku {
           font-weight: bold;
-          min-width: 75px;
+          width: 80px;
+          flex-shrink: 0;
         }
         
         .slip-part-name {
@@ -323,7 +326,7 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
         .slip-item-line2 {
           font-size: 10px;
           color: #666;
-          padding-left: 82px;
+          padding-left: 92px;
         }
         
         .slip-footer {
