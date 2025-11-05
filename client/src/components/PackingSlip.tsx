@@ -226,24 +226,24 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding-bottom: 0.15rem;
+          padding-bottom: 0.3rem;
           border-bottom: 2px solid #000;
-          margin-bottom: 0.25rem;
+          margin-bottom: 0.5rem;
         }
         
         .slip-logo {
-          height: 35px;
+          height: 60px;
           width: auto;
         }
         
         .slip-title h1 {
-          font-size: 16px;
+          font-size: 18px;
           font-weight: bold;
           margin: 0;
         }
         
         .slip-section {
-          margin-bottom: 0.25rem;
+          margin-bottom: 0.5rem;
         }
         
         .slip-info-row {
