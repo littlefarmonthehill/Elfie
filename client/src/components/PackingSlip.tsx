@@ -147,15 +147,15 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
       <style>
         @page {
           size: letter portrait;
-          margin: 0;
+          margin: 0.5in 0.5in 0.75in 0.5in;
         }
         
         @media print {
-          @page {
+          html, body {
             margin: 0;
-          }
-          body {
-            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
           }
         }
         
@@ -169,6 +169,7 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
           background: white;
           color: black;
           font-family: Arial, sans-serif;
+          counter-reset: order-counter;
         }
         
         .page-wrapper {
@@ -178,7 +179,9 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
           break-inside: avoid;
           display: block;
           width: 100%;
-          padding: 0.2in 0.3in;
+          counter-increment: order-counter;
+          counter-reset: page-counter;
+          position: relative;
         }
         
         .page-wrapper.last-page {
@@ -192,6 +195,8 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
           break-inside: avoid;
           width: 100%;
           display: block;
+          position: relative;
+          padding-bottom: 1.5rem;
         }
         
         .slip-header {
@@ -315,6 +320,7 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
           align-items: center;
           font-size: 10px;
           margin-top: 0.5rem;
+          page-break-inside: avoid;
         }
         
         .slip-footer-left {
@@ -325,6 +331,17 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
         .slip-page-number {
           font-size: 10px;
           color: #666;
+        }
+        
+        @media print {
+          .page-wrapper::after {
+            content: counter(page-counter);
+            position: fixed;
+            bottom: 0.25in;
+            right: 0.5in;
+            font-size: 10px;
+            color: #666;
+          }
         }
       </style>
     </head>
