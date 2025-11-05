@@ -285,16 +285,17 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
         }
         
         .slip-items-list {
-          display: flex;
-          flex-direction: column;
-          gap: 0;
+          display: block;
+          width: 100%;
         }
         
         .slip-item {
+          display: block;
+          width: 100%;
           padding: 0.25rem 0;
           border-bottom: 1px solid #ddd;
-          page-break-inside: avoid;
-          break-inside: avoid;
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
         }
         
         .slip-item:last-child {
@@ -306,6 +307,8 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
           gap: 0.75rem;
           margin-bottom: 0.15rem;
           font-size: 11px;
+          page-break-inside: avoid;
+          break-inside: avoid;
         }
         
         .slip-sku {
@@ -324,9 +327,12 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
         }
         
         .slip-item-line2 {
+          display: block;
           font-size: 10px;
           color: #666;
           padding-left: 92px;
+          page-break-inside: avoid;
+          break-inside: avoid;
         }
         
         .slip-footer {
