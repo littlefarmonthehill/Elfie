@@ -30,8 +30,8 @@ interface PackingSlipProps {
   orders: PackingSlipOrder[];
 }
 
-// Split items across pages (max 30 items per full page)
-function paginateItems(items: any[], itemsPerPage: number = 30) {
+// Split items across pages (max 18 items per slip to fit in 5.35in height)
+function paginateItems(items: any[], itemsPerPage: number = 18) {
   const pages = [];
   for (let i = 0; i < items.length; i += itemsPerPage) {
     pages.push(items.slice(i, i + itemsPerPage));

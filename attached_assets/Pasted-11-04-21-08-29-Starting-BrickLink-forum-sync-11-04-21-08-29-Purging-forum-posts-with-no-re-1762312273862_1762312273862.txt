@@ -1,0 +1,56 @@
+11-04 21:08:29
+📡 Starting BrickLink forum sync...
+11-04 21:08:29
+🗑️ Purging forum posts with no replies since 5/5/2025...
+11-04 21:08:29
+✅ No stale posts to purge
+11-04 21:08:29
+🔍 Scraping BrickLink forum list...
+11-04 21:08:30
+✅ Scraped 100 forum posts
+11-04 21:08:47
+3:08:47 AM [express] GET /api/auth/user 304 in 64ms :: {"id":"5219be32-12fb-46c6-bd09-6f5f0fa9459f",…
+11-04 21:08:47
+📊 Orders API called with range: none
+11-04 21:08:48
+📊 Orders API called with range: none
+11-04 21:08:48
+3:08:48 AM [express] GET /api/dashboard/stats 304 in 169ms :: {"totalOrders":8401,"totalInventoryIte…
+11-04 21:08:48
+3:08:48 AM [express] GET /api/sync-issues 304 in 254ms :: {"success":true,"issues":[],"count":0}
+11-04 21:08:48
+📊 Fetched 8401 orders (dateFilter: none)
+11-04 21:08:48
+3:08:48 AM [express] GET /api/priceomatic/insights 304 in 449ms :: {"success":true,"data":{"tooHigh"…
+11-04 21:08:48
+📊 Fetched 8401 orders (dateFilter: none)
+11-04 21:08:49
+📊 Sending 8401 orders, response size: 32.73 MB
+11-04 21:08:51
+📊 Sending 8401 orders, response size: 32.73 MB
+11-04 21:08:51
+3:08:51 AM [express] GET /api/orders 200 in 3691ms :: [{"id":"754390016","orderNumber":"BL.23954021"…
+11-04 21:08:52
+3:08:52 AM [express] GET /api/orders 200 in 4060ms :: [{"id":"754390016","orderNumber":"BL.23954021"…
+11-04 21:08:52
+3:08:52 AM [express] GET /api/fulfillment/stats 304 in 407ms :: {"unfulfilled":13}
+11-04 21:08:52
+3:08:52 AM [express] GET /api/picklist/stats 304 in 450ms :: {"toPull":0,"toReshelve":0}
+11-04 21:08:52
+3:08:52 AM [express] GET /api/orders/dashboard 304 in 463ms :: {"pending":[{"id":"672790895","orderN…
+11-04 21:08:54
+3:08:54 AM [express] GET /api/settings 304 in 86ms :: {"id":"default","aiEnabled":true,"openaiApiKey…
+11-04 21:08:54
+3:08:54 AM [express] GET /api/fulfillment 304 in 164ms :: {"orders":[{"id":"378581627","orderNumber"…
+11-04 21:08:54
+3:08:54 AM [express] GET /api/openai/models 304 in 61ms :: {"models":[{"id":"gpt-4o","name":"GPT-4o"…
+11-04 21:08:58
+3:08:58 AM [express] POST /api/fulfillment/packing-slip 200 in 143ms :: [{"orderNumber":"BL.7473435"…
+11-04 21:08:58
+✅ BrickLink forum sync complete
+11-04 21:08:58
+✅ Forum sync completed: 0 new posts, 0 embeddings, 0 purged
+11-04 21:09:36
+3:09:36 AM [express] POST /api/fulfillment/packing-slip 200 in 291ms :: [{"orderNumber":"BL.7492231"…
+11-04 21:09:40
+system: received signal terminated
