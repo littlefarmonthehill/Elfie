@@ -161,7 +161,7 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
       <style>
         @page {
           size: letter portrait;
-          margin: 0.1in;
+          margin: 0;
         }
         
         * {
@@ -184,7 +184,7 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
           break-inside: avoid;
           break-before: auto;
           width: 100%;
-          padding: 0.15in 0.3in;
+          padding: 0.2in 0.4in;
         }
         
         .packing-slip.last-slip {
