@@ -30,8 +30,8 @@ interface PackingSlipProps {
   orders: PackingSlipOrder[];
 }
 
-// Split items across slips only for very large orders (for picker convenience)
-function paginateItems(items: any[], itemsPerPage: number = 50) {
+// Split items across slips (30 items fits well with larger logo and spacing)
+function paginateItems(items: any[], itemsPerPage: number = 30) {
   const pages = [];
   for (let i = 0; i < items.length; i += itemsPerPage) {
     pages.push(items.slice(i, i + itemsPerPage));
@@ -167,6 +167,7 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
           </div>
 
           <div class="slip-footer">
+            <div class="slip-footer-left">Thank you for your order!</div>
             <div class="slip-page-number">Page ${slip.slipIndex + 1} of ${slip.totalSlipsInOrder}</div>
           </div>
         </div>
@@ -184,6 +185,15 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
         @page {
           size: letter portrait;
           margin: 0;
+        }
+        
+        @media print {
+          @page {
+            margin: 0;
+          }
+          body {
+            margin: 0;
+          }
         }
         
         * {
@@ -337,9 +347,16 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
         .slip-footer {
           padding-top: 0.3rem;
           border-top: 1px solid #ddd;
-          text-align: right;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
           font-size: 10px;
           margin-top: 0.5rem;
+        }
+        
+        .slip-footer-left {
+          font-size: 10px;
+          color: #333;
         }
         
         .slip-page-number {
