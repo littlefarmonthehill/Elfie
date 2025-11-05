@@ -161,7 +161,7 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
       <style>
         @page {
           size: letter portrait;
-          margin: 0.3in 0.5in;
+          margin: 0.15in 0.4in;
         }
         
         * {
