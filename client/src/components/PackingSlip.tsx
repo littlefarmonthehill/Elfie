@@ -195,8 +195,9 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
           break-inside: avoid;
           display: flex;
           flex-direction: column;
-          gap: 0.15in;
+          gap: 0.1in;
           width: 100%;
+          padding: 0.1in 0.3in;
         }
         
         .page-wrapper.last-page {
@@ -208,40 +209,40 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
           page-break-inside: avoid;
           break-inside: avoid;
           width: 100%;
-          min-height: 5.3in;
-          max-height: 5.3in;
-          padding: 0.2in 0.4in;
+          height: 5.35in;
+          padding: 0.15in 0.3in;
           display: flex;
           flex-direction: column;
+          overflow: hidden;
         }
         
         .slip-header {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding-bottom: 0.5rem;
+          padding-bottom: 0.3rem;
           border-bottom: 2px solid #000;
-          margin-bottom: 1rem;
+          margin-bottom: 0.5rem;
         }
         
         .slip-logo {
-          height: 60px;
+          height: 50px;
           width: auto;
         }
         
         .slip-title h1 {
-          font-size: 24px;
+          font-size: 20px;
           font-weight: bold;
         }
         
         .slip-section {
-          margin-bottom: 0.75rem;
+          margin-bottom: 0.5rem;
         }
         
         .slip-info-row {
           display: flex;
           justify-content: space-between;
-          margin-bottom: 0.3rem;
+          margin-bottom: 0.2rem;
         }
         
         .slip-label {
@@ -317,15 +318,15 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
         }
         
         .slip-footer {
-          margin-top: 2rem;
-          padding-top: 1rem;
+          margin-top: auto;
+          padding-top: 0.5rem;
           border-top: 1px solid #ddd;
           text-align: center;
-          font-size: 12px;
+          font-size: 11px;
         }
         
         .slip-footer-text {
-          margin: 0.25rem 0;
+          margin: 0.15rem 0;
         }
       </style>
     </head>
