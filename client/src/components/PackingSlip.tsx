@@ -30,8 +30,8 @@ interface PackingSlipProps {
   orders: PackingSlipOrder[];
 }
 
-// Split items across slips (30 items fits well with larger logo and spacing)
-function paginateItems(items: any[], itemsPerPage: number = 30) {
+// Split items across slips only for very large orders (for picker convenience)
+function paginateItems(items: any[], itemsPerPage: number = 50) {
   const pages = [];
   for (let i = 0; i < items.length; i += itemsPerPage) {
     pages.push(items.slice(i, i + itemsPerPage));
