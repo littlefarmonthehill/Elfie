@@ -683,11 +683,11 @@ export default function FulfillmentTool() {
 
       {/* Packing Slip Dialog */}
       <Dialog open={showPackingSlipDialog} onOpenChange={setShowPackingSlipDialog}>
-        <DialogContent className="max-w-[90vw] w-fit max-h-[90vh] overflow-y-auto print:max-w-none print:max-h-none">
-          <DialogHeader className="print:hidden sticky top-0 bg-background z-10 pb-4 mb-4 border-b">
-            <DialogTitle>Packing Slips</DialogTitle>
+        <DialogContent className="max-w-5xl max-h-[95vh] flex flex-col print:max-w-none print:max-h-none">
+          <DialogHeader className="print:hidden flex-shrink-0 pb-4 border-b">
+            <DialogTitle>Packing Slips - Ready to Print</DialogTitle>
           </DialogHeader>
-          <div className="print:p-0">
+          <div className="flex-1 overflow-y-auto print:overflow-visible py-4">
             <PackingSlip orders={packingSlipData} />
           </div>
         </DialogContent>

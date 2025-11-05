@@ -135,56 +135,47 @@ export default function PackingSlip({ orders }: PackingSlipProps) {
       <style>{`
         @media print {
           @page {
-            size: 8.5in 11in;
+            size: letter portrait;
             margin: 0.5in;
           }
           
-          /* Reset everything */
-          * {
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
+          body * {
+            visibility: hidden;
           }
           
-          html, body {
-            background: white !important;
-            margin: 0 !important;
-            padding: 0 !important;
-          }
-          
-          /* Hide non-print elements */
-          body > *:not(#root),
-          header,
-          nav,
-          [role="dialog"] > button,
-          [data-dialog-overlay],
-          .print:hidden {
-            display: none !important;
+          .print-container,
+          .print-container * {
+            visibility: visible;
           }
           
           .print-container {
-            display: block !important;
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
           }
           
           .packing-slip {
             page-break-after: always;
             page-break-inside: avoid;
             width: 100%;
-            min-height: 10in;
-            padding: 0.5in;
-            background: white !important;
-            color: black !important;
-            border: none !important;
+            background: white;
+            color: black;
+            border: none;
+            margin: 0;
+            padding: 0;
           }
           
           .packing-slip:last-child {
-            page-break-after: avoid;
+            page-break-after: auto;
           }
         }
 
         .packing-slip {
-          width: 7.5in;
+          width: 8in;
+          max-width: 100%;
           min-height: 10in;
-          padding: 0.5in;
+          padding: 0.75in;
           background: white;
           color: black;
           font-family: Arial, sans-serif;
@@ -192,7 +183,7 @@ export default function PackingSlip({ orders }: PackingSlipProps) {
           display: flex;
           flex-direction: column;
           border: 1px solid #ddd;
-          margin-bottom: 0.5in;
+          margin: 0 auto 1rem auto;
         }
 
         .slip-header {
