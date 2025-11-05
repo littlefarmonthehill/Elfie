@@ -193,9 +193,7 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
           page-break-inside: avoid;
           break-after: page;
           break-inside: avoid;
-          display: flex;
-          flex-direction: column;
-          gap: 0.1in;
+          display: block;
           width: 100%;
           padding: 0.1in 0.3in;
         }
@@ -214,6 +212,11 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
           display: flex;
           flex-direction: column;
           overflow: hidden;
+          margin-bottom: 0.1in;
+        }
+        
+        .packing-slip:last-child {
+          margin-bottom: 0;
         }
         
         .slip-header {
