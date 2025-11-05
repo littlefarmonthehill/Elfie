@@ -55,17 +55,30 @@ export function printPackingSlips(orders: PackingSlipOrder[]) {
   printWindow.onload = () => {
     setTimeout(() => {
       printWindow.print();
-      printWindow.close();
+      // Don't auto-close - let user close it manually
+      // This prevents issues when print dialog is cancelled
     }, 250);
   };
 }
 
 // Generate the complete HTML document for printing
 function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
-  const slipsHTML = orders.flatMap((order) => {
+  // Create all slips first to determine total count
+  const allSlips = orders.flatMap((order, orderIndex) => {
     const pages = paginateItems(order.items);
-    return pages.map((pageItems, pageIndex) => `
-      <div class="packing-slip">
+    return pages.map((pageItems, pageIndex) => ({
+      order,
+      pageItems,
+      pageIndex,
+      totalPages: pages.length,
+      orderIndex
+    }));
+  });
+
+  const slipsHTML = allSlips.map((slip, slipIndex) => {
+    const isLastSlip = slipIndex === allSlips.length - 1;
+    return `
+      <div class="packing-slip${isLastSlip ? ' last-slip' : ''}">
         <div class="slip-header">
           <img src="${planetLogo}" alt="PlanetBrick" class="slip-logo" />
           <div class="slip-title">
@@ -77,36 +90,36 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
           <div class="slip-info-row">
             <div>
               <span class="slip-label">Order:</span>
-              <span class="slip-value">${order.orderNumber}</span>
+              <span class="slip-value">${slip.order.orderNumber}</span>
             </div>
             <div>
               <span class="slip-label">Ship Date:</span>
-              <span class="slip-value">${order.shipDate ? new Date(order.shipDate).toLocaleDateString() : 'Pending'}</span>
+              <span class="slip-value">${slip.order.shipDate ? new Date(slip.order.shipDate).toLocaleDateString() : 'Pending'}</span>
             </div>
           </div>
-          ${pages.length > 1 ? `<div class="slip-page-info">Page ${pageIndex + 1} of ${pages.length}</div>` : ''}
+          ${slip.totalPages > 1 ? `<div class="slip-page-info">Page ${slip.pageIndex + 1} of ${slip.totalPages}</div>` : ''}
         </div>
 
         <div class="slip-section">
           <div class="slip-label-header">SHIP TO:</div>
           <div class="slip-address">
-            ${order.shipTo.name ? `<div>${order.shipTo.name}</div>` : ''}
-            ${order.shipTo.company ? `<div>${order.shipTo.company}</div>` : ''}
-            ${order.shipTo.street1 ? `<div>${order.shipTo.street1}</div>` : ''}
-            ${order.shipTo.street2 ? `<div>${order.shipTo.street2}</div>` : ''}
+            ${slip.order.shipTo.name ? `<div>${slip.order.shipTo.name}</div>` : ''}
+            ${slip.order.shipTo.company ? `<div>${slip.order.shipTo.company}</div>` : ''}
+            ${slip.order.shipTo.street1 ? `<div>${slip.order.shipTo.street1}</div>` : ''}
+            ${slip.order.shipTo.street2 ? `<div>${slip.order.shipTo.street2}</div>` : ''}
             <div>
-              ${order.shipTo.city ? `${order.shipTo.city}, ` : ''}
-              ${order.shipTo.state ? `${order.shipTo.state} ` : ''}
-              ${order.shipTo.postalCode || ''}
+              ${slip.order.shipTo.city ? `${slip.order.shipTo.city}, ` : ''}
+              ${slip.order.shipTo.state ? `${slip.order.shipTo.state} ` : ''}
+              ${slip.order.shipTo.postalCode || ''}
             </div>
-            ${order.shipTo.country ? `<div>${order.shipTo.country}</div>` : ''}
+            ${slip.order.shipTo.country ? `<div>${slip.order.shipTo.country}</div>` : ''}
           </div>
         </div>
 
         <div class="slip-section slip-items">
           <div class="slip-label-header">ITEMS:</div>
           <div class="slip-items-list">
-            ${pageItems.map(item => `
+            ${slip.pageItems.map(item => `
               <div class="slip-item">
                 <div class="slip-item-line1">
                   <span class="slip-sku">${item.inventoryId || '-'}</span>
@@ -128,7 +141,7 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
           <div class="slip-footer-text">Questions? Contact us at orders@planetbrick.com</div>
         </div>
       </div>
-    `).join('');
+    `;
   }).join('');
 
   return `
@@ -163,8 +176,8 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
           padding: 0.5in 0;
         }
         
-        .packing-slip:last-child {
-          page-break-after: auto;
+        .packing-slip.last-slip {
+          page-break-after: avoid;
         }
         
         .slip-header {
