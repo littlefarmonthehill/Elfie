@@ -76,33 +76,42 @@ export function printPackingSlips(orders: PackingSlipOrder[]) {
 
 // Generate the complete HTML document for printing
 function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
-  // Create all slips first to determine total count
-  const allSlips = orders.flatMap((order, orderIndex) => {
+  // Process each order separately to keep order boundaries
+  const orderGroups = orders.map((order, orderIndex) => {
     const pages = paginateItems(order.items);
-    console.log(`Order ${order.orderNumber}: ${order.items.length} items → ${pages.length} pages (slips)`);
+    console.log(`Order ${order.orderNumber}: ${order.items.length} items → ${pages.length} slips`);
     pages.forEach((page, idx) => {
       console.log(`  Slip ${idx + 1}: ${page.length} items`);
     });
-    return pages.map((pageItems, pageIndex) => ({
+    
+    const orderSlips = pages.map((pageItems, pageIndex) => ({
       order,
       pageItems,
       pageIndex,
       totalPages: pages.length,
       orderIndex
     }));
+    
+    // Group slips within this order into pairs for 2-per-page layout
+    const slipPairs: Array<typeof orderSlips> = [];
+    for (let i = 0; i < orderSlips.length; i += 2) {
+      slipPairs.push(orderSlips.slice(i, i + 2));
+    }
+    
+    return slipPairs;
   });
-
-  // Group slips into pairs for 2-per-page layout
-  const pages: Array<typeof allSlips> = [];
-  for (let i = 0; i < allSlips.length; i += 2) {
-    pages.push(allSlips.slice(i, i + 2));
-  }
   
-  console.log(`Total slips: ${allSlips.length}, Total physical pages: ${pages.length}`);
+  console.log(`Total orders: ${orders.length}`);
 
-  const pagesHTML = pages.map((pageSlips, pageIndex) => {
-    const isLastPage = pageIndex === pages.length - 1;
-    const slipsHTML = pageSlips.map((slip) => `
+  // Flatten all order groups and generate HTML for each page-wrapper
+  const pagesHTML = orderGroups.flatMap((orderSlipPairs, orderIdx) => {
+    const isLastOrder = orderIdx === orderGroups.length - 1;
+    
+    return orderSlipPairs.map((pageSlips, pairIdx) => {
+      const isLastPairInOrder = pairIdx === orderSlipPairs.length - 1;
+      const isLastPage = isLastOrder && isLastPairInOrder;
+      
+      const slipsHTML = pageSlips.map((slip) => `
       <div class="packing-slip">
         <div class="slip-header">
           <img src="${planetLogo}" alt="PlanetBrick" class="slip-logo" />
@@ -168,11 +177,12 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
       </div>
     `).join('');
     
-    return `
-      <div class="page-wrapper${isLastPage ? ' last-page' : ''}">
-        ${slipsHTML}
-      </div>
-    `;
+      return `
+        <div class="page-wrapper${isLastPage ? ' last-page' : ''}">
+          ${slipsHTML}
+        </div>
+      `;
+    });
   }).join('');
 
   return `
