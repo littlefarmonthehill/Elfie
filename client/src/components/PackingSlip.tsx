@@ -167,8 +167,7 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
           </div>
 
           <div class="slip-footer">
-            <div class="slip-footer-text">Thank you for your order!</div>
-            <div class="slip-footer-text">Questions? Contact us at orders@planetbrick.com</div>
+            <div class="slip-page-number">Page ${slip.slipIndex + 1} of ${slip.totalSlipsInOrder}</div>
           </div>
         </div>
       </div>
@@ -338,13 +337,14 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
         .slip-footer {
           padding-top: 0.3rem;
           border-top: 1px solid #ddd;
-          text-align: center;
+          text-align: right;
           font-size: 10px;
           margin-top: 0.5rem;
         }
         
-        .slip-footer-text {
-          margin: 0.1rem 0;
+        .slip-page-number {
+          font-size: 10px;
+          color: #666;
         }
       </style>
     </head>
