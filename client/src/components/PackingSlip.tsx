@@ -39,6 +39,255 @@ function paginateItems(items: any[], itemsPerPage: number = 30) {
   return pages;
 }
 
+// Function to open packing slips in a new print window
+export function printPackingSlips(orders: PackingSlipOrder[]) {
+  const printWindow = window.open('', '_blank', 'width=800,height=600');
+  if (!printWindow) {
+    alert('Please allow popups to print packing slips');
+    return;
+  }
+
+  const content = generatePackingSlipHTML(orders);
+  printWindow.document.write(content);
+  printWindow.document.close();
+  
+  // Wait for images to load, then print
+  printWindow.onload = () => {
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 250);
+  };
+}
+
+// Generate the complete HTML document for printing
+function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
+  const slipsHTML = orders.flatMap((order) => {
+    const pages = paginateItems(order.items);
+    return pages.map((pageItems, pageIndex) => `
+      <div class="packing-slip">
+        <div class="slip-header">
+          <img src="${planetLogo}" alt="PlanetBrick" class="slip-logo" />
+          <div class="slip-title">
+            <h1>PACKING SLIP</h1>
+          </div>
+        </div>
+
+        <div class="slip-section">
+          <div class="slip-info-row">
+            <div>
+              <span class="slip-label">Order:</span>
+              <span class="slip-value">${order.orderNumber}</span>
+            </div>
+            <div>
+              <span class="slip-label">Ship Date:</span>
+              <span class="slip-value">${order.shipDate ? new Date(order.shipDate).toLocaleDateString() : 'Pending'}</span>
+            </div>
+          </div>
+          ${pages.length > 1 ? `<div class="slip-page-info">Page ${pageIndex + 1} of ${pages.length}</div>` : ''}
+        </div>
+
+        <div class="slip-section">
+          <div class="slip-label-header">SHIP TO:</div>
+          <div class="slip-address">
+            ${order.shipTo.name ? `<div>${order.shipTo.name}</div>` : ''}
+            ${order.shipTo.company ? `<div>${order.shipTo.company}</div>` : ''}
+            ${order.shipTo.street1 ? `<div>${order.shipTo.street1}</div>` : ''}
+            ${order.shipTo.street2 ? `<div>${order.shipTo.street2}</div>` : ''}
+            <div>
+              ${order.shipTo.city ? `${order.shipTo.city}, ` : ''}
+              ${order.shipTo.state ? `${order.shipTo.state} ` : ''}
+              ${order.shipTo.postalCode || ''}
+            </div>
+            ${order.shipTo.country ? `<div>${order.shipTo.country}</div>` : ''}
+          </div>
+        </div>
+
+        <div class="slip-section slip-items">
+          <div class="slip-label-header">ITEMS:</div>
+          <div class="slip-items-list">
+            ${pageItems.map(item => `
+              <div class="slip-item">
+                <div class="slip-item-line1">
+                  <span class="slip-sku">${item.inventoryId || '-'}</span>
+                  <span class="slip-part-name">${item.bricklinkPartNumber || '-'}: ${item.name}</span>
+                  <span class="slip-qty">Qty: ${item.quantity}</span>
+                </div>
+                <div class="slip-item-line2">
+                  ${item.colorName ? `<span>${item.colorName}</span>` : ''}
+                  ${item.colorName && item.condition ? '<span> • </span>' : ''}
+                  ${item.condition ? `<span>${item.condition}</span>` : ''}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <div class="slip-footer">
+          <div class="slip-footer-text">Thank you for your order!</div>
+          <div class="slip-footer-text">Questions? Contact us at orders@planetbrick.com</div>
+        </div>
+      </div>
+    `).join('');
+  }).join('');
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>Packing Slips</title>
+      <style>
+        @page {
+          size: letter portrait;
+          margin: 0.5in;
+        }
+        
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+        }
+        
+        body {
+          background: white;
+          color: black;
+          font-family: Arial, sans-serif;
+        }
+        
+        .packing-slip {
+          page-break-after: always;
+          page-break-inside: avoid;
+          width: 100%;
+          min-height: 10in;
+          padding: 0.5in 0;
+        }
+        
+        .packing-slip:last-child {
+          page-break-after: auto;
+        }
+        
+        .slip-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding-bottom: 0.5rem;
+          border-bottom: 2px solid #000;
+          margin-bottom: 1rem;
+        }
+        
+        .slip-logo {
+          height: 60px;
+          width: auto;
+        }
+        
+        .slip-title h1 {
+          font-size: 24px;
+          font-weight: bold;
+        }
+        
+        .slip-section {
+          margin-bottom: 1rem;
+        }
+        
+        .slip-info-row {
+          display: flex;
+          justify-content: space-between;
+          margin-bottom: 0.5rem;
+        }
+        
+        .slip-label {
+          font-weight: bold;
+          margin-right: 0.5rem;
+        }
+        
+        .slip-value {
+          font-weight: normal;
+        }
+        
+        .slip-page-info {
+          font-size: 12px;
+          color: #666;
+          text-align: right;
+        }
+        
+        .slip-label-header {
+          font-weight: bold;
+          font-size: 14px;
+          margin-bottom: 0.5rem;
+        }
+        
+        .slip-address {
+          font-size: 14px;
+          line-height: 1.5;
+        }
+        
+        .slip-items {
+          flex: 1;
+        }
+        
+        .slip-items-list {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+        
+        .slip-item {
+          padding: 0.5rem 0;
+          border-bottom: 1px solid #ddd;
+        }
+        
+        .slip-item:last-child {
+          border-bottom: none;
+        }
+        
+        .slip-item-line1 {
+          display: flex;
+          gap: 1rem;
+          margin-bottom: 0.25rem;
+          font-size: 13px;
+        }
+        
+        .slip-sku {
+          font-weight: bold;
+          min-width: 80px;
+        }
+        
+        .slip-part-name {
+          flex: 1;
+        }
+        
+        .slip-qty {
+          font-weight: bold;
+          white-space: nowrap;
+        }
+        
+        .slip-item-line2 {
+          font-size: 11px;
+          color: #666;
+          padding-left: 96px;
+        }
+        
+        .slip-footer {
+          margin-top: 2rem;
+          padding-top: 1rem;
+          border-top: 1px solid #ddd;
+          text-align: center;
+          font-size: 12px;
+        }
+        
+        .slip-footer-text {
+          margin: 0.25rem 0;
+        }
+      </style>
+    </head>
+    <body>
+      ${slipsHTML}
+    </body>
+    </html>
+  `;
+}
+
 export default function PackingSlip({ orders }: PackingSlipProps) {
   return (
     <div className="print-container">

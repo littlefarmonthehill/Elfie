@@ -16,7 +16,7 @@ import {
   DropdownMenuSeparator 
 } from "@/components/ui/dropdown-menu";
 import { Truck, Loader2, Printer, CheckSquare, Square, Package, AlertTriangle, ChevronDown, Tag, MoreVertical, Scissors } from "lucide-react";
-import PackingSlip from "./PackingSlip";
+import { printPackingSlips } from "./PackingSlip";
 import { useToast } from "@/hooks/use-toast";
 
 type Order = {
@@ -52,8 +52,6 @@ export default function FulfillmentTool() {
   const { toast } = useToast();
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [selectedOrdersForPrint, setSelectedOrdersForPrint] = useState<Set<string>>(new Set());
-  const [showPackingSlipDialog, setShowPackingSlipDialog] = useState(false);
-  const [packingSlipData, setPackingSlipData] = useState<any[]>([]);
   const [showLotLabelsDialog, setShowLotLabelsDialog] = useState(false);
   const [lotLabelsData, setLotLabelsData] = useState<any[]>([]);
   
@@ -200,15 +198,14 @@ export default function FulfillmentTool() {
       });
       
       const data = await response.json();
-      setPackingSlipData(data);
-      setShowPackingSlipDialog(true);
-      
-      // Trigger print after a small delay to ensure dialog is rendered
-      setTimeout(() => {
-        window.print();
-      }, 500);
+      printPackingSlips(data);
     } catch (error) {
       console.error('Error fetching packing slip data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to generate packing slips. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -680,18 +677,6 @@ export default function FulfillmentTool() {
         </div>
       </div>
     </div>
-
-      {/* Packing Slip Dialog */}
-      <Dialog open={showPackingSlipDialog} onOpenChange={setShowPackingSlipDialog}>
-        <DialogContent className="max-w-5xl max-h-[95vh] flex flex-col print:max-w-none print:max-h-none">
-          <DialogHeader className="print:hidden flex-shrink-0 pb-4 border-b">
-            <DialogTitle>Packing Slips - Ready to Print</DialogTitle>
-          </DialogHeader>
-          <div className="flex-1 overflow-y-auto print:overflow-visible py-4">
-            <PackingSlip orders={packingSlipData} />
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* Lot Labels Dialog - Placeholder for future implementation */}
       <Dialog open={showLotLabelsDialog} onOpenChange={setShowLotLabelsDialog}>
