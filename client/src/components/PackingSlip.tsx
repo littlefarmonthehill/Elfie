@@ -53,10 +53,18 @@ export function printPackingSlips(orders: PackingSlipOrder[]) {
   
   // Wait for images to load, then print
   printWindow.onload = () => {
+    // Add event listener to close window after print
+    printWindow.addEventListener('afterprint', () => {
+      printWindow.close();
+    });
+    
+    // Fallback for browsers that don't support afterprint
+    printWindow.onafterprint = () => {
+      printWindow.close();
+    };
+    
     setTimeout(() => {
       printWindow.print();
-      // Don't auto-close - let user close it manually
-      // This prevents issues when print dialog is cancelled
     }, 250);
   };
 }
@@ -172,8 +180,7 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
           page-break-after: always;
           page-break-inside: avoid;
           width: 100%;
-          min-height: 10in;
-          padding: 0.5in 0;
+          padding: 0;
         }
         
         .packing-slip.last-slip {
