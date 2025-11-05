@@ -139,67 +139,45 @@ export default function PackingSlip({ orders }: PackingSlipProps) {
             margin: 0.5in;
           }
           
+          /* Reset everything */
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          
           html, body {
             background: white !important;
             margin: 0 !important;
             padding: 0 !important;
           }
           
-          /* Hide everything except packing slips */
-          body > *:not(#root) {
+          /* Hide non-print elements */
+          body > *:not(#root),
+          header,
+          nav,
+          [role="dialog"] > button,
+          [data-dialog-overlay],
+          .print:hidden {
             display: none !important;
           }
           
-          #root > *:not([role="dialog"]) {
-            display: none !important;
-          }
-          
-          [role="dialog"] > *:not(.print-container) {
-            display: none !important;
-          }
-          
-          /* Force display and proper styling */
           .print-container {
             display: block !important;
-            width: 100% !important;
-            margin: 0 !important;
-            padding: 0 !important;
           }
           
           .packing-slip {
-            page-break-after: always !important;
-            page-break-inside: avoid !important;
-            width: 7.5in !important;
-            min-height: 10in !important;
-            padding: 0.5in !important;
+            page-break-after: always;
+            page-break-inside: avoid;
+            width: 100%;
+            min-height: 10in;
+            padding: 0.5in;
             background: white !important;
             color: black !important;
-            margin: 0 auto !important;
+            border: none !important;
           }
           
           .packing-slip:last-child {
-            page-break-after: avoid !important;
-          }
-          
-          /* Ensure proper text colors */
-          .packing-slip * {
-            color: black !important;
-          }
-          
-          .slip-header {
-            border-bottom: 2px solid #000 !important;
-          }
-          
-          .slip-footer {
-            border-top: 1px solid #ddd !important;
-          }
-          
-          .slip-item {
-            border-bottom: 1px solid #ddd !important;
-          }
-          
-          .slip-item:last-child {
-            border-bottom: none !important;
+            page-break-after: avoid;
           }
         }
 
