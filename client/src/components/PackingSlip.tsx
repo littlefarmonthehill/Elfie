@@ -83,10 +83,16 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
     }));
   });
 
-  const slipsHTML = allSlips.map((slip, slipIndex) => {
-    const isLastSlip = slipIndex === allSlips.length - 1;
-    return `
-      <div class="packing-slip${isLastSlip ? ' last-slip' : ''}">
+  // Group slips into pairs for 2-per-page layout
+  const pages: Array<typeof allSlips> = [];
+  for (let i = 0; i < allSlips.length; i += 2) {
+    pages.push(allSlips.slice(i, i + 2));
+  }
+
+  const pagesHTML = pages.map((pageSlips, pageIndex) => {
+    const isLastPage = pageIndex === pages.length - 1;
+    const slipsHTML = pageSlips.map((slip) => `
+      <div class="packing-slip">
         <div class="slip-header">
           <img src="${planetLogo}" alt="PlanetBrick" class="slip-logo" />
           <div class="slip-title">
@@ -127,7 +133,7 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
         <div class="slip-section slip-items">
           <div class="slip-label-header">ITEMS:</div>
           <div class="slip-items-list">
-            ${slip.pageItems.map(item => `
+            ${slip.pageItems.map((item: any) => `
               <div class="slip-item">
                 <div class="slip-item-line1">
                   <span class="slip-sku">${item.inventoryId || '-'}</span>
@@ -148,6 +154,12 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
           <div class="slip-footer-text">Thank you for your order!</div>
           <div class="slip-footer-text">Questions? Contact us at orders@planetbrick.com</div>
         </div>
+      </div>
+    `).join('');
+    
+    return `
+      <div class="page-wrapper${isLastPage ? ' last-page' : ''}">
+        ${slipsHTML}
       </div>
     `;
   }).join('');
@@ -176,20 +188,31 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
           font-family: Arial, sans-serif;
         }
         
-        .packing-slip {
+        .page-wrapper {
           page-break-after: always;
           page-break-inside: avoid;
-          page-break-before: auto;
           break-after: page;
           break-inside: avoid;
-          break-before: auto;
+          display: flex;
+          flex-direction: column;
+          gap: 0.15in;
           width: 100%;
-          padding: 0.2in 0.4in;
         }
         
-        .packing-slip.last-slip {
+        .page-wrapper.last-page {
           page-break-after: auto;
           break-after: auto;
+        }
+        
+        .packing-slip {
+          page-break-inside: avoid;
+          break-inside: avoid;
+          width: 100%;
+          min-height: 5.3in;
+          max-height: 5.3in;
+          padding: 0.2in 0.4in;
+          display: flex;
+          flex-direction: column;
         }
         
         .slip-header {
@@ -307,7 +330,7 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
       </style>
     </head>
     <body>
-      ${slipsHTML}
+      ${pagesHTML}
     </body>
     </html>
   `;
