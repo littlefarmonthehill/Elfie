@@ -30,8 +30,8 @@ interface PackingSlipProps {
   orders: PackingSlipOrder[];
 }
 
-// Split items across slips (20 items ensures each slip fits in ~5in for 2-per-page printing)
-function paginateItems(items: any[], itemsPerPage: number = 20) {
+// Split items across slips only for very large orders (for picker convenience)
+function paginateItems(items: any[], itemsPerPage: number = 50) {
   const pages = [];
   for (let i = 0; i < items.length; i += itemsPerPage) {
     pages.push(items.slice(i, i + itemsPerPage));
@@ -214,12 +214,11 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
           break-after: auto;
         }
         
-        /* Compact slip that fits 2 per page when printed with 2-per-page setting */
+        /* Each slip is a separate page - printer's "2 per page" handles the layout */
         .packing-slip {
           page-break-inside: avoid;
           break-inside: avoid;
           width: 100%;
-          max-height: 5.5in;
           display: block;
         }
         
@@ -250,13 +249,13 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
         .slip-info-row {
           display: flex;
           justify-content: space-between;
-          margin-bottom: 0.15rem;
-          font-size: 11px;
+          margin-bottom: 0.2rem;
+          font-size: 12px;
         }
         
         .slip-label {
           font-weight: bold;
-          margin-right: 0.3rem;
+          margin-right: 0.5rem;
         }
         
         .slip-value {
@@ -264,7 +263,7 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
         }
         
         .slip-continuation-info {
-          font-size: 10px;
+          font-size: 11px;
           color: #666;
           text-align: right;
           font-style: italic;
@@ -272,13 +271,13 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
         
         .slip-label-header {
           font-weight: bold;
-          font-size: 12px;
-          margin-bottom: 0.2rem;
+          font-size: 13px;
+          margin-bottom: 0.3rem;
         }
         
         .slip-address {
-          font-size: 11px;
-          line-height: 1.3;
+          font-size: 12px;
+          line-height: 1.4;
         }
         
         .slip-items {
@@ -292,8 +291,8 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
         }
         
         .slip-item {
-          padding: 0.15rem 0;
-          border-bottom: 1px solid #eee;
+          padding: 0.25rem 0;
+          border-bottom: 1px solid #ddd;
         }
         
         .slip-item:last-child {
@@ -302,14 +301,14 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
         
         .slip-item-line1 {
           display: flex;
-          gap: 0.5rem;
-          margin-bottom: 0.1rem;
-          font-size: 10px;
+          gap: 0.75rem;
+          margin-bottom: 0.15rem;
+          font-size: 11px;
         }
         
         .slip-sku {
           font-weight: bold;
-          min-width: 70px;
+          min-width: 75px;
         }
         
         .slip-part-name {
@@ -322,21 +321,21 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
         }
         
         .slip-item-line2 {
-          font-size: 9px;
+          font-size: 10px;
           color: #666;
-          padding-left: 75px;
+          padding-left: 82px;
         }
         
         .slip-footer {
-          padding-top: 0.2rem;
+          padding-top: 0.3rem;
           border-top: 1px solid #ddd;
           text-align: center;
-          font-size: 9px;
-          margin-top: 0.25rem;
+          font-size: 10px;
+          margin-top: 0.5rem;
         }
         
         .slip-footer-text {
-          margin: 0.05rem 0;
+          margin: 0.1rem 0;
         }
       </style>
     </head>
