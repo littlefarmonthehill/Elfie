@@ -55,8 +55,8 @@ export function PublicHeader({ cartCount = 0, onCartClick }: PublicHeaderProps) 
 
   return (
     <header className="relative border-b border-white/10">
-      {/* Top Banner - Frozen at Top */}
-      <div className="sticky top-0 z-50 bg-gradient-to-b from-blue-950 via-blue-950/90 to-black/95 backdrop-blur-xl relative pb-12 md:pb-14 min-h-0">
+      {/* Top Banner - Frozen at Top with iOS Safe Area */}
+      <div className="sticky top-0 z-50 bg-gradient-to-b from-blue-950 via-blue-950/90 to-black/95 backdrop-blur-xl relative pb-12 md:pb-14 min-h-0" style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top, 0.5rem))' }}>
         <div className="px-4 md:px-8 py-1.5 md:py-2 flex items-start justify-between relative">
           {/* Cart & Login - Top Right */}
           <div className="flex items-center gap-1.5 md:gap-3 ml-auto">
