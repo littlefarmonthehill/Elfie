@@ -28,7 +28,10 @@ export default function Header({ onSettingsClick, onElfieClick }: HeaderProps) {
   });
 
   return (
-    <header className="h-14 md:h-20 lg:h-24 border-b border-gray-800 flex items-center justify-between px-4 md:px-8 lg:px-10 bg-gradient-to-r from-blue-950 to-black relative">
+    <header 
+      className="h-14 md:h-20 lg:h-24 border-b border-gray-800 flex items-center justify-between px-4 md:px-8 lg:px-10 bg-gradient-to-r from-blue-950 to-black relative"
+      style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
+    >
       {/* Elfie Icon - Left */}
       <button
         onClick={onElfieClick}
