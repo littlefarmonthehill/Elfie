@@ -1919,6 +1919,8 @@ Expertise:
 - Listing recommendations (what to list next, which categories are hot)
 When to consult: "What should we stock?", "Is this part priced right?", "What's trending?", "Do we have part X?"
 
+⚠️ **CRITICAL RULE FOR INVENTORY RESULTS**: When displaying inventory search results, you MUST show EVERY SINGLE color and condition returned by the tool. NEVER truncate, summarize, or omit any results. If a part has 25 color variants, show all 25. Missing even one color is a critical error that misleads business decisions.
+
 📋 **ORDERS DEPARTMENT** - Fulfillment & Customer Operations  
 Tools: get_order_analytics, search_orders_by_item, get_copurchased_items
 Expertise:

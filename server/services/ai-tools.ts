@@ -1629,7 +1629,7 @@ export const AI_TOOLS = [
     type: 'function',
     function: {
       name: 'search_local_inventory',
-      description: 'Search the local inventory database with advanced filtering. Use this to find items in stock.',
+      description: 'Search the local inventory database with advanced filtering. Use this to find items in stock. IMPORTANT: Do NOT pass a limit parameter - the server automatically returns all matching results (up to 500 for part number searches). You must always show ALL colors/conditions returned, never truncate or omit any.',
       parameters: {
         type: 'object',
         properties: {
@@ -1660,10 +1660,6 @@ export const AI_TOOLS = [
           maxPrice: {
             type: 'number',
             description: 'Maximum unit price',
-          },
-          limit: {
-            type: 'number',
-            description: 'Maximum number of results to return (default: 20)',
           },
         },
         required: [],
