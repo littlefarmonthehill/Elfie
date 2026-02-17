@@ -122,7 +122,7 @@ export async function searchLocalInventory(params: {
     minQuantity,
     minPrice,
     maxPrice,
-    limit = itemNo ? 100 : 20,
+    limit = itemNo ? 500 : 50,
   } = params;
   
   try {
