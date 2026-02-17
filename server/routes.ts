@@ -2128,8 +2128,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
           })
           .from(blInventory)
           .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
-          .where(inArray(blInventory.itemNo, Array.from(mentionedParts)))
-          .limit(20);
+          .where(inArray(blInventory.itemNo, Array.from(mentionedParts)));
         
         itemsFound.push(...items);
       }
