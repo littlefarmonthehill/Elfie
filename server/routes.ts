@@ -1071,6 +1071,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // E.L.F.I.E. Chat Route
   app.post("/api/chat", isApproved, async (req, res) => {
+    const chatStartTime = Date.now();
     try {
       const { messages, context } = req.body;
       
@@ -1460,22 +1461,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Always include inventory stats for analytical questions
-      const statsQuery = await db
-        .select({
+      // Always include inventory stats for analytical questions (run in parallel)
+      const [statsQuery, colorCount, categoryCount] = await Promise.all([
+        db.select({
           totalLots: sql<number>`COUNT(*)`,
           totalParts: sql<number>`SUM(${blInventory.quantity})`,
           totalValue: sql<number>`SUM(${blInventory.quantity} * CAST(${blInventory.unitPrice} AS DECIMAL))`,
-        })
-        .from(blInventory);
-
-      const colorCount = await db
-        .select({ count: sql<number>`COUNT(DISTINCT ${blInventory.colorId})` })
-        .from(blInventory);
-
-      const categoryCount = await db
-        .select({ count: sql<number>`COUNT(DISTINCT ${blInventory.categoryId})` })
-        .from(blInventory);
+        }).from(blInventory),
+        db.select({ count: sql<number>`COUNT(DISTINCT ${blInventory.colorId})` }).from(blInventory),
+        db.select({ count: sql<number>`COUNT(DISTINCT ${blInventory.categoryId})` }).from(blInventory),
+      ]);
 
       const statsData = {
         totalLots: Number(statsQuery[0]?.totalLots) || 0,
@@ -1736,18 +1731,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         day: 'numeric' 
       });
       
-      // Read replit.md for comprehensive business context
-      let businessContext = '';
-      try {
-        const fs = await import('fs/promises');
-        const replitMd = await fs.readFile('replit.md', 'utf-8');
-        businessContext = `\n\nPLANETBRICK BUSINESS CONTEXT:\n${replitMd}\n`;
-      } catch (error) {
-        console.log('Note: Could not load replit.md for E.L.F.I.E. context');
-      }
+      const defaultSystemPrompt = `You are E.L.F.I.E. (Expert LEGO Fulfillment & Inventory Engine), an AI assistant for PlanetBrick - a LEGO-EXCLUSIVE parts reseller targeting AFOLs (Adult Fans of LEGO), with DIRECT DATABASE ACCESS.
 
-      const defaultSystemPrompt = `You are E.L.F.I.E. (Expert LEGO Fulfillment & Inventory Engine), an AI assistant for PlanetBrick - a LEGO-EXCLUSIVE reseller business with DIRECT DATABASE ACCESS.
-${businessContext}
 Today's date: ${currentDate}
 Current context: ${context}
 ${databaseContext}
@@ -1866,38 +1851,7 @@ RESPONSE GUIDELINES:
 - Marketing to AFOLs: emphasize selection depth, rare pieces, bulk discounts, builder-friendly pricing
 
 **CLICKABLE PROMPTS:**
-When suggesting follow-up analyses, format as clickable prompts: **PROMPT:** "Your exact question here"
-Example: "**PROMPT:** Show me all Dark Bluish Gray plates in inventory"
-
-FORMATTING EXAMPLES:
-
-User: "Do I have part 3021?"
-Good response: "Yes! I found **3 listings** for part 3021:
-
-- **Part 3021** in Red: 50 units @ $0.25 (New)
-- **Part 3021** in Blue: 30 units @ $0.20 (New)  
-- **Part 3021** in Yellow: 10 units @ $0.30 (Used)
-
-View on BrickLink: https://www.bricklink.com/v2/catalog/catalogitem.page?P=3021
-
-**Insight**: You have good stock across multiple colors. The used Yellow pieces are priced higher per unit than new - you might want to review that pricing."
-
-User: "How are sales looking?"
-Good response: "Let me check your recent sales performance...
-
-[After using analytics tools]
-
-**Sales Summary** for the past 30 days:
-- Total revenue: $5,234.50
-- Orders: 47
-- Average order value: $111.37
-
-**Key insights**:
-- Sales are up 23% compared to last month
-- Your average order value increased, suggesting customers are buying more per transaction
-- Top-selling category: Bricks (65% of revenue)
-
-Would you like me to dig deeper into any particular category or timeframe?"
+When suggesting follow-up analyses, format as: **PROMPT:** "Your exact question here"
 
 Keep responses helpful, insightful, and based on actual data. Be proactive in offering strategic recommendations when appropriate.`;
 
@@ -1948,88 +1902,22 @@ Expertise:
 - Business intelligence (connecting the dots between inventory, orders, customers, and market)
 When to consult: "Give me strategy", "How's the business?", "What should we focus on?", "Analyze our performance"
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🤝 CRITICAL: DEPARTMENTS MUST COLLABORATE
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+COLLABORATION: For strategic questions, consult MULTIPLE departments and synthesize insights. For operational questions ("do we have part X?"), provide quick specific data from the relevant department.
 
-For COMPREHENSIVE answers, consult MULTIPLE departments:
+HISTORICAL DATA: Store was CLOSED 2 years - ALL order/sales data is from 2010-2023 (latest Dec 28, 2023). NEVER assume recent dates. When calling analytics tools, DO NOT provide startDate/endDate unless user explicitly asks - tools return ALL historical data by default. If tools return empty, remove date filters.
 
-Example: "What should we stock next?"
-→ PRODUCT: Check get_category_throughput (what's selling fast vs inventory)
-→ PRODUCT: Use search_web (what's trending in LEGO/AFOL community)
-→ SALES: Use get_sales_by_category (historical performance)
-→ ORDERS: Check search_orders_by_item (recent order patterns)
-→ SYNTHESIZE: Recommend categories that have HIGH DEMAND + MARKET TRENDS + LOW INVENTORY
+NEVER hallucinate data - only present actual tool/database results.
 
-Example: "How can we grow sales?"
-→ MARKETING: Use get_customer_metrics (who are our repeat buyers?)
-→ MARKETING: Use get_sales_by_geography (which states/countries buy most?)
-→ SALES: Use get_category_throughput (which categories have opportunity?)
-→ PRODUCT: Use search_web (current market trends we can capitalize on)
-→ SYNTHESIZE: Growth strategy combining customer insights + geographic opportunities + trending products
+UNKNOWN PARTS: When search_bricklink_catalog finds an item, the system automatically opens the detail drawer.
 
-Example: "Show me business customer insights"
-→ MARKETING: Use get_business_customers (actual company names, order history)
-→ MARKETING: Use get_sales_by_geography (where businesses are located)
-→ ORDERS: Use get_order_analytics (how much businesses spend)
-→ SYNTHESIZE: Complete picture of B2B customer segment
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-⚖️ BALANCE STRATEGY vs OPERATIONAL DATA
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-STRATEGIC questions → Consult multiple departments, synthesize insights, provide recommendations
-Examples: "How should we grow?", "What's our strategy?", "What opportunities do we have?"
-
-OPERATIONAL questions → Provide specific data quickly from relevant department  
-Examples: "Do we have part 3021?", "How many orders this month?", "List business customers"
-
-WHEN IN DOUBT → Be comprehensive. It's better to consult extra departments than miss critical insights.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-⚠️ CRITICAL: WORKING WITH HISTORICAL DATA
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-**BUSINESS CONTEXT**: This store was CLOSED for 2 years and is NOW REOPENING. All order/sales data is HISTORICAL (from when the store was previously operating).
-
-**NEVER assume recent dates** - The data spans multiple years in the PAST, not recent months.
-
-**DEFAULT BEHAVIOR FOR TOOLS**:
-- When calling analytics tools (get_category_throughput, get_customer_metrics, get_sales_by_geography, get_business_customers, get_sales_by_category), **DO NOT** provide startDate/endDate parameters UNLESS the user explicitly asks for a specific time period
-- Tools will return ALL HISTORICAL DATA by default, which is what we want to see patterns from when the store was operating
-- If user asks "recent" or "last month/year", FIRST call the tool WITHOUT dates to see the actual data range, THEN ask user to clarify the time period
-
-**WRONG**:
-  get_category_throughput({ startDate: '2024-10-25', endDate: '2025-10-25' })  // ❌ Returns NOTHING - no data in 2024-2025
-
-**CORRECT**:
-  get_category_throughput({ limit: 10 })  // ✅ Returns ALL historical data from when store was operating
-
-**If data tools return empty results** - This means you're filtering incorrectly. Remove date filters and try again with ALL data.
-
-**NEVER make up or hallucinate order details** - Only present actual data from tool results. If tools return empty data, explain that and don't fabricate numbers or examples.
-
-CRITICAL BEHAVIOR FOR UNKNOWN PARTS:
-When you use search_bricklink_catalog and find an item:
-- Tell the user you found it on BrickLink
-- Mention the part number and name
-- The system will AUTOMATICALLY open the item detail drawer to show more information
-- If search_bricklink_catalog returns success: false, let the user know the part wasn't found
-
-TOOL USAGE GUIDELINES:
-Be proactive and helpful! Use tools to provide comprehensive answers:
-
-- When users ask about NEWS or TRENDS → use search_web to get current information
-- When users ask vague questions like "how are sales?" → make reasonable assumptions (e.g., show current month/year stats)
-- When providing web search results → format URLs as markdown links: [Article Title](https://url-here)
-- Be helpful and informative - don't hesitate to use tools to give users great insights
-
-You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best possible assistance.`;
+TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be proactive with tools.`;
 
       const systemPrompt = settings?.systemPrompt 
         ? `${settings.systemPrompt}\n\nCurrent context: ${context}\n${databaseContext}\n\n${enhancedDefaultPrompt}` 
         : `${enhancedDefaultPrompt}\n\nCurrent context: ${context}\n${databaseContext}`;
 
+      console.log(`⏱️ Pre-query phase took ${Date.now() - chatStartTime}ms`);
+      
       // Use agent loop with function calling (with error recovery)
       const { runAgentLoop } = await import('./services/ai-agent');
       let assistantMessage: string;
@@ -2044,7 +1932,7 @@ You are PROACTIVE, HELPFUL, and INTELLIGENT. Use your tools to provide the best 
           model,
           systemPrompt,
           messages,
-          maxIterations: 8,  // Increased for multi-step reasoning and tool chaining
+          maxIterations: 5,
         });
         assistantMessage = agentResult.message;
         bricklinkCatalogItem = agentResult.bricklinkItem;

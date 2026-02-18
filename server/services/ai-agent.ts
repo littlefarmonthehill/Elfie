@@ -46,12 +46,12 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
   let ordersFromTool: any[] = [];
   let forumDiscussionsFromTool: any[] = [];
   
+  const openai = new OpenAI({ apiKey });
+  
   while (iterations < maxIterations) {
     iterations++;
+    const iterStart = Date.now();
     console.log(`🤖 Agent loop iteration ${iterations}/${maxIterations}`);
-    
-    // Call OpenAI with tools (with timeout)
-    const openai = new OpenAI({ apiKey });
     
     let completion;
     try {
@@ -60,11 +60,12 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
         messages: conversationMessages as any,
         tools: AI_TOOLS as any,
         tool_choice: 'auto',
-        temperature: 0.5,  // Lower temperature for more focused, analytical responses
-        max_tokens: 1600,  // Increased for deeper insights and explanations
+        temperature: 0.5,
+        max_tokens: 1600,
       }, {
-        timeout: 30000, // 30 second timeout
+        timeout: 30000,
       });
+      console.log(`⏱️ OpenAI API call took ${Date.now() - iterStart}ms (iteration ${iterations})`);
     } catch (error: any) {
       if (error.message?.includes('timeout')) {
         throw new Error('OpenAI API request timed out after 30 seconds');
@@ -121,7 +122,7 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
         
         console.log(`📞 Calling tool: ${toolName}`, toolParams);
         
-        // Execute the tool with error handling
+        const toolStart = Date.now();
         let toolResult;
         try {
           toolResult = await executeToolCall(toolName, toolParams);
@@ -133,7 +134,7 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
           };
         }
         
-        console.log(`✅ Tool result:`, toolResult);
+        console.log(`⏱️ Tool ${toolName} took ${Date.now() - toolStart}ms`);
         
         // Track BrickLink catalog items for frontend display
         if (toolName === 'search_bricklink_catalog' && toolResult.success && toolResult.data) {
