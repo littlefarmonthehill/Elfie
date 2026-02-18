@@ -41,14 +41,8 @@ function Router() {
               <p className="text-sm text-gray-400">Loading...</p>
             </div>
           </div>
-        ) : !isAuthenticated ? (
-          <Redirect to="/login" />
-        ) : !isApproved ? (
-          <Redirect to="/" />
-        ) : isAdmin ? (
-          <Home />
         ) : (
-          <Redirect to="/showroom" />
+          <Home />
         )}
       </Route>
 
