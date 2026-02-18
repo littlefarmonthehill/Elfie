@@ -1990,11 +1990,15 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       // Extract ONLY the specific items mentioned in E.L.F.I.E.'s response
       // This makes part numbers clickable without showing irrelevant items
       // Parse part numbers from the assistant's message (e.g., "Part 4228", "Part 3021 in Red", "part 26047")
-      const partNumberRegex = /\b(?:part|item)\s+([\w-]+)/gi;
+      const partNumberRegex = /\b(?:part|item)\s*\*{0,2}\s*([\w-]+)\*{0,2}/gi;
+      const boldPartRegex = /\*\*(?:Part|Item)\s+([\w-]+)\*\*/gi;
       const mentionedParts: Set<string> = new Set();
       let partMatch;
       
       while ((partMatch = partNumberRegex.exec(assistantMessage)) !== null) {
+        mentionedParts.add(partMatch[1]);
+      }
+      while ((partMatch = boldPartRegex.exec(assistantMessage)) !== null) {
         mentionedParts.add(partMatch[1]);
       }
       
