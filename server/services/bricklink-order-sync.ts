@@ -89,6 +89,9 @@ export async function syncBrickLinkOrders(
         const orderId = `bl-${order.order_id}`;
         const existing = existingMap.get(orderId);
         if (!existing) return true; // New order - process it
+        // Protect locally-shipped orders: BrickLink may lag behind (e.g. if the update
+        // to BrickLink failed or hasn't propagated yet). Never let a sync demote shipped.
+        if (existing === 'shipped') return false;
         const newStatus = mapPlatformStatus('bricklink', order.status);
         if (existing !== newStatus) return true; // Status changed - process it
         return false; // Already synced, same status - skip
@@ -240,20 +243,34 @@ async function processBrickLinkOrder(
   
   // Insert or update order
   if (existingOrder) {
+    // Protect locally-shipped orders: if we've marked this order as shipped locally,
+    // don't let a sync from BrickLink demote the status (BrickLink may lag behind,
+    // or our update to BrickLink may have failed temporarily).
+    const isLocallyShipped = existingOrder.orderStatus === 'shipped';
+    const wouldDemote = isLocallyShipped && normalizedStatus !== 'shipped';
+    
+    const updatedStatus = wouldDemote ? 'shipped' : normalizedStatus;
+    
+    if (wouldDemote) {
+      console.log(`🔒 Order ${orderId}: Preserving local shipped status (BrickLink shows: ${normalizedStatus})`);
+    }
+
     // Update existing order
     await db
       .update(orders)
       .set({
         ...orderData,
+        orderStatus: updatedStatus,
         previousStatus: existingOrder.orderStatus, // Preserve current status as previous
       })
       .where(eq(orders.id, orderId));
     
     result.ordersUpdated++;
     
-    // If status changed, trigger inventory adjustment
-    if (existingOrder.orderStatus !== normalizedStatus) {
-      console.log(`📦 Order ${orderId} status changed: ${existingOrder.orderStatus} → ${normalizedStatus}`);
+    // If status changed (and we didn't protect it), trigger inventory adjustment
+    const effectiveStatusChange = existingOrder.orderStatus !== updatedStatus;
+    if (effectiveStatusChange) {
+      console.log(`📦 Order ${orderId} status changed: ${existingOrder.orderStatus} → ${updatedStatus}`);
       
       // Trigger inventory adjustment asynchronously
       adjustInventoryForOrder(orderId).catch(error => {

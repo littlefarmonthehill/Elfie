@@ -467,8 +467,12 @@ export default function FulfillmentTool() {
       setShipmentData(result.shipment);
       setShippingStep('label');
       
-      // Refresh fulfillment data
+      // Refresh all relevant data so the order moves to "Shipped" immediately
       queryClient.invalidateQueries({ queryKey: ['/api/fulfillment'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/fulfillment/stats'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/orders/dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/orders/shipped'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'] });
       
       toast({
         title: "Label Purchased",

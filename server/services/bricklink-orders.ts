@@ -238,10 +238,10 @@ export async function updateBrickLinkOrderShipped(
   };
 
   // Step 1: Update shipping details with tracking number
+  // Note: date_shipped is NOT accepted by BrickLink's PUT /orders/{id} endpoint
   const updateUrl = `${BRICKLINK_API_BASE}/orders/${orderId}`;
   const updateData = {
     shipping: {
-      date_shipped: new Date().toISOString().split('T')[0], // BrickLink expects YYYY-MM-DD format
       tracking_no: trackingNumber,
     }
   };
