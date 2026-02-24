@@ -263,14 +263,6 @@ export default function InlineShippingCard({
         {/* ── Row 1: Identity + address status ── */}
         <div className="flex items-center gap-1.5 flex-wrap">
           <span className="text-sm font-bold text-white font-mono">#{summary.orderNumber}</span>
-          {summary.marketplace && (
-            <Badge variant="secondary" className="text-[10px] shrink-0">{summary.marketplace}</Badge>
-          )}
-          {isReady && (
-            <Badge className="text-[10px] bg-green-600/30 text-green-300 border-0 no-default-active-elevate shrink-0">
-              Ready
-            </Badge>
-          )}
           {/* Address validation — right-aligned */}
           <div className="ml-auto flex items-center gap-1 shrink-0">
             {addressStatus === "loading" && <Loader2 className="w-3 h-3 animate-spin text-gray-500" />}

@@ -435,20 +435,6 @@ export default function FulfillmentTool() {
             )}
           </div>
           <div className="flex gap-2 flex-wrap">
-            {readyToShip.size > 0 && !isSplitMode && (
-              <Button
-                size="sm"
-                onClick={handleShipAll}
-                disabled={isShippingAll}
-                className="bg-green-700 hover:bg-green-600 text-white"
-                data-testid="button-ship-all"
-              >
-                {isShippingAll
-                  ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Shipping...</>
-                  : <><Package className="w-3.5 h-3.5 mr-1.5" />Ship All ({readyToShip.size})</>
-                }
-              </Button>
-            )}
             {isSplitMode && (
               <>
                 <Button
@@ -469,59 +455,6 @@ export default function FulfillmentTool() {
                   Confirm Split ({selectedItemsForSplit.size})
                 </Button>
               </>
-            )}
-            {!isSplitMode && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={selectedOrders.size === 0}
-                    data-testid="button-actions-menu"
-                  >
-                    <MoreVertical className="w-3.5 h-3.5 mr-1.5" />
-                    Actions
-                    <ChevronDown className="w-3.5 h-3.5 ml-1.5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuItem
-                    onClick={() => handlePrintPackingSlips(Array.from(selectedOrders))}
-                    disabled={selectedOrders.size === 0}
-                    data-testid="menu-print-packing-slips"
-                  >
-                    <Printer className="w-4 h-4 mr-2" />
-                    Print Packing Slips
-                    {selectedOrders.size > 0 && (
-                      <Badge variant="secondary" className="ml-auto text-xs">
-                        {selectedOrders.size}
-                      </Badge>
-                    )}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => handlePrintLotLabels(Array.from(selectedOrders))}
-                    disabled={selectedOrders.size === 0}
-                    data-testid="menu-print-lot-labels"
-                  >
-                    <Tag className="w-4 h-4 mr-2" />
-                    Print Lot Labels
-                    {selectedOrders.size > 0 && (
-                      <Badge variant="secondary" className="ml-auto text-xs">
-                        {selectedOrders.size}
-                      </Badge>
-                    )}
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={handleInitiateSplit}
-                    disabled={!selectedOrderId}
-                    data-testid="menu-split-order"
-                  >
-                    <Scissors className="w-4 h-4 mr-2" />
-                    Split Order
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
             )}
           </div>
         </div>
@@ -637,15 +570,85 @@ export default function FulfillmentTool() {
       {/* Inline Shipping Panel — one card per selected order */}
       {selectedOrders.size > 0 && (
         <div>
-          <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2 flex items-center gap-1.5">
-            <Truck className="w-3.5 h-3.5 text-purple-400" />
-            Shipping
-            {readyToShip.size > 0 && (
-              <Badge variant="secondary" className="text-[10px]">
-                {readyToShip.size} ready
-              </Badge>
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wide flex items-center gap-1.5">
+              <Truck className="w-3.5 h-3.5 text-purple-400" />
+              Shipping
+              {readyToShip.size > 0 && (
+                <Badge variant="secondary" className="text-[10px]">
+                  {readyToShip.size} ready
+                </Badge>
+              )}
+            </h3>
+            {!isSplitMode && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={selectedOrders.size === 0}
+                    data-testid="button-actions-menu"
+                  >
+                    <MoreVertical className="w-3.5 h-3.5 mr-1.5" />
+                    Actions
+                    <ChevronDown className="w-3.5 h-3.5 ml-1.5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  {readyToShip.size > 0 && (
+                    <>
+                      <DropdownMenuItem
+                        onClick={handleShipAll}
+                        disabled={isShippingAll}
+                        data-testid="menu-ship-all"
+                      >
+                        {isShippingAll
+                          ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Shipping...</>
+                          : <><Package className="w-4 h-4 mr-2" />Ship All ({readyToShip.size})</>
+                        }
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                    </>
+                  )}
+                  <DropdownMenuItem
+                    onClick={() => handlePrintPackingSlips(Array.from(selectedOrders))}
+                    disabled={selectedOrders.size === 0}
+                    data-testid="menu-print-packing-slips"
+                  >
+                    <Printer className="w-4 h-4 mr-2" />
+                    Print Packing Slips
+                    {selectedOrders.size > 0 && (
+                      <Badge variant="secondary" className="ml-auto text-xs">
+                        {selectedOrders.size}
+                      </Badge>
+                    )}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handlePrintLotLabels(Array.from(selectedOrders))}
+                    disabled={selectedOrders.size === 0}
+                    data-testid="menu-print-lot-labels"
+                  >
+                    <Tag className="w-4 h-4 mr-2" />
+                    Print Lot Labels
+                    {selectedOrders.size > 0 && (
+                      <Badge variant="secondary" className="ml-auto text-xs">
+                        {selectedOrders.size}
+                      </Badge>
+                    )}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={handleInitiateSplit}
+                    disabled={!selectedOrderId}
+                    data-testid="menu-split-order"
+                  >
+                    <Scissors className="w-4 h-4 mr-2" />
+                    Split Order
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
-          </h3>
+          </div>
           <div className="space-y-2">
             {[...selectedOrders].map((orderId) => {
               const items: OrderItem[] = (data?.items ?? [])
