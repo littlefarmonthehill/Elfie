@@ -13,6 +13,9 @@ export interface BrickLinkOrderSyncResult {
   errors: string[];
 }
 
+// Sync lock to prevent concurrent syncs
+let isSyncing = false;
+
 /**
  * Sync orders directly from BrickLink API
  * 
@@ -39,6 +42,15 @@ export async function syncBrickLinkOrders(
     totalOrders: 0,
     errors: [],
   };
+
+  // Prevent concurrent syncs
+  if (isSyncing) {
+    console.log(`⚠️ BrickLink order sync already in progress, skipping`);
+    result.errors.push('Sync already in progress');
+    return result;
+  }
+  
+  isSyncing = true;
 
   try {
     console.log(`\n📦 Starting BrickLink order sync...`);
@@ -150,6 +162,8 @@ export async function syncBrickLinkOrders(
     });
     
     throw error;
+  } finally {
+    isSyncing = false;
   }
 }
 
