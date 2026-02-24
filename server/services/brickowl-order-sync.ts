@@ -184,16 +184,32 @@ async function processBrickOwlOrder(
 ): Promise<void> {
   const orderId = `bo-${boOrder.order_id}`;
   
-  // Check if order already exists
-  const [existingOrder] = await db
+  // Check if order already exists — first by canonical bo- ID, then by legacy BO. order_number
+  // This prevents a full sync from creating duplicate records for orders stored in the old format
+  let [existingOrder] = await db
     .select()
     .from(orders)
     .where(eq(orders.id, orderId))
     .limit(1);
   
+  if (!existingOrder) {
+    const [legacyOrder] = await db
+      .select()
+      .from(orders)
+      .where(eq(orders.orderNumber, `BO.${boOrder.order_id}`))
+      .limit(1);
+    if (legacyOrder) {
+      existingOrder = legacyOrder;
+    }
+  }
+  
   // Map BrickOwl status to normalized status
   const normalizedStatus = mapBrickOwlStatus(boOrder.status_id);
   
+  // Use the actual existing order's ID for all DB operations
+  // (in case we found a legacy order via the BO. order_number fallback)
+  const effectiveOrderId = existingOrder?.id ?? orderId;
+
   // Fetch full order details (including items)
   const brickOwlOrderData = await getBrickOwlOrderDetails(apiKey, boOrder.order_id);
   
@@ -245,7 +261,7 @@ async function processBrickOwlOrder(
   
   // Process order items
   const items = brickOwlOrderData.items || [];
-  console.log(`🦉 Order ${orderId}: Processing ${items.length} items`);
+  console.log(`🦉 Order ${effectiveOrderId}: Processing ${items.length} items`);
   
   for (const item of items) {
     try {
@@ -258,7 +274,7 @@ async function processBrickOwlOrder(
         .from(orderDetails)
         .where(
           and(
-            eq(orderDetails.orderId, orderId),
+            eq(orderDetails.orderId, effectiveOrderId),
             eq(orderDetails.lineItemKey, lineItemKey)
           )
         )
@@ -287,7 +303,7 @@ async function processBrickOwlOrder(
       }
       
       const orderDetailData = {
-        orderId,
+        orderId: effectiveOrderId,
         lineItemKey,
         sku: skuValue,  // BrickLink inventory ID (standardized)
         name: `${item.boid || ''} - ${item.name || ''}`,

@@ -183,12 +183,24 @@ async function processBrickLinkOrder(
 ): Promise<void> {
   const orderId = `bl-${blOrder.order_id}`;
   
-  // Check if order already exists
-  const [existingOrder] = await db
+  // Check if order already exists — first by canonical bl- ID, then by legacy BL. order_number
+  // This prevents a full sync from creating duplicate records for orders stored in the old format
+  let [existingOrder] = await db
     .select()
     .from(orders)
     .where(eq(orders.id, orderId))
     .limit(1);
+  
+  if (!existingOrder) {
+    const [legacyOrder] = await db
+      .select()
+      .from(orders)
+      .where(eq(orders.orderNumber, `BL.${blOrder.order_id}`))
+      .limit(1);
+    if (legacyOrder) {
+      existingOrder = legacyOrder;
+    }
+  }
   
   // Map BrickLink status to normalized status
   const normalizedStatus = mapPlatformStatus('bricklink', blOrder.status);
@@ -255,15 +267,16 @@ async function processBrickLinkOrder(
       console.log(`🔒 Order ${orderId}: Preserving local shipped status (BrickLink shows: ${normalizedStatus})`);
     }
 
-    // Update existing order
+    // Update existing order (use existingOrder.id in case it was found via legacy order_number lookup)
     await db
       .update(orders)
       .set({
         ...orderData,
+        id: existingOrder.id, // Preserve the existing ID — don't rename old-format records
         orderStatus: updatedStatus,
         previousStatus: existingOrder.orderStatus, // Preserve current status as previous
       })
-      .where(eq(orders.id, orderId));
+      .where(eq(orders.id, existingOrder.id));
     
     result.ordersUpdated++;
     
