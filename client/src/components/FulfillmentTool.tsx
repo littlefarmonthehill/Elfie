@@ -14,10 +14,15 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator 
 } from "@/components/ui/dropdown-menu";
-import { Truck, Loader2, Printer, AlertTriangle, ChevronDown, Tag, MoreVertical, Scissors } from "lucide-react";
+import { Truck, Loader2, Printer, AlertTriangle, ChevronDown, Tag, MoreVertical, Scissors, Package, ExternalLink, CheckCircle2 } from "lucide-react";
 import { printPackingSlips } from "./PackingSlip";
 import { useToast } from "@/hooks/use-toast";
-import InlineShippingCard from "./InlineShippingCard";
+import InlineShippingCard, { ShippingReadyState, PurchasedLabelResult } from "./InlineShippingCard";
+
+type BatchResult = {
+  orderId: string;
+  orderNumber: string;
+} & PurchasedLabelResult;
 
 type Order = {
   id: string;
@@ -61,7 +66,13 @@ export default function FulfillmentTool() {
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
   const [showLotLabelsDialog, setShowLotLabelsDialog] = useState(false);
   const [lotLabelsData, setLotLabelsData] = useState<any[]>([]);
-  
+
+  // Batch shipping state
+  const [readyToShip, setReadyToShip] = useState<Map<string, ShippingReadyState>>(new Map());
+  const [purchasedLabels, setPurchasedLabels] = useState<Map<string, PurchasedLabelResult>>(new Map());
+  const [isShippingAll, setIsShippingAll] = useState(false);
+  const [batchResults, setBatchResults] = useState<BatchResult[]>([]);
+
   // Split order state
   const [isSplitMode, setIsSplitMode] = useState(false);
   const [selectedItemsForSplit, setSelectedItemsForSplit] = useState<Set<string>>(new Set());
@@ -234,6 +245,86 @@ export default function FulfillmentTool() {
     // }
   };
 
+  const handleReadyChange = (orderId: string, state: ShippingReadyState | null) => {
+    setReadyToShip(prev => {
+      const next = new Map(prev);
+      if (state) {
+        next.set(orderId, state);
+      } else {
+        next.delete(orderId);
+      }
+      return next;
+    });
+  };
+
+  const handleShipAll = async () => {
+    if (readyToShip.size === 0) return;
+    setIsShippingAll(true);
+    const results: BatchResult[] = [];
+    const labelMap = new Map<string, PurchasedLabelResult>();
+
+    const orderIds = [...readyToShip.keys()];
+    await Promise.allSettled(
+      orderIds.map(async (orderId) => {
+        const ready = readyToShip.get(orderId)!;
+        const order = data?.orders.find(o => o.id === orderId);
+        try {
+          // Save weight
+          if (ready.weight !== "") {
+            await fetch(`/api/orders/${encodeURIComponent(orderId)}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ weight: Number(ready.weight), weightUnits: ready.weightUnits }),
+            });
+          }
+          // Purchase label
+          const result: any = await apiRequest("POST", "/api/shipments/purchase", {
+            orderId,
+            shipmentId: ready.shipmentId,
+            rateId: ready.rateId,
+          });
+          const label: PurchasedLabelResult = {
+            trackingNumber: result.shipment?.trackingNumber || result.trackingNumber || "",
+            labelUrl: result.shipment?.labelUrl || result.labelUrl,
+            carrier: ready.selectedRate.carrier,
+            service: ready.selectedRate.service,
+            rate: ready.selectedRate.rate,
+          };
+          labelMap.set(orderId, label);
+          results.push({ orderId, orderNumber: order?.orderNumber || orderId, ...label });
+        } catch (e: any) {
+          results.push({
+            orderId,
+            orderNumber: order?.orderNumber || orderId,
+            trackingNumber: "",
+            carrier: ready.selectedRate.carrier,
+            service: ready.selectedRate.service,
+            rate: ready.selectedRate.rate,
+          });
+          toast({ title: `Failed: #${order?.orderNumber}`, description: e.message, variant: "destructive" });
+        }
+      })
+    );
+
+    setPurchasedLabels(labelMap);
+    setBatchResults(results);
+    setReadyToShip(new Map());
+    setIsShippingAll(false);
+
+    queryClient.invalidateQueries({ queryKey: ["/api/fulfillment"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/fulfillment/stats"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/orders/dashboard"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/orders/shipped"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+
+    const successes = results.filter(r => r.trackingNumber).length;
+    toast({
+      title: `${successes} of ${results.length} labels purchased`,
+      description: successes === results.length ? "All labels ready to print." : "Some labels failed — check the results.",
+      variant: successes === results.length ? "default" : "destructive",
+    });
+  };
+
   const handleInitiateSplit = () => {
     if (!selectedOrderId) {
       toast({
@@ -343,7 +434,21 @@ export default function FulfillmentTool() {
               </Badge>
             )}
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            {readyToShip.size > 0 && !isSplitMode && (
+              <Button
+                size="sm"
+                onClick={handleShipAll}
+                disabled={isShippingAll}
+                className="bg-green-700 hover:bg-green-600 text-white"
+                data-testid="button-ship-all"
+              >
+                {isShippingAll
+                  ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Shipping...</>
+                  : <><Package className="w-3.5 h-3.5 mr-1.5" />Ship All ({readyToShip.size})</>
+                }
+              </Button>
+            )}
             {isSplitMode && (
               <>
                 <Button
@@ -456,12 +561,90 @@ export default function FulfillmentTool() {
           </div>
         </div>
 
+      {/* Batch Labels Results Panel */}
+      {batchResults.length > 0 && (
+        <div className="border border-green-500/40 rounded-lg overflow-hidden bg-green-950/20">
+          <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-green-500/30 bg-green-900/20">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-green-400" />
+              <span className="text-sm font-bold text-green-300">
+                {batchResults.filter(r => r.trackingNumber).length} of {batchResults.length} Labels Purchased
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-green-500/40 text-green-300"
+                onClick={() => {
+                  batchResults.forEach(r => {
+                    if (r.labelUrl) window.open(r.labelUrl, "_blank");
+                  });
+                }}
+                data-testid="button-print-all-labels"
+              >
+                <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
+                Open All Labels
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-gray-500"
+                onClick={() => {
+                  setBatchResults([]);
+                  setPurchasedLabels(new Map());
+                  setSelectedOrders(new Set());
+                }}
+                data-testid="button-dismiss-batch-results"
+              >
+                Done
+              </Button>
+            </div>
+          </div>
+          <div className="divide-y divide-green-900/30">
+            {batchResults.map((result) => (
+              <div key={result.orderId} className="flex items-center gap-3 px-3 py-2 flex-wrap">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-bold text-white">#{result.orderNumber}</span>
+                    {result.carrier && result.service && (
+                      <span className="text-xs text-gray-400">{result.carrier} {result.service}</span>
+                    )}
+                    {result.rate != null && (
+                      <span className="text-xs font-semibold text-green-300">${result.rate.toFixed(2)}</span>
+                    )}
+                  </div>
+                  {result.trackingNumber ? (
+                    <p className="text-[11px] font-mono text-gray-300 mt-0.5">{result.trackingNumber}</p>
+                  ) : (
+                    <p className="text-[11px] text-red-400 mt-0.5">Purchase failed</p>
+                  )}
+                </div>
+                {result.labelUrl && (
+                  <Button asChild variant="outline" size="sm" className="shrink-0 border-green-500/40 text-green-300">
+                    <a href={result.labelUrl} target="_blank" rel="noopener noreferrer" data-testid={`button-label-${result.orderId}`}>
+                      <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
+                      Label
+                    </a>
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Inline Shipping Panel — one card per selected order */}
       {selectedOrders.size > 0 && (
         <div>
           <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2 flex items-center gap-1.5">
             <Truck className="w-3.5 h-3.5 text-purple-400" />
             Shipping
+            {readyToShip.size > 0 && (
+              <Badge variant="secondary" className="text-[10px]">
+                {readyToShip.size} ready
+              </Badge>
+            )}
           </h3>
           <div className="space-y-2">
             {[...selectedOrders].map((orderId) => (
@@ -469,13 +652,8 @@ export default function FulfillmentTool() {
                 key={orderId}
                 orderId={orderId}
                 isTestMode={settings?.easypostKeyMode === 'test'}
-                onShipped={() =>
-                  setSelectedOrders((prev) => {
-                    const next = new Set(prev);
-                    next.delete(orderId);
-                    return next;
-                  })
-                }
+                onReadyChange={handleReadyChange}
+                purchasedLabel={purchasedLabels.get(orderId)}
               />
             ))}
           </div>

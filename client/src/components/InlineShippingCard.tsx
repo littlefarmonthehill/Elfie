@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest } from "@/lib/queryClient";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,17 +7,16 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import {
-  Loader2, CheckCircle2, AlertTriangle, Package,
-  ExternalLink, Pencil, X, RefreshCw, Truck, ChevronDown, ChevronUp, Weight,
+  Loader2, CheckCircle2, AlertTriangle, ExternalLink,
+  Pencil, X, RefreshCw, Truck, ChevronDown, ChevronUp, Weight,
 } from "lucide-react";
 
-type Rate = {
+export type Rate = {
   id: string;
   carrier: string;
   service: string;
   rate: number;
   deliveryDays: number | null;
-  deliveryDate?: string;
 };
 
 type ShipAddress = {
@@ -42,38 +41,46 @@ type OrderShippingSummary = {
   address: ShipAddress;
 };
 
+export type ShippingReadyState = {
+  shipmentId: string;
+  rateId: string;
+  weight: string;
+  weightUnits: string;
+  selectedRate: Rate;
+};
+
+export type PurchasedLabelResult = {
+  trackingNumber: string;
+  labelUrl?: string;
+  carrier?: string;
+  service?: string;
+  rate?: number;
+};
+
 type Props = {
   orderId: string;
   isTestMode: boolean;
-  onShipped?: () => void;
+  /** Called whenever this card has a valid shipment+rate selected (or cleared when null) */
+  onReadyChange: (orderId: string, state: ShippingReadyState | null) => void;
+  /** Set by parent after batch purchase succeeds */
+  purchasedLabel?: PurchasedLabelResult;
 };
 
 const TEST_FROM_ADDRESS = {
-  name: "EasyPost Test",
-  company: "EasyPost",
-  street1: "417 Montgomery Street",
-  street2: "Floor 5",
-  city: "San Francisco",
-  state: "CA",
-  zip: "94104",
-  country: "US",
-  phone: "4155559999",
-  email: "test@easypost.com",
+  name: "EasyPost Test", company: "EasyPost",
+  street1: "417 Montgomery Street", street2: "Floor 5",
+  city: "San Francisco", state: "CA", zip: "94104",
+  country: "US", phone: "4155559999", email: "test@easypost.com",
 };
 
 const PROD_FROM_ADDRESS = {
-  name: "PlanetBrick",
-  company: "PlanetBrick",
-  street1: "PO Box 202",
-  city: "Lanesboro",
-  state: "MN",
-  zip: "55949",
-  country: "US",
-  phone: "5072670202",
-  email: "shipping@planetbrick.com",
+  name: "PlanetBrick", company: "PlanetBrick",
+  street1: "PO Box 202", city: "Lanesboro",
+  state: "MN", zip: "55949", country: "US",
+  phone: "5072670202", email: "shipping@planetbrick.com",
 };
 
-export default function InlineShippingCard({ orderId, isTestMode, onShipped }: Props) {
+export default function InlineShippingCard({ orderId, isTestMode, onReadyChange, purchasedLabel }: Props) {
   const { toast } = useToast();
 
   const [summary, setSummary] = useState<OrderShippingSummary | null>(null);
@@ -94,10 +101,17 @@ export default function InlineShippingCard({ orderId, isTestMode, onShipped }: P
   const [isLoadingRates, setIsLoadingRates] = useState(false);
   const [ratesError, setRatesError] = useState<string | null>(null);
 
-  const [isPurchasing, setIsPurchasing] = useState(false);
-  const [purchasedLabel, setPurchasedLabel] = useState<{ trackingNumber: string; labelUrl?: string } | null>(null);
-
   const [detailsOpen, setDetailsOpen] = useState(false);
+
+  // Notify parent whenever ready state changes
+  useEffect(() => {
+    const selectedRate = rates.find(r => r.id === selectedRateId);
+    if (shipmentId && selectedRateId && selectedRate) {
+      onReadyChange(orderId, { shipmentId, rateId: selectedRateId, weight, weightUnits, selectedRate });
+    } else {
+      onReadyChange(orderId, null);
+    }
+  }, [shipmentId, selectedRateId, weight, weightUnits, rates]);
 
   useEffect(() => {
     loadSummary();
@@ -108,7 +122,7 @@ export default function InlineShippingCard({ orderId, isTestMode, onShipped }: P
     try {
       const data: OrderShippingSummary = await fetch(
         `/api/fulfillment/order-shipping/${encodeURIComponent(orderId)}`
-      ).then((r) => r.json());
+      ).then(r => r.json());
 
       setSummary(data);
       setCurrentAddress(data.address);
@@ -138,8 +152,7 @@ export default function InlineShippingCard({ orderId, isTestMode, onShipped }: P
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ address }),
-      }).then((r) => r.json());
-
+      }).then(r => r.json());
       if (result.valid) {
         setAddressStatus("valid");
       } else {
@@ -161,21 +174,14 @@ export default function InlineShippingCard({ orderId, isTestMode, onShipped }: P
     setRatesError(null);
     setRates([]);
     setSelectedRateId(null);
+    setShipmentId(null);
     try {
       const fromAddress = isTestMode ? TEST_FROM_ADDRESS : PROD_FROM_ADDRESS;
       const weightNum = w !== "" ? Number(w) : 16;
 
       const result: any = await apiRequest("POST", "/api/shipments/create", {
-        orderId,
-        itemIdsToShip: [],
-        fromAddress,
-        parcel: {
-          length: 6,
-          width: 4,
-          height: 2,
-          weight: weightNum,
-          weightUnits: wu,
-        },
+        orderId, itemIdsToShip: [], fromAddress,
+        parcel: { length: 6, width: 4, height: 2, weight: weightNum, weightUnits: wu },
         overrideToAddress: address,
       });
 
@@ -186,10 +192,9 @@ export default function InlineShippingCard({ orderId, isTestMode, onShipped }: P
       if (sorted.length > 0) {
         if (requestedService) {
           const reqLower = requestedService.toLowerCase();
-          const match = sorted.find(
-            (r) =>
-              r.service.toLowerCase().includes(reqLower) ||
-              reqLower.includes(r.service.toLowerCase())
+          const match = sorted.find(r =>
+            r.service.toLowerCase().includes(reqLower) ||
+            reqLower.includes(r.service.toLowerCase())
           );
           setSelectedRateId(match?.id || sorted[0].id);
         } else {
@@ -214,51 +219,16 @@ export default function InlineShippingCard({ orderId, isTestMode, onShipped }: P
     fetchRates(editAddress, weight, weightUnits);
   };
 
-  const handlePurchaseLabel = async () => {
-    if (!selectedRateId || !shipmentId) return;
-    setIsPurchasing(true);
-    try {
-      if (weight !== "") {
-        await fetch(`/api/orders/${encodeURIComponent(orderId)}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ weight: Number(weight), weightUnits }),
-        });
-      }
-
-      const result: any = await apiRequest("POST", "/api/shipments/purchase", {
-        orderId,
-        shipmentId,
-        rateId: selectedRateId,
-      });
-
-      setPurchasedLabel({
-        trackingNumber: result.shipment?.trackingNumber || result.trackingNumber || "",
-        labelUrl: result.shipment?.labelUrl || result.labelUrl,
-      });
-
-      queryClient.invalidateQueries({ queryKey: ["/api/fulfillment"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/fulfillment/stats"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/orders/dashboard"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/orders/shipped"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
-
-      onShipped?.();
-      toast({ title: "Label Purchased", description: "Shipping label generated successfully!" });
-    } catch (e: any) {
-      toast({ title: "Purchase Failed", description: e.message, variant: "destructive" });
-    } finally {
-      setIsPurchasing(false);
-    }
-  };
-
-  const selectedRate = rates.find((r) => r.id === selectedRateId);
+  const selectedRate = rates.find(r => r.id === selectedRateId);
   const isCustomerPick = (rate: Rate) =>
     summary?.requestedService
       ? rate.service.toLowerCase().includes(summary.requestedService.toLowerCase()) ||
         summary.requestedService.toLowerCase().includes(rate.service.toLowerCase())
       : false;
 
+  const isReady = !!(shipmentId && selectedRateId && !isLoadingRates && !ratesError);
+
+  // ── Loading skeleton ──
   if (isLoadingSummary) {
     return (
       <div className="border border-gray-700 rounded-lg p-3 flex items-center gap-2 bg-gray-800/30">
@@ -270,91 +240,91 @@ export default function InlineShippingCard({ orderId, isTestMode, onShipped }: P
 
   if (!summary) return null;
 
+  // ── Purchased state (set by parent) ──
   if (purchasedLabel) {
     return (
-      <div className="border border-green-500/40 rounded-lg p-3 bg-green-500/10 space-y-1.5">
-        <div className="flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 text-green-400 shrink-0" />
-          <span className="text-sm font-bold text-green-300">Shipped — #{summary.orderNumber}</span>
+      <div className="border border-green-500/40 rounded-lg p-3 bg-green-500/10 flex items-center gap-3 flex-wrap">
+        <CheckCircle2 className="w-4 h-4 text-green-400 shrink-0" />
+        <div className="flex-1 min-w-0">
+          <span className="text-sm font-bold text-green-300">#{summary.orderNumber}</span>
+          <span className="text-[11px] text-gray-400 ml-2">
+            {[purchasedLabel.carrier, purchasedLabel.service].filter(Boolean).join(" ")}
+            {purchasedLabel.rate != null && ` · $${purchasedLabel.rate.toFixed(2)}`}
+          </span>
+          <p className="text-[10px] font-mono text-gray-300 mt-0.5">{purchasedLabel.trackingNumber}</p>
         </div>
-        <p className="text-[10px] text-gray-400 font-mono pl-6">{purchasedLabel.trackingNumber}</p>
         {purchasedLabel.labelUrl && (
-          <div className="pl-6">
-            <Button asChild variant="outline" size="sm" data-testid={`button-download-label-${orderId}`}>
-              <a href={purchasedLabel.labelUrl} target="_blank" rel="noopener noreferrer">
-                <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
-                Download Label
-              </a>
-            </Button>
-          </div>
+          <Button asChild variant="outline" size="sm" data-testid={`button-download-label-${orderId}`}>
+            <a href={purchasedLabel.labelUrl} target="_blank" rel="noopener noreferrer">
+              <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
+              Label
+            </a>
+          </Button>
         )}
       </div>
     );
   }
 
-  const hasAddressIssue = addressStatus === "invalid";
-  const hasRatesError = !!ratesError;
-
+  // ── Configuration card ──
   return (
-    <div
-      className="border border-gray-700 rounded-lg overflow-hidden bg-gray-800/30"
+    <div className="border rounded-lg overflow-hidden bg-gray-800/30 transition-colors"
+      style={{ borderColor: isReady ? "rgb(34 197 94 / 0.4)" : "rgb(55 65 81)" }}
       data-testid={`shipping-card-${orderId}`}
     >
-      {/* ── Main header row ── */}
+      {/* Main header */}
       <div className="px-3 py-2.5 space-y-2">
 
-        {/* Row 1: Order identity */}
+        {/* Row 1: Identity + status */}
         <div className="flex items-center gap-2 flex-wrap">
           <Truck className="w-3.5 h-3.5 text-purple-400 shrink-0" />
           <span className="text-sm font-bold text-white">#{summary.orderNumber}</span>
           {summary.marketplace && (
             <Badge variant="secondary" className="text-[10px]">{summary.marketplace}</Badge>
           )}
-          {/* Address status dot */}
-          {addressStatus === "loading" && <Loader2 className="w-3 h-3 animate-spin text-gray-500 ml-auto" />}
-          {addressStatus === "valid" && <CheckCircle2 className="w-3 h-3 text-green-400 ml-auto" />}
-          {addressStatus === "invalid" && (
-            <span className="ml-auto flex items-center gap-1 text-[10px] text-yellow-400">
-              <AlertTriangle className="w-3 h-3" />
-              Address issue
-            </span>
+          {isReady && (
+            <Badge className="text-[10px] bg-green-600/30 text-green-300 border-0 no-default-active-elevate ml-1">
+              Ready
+            </Badge>
           )}
-          {/* Customer requested service note */}
+          <div className="ml-auto flex items-center gap-1.5">
+            {addressStatus === "loading" && <Loader2 className="w-3 h-3 animate-spin text-gray-500" />}
+            {addressStatus === "valid" && <CheckCircle2 className="w-3 h-3 text-green-400" />}
+            {addressStatus === "invalid" && (
+              <span className="flex items-center gap-1 text-[10px] text-yellow-400">
+                <AlertTriangle className="w-3 h-3" />Address issue
+              </span>
+            )}
+          </div>
           {summary.requestedService && (
-            <span className="text-[10px] text-gray-500 italic ml-auto">
+            <span className="text-[10px] text-gray-500 italic w-full pl-5">
               Requested: {summary.requestedService}
             </span>
           )}
         </div>
 
-        {/* Row 2: Name + address one-liner */}
+        {/* Row 2: Address one-liner */}
         {currentAddress && (
           <div className="text-[11px] text-gray-400 pl-5 leading-tight">
             <span className="text-gray-300 font-medium">{currentAddress.name}</span>
             {currentAddress.street1 && <span> · {currentAddress.street1}</span>}
             {(currentAddress.city || currentAddress.state) && (
-              <span>
-                {" · "}
-                {[currentAddress.city, currentAddress.state, currentAddress.zip].filter(Boolean).join(" ")}
-              </span>
+              <span> · {[currentAddress.city, currentAddress.state, currentAddress.zip].filter(Boolean).join(" ")}</span>
             )}
           </div>
         )}
 
-        {/* Row 3: Service dropdown + price + Ship button */}
+        {/* Row 3: Service select + price */}
         <div className="flex items-center gap-2 pl-5">
           {isLoadingRates ? (
             <div className="flex items-center gap-2 flex-1">
               <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-400" />
               <span className="text-xs text-gray-400">Fetching rates...</span>
             </div>
-          ) : hasRatesError ? (
+          ) : ratesError ? (
             <div className="flex items-center gap-2 flex-1">
               <AlertTriangle className="w-3.5 h-3.5 text-red-400 shrink-0" />
               <span className="text-xs text-red-400 flex-1 min-w-0 truncate">{ratesError}</span>
-              <Button size="sm" variant="ghost" className="h-7 text-xs shrink-0" onClick={handleRefreshRates}>
-                Retry
-              </Button>
+              <Button size="sm" variant="ghost" onClick={handleRefreshRates}>Retry</Button>
             </div>
           ) : rates.length > 0 ? (
             <>
@@ -367,32 +337,23 @@ export default function InlineShippingCard({ orderId, isTestMode, onShipped }: P
                 </SelectTrigger>
                 <SelectContent>
                   {rates.map((rate, idx) => {
-                    const customerPick = isCustomerPick(rate);
-                    const isLowest = idx === 0;
+                    const cPick = isCustomerPick(rate);
                     return (
                       <SelectItem key={rate.id} value={rate.id}>
                         <span className="flex items-center gap-2">
-                          <span className="font-medium">
-                            {rate.carrier} {rate.service}
-                          </span>
+                          <span className="font-medium">{rate.carrier} {rate.service}</span>
                           <span className="text-gray-400">
                             ${rate.rate.toFixed(2)}
                             {rate.deliveryDays != null && ` · ${rate.deliveryDays}d`}
                           </span>
-                          {customerPick && (
-                            <span className="text-blue-400 text-[10px]">★ Requested</span>
-                          )}
-                          {isLowest && !customerPick && (
-                            <span className="text-green-400 text-[10px]">Lowest</span>
-                          )}
+                          {cPick && <span className="text-blue-400 text-[10px]">★ Requested</span>}
+                          {idx === 0 && !cPick && <span className="text-green-400 text-[10px]">Lowest</span>}
                         </span>
                       </SelectItem>
                     );
                   })}
                 </SelectContent>
               </Select>
-
-              {/* Selected rate price */}
               {selectedRate && (
                 <div className="text-right shrink-0">
                   <div className="text-sm font-bold text-white">${selectedRate.rate.toFixed(2)}</div>
@@ -401,23 +362,6 @@ export default function InlineShippingCard({ orderId, isTestMode, onShipped }: P
                   )}
                 </div>
               )}
-
-              <Button
-                onClick={handlePurchaseLabel}
-                disabled={!selectedRateId || isPurchasing}
-                size="sm"
-                className="bg-green-600 hover:bg-green-500 shrink-0"
-                data-testid={`button-purchase-label-${orderId}`}
-              >
-                {isPurchasing ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <>
-                    <Package className="w-3.5 h-3.5 mr-1.5" />
-                    Ship
-                  </>
-                )}
-              </Button>
             </>
           ) : null}
         </div>
@@ -425,22 +369,20 @@ export default function InlineShippingCard({ orderId, isTestMode, onShipped }: P
         {/* Row 4: Details toggle */}
         <button
           className="flex items-center gap-1 text-[11px] text-gray-500 hover:text-gray-300 transition-colors pl-5"
-          onClick={() => setDetailsOpen((v) => !v)}
+          onClick={() => setDetailsOpen(v => !v)}
           data-testid={`button-toggle-details-${orderId}`}
         >
           {detailsOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-          {detailsOpen ? "Hide details" : "Show details"}
-          {hasAddressIssue && !detailsOpen && (
+          {detailsOpen ? "Hide details" : "Details"}
+          {addressStatus === "invalid" && !detailsOpen && (
             <span className="ml-1 text-yellow-400">· Address needs attention</span>
           )}
         </button>
       </div>
 
-      {/* ── Collapsible details ── */}
+      {/* Collapsible details */}
       {detailsOpen && (
         <div className="border-t border-gray-700 px-3 py-3 space-y-3 bg-gray-900/40">
-
-          {/* Address */}
           {!editingAddress ? (
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
@@ -454,25 +396,18 @@ export default function InlineShippingCard({ orderId, isTestMode, onShipped }: P
                   {currentAddress?.name && <div className="font-medium">{currentAddress.name}</div>}
                   {currentAddress?.street1 && <div>{currentAddress.street1}</div>}
                   {currentAddress?.street2 && <div>{currentAddress.street2}</div>}
-                  <div>
-                    {[currentAddress?.city, currentAddress?.state, currentAddress?.zip]
-                      .filter(Boolean)
-                      .join(" ")}
-                  </div>
+                  <div>{[currentAddress?.city, currentAddress?.state, currentAddress?.zip].filter(Boolean).join(" ")}</div>
                 </div>
                 {addressStatus === "invalid" && addressErrors.length > 0 && (
                   <div className="mt-1 text-[10px] text-yellow-400">{addressErrors[0]}</div>
                 )}
               </div>
               <Button
-                size="sm"
-                variant="ghost"
-                className="shrink-0"
+                size="sm" variant="ghost" className="shrink-0"
                 onClick={() => { setEditAddress(currentAddress!); setEditingAddress(true); }}
                 data-testid={`button-edit-address-${orderId}`}
               >
-                <Pencil className="w-3 h-3 mr-1" />
-                Edit
+                <Pencil className="w-3 h-3 mr-1" />Edit
               </Button>
             </div>
           ) : (
@@ -492,9 +427,7 @@ export default function InlineShippingCard({ orderId, isTestMode, onShipped }: P
                     <Label className="text-[10px] text-gray-500">{label}</Label>
                     <Input
                       value={(editAddress as any)[field] || ""}
-                      onChange={(e) =>
-                        setEditAddress((prev) => ({ ...prev, [field]: e.target.value }))
-                      }
+                      onChange={e => setEditAddress(prev => ({ ...prev, [field]: e.target.value }))}
                       className="h-7 text-xs bg-gray-900 border-gray-600"
                       data-testid={`input-address-${field}-${orderId}`}
                     />
@@ -503,8 +436,7 @@ export default function InlineShippingCard({ orderId, isTestMode, onShipped }: P
               </div>
               <div className="flex gap-1.5 justify-end">
                 <Button size="sm" variant="ghost" onClick={() => setEditingAddress(false)}>
-                  <X className="w-3 h-3 mr-1" />
-                  Cancel
+                  <X className="w-3 h-3 mr-1" />Cancel
                 </Button>
                 <Button size="sm" onClick={handleSaveAddress} data-testid={`button-save-address-${orderId}`}>
                   Save & Re-validate
@@ -513,24 +445,16 @@ export default function InlineShippingCard({ orderId, isTestMode, onShipped }: P
             </div>
           )}
 
-          {/* Weight + refresh */}
           <div className="flex items-center gap-2 flex-wrap">
             <Weight className="w-3.5 h-3.5 text-blue-400 shrink-0" />
             <Input
-              type="number"
-              step="0.1"
-              min="0"
-              value={weight}
-              onChange={(e) => setWeight(e.target.value)}
-              placeholder="16"
-              className="h-7 w-20 text-xs bg-gray-900 border-gray-600"
+              type="number" step="0.1" min="0" value={weight}
+              onChange={e => setWeight(e.target.value)}
+              placeholder="16" className="h-7 w-20 text-xs bg-gray-900 border-gray-600"
               data-testid={`input-weight-${orderId}`}
             />
             <Select value={weightUnits} onValueChange={setWeightUnits}>
-              <SelectTrigger
-                className="h-7 w-16 text-xs bg-gray-900 border-gray-600"
-                data-testid={`select-weight-units-${orderId}`}
-              >
+              <SelectTrigger className="h-7 w-16 text-xs bg-gray-900 border-gray-600" data-testid={`select-weight-units-${orderId}`}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -541,16 +465,11 @@ export default function InlineShippingCard({ orderId, isTestMode, onShipped }: P
               </SelectContent>
             </Select>
             {summary.weightEstimateOz > 0 && (
-              <span className="text-[10px] text-gray-500">
-                est. {summary.weightEstimateOz} oz
-              </span>
+              <span className="text-[10px] text-gray-500">est. {summary.weightEstimateOz} oz</span>
             )}
             <Button
-              size="sm"
-              variant="ghost"
-              className="ml-auto"
-              onClick={handleRefreshRates}
-              disabled={isLoadingRates}
+              size="sm" variant="ghost" className="ml-auto"
+              onClick={handleRefreshRates} disabled={isLoadingRates}
               data-testid={`button-refresh-rates-${orderId}`}
             >
               <RefreshCw className={`w-3 h-3 mr-1 ${isLoadingRates ? "animate-spin" : ""}`} />
