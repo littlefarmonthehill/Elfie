@@ -95,14 +95,19 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
     const showCountry = country && country !== 'US';
 
     const itemsHTML = order.items.map((item: any) => {
-      const displayName = cleanItemName(item.name, item.bricklinkPartNumber);
+      const baseName = cleanItemName(item.name, item.bricklinkPartNumber);
+      const colorPrefix = item.colorName ? `${item.colorName} ` : '';
       const partLabel = item.bricklinkPartNumber ? ` (${item.bricklinkPartNumber})` : '';
-      const meta = [item.colorName, item.condition].filter(Boolean).join(', ');
+      const fullName = `LEGO ${colorPrefix}${baseName}${partLabel}`;
+      const metaParts = [
+        item.colorName ? `Color: ${item.colorName}` : '',
+        item.condition ? `Condition: ${item.condition}` : '',
+      ].filter(Boolean).join(', ');
       return `
         <tr>
           <td class="item-desc">
-            <div class="item-name">${displayName}${partLabel}</div>
-            ${meta ? `<div class="item-meta">${meta}</div>` : ''}
+            <div class="item-name">${fullName}</div>
+            ${metaParts ? `<div class="item-meta">${metaParts}</div>` : ''}
           </td>
           <td class="item-qty">${item.quantity}</td>
         </tr>
