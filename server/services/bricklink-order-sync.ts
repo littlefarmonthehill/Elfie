@@ -43,11 +43,10 @@ export async function syncBrickLinkOrders(
   try {
     console.log(`\n📦 Starting BrickLink order sync...`);
     
-    // Check if incremental sync should be used
-    let filedDate: Date | undefined = undefined;
+    // Check for previous sync timestamp (used to filter results after fetch)
+    let lastSyncTime: Date | undefined = undefined;
     
     if (!options.fullSync) {
-      // Check for previous sync
       const [previousSync] = await db
         .select()
         .from(syncMetadata)
@@ -55,8 +54,8 @@ export async function syncBrickLinkOrders(
         .limit(1);
       
       if (previousSync?.lastSyncTime) {
-        filedDate = previousSync.lastSyncTime;
-        console.log(`📅 Incremental sync: fetching orders modified since ${filedDate.toISOString()}`);
+        lastSyncTime = previousSync.lastSyncTime;
+        console.log(`📅 Incremental sync: will filter orders modified since ${lastSyncTime.toISOString()}`);
       } else {
         console.log(`🔄 No previous sync found - performing full sync`);
       }
@@ -65,22 +64,20 @@ export async function syncBrickLinkOrders(
     }
     
     // Fetch orders from BrickLink API
-    // Status options: PENDING (awaiting payment/shipment), COMPLETED (shipped), PURGED (cancelled/deleted)
-    // Note: Skip PURGED orders for manual sync since they're old cancelled orders with no item data
-    const skipPurged = !options.fullSync; // Skip PURGED orders unless explicitly doing full sync
+    // BrickLink 'filed' param is boolean (archived vs active), NOT a date filter
+    // We fetch all non-filed (active) orders and filter by date locally
+    const skipPurged = !options.fullSync;
     
     const pendingOrders = await getBrickLinkOrders(consumerKey, consumerSecret, tokenValue, tokenSecret, {
-      direction: 'in', // Incoming orders (purchases)
+      direction: 'in',
       status: 'PENDING',
       limit: options.limit,
-      filed: filedDate,
     });
     
     const completedOrders = await getBrickLinkOrders(consumerKey, consumerSecret, tokenValue, tokenSecret, {
       direction: 'in',
       status: 'COMPLETED',
       limit: options.limit,
-      filed: filedDate,
     });
     
     let purgedOrders: any[] = [];
@@ -89,7 +86,6 @@ export async function syncBrickLinkOrders(
         direction: 'in',
         status: 'PURGED',
         limit: options.limit,
-        filed: filedDate,
       });
     }
     

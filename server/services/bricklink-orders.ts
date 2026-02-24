@@ -28,7 +28,7 @@ export async function getBrickLinkOrders(
     direction?: 'in' | 'out';
     status?: 'PENDING' | 'COMPLETED' | 'PURGED';
     limit?: number;
-    filed?: Date; // Filter orders modified since this date
+    filed?: boolean; // BrickLink API: true = archived orders, false = active orders, omit = all
   } = {}
 ): Promise<any[]> {
   const oauth = new OAuth({
@@ -41,10 +41,8 @@ export async function getBrickLinkOrders(
   const params = new URLSearchParams();
   if (options.direction) params.append('direction', options.direction);
   if (options.status) params.append('status', options.status);
-  if (options.filed) {
-    // BrickLink API expects date in YYYY-MM-DD format
-    const filedDate = options.filed.toISOString().split('T')[0];
-    params.append('filed', filedDate);
+  if (options.filed !== undefined) {
+    params.append('filed', options.filed ? 'true' : 'false');
   }
   
   // Build URL with query params - OAuth needs the full URL for signature
