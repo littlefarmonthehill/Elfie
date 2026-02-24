@@ -17,7 +17,7 @@ import {
 import { Truck, Loader2, Printer, AlertTriangle, ChevronDown, Tag, MoreVertical, Scissors, Package, ExternalLink, CheckCircle2 } from "lucide-react";
 import { printPackingSlips } from "./PackingSlip";
 import { useToast } from "@/hooks/use-toast";
-import InlineShippingCard, { ShippingReadyState, PurchasedLabelResult } from "./InlineShippingCard";
+import InlineShippingCard, { ShippingReadyState, PurchasedLabelResult, OrderItem } from "./InlineShippingCard";
 
 type BatchResult = {
   orderId: string;
@@ -647,15 +647,30 @@ export default function FulfillmentTool() {
             )}
           </h3>
           <div className="space-y-2">
-            {[...selectedOrders].map((orderId) => (
-              <InlineShippingCard
-                key={orderId}
-                orderId={orderId}
-                isTestMode={settings?.easypostKeyMode === 'test'}
-                onReadyChange={handleReadyChange}
-                purchasedLabel={purchasedLabels.get(orderId)}
-              />
-            ))}
+            {[...selectedOrders].map((orderId) => {
+              const items: OrderItem[] = (data?.items ?? [])
+                .filter(item => item.orderId === orderId)
+                .map(item => ({
+                  id: item.id,
+                  sku: item.sku,
+                  bricklinkPartNumber: item.bricklinkPartNumber,
+                  name: item.name,
+                  quantity: item.quantity,
+                  colorName: item.colorName,
+                  condition: item.condition,
+                  binName: item.binName,
+                }));
+              return (
+                <InlineShippingCard
+                  key={orderId}
+                  orderId={orderId}
+                  isTestMode={settings?.easypostKeyMode === 'test'}
+                  onReadyChange={handleReadyChange}
+                  purchasedLabel={purchasedLabels.get(orderId)}
+                  orderItems={items}
+                />
+              );
+            })}
           </div>
         </div>
       )}
