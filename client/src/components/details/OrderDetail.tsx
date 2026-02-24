@@ -41,6 +41,9 @@ interface OrderDetailProps {
     orderDate?: string;
     shippedDate?: string;
     trackingNumber?: string;
+    labelUrl?: string;
+    shippingCarrier?: string;
+    shippingService?: string;
     weight?: number | null;
     weightUnits?: string;
     isRepeatCustomer?: boolean;
@@ -444,18 +447,38 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
       </div>
 
       {/* Shipping Info */}
-      {data.shippedDate && (
-        <div className="bg-gradient-to-r from-lego-green/15 via-lego-green/5 to-transparent border border-lego-green/30 rounded-lg p-2.5">
-          <div className="flex items-center justify-between text-[9px] md:text-xs">
+      {(data.shippedDate || data.trackingNumber) && (
+        <div className="bg-gradient-to-r from-lego-green/15 via-lego-green/5 to-transparent border border-lego-green/30 rounded-lg p-2.5 space-y-1.5">
+          <div className="flex items-center justify-between text-[9px] md:text-xs flex-wrap gap-1">
             <div className="flex items-center gap-2">
-              <Truck className="h-4 w-4 text-lego-green" />
+              <Truck className="h-4 w-4 text-lego-green shrink-0" />
               <span className="font-bold text-lego-green">SHIPPED</span>
-              <span className="text-gray-400">{new Date(data.shippedDate).toLocaleDateString()}</span>
+              {data.shippedDate && (
+                <span className="text-gray-400">{new Date(data.shippedDate).toLocaleDateString()}</span>
+              )}
+              {(data.shippingCarrier || data.shippingService) && (
+                <span className="text-gray-400">
+                  {[data.shippingCarrier, data.shippingService].filter(Boolean).join(' ')}
+                </span>
+              )}
             </div>
-            {data.trackingNumber && (
-              <span className="font-mono text-lego-blue">{data.trackingNumber}</span>
+            {data.labelUrl && (
+              <a
+                href={data.labelUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[9px] md:text-xs text-lego-blue underline underline-offset-2 hover:text-lego-blue/80"
+              >
+                Download Label
+              </a>
             )}
           </div>
+          {data.trackingNumber && (
+            <div className="flex items-center gap-2">
+              <span className="text-[9px] md:text-xs text-gray-400">Tracking:</span>
+              <span className="font-mono text-[9px] md:text-xs text-lego-blue font-semibold">{data.trackingNumber}</span>
+            </div>
+          )}
         </div>
       )}
     </div>

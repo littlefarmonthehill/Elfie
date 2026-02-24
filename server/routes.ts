@@ -748,6 +748,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Fetch order items
       const items = await db.select().from(orderDetails).where(eq(orderDetails.orderId, orderId));
+
+      // Fetch most recent shipment for tracking number
+      const [shipment] = await db
+        .select({ trackingNumber: shipments.trackingNumber, labelUrl: shipments.labelUrl, carrier: shipments.carrier, service: shipments.service })
+        .from(shipments)
+        .where(eq(shipments.orderId, orderId))
+        .orderBy(desc(shipments.createdAt))
+        .limit(1);
       
       // Parse shipTo JSON to get customer address
       let shipToData: any = {};
@@ -810,7 +818,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         total: Number(order.orderTotal) || 0,
         orderDate: order.orderDate.toISOString(),
         shippedDate: order.shipDate?.toISOString(),
-        trackingNumber: undefined,
+        trackingNumber: shipment?.trackingNumber || undefined,
+        labelUrl: shipment?.labelUrl || undefined,
+        shippingCarrier: shipment?.carrier || undefined,
+        shippingService: shipment?.service || undefined,
         isRepeatCustomer: isRepeatCustomer,
         previousOrders: allCustomerOrders
           .filter(o => o.id !== orderId) // Exclude current order from previous orders
