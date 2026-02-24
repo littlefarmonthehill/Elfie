@@ -126,7 +126,11 @@ export async function getBrickLinkOrderItems(
 
   const data = await response.json();
   console.log(`BrickLink items API response for order ${orderId}:`, JSON.stringify(data).slice(0, 500));
-  return data.data || [];
+  // BrickLink returns items as nested array: [[item1, item2], [item3]] (array of batches)
+  // Flatten to a single array of items
+  const rawItems = data.data || [];
+  const flatItems = rawItems.flat ? rawItems.flat() : [].concat(...rawItems);
+  return flatItems;
 }
 
 // Map BrickLink status to normalized status (async version)

@@ -1,6 +1,6 @@
 import { db } from "../db";
 import { orders, orderDetails, syncMetadata } from "@shared/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { getBrickLinkOrders, getBrickLinkOrderItems, mapBrickLinkStatusSync, mapBrickLinkCondition } from "./bricklink-orders";
 import { mapPlatformStatus } from "../config/order-status-mapping";
 import { adjustInventoryForOrder } from "./inventory-adjustment";
@@ -43,60 +43,55 @@ export async function syncBrickLinkOrders(
   try {
     console.log(`\n📦 Starting BrickLink order sync...`);
     
-    // Check for previous sync timestamp (used to filter results after fetch)
-    let lastSyncTime: Date | undefined = undefined;
+    // Fetch ALL orders from BrickLink API (no status filter)
+    const fetchedOrders = await getBrickLinkOrders(consumerKey, consumerSecret, tokenValue, tokenSecret, {
+      direction: 'in',
+    });
     
+    console.log(`📦 Fetched ${fetchedOrders.length} total orders from BrickLink API`);
+    
+    // Sort newest first so new orders get processed quickly
+    fetchedOrders.sort((a: any, b: any) => 
+      new Date(b.date_status_changed || b.date_ordered).getTime() - new Date(a.date_status_changed || a.date_ordered).getTime()
+    );
+    
+    if (fetchedOrders.length > 0) {
+      const newest = fetchedOrders.slice(0, 3);
+      console.log(`📋 Newest orders:`, newest.map((o: any) => `#${o.order_id} status=${o.status} date_ordered=${o.date_ordered} date_changed=${o.date_status_changed}`));
+    }
+    
+    // For incremental sync: only process orders that are new or have changed status
+    // For full sync: process all orders
+    // This is much more reliable than timestamp-based filtering
+    let allOrders = fetchedOrders;
     if (!options.fullSync) {
-      const [previousSync] = await db
-        .select()
-        .from(syncMetadata)
-        .where(eq(syncMetadata.id, syncId))
-        .limit(1);
+      // Get all existing BrickLink order IDs and their statuses from our DB
+      const existingOrders = await db
+        .select({ id: orders.id, orderStatus: orders.orderStatus })
+        .from(orders)
+        .where(sql`${orders.id} LIKE 'bl-%'`);
       
-      if (previousSync?.lastSyncTime) {
-        lastSyncTime = previousSync.lastSyncTime;
-        console.log(`📅 Incremental sync: will filter orders modified since ${lastSyncTime.toISOString()}`);
-      } else {
-        console.log(`🔄 No previous sync found - performing full sync`);
-      }
-    } else {
-      console.log(`🔄 Full sync requested`);
-    }
-    
-    // Fetch orders from BrickLink API
-    // BrickLink 'filed' param is boolean (archived vs active), NOT a date filter
-    // We fetch all non-filed (active) orders and filter by date locally
-    const skipPurged = !options.fullSync;
-    
-    const pendingOrders = await getBrickLinkOrders(consumerKey, consumerSecret, tokenValue, tokenSecret, {
-      direction: 'in',
-      status: 'PENDING',
-      limit: options.limit,
-    });
-    
-    const completedOrders = await getBrickLinkOrders(consumerKey, consumerSecret, tokenValue, tokenSecret, {
-      direction: 'in',
-      status: 'COMPLETED',
-      limit: options.limit,
-    });
-    
-    let purgedOrders: any[] = [];
-    if (!skipPurged) {
-      purgedOrders = await getBrickLinkOrders(consumerKey, consumerSecret, tokenValue, tokenSecret, {
-        direction: 'in',
-        status: 'PURGED',
-        limit: options.limit,
+      const existingMap = new Map(existingOrders.map(o => [o.id, o.orderStatus]));
+      
+      allOrders = fetchedOrders.filter((order: any) => {
+        const orderId = `bl-${order.order_id}`;
+        const existing = existingMap.get(orderId);
+        if (!existing) return true; // New order - process it
+        const newStatus = mapPlatformStatus('bricklink', order.status);
+        if (existing !== newStatus) return true; // Status changed - process it
+        return false; // Already synced, same status - skip
       });
+      
+      console.log(`📅 Incremental: ${allOrders.length} new/changed orders to process (skipped ${fetchedOrders.length - allOrders.length} unchanged)`);
     }
     
-    const allOrders = [...pendingOrders, ...completedOrders, ...purgedOrders];
+    // Apply limit after filtering
+    if (options.limit && allOrders.length > options.limit) {
+      console.log(`📦 Applying limit: processing ${options.limit} of ${allOrders.length} orders`);
+      allOrders = allOrders.slice(0, options.limit);
+    }
+    
     result.totalOrders = allOrders.length;
-    
-    if (skipPurged) {
-      console.log(`📦 Fetched ${result.totalOrders} orders from BrickLink (${pendingOrders.length} pending, ${completedOrders.length} completed, PURGED skipped for manual sync)`);
-    } else {
-      console.log(`📦 Fetched ${result.totalOrders} orders from BrickLink (${pendingOrders.length} pending, ${completedOrders.length} completed, ${purgedOrders.length} purged)`);
-    }
     
     // Process each order
     for (const blOrder of allOrders) {
