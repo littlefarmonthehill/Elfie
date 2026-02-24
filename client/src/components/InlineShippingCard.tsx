@@ -270,23 +270,9 @@ export default function InlineShippingCard({
     >
       <div className="px-3 pt-2.5 pb-2 space-y-2">
 
-        {/* ── Row 1: Identity + address status ── */}
-        <div className="flex items-center gap-1.5 flex-wrap">
+        {/* ── Row 1: Identity ── */}
+        <div className="flex items-center gap-1.5">
           <span className="text-sm font-bold text-white font-mono">#{summary.orderNumber}</span>
-          {/* Address validation — right-aligned */}
-          <div className="ml-auto flex items-center gap-1 shrink-0">
-            {addressStatus === "loading" && <Loader2 className="w-3 h-3 animate-spin text-gray-500" />}
-            {addressStatus === "valid" && (
-              <span className="flex items-center gap-0.5 text-[10px] text-green-400">
-                <CheckCircle2 className="w-3 h-3" />Address OK
-              </span>
-            )}
-            {addressStatus === "invalid" && (
-              <span className="flex items-center gap-0.5 text-[10px] text-yellow-400">
-                <AlertTriangle className="w-3 h-3" />Address issue
-              </span>
-            )}
-          </div>
         </div>
 
         {/* ── Row 2: Weight + Preferred service ── */}
