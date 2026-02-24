@@ -123,8 +123,11 @@ export default function ShippedOrdersTool() {
 
         {/* Results Count */}
         {shippedOrders && shippedOrders.length > 0 && (
-          <div className="text-sm text-gray-400">
-            Showing {shippedOrders.length} shipped {shippedOrders.length === 1 ? 'order' : 'orders'}
+          <div className="text-sm text-gray-400 flex items-center gap-2">
+            <span>Showing {shippedOrders.length} shipped {shippedOrders.length === 1 ? 'order' : 'orders'}</span>
+            {!searchQuery.trim() && shippedOrders.length >= 200 && (
+              <span className="text-xs text-gray-500">(most recent 200 — search to find older orders)</span>
+            )}
           </div>
         )}
 

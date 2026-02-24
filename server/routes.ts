@@ -440,7 +440,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         whereConditions = and(whereConditions, searchConditions)!;
       }
       
-      // Execute query for shipped orders
+      // Execute query for shipped orders — limit to 200 most recent to prevent browser crash
+      const limit = searchQuery?.trim() ? 500 : 200;
       const shippedOrders = await db
         .select({
           id: orders.id,
@@ -461,7 +462,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .from(orders)
         .leftJoin(shipments, eq(orders.id, shipments.orderId))
         .where(whereConditions)
-        .orderBy(desc(orders.shipDate));
+        .orderBy(desc(sql`COALESCE(${orders.shipDate}, ${orders.orderDate})`))
+        .limit(limit);
       
       res.json(shippedOrders);
     } catch (error) {
@@ -788,11 +790,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           name: order.customerUsername || 'Unknown Customer',
           email: order.customerEmail || '',
           address: shipToData.street1 || '',
+          address2: shipToData.street2 || '',
+          address3: shipToData.street3 || '',
           city: shipToData.city || '',
           state: shipToData.state || '',
           zip: shipToData.postalCode || '',
           country: shipToData.country || '',
         },
+        weight: order.weight ? Number(order.weight) : null,
+        weightUnits: order.weightUnits || 'oz',
         items: items.map(item => ({
           partNumber: item.sku || '',
           name: item.name,
@@ -824,6 +830,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching order:", error);
       res.status(500).json({ error: "Failed to fetch order" });
+    }
+  });
+
+  // Update order address and weight fields (pre-shipment edits)
+  app.patch("/api/orders/:id", isApproved, async (req, res) => {
+    try {
+      const orderId = req.params.id;
+      const { street1, street2, street3, city, state, postalCode, country, weight, weightUnits } = req.body;
+
+      const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+      if (!order) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+
+      // Merge updated address fields into existing shipTo JSON
+      let shipToData: any = {};
+      try {
+        shipToData = order.shipTo ? JSON.parse(order.shipTo) : {};
+      } catch (e) { /* ignore */ }
+
+      if (street1 !== undefined) shipToData.street1 = street1;
+      if (street2 !== undefined) shipToData.street2 = street2;
+      if (street3 !== undefined) shipToData.street3 = street3;
+      if (city !== undefined) shipToData.city = city;
+      if (state !== undefined) shipToData.state = state;
+      if (postalCode !== undefined) shipToData.postalCode = postalCode;
+      if (country !== undefined) shipToData.country = country;
+
+      const updateData: any = { shipTo: JSON.stringify(shipToData) };
+      if (weight !== undefined) updateData.weight = weight !== null && weight !== '' ? weight.toString() : null;
+      if (weightUnits !== undefined) updateData.weightUnits = weightUnits;
+
+      await db.update(orders).set(updateData).where(eq(orders.id, orderId));
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error updating order:", error);
+      res.status(500).json({ error: "Failed to update order" });
     }
   });
 

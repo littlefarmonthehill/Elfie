@@ -15,7 +15,9 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator 
 } from "@/components/ui/dropdown-menu";
-import { Truck, Loader2, Printer, CheckSquare, Square, Package, AlertTriangle, ChevronDown, Tag, MoreVertical, Scissors } from "lucide-react";
+import { Truck, Loader2, Printer, CheckSquare, Square, Package, AlertTriangle, ChevronDown, Tag, MoreVertical, Scissors, Weight } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { printPackingSlips } from "./PackingSlip";
 import { useToast } from "@/hooks/use-toast";
 
@@ -64,6 +66,10 @@ export default function FulfillmentTool() {
   const [shipmentData, setShipmentData] = useState<any>(null);
   const [splitPreview, setSplitPreview] = useState<any>(null);
   const [isLoadingShipping, setIsLoadingShipping] = useState(false);
+
+  // Parcel weight state (set per order before getting shipping rates)
+  const [parcelWeight, setParcelWeight] = useState<string>('');
+  const [parcelWeightUnits, setParcelWeightUnits] = useState<string>('oz');
 
   // Split order state
   const [isSplitMode, setIsSplitMode] = useState(false);
@@ -338,13 +344,21 @@ export default function FulfillmentTool() {
     setShowShippingDialog(true);
     setIsLoadingShipping(true);
     
-    // Check if split is needed
+    // Check if split is needed and also fetch the order's stored weight
     try {
-      const result = await apiRequest('POST', '/api/shipments/preview', {
-        orderId,
-        itemIdsToShip: allItemIds
-      });
-      setSplitPreview(result);
+      const [previewResult, orderData] = await Promise.all([
+        apiRequest('POST', '/api/shipments/preview', { orderId, itemIdsToShip: allItemIds }),
+        fetch(`/api/orders/${orderId}`).then(r => r.ok ? r.json() : null).catch(() => null),
+      ]);
+      setSplitPreview(previewResult);
+      // Pre-populate weight from order record if available
+      if (orderData?.weight != null) {
+        setParcelWeight(String(orderData.weight));
+        setParcelWeightUnits(orderData.weightUnits || 'oz');
+      } else {
+        setParcelWeight('');
+        setParcelWeightUnits('oz');
+      }
     } catch (error: any) {
       console.error('Error previewing shipment:', error);
       toast({
@@ -409,7 +423,8 @@ export default function FulfillmentTool() {
           length: 6,
           width: 4,
           height: 2,
-          weight: 16
+          weight: parcelWeight !== '' ? Number(parcelWeight) : 16,
+          weightUnits: parcelWeightUnits,
         }
       });
       
@@ -766,6 +781,8 @@ export default function FulfillmentTool() {
           setShipmentData(null);
           setSplitPreview(null);
           setIsLoadingShipping(false);
+          setParcelWeight('');
+          setParcelWeightUnits('oz');
         }
       }}>
         <DialogContent className="sm:max-w-[600px]">
@@ -803,6 +820,46 @@ export default function FulfillmentTool() {
                     ? `Shipping ${splitPreview.itemsToShip} of ${splitPreview.totalItems} items` 
                     : `Shipping all ${splitPreview.totalItems} item(s)`}
                 </p>
+              </div>
+
+              {/* Package Weight */}
+              <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 space-y-2">
+                <div className="flex items-center gap-1.5">
+                  <Weight className="h-4 w-4 text-blue-400" />
+                  <p className="text-sm font-semibold text-gray-300">Package Weight (including packaging)</p>
+                </div>
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <Label className="text-xs text-gray-500">Weight</Label>
+                    <Input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      value={parcelWeight}
+                      onChange={e => setParcelWeight(e.target.value)}
+                      placeholder="e.g. 8.5"
+                      className="h-8 text-sm bg-gray-900 border-gray-600 mt-0.5"
+                      data-testid="input-parcel-weight"
+                    />
+                  </div>
+                  <div className="w-24">
+                    <Label className="text-xs text-gray-500">Unit</Label>
+                    <Select value={parcelWeightUnits} onValueChange={setParcelWeightUnits}>
+                      <SelectTrigger className="h-8 text-sm bg-gray-900 border-gray-600 mt-0.5" data-testid="select-parcel-weight-unit">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="oz">oz</SelectItem>
+                        <SelectItem value="lb">lb</SelectItem>
+                        <SelectItem value="g">g</SelectItem>
+                        <SelectItem value="kg">kg</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                {parcelWeight === '' && (
+                  <p className="text-xs text-yellow-500">No weight set — will default to 16 oz. Set a weight above for accurate rates.</p>
+                )}
               </div>
 
               <div className="flex justify-end gap-2">

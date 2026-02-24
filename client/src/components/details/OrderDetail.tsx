@@ -1,6 +1,14 @@
-import { Package, DollarSign, User, MapPin, Calendar, Truck, RefreshCcw } from "lucide-react";
+import { useState } from "react";
+import { Package, DollarSign, User, MapPin, Calendar, Truck, RefreshCcw, Pencil, X, Save, Weight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import { queryClient } from "@/lib/queryClient";
 
 interface OrderDetailProps {
   data: {
@@ -14,6 +22,8 @@ interface OrderDetailProps {
       name: string;
       email: string;
       address: string;
+      address2?: string;
+      address3?: string;
       city: string;
       state: string;
       zip: string;
@@ -31,6 +41,8 @@ interface OrderDetailProps {
     orderDate?: string;
     shippedDate?: string;
     trackingNumber?: string;
+    weight?: number | null;
+    weightUnits?: string;
     isRepeatCustomer?: boolean;
     previousOrders?: Array<{
       orderId: string;
@@ -44,11 +56,64 @@ interface OrderDetailProps {
 }
 
 export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
-  // Show loading skeleton
+  const { toast } = useToast();
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [editForm, setEditForm] = useState({
+    street1: data.customer?.address || '',
+    street2: data.customer?.address2 || '',
+    street3: data.customer?.address3 || '',
+    city: data.customer?.city || '',
+    state: data.customer?.state || '',
+    postalCode: data.customer?.zip || '',
+    country: data.customer?.country || '',
+    weight: data.weight != null ? String(data.weight) : '',
+    weightUnits: data.weightUnits || 'oz',
+  });
+
+  const handleEditStart = () => {
+    setEditForm({
+      street1: data.customer?.address || '',
+      street2: data.customer?.address2 || '',
+      street3: data.customer?.address3 || '',
+      city: data.customer?.city || '',
+      state: data.customer?.state || '',
+      postalCode: data.customer?.zip || '',
+      country: data.customer?.country || '',
+      weight: data.weight != null ? String(data.weight) : '',
+      weightUnits: data.weightUnits || 'oz',
+    });
+    setIsEditing(true);
+  };
+
+  const handleSave = async () => {
+    if (!data.orderId) return;
+    setIsSaving(true);
+    try {
+      await apiRequest('PATCH', `/api/orders/${data.orderId}`, {
+        street1: editForm.street1,
+        street2: editForm.street2,
+        street3: editForm.street3,
+        city: editForm.city,
+        state: editForm.state,
+        postalCode: editForm.postalCode,
+        country: editForm.country,
+        weight: editForm.weight !== '' ? Number(editForm.weight) : null,
+        weightUnits: editForm.weightUnits,
+      });
+      queryClient.invalidateQueries({ queryKey: [`/api/orders/${data.orderId}`] });
+      toast({ title: "Order Updated", description: "Address and weight saved successfully." });
+      setIsEditing(false);
+    } catch (err: any) {
+      toast({ title: "Save Failed", description: err.message || "Could not save changes.", variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   if (data.loading) {
     return (
       <div className="space-y-2" data-testid="order-detail-loading">
-        {/* Header skeleton */}
         <div className="bg-gradient-to-r from-lego-blue/15 via-lego-blue/5 to-transparent border border-lego-blue/30 rounded-lg p-2">
           <div className="flex items-center justify-between gap-2 mb-1">
             <div className="h-4 bg-gray-800 rounded w-32 animate-pulse"></div>
@@ -58,8 +123,6 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
             <div className="h-3 bg-gray-800 rounded flex-1 animate-pulse"></div>
           </div>
         </div>
-
-        {/* Content skeleton */}
         <div className="space-y-2">
           <div className="h-24 bg-gray-800/30 border border-gray-700 rounded-lg animate-pulse"></div>
           <div className="h-24 bg-gray-800/30 border border-gray-700 rounded-lg animate-pulse"></div>
@@ -75,6 +138,7 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
       </div>
     );
   }
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'Pending': return 'bg-lego-yellow/20 text-lego-yellow border-lego-yellow/40';
@@ -90,7 +154,6 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
   const tax = data.tax ?? 0;
   const total = data.total ?? 0;
 
-  // Combine current order with other orders for the pills
   const allCustomerOrders = data.previousOrders ? [
     {
       orderId: data.orderId!,
@@ -102,6 +165,8 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
     },
     ...data.previousOrders.map(order => ({ ...order, isCurrent: false })),
   ].sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime()) : [];
+
+  const canEdit = data.status !== 'Shipped' && data.status !== 'Cancelled';
 
   return (
     <div className="space-y-2">
@@ -144,9 +209,22 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
             <h3 className="text-[10px] md:text-sm font-black text-white">ORDER #{data.orderNumber!}</h3>
             <Badge className={getStatusColor(data.status!) + ' text-[9px] md:text-xs h-5 px-2 font-bold'}>{data.status!}</Badge>
           </div>
-          <div className="flex items-center gap-1.5 text-[9px] md:text-xs text-gray-400">
-            <Calendar className="h-4 w-4" />
-            <span className="font-medium">{new Date(data.orderDate!).toLocaleDateString()}</span>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 text-[9px] md:text-xs text-gray-400">
+              <Calendar className="h-4 w-4" />
+              <span className="font-medium">{new Date(data.orderDate!).toLocaleDateString()}</span>
+            </div>
+            {canEdit && !isEditing && (
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={handleEditStart}
+                data-testid="button-edit-order"
+                title="Edit address & weight"
+              >
+                <Pencil className="h-3.5 w-3.5 text-gray-400" />
+              </Button>
+            )}
           </div>
         </div>
         
@@ -163,6 +241,142 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
         </div>
       </div>
 
+      {/* Edit Form */}
+      {isEditing && (
+        <div className="bg-gradient-to-r from-lego-yellow/10 via-lego-yellow/5 to-transparent border border-lego-yellow/30 rounded-lg p-3 space-y-3">
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <div className="flex items-center gap-1.5">
+              <Pencil className="h-3.5 w-3.5 text-lego-yellow" />
+              <span className="text-[10px] md:text-xs font-bold text-lego-yellow">EDIT ORDER</span>
+            </div>
+            <div className="flex gap-1.5">
+              <Button size="sm" variant="outline" onClick={() => setIsEditing(false)} disabled={isSaving} data-testid="button-cancel-edit-order">
+                <X className="h-3.5 w-3.5 mr-1" />
+                Cancel
+              </Button>
+              <Button size="sm" onClick={handleSave} disabled={isSaving} className="bg-lego-yellow text-black" data-testid="button-save-order">
+                <Save className="h-3.5 w-3.5 mr-1" />
+                {isSaving ? 'Saving...' : 'Save'}
+              </Button>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-[9px] md:text-xs font-bold text-gray-400 uppercase tracking-wide flex items-center gap-1">
+              <MapPin className="h-3 w-3" /> Address
+            </p>
+            <div className="grid grid-cols-1 gap-2">
+              <div>
+                <Label className="text-[9px] text-gray-500">Street 1</Label>
+                <Input
+                  value={editForm.street1}
+                  onChange={e => setEditForm(f => ({ ...f, street1: e.target.value }))}
+                  className="h-8 text-xs bg-gray-900 border-gray-600"
+                  placeholder="123 Main St"
+                  data-testid="input-street1"
+                />
+              </div>
+              <div>
+                <Label className="text-[9px] text-gray-500">Street 2 (Apt, Suite, etc.)</Label>
+                <Input
+                  value={editForm.street2}
+                  onChange={e => setEditForm(f => ({ ...f, street2: e.target.value }))}
+                  className="h-8 text-xs bg-gray-900 border-gray-600"
+                  placeholder="Apt 4B"
+                  data-testid="input-street2"
+                />
+              </div>
+              <div>
+                <Label className="text-[9px] text-gray-500">Street 3 (International)</Label>
+                <Input
+                  value={editForm.street3}
+                  onChange={e => setEditForm(f => ({ ...f, street3: e.target.value }))}
+                  className="h-8 text-xs bg-gray-900 border-gray-600"
+                  placeholder="Additional address line"
+                  data-testid="input-street3"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-[9px] text-gray-500">City</Label>
+                  <Input
+                    value={editForm.city}
+                    onChange={e => setEditForm(f => ({ ...f, city: e.target.value }))}
+                    className="h-8 text-xs bg-gray-900 border-gray-600"
+                    data-testid="input-city"
+                  />
+                </div>
+                <div>
+                  <Label className="text-[9px] text-gray-500">State / Province</Label>
+                  <Input
+                    value={editForm.state}
+                    onChange={e => setEditForm(f => ({ ...f, state: e.target.value }))}
+                    className="h-8 text-xs bg-gray-900 border-gray-600"
+                    data-testid="input-state"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-[9px] text-gray-500">Postal Code</Label>
+                  <Input
+                    value={editForm.postalCode}
+                    onChange={e => setEditForm(f => ({ ...f, postalCode: e.target.value }))}
+                    className="h-8 text-xs bg-gray-900 border-gray-600"
+                    data-testid="input-postal-code"
+                  />
+                </div>
+                <div>
+                  <Label className="text-[9px] text-gray-500">Country</Label>
+                  <Input
+                    value={editForm.country}
+                    onChange={e => setEditForm(f => ({ ...f, country: e.target.value }))}
+                    className="h-8 text-xs bg-gray-900 border-gray-600"
+                    placeholder="US"
+                    data-testid="input-country"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-2 pt-1 border-t border-gray-700">
+            <p className="text-[9px] md:text-xs font-bold text-gray-400 uppercase tracking-wide flex items-center gap-1">
+              <Weight className="h-3 w-3" /> Package Weight (including packaging)
+            </p>
+            <div className="flex gap-2 items-end">
+              <div className="flex-1">
+                <Label className="text-[9px] text-gray-500">Weight</Label>
+                <Input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  value={editForm.weight}
+                  onChange={e => setEditForm(f => ({ ...f, weight: e.target.value }))}
+                  className="h-8 text-xs bg-gray-900 border-gray-600"
+                  placeholder="e.g. 8.5"
+                  data-testid="input-weight"
+                />
+              </div>
+              <div className="w-24">
+                <Label className="text-[9px] text-gray-500">Unit</Label>
+                <Select value={editForm.weightUnits} onValueChange={v => setEditForm(f => ({ ...f, weightUnits: v }))}>
+                  <SelectTrigger className="h-8 text-xs bg-gray-900 border-gray-600" data-testid="select-weight-unit">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="oz">oz</SelectItem>
+                    <SelectItem value="lb">lb</SelectItem>
+                    <SelectItem value="g">g</SelectItem>
+                    <SelectItem value="kg">kg</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Items - Scrollable Table */}
       <div className="bg-gradient-to-r from-lego-green/10 via-lego-green/5 to-transparent border border-lego-green/30 rounded-lg overflow-hidden">
         <div className="flex items-center gap-2 px-3 pt-2 pb-1.5">
@@ -172,7 +386,6 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
         
         <ScrollArea className="h-[180px] px-3 pb-2">
           <div className="space-y-1">
-            {/* Table Header */}
             <div className="grid grid-cols-12 gap-2 text-[9px] md:text-xs font-bold text-gray-500 border-b border-gray-700 pb-1 sticky top-0 bg-gray-900/95">
               <div className="col-span-2">PART #</div>
               <div className="col-span-5">ITEM NAME</div>
@@ -180,8 +393,6 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
               <div className="col-span-2 text-right">PRICE</div>
               <div className="col-span-2 text-right">TOTAL</div>
             </div>
-            
-            {/* Items Rows */}
             {data.items.map((item, index) => (
               <div key={index} className="grid grid-cols-12 gap-2 text-[10px] md:text-sm items-center py-1 hover:bg-lego-green/5 rounded transition-colors">
                 <div className="col-span-2 font-mono font-bold text-lego-blue truncate" title={item.partNumber}>{item.partNumber}</div>
@@ -197,7 +408,6 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
 
       {/* Financial Summary */}
       <div className="grid grid-cols-2 gap-3">
-        {/* Breakdown */}
         <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-lg p-3">
           <div className="flex items-center gap-1.5 mb-2">
             <DollarSign className="h-4 w-4 text-lego-yellow" />
@@ -216,10 +426,17 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
               <span className="text-gray-400">Tax</span>
               <span className="font-mono text-white">${tax.toFixed(2)}</span>
             </div>
+            {(data.weight != null) && !isEditing && (
+              <div className="flex justify-between pt-1 border-t border-gray-700 mt-1">
+                <span className="text-gray-400 flex items-center gap-1">
+                  <Weight className="h-3 w-3" /> Weight
+                </span>
+                <span className="font-mono text-gray-300">{data.weight} {data.weightUnits}</span>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Total */}
         <div className="bg-gradient-to-br from-lego-green/20 to-lego-green/5 border-2 border-lego-green/50 rounded-lg p-3 flex flex-col justify-center items-center">
           <span className="text-[9px] md:text-xs font-bold text-gray-400 mb-1">ORDER TOTAL</span>
           <span className="text-2xl md:text-3xl font-black font-mono text-lego-green leading-none">${total.toFixed(2)}</span>
