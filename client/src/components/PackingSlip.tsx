@@ -11,6 +11,8 @@ type PackingSlipOrder = {
     company?: string;
     street1?: string;
     street2?: string;
+    address1?: string;
+    address2?: string;
     city?: string;
     state?: string;
     postalCode?: string;
@@ -31,17 +33,28 @@ interface PackingSlipProps {
 }
 
 function cleanItemName(name: string, partNumber: string | null): string {
-  if (!name) return name;
-  if (!partNumber) return name;
+  if (!name || !partNumber) return name || '';
   const prefix = `${partNumber} - `;
-  if (name.startsWith(prefix)) {
-    return name.slice(prefix.length);
-  }
-  return name;
+  return name.startsWith(prefix) ? name.slice(prefix.length) : name;
 }
 
-export function printPackingSlips(orders: PackingSlipOrder[]) {
-  const content = generatePackingSlipHTML(orders);
+async function loadLogoDataUrl(): Promise<string> {
+  try {
+    const response = await fetch(planetLogo);
+    const blob = await response.blob();
+    return await new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return '';
+  }
+}
+
+export async function printPackingSlips(orders: PackingSlipOrder[]) {
+  const logoDataUrl = await loadLogoDataUrl();
+  const content = generatePackingSlipHTML(orders, logoDataUrl);
   const blob = new Blob([content], { type: 'text/html' });
   const blobUrl = URL.createObjectURL(blob);
   const printWindow = window.open(blobUrl, '_blank', 'width=800,height=600');
@@ -50,36 +63,46 @@ export function printPackingSlips(orders: PackingSlipOrder[]) {
     alert('Please allow popups to print packing slips');
     return;
   }
-
   printWindow.onload = () => {
-    printWindow.addEventListener('afterprint', () => {
-      printWindow.close();
-      URL.revokeObjectURL(blobUrl);
-    });
-    printWindow.onafterprint = () => {
+    const cleanup = () => {
       printWindow.close();
       URL.revokeObjectURL(blobUrl);
     };
-    setTimeout(() => {
-      printWindow.print();
-    }, 250);
+    printWindow.addEventListener('afterprint', cleanup);
+    printWindow.onafterprint = cleanup;
+    setTimeout(() => printWindow.print(), 250);
   };
 }
 
-function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
-  const pagesHTML = orders.map((order, orderIndex) => {
-    const isLastPage = orderIndex === orders.length - 1;
+function formatOrderNumber(order: PackingSlipOrder): string {
+  if (order.marketplace === 'BrickOwl') return `BO.${order.orderNumber}`;
+  return order.orderNumber;
+}
+
+function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string): string {
+  const pagesHTML = orders.map((order, idx) => {
+    const isLast = idx === orders.length - 1;
     const { shipTo } = order;
-    const hasAddress = shipTo.name || shipTo.street1 || shipTo.city;
+
+    const street1 = shipTo.street1 || (shipTo as any).address1 || '';
+    const street2 = shipTo.street2 || (shipTo as any).address2 || '';
+    const city = shipTo.city || '';
+    const state = shipTo.state || '';
+    const postalCode = shipTo.postalCode || '';
+    const country = shipTo.country || '';
+
+    const cityLine = [city, state, postalCode].filter(Boolean).join(' ');
+    const showCountry = country && country !== 'US';
 
     const itemsHTML = order.items.map((item: any) => {
       const displayName = cleanItemName(item.name, item.bricklinkPartNumber);
       const partLabel = item.bricklinkPartNumber ? ` (${item.bricklinkPartNumber})` : '';
+      const meta = [item.colorName, item.condition].filter(Boolean).join(', ');
       return `
-        <tr class="item-row">
+        <tr>
           <td class="item-desc">
             <div class="item-name">${displayName}${partLabel}</div>
-            <div class="item-meta">${[item.colorName, item.condition].filter(Boolean).join(', ')}</div>
+            ${meta ? `<div class="item-meta">${meta}</div>` : ''}
           </td>
           <td class="item-qty">${item.quantity}</td>
         </tr>
@@ -87,271 +110,142 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
     }).join('');
 
     return `
-      <div class="page-wrapper${isLastPage ? ' last-page' : ''}">
-        <div class="packing-slip">
+      <div class="page${isLast ? ' last' : ''}">
 
-          <div class="slip-header">
-            <div class="header-left">
-              <img src="${planetLogo}" alt="PlanetBrick" class="slip-logo" />
-              <div class="company-info">
-                <div class="company-name">PlanetBrick.com</div>
-                <div class="company-addr">PO Box 202</div>
-                <div class="company-addr">Lanesboro, MN 55949</div>
-              </div>
-            </div>
-            <div class="header-right">
-              <div class="slip-title">Packing Slip</div>
-              <table class="order-meta">
-                <tr>
-                  <td class="meta-label">Order #</td>
-                  <td class="meta-value">${order.marketplace === 'BrickLink' ? '' : (order.marketplace === 'BrickOwl' ? 'BO ' : '')}${order.orderNumber}</td>
-                </tr>
-                <tr>
-                  <td class="meta-label">Date</td>
-                  <td class="meta-value">${order.orderDate ? new Date(order.orderDate).toLocaleDateString() : ''}</td>
-                </tr>
-                ${order.customerUsername ? `
-                <tr>
-                  <td class="meta-label">User</td>
-                  <td class="meta-value">${order.customerUsername}</td>
-                </tr>` : ''}
-                <tr>
-                  <td class="meta-label">Ship Date</td>
-                  <td class="meta-value">${order.shipDate ? new Date(order.shipDate).toLocaleDateString() : ''}</td>
-                </tr>
-              </table>
-            </div>
+        <div class="slip-label-bar">Packing Slip</div>
+
+        <div class="header">
+          <div class="header-left">
+            <div class="company-name">PlanetBrick.com</div>
+            <div class="company-addr">PO Box 202</div>
+            <div class="company-addr">Lanesboro, MN 55949</div>
           </div>
-
-          <div class="ship-to-section">
-            <div class="ship-to-label">Ship To</div>
-            <div class="ship-to-addr">
-              ${hasAddress ? `
-                ${shipTo.name ? `<div>${shipTo.name}</div>` : ''}
-                ${shipTo.company ? `<div>${shipTo.company}</div>` : ''}
-                ${shipTo.street1 ? `<div>${shipTo.street1}</div>` : ''}
-                ${shipTo.street2 ? `<div>${shipTo.street2}</div>` : ''}
-                <div>${[shipTo.city, shipTo.state ? `${shipTo.state}` : '', shipTo.postalCode].filter(Boolean).join(' ')}</div>
-                ${shipTo.country && shipTo.country !== 'US' ? `<div>${shipTo.country}</div>` : ''}
-              ` : '<div style="color:#999;font-style:italic">Address not available</div>'}
-            </div>
+          <div class="header-right">
+            ${logoDataUrl ? `<img src="${logoDataUrl}" alt="PlanetBrick" class="logo" />` : '<div class="logo-fallback">PLANETBRICK.COM</div>'}
           </div>
-
-          <table class="items-table">
-            <thead>
-              <tr>
-                <th class="th-desc">Description</th>
-                <th class="th-qty">Qty</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${itemsHTML}
-            </tbody>
-          </table>
-
-          <div class="slip-footer">
-            Thank you for your order!
-          </div>
-
         </div>
+
+        <div class="info-row">
+          <div class="ship-to">
+            <span class="section-label">Ship To</span>
+            ${shipTo.name ? `<div>${shipTo.name}</div>` : ''}
+            ${shipTo.company ? `<div>${shipTo.company}</div>` : ''}
+            ${street1 ? `<div>${street1}</div>` : ''}
+            ${street2 ? `<div>${street2}</div>` : ''}
+            ${cityLine ? `<div>${cityLine}</div>` : ''}
+            ${showCountry ? `<div>${country}</div>` : ''}
+            ${!shipTo.name && !street1 && !cityLine ? '<div class="missing-addr">Address not available</div>' : ''}
+          </div>
+          <div class="order-meta">
+            <table>
+              <tr><td class="ml">Order #</td><td class="mv">${formatOrderNumber(order)}</td></tr>
+              <tr><td class="ml">Date</td><td class="mv">${order.orderDate ? new Date(order.orderDate).toLocaleDateString() : ''}</td></tr>
+              ${order.customerUsername ? `<tr><td class="ml">User</td><td class="mv">${order.customerUsername}</td></tr>` : ''}
+              <tr><td class="ml">Ship Date</td><td class="mv">${order.shipDate ? new Date(order.shipDate).toLocaleDateString() : ''}</td></tr>
+            </table>
+          </div>
+        </div>
+
+        <table class="items">
+          <thead>
+            <tr>
+              <th class="th-desc">Description</th>
+              <th class="th-qty">Qty</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itemsHTML}
+          </tbody>
+        </table>
+
       </div>
     `;
   }).join('');
 
-  return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="UTF-8">
-      <title>Packing Slips</title>
-      <style>
-        @page {
-          size: letter portrait;
-          margin: 0.5in;
-        }
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Packing Slips</title>
+  <style>
+    @page { size: letter portrait; margin: 0.5in; }
+    @media print { html, body { margin: 0; padding: 0; } }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: white; color: black; font-family: Arial, sans-serif; font-size: 11px; }
 
-        @media print {
-          html, body { margin: 0; padding: 0; }
-        }
+    .page { width: 100%; page-break-after: always; break-after: page; }
+    .page.last { page-break-after: auto; break-after: auto; }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+    .slip-label-bar {
+      background: #444;
+      color: white;
+      text-align: center;
+      font-size: 9px;
+      font-weight: bold;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      padding: 3px 0;
+      margin-bottom: 8px;
+    }
 
-        body {
-          background: white;
-          color: black;
-          font-family: Arial, sans-serif;
-          font-size: 11px;
-        }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #aaa;
+      margin-bottom: 8px;
+    }
 
-        .page-wrapper {
-          page-break-after: always;
-          break-after: page;
-          display: block;
-          width: 100%;
-        }
+    .header-left { flex: 1; }
 
-        .page-wrapper.last-page {
-          page-break-after: auto;
-          break-after: auto;
-        }
+    .company-name { font-weight: bold; font-size: 13px; margin-bottom: 2px; }
+    .company-addr { font-size: 10px; color: #333; }
 
-        .packing-slip {
-          width: 100%;
-          display: block;
-        }
+    .header-right { text-align: right; }
+    .logo { height: 60px; width: auto; }
+    .logo-fallback {
+      font-size: 18px;
+      font-weight: 900;
+      color: #1a3a8f;
+      letter-spacing: 1px;
+    }
 
-        /* Header */
-        .slip-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          padding-bottom: 10px;
-          margin-bottom: 10px;
-          border-bottom: 2px solid #333;
-        }
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 12px;
+    }
 
-        .header-left {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
+    .ship-to { font-size: 11px; line-height: 1.5; flex: 1; }
+    .section-label { font-weight: bold; display: block; margin-bottom: 2px; }
+    .missing-addr { color: #999; font-style: italic; }
 
-        .slip-logo {
-          height: 56px;
-          width: auto;
-        }
+    .order-meta { text-align: right; font-size: 11px; }
+    .order-meta table { border-collapse: collapse; }
+    .order-meta td { padding: 1px 0 1px 10px; white-space: nowrap; }
+    .ml { font-weight: bold; color: #555; text-align: right; }
+    .mv { text-align: right; }
 
-        .company-info {
-          display: flex;
-          flex-direction: column;
-          gap: 1px;
-        }
+    .items { width: 100%; border-collapse: collapse; }
+    .items thead tr { background: #333; color: white; }
+    .th-desc { text-align: left; padding: 4px 6px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .th-qty { text-align: right; padding: 4px 6px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; width: 40px; }
 
-        .company-name {
-          font-weight: bold;
-          font-size: 12px;
-        }
+    .items tbody tr td { padding: 5px 6px; border-bottom: 1px solid #e0e0e0; vertical-align: top; }
+    .items tbody tr:last-child td { border-bottom: none; }
 
-        .company-addr {
-          font-size: 10px;
-          color: #444;
-        }
-
-        .header-right {
-          text-align: right;
-        }
-
-        .slip-title {
-          font-size: 16px;
-          font-weight: bold;
-          text-transform: uppercase;
-          letter-spacing: 1px;
-          margin-bottom: 6px;
-          color: #111;
-        }
-
-        .order-meta {
-          border-collapse: collapse;
-          text-align: right;
-        }
-
-        .order-meta tr td {
-          padding: 1px 0 1px 12px;
-          font-size: 11px;
-        }
-
-        .meta-label {
-          font-weight: bold;
-          white-space: nowrap;
-          color: #555;
-          padding-right: 4px !important;
-        }
-
-        .meta-value {
-          white-space: nowrap;
-        }
-
-        /* Ship To */
-        .ship-to-section {
-          display: flex;
-          gap: 8px;
-          margin-bottom: 12px;
-          align-items: flex-start;
-        }
-
-        .ship-to-label {
-          font-weight: bold;
-          font-size: 11px;
-          white-space: nowrap;
-          padding-top: 1px;
-          min-width: 48px;
-        }
-
-        .ship-to-addr {
-          font-size: 11px;
-          line-height: 1.5;
-        }
-
-        /* Items table */
-        .items-table {
-          width: 100%;
-          border-collapse: collapse;
-          margin-bottom: 12px;
-        }
-
-        .items-table thead tr {
-          background: #333;
-          color: white;
-        }
-
-        .th-desc, .th-qty {
-          padding: 4px 6px;
-          font-size: 10px;
-          font-weight: bold;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-        }
-
-        .th-desc { text-align: left; }
-        .th-qty { text-align: right; width: 40px; }
-
-        .item-row td {
-          padding: 5px 6px;
-          border-bottom: 1px solid #e0e0e0;
-          vertical-align: top;
-        }
-
-        .item-row:last-child td {
-          border-bottom: none;
-        }
-
-        .item-desc { text-align: left; }
-        .item-qty { text-align: right; font-weight: bold; white-space: nowrap; }
-
-        .item-name {
-          font-size: 11px;
-          line-height: 1.4;
-        }
-
-        .item-meta {
-          font-size: 10px;
-          color: #555;
-          margin-top: 1px;
-        }
-
-        .slip-footer {
-          border-top: 1px solid #ddd;
-          padding-top: 6px;
-          font-size: 10px;
-          color: #444;
-        }
-      </style>
-    </head>
-    <body>
-      ${pagesHTML}
-    </body>
-    </html>
-  `;
+    .item-desc { text-align: left; }
+    .item-qty { text-align: right; font-weight: bold; white-space: nowrap; }
+    .item-name { font-size: 11px; line-height: 1.4; }
+    .item-meta { font-size: 10px; color: #555; margin-top: 2px; }
+  </style>
+</head>
+<body>
+  ${pagesHTML}
+</body>
+</html>`;
 }
 
 export default function PackingSlip({ orders }: PackingSlipProps) {

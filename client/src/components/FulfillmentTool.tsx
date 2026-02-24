@@ -50,6 +50,12 @@ type FulfillmentData = {
   items: FulfillmentItem[];
 };
 
+function cleanItemName(name: string, partNumber: string | null | undefined): string {
+  if (!name || !partNumber) return name || '';
+  const prefix = `${partNumber} - `;
+  return name.startsWith(prefix) ? name.slice(prefix.length) : name;
+}
+
 export default function FulfillmentTool() {
   const { toast } = useToast();
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
@@ -202,7 +208,7 @@ export default function FulfillmentTool() {
       });
       
       const data = await response.json();
-      printPackingSlips(data);
+      await printPackingSlips(data);
     } catch (error) {
       console.error('Error fetching packing slip data:', error);
       toast({
@@ -659,7 +665,7 @@ export default function FulfillmentTool() {
                     {/* Item Details */}
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-medium text-white">
-                        {item.bricklinkPartNumber && `${item.bricklinkPartNumber} - `}{item.name}
+                        {item.bricklinkPartNumber && `${item.bricklinkPartNumber} - `}{cleanItemName(item.name, item.bricklinkPartNumber)}
                       </p>
                       <p className="text-xs font-bold text-gray-300 mt-0.5">
                         {item.colorName && `${item.colorName} • `}
