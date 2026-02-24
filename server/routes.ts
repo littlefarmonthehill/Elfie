@@ -386,28 +386,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Optimized endpoint for Orders Dashboard - only fetches what's needed
   app.get("/api/orders/dashboard", isApproved, async (req, res) => {
     try {
-      // Fetch top 5 pending orders (awaiting_payment or awaiting_shipment)
-      const pendingOrders = await db.select()
-        .from(orders)
-        .where(
-          sql`${orders.orderStatus} IN ('awaiting_payment', 'awaiting_shipment')`
-        )
-        .orderBy(desc(orders.orderDate))
-        .limit(5);
+      // Run all three queries in parallel for speed
+      const [pendingOrders, recentShipments, highValueOrders] = await Promise.all([
+        // Pending orders awaiting payment or shipment
+        db.select()
+          .from(orders)
+          .where(sql`${orders.orderStatus} IN ('awaiting_payment', 'awaiting_shipment')`)
+          .orderBy(desc(orders.orderDate))
+          .limit(5),
 
-      // Fetch top 5 recent shipments (shipped status, sorted by date)
-      const recentShipments = await db.select()
-        .from(orders)
-        .where(eq(orders.orderStatus, 'shipped'))
-        .orderBy(desc(orders.orderDate))
-        .limit(5);
+        // Recent shipments
+        db.select()
+          .from(orders)
+          .where(eq(orders.orderStatus, 'shipped'))
+          .orderBy(desc(orders.orderDate))
+          .limit(5),
 
-      // Fetch top 5 high value orders (all statuses, sorted by total)
-      const highValueOrders = await db.select()
-        .from(orders)
-        .where(sql`${orders.orderTotal} IS NOT NULL`)
-        .orderBy(sql`CAST(${orders.orderTotal} AS DECIMAL) DESC`)
-        .limit(5);
+        // High value orders — only valid numeric totals > 0
+        db.select()
+          .from(orders)
+          .where(sql`
+            ${orders.orderTotal} IS NOT NULL
+            AND ${orders.orderTotal} ~ '^[0-9]+(\.[0-9]+)?$'
+            AND CAST(${orders.orderTotal} AS DECIMAL) > 0
+          `)
+          .orderBy(sql`CAST(${orders.orderTotal} AS DECIMAL) DESC`)
+          .limit(5),
+      ]);
 
       res.json({
         pending: pendingOrders,
@@ -1863,6 +1868,7 @@ RESPONSE GUIDELINES:
 4. Always include BrickLink links for parts: https://www.bricklink.com/v2/catalog/catalogitem.page?P=<partNumber>
 5. When listing inventory items, format each as: "- **Part [ITEMNO]** in [COLOR]: [QTY] units @ $[PRICE] ([CONDITION])"
 6. When listing orders, format each as: "- **Order #[NUMBER]**: [CUSTOMER] - $[TOTAL] ([STATUS]) on [DATE]"
+   CRITICAL: Order numbers in the database are stored WITHOUT platform prefixes. BrickLink orders are stored as bare numbers like "14820236" — NEVER reformat them as "BL.14820236" or add any prefix. Display [NUMBER] exactly as returned by the tool. Never invent or add BL., BO., or any other prefix to an order number.
 7. If no data found, explain what you searched and suggest alternatives or next steps
 8. Be conversational and helpful - you can offer follow-up suggestions when they would genuinely help the user
 9. Provide actionable information with strategic context
