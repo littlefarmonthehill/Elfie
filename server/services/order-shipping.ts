@@ -10,11 +10,22 @@ import { eq, and, inArray, desc } from 'drizzle-orm';
 import { getShippingVendor } from './easypost';
 import type { CreateShipmentRequest, BuyLabelRequest, Address, Parcel } from './shipping-vendor';
 
+export interface OverrideAddress {
+  name?: string;
+  street1?: string;
+  street2?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  country?: string;
+}
+
 export interface ShipOrderRequest {
   orderId: string;
   itemIdsToShip: string[]; // Array of order_detail IDs to ship
   fromAddress: Address;
   parcel: Parcel;
+  overrideToAddress?: OverrideAddress;
 }
 
 export interface ShipmentPreview {
@@ -212,8 +223,19 @@ export async function createShipment(request: ShipOrderRequest): Promise<{
     throw new Error(`Order ${request.orderId} not found`);
   }
 
-  // Parse ship-to address from order
-  const shipTo = parseAddress(order.shipTo, order.customerUsername || 'Customer');
+  // Parse ship-to address from order (allow override from inline card address edit)
+  const baseShipTo = parseAddress(order.shipTo, order.customerUsername || 'Customer');
+  const shipTo: Address = request.overrideToAddress
+    ? {
+        name: request.overrideToAddress.name || baseShipTo.name,
+        street1: request.overrideToAddress.street1 || baseShipTo.street1,
+        street2: request.overrideToAddress.street2 ?? baseShipTo.street2,
+        city: request.overrideToAddress.city || baseShipTo.city,
+        state: request.overrideToAddress.state || baseShipTo.state,
+        zip: request.overrideToAddress.zip || baseShipTo.zip,
+        country: request.overrideToAddress.country || baseShipTo.country || 'US',
+      }
+    : baseShipTo;
 
   const createRequest: CreateShipmentRequest = {
     toAddress: shipTo,

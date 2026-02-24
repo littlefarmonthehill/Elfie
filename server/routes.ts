@@ -5852,6 +5852,73 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
     }
   });
 
+  // Get shipping summary for inline shipping card (weight estimate, address, requested service)
+  app.get("/api/fulfillment/order-shipping/:orderId", isApproved, async (req, res) => {
+    try {
+      const { orderId } = req.params;
+
+      const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+      if (!order) return res.status(404).json({ error: "Order not found" });
+
+      // Calculate weight from inventory: SUM(bl_inventory.my_weight * quantity) for all line items
+      const weightRows = await db
+        .select({
+          totalWeightGrams: sql<string>`COALESCE(SUM(CAST(${blInventory.myWeight} AS DECIMAL) * ${orderDetails.quantity}), 0)`,
+        })
+        .from(orderDetails)
+        .leftJoin(blInventory, eq(orderDetails.bricklinkInventoryId, blInventory.id))
+        .where(eq(orderDetails.orderId, orderId));
+
+      const totalWeightGrams = parseFloat(weightRows[0]?.totalWeightGrams || "0");
+      const totalWeightOz = Math.round(totalWeightGrams * 0.035274 * 10) / 10;
+
+      // Parse ship-to address
+      let shipToData: any = {};
+      try {
+        shipToData = typeof order.shipTo === "string" ? JSON.parse(order.shipTo) : (order.shipTo || {});
+      } catch {}
+
+      res.json({
+        orderId,
+        orderNumber: order.orderNumber,
+        marketplace: order.marketplace,
+        requestedService: order.requestedShippingService,
+        savedWeight: order.weight ? Number(order.weight) : null,
+        savedWeightUnits: order.weightUnits || "oz",
+        weightEstimateGrams: Math.round(totalWeightGrams * 10) / 10,
+        weightEstimateOz: totalWeightOz,
+        address: {
+          name: shipToData.name || order.customerUsername || "",
+          street1: shipToData.street1 || shipToData.address1 || "",
+          street2: shipToData.street2 || shipToData.address2 || "",
+          city: shipToData.city || "",
+          state: shipToData.state || "",
+          zip: shipToData.postalCode || "",
+          country: shipToData.country || "US",
+        },
+      });
+    } catch (error: any) {
+      console.error("Error fetching order shipping summary:", error);
+      res.status(500).json({ error: error.message || "Failed to get shipping summary" });
+    }
+  });
+
+  // Validate a shipping address via EasyPost
+  app.post("/api/fulfillment/validate-address", isApproved, async (req, res) => {
+    try {
+      const { address } = req.body;
+      if (!address) return res.status(400).json({ error: "address is required" });
+
+      const { getShippingVendor } = await import("./services/easypost");
+      const vendor = await getShippingVendor();
+      const result = await vendor.validateAddress(address);
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error validating address:", error);
+      res.status(500).json({ error: error.message || "Failed to validate address" });
+    }
+  });
+
   // Get packing slip data for one or more orders
   app.post("/api/fulfillment/packing-slip", isApproved, async (req, res) => {
     try {
@@ -5987,7 +6054,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
   // Create shipment and get rates
   app.post("/api/shipments/create", isApproved, async (req, res) => {
     try {
-      const { orderId, fromAddress, parcel, itemIdsToShip } = req.body;
+      const { orderId, fromAddress, parcel, itemIdsToShip, overrideToAddress } = req.body;
       
       if (!orderId || !fromAddress || !parcel) {
         return res.status(400).json({ error: "orderId, fromAddress, and parcel are required" });
@@ -5999,6 +6066,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
         itemIdsToShip: itemIdsToShip || [],
         fromAddress,
         parcel,
+        overrideToAddress: overrideToAddress || undefined,
       });
       
       console.log('📦 Shipment created:', {
