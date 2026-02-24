@@ -15,7 +15,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator 
 } from "@/components/ui/dropdown-menu";
-import { Truck, Loader2, Printer, CheckSquare, Square, Package, AlertTriangle, ChevronDown, Tag, MoreVertical, Scissors, Weight } from "lucide-react";
+import { Truck, Loader2, Printer, Package, AlertTriangle, ChevronDown, Tag, MoreVertical, Scissors, Weight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { printPackingSlips } from "./PackingSlip";
@@ -52,8 +52,7 @@ type FulfillmentData = {
 
 export default function FulfillmentTool() {
   const { toast } = useToast();
-  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
-  const [selectedOrdersForPrint, setSelectedOrdersForPrint] = useState<Set<string>>(new Set());
+  const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
   const [showLotLabelsDialog, setShowLotLabelsDialog] = useState(false);
   const [lotLabelsData, setLotLabelsData] = useState<any[]>([]);
   
@@ -148,9 +147,12 @@ export default function FulfillmentTool() {
     a.orderNumber.localeCompare(b.orderNumber, undefined, { numeric: true })
   );
 
-  // Filter items based on selected order
-  const filteredItems = selectedOrderId 
-    ? data.items.filter(item => item.orderId === selectedOrderId)
+  // Derived: single selected order (for ship/split actions that need exactly one)
+  const selectedOrderId = selectedOrders.size === 1 ? [...selectedOrders][0] : null;
+
+  // Filter items: show items for all selected orders, or all items if none selected
+  const filteredItems = selectedOrders.size > 0
+    ? data.items.filter(item => selectedOrders.has(item.orderId))
     : data.items;
 
   // Group items by bin
@@ -170,11 +172,7 @@ export default function FulfillmentTool() {
   }, {} as Record<string, { binId: number | null; binName: string; aisleName: string | null; shelfName: string | null; items: FulfillmentItem[] }>);
 
   const handleOrderToggle = (orderId: string) => {
-    setSelectedOrderId(prev => prev === orderId ? null : orderId);
-  };
-
-  const handlePrintSelection = (orderId: string) => {
-    setSelectedOrdersForPrint(prev => {
+    setSelectedOrders(prev => {
       const newSet = new Set(prev);
       if (newSet.has(orderId)) {
         newSet.delete(orderId);
@@ -185,11 +183,11 @@ export default function FulfillmentTool() {
     });
   };
 
-  const handleSelectAllForPrint = () => {
-    if (selectedOrdersForPrint.size === sortedOrders.length) {
-      setSelectedOrdersForPrint(new Set());
+  const handleSelectAll = () => {
+    if (selectedOrders.size === sortedOrders.length) {
+      setSelectedOrders(new Set());
     } else {
-      setSelectedOrdersForPrint(new Set(sortedOrders.map(o => o.id)));
+      setSelectedOrders(new Set(sortedOrders.map(o => o.id)));
     }
   };
 
@@ -499,20 +497,15 @@ export default function FulfillmentTool() {
             <Button
               size="sm"
               variant="outline"
-              onClick={handleSelectAllForPrint}
+              onClick={handleSelectAll}
               className="h-7 text-xs"
-              data-testid="button-select-all-print"
+              data-testid="button-select-all"
             >
-              {selectedOrdersForPrint.size === sortedOrders.length ? (
-                <CheckSquare className="w-3.5 h-3.5 md:w-4 md:h-4 lg:w-4 lg:w-4 mr-1.5" />
-              ) : (
-                <Square className="w-3.5 h-3.5 md:w-4 md:h-4 lg:w-4 lg:w-4 mr-1.5" />
-              )}
-              {selectedOrdersForPrint.size === sortedOrders.length ? 'Deselect All' : 'Select All'}
+              {selectedOrders.size === sortedOrders.length ? 'Deselect All' : 'Select All'}
             </Button>
-            {selectedOrdersForPrint.size > 0 && (
+            {selectedOrders.size > 0 && (
               <Badge variant="secondary" className="text-xs">
-                {selectedOrdersForPrint.size} selected
+                {selectedOrders.size} selected
               </Badge>
             )}
           </div>
@@ -544,7 +537,7 @@ export default function FulfillmentTool() {
                   <Button
                     size="sm"
                     variant="outline"
-                    disabled={selectedOrdersForPrint.size === 0 && !selectedOrderId}
+                    disabled={selectedOrders.size === 0}
                     data-testid="button-actions-menu"
                   >
                     <MoreVertical className="w-3.5 h-3.5 mr-1.5" />
@@ -554,28 +547,28 @@ export default function FulfillmentTool() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
                   <DropdownMenuItem
-                    onClick={() => handlePrintPackingSlips(Array.from(selectedOrdersForPrint))}
-                    disabled={selectedOrdersForPrint.size === 0}
+                    onClick={() => handlePrintPackingSlips(Array.from(selectedOrders))}
+                    disabled={selectedOrders.size === 0}
                     data-testid="menu-print-packing-slips"
                   >
                     <Printer className="w-4 h-4 mr-2" />
                     Print Packing Slips
-                    {selectedOrdersForPrint.size > 0 && (
+                    {selectedOrders.size > 0 && (
                       <Badge variant="secondary" className="ml-auto text-xs">
-                        {selectedOrdersForPrint.size}
+                        {selectedOrders.size}
                       </Badge>
                     )}
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onClick={() => handlePrintLotLabels(Array.from(selectedOrdersForPrint))}
-                    disabled={selectedOrdersForPrint.size === 0}
+                    onClick={() => handlePrintLotLabels(Array.from(selectedOrders))}
+                    disabled={selectedOrders.size === 0}
                     data-testid="menu-print-lot-labels"
                   >
                     <Tag className="w-4 h-4 mr-2" />
                     Print Lot Labels
-                    {selectedOrdersForPrint.size > 0 && (
+                    {selectedOrders.size > 0 && (
                       <Badge variant="secondary" className="ml-auto text-xs">
-                        {selectedOrdersForPrint.size}
+                        {selectedOrders.size}
                       </Badge>
                     )}
                   </DropdownMenuItem>
@@ -607,38 +600,24 @@ export default function FulfillmentTool() {
           <h3 className="text-xs md:text-base lg:text-lg font-bold text-gray-300 mb-3">Orders</h3>
           <div className="grid grid-cols-4 gap-2">
             {sortedOrders.map((order) => {
-              const isSelected = selectedOrderId === order.id;
-              const isPrintSelected = selectedOrdersForPrint.has(order.id);
+              const isSelected = selectedOrders.has(order.id);
               return (
                 <div
                   key={order.id}
-                  className={`border rounded-lg p-2 transition-colors ${
-                    isSelected 
-                      ? 'bg-purple-500/20 border-purple-500' 
+                  onClick={() => handleOrderToggle(order.id)}
+                  className={`border rounded-lg p-2 cursor-pointer transition-colors text-center ${
+                    isSelected
+                      ? 'bg-purple-500/20 border-purple-500'
                       : 'bg-gray-800/50 border-gray-700 hover-elevate'
                   }`}
                   data-testid={`order-${order.orderNumber}`}
                 >
-                  <div className="flex items-center gap-2 mb-1">
-                    <Checkbox
-                      checked={isPrintSelected}
-                      onCheckedChange={() => handlePrintSelection(order.id)}
-                      onClick={(e) => e.stopPropagation()}
-                      className="mt-0.5"
-                      data-testid={`checkbox-print-${order.orderNumber}`}
-                    />
-                  </div>
-                  <div
-                    onClick={() => handleOrderToggle(order.id)}
-                    className="cursor-pointer text-center"
-                  >
-                    <p className={`text-xs font-mono font-semibold ${isSelected ? 'text-purple-300' : 'text-white'}`}>
-                      {order.orderNumber}
-                    </p>
-                    {order.marketplace && (
-                      <p className="text-[10px] md:text-sm text-gray-500 mt-0.5">{order.marketplace}</p>
-                    )}
-                  </div>
+                  <p className={`text-xs font-mono font-semibold ${isSelected ? 'text-purple-300' : 'text-white'}`}>
+                    {order.orderNumber}
+                  </p>
+                  {order.marketplace && (
+                    <p className="text-[10px] md:text-sm text-gray-500 mt-0.5">{order.marketplace}</p>
+                  )}
                 </div>
               );
             })}
