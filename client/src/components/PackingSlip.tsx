@@ -30,109 +30,129 @@ interface PackingSlipProps {
   orders: PackingSlipOrder[];
 }
 
-// Function to open packing slips in a new print window
+function cleanItemName(name: string, partNumber: string | null): string {
+  if (!name) return name;
+  if (!partNumber) return name;
+  const prefix = `${partNumber} - `;
+  if (name.startsWith(prefix)) {
+    return name.slice(prefix.length);
+  }
+  return name;
+}
+
 export function printPackingSlips(orders: PackingSlipOrder[]) {
-  // Debug: Log order details
-  orders.forEach((order, idx) => {
-    console.log(`Order ${idx + 1}: ${order.orderNumber} with ${order.items.length} items`);
-  });
-  
-  const printWindow = window.open('', '_blank', 'width=800,height=600');
+  const content = generatePackingSlipHTML(orders);
+  const blob = new Blob([content], { type: 'text/html' });
+  const blobUrl = URL.createObjectURL(blob);
+  const printWindow = window.open(blobUrl, '_blank', 'width=800,height=600');
   if (!printWindow) {
+    URL.revokeObjectURL(blobUrl);
     alert('Please allow popups to print packing slips');
     return;
   }
 
-  const content = generatePackingSlipHTML(orders);
-  printWindow.document.write(content);
-  printWindow.document.close();
-  
-  // Wait for images to load, then print
   printWindow.onload = () => {
-    // Add event listener to close window after print
     printWindow.addEventListener('afterprint', () => {
       printWindow.close();
+      URL.revokeObjectURL(blobUrl);
     });
-    
-    // Fallback for browsers that don't support afterprint
     printWindow.onafterprint = () => {
       printWindow.close();
+      URL.revokeObjectURL(blobUrl);
     };
-    
     setTimeout(() => {
       printWindow.print();
     }, 250);
   };
 }
 
-// Generate the complete HTML document for printing
 function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
-  // Generate HTML for each order (one slip per order)
   const pagesHTML = orders.map((order, orderIndex) => {
     const isLastPage = orderIndex === orders.length - 1;
-    
+    const { shipTo } = order;
+    const hasAddress = shipTo.name || shipTo.street1 || shipTo.city;
+
+    const itemsHTML = order.items.map((item: any) => {
+      const displayName = cleanItemName(item.name, item.bricklinkPartNumber);
+      const partLabel = item.bricklinkPartNumber ? ` (${item.bricklinkPartNumber})` : '';
+      return `
+        <tr class="item-row">
+          <td class="item-desc">
+            <div class="item-name">${displayName}${partLabel}</div>
+            <div class="item-meta">${[item.colorName, item.condition].filter(Boolean).join(', ')}</div>
+          </td>
+          <td class="item-qty">${item.quantity}</td>
+        </tr>
+      `;
+    }).join('');
+
     return `
       <div class="page-wrapper${isLastPage ? ' last-page' : ''}">
         <div class="packing-slip">
+
           <div class="slip-header">
-            <img src="${planetLogo}" alt="PlanetBrick" class="slip-logo" />
-            <div class="slip-title">
-              <h1>PACKING SLIP</h1>
+            <div class="header-left">
+              <img src="${planetLogo}" alt="PlanetBrick" class="slip-logo" />
+              <div class="company-info">
+                <div class="company-name">PlanetBrick.com</div>
+                <div class="company-addr">PO Box 202</div>
+                <div class="company-addr">Lanesboro, MN 55949</div>
+              </div>
+            </div>
+            <div class="header-right">
+              <div class="slip-title">Packing Slip</div>
+              <table class="order-meta">
+                <tr>
+                  <td class="meta-label">Order #</td>
+                  <td class="meta-value">${order.marketplace === 'BrickLink' ? '' : (order.marketplace === 'BrickOwl' ? 'BO ' : '')}${order.orderNumber}</td>
+                </tr>
+                <tr>
+                  <td class="meta-label">Date</td>
+                  <td class="meta-value">${order.orderDate ? new Date(order.orderDate).toLocaleDateString() : ''}</td>
+                </tr>
+                ${order.customerUsername ? `
+                <tr>
+                  <td class="meta-label">User</td>
+                  <td class="meta-value">${order.customerUsername}</td>
+                </tr>` : ''}
+                <tr>
+                  <td class="meta-label">Ship Date</td>
+                  <td class="meta-value">${order.shipDate ? new Date(order.shipDate).toLocaleDateString() : ''}</td>
+                </tr>
+              </table>
             </div>
           </div>
 
-          <div class="slip-section">
-            <div class="slip-info-row">
-              <div>
-                <span class="slip-label">Order:</span>
-                <span class="slip-value">${order.orderNumber}</span>
-              </div>
-              <div>
-                <span class="slip-label">Ship Date:</span>
-                <span class="slip-value">${order.shipDate ? new Date(order.shipDate).toLocaleDateString() : 'Pending'}</span>
-              </div>
+          <div class="ship-to-section">
+            <div class="ship-to-label">Ship To</div>
+            <div class="ship-to-addr">
+              ${hasAddress ? `
+                ${shipTo.name ? `<div>${shipTo.name}</div>` : ''}
+                ${shipTo.company ? `<div>${shipTo.company}</div>` : ''}
+                ${shipTo.street1 ? `<div>${shipTo.street1}</div>` : ''}
+                ${shipTo.street2 ? `<div>${shipTo.street2}</div>` : ''}
+                <div>${[shipTo.city, shipTo.state ? `${shipTo.state}` : '', shipTo.postalCode].filter(Boolean).join(' ')}</div>
+                ${shipTo.country && shipTo.country !== 'US' ? `<div>${shipTo.country}</div>` : ''}
+              ` : '<div style="color:#999;font-style:italic">Address not available</div>'}
             </div>
           </div>
 
-          <div class="slip-section">
-            <div class="slip-label-header">SHIP TO:</div>
-            <div class="slip-address">
-              ${order.shipTo.name ? `<div>${order.shipTo.name}</div>` : ''}
-              ${order.shipTo.company ? `<div>${order.shipTo.company}</div>` : ''}
-              ${order.shipTo.street1 ? `<div>${order.shipTo.street1}</div>` : ''}
-              ${order.shipTo.street2 ? `<div>${order.shipTo.street2}</div>` : ''}
-              <div>
-                ${order.shipTo.city ? `${order.shipTo.city}, ` : ''}
-                ${order.shipTo.state ? `${order.shipTo.state} ` : ''}
-                ${order.shipTo.postalCode || ''}
-              </div>
-              ${order.shipTo.country ? `<div>${order.shipTo.country}</div>` : ''}
-            </div>
-          </div>
-
-          <div class="slip-section slip-items">
-            <div class="slip-label-header">ITEMS:</div>
-            <div class="slip-items-list">
-              ${order.items.map((item: any) => `
-                <div class="slip-item">
-                  <div class="slip-item-line1">
-                    <span class="slip-sku">${item.inventoryId || '-'}</span>
-                    <span class="slip-part-name">${item.bricklinkPartNumber || '-'}: ${item.name}</span>
-                    <span class="slip-qty">Qty: ${item.quantity}</span>
-                  </div>
-                  <div class="slip-item-line2">
-                    ${item.colorName ? `<span>${item.colorName}</span>` : ''}
-                    ${item.colorName && item.condition ? '<span> • </span>' : ''}
-                    ${item.condition ? `<span>${item.condition}</span>` : ''}
-                  </div>
-                </div>
-              `).join('')}
-            </div>
-          </div>
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th class="th-desc">Description</th>
+                <th class="th-qty">Qty</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsHTML}
+            </tbody>
+          </table>
 
           <div class="slip-footer">
-            <div class="slip-footer-left">Thank you for your order!</div>
+            Thank you for your order!
           </div>
+
         </div>
       </div>
     `;
@@ -147,201 +167,183 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
       <style>
         @page {
           size: letter portrait;
-          margin: 0.5in 0.5in 0.75in 0.5in;
+          margin: 0.5in;
         }
-        
+
         @media print {
-          html, body {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-          }
+          html, body { margin: 0; padding: 0; }
         }
-        
-        * {
-          margin: 0;
-          padding: 0;
-          box-sizing: border-box;
-        }
-        
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
         body {
           background: white;
           color: black;
           font-family: Arial, sans-serif;
-          counter-reset: order-counter;
+          font-size: 11px;
         }
-        
+
         .page-wrapper {
           page-break-after: always;
-          page-break-inside: avoid;
           break-after: page;
-          break-inside: avoid;
           display: block;
           width: 100%;
-          counter-increment: order-counter;
-          counter-reset: page-counter;
-          position: relative;
         }
-        
+
         .page-wrapper.last-page {
           page-break-after: auto;
           break-after: auto;
         }
-        
-        /* Each slip is a separate page - printer's "2 per page" handles the layout */
+
         .packing-slip {
-          page-break-inside: avoid;
-          break-inside: avoid;
           width: 100%;
           display: block;
-          position: relative;
-          padding-bottom: 1.5rem;
         }
-        
+
+        /* Header */
         .slip-header {
           display: flex;
-          align-items: center;
           justify-content: space-between;
-          padding-bottom: 0.3rem;
-          border-bottom: 2px solid #000;
-          margin-bottom: 0.5rem;
+          align-items: flex-start;
+          padding-bottom: 10px;
+          margin-bottom: 10px;
+          border-bottom: 2px solid #333;
         }
-        
+
+        .header-left {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
         .slip-logo {
-          height: 60px;
+          height: 56px;
           width: auto;
         }
-        
-        .slip-title h1 {
-          font-size: 18px;
-          font-weight: bold;
-          margin: 0;
-        }
-        
-        .slip-section {
-          margin-bottom: 0.5rem;
-        }
-        
-        .slip-info-row {
+
+        .company-info {
           display: flex;
-          justify-content: space-between;
-          margin-bottom: 0.2rem;
+          flex-direction: column;
+          gap: 1px;
+        }
+
+        .company-name {
+          font-weight: bold;
           font-size: 12px;
         }
-        
-        .slip-label {
-          font-weight: bold;
-          margin-right: 0.5rem;
+
+        .company-addr {
+          font-size: 10px;
+          color: #444;
         }
-        
-        .slip-value {
-          font-weight: normal;
-        }
-        
-        .slip-continuation-info {
-          font-size: 11px;
-          color: #666;
+
+        .header-right {
           text-align: right;
-          font-style: italic;
         }
-        
-        .slip-label-header {
+
+        .slip-title {
+          font-size: 16px;
           font-weight: bold;
-          font-size: 13px;
-          margin-bottom: 0.3rem;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          margin-bottom: 6px;
+          color: #111;
         }
-        
-        .slip-address {
-          font-size: 12px;
-          line-height: 1.4;
+
+        .order-meta {
+          border-collapse: collapse;
+          text-align: right;
         }
-        
-        .slip-items {
-          flex: 1;
-        }
-        
-        .slip-items-list {
-          display: block;
-          width: 100%;
-        }
-        
-        .slip-item {
-          display: block;
-          width: 100%;
-          padding: 0.25rem 0;
-          border-bottom: 1px solid #ddd;
-          page-break-inside: avoid !important;
-          break-inside: avoid !important;
-        }
-        
-        .slip-item:last-child {
-          border-bottom: none;
-        }
-        
-        .slip-item-line1 {
-          display: flex;
-          gap: 0.75rem;
-          margin-bottom: 0.15rem;
+
+        .order-meta tr td {
+          padding: 1px 0 1px 12px;
           font-size: 11px;
-          page-break-inside: avoid;
-          break-inside: avoid;
         }
-        
-        .slip-sku {
-          font-weight: bold;
-          width: 80px;
-          flex-shrink: 0;
-        }
-        
-        .slip-part-name {
-          flex: 1;
-        }
-        
-        .slip-qty {
+
+        .meta-label {
           font-weight: bold;
           white-space: nowrap;
+          color: #555;
+          padding-right: 4px !important;
         }
-        
-        .slip-item-line2 {
-          display: block;
-          font-size: 10px;
-          color: #666;
-          padding-left: 92px;
-          page-break-inside: avoid;
-          break-inside: avoid;
+
+        .meta-value {
+          white-space: nowrap;
         }
-        
-        .slip-footer {
-          padding-top: 0.3rem;
-          border-top: 1px solid #ddd;
+
+        /* Ship To */
+        .ship-to-section {
           display: flex;
-          justify-content: space-between;
-          align-items: center;
-          font-size: 10px;
-          margin-top: 0.5rem;
-          page-break-inside: avoid;
+          gap: 8px;
+          margin-bottom: 12px;
+          align-items: flex-start;
         }
-        
-        .slip-footer-left {
-          font-size: 10px;
-          color: #333;
+
+        .ship-to-label {
+          font-weight: bold;
+          font-size: 11px;
+          white-space: nowrap;
+          padding-top: 1px;
+          min-width: 48px;
         }
-        
-        .slip-page-number {
-          font-size: 10px;
-          color: #666;
+
+        .ship-to-addr {
+          font-size: 11px;
+          line-height: 1.5;
         }
-        
-        @media print {
-          .page-wrapper::after {
-            content: counter(page-counter);
-            position: fixed;
-            bottom: 0.25in;
-            right: 0.5in;
-            font-size: 10px;
-            color: #666;
-          }
+
+        /* Items table */
+        .items-table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-bottom: 12px;
+        }
+
+        .items-table thead tr {
+          background: #333;
+          color: white;
+        }
+
+        .th-desc, .th-qty {
+          padding: 4px 6px;
+          font-size: 10px;
+          font-weight: bold;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        .th-desc { text-align: left; }
+        .th-qty { text-align: right; width: 40px; }
+
+        .item-row td {
+          padding: 5px 6px;
+          border-bottom: 1px solid #e0e0e0;
+          vertical-align: top;
+        }
+
+        .item-row:last-child td {
+          border-bottom: none;
+        }
+
+        .item-desc { text-align: left; }
+        .item-qty { text-align: right; font-weight: bold; white-space: nowrap; }
+
+        .item-name {
+          font-size: 11px;
+          line-height: 1.4;
+        }
+
+        .item-meta {
+          font-size: 10px;
+          color: #555;
+          margin-top: 1px;
+        }
+
+        .slip-footer {
+          border-top: 1px solid #ddd;
+          padding-top: 6px;
+          font-size: 10px;
+          color: #444;
         }
       </style>
     </head>
@@ -352,7 +354,6 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[]): string {
   `;
 }
 
-// React component is not used - packing slips are generated via printPackingSlips() function
 export default function PackingSlip({ orders }: PackingSlipProps) {
   return null;
 }

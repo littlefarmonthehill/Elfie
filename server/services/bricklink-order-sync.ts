@@ -221,8 +221,8 @@ async function processBrickLinkOrder(
     customerEmail: blOrder.buyer_email || null,
     shipTo: JSON.stringify({
       name: shipping?.address?.name?.full || '',
-      address1: shipping?.address?.address1 || '',
-      address2: shipping?.address?.address2 || '',
+      street1: shipping?.address?.address1 || '',
+      street2: shipping?.address?.address2 || '',
       city: shipping?.address?.city || '',
       state: shipping?.address?.state_or_province || '',
       postalCode: shipping?.address?.postal_code || '',
@@ -320,7 +320,7 @@ async function processBrickLinkOrder(
         orderId,
         lineItemKey,
         sku: item.inventory_id ? item.inventory_id.toString() : null,  // BrickLink inventory ID
-        name: `${item.item?.no || ''} - ${item.item?.name || ''}`,
+        name: item.item?.name || `${item.item?.no || ''} - unknown`,
         quantity: item.quantity,
         unitPrice: item.unit_price ? item.unit_price.toString() : '0',
         taxAmount: null,
