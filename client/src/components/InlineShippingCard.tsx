@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import {
   Loader2, CheckCircle2, AlertTriangle, Package,
-  ExternalLink, Pencil, X, RefreshCw, Truck, Weight,
+  ExternalLink, Pencil, X, RefreshCw, Truck, ChevronDown, ChevronUp, Weight,
 } from "lucide-react";
 
 type Rate = {
@@ -96,6 +96,8 @@ export default function InlineShippingCard({ orderId, isTestMode, onShipped }: P
 
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [purchasedLabel, setPurchasedLabel] = useState<{ trackingNumber: string; labelUrl?: string } | null>(null);
+
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   useEffect(() => {
     loadSummary();
@@ -250,11 +252,18 @@ export default function InlineShippingCard({ orderId, isTestMode, onShipped }: P
     }
   };
 
+  const selectedRate = rates.find((r) => r.id === selectedRateId);
+  const isCustomerPick = (rate: Rate) =>
+    summary?.requestedService
+      ? rate.service.toLowerCase().includes(summary.requestedService.toLowerCase()) ||
+        summary.requestedService.toLowerCase().includes(rate.service.toLowerCase())
+      : false;
+
   if (isLoadingSummary) {
     return (
-      <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4 flex items-center gap-2">
-        <Loader2 className="w-4 h-4 animate-spin text-blue-400" />
-        <span className="text-xs text-gray-400">Loading shipping info...</span>
+      <div className="border border-gray-700 rounded-lg p-3 flex items-center gap-2 bg-gray-800/30">
+        <Loader2 className="w-4 h-4 animate-spin text-blue-400 shrink-0" />
+        <span className="text-xs text-gray-400">Loading...</span>
       </div>
     );
   }
@@ -263,281 +272,293 @@ export default function InlineShippingCard({ orderId, isTestMode, onShipped }: P
 
   if (purchasedLabel) {
     return (
-      <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3 space-y-2">
+      <div className="border border-green-500/40 rounded-lg p-3 bg-green-500/10 space-y-1.5">
         <div className="flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4 text-green-400 shrink-0" />
-          <span className="text-sm font-semibold text-green-300">Label Purchased — #{summary.orderNumber}</span>
+          <span className="text-sm font-bold text-green-300">Shipped — #{summary.orderNumber}</span>
         </div>
-        <div>
-          <p className="text-[10px] text-gray-400">Tracking Number</p>
-          <p className="text-xs font-mono font-bold text-white">{purchasedLabel.trackingNumber}</p>
-        </div>
+        <p className="text-[10px] text-gray-400 font-mono pl-6">{purchasedLabel.trackingNumber}</p>
         {purchasedLabel.labelUrl && (
-          <Button asChild variant="outline" size="sm" data-testid={`button-download-label-${orderId}`}>
-            <a href={purchasedLabel.labelUrl} target="_blank" rel="noopener noreferrer">
-              <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
-              Download Label (PDF)
-            </a>
-          </Button>
+          <div className="pl-6">
+            <Button asChild variant="outline" size="sm" data-testid={`button-download-label-${orderId}`}>
+              <a href={purchasedLabel.labelUrl} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
+                Download Label
+              </a>
+            </Button>
+          </div>
         )}
       </div>
     );
   }
 
+  const hasAddressIssue = addressStatus === "invalid";
+  const hasRatesError = !!ratesError;
+
   return (
-    <div className="bg-gray-800/50 border border-gray-700 rounded-lg overflow-hidden" data-testid={`shipping-card-${orderId}`}>
-      {/* Header */}
-      <div className="bg-gray-700/40 px-3 py-2 flex items-center justify-between gap-2 flex-wrap">
-        <div className="flex items-center gap-2">
-          <Truck className="w-3.5 h-3.5 text-purple-400" />
-          <span className="text-xs font-bold text-white">#{summary.orderNumber}</span>
+    <div
+      className="border border-gray-700 rounded-lg overflow-hidden bg-gray-800/30"
+      data-testid={`shipping-card-${orderId}`}
+    >
+      {/* ── Main header row ── */}
+      <div className="px-3 py-2.5 space-y-2">
+
+        {/* Row 1: Order identity */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <Truck className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+          <span className="text-sm font-bold text-white">#{summary.orderNumber}</span>
           {summary.marketplace && (
             <Badge variant="secondary" className="text-[10px]">{summary.marketplace}</Badge>
           )}
-        </div>
-        {summary.requestedService && (
-          <span className="text-[10px] text-gray-400 italic">Customer chose: {summary.requestedService}</span>
-        )}
-      </div>
-
-      <div className="p-3 space-y-3">
-        {/* Address */}
-        {!editingAddress ? (
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5 mb-0.5">
-                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">Ship To</span>
-                {addressStatus === "loading" && <Loader2 className="w-3 h-3 animate-spin text-gray-400" />}
-                {addressStatus === "valid" && <CheckCircle2 className="w-3 h-3 text-green-400" />}
-                {addressStatus === "invalid" && <AlertTriangle className="w-3 h-3 text-yellow-400" />}
-                {addressStatus === "invalid" && (
-                  <span className="text-[10px] text-yellow-400">Address issue — please edit</span>
-                )}
-              </div>
-              <div className="text-xs text-gray-200 leading-snug">
-                {currentAddress?.name && <div className="font-medium">{currentAddress.name}</div>}
-                {currentAddress?.street1 && <div>{currentAddress.street1}</div>}
-                {currentAddress?.street2 && <div>{currentAddress.street2}</div>}
-                <div>
-                  {[currentAddress?.city, currentAddress?.state, currentAddress?.zip]
-                    .filter(Boolean)
-                    .join(" ")}
-                </div>
-              </div>
-              {addressStatus === "invalid" && addressErrors.length > 0 && (
-                <div className="mt-0.5 text-[10px] text-yellow-400/80">{addressErrors[0]}</div>
-              )}
-            </div>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-7 text-xs shrink-0"
-              onClick={() => { setEditAddress(currentAddress!); setEditingAddress(true); }}
-              data-testid={`button-edit-address-${orderId}`}
-            >
-              <Pencil className="w-3 h-3 mr-1" />
-              Edit
-            </Button>
-          </div>
-        ) : (
-          <div className="space-y-2 bg-gray-900/60 rounded-md p-2">
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Edit Address</p>
-            <div className="grid grid-cols-2 gap-1.5">
-              {[
-                { label: "Name", field: "name", span: 2 },
-                { label: "Street 1", field: "street1", span: 2 },
-                { label: "Street 2", field: "street2", span: 2 },
-                { label: "City", field: "city", span: 1 },
-                { label: "State", field: "state", span: 1 },
-                { label: "ZIP", field: "zip", span: 1 },
-                { label: "Country", field: "country", span: 1 },
-              ].map(({ label, field, span }) => (
-                <div key={field} className={span === 2 ? "col-span-2" : ""}>
-                  <Label className="text-[10px] text-gray-500">{label}</Label>
-                  <Input
-                    value={(editAddress as any)[field] || ""}
-                    onChange={(e) =>
-                      setEditAddress((prev) => ({ ...prev, [field]: e.target.value }))
-                    }
-                    className="h-7 text-xs bg-gray-900 border-gray-600"
-                    data-testid={`input-address-${field}-${orderId}`}
-                  />
-                </div>
-              ))}
-            </div>
-            <div className="flex gap-1.5 justify-end">
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-7 text-xs"
-                onClick={() => setEditingAddress(false)}
-              >
-                <X className="w-3 h-3 mr-1" />
-                Cancel
-              </Button>
-              <Button
-                size="sm"
-                className="h-7 text-xs"
-                onClick={handleSaveAddress}
-                data-testid={`button-save-address-${orderId}`}
-              >
-                Save & Re-validate
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Weight */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <Weight className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-          <Input
-            type="number"
-            step="0.1"
-            min="0"
-            value={weight}
-            onChange={(e) => setWeight(e.target.value)}
-            placeholder="16"
-            className="h-7 w-20 text-xs bg-gray-900 border-gray-600"
-            data-testid={`input-weight-${orderId}`}
-          />
-          <Select value={weightUnits} onValueChange={setWeightUnits}>
-            <SelectTrigger
-              className="h-7 w-16 text-xs bg-gray-900 border-gray-600"
-              data-testid={`select-weight-units-${orderId}`}
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="oz">oz</SelectItem>
-              <SelectItem value="lb">lb</SelectItem>
-              <SelectItem value="g">g</SelectItem>
-              <SelectItem value="kg">kg</SelectItem>
-            </SelectContent>
-          </Select>
-          {summary.weightEstimateOz > 0 && (
-            <span className="text-[10px] text-gray-500">
-              est. {summary.weightEstimateOz} oz from inventory
+          {/* Address status dot */}
+          {addressStatus === "loading" && <Loader2 className="w-3 h-3 animate-spin text-gray-500 ml-auto" />}
+          {addressStatus === "valid" && <CheckCircle2 className="w-3 h-3 text-green-400 ml-auto" />}
+          {addressStatus === "invalid" && (
+            <span className="ml-auto flex items-center gap-1 text-[10px] text-yellow-400">
+              <AlertTriangle className="w-3 h-3" />
+              Address issue
             </span>
           )}
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-7 text-xs ml-auto"
-            onClick={handleRefreshRates}
-            disabled={isLoadingRates}
-            data-testid={`button-refresh-rates-${orderId}`}
-          >
-            <RefreshCw className={`w-3 h-3 mr-1 ${isLoadingRates ? "animate-spin" : ""}`} />
-            Refresh Rates
-          </Button>
+          {/* Customer requested service note */}
+          {summary.requestedService && (
+            <span className="text-[10px] text-gray-500 italic ml-auto">
+              Requested: {summary.requestedService}
+            </span>
+          )}
         </div>
 
-        {/* Rates */}
-        <div>
-          {isLoadingRates && (
-            <div className="flex items-center gap-2 py-1.5">
+        {/* Row 2: Name + address one-liner */}
+        {currentAddress && (
+          <div className="text-[11px] text-gray-400 pl-5 leading-tight">
+            <span className="text-gray-300 font-medium">{currentAddress.name}</span>
+            {currentAddress.street1 && <span> · {currentAddress.street1}</span>}
+            {(currentAddress.city || currentAddress.state) && (
+              <span>
+                {" · "}
+                {[currentAddress.city, currentAddress.state, currentAddress.zip].filter(Boolean).join(" ")}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Row 3: Service dropdown + price + Ship button */}
+        <div className="flex items-center gap-2 pl-5">
+          {isLoadingRates ? (
+            <div className="flex items-center gap-2 flex-1">
               <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-400" />
               <span className="text-xs text-gray-400">Fetching rates...</span>
             </div>
-          )}
-          {!isLoadingRates && ratesError && (
-            <div className="flex items-center gap-2 text-xs text-red-400 py-1">
-              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-              <span className="flex-1 min-w-0">{ratesError}</span>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-6 text-xs shrink-0"
-                onClick={handleRefreshRates}
-              >
+          ) : hasRatesError ? (
+            <div className="flex items-center gap-2 flex-1">
+              <AlertTriangle className="w-3.5 h-3.5 text-red-400 shrink-0" />
+              <span className="text-xs text-red-400 flex-1 min-w-0 truncate">{ratesError}</span>
+              <Button size="sm" variant="ghost" className="h-7 text-xs shrink-0" onClick={handleRefreshRates}>
                 Retry
               </Button>
             </div>
-          )}
-          {!isLoadingRates && rates.length > 0 && (
-            <div className="space-y-1">
-              {rates.map((rate, idx) => {
-                const isSelected = selectedRateId === rate.id;
-                const isRequested =
-                  summary.requestedService &&
-                  (rate.service
-                    .toLowerCase()
-                    .includes(summary.requestedService.toLowerCase()) ||
-                    summary.requestedService
-                      .toLowerCase()
-                      .includes(rate.service.toLowerCase()));
-                return (
-                  <div
-                    key={rate.id}
-                    onClick={() => setSelectedRateId(rate.id)}
-                    className={`flex items-center justify-between gap-2 rounded-md p-2 cursor-pointer text-xs transition-colors ${
-                      isSelected
-                        ? "bg-purple-500/20 border border-purple-500/50"
-                        : "bg-gray-900/50 border border-gray-700 hover-elevate"
-                    }`}
-                    data-testid={`rate-row-${rate.id}`}
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div
-                        className={`w-3 h-3 rounded-full border-2 shrink-0 ${
-                          isSelected ? "border-purple-400 bg-purple-400" : "border-gray-500"
-                        }`}
-                      />
-                      <div className="min-w-0">
-                        <div className="font-medium text-white flex items-center gap-1.5 flex-wrap">
-                          <span>{rate.carrier} {rate.service}</span>
-                          {isRequested && (
-                            <Badge className="text-[9px] bg-blue-600/30 text-blue-300 border-0 no-default-active-elevate">
-                              Customer pick
-                            </Badge>
+          ) : rates.length > 0 ? (
+            <>
+              <Select value={selectedRateId ?? ""} onValueChange={setSelectedRateId}>
+                <SelectTrigger
+                  className="h-8 flex-1 min-w-0 text-xs bg-gray-900 border-gray-600"
+                  data-testid={`select-service-${orderId}`}
+                >
+                  <SelectValue placeholder="Select service..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {rates.map((rate, idx) => {
+                    const customerPick = isCustomerPick(rate);
+                    const isLowest = idx === 0;
+                    return (
+                      <SelectItem key={rate.id} value={rate.id}>
+                        <span className="flex items-center gap-2">
+                          <span className="font-medium">
+                            {rate.carrier} {rate.service}
+                          </span>
+                          <span className="text-gray-400">
+                            ${rate.rate.toFixed(2)}
+                            {rate.deliveryDays != null && ` · ${rate.deliveryDays}d`}
+                          </span>
+                          {customerPick && (
+                            <span className="text-blue-400 text-[10px]">★ Requested</span>
                           )}
-                          {idx === 0 && !isRequested && (
-                            <Badge className="text-[9px] bg-green-600/30 text-green-300 border-0 no-default-active-elevate">
-                              Lowest
-                            </Badge>
+                          {isLowest && !customerPick && (
+                            <span className="text-green-400 text-[10px]">Lowest</span>
                           )}
-                        </div>
-                        {rate.deliveryDays != null && (
-                          <div className="text-gray-400">
-                            {rate.deliveryDays} day{rate.deliveryDays !== 1 ? "s" : ""}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="text-right shrink-0 font-bold text-white">
-                      ${rate.rate.toFixed(2)}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+                        </span>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+
+              {/* Selected rate price */}
+              {selectedRate && (
+                <div className="text-right shrink-0">
+                  <div className="text-sm font-bold text-white">${selectedRate.rate.toFixed(2)}</div>
+                  {selectedRate.deliveryDays != null && (
+                    <div className="text-[10px] text-gray-500">{selectedRate.deliveryDays}d</div>
+                  )}
+                </div>
+              )}
+
+              <Button
+                onClick={handlePurchaseLabel}
+                disabled={!selectedRateId || isPurchasing}
+                size="sm"
+                className="bg-green-600 hover:bg-green-500 shrink-0"
+                data-testid={`button-purchase-label-${orderId}`}
+              >
+                {isPurchasing ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <>
+                    <Package className="w-3.5 h-3.5 mr-1.5" />
+                    Ship
+                  </>
+                )}
+              </Button>
+            </>
+          ) : null}
         </div>
 
-        {/* Purchase button */}
-        {!isLoadingRates && rates.length > 0 && (
-          <div className="flex justify-end pt-1">
+        {/* Row 4: Details toggle */}
+        <button
+          className="flex items-center gap-1 text-[11px] text-gray-500 hover:text-gray-300 transition-colors pl-5"
+          onClick={() => setDetailsOpen((v) => !v)}
+          data-testid={`button-toggle-details-${orderId}`}
+        >
+          {detailsOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+          {detailsOpen ? "Hide details" : "Show details"}
+          {hasAddressIssue && !detailsOpen && (
+            <span className="ml-1 text-yellow-400">· Address needs attention</span>
+          )}
+        </button>
+      </div>
+
+      {/* ── Collapsible details ── */}
+      {detailsOpen && (
+        <div className="border-t border-gray-700 px-3 py-3 space-y-3 bg-gray-900/40">
+
+          {/* Address */}
+          {!editingAddress ? (
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">Ship To</span>
+                  {addressStatus === "loading" && <Loader2 className="w-3 h-3 animate-spin text-gray-400" />}
+                  {addressStatus === "valid" && <CheckCircle2 className="w-3 h-3 text-green-400" />}
+                  {addressStatus === "invalid" && <AlertTriangle className="w-3 h-3 text-yellow-400" />}
+                </div>
+                <div className="text-xs text-gray-200 leading-snug">
+                  {currentAddress?.name && <div className="font-medium">{currentAddress.name}</div>}
+                  {currentAddress?.street1 && <div>{currentAddress.street1}</div>}
+                  {currentAddress?.street2 && <div>{currentAddress.street2}</div>}
+                  <div>
+                    {[currentAddress?.city, currentAddress?.state, currentAddress?.zip]
+                      .filter(Boolean)
+                      .join(" ")}
+                  </div>
+                </div>
+                {addressStatus === "invalid" && addressErrors.length > 0 && (
+                  <div className="mt-1 text-[10px] text-yellow-400">{addressErrors[0]}</div>
+                )}
+              </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="shrink-0"
+                onClick={() => { setEditAddress(currentAddress!); setEditingAddress(true); }}
+                data-testid={`button-edit-address-${orderId}`}
+              >
+                <Pencil className="w-3 h-3 mr-1" />
+                Edit
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-2 bg-gray-800/60 rounded-md p-2">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Edit Address</p>
+              <div className="grid grid-cols-2 gap-1.5">
+                {[
+                  { label: "Name", field: "name", span: 2 },
+                  { label: "Street 1", field: "street1", span: 2 },
+                  { label: "Street 2", field: "street2", span: 2 },
+                  { label: "City", field: "city", span: 1 },
+                  { label: "State", field: "state", span: 1 },
+                  { label: "ZIP", field: "zip", span: 1 },
+                  { label: "Country", field: "country", span: 1 },
+                ].map(({ label, field, span }) => (
+                  <div key={field} className={span === 2 ? "col-span-2" : ""}>
+                    <Label className="text-[10px] text-gray-500">{label}</Label>
+                    <Input
+                      value={(editAddress as any)[field] || ""}
+                      onChange={(e) =>
+                        setEditAddress((prev) => ({ ...prev, [field]: e.target.value }))
+                      }
+                      className="h-7 text-xs bg-gray-900 border-gray-600"
+                      data-testid={`input-address-${field}-${orderId}`}
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-1.5 justify-end">
+                <Button size="sm" variant="ghost" onClick={() => setEditingAddress(false)}>
+                  <X className="w-3 h-3 mr-1" />
+                  Cancel
+                </Button>
+                <Button size="sm" onClick={handleSaveAddress} data-testid={`button-save-address-${orderId}`}>
+                  Save & Re-validate
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Weight + refresh */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <Weight className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+            <Input
+              type="number"
+              step="0.1"
+              min="0"
+              value={weight}
+              onChange={(e) => setWeight(e.target.value)}
+              placeholder="16"
+              className="h-7 w-20 text-xs bg-gray-900 border-gray-600"
+              data-testid={`input-weight-${orderId}`}
+            />
+            <Select value={weightUnits} onValueChange={setWeightUnits}>
+              <SelectTrigger
+                className="h-7 w-16 text-xs bg-gray-900 border-gray-600"
+                data-testid={`select-weight-units-${orderId}`}
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="oz">oz</SelectItem>
+                <SelectItem value="lb">lb</SelectItem>
+                <SelectItem value="g">g</SelectItem>
+                <SelectItem value="kg">kg</SelectItem>
+              </SelectContent>
+            </Select>
+            {summary.weightEstimateOz > 0 && (
+              <span className="text-[10px] text-gray-500">
+                est. {summary.weightEstimateOz} oz
+              </span>
+            )}
             <Button
-              onClick={handlePurchaseLabel}
-              disabled={!selectedRateId || isPurchasing}
-              className="bg-green-600 text-sm"
-              data-testid={`button-purchase-label-${orderId}`}
+              size="sm"
+              variant="ghost"
+              className="ml-auto"
+              onClick={handleRefreshRates}
+              disabled={isLoadingRates}
+              data-testid={`button-refresh-rates-${orderId}`}
             >
-              {isPurchasing ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Purchasing...
-                </>
-              ) : (
-                <>
-                  <Package className="w-4 h-4 mr-2" />
-                  Purchase Label
-                </>
-              )}
+              <RefreshCw className={`w-3 h-3 mr-1 ${isLoadingRates ? "animate-spin" : ""}`} />
+              Refresh Rates
             </Button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
