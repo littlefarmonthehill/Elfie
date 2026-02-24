@@ -405,12 +405,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // High value orders — only valid numeric totals > 0
         db.select()
           .from(orders)
-          .where(sql`
-            ${orders.orderTotal} IS NOT NULL
-            AND ${orders.orderTotal} ~ '^[0-9]+(\.[0-9]+)?$'
-            AND CAST(${orders.orderTotal} AS DECIMAL) > 0
-          `)
-          .orderBy(sql`CAST(${orders.orderTotal} AS DECIMAL) DESC`)
+          .where(sql`${orders.orderTotal} IS NOT NULL AND ${orders.orderTotal} > 0`)
+          .orderBy(desc(orders.orderTotal))
           .limit(5),
       ]);
 
