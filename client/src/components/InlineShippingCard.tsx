@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { apiRequest } from "@/lib/queryClient";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import {
   Loader2, CheckCircle2, AlertTriangle, ExternalLink,
-  Pencil, X, RefreshCw, ChevronDown, ChevronUp,
+  Pencil, X, ChevronDown, ChevronUp,
 } from "lucide-react";
 
 export type Rate = {
@@ -114,6 +114,16 @@ export default function InlineShippingCard({
   const [ratesError, setRatesError] = useState<string | null>(null);
 
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const hasUserChangedWeight = useRef(false);
+
+  // Auto-refresh rates when weight or units change (debounced, user-initiated only)
+  useEffect(() => {
+    if (!hasUserChangedWeight.current || !currentAddress || weight === "") return;
+    const timer = setTimeout(() => {
+      fetchRates(currentAddress, weight, weightUnits);
+    }, 700);
+    return () => clearTimeout(timer);
+  }, [weight, weightUnits]);
 
   // Notify parent whenever ready state changes
   useEffect(() => {
@@ -286,11 +296,11 @@ export default function InlineShippingCard({
             <span className="text-[10px] text-gray-500 uppercase tracking-wide font-bold">Wt</span>
             <Input
               type="number" step="0.1" min="0" value={weight}
-              onChange={e => setWeight(e.target.value)}
+              onChange={e => { hasUserChangedWeight.current = true; setWeight(e.target.value); }}
               placeholder="oz" className="h-7 w-14 text-xs bg-gray-900 border-gray-600 px-1.5"
               data-testid={`input-weight-${orderId}`}
             />
-            <Select value={weightUnits} onValueChange={setWeightUnits}>
+            <Select value={weightUnits} onValueChange={v => { hasUserChangedWeight.current = true; setWeightUnits(v); }}>
               <SelectTrigger className="h-7 w-14 text-xs bg-gray-900 border-gray-600 px-1.5" data-testid={`select-weight-units-${orderId}`}>
                 <SelectValue />
               </SelectTrigger>
@@ -475,18 +485,6 @@ export default function InlineShippingCard({
             </div>
           )}
 
-          {/* Refresh rates */}
-          <div className="px-3 py-2">
-            <Button
-              size="sm" variant="ghost" className="w-full text-xs text-gray-500"
-              onClick={() => fetchRates(currentAddress!, weight, weightUnits)}
-              disabled={isLoadingRates}
-              data-testid={`button-refresh-rates-${orderId}`}
-            >
-              <RefreshCw className={`w-3 h-3 mr-1.5 ${isLoadingRates ? "animate-spin" : ""}`} />
-              Refresh Rates
-            </Button>
-          </div>
         </div>
       )}
     </div>
