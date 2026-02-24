@@ -85,6 +85,48 @@ export async function getBrickLinkOrders(
   return options.limit ? orders.slice(0, options.limit) : orders;
 }
 
+// Fetch full order details (includes cost breakdown with shipping/tax)
+export async function getBrickLinkOrderDetail(
+  orderId: number,
+  consumerKey: string,
+  consumerSecret: string,
+  tokenValue: string,
+  tokenSecret: string
+): Promise<any> {
+  const oauth = new OAuth({
+    consumer: { key: consumerKey, secret: consumerSecret },
+    signature_method: 'HMAC-SHA1',
+    hash_function: getOAuthSignature().hash_function,
+  });
+
+  const requestData = {
+    url: `${BRICKLINK_API_BASE}/orders/${orderId}`,
+    method: 'GET',
+  };
+
+  const token = { 
+    key: cleanToken(tokenValue), 
+    secret: cleanToken(tokenSecret) 
+  };
+  const authHeader = oauth.toHeader(oauth.authorize(requestData, token));
+
+  const response = await fetch(requestData.url, {
+    method: 'GET',
+    headers: {
+      Authorization: authHeader.Authorization,
+    },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`BrickLink order detail API error for order ${orderId}:`, response.status, errorText);
+    throw new Error(`BrickLink API error: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  return data.data || null;
+}
+
 // Fetch order items for a specific order
 export async function getBrickLinkOrderItems(
   orderId: number,

@@ -1,7 +1,7 @@
 import { db } from "../db";
 import { orders, orderDetails, syncMetadata } from "@shared/schema";
 import { eq, and, sql } from "drizzle-orm";
-import { getBrickLinkOrders, getBrickLinkOrderItems, mapBrickLinkStatusSync, mapBrickLinkCondition } from "./bricklink-orders";
+import { getBrickLinkOrders, getBrickLinkOrderDetail, getBrickLinkOrderItems, mapBrickLinkStatusSync, mapBrickLinkCondition } from "./bricklink-orders";
 import { mapPlatformStatus } from "../config/order-status-mapping";
 import { adjustInventoryForOrder } from "./inventory-adjustment";
 
@@ -190,6 +190,21 @@ async function processBrickLinkOrder(
   // Map BrickLink status to normalized status
   const normalizedStatus = mapPlatformStatus('bricklink', blOrder.status);
   
+  // Fetch full order details (includes cost breakdown with shipping/tax)
+  // The order list endpoint only returns summary data without cost details
+  let orderDetail: any = null;
+  try {
+    orderDetail = await getBrickLinkOrderDetail(
+      blOrder.order_id, consumerKey, consumerSecret, tokenValue, tokenSecret
+    );
+  } catch (err: any) {
+    console.warn(`⚠️ Could not fetch order detail for ${blOrder.order_id}: ${err.message}`);
+  }
+  
+  // Use detail data for cost/shipping/address, fall back to list data
+  const cost = orderDetail?.cost || blOrder.cost || {};
+  const shipping = orderDetail?.shipping || blOrder.shipping || {};
+  
   // Prepare order data
   const orderData = {
     id: orderId,
@@ -202,22 +217,22 @@ async function processBrickLinkOrder(
     customerUsername: blOrder.buyer_name || null,
     customerEmail: blOrder.buyer_email || null,
     shipTo: JSON.stringify({
-      name: blOrder.shipping?.address?.name?.full || '',
-      address1: blOrder.shipping?.address?.address1 || '',
-      address2: blOrder.shipping?.address?.address2 || '',
-      city: blOrder.shipping?.address?.city || '',
-      state: blOrder.shipping?.address?.state_or_province || '',
-      postalCode: blOrder.shipping?.address?.postal_code || '',
-      country: blOrder.shipping?.address?.country_code || '',
+      name: shipping?.address?.name?.full || '',
+      address1: shipping?.address?.address1 || '',
+      address2: shipping?.address?.address2 || '',
+      city: shipping?.address?.city || '',
+      state: shipping?.address?.state_or_province || '',
+      postalCode: shipping?.address?.postal_code || '',
+      country: shipping?.address?.country_code || '',
     }),
     billTo: null,
     shipByDate: null,
-    orderTotal: blOrder.cost?.grand_total ? blOrder.cost.grand_total.toString() : '0',
-    shippingAmount: blOrder.cost?.shipping ? blOrder.cost.shipping.toString() : '0',
-    taxAmount: blOrder.cost?.vat_amount ? blOrder.cost.vat_amount.toString() : '0',
+    orderTotal: cost?.grand_total ? cost.grand_total.toString() : '0',
+    shippingAmount: cost?.shipping ? cost.shipping.toString() : '0',
+    taxAmount: cost?.salesTax_collected_by_bl ? cost.salesTax_collected_by_bl.toString() : (cost?.vat_amount ? cost.vat_amount.toString() : '0'),
     internalNotes: null,
-    customerNotes: blOrder.remarks || null,
-    requestedShippingService: blOrder.shipping?.method || null,
+    customerNotes: orderDetail?.remarks || blOrder.remarks || null,
+    requestedShippingService: shipping?.method || null,
     carrierCode: null,
     serviceCode: null,
     updatedAt: new Date(),
