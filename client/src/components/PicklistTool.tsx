@@ -174,8 +174,6 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
   .cut-tick { width: 22px; border-top: 1px solid #bbb; }
   @media print { @page { margin-top: 0.1in; margin-bottom: 0.1in; margin-left: 0.2in; margin-right: 0.2in; } }
 </style></head><body>
-<h2>PlanetBrick Picklist</h2>
-<div class="sub">${date} &nbsp;·&nbsp; ${filterLabel} &nbsp;·&nbsp; By Part Number</div>
 <table>${body}</table>
 </body></html>`;
 
