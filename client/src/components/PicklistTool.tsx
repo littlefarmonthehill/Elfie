@@ -443,7 +443,7 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                           <div className="flex items-center gap-2 flex-wrap text-gray-400">
                             <span className="tabular-nums">Qty {item.quantity}</span>
                             <span className="text-gray-600">·</span>
-                            <span className="font-mono">{item.marketplace === 'BrickOwl' ? 'BO' : 'BL'}{item.orderNumber}</span>
+                            <span className="font-mono">{item.marketplace === 'BrickOwl' ? 'BO' : 'BL'}{(item.orderNumber || '').replace(/^(BL|BO)/i, '')}</span>
                             {item.inventoryId && (
                               <span className="font-mono text-blue-400/70">Lot {item.inventoryId}</span>
                             )}
@@ -544,7 +544,7 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                                         <div className="text-xs text-white leading-snug">{item.itemName}</div>
                                         {/* Line 3: qty · order · lot */}
                                         <div className="flex items-center gap-2 text-[10px] text-gray-500 mt-0.5 flex-wrap">
-                                          <span className="tabular-nums">Qty {item.quantity} · {item.marketplace === 'BrickOwl' ? 'BO' : 'BL'}{item.orderNumber}</span>
+                                          <span className="tabular-nums">Qty {item.quantity} · {item.marketplace === 'BrickOwl' ? 'BO' : 'BL'}{(item.orderNumber || '').replace(/^(BL|BO)/i, '')}</span>
                                           {item.inventoryId && (
                                             <span className="font-mono text-blue-400/70">Lot {item.inventoryId}</span>
                                           )}
