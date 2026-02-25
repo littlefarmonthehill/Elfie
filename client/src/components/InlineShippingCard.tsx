@@ -283,7 +283,6 @@ export default function InlineShippingCard({
 
         {/* ── Row 2: Weight ── */}
         <div className="flex items-center gap-1 shrink-0">
-          <span className="text-[10px] text-gray-500 uppercase tracking-wide font-bold">Wt</span>
           <Input
             type="number" step="0.1" min="0" value={weight}
             onChange={e => { hasUserChangedWeight.current = true; setWeight(e.target.value); }}
