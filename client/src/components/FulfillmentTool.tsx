@@ -157,27 +157,6 @@ export default function FulfillmentTool() {
   // Derived: single selected order (for ship/split actions that need exactly one)
   const selectedOrderId = selectedOrders.size === 1 ? [...selectedOrders][0] : null;
 
-  // Filter items: show items for all selected orders, or all items if none selected
-  const filteredItems = selectedOrders.size > 0
-    ? data.items.filter(item => selectedOrders.has(item.orderId))
-    : data.items;
-
-  // Group items by bin
-  const itemsByBin = filteredItems.reduce((acc, item) => {
-    const binKey = item.binId ? `${item.aisleName || 'No Aisle'}-${item.shelfName || 'No Shelf'}-${item.binName}` : 'Unassigned';
-    if (!acc[binKey]) {
-      acc[binKey] = {
-        binId: item.binId,
-        binName: item.binName || 'Unassigned',
-        aisleName: item.aisleName,
-        shelfName: item.shelfName,
-        items: [],
-      };
-    }
-    acc[binKey].items.push(item);
-    return acc;
-  }, {} as Record<string, { binId: number | null; binName: string; aisleName: string | null; shelfName: string | null; items: FulfillmentItem[] }>);
-
   const handleOrderToggle = (orderId: string) => {
     setSelectedOrders(prev => {
       const newSet = new Set(prev);
@@ -514,49 +493,6 @@ export default function FulfillmentTool() {
                 );
               })}
             </div>
-          </div>
-
-          {/* Order Details - grouped by bin */}
-          <div className="space-y-2">
-            <h3 className="text-sm lg:text-base font-bold text-gray-300">Order Details</h3>
-            {Object.entries(itemsByBin).map(([binKey, bin]) => (
-              <div key={binKey} className="space-y-1.5" data-testid={`bin-group-${binKey}`}>
-                <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg px-2.5 py-1.5">
-                  <h4 className="text-[11px] lg:text-xs font-bold text-purple-400">
-                    {bin.aisleName && bin.shelfName
-                      ? `${bin.aisleName} › ${bin.shelfName} › ${bin.binName}`
-                      : bin.binName}
-                  </h4>
-                </div>
-                {bin.items.map((item) => (
-                  <div
-                    key={item.id}
-                    className="ml-3 bg-gray-800/50 border border-gray-700 rounded-lg px-2.5 py-2 hover-elevate"
-                    data-testid={`fulfillment-item-${item.id}`}
-                  >
-                    <div className="flex items-center gap-2">
-                      {isSplitMode && (
-                        <Checkbox
-                          data-testid={`checkbox-split-${item.id}`}
-                          checked={selectedItemsForSplit.has(item.id)}
-                          onCheckedChange={() => handleItemSplitToggle(item.id)}
-                        />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[11px] lg:text-xs font-medium text-white leading-tight">
-                          {item.bricklinkPartNumber && `${item.bricklinkPartNumber} - `}{cleanItemName(item.name, item.bricklinkPartNumber)}
-                        </p>
-                        <p className="text-[10px] lg:text-[11px] text-gray-400 mt-0.5">
-                          {item.colorName && `${item.colorName} • `}
-                          {item.condition && `${item.condition} • `}
-                          Qty {item.quantity} • {item.orderNumber}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ))}
           </div>
 
         </div>

@@ -186,55 +186,80 @@ export default function PicklistTool() {
                       </div>
 
                       {/* Bins within Shelf */}
-                      <div className="space-y-1">
+                      <div className="space-y-2">
                         {bins.map((bin) => {
                           const binKey = bin.binId ?? 'none';
                           const binName = bin.warehouseLocation?.bin.name || 'Unassigned';
                           const binDescription = bin.warehouseLocation?.bin.description;
                           
                           return (
-                            <div 
-                              key={binKey} 
-                              className="flex items-center gap-3 bg-gray-800/50 border border-gray-700 rounded px-3 py-2 hover-elevate"
-                              data-testid={`bin-${binKey}`}
-                            >
-                              {/* Pulled Checkbox - Left */}
-                              <div className="shrink-0">
-                                <Checkbox
-                                  data-testid={`checkbox-pull-bin-${binKey}`}
-                                  checked={bin.pulled}
-                                  onCheckedChange={(checked) => {
-                                    if (bin.binId) {
-                                      pullMutation.mutate({ binId: bin.binId, pulled: checked === true });
-                                    }
-                                  }}
-                                  disabled={!bin.binId || pullMutation.isPending}
-                                  className="touch-auto"
-                                />
-                              </div>
+                            <div key={binKey} className="space-y-1" data-testid={`bin-${binKey}`}>
+                              {/* Bin row: pull checkbox + name + reshelve checkbox */}
+                              <div className="flex items-center gap-3 bg-gray-800/50 border border-gray-700 rounded px-3 py-2">
+                                {/* Pulled Checkbox - Left */}
+                                <div className="shrink-0">
+                                  <Checkbox
+                                    data-testid={`checkbox-pull-bin-${binKey}`}
+                                    checked={bin.pulled}
+                                    onCheckedChange={(checked) => {
+                                      if (bin.binId) {
+                                        pullMutation.mutate({ binId: bin.binId, pulled: checked === true });
+                                      }
+                                    }}
+                                    disabled={!bin.binId || pullMutation.isPending}
+                                    className="touch-auto"
+                                  />
+                                </div>
 
-                              {/* Bin Info - Center */}
-                              <div className="flex-1 min-w-0">
-                                <div className="text-sm font-medium text-white truncate">{binName}</div>
-                                {binDescription && (
-                                  <div className="text-xs text-gray-400 mt-0.5 font-normal">{binDescription}</div>
+                                {/* Bin Info - Center */}
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-sm font-medium text-white truncate">{binName}</div>
+                                  {binDescription && (
+                                    <div className="text-xs text-gray-400 mt-0.5">{binDescription}</div>
+                                  )}
+                                </div>
+
+                                {/* Item count badge */}
+                                {bin.items.length > 0 && (
+                                  <span className="shrink-0 text-[10px] font-bold text-blue-300 bg-blue-900/40 border border-blue-700/40 rounded-full px-1.5 py-0.5 tabular-nums">
+                                    {bin.items.length} {bin.items.length === 1 ? 'lot' : 'lots'}
+                                  </span>
                                 )}
+
+                                {/* Reshelved Checkbox - Right */}
+                                <div className="shrink-0">
+                                  <Checkbox
+                                    data-testid={`checkbox-reshelve-bin-${binKey}`}
+                                    checked={bin.reshelved}
+                                    onCheckedChange={(checked) => {
+                                      if (bin.binId) {
+                                        reshelveMutation.mutate({ binId: bin.binId, reshelved: checked === true });
+                                      }
+                                    }}
+                                    disabled={!bin.binId || !bin.pulled || reshelveMutation.isPending}
+                                    className="touch-auto"
+                                  />
+                                </div>
                               </div>
 
-                              {/* Reshelved Checkbox - Right */}
-                              <div className="shrink-0">
-                                <Checkbox
-                                  data-testid={`checkbox-reshelve-bin-${binKey}`}
-                                  checked={bin.reshelved}
-                                  onCheckedChange={(checked) => {
-                                    if (bin.binId) {
-                                      reshelveMutation.mutate({ binId: bin.binId, reshelved: checked === true });
-                                    }
-                                  }}
-                                  disabled={!bin.binId || !bin.pulled || reshelveMutation.isPending}
-                                  className="touch-auto"
-                                />
-                              </div>
+                              {/* Items within this bin */}
+                              {bin.items.length > 0 && (
+                                <div className="ml-4 space-y-1">
+                                  {bin.items.map((item) => (
+                                    <div
+                                      key={item.picklistItemId}
+                                      className="flex items-baseline gap-2 bg-gray-900/60 border border-gray-700/50 rounded px-2.5 py-1.5"
+                                      data-testid={`picklist-item-${item.picklistItemId}`}
+                                    >
+                                      <span className="font-mono text-[10px] text-gray-500 shrink-0">{item.sku}</span>
+                                      <span className="text-xs text-white flex-1 min-w-0 truncate">{item.itemName}</span>
+                                      <span className="text-[10px] text-gray-400 shrink-0 tabular-nums">
+                                        Qty {item.quantity} · {item.orderNumber}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           );
                         })}
