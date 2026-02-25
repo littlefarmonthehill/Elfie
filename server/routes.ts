@@ -5593,6 +5593,22 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
                 .from(orders)
                 .where(eq(orders.id, item.orderId));
 
+              // Look up inventory for part number and color
+              let partNumber: string | null = null;
+              let colorName: string | null = null;
+              const invId = item.inventoryId ?? (detail?.bricklinkInventoryId ? String(detail.bricklinkInventoryId) : null);
+              if (invId) {
+                const [inv] = await db
+                  .select({ itemNo: blInventory.itemNo, colorName: blInventory.colorName })
+                  .from(blInventory)
+                  .where(eq(blInventory.id, Number(invId)))
+                  .limit(1);
+                if (inv) {
+                  partNumber = inv.itemNo;
+                  colorName = inv.colorName ?? null;
+                }
+              }
+
               return {
                 picklistItemId: item.id,
                 orderDetailId: item.orderDetailId,
@@ -5601,6 +5617,9 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
                 itemName: detail?.name,
                 quantity: detail?.quantity,
                 sku: detail?.sku,
+                partNumber,
+                colorName,
+                condition: detail?.condition ?? null,
                 pulled: item.pulled,
                 reshelved: item.reshelved,
               };

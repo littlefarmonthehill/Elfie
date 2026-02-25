@@ -19,6 +19,9 @@ type BinPicklistItem = {
   itemName: string;
   quantity: number;
   sku: string;
+  partNumber: string | null;
+  colorName: string | null;
+  condition: string | null;
   pulled: boolean;
   reshelved: boolean;
 };
@@ -281,13 +284,19 @@ export default function PicklistTool() {
               {/* Part info */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-baseline gap-2 flex-wrap">
-                  <span className="font-mono text-xs text-purple-300 shrink-0">{item.sku}</span>
+                  <span className="font-mono text-xs text-purple-300 shrink-0">{item.partNumber || item.sku}</span>
                   <span className={`text-xs flex-1 min-w-0 truncate ${item.pulled ? 'text-gray-400 line-through' : 'text-white'}`}>
                     {item.itemName}
                   </span>
                 </div>
-                <div className="text-[10px] text-gray-500 mt-0.5 tabular-nums">
-                  Qty {item.quantity} · {item.orderNumber}
+                <div className="flex items-center gap-2 text-[10px] text-gray-500 mt-0.5 flex-wrap">
+                  <span className="tabular-nums">Qty {item.quantity} · {item.orderNumber}</span>
+                  {item.colorName && <span className="text-yellow-500">{item.colorName}</span>}
+                  {item.condition && (
+                    <span className={item.condition === 'N' ? 'text-green-500' : 'text-orange-400'}>
+                      {item.condition === 'N' ? 'New' : item.condition === 'U' ? 'Used' : item.condition}
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -378,14 +387,22 @@ export default function PicklistTool() {
                                   {bin.items.map((item) => (
                                     <div
                                       key={item.picklistItemId}
-                                      className="flex items-baseline gap-2 bg-gray-900/60 border border-gray-700/50 rounded px-2.5 py-1.5"
+                                      className="flex items-start gap-2 bg-gray-900/60 border border-gray-700/50 rounded px-2.5 py-1.5"
                                       data-testid={`picklist-item-${item.picklistItemId}`}
                                     >
-                                      <span className="font-mono text-[10px] text-purple-400 shrink-0">{item.sku}</span>
-                                      <span className="text-xs text-white flex-1 min-w-0 truncate">{item.itemName}</span>
-                                      <span className="text-[10px] text-gray-400 shrink-0 tabular-nums">
-                                        Qty {item.quantity} · {item.orderNumber}
-                                      </span>
+                                      <span className="font-mono text-[10px] text-purple-400 shrink-0 pt-0.5">{item.partNumber || item.sku}</span>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="text-xs text-white truncate">{item.itemName}</div>
+                                        <div className="flex items-center gap-2 text-[10px] text-gray-500 mt-0.5 flex-wrap">
+                                          <span className="tabular-nums">Qty {item.quantity} · {item.orderNumber}</span>
+                                          {item.colorName && <span className="text-yellow-500">{item.colorName}</span>}
+                                          {item.condition && (
+                                            <span className={item.condition === 'N' ? 'text-green-500' : 'text-orange-400'}>
+                                              {item.condition === 'N' ? 'New' : item.condition === 'U' ? 'Used' : item.condition}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
                                     </div>
                                   ))}
                                 </div>
