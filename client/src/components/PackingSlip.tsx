@@ -55,23 +55,17 @@ async function loadLogoDataUrl(): Promise<string> {
 export async function printPackingSlips(orders: PackingSlipOrder[]) {
   const logoDataUrl = await loadLogoDataUrl();
   const content = generatePackingSlipHTML(orders, logoDataUrl);
-  const blob = new Blob([content], { type: 'text/html' });
-  const blobUrl = URL.createObjectURL(blob);
-  const printWindow = window.open(blobUrl, '_blank', 'width=800,height=600');
+  const printWindow = window.open('', '_blank', 'width=800,height=600');
   if (!printWindow) {
-    URL.revokeObjectURL(blobUrl);
     alert('Please allow popups to print packing slips');
     return;
   }
-  printWindow.onload = () => {
-    const cleanup = () => {
-      printWindow.close();
-      URL.revokeObjectURL(blobUrl);
-    };
-    printWindow.addEventListener('afterprint', cleanup);
-    printWindow.onafterprint = cleanup;
-    setTimeout(() => printWindow.print(), 250);
-  };
+  printWindow.document.write(content);
+  printWindow.document.close();
+  const cleanup = () => printWindow.close();
+  printWindow.addEventListener('afterprint', cleanup);
+  printWindow.onafterprint = cleanup;
+  setTimeout(() => printWindow.print(), 250);
 }
 
 function formatOrderNumber(order: PackingSlipOrder): string {
@@ -79,9 +73,17 @@ function formatOrderNumber(order: PackingSlipOrder): string {
   return order.orderNumber;
 }
 
+function channelLabel(order: PackingSlipOrder): string {
+  if (order.marketplace === 'BrickOwl') return 'BrickOwl';
+  return 'BrickLink';
+}
+
 function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string): string {
+  const totalPages = orders.length;
+
   const pagesHTML = orders.map((order, idx) => {
     const isLast = idx === orders.length - 1;
+    const pageNum = idx + 1;
     const { shipTo } = order;
 
     const street1 = shipTo.street1 || (shipTo as any).address1 || '';
@@ -93,6 +95,8 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
 
     const cityLine = [city, state, postalCode].filter(Boolean).join(' ');
     const showCountry = country && country !== 'US';
+
+    const orderDisplay = formatOrderNumber(order);
 
     const itemsHTML = order.items.map((item: any) => {
       const baseName = cleanItemName(item.name, item.bricklinkPartNumber);
@@ -114,10 +118,17 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
       `;
     }).join('');
 
+    const topBarRight = totalPages > 1
+      ? `${orderDisplay} &nbsp;·&nbsp; Page ${pageNum} of ${totalPages}`
+      : orderDisplay;
+
     return `
       <div class="page${isLast ? ' last' : ''}">
 
-        <div class="slip-label-bar">Packing Slip</div>
+        <div class="slip-label-bar">
+          <span class="bar-left">Packing Slip</span>
+          <span class="bar-right">${topBarRight}</span>
+        </div>
 
         <div class="header">
           <div class="header-left">
@@ -143,7 +154,7 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
           </div>
           <div class="order-meta">
             <table>
-              <tr><td class="ml">Order #</td><td class="mv">${formatOrderNumber(order)}</td></tr>
+              <tr><td class="ml">${channelLabel(order)} Order #</td><td class="mv">${orderDisplay}</td></tr>
               <tr><td class="ml">Date</td><td class="mv">${order.orderDate ? new Date(order.orderDate).toLocaleDateString() : ''}</td></tr>
               ${order.customerUsername ? `<tr><td class="ml">User</td><td class="mv">${order.customerUsername}</td></tr>` : ''}
               <tr><td class="ml">Ship Date</td><td class="mv">${order.shipDate ? new Date(order.shipDate).toLocaleDateString() : ''}</td></tr>
@@ -173,10 +184,10 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
   <meta charset="UTF-8">
   <title>Packing Slips</title>
   <style>
-    @page { size: letter portrait; margin: 0.5in; }
+    @page { size: letter portrait; margin: 0; }
     @media print { html, body { margin: 0; padding: 0; } }
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: white; color: black; font-family: Arial, sans-serif; font-size: 11px; }
+    body { background: white; color: black; font-family: Arial, sans-serif; font-size: 11px; padding: 0.5in; }
 
     .page { width: 100%; page-break-after: always; break-after: page; }
     .page.last { page-break-after: auto; break-after: auto; }
@@ -184,14 +195,18 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
     .slip-label-bar {
       background: #444;
       color: white;
-      text-align: center;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
       font-size: 9px;
       font-weight: bold;
       letter-spacing: 1px;
       text-transform: uppercase;
-      padding: 3px 0;
+      padding: 3px 8px;
       margin-bottom: 8px;
     }
+    .bar-left {}
+    .bar-right { font-weight: normal; letter-spacing: 0.5px; }
 
     .header {
       display: flex;
@@ -204,13 +219,13 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
 
     .header-left { flex: 1; }
 
-    .company-name { font-weight: bold; font-size: 13px; margin-bottom: 2px; }
+    .company-name { font-weight: bold; font-size: 18px; margin-bottom: 2px; }
     .company-addr { font-size: 10px; color: #333; }
 
     .header-right { text-align: right; }
-    .logo { height: 60px; width: auto; }
+    .logo { height: 90px; width: auto; }
     .logo-fallback {
-      font-size: 18px;
+      font-size: 22px;
       font-weight: 900;
       color: #1a3a8f;
       letter-spacing: 1px;
