@@ -38,7 +38,11 @@ type BinPicklist = {
 type ViewMode = 'by_part' | 'by_bin';
 type Filter = 'all' | 'to_pull' | 'to_reshelve';
 
-export default function PicklistTool() {
+interface PicklistToolProps {
+  filterOrderIds?: Set<string>;
+}
+
+export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {}) {
   const [viewMode, setViewMode] = useState<ViewMode>('by_bin');
   const [filter, setFilter] = useState<Filter>('all');
 
@@ -245,11 +249,19 @@ export default function PicklistTool() {
   };
 
   // ── Derived data ──
-  const flatItems: BinPicklistItem[] = picklistData
+  // Apply order filter when orders are selected in the tiles
+  const filteredPicklistData: BinPicklist[] =
+    filterOrderIds && filterOrderIds.size > 0
+      ? picklistData
+          .map(bin => ({ ...bin, items: bin.items.filter(item => filterOrderIds.has(item.orderId)) }))
+          .filter(bin => bin.items.length > 0)
+      : picklistData;
+
+  const flatItems: BinPicklistItem[] = filteredPicklistData
     .flatMap(bin => bin.items)
     .sort((a, b) => partKey(a).localeCompare(partKey(b), undefined, { numeric: true }));
 
-  const groupedBins = picklistData.reduce((acc, bin) => {
+  const groupedBins = filteredPicklistData.reduce((acc, bin) => {
     const aisleKey = bin.warehouseLocation?.aisle.name || 'No Location';
     const shelfKey = bin.warehouseLocation?.shelf.name || 'No Shelf';
     if (!acc[aisleKey]) acc[aisleKey] = {};
@@ -302,6 +314,13 @@ export default function PicklistTool() {
             By Part Number
           </button>
         </div>
+
+        {/* Order filter indicator */}
+        {filterOrderIds && filterOrderIds.size > 0 && (
+          <span className="text-xs font-medium px-2 py-1 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30">
+            {filterOrderIds.size} order{filterOrderIds.size !== 1 ? 's' : ''} selected
+          </span>
+        )}
 
         {/* Spacer */}
         <div className="flex-1" />

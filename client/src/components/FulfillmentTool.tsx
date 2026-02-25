@@ -536,7 +536,7 @@ export default function FulfillmentTool() {
 
         {/* ── Tab content ── */}
         {activeTab === 'picklist' ? (
-          <PicklistTool />
+          <PicklistTool filterOrderIds={selectedOrders.size > 0 ? selectedOrders : undefined} />
         ) : (
           <div className="space-y-4">
 
