@@ -23,6 +23,8 @@ type BinPicklistItem = {
   colorName: string | null;
   condition: string | null;
   pulled: boolean;
+  inventoryId: number | null;
+  remarks: string | null;
 };
 
 type BinPicklist = {
@@ -139,6 +141,7 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
           const meta = [
             `Qty ${v.quantity}`,
             v.orderNumber,
+            v.inventoryId ? `Lot ${v.inventoryId}` : '',
             v.colorName,
             v.condition === 'N' ? 'New' : v.condition === 'U' ? 'Used' : v.condition,
           ].filter(Boolean).join(' · ');
@@ -166,6 +169,7 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
               const meta = [
                 `Qty ${item.quantity}`,
                 item.orderNumber,
+                item.inventoryId ? `Lot ${item.inventoryId}` : '',
                 item.colorName,
                 item.condition === 'N' ? 'New' : item.condition === 'U' ? 'Used' : item.condition,
               ].filter(Boolean).join(' · ');
@@ -443,17 +447,25 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                         <div className="w-4 shrink-0" />
 
                         {/* Variant details */}
-                        <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap text-[10px]">
-                          <span className="text-gray-300 tabular-nums">Qty {item.quantity}</span>
-                          <span className="text-gray-500">·</span>
-                          <span className="text-gray-400 font-mono">{item.orderNumber}</span>
-                          {item.colorName && (
-                            <span className="text-yellow-400">{item.colorName}</span>
-                          )}
-                          {item.condition && (
-                            <span className={item.condition === 'N' ? 'text-green-400' : 'text-orange-400'}>
-                              {item.condition === 'N' ? 'New' : item.condition === 'U' ? 'Used' : item.condition}
-                            </span>
+                        <div className="flex-1 min-w-0 text-[10px]">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-gray-300 tabular-nums">Qty {item.quantity}</span>
+                            <span className="text-gray-500">·</span>
+                            <span className="text-gray-400 font-mono">{item.orderNumber}</span>
+                            {item.inventoryId && (
+                              <span className="font-mono text-blue-400/70">Lot {item.inventoryId}</span>
+                            )}
+                            {item.colorName && (
+                              <span className="text-yellow-400">{item.colorName}</span>
+                            )}
+                            {item.condition && (
+                              <span className={item.condition === 'N' ? 'text-green-400' : 'text-orange-400'}>
+                                {item.condition === 'N' ? 'New' : item.condition === 'U' ? 'Used' : item.condition}
+                              </span>
+                            )}
+                          </div>
+                          {item.remarks && (
+                            <div className="text-gray-400 italic mt-0.5 truncate">{item.remarks}</div>
                           )}
                         </div>
                       </div>
@@ -536,6 +548,9 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                                         <div className="text-xs text-white truncate">{item.itemName}</div>
                                         <div className="flex items-center gap-2 text-[10px] text-gray-500 mt-0.5 flex-wrap">
                                           <span className="tabular-nums">Qty {item.quantity} · {item.orderNumber}</span>
+                                          {item.inventoryId && (
+                                            <span className="font-mono text-blue-400/70">Lot {item.inventoryId}</span>
+                                          )}
                                           {item.colorName && <span className="text-yellow-500">{item.colorName}</span>}
                                           {item.condition && (
                                             <span className={item.condition === 'N' ? 'text-green-500' : 'text-orange-400'}>
@@ -543,6 +558,9 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                                             </span>
                                           )}
                                         </div>
+                                        {item.remarks && (
+                                          <div className="text-[10px] text-gray-400 italic mt-0.5 truncate">{item.remarks}</div>
+                                        )}
                                       </div>
                                     </div>
                                   ))}

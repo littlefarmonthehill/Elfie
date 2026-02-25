@@ -37,6 +37,8 @@ type PicklistBinItem = {
   colorName: string | null;
   condition: string | null;
   pulled: boolean;
+  inventoryId: number | null;
+  remarks: string | null;
 };
 type PicklistBin = { items: PicklistBinItem[] };
 
@@ -159,15 +161,23 @@ function FulfillmentChecklist({ pulledItems, selectedOrderIds, fulfilledItems, o
                       className="shrink-0 touch-auto"
                       data-testid={`checkbox-fulfill-item-${item.picklistItemId}`}
                     />
-                    <div className={`flex-1 min-w-0 flex items-center gap-2 flex-wrap text-[10px] ${checked ? 'line-through text-gray-500' : ''}`}>
-                      <span className="tabular-nums">Qty {item.quantity}</span>
-                      <span className="text-gray-500">·</span>
-                      <span className="font-mono text-gray-400">{item.orderNumber}</span>
-                      {item.colorName && <span className="text-yellow-400">{item.colorName}</span>}
-                      {item.condition && (
-                        <span className={item.condition === 'N' ? 'text-green-400' : 'text-orange-400'}>
-                          {item.condition === 'N' ? 'New' : item.condition === 'U' ? 'Used' : item.condition}
-                        </span>
+                    <div className={`flex-1 min-w-0 text-[10px] ${checked ? 'line-through text-gray-500' : ''}`}>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="tabular-nums">Qty {item.quantity}</span>
+                        <span className="text-gray-500">·</span>
+                        <span className="font-mono text-gray-400">{item.orderNumber}</span>
+                        {item.inventoryId && (
+                          <span className="font-mono text-blue-400/70">Lot {item.inventoryId}</span>
+                        )}
+                        {item.colorName && <span className="text-yellow-400">{item.colorName}</span>}
+                        {item.condition && (
+                          <span className={item.condition === 'N' ? 'text-green-400' : 'text-orange-400'}>
+                            {item.condition === 'N' ? 'New' : item.condition === 'U' ? 'Used' : item.condition}
+                          </span>
+                        )}
+                      </div>
+                      {item.remarks && (
+                        <div className="text-gray-400 mt-0.5 italic truncate">{item.remarks}</div>
                       )}
                     </div>
                   </div>
