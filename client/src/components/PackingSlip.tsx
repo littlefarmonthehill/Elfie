@@ -68,22 +68,16 @@ export async function printPackingSlips(orders: PackingSlipOrder[]) {
   setTimeout(() => printWindow.print(), 250);
 }
 
-function formatOrderNumber(order: PackingSlipOrder): string {
-  if (order.marketplace === 'BrickOwl') return `BO.${order.orderNumber}`;
-  return order.orderNumber;
-}
-
 function channelLabel(order: PackingSlipOrder): string {
   if (order.marketplace === 'BrickOwl') return 'BrickOwl';
   return 'BrickLink';
 }
 
 function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string): string {
-  const totalPages = orders.length;
+  const totalOrders = orders.length;
 
   const pagesHTML = orders.map((order, idx) => {
     const isLast = idx === orders.length - 1;
-    const pageNum = idx + 1;
     const { shipTo } = order;
 
     const street1 = shipTo.street1 || (shipTo as any).address1 || '';
@@ -96,7 +90,11 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
     const cityLine = [city, state, postalCode].filter(Boolean).join(' ');
     const showCountry = country && country !== 'US';
 
-    const orderDisplay = formatOrderNumber(order);
+    const orderNum = order.orderNumber;
+
+    const topBarRight = totalOrders > 1
+      ? `${orderNum} &nbsp;&middot;&nbsp; Order ${idx + 1} of ${totalOrders}`
+      : orderNum;
 
     const itemsHTML = order.items.map((item: any) => {
       const baseName = cleanItemName(item.name, item.bricklinkPartNumber);
@@ -118,63 +116,70 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
       `;
     }).join('');
 
-    const topBarRight = totalPages > 1
-      ? `${orderDisplay} &nbsp;·&nbsp; Page ${pageNum} of ${totalPages}`
-      : orderDisplay;
-
+    /*
+      Each order is wrapped in an outer <table> so the <thead> (slip bar + logo header)
+      repeats automatically on every continuation printed page.
+    */
     return `
-      <div class="page${isLast ? ' last' : ''}">
+      <table class="order-table${isLast ? ' last' : ''}">
+        <thead>
+          <tr>
+            <td class="order-thead-cell">
+              <div class="slip-label-bar">
+                <span class="bar-left">Packing Slip</span>
+                <span class="bar-right">${topBarRight}</span>
+              </div>
+              <div class="header">
+                <div class="header-left">
+                  <div class="company-name">PlanetBrick.com</div>
+                  <div class="company-addr">PO Box 202</div>
+                  <div class="company-addr">Lanesboro, MN 55949</div>
+                </div>
+                <div class="header-right">
+                  ${logoDataUrl ? `<img src="${logoDataUrl}" alt="PlanetBrick" class="logo" />` : '<div class="logo-fallback">PLANETBRICK.COM</div>'}
+                </div>
+              </div>
+            </td>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="order-tbody-cell">
+              <div class="info-row">
+                <div class="ship-to">
+                  <span class="section-label">Ship To</span>
+                  ${shipTo.name ? `<div>${shipTo.name}</div>` : ''}
+                  ${shipTo.company ? `<div>${shipTo.company}</div>` : ''}
+                  ${street1 ? `<div>${street1}</div>` : ''}
+                  ${street2 ? `<div>${street2}</div>` : ''}
+                  ${cityLine ? `<div>${cityLine}</div>` : ''}
+                  ${showCountry ? `<div>${country}</div>` : ''}
+                  ${!shipTo.name && !street1 && !cityLine ? '<div class="missing-addr">Address not available</div>' : ''}
+                </div>
+                <div class="order-meta">
+                  <table>
+                    <tr><td class="ml">${channelLabel(order)} Order #</td><td class="mv">${orderNum}</td></tr>
+                    <tr><td class="ml">Date</td><td class="mv">${order.orderDate ? new Date(order.orderDate).toLocaleDateString() : ''}</td></tr>
+                    ${order.customerUsername ? `<tr><td class="ml">User</td><td class="mv">${order.customerUsername}</td></tr>` : ''}
+                  </table>
+                </div>
+              </div>
 
-        <div class="slip-label-bar">
-          <span class="bar-left">Packing Slip</span>
-          <span class="bar-right">${topBarRight}</span>
-        </div>
-
-        <div class="header">
-          <div class="header-left">
-            <div class="company-name">PlanetBrick.com</div>
-            <div class="company-addr">PO Box 202</div>
-            <div class="company-addr">Lanesboro, MN 55949</div>
-          </div>
-          <div class="header-right">
-            ${logoDataUrl ? `<img src="${logoDataUrl}" alt="PlanetBrick" class="logo" />` : '<div class="logo-fallback">PLANETBRICK.COM</div>'}
-          </div>
-        </div>
-
-        <div class="info-row">
-          <div class="ship-to">
-            <span class="section-label">Ship To</span>
-            ${shipTo.name ? `<div>${shipTo.name}</div>` : ''}
-            ${shipTo.company ? `<div>${shipTo.company}</div>` : ''}
-            ${street1 ? `<div>${street1}</div>` : ''}
-            ${street2 ? `<div>${street2}</div>` : ''}
-            ${cityLine ? `<div>${cityLine}</div>` : ''}
-            ${showCountry ? `<div>${country}</div>` : ''}
-            ${!shipTo.name && !street1 && !cityLine ? '<div class="missing-addr">Address not available</div>' : ''}
-          </div>
-          <div class="order-meta">
-            <table>
-              <tr><td class="ml">${channelLabel(order)} Order #</td><td class="mv">${orderDisplay}</td></tr>
-              <tr><td class="ml">Date</td><td class="mv">${order.orderDate ? new Date(order.orderDate).toLocaleDateString() : ''}</td></tr>
-              ${order.customerUsername ? `<tr><td class="ml">User</td><td class="mv">${order.customerUsername}</td></tr>` : ''}
-              <tr><td class="ml">Ship Date</td><td class="mv">${order.shipDate ? new Date(order.shipDate).toLocaleDateString() : ''}</td></tr>
-            </table>
-          </div>
-        </div>
-
-        <table class="items">
-          <thead>
-            <tr>
-              <th class="th-desc">Description</th>
-              <th class="th-qty">Qty</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${itemsHTML}
-          </tbody>
-        </table>
-
-      </div>
+              <table class="items">
+                <thead>
+                  <tr>
+                    <th class="th-desc">Description</th>
+                    <th class="th-qty">Qty</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${itemsHTML}
+                </tbody>
+              </table>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     `;
   }).join('');
 
@@ -187,10 +192,15 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
     @page { size: letter portrait; margin: 0; }
     @media print { html, body { margin: 0; padding: 0; } }
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: white; color: black; font-family: Arial, sans-serif; font-size: 11px; padding: 0.5in; }
+    body { background: white; color: black; font-family: Arial, sans-serif; font-size: 11px; }
 
-    .page { width: 100%; page-break-after: always; break-after: page; }
-    .page.last { page-break-after: auto; break-after: auto; }
+    /* Outer table — one per order, causes page break between orders */
+    .order-table { width: 100%; border-collapse: collapse; page-break-after: always; break-after: page; }
+    .order-table.last { page-break-after: auto; break-after: auto; }
+
+    /* thead repeats on every printed page within the same order */
+    .order-thead-cell { padding: 0.5in 0.5in 0 0.5in; }
+    .order-tbody-cell { padding: 0 0.5in 0.5in 0.5in; vertical-align: top; }
 
     .slip-label-bar {
       background: #444;
@@ -205,7 +215,6 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
       padding: 3px 8px;
       margin-bottom: 8px;
     }
-    .bar-left {}
     .bar-right { font-weight: normal; letter-spacing: 0.5px; }
 
     .header {
@@ -218,18 +227,12 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
     }
 
     .header-left { flex: 1; }
-
     .company-name { font-weight: bold; font-size: 18px; margin-bottom: 2px; }
     .company-addr { font-size: 10px; color: #333; }
 
     .header-right { text-align: right; }
     .logo { height: 90px; width: auto; }
-    .logo-fallback {
-      font-size: 22px;
-      font-weight: 900;
-      color: #1a3a8f;
-      letter-spacing: 1px;
-    }
+    .logo-fallback { font-size: 22px; font-weight: 900; color: #1a3a8f; letter-spacing: 1px; }
 
     .info-row {
       display: flex;
