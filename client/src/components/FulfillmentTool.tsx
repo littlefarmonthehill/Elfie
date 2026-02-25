@@ -580,9 +580,7 @@ export default function FulfillmentTool() {
                     className={`relative border rounded-lg p-2 lg:p-3 cursor-pointer transition-colors ${
                       isSelected
                         ? 'bg-purple-500/20 border-purple-500'
-                        : isPriority
-                          ? 'bg-red-950/20 border-red-500/50 hover-elevate'
-                          : 'bg-gray-800/50 border-gray-700 hover-elevate'
+                        : 'bg-gray-800/50 border-gray-700 hover-elevate'
                     }`}
                     data-testid={`order-${order.orderNumber}`}
                   >
