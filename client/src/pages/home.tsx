@@ -45,7 +45,7 @@ export default function Home() {
   const [brickLinkUrl, setBrickLinkUrl] = useState<string | null>(null);
 
   // Fetch picklist stats for indicator
-  const { data: picklistStats } = useQuery<{ toPull: number; toReshelve: number }>({
+  const { data: picklistStats } = useQuery<{ toPull: number }>({
     queryKey: ['/api/picklist/stats'],
     enabled: activeDashboard === 'orders',
   });
@@ -754,9 +754,9 @@ export default function Home() {
                       {fulfillmentStats.unfulfilled}
                     </span>
                   )}
-                  {picklistStats && (picklistStats.toPull + picklistStats.toReshelve) > 0 && (
+                  {picklistStats && picklistStats.toPull > 0 && (
                     <span className="absolute -top-1 -left-1 md:-top-2 md:-left-2 bg-orange-500 text-white text-[9px] md:text-xs lg:text-sm font-bold rounded-full h-4 w-4 md:h-6 md:w-6 lg:h-7 lg:w-7 flex items-center justify-center">
-                      {picklistStats.toPull + picklistStats.toReshelve}
+                      {picklistStats.toPull}
                     </span>
                   )}
                 </button>

@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { Package, PackageCheck, Loader2, List, Layers, Printer } from "lucide-react";
+import { Package, Loader2, List, Layers, Printer, Trash2 } from "lucide-react";
 
 type WarehouseLocation = {
   aisle: { id: number; name: string };
@@ -23,7 +23,6 @@ type BinPicklistItem = {
   colorName: string | null;
   condition: string | null;
   pulled: boolean;
-  reshelved: boolean;
 };
 
 type BinPicklist = {
@@ -32,11 +31,10 @@ type BinPicklist = {
   itemCount: number;
   items: BinPicklistItem[];
   pulled: boolean;
-  reshelved: boolean;
 };
 
 type ViewMode = 'by_part' | 'by_bin';
-type Filter = 'all' | 'to_pull' | 'to_reshelve';
+type Filter = 'all' | 'to_pull';
 
 interface PicklistToolProps {
   filterOrderIds?: Set<string>;
@@ -88,7 +86,7 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
   // Options factory closes over current `filter` on each render (TanStack Query v5 observes options)
   const getFilter = () => filter;
 
-  // ── Bin-level mutations (used in By Shelf/Bin view) ──
+  // ── Bin-level pull mutation ──
   const pullBinMutation = useMutation(picklistMutationOptions(
     ({ binId, pulled }: { binId: number; pulled: boolean }) =>
       apiRequest('PUT', `/api/picklist/bin/${binId}/pull`, { pulled }),
@@ -96,14 +94,7 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
     getFilter,
   ));
 
-  const reshelveBinMutation = useMutation(picklistMutationOptions(
-    ({ binId, reshelved }: { binId: number; reshelved: boolean }) =>
-      apiRequest('PUT', `/api/picklist/bin/${binId}/reshelve`, { reshelved }),
-    (old, { binId, reshelved }) => old.map((b: any) => b.binId === binId ? { ...b, reshelved } : b),
-    getFilter,
-  ));
-
-  // ── Item-level mutations (used in By Part Number view) ──
+  // ── Item-level pull mutation ──
   const pullItemMutation = useMutation(picklistMutationOptions(
     ({ itemId, pulled }: { itemId: string; pulled: boolean }) =>
       apiRequest('PUT', `/api/picklist/item/${itemId}/pull`, { pulled }),
@@ -117,24 +108,20 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
     getFilter,
   ));
 
-  const reshelveItemMutation = useMutation(picklistMutationOptions(
-    ({ itemId, reshelved }: { itemId: string; reshelved: boolean }) =>
-      apiRequest('PUT', `/api/picklist/item/${itemId}/reshelve`, { reshelved }),
-    (old, { itemId, reshelved }) =>
-      old.map((bin: any) => ({
-        ...bin,
-        items: bin.items.map((it: any) =>
-          it.picklistItemId === itemId ? { ...it, reshelved } : it
-        ),
-      })),
-    getFilter,
-  ));
+  // ── Clear shipped orders from picklist ──
+  const clearMutation = useMutation({
+    mutationFn: () => apiRequest('DELETE', '/api/picklist/shipped'),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/picklist'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/picklist/stats'] });
+    },
+  });
 
   const partKey = (item: BinPicklistItem) => item.partNumber || item.sku || '';
 
   const handlePrint = () => {
     const date = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    const filterLabel = filter === 'to_pull' ? 'To Pull' : filter === 'to_reshelve' ? 'To Reshelve' : 'All Items';
+    const filterLabel = filter === 'to_pull' ? 'To Pull' : 'All Items';
 
     let body = '';
 
@@ -169,9 +156,9 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
     } else {
       // By shelf/bin
       for (const [aisle, shelves] of Object.entries(groupedBins).sort(([a], [b]) => b.localeCompare(a))) {
-        body += `<tr class="aisle-header"><td colspan="4">${aisle}</td></tr>`;
+        body += `<tr class="aisle-header"><td colspan="3">${aisle}</td></tr>`;
         for (const [shelf, bins] of Object.entries(shelves)) {
-          body += `<tr class="shelf-header"><td colspan="4">${shelf}</td></tr>`;
+          body += `<tr class="shelf-header"><td colspan="3">${shelf}</td></tr>`;
           for (const bin of bins) {
             const binName = bin.warehouseLocation?.bin.name || 'Unassigned';
             const sortedItems = [...bin.items].sort((a, b) => partKey(a).localeCompare(partKey(b), undefined, { numeric: true }));
@@ -184,7 +171,7 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
               ].filter(Boolean).join(' · ');
               return `<tr><td class="cb">☐</td><td class="part-no">${item.partNumber || item.sku}</td><td class="part-name">${item.itemName || ''}<span class="meta"> — ${meta}</span></td><td class="cb"></td></tr>`;
             }).join('');
-            body += `<tr class="bin-header"><td class="cb">☐</td><td colspan="2">${binName}</td><td class="cb">☐</td></tr>${itemRows}`;
+            body += `<tr class="bin-header"><td class="cb">☐</td><td colspan="2">${binName}</td></tr>${itemRows}`;
           }
         }
       }
@@ -215,7 +202,6 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
     <th class="cb" style="text-align:left">Pull</th>
     <th style="text-align:left">Part</th>
     <th style="text-align:left">Item</th>
-    <th class="cb" style="text-align:left">Done</th>
   </tr></thead>
   <tbody>${body}</tbody>
 </table>
@@ -336,24 +322,29 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
           <Package className="h-3.5 w-3.5 mr-1" />
           To Pull
         </Button>
+
+        {/* Clear shipped orders */}
         <Button
-          variant={filter === 'to_reshelve' ? 'default' : 'outline'}
+          variant="outline"
           size="sm"
-          onClick={() => setFilter('to_reshelve')}
-          data-testid="button-filter-to-reshelve"
+          onClick={() => clearMutation.mutate()}
+          disabled={clearMutation.isPending}
+          data-testid="button-clear-picklist"
+          className="text-red-400 border-red-800/50 hover:text-red-300"
         >
-          <PackageCheck className="h-3.5 w-3.5 mr-1" />
-          To Reshelve
+          {clearMutation.isPending
+            ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+            : <Trash2 className="h-3.5 w-3.5 mr-1" />}
+          Clear Shipped
         </Button>
       </div>
 
-      {/* Column labels */}
+      {/* Column label */}
       <div className="flex items-center gap-3 px-3 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
         <span className="w-4 text-center shrink-0">Pull</span>
         <span className="flex-1">
           {viewMode === 'by_part' ? 'Part / Item' : 'Bin'}
         </span>
-        <span className="shrink-0 text-right">Reshelved</span>
       </div>
 
       {/* ── Empty state ── */}
@@ -382,10 +373,7 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
             {Array.from(partGroups.entries()).map(([key, variants]) => {
               const allPulled = variants.every(v => v.pulled);
               const somePulled = variants.some(v => v.pulled);
-              const allReshelved = variants.every(v => v.reshelved);
               const rep = variants[0];
-
-              const someReshelved = variants.some(v => v.reshelved);
 
               const handleGroupPull = () => {
                 const target = !allPulled;
@@ -394,20 +382,11 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                 );
               };
 
-              const handleGroupReshelve = () => {
-                const target = !allReshelved;
-                variants.forEach(v =>
-                  reshelveItemMutation.mutate({ itemId: v.picklistItemId, reshelved: target })
-                );
-              };
-
               return (
                 <div
                   key={key}
                   className={`rounded-lg border overflow-hidden transition-colors ${
-                    allReshelved
-                      ? 'border-green-800/30'
-                      : allPulled
+                    allPulled
                       ? 'border-blue-800/30'
                       : somePulled
                       ? 'border-yellow-700/40'
@@ -418,9 +397,7 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                   {/* Part group header */}
                   <div
                     className={`flex items-center gap-3 px-3 py-2 ${
-                      allReshelved
-                        ? 'bg-green-950/30'
-                        : allPulled
+                      allPulled
                         ? 'bg-blue-950/30'
                         : somePulled
                         ? 'bg-yellow-950/20'
@@ -450,15 +427,6 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                         {variants.length} lots
                       </span>
                     )}
-
-                    {/* Group-level reshelve checkbox */}
-                    <Checkbox
-                      data-testid={`checkbox-reshelve-group-${key}`}
-                      checked={allReshelved ? true : someReshelved ? 'indeterminate' : false}
-                      onCheckedChange={handleGroupReshelve}
-                      disabled={!allPulled || reshelveItemMutation.isPending}
-                      className="shrink-0 touch-auto"
-                    />
                   </div>
 
                   {/* Variant rows */}
@@ -467,11 +435,7 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                       <div
                         key={item.picklistItemId}
                         className={`flex items-center gap-3 px-3 py-1.5 ${
-                          item.reshelved
-                            ? 'bg-green-950/20'
-                            : item.pulled
-                            ? 'bg-blue-950/20'
-                            : 'bg-gray-900/60'
+                          item.pulled ? 'bg-blue-950/20' : 'bg-gray-900/60'
                         }`}
                         data-testid={`part-item-${item.picklistItemId}`}
                       >
@@ -492,9 +456,6 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                             </span>
                           )}
                         </div>
-
-                        {/* Spacer to align with group-level reshelve checkbox */}
-                        <div className="w-4 shrink-0" />
                       </div>
                     ))}
                   </div>
@@ -559,16 +520,6 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                                     {bin.items.length} {bin.items.length === 1 ? 'lot' : 'lots'}
                                   </span>
                                 )}
-
-                                <Checkbox
-                                  data-testid={`checkbox-reshelve-bin-${binKey}`}
-                                  checked={bin.reshelved}
-                                  onCheckedChange={(checked) => {
-                                    if (bin.binId) reshelveBinMutation.mutate({ binId: bin.binId, reshelved: checked === true });
-                                  }}
-                                  disabled={!bin.binId || !bin.pulled || reshelveBinMutation.isPending}
-                                  className="shrink-0 touch-auto"
-                                />
                               </div>
 
                               {/* Items within this bin */}

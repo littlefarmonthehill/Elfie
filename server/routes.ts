@@ -5397,41 +5397,30 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
 
   // Picklist Routes
   
-  // Get picklist stats (number of pending bins)
+  // Get picklist stats (unique bins still to pull)
   app.get("/api/picklist/stats", isApproved, async (req, res) => {
     try {
       const activeOrders = await db.select().from(orders).where(activeOrderStatusWhere());
 
       if (activeOrders.length === 0) {
-        return res.json({ toPull: 0, toReshelve: 0 });
+        return res.json({ toPull: 0 });
       }
 
       const orderIds = activeOrders.map(o => o.id);
 
-      // Get picklist items for active orders
       const picklistItemsData = await db
         .select()
         .from(picklistItems)
         .where(inArray(picklistItems.orderId, orderIds));
 
-      // Filter out completed items (both pulled and reshelved)
-      const activeItems = picklistItemsData.filter(item => !(item.pulled && item.reshelved));
-
-      // Count unique bins that need to be pulled (not yet pulled)
+      // Count unique bins that still need to be pulled
       const binsToPull = new Set(
-        activeItems
+        picklistItemsData
           .filter(item => item.binId && !item.pulled)
           .map(item => item.binId)
       ).size;
 
-      // Count unique bins that need to be reshelved (pulled but not reshelved)
-      const binsToReshelve = new Set(
-        activeItems
-          .filter(item => item.binId && item.pulled && !item.reshelved)
-          .map(item => item.binId)
-      ).size;
-
-      res.json({ toPull: binsToPull, toReshelve: binsToReshelve });
+      res.json({ toPull: binsToPull });
     } catch (error) {
       console.error("Error fetching picklist stats:", error);
       res.status(500).json({ error: "Failed to fetch picklist stats" });
@@ -5532,11 +5521,9 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       }
 
       // ── Apply filters ───────────────────────────────────────────────────────
-      let filteredItems = existingPicklistItems.filter(item => !(item.pulled && item.reshelved));
+      let filteredItems = [...existingPicklistItems];
       if (filter === 'to_pull') {
         filteredItems = filteredItems.filter(item => !item.pulled);
-      } else if (filter === 'to_reshelve') {
-        filteredItems = filteredItems.filter(item => item.pulled && !item.reshelved);
       }
 
       // ── Batch all lookups for the build phase (was N+1 per bin/item) ───────
@@ -5648,7 +5635,6 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
             colorName,
             condition,
             pulled: item.pulled,
-            reshelved: item.reshelved,
           };
         });
 
@@ -5658,7 +5644,6 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
           itemCount: items.length,
           items: itemDetails,
           pulled: items.every(i => i.pulled),
-          reshelved: items.every(i => i.reshelved),
         };
       });
 
@@ -5712,34 +5697,25 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
     }
   });
 
-  // Update bin reshelved status (all items in bin)
-  app.put("/api/picklist/bin/:binId/reshelve", isApproved, async (req, res) => {
+  // Clear picklist items for shipped orders
+  app.delete("/api/picklist/shipped", isApproved, async (req, res) => {
     try {
-      const binId = parseInt(req.params.binId);
-      const { reshelved } = req.body;
-      
-      const updateData: any = {
-        reshelved: reshelved === true,
-        updatedAt: sql`CURRENT_TIMESTAMP`
-      };
-      
-      // Set reshelvedAt timestamp when marking as reshelved, clear when unmarking
-      if (reshelved === true) {
-        updateData.reshelvedAt = sql`CURRENT_TIMESTAMP`;
-      } else {
-        updateData.reshelvedAt = null;
+      const shippedOrders = await db
+        .select({ id: orders.id })
+        .from(orders)
+        .where(eq(orders.orderStatus, 'shipped'));
+
+      if (shippedOrders.length === 0) {
+        return res.json({ deleted: 0 });
       }
-      
-      // Update all items in this bin
-      await db
-        .update(picklistItems)
-        .set(updateData)
-        .where(eq(picklistItems.binId, binId));
-      
-      res.json({ success: true, binId, reshelved });
+
+      const shippedOrderIds = shippedOrders.map(o => o.id);
+      await db.delete(picklistItems).where(inArray(picklistItems.orderId, shippedOrderIds));
+
+      res.json({ deleted: shippedOrderIds.length });
     } catch (error) {
-      console.error("Error updating bin reshelved status:", error);
-      res.status(500).json({ error: "Failed to update bin reshelved status" });
+      console.error("Error clearing shipped picklist items:", error);
+      res.status(500).json({ error: "Failed to clear picklist" });
     }
   });
 
@@ -5761,23 +5737,6 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
     }
   });
 
-  // Update individual picklist item reshelved status
-  app.put("/api/picklist/item/:itemId/reshelve", isApproved, async (req, res) => {
-    try {
-      const { itemId } = req.params;
-      const { reshelved } = req.body;
-      const updateData: any = {
-        reshelved: reshelved === true,
-        updatedAt: sql`CURRENT_TIMESTAMP`,
-        reshelvedAt: reshelved === true ? sql`CURRENT_TIMESTAMP` : null,
-      };
-      await db.update(picklistItems).set(updateData).where(eq(picklistItems.id, itemId));
-      res.json({ success: true, itemId, reshelved });
-    } catch (error) {
-      console.error("Error updating item reshelved status:", error);
-      res.status(500).json({ error: "Failed to update item reshelved status" });
-    }
-  });
 
   // Fulfillment Stats - Count unfulfilled orders
   app.get("/api/fulfillment/stats", isApproved, async (req, res) => {
