@@ -170,8 +170,8 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
   .color { color: #333; }
   .cond { color: #333; }
   .desc { color: #555; }
-  .meta { color: #555; font-size: 10px; padding-bottom: 2px; }
-  .part-header td { padding-top: 14px; border-top: 2px dashed #bbb; }
+  .meta { color: #555; font-size: 10px; padding-bottom: 8px; }
+  .part-header td { padding-top: 8px; border-top: 2px dashed #bbb; }
   @media print { @page { margin-top: 0.1in; margin-bottom: 0.1in; margin-left: 0.2in; margin-right: 0.2in; } }
 </style></head><body>
 <h2>PlanetBrick Picklist</h2>
