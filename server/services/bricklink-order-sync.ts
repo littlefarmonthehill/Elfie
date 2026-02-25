@@ -343,24 +343,10 @@ async function processBrickLinkOrder(
           const itemNo = item.item?.no;
           const colorId = item.color_id;
           const itemType = item.item?.type;
-          let imageUrl: string | null = null;
-          if (itemNo && colorId && itemType === 'PART') {
-            imageUrl = `https://img.bricklink.com/P/${colorId}/${itemNo}.jpg`;
-          } else if (itemNo && itemType === 'SET') {
-            imageUrl = `https://img.bricklink.com/S/${itemNo}.jpg`;
-          } else if (itemNo && itemType === 'MINIFIG') {
-            imageUrl = `https://img.bricklink.com/M/${itemNo}.jpg`;
-          } else if (itemNo && colorId && itemType === 'GEAR') {
-            imageUrl = `https://img.bricklink.com/G/${colorId}/${itemNo}.jpg`;
-          }
-          if (unitWeightGrams || imageUrl) {
+          if (unitWeightGrams) {
             await db.update(blInventory)
               .set({
-                ...(unitWeightGrams ? { myWeight: sql`COALESCE(${blInventory.myWeight}, ${unitWeightGrams.toFixed(4)})` } : {}),
-                ...(imageUrl ? {
-                  imageUrl: sql`COALESCE(${blInventory.imageUrl}, ${imageUrl})`,
-                  thumbnailUrl: sql`COALESCE(${blInventory.thumbnailUrl}, ${imageUrl})`,
-                } : {}),
+                myWeight: sql`COALESCE(${blInventory.myWeight}, ${unitWeightGrams.toFixed(4)})`,
               })
               .where(eq(blInventory.id, item.inventory_id));
           }

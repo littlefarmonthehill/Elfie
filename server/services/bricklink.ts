@@ -484,8 +484,6 @@ export async function syncBricklinkInventory(): Promise<{ added: number; updated
           tierQuantity2: item.tier_quantity2 || null,
           tierQuantity3: item.tier_quantity3 || null,
           myWeight: item.my_weight || null,
-          imageUrl: buildBricklinkImageUrl(item.item.type, item.color_id, item.item.no),
-          thumbnailUrl: buildBricklinkImageUrl(item.item.type, item.color_id, item.item.no),
         }));
         
         await db.insert(blInventory).values(values);
@@ -1257,6 +1255,21 @@ export async function fetchPriceOMagicData(
       } catch (error) {
         console.error('[Price-o-Matic] Error updating inventory weight:', error);
         // Don't throw - this is a nice-to-have feature
+      }
+    }
+
+    // Write back the BL catalog thumbnail to bl_inventory (more reliable than constructed CDN URLs)
+    // Only update if the stored URL is null (Rebrickable images are preserved)
+    if (itemDetails?.thumbnail_url) {
+      try {
+        const rawThumb = itemDetails.thumbnail_url as string;
+        const thumbUrl = rawThumb.startsWith('//') ? `https:${rawThumb}` : rawThumb;
+        const imgQuery = colorId
+          ? and(eq(blInventory.itemNo, itemNo), eq(blInventory.itemType, itemType), eq(blInventory.colorId, colorId), sql`${blInventory.imageUrl} IS NULL`)
+          : and(eq(blInventory.itemNo, itemNo), eq(blInventory.itemType, itemType), sql`${blInventory.imageUrl} IS NULL`);
+        await db.update(blInventory).set({ imageUrl: thumbUrl, thumbnailUrl: thumbUrl }).where(imgQuery);
+      } catch (error) {
+        console.error('[Price-o-Matic] Error updating inventory image:', error);
       }
     }
     
