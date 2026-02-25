@@ -189,7 +189,7 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
   <meta charset="UTF-8">
   <title>Packing Slips</title>
   <style>
-    @page { size: letter portrait; margin: 0; }
+    @page { size: letter portrait; margin: 0.5in; }
     @media print { html, body { margin: 0; padding: 0; } }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { background: white; color: black; font-family: Arial, sans-serif; font-size: 11px; }
@@ -199,8 +199,8 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
     .order-table.last { page-break-after: auto; break-after: auto; }
 
     /* thead repeats on every printed page within the same order */
-    .order-thead-cell { padding: 0.5in 0.5in 0 0.5in; }
-    .order-tbody-cell { padding: 0 0.5in 0.5in 0.5in; vertical-align: top; }
+    .order-thead-cell { padding: 0; }
+    .order-tbody-cell { padding: 0; vertical-align: top; }
 
     .slip-label-bar {
       background: #444;
