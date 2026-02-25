@@ -155,10 +155,9 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
         `${chanPrefix(item)}${rawOrder}`,
         item.inventoryId ? `Lot ${item.inventoryId}` : '',
       ].filter(Boolean).join(' · ');
-      return `<tbody class="item-group">
+      return `<tbody>
         ${CUT_MARKS}
-        <tr class="part-header"><td>${header}</td></tr>
-        <tr><td class="meta">${meta}</td></tr>
+        <tr class="item-row"><td><div class="item-header">${header}</div><div class="meta">${meta}</div></td></tr>
       </tbody>`;
     }).join('');
 
@@ -173,12 +172,12 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
   .color { color: #333; }
   .cond { color: #333; }
   .desc { color: #555; }
-  .meta { color: #555; font-size: 10px; }
-  .item-group { break-inside: avoid; page-break-inside: avoid; }
+  .meta { color: #555; font-size: 10px; margin-top: 1px; }
+  .item-row { page-break-inside: avoid; break-inside: avoid; }
+  .item-row td { padding-top: 5px; }
   .cut-row td { padding: 16px 0 0; }
   .cut-marks { display: flex; justify-content: space-between; align-items: center; }
   .cut-tick { width: 22px; border-top: 1px solid #bbb; }
-  .part-header td { padding-top: 5px; }
   @media print { @page { margin-top: 0.1in; margin-bottom: 0.1in; margin-left: 0.2in; margin-right: 0.2in; } }
 </style></head><body>
 <h2>PlanetBrick Picklist</h2>
