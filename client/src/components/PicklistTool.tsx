@@ -3,8 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Package, PackageCheck, Loader2 } from "lucide-react";
+import { Package, PackageCheck, Loader2, List, Layers } from "lucide-react";
 
 type WarehouseLocation = {
   aisle: { id: number; name: string };
@@ -33,10 +32,14 @@ type BinPicklist = {
   reshelved: boolean;
 };
 
-export default function PicklistTool() {
-  const [filter, setFilter] = useState<'all' | 'to_pull' | 'to_reshelve'>('all');
+type ViewMode = 'by_part' | 'by_bin';
+type Filter = 'all' | 'to_pull' | 'to_reshelve';
 
-  const { data: picklistData = [], isLoading, refetch } = useQuery<BinPicklist[]>({
+export default function PicklistTool() {
+  const [viewMode, setViewMode] = useState<ViewMode>('by_bin');
+  const [filter, setFilter] = useState<Filter>('all');
+
+  const { data: picklistData = [], isLoading } = useQuery<BinPicklist[]>({
     queryKey: ['/api/picklist', filter],
     queryFn: async () => {
       const params = filter !== 'all' ? `?filter=${filter}` : '';
@@ -46,25 +49,20 @@ export default function PicklistTool() {
     },
   });
 
-  const pullMutation = useMutation({
-    mutationFn: async ({ binId, pulled }: { binId: number; pulled: boolean }) => {
-      return await apiRequest('PUT', `/api/picklist/bin/${binId}/pull`, { pulled });
-    },
+  // ── Bin-level mutations (used in By Shelf/Bin view) ──
+  const pullBinMutation = useMutation({
+    mutationFn: async ({ binId, pulled }: { binId: number; pulled: boolean }) =>
+      apiRequest('PUT', `/api/picklist/bin/${binId}/pull`, { pulled }),
     onMutate: async ({ binId, pulled }) => {
       await queryClient.cancelQueries({ queryKey: ['/api/picklist'] });
-      const previousData = queryClient.getQueryData(['/api/picklist', filter]);
-      queryClient.setQueryData(['/api/picklist', filter], (old: any) => {
-        if (!old) return old;
-        return old.map((item: any) => 
-          item.binId === binId ? { ...item, pulled } : item
-        );
-      });
-      return { previousData };
+      const prev = queryClient.getQueryData(['/api/picklist', filter]);
+      queryClient.setQueryData(['/api/picklist', filter], (old: any) =>
+        old?.map((b: any) => b.binId === binId ? { ...b, pulled } : b)
+      );
+      return { prev };
     },
-    onError: (err, variables, context) => {
-      if (context?.previousData) {
-        queryClient.setQueryData(['/api/picklist', filter], context.previousData);
-      }
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(['/api/picklist', filter], ctx.prev);
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/picklist'] });
@@ -72,25 +70,19 @@ export default function PicklistTool() {
     },
   });
 
-  const reshelveMutation = useMutation({
-    mutationFn: async ({ binId, reshelved }: { binId: number; reshelved: boolean }) => {
-      return await apiRequest('PUT', `/api/picklist/bin/${binId}/reshelve`, { reshelved });
-    },
+  const reshelveBinMutation = useMutation({
+    mutationFn: async ({ binId, reshelved }: { binId: number; reshelved: boolean }) =>
+      apiRequest('PUT', `/api/picklist/bin/${binId}/reshelve`, { reshelved }),
     onMutate: async ({ binId, reshelved }) => {
       await queryClient.cancelQueries({ queryKey: ['/api/picklist'] });
-      const previousData = queryClient.getQueryData(['/api/picklist', filter]);
-      queryClient.setQueryData(['/api/picklist', filter], (old: any) => {
-        if (!old) return old;
-        return old.map((item: any) => 
-          item.binId === binId ? { ...item, reshelved } : item
-        );
-      });
-      return { previousData };
+      const prev = queryClient.getQueryData(['/api/picklist', filter]);
+      queryClient.setQueryData(['/api/picklist', filter], (old: any) =>
+        old?.map((b: any) => b.binId === binId ? { ...b, reshelved } : b)
+      );
+      return { prev };
     },
-    onError: (err, variables, context) => {
-      if (context?.previousData) {
-        queryClient.setQueryData(['/api/picklist', filter], context.previousData);
-      }
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(['/api/picklist', filter], ctx.prev);
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/picklist'] });
@@ -98,24 +90,71 @@ export default function PicklistTool() {
     },
   });
 
-  // Group bins by aisle and shelf, sort descending by aisle
+  // ── Item-level mutations (used in By Part Number view) ──
+  const pullItemMutation = useMutation({
+    mutationFn: async ({ itemId, pulled }: { itemId: string; pulled: boolean }) =>
+      apiRequest('PUT', `/api/picklist/item/${itemId}/pull`, { pulled }),
+    onMutate: async ({ itemId, pulled }) => {
+      await queryClient.cancelQueries({ queryKey: ['/api/picklist'] });
+      const prev = queryClient.getQueryData(['/api/picklist', filter]);
+      queryClient.setQueryData(['/api/picklist', filter], (old: any) =>
+        old?.map((bin: any) => ({
+          ...bin,
+          items: bin.items.map((it: any) =>
+            it.picklistItemId === itemId ? { ...it, pulled } : it
+          ),
+        }))
+      );
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(['/api/picklist', filter], ctx.prev);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/picklist'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/picklist/stats'] });
+    },
+  });
+
+  const reshelveItemMutation = useMutation({
+    mutationFn: async ({ itemId, reshelved }: { itemId: string; reshelved: boolean }) =>
+      apiRequest('PUT', `/api/picklist/item/${itemId}/reshelve`, { reshelved }),
+    onMutate: async ({ itemId, reshelved }) => {
+      await queryClient.cancelQueries({ queryKey: ['/api/picklist'] });
+      const prev = queryClient.getQueryData(['/api/picklist', filter]);
+      queryClient.setQueryData(['/api/picklist', filter], (old: any) =>
+        old?.map((bin: any) => ({
+          ...bin,
+          items: bin.items.map((it: any) =>
+            it.picklistItemId === itemId ? { ...it, reshelved } : it
+          ),
+        }))
+      );
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(['/api/picklist', filter], ctx.prev);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/picklist'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/picklist/stats'] });
+    },
+  });
+
+  // ── Derived data ──
+  const flatItems: BinPicklistItem[] = picklistData
+    .flatMap(bin => bin.items)
+    .sort((a, b) => a.sku.localeCompare(b.sku));
+
   const groupedBins = picklistData.reduce((acc, bin) => {
     const aisleKey = bin.warehouseLocation?.aisle.name || 'No Location';
     const shelfKey = bin.warehouseLocation?.shelf.name || 'No Shelf';
-
-    if (!acc[aisleKey]) {
-      acc[aisleKey] = {};
-    }
-    if (!acc[aisleKey][shelfKey]) {
-      acc[aisleKey][shelfKey] = [];
-    }
-
+    if (!acc[aisleKey]) acc[aisleKey] = {};
+    if (!acc[aisleKey][shelfKey]) acc[aisleKey][shelfKey] = [];
     acc[aisleKey][shelfKey].push(bin);
-
     return acc;
   }, {} as Record<string, Record<string, BinPicklist[]>>);
 
-  // Sort aisles descending
   const sortedAisles = Object.keys(groupedBins).sort((a, b) => b.localeCompare(a));
 
   if (isLoading) {
@@ -126,17 +165,52 @@ export default function PicklistTool() {
     );
   }
 
+  const isEmpty = viewMode === 'by_part' ? flatItems.length === 0 : sortedAisles.length === 0;
+
   return (
     <div className="space-y-4">
-      {/* Filter Buttons */}
-      <div className="flex gap-2">
+
+      {/* ── Controls row: view toggle + filter ── */}
+      <div className="flex flex-wrap items-center gap-2">
+        {/* View toggle */}
+        <div className="flex rounded-md overflow-hidden border border-gray-700">
+          <button
+            onClick={() => setViewMode('by_bin')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${
+              viewMode === 'by_bin'
+                ? 'bg-purple-600 text-white'
+                : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+            }`}
+            data-testid="button-view-by-bin"
+          >
+            <Layers className="w-3.5 h-3.5" />
+            By Shelf / Bin
+          </button>
+          <button
+            onClick={() => setViewMode('by_part')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors border-l border-gray-700 ${
+              viewMode === 'by_part'
+                ? 'bg-purple-600 text-white'
+                : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+            }`}
+            data-testid="button-view-by-part"
+          >
+            <List className="w-3.5 h-3.5" />
+            By Part Number
+          </button>
+        </div>
+
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* Status filters */}
         <Button
           variant={filter === 'all' ? 'default' : 'outline'}
           size="sm"
           onClick={() => setFilter('all')}
           data-testid="button-filter-all"
         >
-          All Bins
+          All
         </Button>
         <Button
           variant={filter === 'to_pull' ? 'default' : 'outline'}
@@ -144,7 +218,7 @@ export default function PicklistTool() {
           onClick={() => setFilter('to_pull')}
           data-testid="button-filter-to-pull"
         >
-          <Package className="h-4 w-4 mr-1" />
+          <Package className="h-3.5 w-3.5 mr-1" />
           To Pull
         </Button>
         <Button
@@ -153,65 +227,127 @@ export default function PicklistTool() {
           onClick={() => setFilter('to_reshelve')}
           data-testid="button-filter-to-reshelve"
         >
-          <PackageCheck className="h-4 w-4 mr-1" />
+          <PackageCheck className="h-3.5 w-3.5 mr-1" />
           To Reshelve
         </Button>
       </div>
 
-      {/* Picklist Bins - Grouped by Aisle */}
-      <div className="space-y-3" data-testid="picklist-bins-container">
-        {sortedAisles.length === 0 ? (
-          <div className="text-center py-12 text-gray-500">
-            <Package className="h-12 w-12 mx-auto mb-3 opacity-50" />
-            <p>No bins in picklist</p>
-            <p className="text-sm">Bins will appear here when orders are awaiting fulfillment</p>
-          </div>
-        ) : (
-          sortedAisles.map((aisle) => {
+      {/* Column labels */}
+      <div className="flex items-center gap-3 px-3 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+        <span className="w-4 text-center shrink-0">Pull</span>
+        <span className="flex-1">
+          {viewMode === 'by_part' ? 'Part / Item' : 'Bin'}
+        </span>
+        <span className="w-4 text-center shrink-0">Done</span>
+      </div>
+
+      {/* ── Empty state ── */}
+      {isEmpty && (
+        <div className="text-center py-12 text-gray-500">
+          <Package className="h-12 w-12 mx-auto mb-3 opacity-50" />
+          <p>Nothing in picklist</p>
+          <p className="text-sm mt-1">Items appear here when orders are awaiting fulfillment</p>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════
+          VIEW: BY PART NUMBER — flat list, sorted by SKU
+          ══════════════════════════════════════════ */}
+      {viewMode === 'by_part' && !isEmpty && (
+        <div className="space-y-1" data-testid="picklist-by-part">
+          {flatItems.map((item) => (
+            <div
+              key={item.picklistItemId}
+              className={`flex items-center gap-3 rounded-lg px-3 py-2 border transition-colors ${
+                item.reshelved
+                  ? 'bg-green-950/20 border-green-800/30'
+                  : item.pulled
+                  ? 'bg-blue-950/20 border-blue-800/30'
+                  : 'bg-gray-800/50 border-gray-700'
+              }`}
+              data-testid={`part-item-${item.picklistItemId}`}
+            >
+              {/* Pull checkbox */}
+              <Checkbox
+                data-testid={`checkbox-pull-item-${item.picklistItemId}`}
+                checked={item.pulled}
+                onCheckedChange={(checked) =>
+                  pullItemMutation.mutate({ itemId: item.picklistItemId, pulled: checked === true })
+                }
+                disabled={pullItemMutation.isPending}
+                className="shrink-0 touch-auto"
+              />
+
+              {/* Part info */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-baseline gap-2 flex-wrap">
+                  <span className="font-mono text-xs text-purple-300 shrink-0">{item.sku}</span>
+                  <span className={`text-xs flex-1 min-w-0 truncate ${item.pulled ? 'text-gray-400 line-through' : 'text-white'}`}>
+                    {item.itemName}
+                  </span>
+                </div>
+                <div className="text-[10px] text-gray-500 mt-0.5 tabular-nums">
+                  Qty {item.quantity} · {item.orderNumber}
+                </div>
+              </div>
+
+              {/* Reshelve checkbox */}
+              <Checkbox
+                data-testid={`checkbox-reshelve-item-${item.picklistItemId}`}
+                checked={item.reshelved}
+                onCheckedChange={(checked) =>
+                  reshelveItemMutation.mutate({ itemId: item.picklistItemId, reshelved: checked === true })
+                }
+                disabled={!item.pulled || reshelveItemMutation.isPending}
+                className="shrink-0 touch-auto"
+              />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════
+          VIEW: BY SHELF / BIN — aisle › shelf › bin grouping
+          ══════════════════════════════════════════ */}
+      {viewMode === 'by_bin' && !isEmpty && (
+        <div className="space-y-3" data-testid="picklist-by-bin">
+          {sortedAisles.map((aisle) => {
             const shelves = groupedBins[aisle];
             return (
               <div key={aisle} className="space-y-2" data-testid={`aisle-group-${aisle}`}>
-                {/* Aisle Header */}
+                {/* Aisle header */}
                 <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg px-3 py-1.5">
                   <h3 className="text-sm font-bold text-purple-400">{aisle}</h3>
                 </div>
 
-                {/* Shelves within Aisle */}
                 <div className="space-y-2">
                   {Object.entries(shelves).map(([shelf, bins]) => (
                     <div key={shelf} className="space-y-1" data-testid={`shelf-group-${shelf}`}>
-                      {/* Shelf Header */}
+                      {/* Shelf header */}
                       <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg px-3 py-1">
                         <h4 className="text-xs font-bold text-blue-400">{shelf}</h4>
                       </div>
 
-                      {/* Bins within Shelf */}
                       <div className="space-y-2">
                         {bins.map((bin) => {
                           const binKey = bin.binId ?? 'none';
                           const binName = bin.warehouseLocation?.bin.name || 'Unassigned';
                           const binDescription = bin.warehouseLocation?.bin.description;
-                          
+
                           return (
                             <div key={binKey} className="space-y-1" data-testid={`bin-${binKey}`}>
-                              {/* Bin row: pull checkbox + name + reshelve checkbox */}
-                              <div className="flex items-center gap-3 bg-gray-800/50 border border-gray-700 rounded px-3 py-2">
-                                {/* Pulled Checkbox - Left */}
-                                <div className="shrink-0">
-                                  <Checkbox
-                                    data-testid={`checkbox-pull-bin-${binKey}`}
-                                    checked={bin.pulled}
-                                    onCheckedChange={(checked) => {
-                                      if (bin.binId) {
-                                        pullMutation.mutate({ binId: bin.binId, pulled: checked === true });
-                                      }
-                                    }}
-                                    disabled={!bin.binId || pullMutation.isPending}
-                                    className="touch-auto"
-                                  />
-                                </div>
+                              {/* Bin row */}
+                              <div className="flex items-center gap-3 bg-gray-800/50 border border-gray-700 rounded-lg px-3 py-2">
+                                <Checkbox
+                                  data-testid={`checkbox-pull-bin-${binKey}`}
+                                  checked={bin.pulled}
+                                  onCheckedChange={(checked) => {
+                                    if (bin.binId) pullBinMutation.mutate({ binId: bin.binId, pulled: checked === true });
+                                  }}
+                                  disabled={!bin.binId || pullBinMutation.isPending}
+                                  className="shrink-0 touch-auto"
+                                />
 
-                                {/* Bin Info - Center */}
                                 <div className="flex-1 min-w-0">
                                   <div className="text-sm font-medium text-white truncate">{binName}</div>
                                   {binDescription && (
@@ -219,27 +355,21 @@ export default function PicklistTool() {
                                   )}
                                 </div>
 
-                                {/* Item count badge */}
                                 {bin.items.length > 0 && (
                                   <span className="shrink-0 text-[10px] font-bold text-blue-300 bg-blue-900/40 border border-blue-700/40 rounded-full px-1.5 py-0.5 tabular-nums">
                                     {bin.items.length} {bin.items.length === 1 ? 'lot' : 'lots'}
                                   </span>
                                 )}
 
-                                {/* Reshelved Checkbox - Right */}
-                                <div className="shrink-0">
-                                  <Checkbox
-                                    data-testid={`checkbox-reshelve-bin-${binKey}`}
-                                    checked={bin.reshelved}
-                                    onCheckedChange={(checked) => {
-                                      if (bin.binId) {
-                                        reshelveMutation.mutate({ binId: bin.binId, reshelved: checked === true });
-                                      }
-                                    }}
-                                    disabled={!bin.binId || !bin.pulled || reshelveMutation.isPending}
-                                    className="touch-auto"
-                                  />
-                                </div>
+                                <Checkbox
+                                  data-testid={`checkbox-reshelve-bin-${binKey}`}
+                                  checked={bin.reshelved}
+                                  onCheckedChange={(checked) => {
+                                    if (bin.binId) reshelveBinMutation.mutate({ binId: bin.binId, reshelved: checked === true });
+                                  }}
+                                  disabled={!bin.binId || !bin.pulled || reshelveBinMutation.isPending}
+                                  className="shrink-0 touch-auto"
+                                />
                               </div>
 
                               {/* Items within this bin */}
@@ -251,7 +381,7 @@ export default function PicklistTool() {
                                       className="flex items-baseline gap-2 bg-gray-900/60 border border-gray-700/50 rounded px-2.5 py-1.5"
                                       data-testid={`picklist-item-${item.picklistItemId}`}
                                     >
-                                      <span className="font-mono text-[10px] text-gray-500 shrink-0">{item.sku}</span>
+                                      <span className="font-mono text-[10px] text-purple-400 shrink-0">{item.sku}</span>
                                       <span className="text-xs text-white flex-1 min-w-0 truncate">{item.itemName}</span>
                                       <span className="text-[10px] text-gray-400 shrink-0 tabular-nums">
                                         Qty {item.quantity} · {item.orderNumber}
@@ -269,9 +399,10 @@ export default function PicklistTool() {
                 </div>
               </div>
             );
-          })
-        )}
-      </div>
+          })}
+        </div>
+      )}
+
     </div>
   );
 }

@@ -5718,6 +5718,42 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
     }
   });
 
+  // Update individual picklist item pulled status
+  app.put("/api/picklist/item/:itemId/pull", isApproved, async (req, res) => {
+    try {
+      const { itemId } = req.params;
+      const { pulled } = req.body;
+      const updateData: any = {
+        pulled: pulled === true,
+        updatedAt: sql`CURRENT_TIMESTAMP`,
+        pulledAt: pulled === true ? sql`CURRENT_TIMESTAMP` : null,
+      };
+      await db.update(picklistItems).set(updateData).where(eq(picklistItems.id, itemId));
+      res.json({ success: true, itemId, pulled });
+    } catch (error) {
+      console.error("Error updating item pulled status:", error);
+      res.status(500).json({ error: "Failed to update item pulled status" });
+    }
+  });
+
+  // Update individual picklist item reshelved status
+  app.put("/api/picklist/item/:itemId/reshelve", isApproved, async (req, res) => {
+    try {
+      const { itemId } = req.params;
+      const { reshelved } = req.body;
+      const updateData: any = {
+        reshelved: reshelved === true,
+        updatedAt: sql`CURRENT_TIMESTAMP`,
+        reshelvedAt: reshelved === true ? sql`CURRENT_TIMESTAMP` : null,
+      };
+      await db.update(picklistItems).set(updateData).where(eq(picklistItems.id, itemId));
+      res.json({ success: true, itemId, reshelved });
+    } catch (error) {
+      console.error("Error updating item reshelved status:", error);
+      res.status(500).json({ error: "Failed to update item reshelved status" });
+    }
+  });
+
   // Fulfillment Stats - Count unfulfilled orders
   app.get("/api/fulfillment/stats", isApproved, async (req, res) => {
     try {
