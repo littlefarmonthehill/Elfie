@@ -53,9 +53,10 @@ interface InsightsData {
 
 interface GeneralDashboardProps {
   onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
+  onOpenFulfillment?: () => void;
 }
 
-export default function GeneralDashboard({ onItemClick }: GeneralDashboardProps) {
+export default function GeneralDashboard({ onItemClick, onOpenFulfillment }: GeneralDashboardProps) {
   // Fetch dashboard stats (all-time)
   const { data: stats } = useQuery<DashboardStats>({
     queryKey: ['/api/dashboard/stats'],
@@ -71,7 +72,12 @@ export default function GeneralDashboard({ onItemClick }: GeneralDashboardProps)
     queryKey: ['/api/orders/dashboard'],
   });
 
-  const pendingOrders = dashboardOrders?.pending ?? [];
+  // True unfulfilled count (shared cache with home.tsx — no extra network request)
+  const { data: fulfillmentStats } = useQuery<{ unfulfilled: number }>({
+    queryKey: ['/api/fulfillment/stats'],
+  });
+
+  const pendingCount = fulfillmentStats?.unfulfilled ?? dashboardOrders?.pending?.length ?? 0;
   const recentSales = dashboardOrders?.recentShipments ?? [];
 
   // Fetch pricing opportunities (items priced too low)
@@ -117,32 +123,26 @@ export default function GeneralDashboard({ onItemClick }: GeneralDashboardProps)
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-4 lg:gap-6 mt-2 md:mt-4 lg:mt-6">
-        {/* Action Items - Pending Orders */}
+        {/* Action Items - Orders to Fulfill */}
         <div className="bg-gray-900/50 border border-orange-500/20 rounded-lg p-2 md:p-4 lg:p-5" data-testid="section-action-items">
           <div className="flex items-center gap-1.5 md:gap-2 lg:gap-2.5 mb-2 md:mb-3 lg:mb-4">
             <AlertCircle className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-orange-400" />
-            <h3 className="text-xs md:text-base lg:text-lg font-semibold text-orange-400 uppercase tracking-wide">Action Items - Orders to Fulfill</h3>
+            <h3 className="text-xs md:text-base lg:text-lg font-semibold text-orange-400 uppercase tracking-wide">Action Items</h3>
           </div>
-          <div className="space-y-1.5">
-            {pendingOrders.length > 0 ? (
-              pendingOrders.map((order) => (
-                <div 
-                  key={order.id} 
-                  onClick={() => onItemClick?.('order', order.id)}
-                  className="flex justify-between items-center text-xs md:text-base lg:text-lg hover-elevate rounded px-2 py-1 cursor-pointer"
-                  data-testid={`action-order-${order.id}`}
-                >
-                  <div className="flex items-center gap-2">
-                    <ShoppingCart className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-orange-400" />
-                    <span className="text-gray-200 font-mono">#{order.orderNumber}</span>
-                    <span className="text-gray-400 text-[11px] md:text-sm lg:text-base">{order.customerUsername}</span>
-                  </div>
-                  <span className="text-lego-green font-mono font-medium">${Number(order.orderTotal || 0).toFixed(2)}</span>
-                </div>
-              ))
-            ) : (
-              <div className="text-[11px] md:text-sm lg:text-base text-gray-500 italic">No pending orders</div>
-            )}
+          <div
+            onClick={pendingCount > 0 ? onOpenFulfillment : undefined}
+            className={`flex items-center justify-between rounded px-2 py-2 ${pendingCount > 0 ? 'hover-elevate cursor-pointer' : ''}`}
+            data-testid="action-orders-to-fulfill"
+          >
+            <div className="flex items-center gap-2">
+              <ShoppingCart className={`w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 ${pendingCount > 0 ? 'text-orange-400' : 'text-gray-600'}`} />
+              <span className={`text-xs md:text-base lg:text-lg ${pendingCount > 0 ? 'text-gray-200' : 'text-gray-500 italic'}`}>
+                Orders to Fulfill
+              </span>
+            </div>
+            <span className={`font-mono font-bold text-xs md:text-base lg:text-lg ${pendingCount > 0 ? 'text-orange-400' : 'text-gray-600'}`}>
+              {pendingCount > 0 ? pendingCount : '—'}
+            </span>
           </div>
         </div>
 
