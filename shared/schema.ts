@@ -175,6 +175,10 @@ export const orders = pgTable("orders", {
   shipDate: timestamp("ship_date"),
   weight: decimal("weight", { precision: 10, scale: 2 }), // Total package weight (including packaging) for EasyPost
   weightUnits: text("weight_units"), // Weight unit: oz, lb, g, kg
+  packageType: text("package_type"), // e.g. 'padded_envelope', 'box', 'usps_flat_rate_env', etc.
+  packageLength: decimal("package_length", { precision: 6, scale: 2 }), // inches
+  packageWidth: decimal("package_width", { precision: 6, scale: 2 }), // inches
+  packageHeight: decimal("package_height", { precision: 6, scale: 2 }), // inches
   localOnly: boolean("local_only").default(false).notNull(), // True for split orders that don't sync to platforms
   parentOrderId: varchar("parent_order_id"), // Reference to parent order if this is a split
   syncedAt: timestamp("synced_at").defaultNow().notNull(),

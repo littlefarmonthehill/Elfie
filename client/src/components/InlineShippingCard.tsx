@@ -55,6 +55,10 @@ type OrderShippingSummary = {
   requestedService: string | null;
   savedWeight: number | null;
   savedWeightUnits: string;
+  savedPackageType: string | null;
+  savedPackageLength: number | null;
+  savedPackageWidth: number | null;
+  savedPackageHeight: number | null;
   weightEstimateGrams: number;
   weightEstimateOz: number;
   address: ShipAddress;
@@ -140,12 +144,30 @@ export default function InlineShippingCard({
   const [carriersExpanded, setCarriersExpanded] = useState(false);
   const hasUserChangedWeight = useRef(false);
   const hasUserChangedPackage = useRef(false);
+  const isInitialLoad = useRef(true);
+
+  // Auto-save all shipping fields to DB (debounced)
+  const autoSave = (
+    w: string, wu: string, pkg: string, l: string, ww: string, h: string
+  ) => {
+    const selectedPkg = PACKAGES.find(p => p.id === pkg);
+    const isBox = !!selectedPkg?.customDims;
+    apiRequest("PATCH", `/api/orders/${orderId}`, {
+      weight: w !== "" ? Number(w) : null,
+      weightUnits: wu,
+      packageType: pkg,
+      packageLength: isBox && l !== "" ? Number(l) : (selectedPkg?.dims?.length ?? null),
+      packageWidth: isBox && ww !== "" ? Number(ww) : (selectedPkg?.dims?.width ?? null),
+      packageHeight: isBox && h !== "" ? Number(h) : (selectedPkg?.dims?.height ?? null),
+    }).catch(() => {});
+  };
 
   // Auto-refresh rates when weight or units change (debounced, user-initiated only)
   useEffect(() => {
     if (!hasUserChangedWeight.current || !currentAddress || weight === "") return;
     const timer = setTimeout(() => {
       fetchRates(currentAddress, weight, weightUnits, packageType, dimL, dimW, dimH);
+      autoSave(weight, weightUnits, packageType, dimL, dimW, dimH);
     }, 700);
     return () => clearTimeout(timer);
   }, [weight, weightUnits]);
@@ -155,6 +177,7 @@ export default function InlineShippingCard({
     if (!hasUserChangedPackage.current || !currentAddress) return;
     const timer = setTimeout(() => {
       fetchRates(currentAddress, weight, weightUnits, packageType, dimL, dimW, dimH);
+      autoSave(weight, weightUnits, packageType, dimL, dimW, dimH);
     }, 700);
     return () => clearTimeout(timer);
   }, [packageType, dimL, dimW, dimH]);
@@ -183,10 +206,20 @@ export default function InlineShippingCard({
       const w = data.savedWeight != null ? String(data.savedWeight)
         : data.weightEstimateOz > 0 ? String(data.weightEstimateOz) : "";
       const wu = data.savedWeight != null ? data.savedWeightUnits : "oz";
+      const pkg = data.savedPackageType || "padded_envelope";
+      const savedPkgDef = PACKAGES.find(p => p.id === pkg);
+      const l = savedPkgDef?.customDims && data.savedPackageLength != null ? String(data.savedPackageLength) : "";
+      const pw = savedPkgDef?.customDims && data.savedPackageWidth != null ? String(data.savedPackageWidth) : "";
+      const ph = savedPkgDef?.customDims && data.savedPackageHeight != null ? String(data.savedPackageHeight) : "";
       setWeight(w);
       setWeightUnits(wu);
+      setPackageType(pkg);
+      setDimL(l);
+      setDimW(pw);
+      setDimH(ph);
+      isInitialLoad.current = false;
       validateAddress(data.address);
-      fetchRates(data.address, w, wu, "padded_envelope", "", "", "", data.requestedService);
+      fetchRates(data.address, w, wu, pkg, l, pw, ph, data.requestedService);
     } catch (e: any) {
       toast({ title: "Load Failed", description: e.message, variant: "destructive" });
     } finally {

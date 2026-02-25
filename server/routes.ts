@@ -849,7 +849,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/orders/:id", isApproved, async (req, res) => {
     try {
       const orderId = req.params.id;
-      const { street1, street2, street3, city, state, postalCode, country, weight, weightUnits } = req.body;
+      const { street1, street2, street3, city, state, postalCode, country, weight, weightUnits, packageType, packageLength, packageWidth, packageHeight } = req.body;
 
       const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
       if (!order) {
@@ -873,6 +873,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updateData: any = { shipTo: JSON.stringify(shipToData) };
       if (weight !== undefined) updateData.weight = weight !== null && weight !== '' ? weight.toString() : null;
       if (weightUnits !== undefined) updateData.weightUnits = weightUnits;
+      if (packageType !== undefined) updateData.packageType = packageType || null;
+      if (packageLength !== undefined) updateData.packageLength = packageLength !== null && packageLength !== '' ? packageLength.toString() : null;
+      if (packageWidth !== undefined) updateData.packageWidth = packageWidth !== null && packageWidth !== '' ? packageWidth.toString() : null;
+      if (packageHeight !== undefined) updateData.packageHeight = packageHeight !== null && packageHeight !== '' ? packageHeight.toString() : null;
 
       await db.update(orders).set(updateData).where(eq(orders.id, orderId));
 
@@ -5898,6 +5902,10 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
         requestedService: order.requestedShippingService,
         savedWeight: order.weight ? Number(order.weight) : null,
         savedWeightUnits: order.weightUnits || "oz",
+        savedPackageType: order.packageType || null,
+        savedPackageLength: order.packageLength ? Number(order.packageLength) : null,
+        savedPackageWidth: order.packageWidth ? Number(order.packageWidth) : null,
+        savedPackageHeight: order.packageHeight ? Number(order.packageHeight) : null,
         weightEstimateGrams: Math.round(totalWeightGrams * 10) / 10,
         weightEstimateOz: totalWeightOz,
         address: {
