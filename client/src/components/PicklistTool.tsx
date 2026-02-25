@@ -42,6 +42,35 @@ interface PicklistToolProps {
   filterOrderIds?: Set<string>;
 }
 
+// ── Shared mutation options factory for picklist optimistic updates ──────────
+// Each mutation only differs in its endpoint and cache updater;
+// onMutate / onError / onSettled are identical across all four.
+function picklistMutationOptions<TVariables>(
+  mutationFn: (vars: TVariables) => Promise<any>,
+  optimisticUpdate: (cache: any[], vars: TVariables) => any[],
+  getFilter: () => Filter,
+) {
+  return {
+    mutationFn,
+    onMutate: async (vars: TVariables) => {
+      await queryClient.cancelQueries({ queryKey: ['/api/picklist'] });
+      const f = getFilter();
+      const prev = queryClient.getQueryData(['/api/picklist', f]);
+      queryClient.setQueryData(['/api/picklist', f], (old: any) =>
+        optimisticUpdate(old ?? [], vars)
+      );
+      return { prev, f };
+    },
+    onError: (_e: any, _v: any, ctx: any) => {
+      if (ctx?.prev) queryClient.setQueryData(['/api/picklist', ctx.f], ctx.prev);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/picklist'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/picklist/stats'] });
+    },
+  };
+}
+
 export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {}) {
   const [viewMode, setViewMode] = useState<ViewMode>('by_part');
   const [filter, setFilter] = useState<Filter>('all');
@@ -56,97 +85,50 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
     },
   });
 
-  // ── Bin-level mutations (used in By Shelf/Bin view) ──
-  const pullBinMutation = useMutation({
-    mutationFn: async ({ binId, pulled }: { binId: number; pulled: boolean }) =>
-      apiRequest('PUT', `/api/picklist/bin/${binId}/pull`, { pulled }),
-    onMutate: async ({ binId, pulled }) => {
-      await queryClient.cancelQueries({ queryKey: ['/api/picklist'] });
-      const prev = queryClient.getQueryData(['/api/picklist', filter]);
-      queryClient.setQueryData(['/api/picklist', filter], (old: any) =>
-        old?.map((b: any) => b.binId === binId ? { ...b, pulled } : b)
-      );
-      return { prev };
-    },
-    onError: (_e, _v, ctx) => {
-      if (ctx?.prev) queryClient.setQueryData(['/api/picklist', filter], ctx.prev);
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/picklist'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/picklist/stats'] });
-    },
-  });
+  // Options factory closes over current `filter` on each render (TanStack Query v5 observes options)
+  const getFilter = () => filter;
 
-  const reshelveBinMutation = useMutation({
-    mutationFn: async ({ binId, reshelved }: { binId: number; reshelved: boolean }) =>
+  // ── Bin-level mutations (used in By Shelf/Bin view) ──
+  const pullBinMutation = useMutation(picklistMutationOptions(
+    ({ binId, pulled }: { binId: number; pulled: boolean }) =>
+      apiRequest('PUT', `/api/picklist/bin/${binId}/pull`, { pulled }),
+    (old, { binId, pulled }) => old.map((b: any) => b.binId === binId ? { ...b, pulled } : b),
+    getFilter,
+  ));
+
+  const reshelveBinMutation = useMutation(picklistMutationOptions(
+    ({ binId, reshelved }: { binId: number; reshelved: boolean }) =>
       apiRequest('PUT', `/api/picklist/bin/${binId}/reshelve`, { reshelved }),
-    onMutate: async ({ binId, reshelved }) => {
-      await queryClient.cancelQueries({ queryKey: ['/api/picklist'] });
-      const prev = queryClient.getQueryData(['/api/picklist', filter]);
-      queryClient.setQueryData(['/api/picklist', filter], (old: any) =>
-        old?.map((b: any) => b.binId === binId ? { ...b, reshelved } : b)
-      );
-      return { prev };
-    },
-    onError: (_e, _v, ctx) => {
-      if (ctx?.prev) queryClient.setQueryData(['/api/picklist', filter], ctx.prev);
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/picklist'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/picklist/stats'] });
-    },
-  });
+    (old, { binId, reshelved }) => old.map((b: any) => b.binId === binId ? { ...b, reshelved } : b),
+    getFilter,
+  ));
 
   // ── Item-level mutations (used in By Part Number view) ──
-  const pullItemMutation = useMutation({
-    mutationFn: async ({ itemId, pulled }: { itemId: string; pulled: boolean }) =>
+  const pullItemMutation = useMutation(picklistMutationOptions(
+    ({ itemId, pulled }: { itemId: string; pulled: boolean }) =>
       apiRequest('PUT', `/api/picklist/item/${itemId}/pull`, { pulled }),
-    onMutate: async ({ itemId, pulled }) => {
-      await queryClient.cancelQueries({ queryKey: ['/api/picklist'] });
-      const prev = queryClient.getQueryData(['/api/picklist', filter]);
-      queryClient.setQueryData(['/api/picklist', filter], (old: any) =>
-        old?.map((bin: any) => ({
-          ...bin,
-          items: bin.items.map((it: any) =>
-            it.picklistItemId === itemId ? { ...it, pulled } : it
-          ),
-        }))
-      );
-      return { prev };
-    },
-    onError: (_e, _v, ctx) => {
-      if (ctx?.prev) queryClient.setQueryData(['/api/picklist', filter], ctx.prev);
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/picklist'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/picklist/stats'] });
-    },
-  });
+    (old, { itemId, pulled }) =>
+      old.map((bin: any) => ({
+        ...bin,
+        items: bin.items.map((it: any) =>
+          it.picklistItemId === itemId ? { ...it, pulled } : it
+        ),
+      })),
+    getFilter,
+  ));
 
-  const reshelveItemMutation = useMutation({
-    mutationFn: async ({ itemId, reshelved }: { itemId: string; reshelved: boolean }) =>
+  const reshelveItemMutation = useMutation(picklistMutationOptions(
+    ({ itemId, reshelved }: { itemId: string; reshelved: boolean }) =>
       apiRequest('PUT', `/api/picklist/item/${itemId}/reshelve`, { reshelved }),
-    onMutate: async ({ itemId, reshelved }) => {
-      await queryClient.cancelQueries({ queryKey: ['/api/picklist'] });
-      const prev = queryClient.getQueryData(['/api/picklist', filter]);
-      queryClient.setQueryData(['/api/picklist', filter], (old: any) =>
-        old?.map((bin: any) => ({
-          ...bin,
-          items: bin.items.map((it: any) =>
-            it.picklistItemId === itemId ? { ...it, reshelved } : it
-          ),
-        }))
-      );
-      return { prev };
-    },
-    onError: (_e, _v, ctx) => {
-      if (ctx?.prev) queryClient.setQueryData(['/api/picklist', filter], ctx.prev);
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/picklist'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/picklist/stats'] });
-    },
-  });
+    (old, { itemId, reshelved }) =>
+      old.map((bin: any) => ({
+        ...bin,
+        items: bin.items.map((it: any) =>
+          it.picklistItemId === itemId ? { ...it, reshelved } : it
+        ),
+      })),
+    getFilter,
+  ));
 
   const partKey = (item: BinPicklistItem) => item.partNumber || item.sku || '';
 

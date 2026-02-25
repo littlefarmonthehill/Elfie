@@ -15,28 +15,29 @@ import multer from "multer";
 import FormData from "form-data";
 import axios from "axios";
 
-// Decode HTML entities from BrickLink notes for accurate comparison
+// Decode HTML entities from BrickLink notes for accurate comparison.
+// Regex compiled once at module level; single-pass replace with a lookup table.
+const HTML_ENTITIES: Record<string, string> = {
+  '&#39;': "'", '&#40;': '(', '&#41;': ')', '&quot;': '"',
+  '&amp;': '&', '&lt;': '<', '&gt;': '>', '&#x27;': "'", '&#x2F;': '/',
+};
+const HTML_ENTITY_RE = new RegExp(
+  Object.keys(HTML_ENTITIES).map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'),
+  'g'
+);
 function decodeHtmlEntities(text: string | null | undefined): string {
   if (!text) return '';
-  
-  const entityMap: Record<string, string> = {
-    '&#39;': "'",
-    '&#40;': '(',
-    '&#41;': ')',
-    '&quot;': '"',
-    '&amp;': '&',
-    '&lt;': '<',
-    '&gt;': '>',
-    '&#x27;': "'",
-    '&#x2F;': '/',
-  };
-  
-  let decoded = text;
-  for (const [entity, char] of Object.entries(entityMap)) {
-    decoded = decoded.replace(new RegExp(entity, 'g'), char);
-  }
-  
-  return decoded;
+  return text.replace(HTML_ENTITY_RE, m => HTML_ENTITIES[m] ?? m);
+}
+
+// Shared WHERE clause for "active" orders used across picklist routes.
+// Returns a new expression each call (Drizzle builders are not reusable across queries).
+function activeOrderStatusWhere() {
+  return or(
+    like(orders.orderStatus, '%awaiting_payment%'),
+    like(orders.orderStatus, '%awaiting_shipment%'),
+    like(orders.orderStatus, '%awaiting_fulfillment%')
+  );
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -5399,17 +5400,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
   // Get picklist stats (number of pending bins)
   app.get("/api/picklist/stats", isApproved, async (req, res) => {
     try {
-      // Get active orders
-      const activeOrders = await db
-        .select()
-        .from(orders)
-        .where(
-          or(
-            like(orders.orderStatus, '%awaiting_payment%'),
-            like(orders.orderStatus, '%awaiting_shipment%'),
-            like(orders.orderStatus, '%awaiting_fulfillment%')
-          )
-        );
+      const activeOrders = await db.select().from(orders).where(activeOrderStatusWhere());
 
       if (activeOrders.length === 0) {
         return res.json({ toPull: 0, toReshelve: 0 });
@@ -5453,13 +5444,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       const activeOrders = await db
         .select({ id: orders.id })
         .from(orders)
-        .where(
-          or(
-            like(orders.orderStatus, '%awaiting_payment%'),
-            like(orders.orderStatus, '%awaiting_shipment%'),
-            like(orders.orderStatus, '%awaiting_fulfillment%')
-          )
-        );
+        .where(activeOrderStatusWhere());
 
       if (activeOrders.length === 0) return res.json({});
 
@@ -5488,256 +5473,205 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
     try {
       const filter = req.query.filter as string; // 'to_pull' | 'to_reshelve' | undefined
       
-      // Get active orders
-      const activeOrders = await db
-        .select()
-        .from(orders)
-        .where(
-          or(
-            like(orders.orderStatus, '%awaiting_payment%'),
-            like(orders.orderStatus, '%awaiting_shipment%'),
-            like(orders.orderStatus, '%awaiting_fulfillment%')
-          )
-        );
-
-      if (activeOrders.length === 0) {
-        return res.json([]);
-      }
+      // ── Fetch base data ────────────────────────────────────────────────────
+      const activeOrders = await db.select().from(orders).where(activeOrderStatusWhere());
+      if (activeOrders.length === 0) return res.json([]);
 
       const orderIds = activeOrders.map(o => o.id);
 
-      // Get order details for active orders
-      const activeOrderDetails = await db
-        .select()
-        .from(orderDetails)
-        .where(inArray(orderDetails.orderId, orderIds));
+      const [activeOrderDetails, existingPicklistItems] = await Promise.all([
+        db.select().from(orderDetails).where(inArray(orderDetails.orderId, orderIds)),
+        db.select().from(picklistItems).where(inArray(picklistItems.orderId, orderIds)),
+      ]);
 
-      // Get or create picklist items
-      const existingPicklistItems = await db
-        .select()
-        .from(picklistItems)
-        .where(inArray(picklistItems.orderId, orderIds));
-
-      // Create missing picklist items
+      // ── Batch-create missing picklist items (was N+1) ─────────────────────
       const existingDetailIds = new Set(existingPicklistItems.map(p => p.orderDetailId));
       const missingDetails = activeOrderDetails.filter(d => !existingDetailIds.has(d.id));
 
       if (missingDetails.length > 0) {
-        // Try to match order details to inventory using SKU (itemNo)
-        for (const detail of missingDetails) {
-          let inventoryId = null;
-          let binId = null;
+        // One query for all SKUs, one for all locations — instead of 2 queries per item
+        const skus = [...new Set(missingDetails.map(d => d.sku).filter(Boolean))] as string[];
+        const invBySku = skus.length > 0
+          ? new Map(
+              (await db.select({ id: blInventory.id, itemNo: blInventory.itemNo })
+                .from(blInventory)
+                .where(inArray(blInventory.itemNo, skus))
+              ).map(i => [i.itemNo, i])
+            )
+          : new Map<string, { id: number; itemNo: string }>();
 
-          if (detail.sku) {
-            // Find inventory item by SKU
-            const [inventoryItem] = await db
-              .select()
-              .from(blInventory)
-              .where(eq(blInventory.itemNo, detail.sku))
-              .limit(1);
-
-            if (inventoryItem) {
-              inventoryId = inventoryItem.id;
-
-              // Find bin location for this inventory item
-              const [location] = await db
-                .select()
+        const invIds = [...invBySku.values()].map(i => i.id);
+        const locByInvId = invIds.length > 0
+          ? new Map(
+              (await db.select({ inventoryId: inventoryLocations.inventoryId, binId: inventoryLocations.binId })
                 .from(inventoryLocations)
-                .where(eq(inventoryLocations.inventoryId, inventoryItem.id))
-                .limit(1);
+                .where(inArray(inventoryLocations.inventoryId, invIds))
+              ).map(l => [l.inventoryId, l])
+            )
+          : new Map<number, { inventoryId: number; binId: number | null }>();
 
-              if (location) {
-                binId = location.binId;
-              }
-            }
-          }
-
-          await db.insert(picklistItems).values({
+        const newRows = missingDetails.map(detail => {
+          const inv = detail.sku ? invBySku.get(detail.sku) : undefined;
+          const loc = inv ? locByInvId.get(inv.id) : undefined;
+          return {
             orderDetailId: detail.id,
             orderId: detail.orderId,
-            inventoryId,
-            binId,
+            inventoryId: inv?.id ?? null,
+            binId: loc?.binId ?? null,
             pulled: false,
             reshelved: false,
-          });
-        }
+          };
+        });
 
-        // Refresh picklist items
-        const refreshedPicklistItems = await db
-          .select()
-          .from(picklistItems)
-          .where(inArray(picklistItems.orderId, orderIds));
-        
+        await db.insert(picklistItems).values(newRows);
+
+        // Refresh picklist items after insert
+        const refreshed = await db.select().from(picklistItems).where(inArray(picklistItems.orderId, orderIds));
         existingPicklistItems.length = 0;
-        existingPicklistItems.push(...refreshedPicklistItems);
+        existingPicklistItems.push(...refreshed);
       }
 
-      // Apply filters
-      let filteredItems = existingPicklistItems;
+      // ── Apply filters ───────────────────────────────────────────────────────
+      let filteredItems = existingPicklistItems.filter(item => !(item.pulled && item.reshelved));
       if (filter === 'to_pull') {
-        filteredItems = existingPicklistItems.filter(item => !item.pulled);
+        filteredItems = filteredItems.filter(item => !item.pulled);
       } else if (filter === 'to_reshelve') {
-        filteredItems = existingPicklistItems.filter(item => item.pulled && !item.reshelved);
+        filteredItems = filteredItems.filter(item => item.pulled && !item.reshelved);
       }
 
-      // Remove completed items (both pulled and reshelved)
-      filteredItems = filteredItems.filter(item => !(item.pulled && item.reshelved));
+      // ── Batch all lookups for the build phase (was N+1 per bin/item) ───────
+      const orderMap = new Map(activeOrders.map(o => [o.id, o]));
+      const detailMap = new Map(activeOrderDetails.map(d => [d.id, d]));
 
-      // Group items by bin
-      const binGroups = new Map<number | null, typeof filteredItems>();
-      
+      // Warehouse location: bin → shelf → aisle (3 queries total, was 3 per bin)
+      const uniqueBinIds = [...new Set(filteredItems.map(i => i.binId).filter((id): id is number => id !== null))];
+      const binsData = uniqueBinIds.length > 0
+        ? await db.select().from(whBins).where(inArray(whBins.id, uniqueBinIds))
+        : [];
+      const uniqueShelfIds = [...new Set(binsData.map(b => b.shelfId).filter((id): id is number => id !== null))];
+      const shelvesData = uniqueShelfIds.length > 0
+        ? await db.select().from(whShelves).where(inArray(whShelves.id, uniqueShelfIds))
+        : [];
+      const uniqueAisleIds = [...new Set(shelvesData.map(s => s.aisleId).filter((id): id is number => id !== null))];
+      const aislesData = uniqueAisleIds.length > 0
+        ? await db.select().from(whAisles).where(inArray(whAisles.id, uniqueAisleIds))
+        : [];
+      const binMap = new Map(binsData.map(b => [b.id, b]));
+      const shelfMap = new Map(shelvesData.map(s => [s.id, s]));
+      const aisleMap = new Map(aislesData.map(a => [a.id, a]));
+
+      // Inventory: collect all lookup IDs, one query (was 1 per item)
+      const lookupIds = filteredItems
+        .map(item => {
+          const d = detailMap.get(item.orderDetailId);
+          const skuInt = d?.sku ? parseInt(d.sku) : NaN;
+          return (!isNaN(skuInt) ? skuInt : (d?.bricklinkInventoryId ?? item.inventoryId)) as number | null;
+        })
+        .filter((id): id is number => id !== null);
+
+      const uniqueInvIds = [...new Set(lookupIds)];
+      const inventoryData = uniqueInvIds.length > 0
+        ? await db
+            .select({ id: blInventory.id, itemNo: blInventory.itemNo, colorName: blInventory.colorName, colorId: blInventory.colorId, newOrUsed: blInventory.newOrUsed })
+            .from(blInventory)
+            .where(inArray(blInventory.id, uniqueInvIds))
+        : [];
+      const invMap = new Map(inventoryData.map(i => [i.id, i]));
+
+      // Colors: gather all needed color IDs, one query (was up to 2 per item)
+      const colorIdSet = new Set<number>();
+      for (const inv of inventoryData) {
+        if (!inv.colorName && inv.colorId) colorIdSet.add(inv.colorId);
+      }
       for (const item of filteredItems) {
-        const binId = item.binId;
-        if (!binGroups.has(binId)) {
-          binGroups.set(binId, []);
-        }
-        binGroups.get(binId)!.push(item);
+        const d = detailMap.get(item.orderDetailId);
+        if (d?.colorId) colorIdSet.add(d.colorId);
+      }
+      const colorsData = colorIdSet.size > 0
+        ? await db.select({ id: blColors.id, name: blColors.name }).from(blColors).where(inArray(blColors.id, [...colorIdSet]))
+        : [];
+      const colorMap = new Map(colorsData.map(c => [c.id, c.name]));
+
+      // ── Build result entirely from in-memory maps (zero more DB queries) ───
+      const binGroups = new Map<number | null, typeof filteredItems>();
+      for (const item of filteredItems) {
+        if (!binGroups.has(item.binId)) binGroups.set(item.binId, []);
+        binGroups.get(item.binId)!.push(item);
       }
 
-      // Build bin-level picklist with item details
-      const binPicklist = await Promise.all(
-        Array.from(binGroups.entries()).map(async ([binId, items]) => {
-          let warehouseLocation = null;
-          
-          if (binId) {
-            const [bin] = await db.select().from(whBins).where(eq(whBins.id, binId));
-            if (bin && bin.shelfId) {
-              const [shelf] = await db.select().from(whShelves).where(eq(whShelves.id, bin.shelfId));
-              if (shelf && shelf.aisleId) {
-                const [aisle] = await db.select().from(whAisles).where(eq(whAisles.id, shelf.aisleId));
-                if (aisle) {
-                  warehouseLocation = {
-                    aisle: { id: aisle.id, name: aisle.name },
-                    shelf: { id: shelf.id, name: shelf.name },
-                    bin: { id: bin.id, name: bin.name, description: bin.description },
-                  };
-                }
-              }
+      const binPicklist = Array.from(binGroups.entries()).map(([binId, items]) => {
+        // Resolve warehouse location
+        let warehouseLocation = null;
+        if (binId) {
+          const bin = binMap.get(binId);
+          const shelf = bin?.shelfId ? shelfMap.get(bin.shelfId) : undefined;
+          const aisle = shelf?.aisleId ? aisleMap.get(shelf.aisleId) : undefined;
+          if (bin && shelf && aisle) {
+            warehouseLocation = {
+              aisle: { id: aisle.id, name: aisle.name },
+              shelf: { id: shelf.id, name: shelf.name },
+              bin: { id: bin.id, name: bin.name, description: bin.description },
+            };
+          }
+        }
+
+        const itemDetails = items.map(item => {
+          const detail = detailMap.get(item.orderDetailId);
+          const order = orderMap.get(item.orderId);
+          const skuInt = detail?.sku ? parseInt(detail.sku) : NaN;
+          const lookupId = !isNaN(skuInt) ? skuInt : (detail?.bricklinkInventoryId ?? item.inventoryId ?? null);
+          const inv = lookupId ? invMap.get(Number(lookupId)) : undefined;
+
+          let partNumber: string | null = inv?.itemNo ?? null;
+          let colorName: string | null = null;
+          let condition: string | null = detail?.condition ?? null;
+
+          if (inv) {
+            colorName = inv.colorName ?? (inv.colorId ? colorMap.get(inv.colorId) ?? null : null);
+            if (!condition && inv.newOrUsed) {
+              condition = inv.newOrUsed;
             }
           }
-
-          // Get item details for this bin
-          const itemDetails = await Promise.all(
-            items.map(async (item) => {
-              const [detail] = await db
-                .select()
-                .from(orderDetails)
-                .where(eq(orderDetails.id, item.orderDetailId));
-
-              const [order] = await db
-                .select()
-                .from(orders)
-                .where(eq(orders.id, item.orderId));
-
-              // Look up inventory for part number, color, and condition
-              // The sku field stores the BL inventory ID — same join the packing slip uses
-              let partNumber: string | null = null;
-              let colorName: string | null = null;
-              let condition: string | null = detail?.condition ?? null;
-
-              // Try sku first (BL inventory ID as string), then bricklinkInventoryId, then inventoryId
-              const skuAsInt = detail?.sku ? parseInt(detail.sku) : NaN;
-              const lookupId = !isNaN(skuAsInt) ? skuAsInt
-                : detail?.bricklinkInventoryId ?? (item.inventoryId ?? null);
-
-              if (lookupId) {
-                const [inv] = await db
-                  .select({
-                    itemNo: blInventory.itemNo,
-                    colorName: blInventory.colorName,
-                    newOrUsed: blInventory.newOrUsed,
-                    colorId: blInventory.colorId,
-                  })
-                  .from(blInventory)
-                  .where(eq(blInventory.id, Number(lookupId)))
-                  .limit(1);
-                if (inv) {
-                  partNumber = inv.itemNo;
-                  // Color: use colorName on inventory record, or look up from bl_colors
-                  if (inv.colorName) {
-                    colorName = inv.colorName;
-                  } else if (inv.colorId) {
-                    const [col] = await db
-                      .select({ name: blColors.name })
-                      .from(blColors)
-                      .where(eq(blColors.id, inv.colorId))
-                      .limit(1);
-                    colorName = col?.name ?? null;
-                  }
-                  // Condition: prefer order detail, fall back to inventory
-                  if (!condition && inv.newOrUsed) {
-                    condition = inv.newOrUsed === 'N' ? 'N' : inv.newOrUsed === 'U' ? 'U' : inv.newOrUsed;
-                  }
-                }
-              }
-
-              // Also try color from orderDetails.colorId if still missing
-              if (!colorName && detail?.colorId) {
-                const [col] = await db
-                  .select({ name: blColors.name })
-                  .from(blColors)
-                  .where(eq(blColors.id, detail.colorId))
-                  .limit(1);
-                colorName = col?.name ?? null;
-              }
-
-              return {
-                picklistItemId: item.id,
-                orderDetailId: item.orderDetailId,
-                orderId: item.orderId,
-                orderNumber: order?.orderNumber,
-                itemName: detail?.name,
-                quantity: detail?.quantity,
-                sku: detail?.sku,
-                partNumber,
-                colorName,
-                condition,
-                pulled: item.pulled,
-                reshelved: item.reshelved,
-              };
-            })
-          );
-
-          // Bin status: pulled if ALL items pulled, reshelved if ALL items reshelved
-          const allPulled = items.every(item => item.pulled);
-          const allReshelved = items.every(item => item.reshelved);
+          if (!colorName && detail?.colorId) {
+            colorName = colorMap.get(detail.colorId) ?? null;
+          }
 
           return {
-            binId,
-            warehouseLocation,
-            itemCount: items.length,
-            items: itemDetails,
-            pulled: allPulled,
-            reshelved: allReshelved,
+            picklistItemId: item.id,
+            orderDetailId: item.orderDetailId,
+            orderId: item.orderId,
+            orderNumber: order?.orderNumber,
+            itemName: detail?.name,
+            quantity: detail?.quantity,
+            sku: detail?.sku,
+            partNumber,
+            colorName,
+            condition,
+            pulled: item.pulled,
+            reshelved: item.reshelved,
           };
-        })
-      );
+        });
 
-      // Sort by aisle (desc), shelf (asc), bin (asc)
+        return {
+          binId,
+          warehouseLocation,
+          itemCount: items.length,
+          items: itemDetails,
+          pulled: items.every(i => i.pulled),
+          reshelved: items.every(i => i.reshelved),
+        };
+      });
+
+      // Sort: aisle desc, shelf asc, bin asc — unlocated bins last
       binPicklist.sort((a, b) => {
         if (!a.warehouseLocation && !b.warehouseLocation) return 0;
         if (!a.warehouseLocation) return 1;
         if (!b.warehouseLocation) return -1;
-
-        const aisleA = a.warehouseLocation.aisle.name;
-        const aisleB = b.warehouseLocation.aisle.name;
-        
-        // Aisle descending (using localeCompare with numeric option)
-        const aisleCompare = aisleB.localeCompare(aisleA, undefined, { numeric: true });
+        const aisleCompare = b.warehouseLocation.aisle.name.localeCompare(a.warehouseLocation.aisle.name, undefined, { numeric: true });
         if (aisleCompare !== 0) return aisleCompare;
-
-        const shelfA = a.warehouseLocation.shelf.name;
-        const shelfB = b.warehouseLocation.shelf.name;
-        
-        // Shelf ascending
-        const shelfCompare = shelfA.localeCompare(shelfB, undefined, { numeric: true });
+        const shelfCompare = a.warehouseLocation.shelf.name.localeCompare(b.warehouseLocation.shelf.name, undefined, { numeric: true });
         if (shelfCompare !== 0) return shelfCompare;
-
-        const binA = a.warehouseLocation.bin.name;
-        const binB = b.warehouseLocation.bin.name;
-        
-        // Bin ascending
-        return binA.localeCompare(binB, undefined, { numeric: true });
+        return a.warehouseLocation.bin.name.localeCompare(b.warehouseLocation.bin.name, undefined, { numeric: true });
       });
 
       res.json(binPicklist);

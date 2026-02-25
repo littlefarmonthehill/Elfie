@@ -1,4 +1,5 @@
 import planetLogo from "@assets/PlanetBrick_dotcom_with_planet_and_robot_400_1760672362080.png";
+import { cleanItemName } from "@/lib/item-utils";
 
 type PackingSlipOrder = {
   orderNumber: string;
@@ -36,12 +37,6 @@ interface PackingSlipProps {
 // Continuation pages only have the slim bar so many more items fit.
 const FIRST_PAGE_ITEMS = 12;
 const CONT_PAGE_ITEMS  = 22;
-
-function cleanItemName(name: string, partNumber: string | null): string {
-  if (!name || !partNumber) return name || '';
-  const prefix = `${partNumber} - `;
-  return name.startsWith(prefix) ? name.slice(prefix.length) : name;
-}
 
 async function loadLogoDataUrl(): Promise<string> {
   try {

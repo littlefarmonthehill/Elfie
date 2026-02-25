@@ -17,6 +17,7 @@ import {
 import { Truck, Loader2, Printer, AlertTriangle, ChevronDown, Tag, MoreVertical, Scissors, Package, ExternalLink, CheckCircle2, Star, ClipboardList, PackageCheck } from "lucide-react";
 import { printPackingSlips } from "./PackingSlip";
 import { useToast } from "@/hooks/use-toast";
+import { cleanItemName, PRIORITY_REGEX, toggleSetItem } from "@/lib/item-utils";
 import InlineShippingCard, { ShippingReadyState, PurchasedLabelResult, OrderItem } from "./InlineShippingCard";
 import PicklistTool from "./PicklistTool";
 
@@ -71,12 +72,6 @@ type FulfillmentData = {
   orders: Order[];
   items: FulfillmentItem[];
 };
-
-function cleanItemName(name: string, partNumber: string | null | undefined): string {
-  if (!name || !partNumber) return name || '';
-  const prefix = `${partNumber} - `;
-  return name.startsWith(prefix) ? name.slice(prefix.length) : name;
-}
 
 // ── Fulfillment checklist sub-component (part-grouped view of pulled items) ──
 interface FulfillmentChecklistProps {
@@ -191,9 +186,6 @@ export default function FulfillmentTool() {
   const [activeTab, setActiveTab] = useState<'picklist' | 'fulfillment' | 'shipping'>('picklist');
   const [fulfilledItems, setFulfilledItems] = useState<Set<string>>(new Set());
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
-  const [showLotLabelsDialog, setShowLotLabelsDialog] = useState(false);
-  const [lotLabelsData, setLotLabelsData] = useState<any[]>([]);
-
   // Batch shipping state
   const [readyToShip, setReadyToShip] = useState<Map<string, ShippingReadyState>>(new Map());
   const [purchasedLabels, setPurchasedLabels] = useState<Map<string, PurchasedLabelResult>>(new Map());
@@ -224,24 +216,13 @@ export default function FulfillmentTool() {
   // All picklist items (for the Fulfillment tab and second-checkmark logic)
   const { data: picklistBins = [] } = useQuery<PicklistBin[]>({
     queryKey: ['/api/picklist'],
-    queryFn: async () => {
-      const res = await fetch('/api/picklist');
-      if (!res.ok) throw new Error('Failed to fetch picklist');
-      return res.json();
-    },
     refetchInterval: 60000,
   });
   const allPicklistItems: PicklistBinItem[] = picklistBins.flatMap(b => b.items);
   const pulledItems: PicklistBinItem[] = allPicklistItems.filter(item => item.pulled);
 
-  // Toggle fulfillment checkbox for an item
-  const toggleFulfilled = (itemId: string) => {
-    setFulfilledItems(prev => {
-      const next = new Set(prev);
-      if (next.has(itemId)) next.delete(itemId); else next.add(itemId);
-      return next;
-    });
-  };
+  const toggleFulfilled = (itemId: string) =>
+    setFulfilledItems(prev => toggleSetItem(prev, itemId));
 
   // Is every pulled item for a given order marked fulfilled?
   const isOrderFulfillComplete = (orderId: string) => {
@@ -306,7 +287,7 @@ export default function FulfillmentTool() {
     );
   }
 
-  // Sort orders alphanumerically
+  // Sort orders by date (oldest first)
   const sortedOrders = [...data.orders].sort((a, b) => {
     const dateA = a.orderDate ? new Date(a.orderDate).getTime() : 0;
     const dateB = b.orderDate ? new Date(b.orderDate).getTime() : 0;
@@ -316,17 +297,8 @@ export default function FulfillmentTool() {
   // Derived: single selected order (for ship/split actions that need exactly one)
   const selectedOrderId = selectedOrders.size === 1 ? [...selectedOrders][0] : null;
 
-  const handleOrderToggle = (orderId: string) => {
-    setSelectedOrders(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(orderId)) {
-        newSet.delete(orderId);
-      } else {
-        newSet.add(orderId);
-      }
-      return newSet;
-    });
-  };
+  const handleOrderToggle = (orderId: string) =>
+    setSelectedOrders(prev => toggleSetItem(prev, orderId));
 
   const handleSelectAll = () => {
     if (selectedOrders.size === sortedOrders.length) {
@@ -358,33 +330,9 @@ export default function FulfillmentTool() {
     }
   };
 
-  const handlePrintLotLabels = async (orderIds: string[]) => {
+  const handlePrintLotLabels = (orderIds: string[]) => {
     if (orderIds.length === 0) return;
-    
-    toast({
-      title: "Lot Labels",
-      description: "Lot label printing will be implemented soon. This feature is coming in a future update.",
-    });
-    
-    // Placeholder for future implementation
-    // TODO: Implement lot labels API endpoint and printing logic
-    // try {
-    //   const response = await fetch('/api/fulfillment/lot-labels', {
-    //     method: 'POST',
-    //     headers: { 'Content-Type': 'application/json' },
-    //     body: JSON.stringify({ orderIds }),
-    //   });
-    //   
-    //   const data = await response.json();
-    //   setLotLabelsData(data);
-    //   setShowLotLabelsDialog(true);
-    //   
-    //   setTimeout(() => {
-    //     window.print();
-    //   }, 500);
-    // } catch (error) {
-    //   console.error('Error fetching lot labels data:', error);
-    // }
+    toast({ title: "Lot Labels", description: "Lot label printing is coming in a future update." });
   };
 
   const handleReadyChange = (orderId: string, state: ShippingReadyState | null) => {
@@ -413,10 +361,9 @@ export default function FulfillmentTool() {
         try {
           // Save weight
           if (ready.weight !== "") {
-            await fetch(`/api/orders/${encodeURIComponent(orderId)}`, {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ weight: Number(ready.weight), weightUnits: ready.weightUnits }),
+            await apiRequest("PATCH", `/api/orders/${encodeURIComponent(orderId)}`, {
+              weight: Number(ready.weight),
+              weightUnits: ready.weightUnits,
             });
           }
           // Purchase label
@@ -486,17 +433,8 @@ export default function FulfillmentTool() {
     setSelectedItemsForSplit(new Set());
   };
 
-  const handleItemSplitToggle = (itemId: string) => {
-    setSelectedItemsForSplit(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(itemId)) {
-        newSet.delete(itemId);
-      } else {
-        newSet.add(itemId);
-      }
-      return newSet;
-    });
-  };
+  const handleItemSplitToggle = (itemId: string) =>
+    setSelectedItemsForSplit(prev => toggleSetItem(prev, itemId));
 
   const handleConfirmSplit = () => {
     if (!selectedOrderId || selectedItemsForSplit.size === 0) {
@@ -605,7 +543,7 @@ export default function FulfillmentTool() {
                 const isSelected = selectedOrders.has(order.id);
                 const lotCount = data?.items.filter(i => i.orderId === order.id).length ?? 0;
                 const isPriority = !!(order.requestedShippingService &&
-                  /priority|express|overnight|expedited|2-day|2nd.day|next.day|same.day|rush/i.test(order.requestedShippingService));
+                  PRIORITY_REGEX.test(order.requestedShippingService));
                 const formattedDate = order.orderDate
                   ? new Date(order.orderDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
                   : null;
@@ -901,20 +839,6 @@ export default function FulfillmentTool() {
         )}
 
       </div>
-
-      {/* Lot Labels Dialog - Placeholder for future implementation */}
-      <Dialog open={showLotLabelsDialog} onOpenChange={setShowLotLabelsDialog}>
-        <DialogContent className="max-w-none w-auto max-h-[90vh] overflow-y-auto print:max-w-none print:max-h-none">
-          <DialogHeader className="print:hidden">
-            <DialogTitle>Lot Labels</DialogTitle>
-          </DialogHeader>
-          <div className="p-8 text-center">
-            <Tag className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-            <p className="text-gray-400">Lot label printing will be implemented soon.</p>
-            <p className="text-sm text-gray-500 mt-2">This feature is coming in a future update.</p>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* Split Order Confirmation Dialog */}
       <Dialog open={showSplitConfirmDialog} onOpenChange={setShowSplitConfirmDialog}>
