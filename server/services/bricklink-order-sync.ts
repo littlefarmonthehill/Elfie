@@ -345,11 +345,13 @@ async function processBrickLinkOrder(
           const itemType = item.item?.type;
           let imageUrl: string | null = null;
           if (itemNo && colorId && itemType === 'PART') {
-            imageUrl = `https://img.bricklink.com/ItemImage/PN/${colorId}/${itemNo}.png`;
+            imageUrl = `https://img.bricklink.com/P/${colorId}/${itemNo}.jpg`;
           } else if (itemNo && itemType === 'SET') {
-            imageUrl = `https://img.bricklink.com/ItemImage/SL/${itemNo}.jpg`;
-          } else if (itemNo && colorId && itemType === 'MINIFIG') {
-            imageUrl = `https://img.bricklink.com/ItemImage/MN/${colorId}/${itemNo}.png`;
+            imageUrl = `https://img.bricklink.com/S/${itemNo}.jpg`;
+          } else if (itemNo && itemType === 'MINIFIG') {
+            imageUrl = `https://img.bricklink.com/M/${itemNo}.jpg`;
+          } else if (itemNo && colorId && itemType === 'GEAR') {
+            imageUrl = `https://img.bricklink.com/G/${colorId}/${itemNo}.jpg`;
           }
           if (unitWeightGrams || imageUrl) {
             await db.update(blInventory)
