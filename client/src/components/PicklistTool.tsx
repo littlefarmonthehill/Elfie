@@ -275,10 +275,19 @@ export default function PicklistTool() {
               const allReshelved = variants.every(v => v.reshelved);
               const rep = variants[0];
 
+              const someReshelved = variants.some(v => v.reshelved);
+
               const handleGroupPull = () => {
                 const target = !allPulled;
                 variants.forEach(v =>
                   pullItemMutation.mutate({ itemId: v.picklistItemId, pulled: target })
+                );
+              };
+
+              const handleGroupReshelve = () => {
+                const target = !allReshelved;
+                variants.forEach(v =>
+                  reshelveItemMutation.mutate({ itemId: v.picklistItemId, reshelved: target })
                 );
               };
 
@@ -332,8 +341,14 @@ export default function PicklistTool() {
                       </span>
                     )}
 
-                    {/* Placeholder to align with reshelve column */}
-                    <div className="w-4 shrink-0" />
+                    {/* Group-level reshelve checkbox */}
+                    <Checkbox
+                      data-testid={`checkbox-reshelve-group-${key}`}
+                      checked={allReshelved ? true : someReshelved ? 'indeterminate' : false}
+                      onCheckedChange={handleGroupReshelve}
+                      disabled={!allPulled || reshelveItemMutation.isPending}
+                      className="shrink-0 touch-auto"
+                    />
                   </div>
 
                   {/* Variant rows */}
@@ -368,16 +383,8 @@ export default function PicklistTool() {
                           )}
                         </div>
 
-                        {/* Per-variant reshelve checkbox */}
-                        <Checkbox
-                          data-testid={`checkbox-reshelve-item-${item.picklistItemId}`}
-                          checked={item.reshelved}
-                          onCheckedChange={(checked) =>
-                            reshelveItemMutation.mutate({ itemId: item.picklistItemId, reshelved: checked === true })
-                          }
-                          disabled={!item.pulled || reshelveItemMutation.isPending}
-                          className="shrink-0 touch-auto"
-                        />
+                        {/* Spacer to align with group-level reshelve checkbox */}
+                        <div className="w-4 shrink-0" />
                       </div>
                     ))}
                   </div>
