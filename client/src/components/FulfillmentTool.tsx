@@ -130,11 +130,23 @@ function FulfillmentChecklist({ pulledItems, selectedOrderIds, fulfilledItems, o
                 allFulfilled ? 'bg-cyan-950/30' : someFulfilled ? 'bg-yellow-950/20' : 'bg-gray-800/70'
               }`}
             >
-              <div className="flex-1 min-w-0 flex items-baseline gap-2 flex-wrap">
-                <span className="font-mono text-xs text-cyan-300 shrink-0">{rep.partNumber || rep.sku}</span>
-                <span className={`text-xs flex-1 min-w-0 truncate font-medium ${allFulfilled ? 'text-gray-500 line-through' : 'text-white'}`}>
+              <div className="flex-1 min-w-0">
+                {/* Line 1: part# + color + condition */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-mono text-xs text-cyan-300 shrink-0">{rep.partNumber || rep.sku}</span>
+                  {rep.colorName && (
+                    <span className="text-[11px] text-yellow-400">{rep.colorName}</span>
+                  )}
+                  {rep.condition && (
+                    <span className={`text-[11px] ${rep.condition === 'N' ? 'text-green-400' : 'text-orange-400'}`}>
+                      {rep.condition === 'N' ? 'New' : rep.condition === 'U' ? 'Used' : rep.condition}
+                    </span>
+                  )}
+                </div>
+                {/* Line 2: description (wrapping) */}
+                <div className={`text-xs font-medium leading-snug ${allFulfilled ? 'text-gray-500 line-through' : 'text-white'}`}>
                   {rep.itemName}
-                </span>
+                </div>
               </div>
               {variants.length > 1 && (
                 <span className="shrink-0 text-[10px] font-bold text-gray-400 tabular-nums">
@@ -150,7 +162,7 @@ function FulfillmentChecklist({ pulledItems, selectedOrderIds, fulfilledItems, o
                 return (
                   <div
                     key={item.picklistItemId}
-                    className={`flex items-center gap-3 px-3 py-1.5 cursor-pointer ${checked ? 'bg-cyan-950/20' : 'bg-gray-900/60'}`}
+                    className={`flex items-start gap-3 px-3 py-1.5 cursor-pointer ${checked ? 'bg-cyan-950/20' : 'bg-gray-900/60'}`}
                     onClick={() => onToggle(item.picklistItemId)}
                     data-testid={`fulfill-item-${item.picklistItemId}`}
                   >
@@ -162,22 +174,16 @@ function FulfillmentChecklist({ pulledItems, selectedOrderIds, fulfilledItems, o
                       data-testid={`checkbox-fulfill-item-${item.picklistItemId}`}
                     />
                     <div className={`flex-1 min-w-0 text-[10px] ${checked ? 'line-through text-gray-500' : ''}`}>
-                      <div className="flex items-center gap-2 flex-wrap">
+                      <div className="flex items-center gap-2 flex-wrap text-gray-400">
                         <span className="tabular-nums">Qty {item.quantity}</span>
-                        <span className="text-gray-500">·</span>
-                        <span className="font-mono text-gray-400">{item.orderNumber}</span>
+                        <span className="text-gray-600">·</span>
+                        <span className="font-mono">{item.orderNumber}</span>
                         {item.inventoryId && (
                           <span className="font-mono text-blue-400/70">Lot {item.inventoryId}</span>
                         )}
-                        {item.colorName && <span className="text-yellow-400">{item.colorName}</span>}
-                        {item.condition && (
-                          <span className={item.condition === 'N' ? 'text-green-400' : 'text-orange-400'}>
-                            {item.condition === 'N' ? 'New' : item.condition === 'U' ? 'Used' : item.condition}
-                          </span>
-                        )}
                       </div>
                       {item.remarks && (
-                        <div className="text-gray-400 mt-0.5 italic truncate">{item.remarks}</div>
+                        <div className="text-gray-400 mt-0.5 italic">{item.remarks}</div>
                       )}
                     </div>
                   </div>
