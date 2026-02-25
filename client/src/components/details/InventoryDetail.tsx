@@ -100,6 +100,28 @@ interface InventoryDetailProps {
   onBrickLinkClick?: (url: string) => void;
 }
 
+// Color-accurate image with two-level fallback:
+// 1. BrickLink ItemImage CDN (color-specific: ItemImage/PN/{colorId}/{itemNo}.png)
+// 2. BrickLink generic large image (shape only: PL/{itemNo}.jpg)
+// 3. Package icon placeholder
+function InventoryImage({ colorId, itemNo, itemType }: { colorId: number | null; itemNo: string; itemType: string }) {
+  const [level, setLevel] = useState(0);
+  const typeCode = itemType === 'MINIFIG' ? 'MN' : itemType === 'SET' ? 'SN' : 'PN';
+  const srcs: string[] = [];
+  if (colorId) srcs.push(`https://img.bricklink.com/ItemImage/${typeCode}/${colorId}/${itemNo}.png`);
+  srcs.push(`https://img.bricklink.com/PL/${itemNo}.jpg`);
+  if (level >= srcs.length) return <Package className="w-12 h-12 text-gray-600" />;
+  return (
+    <img
+      key={srcs[level]}
+      src={srcs[level]}
+      alt=""
+      className="w-full h-full object-contain"
+      onError={() => setLevel(l => l + 1)}
+    />
+  );
+}
+
 export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDetailProps) {
   const [activeTab, setActiveTab] = useState("overview");
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
@@ -218,9 +240,6 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
   const itemName = data.itemName || priceOMagic?.itemName || 
     (data.itemType ? `${data.itemType.toUpperCase()} ${itemNoParam}` : itemNoParam || 'Unknown Item');
   
-  // Image URL - prefer Price-o-Matic (actual BL API, authoritative) over stored CDN URLs
-  const imageUrl = priceOMagic?.thumbnailUrl || priceOMagic?.imageUrl || data.imageUrl || data.thumbnailUrl || null;
-
   // Has tier pricing
   const hasTierPricing = data.tierPrice1 || data.tierPrice2 || data.tierPrice3;
 
@@ -233,19 +252,17 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
       {/* Header - Always visible with fixed height */}
       <div className="flex-shrink-0 bg-gradient-to-r from-lego-blue/15 via-lego-blue/5 to-transparent border border-lego-blue/30 rounded-lg p-3 mb-3">
         <div className="flex items-start gap-3">
-          {imageUrl ? (
-            <div className="flex-shrink-0 w-24 h-24 bg-gray-900 rounded-lg border border-gray-700 p-1.5">
-              <img 
-                src={imageUrl} 
-                alt={itemName}
-                className="w-full h-full object-contain"
+          <div className="flex-shrink-0 w-24 h-24 bg-gray-900 rounded-lg border border-gray-700 p-1.5 flex items-center justify-center">
+            {data.itemNo ? (
+              <InventoryImage
+                colorId={data.colorId ?? null}
+                itemNo={data.itemNo}
+                itemType={itemType}
               />
-            </div>
-          ) : (
-            <div className="flex-shrink-0 w-24 h-24 bg-gray-900 rounded-lg border border-gray-700 p-1.5 flex items-center justify-center">
+            ) : (
               <Package className="w-12 h-12 text-gray-600" />
-            </div>
-          )}
+            )}
+          </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1.5 flex-wrap">
               <h3 className="text-sm font-black text-lego-blue font-mono" data-testid="text-item-number">{data.itemNo}</h3>

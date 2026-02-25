@@ -155,8 +155,9 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
         `${chanPrefix(item)}${rawOrder}`,
         item.inventoryId ? `Lot ${item.inventoryId}` : '',
       ].filter(Boolean).join(' · ');
-      const imgTag = item.imageUrl
-        ? `<img class="thumb" src="${item.imageUrl}" alt="" />`
+      const imgSrc = item.imageUrl || (item.partNumber ? `https://img.bricklink.com/PL/${item.partNumber}.jpg` : null);
+      const imgTag = imgSrc
+        ? `<img class="thumb" src="${imgSrc}" alt="" onerror="this.style.display='none'" />`
         : `<div class="thumb-placeholder"></div>`;
       return `<tr class="item-row"><td><div class="cut-wrap"><div class="cut-tick"></div></div><div class="item-body">${imgTag}<div class="item-text"><div class="item-header">${header}</div><div class="meta">${meta}</div></div></div></td></tr>`;
     }).join('');
