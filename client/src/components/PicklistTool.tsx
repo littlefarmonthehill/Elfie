@@ -43,7 +43,7 @@ interface PicklistToolProps {
 }
 
 export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {}) {
-  const [viewMode, setViewMode] = useState<ViewMode>('by_bin');
+  const [viewMode, setViewMode] = useState<ViewMode>('by_part');
   const [filter, setFilter] = useState<Filter>('all');
 
   const { data: picklistData = [], isLoading } = useQuery<BinPicklist[]>({

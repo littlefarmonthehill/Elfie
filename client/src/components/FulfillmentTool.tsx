@@ -126,14 +126,6 @@ function FulfillmentChecklist({ pulledItems, selectedOrderIds, fulfilledItems, o
         const someFulfilled = variants.some(v => fulfilledItems.has(v.picklistItemId));
         const rep = variants[0];
 
-        const handleGroupToggle = () => {
-          const target = !allFulfilled;
-          variants.forEach(v => {
-            const isIn = fulfilledItems.has(v.picklistItemId);
-            if (target !== isIn) onToggle(v.picklistItemId);
-          });
-        };
-
         return (
           <div
             key={key}
@@ -142,18 +134,12 @@ function FulfillmentChecklist({ pulledItems, selectedOrderIds, fulfilledItems, o
             }`}
             data-testid={`fulfill-group-${key}`}
           >
-            {/* Part header */}
+            {/* Part header — no checkbox at group level */}
             <div
-              className={`flex items-center gap-3 px-3 py-2 ${
+              className={`flex items-center gap-2 px-3 py-2 ${
                 allFulfilled ? 'bg-cyan-950/30' : someFulfilled ? 'bg-yellow-950/20' : 'bg-gray-800/70'
               }`}
             >
-              <Checkbox
-                checked={allFulfilled ? true : someFulfilled ? 'indeterminate' : false}
-                onCheckedChange={handleGroupToggle}
-                className="shrink-0 touch-auto"
-                data-testid={`checkbox-fulfill-group-${key}`}
-              />
               <div className="flex-1 min-w-0 flex items-baseline gap-2 flex-wrap">
                 <span className="font-mono text-xs text-cyan-300 shrink-0">{rep.partNumber || rep.sku}</span>
                 <span className={`text-xs flex-1 min-w-0 truncate font-medium ${allFulfilled ? 'text-gray-500 line-through' : 'text-white'}`}>
@@ -239,7 +225,7 @@ export default function FulfillmentTool() {
   // Per-order picklist pull completion { orderId: allPulled }
   const { data: picklistOrderStatus = {} } = useQuery<Record<string, boolean>>({
     queryKey: ['/api/picklist/order-status'],
-    refetchInterval: 30000,
+    refetchInterval: 3000,
   });
 
   // All picklist items (for the Fulfillment tab and second-checkmark logic)
