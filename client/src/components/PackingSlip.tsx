@@ -202,38 +202,20 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
   <meta charset="UTF-8">
   <title>Packing Slips</title>
   <style>
-    @page { size: letter portrait; margin: 0; }
-    @media print { html, body { margin: 0; padding: 0; } }
+    /* @page margin controls spacing consistently on every printed page.
+       The browser renders its URL / date footer inside this margin zone,
+       keeping it separate from our content. To suppress it entirely, open
+       your browser's print dialog and uncheck "Headers and footers". */
+    @page { size: letter portrait; margin: 0.5in; }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       background: white;
       color: black;
       font-family: Arial, sans-serif;
       font-size: 11px;
-      padding: 0.5in 0.5in 0.65in 0.5in;
     }
 
-    /* White bars pinned to the physical page edge on every printed page.
-       With @page margin:0 the body extends to the full paper — these overlays
-       sit on top of the browser-generated URL / page-number footer. */
-    body::before {
-      content: '';
-      position: fixed;
-      top: 0; left: 0; right: 0;
-      height: 0.5in;
-      background: white;
-      z-index: 99999;
-    }
-    body::after {
-      content: '';
-      position: fixed;
-      bottom: 0; left: 0; right: 0;
-      height: 0.65in;
-      background: white;
-      z-index: 99999;
-    }
-
-    .page { width: 100%; page-break-after: always; break-after: page; page-break-inside: avoid; }
+    .page { width: 100%; page-break-after: always; break-after: page; }
     .page.last { page-break-after: auto; break-after: auto; }
 
     .slip-label-bar {
@@ -280,6 +262,7 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
     .items thead tr { background: #333; color: white; }
     .th-desc { text-align: left; padding: 4px 6px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
     .th-qty  { text-align: right; padding: 4px 6px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; width: 40px; }
+    .items tbody tr { break-inside: avoid; page-break-inside: avoid; }
     .items tbody tr td { padding: 5px 6px; border-bottom: 1px solid #e0e0e0; vertical-align: top; }
     .items tbody tr:last-child td { border-bottom: none; }
     .item-desc { text-align: left; }
