@@ -134,6 +134,7 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
       c === 'N' ? 'New' : c === 'U' ? 'Used' : (c || '');
 
     // Printed picklist: every individual order line is its own section
+    const CUT_MARKS = `<tr class="cut-row"><td><div class="cut-marks"><div class="cut-tick"></div><div class="cut-tick"></div><div class="cut-tick"></div></div></td></tr>`;
     body = [...flatItems].sort((a, b) => {
       const pk = partKey(a).localeCompare(partKey(b), undefined, { numeric: true });
       if (pk !== 0) return pk;
@@ -147,16 +148,18 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
         item.condition ? `<span class="cond">${condLabel(item.condition)}</span>` : '',
         item.itemName ? `<span class="desc">${item.itemName}</span>` : '',
       ].filter(Boolean).join(' · ');
+      // Strip any existing BL/BO prefix before adding ours
+      const rawOrder = (item.orderNumber || '').replace(/^(BL|BO)/i, '');
       const meta = [
         `Qty ${item.quantity}`,
-        `${chanPrefix(item)}${item.orderNumber}`,
+        `${chanPrefix(item)}${rawOrder}`,
         item.inventoryId ? `Lot ${item.inventoryId}` : '',
       ].filter(Boolean).join(' · ');
-      return `
-        <tr class="part-header">
-          <td>${header}</td>
-        </tr>
-        <tr><td class="meta">${meta}</td></tr>`;
+      return `<tbody class="item-group">
+        ${CUT_MARKS}
+        <tr class="part-header"><td>${header}</td></tr>
+        <tr><td class="meta">${meta}</td></tr>
+      </tbody>`;
     }).join('');
 
     const html = `<!DOCTYPE html><html><head><title>Picklist — ${date}</title>
@@ -170,13 +173,17 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
   .color { color: #333; }
   .cond { color: #333; }
   .desc { color: #555; }
-  .meta { color: #555; font-size: 10px; padding-bottom: 8px; }
-  .part-header td { padding-top: 8px; border-top: 2px dashed #bbb; }
+  .meta { color: #555; font-size: 10px; }
+  .item-group { break-inside: avoid; page-break-inside: avoid; }
+  .cut-row td { padding: 16px 0 0; }
+  .cut-marks { display: flex; justify-content: space-between; align-items: center; }
+  .cut-tick { width: 22px; border-top: 1px solid #bbb; }
+  .part-header td { padding-top: 5px; }
   @media print { @page { margin-top: 0.1in; margin-bottom: 0.1in; margin-left: 0.2in; margin-right: 0.2in; } }
 </style></head><body>
 <h2>PlanetBrick Picklist</h2>
 <div class="sub">${date} &nbsp;·&nbsp; ${filterLabel} &nbsp;·&nbsp; By Part Number</div>
-<table><tbody>${body}</tbody></table>
+<table>${body}</table>
 </body></html>`;
 
     const w = window.open('', '_blank');
