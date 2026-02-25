@@ -114,13 +114,6 @@ function FulfillmentChecklist({ pulledItems, selectedOrderIds, fulfilledItems, o
 
   return (
     <div className="space-y-2">
-      {/* Column labels */}
-      <div className="flex items-center gap-3 px-3 text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-1">
-        <span className="w-4 shrink-0 text-center">Done</span>
-        <span className="flex-1">Part / Item</span>
-        <span className="shrink-0">Order</span>
-      </div>
-
       {Array.from(partGroups.entries()).map(([key, variants]) => {
         const allFulfilled = variants.every(v => fulfilledItems.has(v.picklistItemId));
         const someFulfilled = variants.some(v => fulfilledItems.has(v.picklistItemId));
