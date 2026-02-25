@@ -580,14 +580,14 @@ export default function FulfillmentTool() {
                       isSelected
                         ? 'bg-purple-500/20 border-purple-500'
                         : isPriority
-                          ? 'bg-amber-950/20 border-amber-500/50 hover-elevate'
+                          ? 'bg-red-950/20 border-red-500/50 hover-elevate'
                           : 'bg-gray-800/50 border-gray-700 hover-elevate'
                     }`}
                     data-testid={`order-${order.orderNumber}`}
                   >
                     {isPriority && (
-                      <div className="absolute -top-2 -right-2 w-5 h-5 lg:w-6 lg:h-6 bg-amber-400 rounded-full flex items-center justify-center shadow-md z-10">
-                        <Star className="w-3 h-3 lg:w-3.5 lg:h-3.5 fill-amber-900 text-amber-900" />
+                      <div className="absolute -top-2 -right-2 w-5 h-5 lg:w-6 lg:h-6 bg-red-600 rounded-full flex items-center justify-center shadow-md z-10">
+                        <Star className="w-3 h-3 lg:w-3.5 lg:h-3.5 fill-white text-white" />
                       </div>
                     )}
                     {isPickComplete && (
