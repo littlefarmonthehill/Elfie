@@ -256,66 +256,137 @@ export default function PicklistTool() {
       )}
 
       {/* ══════════════════════════════════════════
-          VIEW: BY PART NUMBER — flat list, sorted by SKU
+          VIEW: BY PART NUMBER — grouped by part, variants below
           ══════════════════════════════════════════ */}
-      {viewMode === 'by_part' && !isEmpty && (
-        <div className="space-y-1" data-testid="picklist-by-part">
-          {flatItems.map((item) => (
-            <div
-              key={item.picklistItemId}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2 border transition-colors ${
-                item.reshelved
-                  ? 'bg-green-950/20 border-green-800/30'
-                  : item.pulled
-                  ? 'bg-blue-950/20 border-blue-800/30'
-                  : 'bg-gray-800/50 border-gray-700'
-              }`}
-              data-testid={`part-item-${item.picklistItemId}`}
-            >
-              {/* Pull checkbox */}
-              <Checkbox
-                data-testid={`checkbox-pull-item-${item.picklistItemId}`}
-                checked={item.pulled}
-                onCheckedChange={(checked) =>
-                  pullItemMutation.mutate({ itemId: item.picklistItemId, pulled: checked === true })
-                }
-                disabled={pullItemMutation.isPending}
-                className="shrink-0 touch-auto"
-              />
+      {viewMode === 'by_part' && !isEmpty && (() => {
+        // Group flatItems by partNumber (or sku fallback)
+        const partGroups: Map<string, BinPicklistItem[]> = new Map();
+        for (const item of flatItems) {
+          const key = partKey(item);
+          if (!partGroups.has(key)) partGroups.set(key, []);
+          partGroups.get(key)!.push(item);
+        }
 
-              {/* Part info */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-baseline gap-2 flex-wrap">
-                  <span className="font-mono text-xs text-purple-300 shrink-0">{item.partNumber || item.sku}</span>
-                  <span className={`text-xs flex-1 min-w-0 truncate ${item.pulled ? 'text-gray-400 line-through' : 'text-white'}`}>
-                    {item.itemName}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-[10px] text-gray-500 mt-0.5 flex-wrap">
-                  <span className="tabular-nums">Qty {item.quantity} · {item.orderNumber}</span>
-                  {item.colorName && <span className="text-yellow-500">{item.colorName}</span>}
-                  {item.condition && (
-                    <span className={item.condition === 'N' ? 'text-green-500' : 'text-orange-400'}>
-                      {item.condition === 'N' ? 'New' : item.condition === 'U' ? 'Used' : item.condition}
-                    </span>
-                  )}
-                </div>
-              </div>
+        return (
+          <div className="space-y-2" data-testid="picklist-by-part">
+            {Array.from(partGroups.entries()).map(([key, variants]) => {
+              const allPulled = variants.every(v => v.pulled);
+              const somePulled = variants.some(v => v.pulled);
+              const allReshelved = variants.every(v => v.reshelved);
+              const rep = variants[0];
 
-              {/* Reshelve checkbox */}
-              <Checkbox
-                data-testid={`checkbox-reshelve-item-${item.picklistItemId}`}
-                checked={item.reshelved}
-                onCheckedChange={(checked) =>
-                  reshelveItemMutation.mutate({ itemId: item.picklistItemId, reshelved: checked === true })
-                }
-                disabled={!item.pulled || reshelveItemMutation.isPending}
-                className="shrink-0 touch-auto"
-              />
-            </div>
-          ))}
-        </div>
-      )}
+              const handleGroupPull = () => {
+                const target = !allPulled;
+                variants.forEach(v =>
+                  pullItemMutation.mutate({ itemId: v.picklistItemId, pulled: target })
+                );
+              };
+
+              return (
+                <div
+                  key={key}
+                  className={`rounded-lg border overflow-hidden transition-colors ${
+                    allReshelved
+                      ? 'border-green-800/30'
+                      : allPulled
+                      ? 'border-blue-800/30'
+                      : somePulled
+                      ? 'border-yellow-700/40'
+                      : 'border-gray-700'
+                  }`}
+                  data-testid={`part-group-${key}`}
+                >
+                  {/* Part group header */}
+                  <div
+                    className={`flex items-center gap-3 px-3 py-2 ${
+                      allReshelved
+                        ? 'bg-green-950/30'
+                        : allPulled
+                        ? 'bg-blue-950/30'
+                        : somePulled
+                        ? 'bg-yellow-950/20'
+                        : 'bg-gray-800/70'
+                    }`}
+                  >
+                    {/* Group-level pull checkbox */}
+                    <Checkbox
+                      data-testid={`checkbox-pull-group-${key}`}
+                      checked={allPulled ? true : somePulled ? 'indeterminate' : false}
+                      onCheckedChange={handleGroupPull}
+                      disabled={pullItemMutation.isPending}
+                      className="shrink-0 touch-auto"
+                    />
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-baseline gap-2 flex-wrap">
+                        <span className="font-mono text-xs text-purple-300 shrink-0">{rep.partNumber || rep.sku}</span>
+                        <span className={`text-xs flex-1 min-w-0 truncate font-medium ${allPulled ? 'text-gray-400 line-through' : 'text-white'}`}>
+                          {rep.itemName}
+                        </span>
+                      </div>
+                    </div>
+
+                    {variants.length > 1 && (
+                      <span className="shrink-0 text-[10px] font-bold text-gray-400 tabular-nums">
+                        {variants.length} lots
+                      </span>
+                    )}
+
+                    {/* Placeholder to align with reshelve column */}
+                    <div className="w-4 shrink-0" />
+                  </div>
+
+                  {/* Variant rows */}
+                  <div className="divide-y divide-gray-700/50">
+                    {variants.map((item) => (
+                      <div
+                        key={item.picklistItemId}
+                        className={`flex items-center gap-3 px-3 py-1.5 ${
+                          item.reshelved
+                            ? 'bg-green-950/20'
+                            : item.pulled
+                            ? 'bg-blue-950/20'
+                            : 'bg-gray-900/60'
+                        }`}
+                        data-testid={`part-item-${item.picklistItemId}`}
+                      >
+                        {/* Indent spacer aligning with group checkbox */}
+                        <div className="w-4 shrink-0" />
+
+                        {/* Variant details */}
+                        <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap text-[10px]">
+                          <span className="text-gray-300 tabular-nums">Qty {item.quantity}</span>
+                          <span className="text-gray-500">·</span>
+                          <span className="text-gray-400 font-mono">{item.orderNumber}</span>
+                          {item.colorName && (
+                            <span className="text-yellow-400">{item.colorName}</span>
+                          )}
+                          {item.condition && (
+                            <span className={item.condition === 'N' ? 'text-green-400' : 'text-orange-400'}>
+                              {item.condition === 'N' ? 'New' : item.condition === 'U' ? 'Used' : item.condition}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Per-variant reshelve checkbox */}
+                        <Checkbox
+                          data-testid={`checkbox-reshelve-item-${item.picklistItemId}`}
+                          checked={item.reshelved}
+                          onCheckedChange={(checked) =>
+                            reshelveItemMutation.mutate({ itemId: item.picklistItemId, reshelved: checked === true })
+                          }
+                          disabled={!item.pulled || reshelveItemMutation.isPending}
+                          className="shrink-0 touch-auto"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       {/* ══════════════════════════════════════════
           VIEW: BY SHELF / BIN — aisle › shelf › bin grouping
