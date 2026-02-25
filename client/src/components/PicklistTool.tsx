@@ -209,7 +209,7 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
   .aisle-header td { background: #333; color: #fff; font-weight: bold; padding: 3px 6px; font-size: 12px; }
   .shelf-header td { background: #ccc; font-weight: bold; padding: 2px 6px; }
   .bin-header td { background: #eee; font-weight: bold; padding: 4px 6px; border-top: 2px dashed #bbb; margin-top: 8px; }
-  @media print { @page { margin: 0.2in; } }
+  @media print { @page { margin-top: 0.1in; margin-bottom: 0.1in; margin-left: 0.2in; margin-right: 0.2in; } }
 </style></head><body>
 <h2>PlanetBrick Picklist</h2>
 <div class="sub">${date} &nbsp;·&nbsp; ${filterLabel} &nbsp;·&nbsp; ${viewMode === 'by_part' ? 'By Part Number' : 'By Shelf / Bin'}</div>
