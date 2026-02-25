@@ -40,6 +40,7 @@ type PicklistBinItem = {
   pulled: boolean;
   inventoryId: number | null;
   remarks: string | null;
+  inventoryQty: number | null;
 };
 type PicklistBin = { items: PicklistBinItem[] };
 
@@ -177,6 +178,21 @@ function FulfillmentChecklist({ pulledItems, selectedOrderIds, fulfilledItems, o
                     <div className={`flex-1 min-w-0 text-[10px] ${checked ? 'line-through text-gray-500' : ''}`}>
                       <div className="flex items-center gap-2 flex-wrap text-gray-400">
                         <span className="tabular-nums">Qty {item.quantity}</span>
+                        {item.inventoryQty != null && !checked && (() => {
+                          const stock = item.inventoryQty!;
+                          const needed = item.quantity;
+                          const isShort = stock < needed;
+                          const isExact = stock === needed;
+                          return (
+                            <span className={`tabular-nums font-semibold ${
+                              isShort  ? 'text-red-400' :
+                              isExact  ? 'text-yellow-400' :
+                                         'text-green-500/80'
+                            }`}>
+                              ({stock} in stock{isShort ? ' — SHORT' : isExact ? ' — last one' : ''})
+                            </span>
+                          );
+                        })()}
                         <span className="text-gray-600">·</span>
                         <span className="font-mono">{item.marketplace === 'BrickOwl' ? 'BO' : 'BL'}{item.orderNumber}</span>
                         {item.inventoryId && (

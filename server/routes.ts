@@ -5559,7 +5559,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       const uniqueInvIds = [...new Set(lookupIds)];
       const inventoryData = uniqueInvIds.length > 0
         ? await db
-            .select({ id: blInventory.id, itemNo: blInventory.itemNo, colorName: blInventory.colorName, colorId: blInventory.colorId, newOrUsed: blInventory.newOrUsed, remarks: blInventory.remarks, imageUrl: blInventory.imageUrl })
+            .select({ id: blInventory.id, itemNo: blInventory.itemNo, colorName: blInventory.colorName, colorId: blInventory.colorId, newOrUsed: blInventory.newOrUsed, remarks: blInventory.remarks, imageUrl: blInventory.imageUrl, quantity: blInventory.quantity })
             .from(blInventory)
             .where(inArray(blInventory.id, uniqueInvIds))
         : [];
@@ -5645,6 +5645,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
             inventoryId: lookupId,
             remarks: inv?.remarks ?? null,
             imageUrl: inv?.imageUrl ?? null,
+            inventoryQty: inv?.quantity ?? null,
           };
         });
 
