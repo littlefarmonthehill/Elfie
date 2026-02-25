@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import {
   Loader2, CheckCircle2, AlertTriangle, ExternalLink,
@@ -320,10 +320,9 @@ export default function InlineShippingCard({
           </div>
         ) : rates.length > 0 ? (
           (() => {
-            const uspsRates = rates.filter(r => r.carrier.toUpperCase().includes("USPS"));
-            const otherRates = rates.filter(r => !r.carrier.toUpperCase().includes("USPS"));
-            const otherCarriers = [...new Set(otherRates.map(r => r.carrier))];
-            const visibleRates = carriersExpanded ? rates : uspsRates;
+            const uspsRates = rates.filter(r => r.carrier?.toUpperCase().includes("USPS"));
+            const otherRates = rates.filter(r => !r.carrier?.toUpperCase().includes("USPS"));
+            const otherCarriers = [...new Set(otherRates.map(r => r.carrier).filter(Boolean))];
             return (
               <div className="space-y-1">
                 {/* Grid: select fills available space, price is fixed width */}

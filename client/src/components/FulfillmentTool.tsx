@@ -14,7 +14,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator 
 } from "@/components/ui/dropdown-menu";
-import { Truck, Loader2, Printer, AlertTriangle, ChevronDown, Tag, MoreVertical, Scissors, Package, ExternalLink, CheckCircle2, Zap } from "lucide-react";
+import { Truck, Loader2, Printer, AlertTriangle, ChevronDown, Tag, MoreVertical, Scissors, Package, ExternalLink, CheckCircle2, Star } from "lucide-react";
 import { printPackingSlips } from "./PackingSlip";
 import { useToast } from "@/hooks/use-toast";
 import InlineShippingCard, { ShippingReadyState, PurchasedLabelResult, OrderItem } from "./InlineShippingCard";
@@ -475,30 +475,34 @@ export default function FulfillmentTool() {
                 <div
                   key={order.id}
                   onClick={() => handleOrderToggle(order.id)}
-                  className={`border rounded-lg p-2 cursor-pointer transition-colors ${
+                  className={`relative border rounded-lg p-2 cursor-pointer transition-colors ${
                     isSelected
                       ? 'bg-purple-500/20 border-purple-500'
-                      : 'bg-gray-800/50 border-gray-700 hover-elevate'
+                      : hasServicePref
+                        ? 'bg-amber-950/20 border-amber-500/50 hover-elevate'
+                        : 'bg-gray-800/50 border-gray-700 hover-elevate'
                   }`}
                   data-testid={`order-${order.orderNumber}`}
                 >
-                  <p className={`text-xs font-mono font-semibold ${isSelected ? 'text-purple-300' : 'text-white'}`}>
+                  {hasServicePref && (
+                    <div className="absolute -top-2 -right-2 w-5 h-5 bg-amber-400 rounded-full flex items-center justify-center shadow-md z-10">
+                      <Star className="w-3 h-3 fill-amber-900 text-amber-900" />
+                    </div>
+                  )}
+                  <p className={`text-[10px] font-mono font-semibold truncate ${isSelected ? 'text-purple-300' : 'text-white'}`}>
                     #{order.orderNumber}
                   </p>
                   {(lastName || order.marketplace) && (
-                    <p className="text-[10px] text-gray-400 truncate">
+                    <p className="text-[10px] text-gray-300 truncate">
                       {lastName || order.marketplace}
                     </p>
                   )}
                   <div className="flex items-center gap-1 mt-1 flex-wrap">
                     {formattedDate && (
-                      <span className="text-[9px] text-gray-500">{formattedDate}</span>
+                      <span className="text-[10px] text-gray-300">{formattedDate}</span>
                     )}
                     {lotCount > 0 && (
-                      <span className="text-[9px] text-gray-500">{lotCount}L</span>
-                    )}
-                    {hasServicePref && (
-                      <Zap className="w-2.5 h-2.5 text-amber-400 shrink-0" title={order.requestedShippingService ?? ''} />
+                      <span className="text-[10px] text-gray-400">{lotCount}L</span>
                     )}
                   </div>
                 </div>
