@@ -133,42 +133,30 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
     const condLabel = (c: string | null) =>
       c === 'N' ? 'New' : c === 'U' ? 'Used' : (c || '');
 
-    // Printed picklist groups by part + color + condition (each variant gets its own section)
-    const variantKey = (item: BinPicklistItem) =>
-      `${partKey(item)}|${item.colorName || ''}|${item.condition || ''}`;
-    const partGroups: Map<string, BinPicklistItem[]> = new Map();
-    for (const item of [...flatItems].sort((a, b) => {
+    // Printed picklist: every individual order line is its own section
+    body = [...flatItems].sort((a, b) => {
       const pk = partKey(a).localeCompare(partKey(b), undefined, { numeric: true });
       if (pk !== 0) return pk;
       const ck = (a.colorName || '').localeCompare(b.colorName || '');
       if (ck !== 0) return ck;
       return (a.condition || '').localeCompare(b.condition || '');
-    })) {
-      const key = variantKey(item);
-      if (!partGroups.has(key)) partGroups.set(key, []);
-      partGroups.get(key)!.push(item);
-    }
-    body = Array.from(partGroups.entries()).map(([, variants]) => {
-      const rep = variants[0];
+    }).map(item => {
       const line1 = [
-        `<span class="part-no">${rep.partNumber || rep.sku}</span>`,
-        rep.colorName ? `<span class="color">${rep.colorName}</span>` : '',
-        rep.condition ? `<span class="cond">${condLabel(rep.condition)}</span>` : '',
+        `<span class="part-no">${item.partNumber || item.sku}</span>`,
+        item.colorName ? `<span class="color">${item.colorName}</span>` : '',
+        item.condition ? `<span class="cond">${condLabel(item.condition)}</span>` : '',
       ].filter(Boolean).join(' ');
-      const variantRows = variants.map(v => {
-        const meta = [
-          `Qty ${v.quantity}`,
-          `${chanPrefix(v)}${v.orderNumber}`,
-          v.inventoryId ? `Lot ${v.inventoryId}` : '',
-        ].filter(Boolean).join(' · ');
-        return `<tr><td class="spacer"></td><td class="meta" colspan="2">${meta}</td></tr>`;
-      }).join('');
+      const meta = [
+        `Qty ${item.quantity}`,
+        `${chanPrefix(item)}${item.orderNumber}`,
+        item.inventoryId ? `Lot ${item.inventoryId}` : '',
+      ].filter(Boolean).join(' · ');
       return `
         <tr class="part-header">
           <td class="part-no-cell">${line1}</td>
-          <td class="part-name">${rep.itemName || ''}</td>
+          <td class="part-name">${item.itemName || ''}</td>
         </tr>
-        ${variantRows}`;
+        <tr><td class="spacer"></td><td class="meta" colspan="2">${meta}</td></tr>`;
     }).join('');
 
     const html = `<!DOCTYPE html><html><head><title>Picklist — ${date}</title>
