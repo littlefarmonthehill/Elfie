@@ -390,8 +390,15 @@ export default function InlineShippingCard({
       <div className="px-3 pt-2.5 pb-2 space-y-2">
 
         {/* ── Row 1: Order number + preferred service ── */}
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-sm font-bold text-white font-mono shrink-0">{summary.orderNumber}</span>
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className="text-sm font-bold text-white font-mono">{summary.orderNumber}</span>
+            {isTestMode && (
+              <span className="text-[9px] font-bold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 rounded px-1 py-0.5 uppercase tracking-wide">
+                Test Rates
+              </span>
+            )}
+          </div>
           {summary.requestedService && (
             <span className="text-[10px] text-blue-300 font-medium truncate text-right">
               {summary.requestedService}
@@ -602,6 +609,11 @@ export default function InlineShippingCard({
                       ? "Show USPS only"
                       : `Show all carriers (${otherCarriers.join(", ")})`}
                   </button>
+                )}
+                {isTestMode && (
+                  <p className="text-[9px] text-yellow-600/80 mt-0.5">
+                    Test rates are simulated — switch to Live key in Settings for real pricing.
+                  </p>
                 )}
               </div>
             );
