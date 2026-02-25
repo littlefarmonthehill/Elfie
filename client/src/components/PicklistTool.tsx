@@ -141,11 +141,12 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
       if (ck !== 0) return ck;
       return (a.condition || '').localeCompare(b.condition || '');
     }).map(item => {
-      const line1 = [
+      const header = [
         `<span class="part-no">${item.partNumber || item.sku}</span>`,
         item.colorName ? `<span class="color">${item.colorName}</span>` : '',
         item.condition ? `<span class="cond">${condLabel(item.condition)}</span>` : '',
-      ].filter(Boolean).join(' ');
+        item.itemName ? `<span class="desc">${item.itemName}</span>` : '',
+      ].filter(Boolean).join(' · ');
       const meta = [
         `Qty ${item.quantity}`,
         `${chanPrefix(item)}${item.orderNumber}`,
@@ -153,10 +154,9 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
       ].filter(Boolean).join(' · ');
       return `
         <tr class="part-header">
-          <td class="part-no-cell">${line1}</td>
-          <td class="part-name">${item.itemName || ''}</td>
+          <td>${header}</td>
         </tr>
-        <tr><td class="spacer"></td><td class="meta" colspan="2">${meta}</td></tr>`;
+        <tr><td class="meta">${meta}</td></tr>`;
     }).join('');
 
     const html = `<!DOCTYPE html><html><head><title>Picklist — ${date}</title>
@@ -165,29 +165,18 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
   h2 { font-size: 14px; margin: 0 0 4px; }
   .sub { font-size: 10px; color: #555; margin-bottom: 10px; }
   table { width: 100%; border-collapse: collapse; }
-  td { padding: 2px 4px; vertical-align: top; }
-  .part-no-cell { width: 130px; white-space: nowrap; }
+  td { padding: 1px 0; vertical-align: top; }
   .part-no { font-weight: bold; }
-  .color { color: #444; }
-  .cond { color: #444; }
-  .part-name { }
-  .meta { color: #555; font-size: 10px; }
-  .spacer { width: 16px; }
+  .color { color: #333; }
+  .cond { color: #333; }
+  .desc { color: #555; }
+  .meta { color: #555; font-size: 10px; padding-bottom: 2px; }
   .part-header td { padding-top: 14px; border-top: 2px dashed #bbb; }
-  .aisle-header td { background: #333; color: #fff; font-weight: bold; padding: 3px 6px; font-size: 12px; }
-  .shelf-header td { background: #ccc; font-weight: bold; padding: 2px 6px; }
-  .bin-header td { background: #eee; font-weight: bold; padding: 4px 6px; border-top: 2px dashed #bbb; margin-top: 8px; }
   @media print { @page { margin-top: 0.1in; margin-bottom: 0.1in; margin-left: 0.2in; margin-right: 0.2in; } }
 </style></head><body>
 <h2>PlanetBrick Picklist</h2>
 <div class="sub">${date} &nbsp;·&nbsp; ${filterLabel} &nbsp;·&nbsp; By Part Number</div>
-<table>
-  <thead><tr>
-    <th style="text-align:left">Part</th>
-    <th style="text-align:left">Item</th>
-  </tr></thead>
-  <tbody>${body}</tbody>
-</table>
+<table><tbody>${body}</tbody></table>
 </body></html>`;
 
     const w = window.open('', '_blank');
