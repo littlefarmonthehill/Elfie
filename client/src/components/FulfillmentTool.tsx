@@ -14,7 +14,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator 
 } from "@/components/ui/dropdown-menu";
-import { Truck, Loader2, Printer, AlertTriangle, ChevronDown, Tag, MoreVertical, Scissors, Package, ExternalLink, CheckCircle2 } from "lucide-react";
+import { Truck, Loader2, Printer, AlertTriangle, ChevronDown, Tag, MoreVertical, Scissors, Package, ExternalLink, CheckCircle2, Zap } from "lucide-react";
 import { printPackingSlips } from "./PackingSlip";
 import { useToast } from "@/hooks/use-toast";
 import InlineShippingCard, { ShippingReadyState, PurchasedLabelResult, OrderItem } from "./InlineShippingCard";
@@ -31,6 +31,8 @@ type Order = {
   marketplace: string | null;
   customerUsername: string | null;
   shipTo: any;
+  orderDate: string | null;
+  requestedShippingService: string | null;
 };
 
 type FulfillmentItem = {
@@ -146,9 +148,11 @@ export default function FulfillmentTool() {
   }
 
   // Sort orders alphanumerically
-  const sortedOrders = [...data.orders].sort((a, b) => 
-    a.orderNumber.localeCompare(b.orderNumber, undefined, { numeric: true })
-  );
+  const sortedOrders = [...data.orders].sort((a, b) => {
+    const dateA = a.orderDate ? new Date(a.orderDate).getTime() : 0;
+    const dateB = b.orderDate ? new Date(b.orderDate).getTime() : 0;
+    return dateA - dateB;
+  });
 
   // Derived: single selected order (for ship/split actions that need exactly one)
   const selectedOrderId = selectedOrders.size === 1 ? [...selectedOrders][0] : null;
@@ -428,11 +432,6 @@ export default function FulfillmentTool() {
             >
               {selectedOrders.size === sortedOrders.length ? 'Deselect All' : 'Select All'}
             </Button>
-            {selectedOrders.size > 0 && (
-              <Badge variant="secondary" className="text-xs">
-                {selectedOrders.size} selected
-              </Badge>
-            )}
           </div>
           <div className="flex gap-2 flex-wrap">
             {isSplitMode && (
@@ -465,11 +464,18 @@ export default function FulfillmentTool() {
           <div className="grid grid-cols-4 gap-2">
             {sortedOrders.map((order) => {
               const isSelected = selectedOrders.has(order.id);
+              const lotCount = data?.items.filter(i => i.orderId === order.id).length ?? 0;
+              const hasServicePref = !!order.requestedShippingService;
+              const formattedDate = order.orderDate
+                ? new Date(order.orderDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                : null;
+              const fullName: string = (order.shipTo as any)?.name || order.customerUsername || '';
+              const lastName = fullName.trim().split(' ').pop() || '';
               return (
                 <div
                   key={order.id}
                   onClick={() => handleOrderToggle(order.id)}
-                  className={`border rounded-lg p-2 cursor-pointer transition-colors text-center ${
+                  className={`border rounded-lg p-2 cursor-pointer transition-colors ${
                     isSelected
                       ? 'bg-purple-500/20 border-purple-500'
                       : 'bg-gray-800/50 border-gray-700 hover-elevate'
@@ -477,17 +483,24 @@ export default function FulfillmentTool() {
                   data-testid={`order-${order.orderNumber}`}
                 >
                   <p className={`text-xs font-mono font-semibold ${isSelected ? 'text-purple-300' : 'text-white'}`}>
-                    {order.orderNumber}
+                    #{order.orderNumber}
                   </p>
-                  {(() => {
-                    const fullName: string = (order.shipTo as any)?.name || order.customerUsername || '';
-                    const lastName = fullName.trim().split(' ').pop() || '';
-                    return lastName ? (
-                      <p className="text-[10px] md:text-sm text-gray-400 mt-0.5 truncate">{lastName}</p>
-                    ) : order.marketplace ? (
-                      <p className="text-[10px] md:text-sm text-gray-500 mt-0.5">{order.marketplace}</p>
-                    ) : null;
-                  })()}
+                  {(lastName || order.marketplace) && (
+                    <p className="text-[10px] text-gray-400 truncate">
+                      {lastName || order.marketplace}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-1 mt-1 flex-wrap">
+                    {formattedDate && (
+                      <span className="text-[9px] text-gray-500">{formattedDate}</span>
+                    )}
+                    {lotCount > 0 && (
+                      <span className="text-[9px] text-gray-500">{lotCount}L</span>
+                    )}
+                    {hasServicePref && (
+                      <Zap className="w-2.5 h-2.5 text-amber-400 shrink-0" title={order.requestedShippingService ?? ''} />
+                    )}
+                  </div>
                 </div>
               );
             })}
@@ -574,11 +587,6 @@ export default function FulfillmentTool() {
             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wide flex items-center gap-1.5">
               <Truck className="w-3.5 h-3.5 text-purple-400" />
               Shipping
-              {readyToShip.size > 0 && (
-                <Badge variant="secondary" className="text-[10px]">
-                  {readyToShip.size} ready
-                </Badge>
-              )}
             </h3>
             {!isSplitMode && (
               <DropdownMenu>

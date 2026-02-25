@@ -114,6 +114,7 @@ export default function InlineShippingCard({
   const [ratesError, setRatesError] = useState<string | null>(null);
 
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [carriersExpanded, setCarriersExpanded] = useState(false);
   const hasUserChangedWeight = useRef(false);
 
   // Auto-refresh rates when weight or units change (debounced, user-initiated only)
@@ -326,42 +327,86 @@ export default function InlineShippingCard({
             </Button>
           </div>
         ) : rates.length > 0 ? (
-          /* Grid: select fills available space, price is fixed width */
-          <div className="grid gap-1.5" style={{ gridTemplateColumns: "1fr auto" }}>
-            <div className="min-w-0 overflow-hidden">
-              <Select value={selectedRateId ?? ""} onValueChange={setSelectedRateId}>
-                <SelectTrigger
-                  className="h-8 w-full text-xs bg-gray-900 border-gray-600 truncate"
-                  data-testid={`select-service-${orderId}`}
-                >
-                  <SelectValue placeholder="Select service..." />
-                </SelectTrigger>
-                <SelectContent className="max-w-[min(320px,90vw)]">
-                  {rates.map((rate, idx) => {
-                    const cPick = isCustomerPick(rate);
-                    return (
-                      <SelectItem key={rate.id} value={rate.id}>
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="font-medium text-xs">{rate.carrier} {rate.service}</span>
-                          <span className="text-gray-400 text-xs">${rate.rate.toFixed(2)}{rate.deliveryDays != null && ` · ${rate.deliveryDays}d`}</span>
-                          {cPick && <span className="text-blue-400 text-[10px]">★</span>}
-                          {idx === 0 && !cPick && <span className="text-green-400 text-[10px]">Low</span>}
-                        </div>
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-            </div>
-            {selectedRate ? (
-              <div className="flex flex-col items-end justify-center shrink-0">
-                <span className="text-sm font-bold text-white leading-tight">${selectedRate.rate.toFixed(2)}</span>
-                {selectedRate.deliveryDays != null && (
-                  <span className="text-[10px] text-gray-500">{selectedRate.deliveryDays}d</span>
+          (() => {
+            const uspsRates = rates.filter(r => r.carrier.toUpperCase().includes("USPS"));
+            const otherRates = rates.filter(r => !r.carrier.toUpperCase().includes("USPS"));
+            const otherCarriers = [...new Set(otherRates.map(r => r.carrier))];
+            const visibleRates = carriersExpanded ? rates : uspsRates;
+            return (
+              <div className="space-y-1">
+                {/* Grid: select fills available space, price is fixed width */}
+                <div className="grid gap-1.5" style={{ gridTemplateColumns: "1fr auto" }}>
+                  <div className="min-w-0 overflow-hidden">
+                    <Select value={selectedRateId ?? ""} onValueChange={setSelectedRateId}>
+                      <SelectTrigger
+                        className="h-8 w-full text-xs bg-gray-900 border-gray-600 truncate"
+                        data-testid={`select-service-${orderId}`}
+                      >
+                        <SelectValue placeholder="Select service..." />
+                      </SelectTrigger>
+                      <SelectContent className="max-w-[min(320px,90vw)]">
+                        {uspsRates.length > 0 && (
+                          <SelectGroup>
+                            <SelectLabel className="text-[10px] text-gray-500 px-2 py-1">USPS</SelectLabel>
+                            {uspsRates.map((rate, idx) => {
+                              const cPick = isCustomerPick(rate);
+                              return (
+                                <SelectItem key={rate.id} value={rate.id}>
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="font-medium text-xs">{rate.service}</span>
+                                    <span className="text-gray-400 text-xs">${rate.rate.toFixed(2)}{rate.deliveryDays != null && ` · ${rate.deliveryDays}d`}</span>
+                                    {cPick && <span className="text-blue-400 text-[10px]">★</span>}
+                                    {idx === 0 && !cPick && <span className="text-green-400 text-[10px]">Low</span>}
+                                  </div>
+                                </SelectItem>
+                              );
+                            })}
+                          </SelectGroup>
+                        )}
+                        {carriersExpanded && otherCarriers.map(carrier => (
+                          <SelectGroup key={carrier}>
+                            <SelectLabel className="text-[10px] text-gray-500 px-2 py-1">{carrier}</SelectLabel>
+                            {otherRates.filter(r => r.carrier === carrier).map((rate, idx) => {
+                              const cPick = isCustomerPick(rate);
+                              return (
+                                <SelectItem key={rate.id} value={rate.id}>
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="font-medium text-xs">{rate.service}</span>
+                                    <span className="text-gray-400 text-xs">${rate.rate.toFixed(2)}{rate.deliveryDays != null && ` · ${rate.deliveryDays}d`}</span>
+                                    {cPick && <span className="text-blue-400 text-[10px]">★</span>}
+                                    {idx === 0 && !cPick && <span className="text-green-400 text-[10px]">Low</span>}
+                                  </div>
+                                </SelectItem>
+                              );
+                            })}
+                          </SelectGroup>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {selectedRate ? (
+                    <div className="flex flex-col items-end justify-center shrink-0">
+                      <span className="text-sm font-bold text-white leading-tight">${selectedRate.rate.toFixed(2)}</span>
+                      {selectedRate.deliveryDays != null && (
+                        <span className="text-[10px] text-gray-500">{selectedRate.deliveryDays}d</span>
+                      )}
+                    </div>
+                  ) : <div />}
+                </div>
+                {otherRates.length > 0 && (
+                  <button
+                    className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors"
+                    onClick={() => setCarriersExpanded(v => !v)}
+                    data-testid={`button-expand-carriers-${orderId}`}
+                  >
+                    {carriersExpanded
+                      ? "Show USPS only"
+                      : `Show all carriers (${otherCarriers.join(", ")})`}
+                  </button>
                 )}
               </div>
-            ) : <div />}
-          </div>
+            );
+          })()
         ) : null}
 
         {/* ── Row 4: Details toggle ── */}
