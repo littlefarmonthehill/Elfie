@@ -14,7 +14,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator 
 } from "@/components/ui/dropdown-menu";
-import { Truck, Loader2, Printer, AlertTriangle, ChevronDown, Tag, MoreVertical, Scissors, Package, ExternalLink, CheckCircle2, Star, ClipboardList } from "lucide-react";
+import { Truck, Loader2, Printer, AlertTriangle, ChevronDown, Tag, MoreVertical, Scissors, Package, ExternalLink, CheckCircle2, Star, ClipboardList, PackageCheck } from "lucide-react";
 import { printPackingSlips } from "./PackingSlip";
 import { useToast } from "@/hooks/use-toast";
 import InlineShippingCard, { ShippingReadyState, PurchasedLabelResult, OrderItem } from "./InlineShippingCard";
@@ -24,6 +24,20 @@ type BatchResult = {
   orderId: string;
   orderNumber: string;
 } & PurchasedLabelResult;
+
+type PicklistBinItem = {
+  picklistItemId: string;
+  orderId: string;
+  orderNumber: string;
+  itemName: string;
+  quantity: number;
+  sku: string;
+  partNumber: string | null;
+  colorName: string | null;
+  condition: string | null;
+  pulled: boolean;
+};
+type PicklistBin = { items: PicklistBinItem[] };
 
 type Order = {
   id: string;
@@ -64,9 +78,139 @@ function cleanItemName(name: string, partNumber: string | null | undefined): str
   return name.startsWith(prefix) ? name.slice(prefix.length) : name;
 }
 
+// ── Fulfillment checklist sub-component (part-grouped view of pulled items) ──
+interface FulfillmentChecklistProps {
+  pulledItems: PicklistBinItem[];
+  selectedOrderIds?: Set<string>;
+  fulfilledItems: Set<string>;
+  onToggle: (itemId: string) => void;
+}
+
+function FulfillmentChecklist({ pulledItems, selectedOrderIds, fulfilledItems, onToggle }: FulfillmentChecklistProps) {
+  const visibleItems = selectedOrderIds && selectedOrderIds.size > 0
+    ? pulledItems.filter(i => selectedOrderIds.has(i.orderId))
+    : pulledItems;
+
+  if (visibleItems.length === 0) {
+    return (
+      <div className="text-center py-12 text-gray-500">
+        <PackageCheck className="h-12 w-12 mx-auto mb-3 opacity-40" />
+        <p className="font-medium">No picked items to fulfill</p>
+        <p className="text-sm mt-1">Items appear here once they have been pulled from the picklist</p>
+      </div>
+    );
+  }
+
+  // Group by part number (or sku fallback), sorted numerically
+  const partKey = (item: PicklistBinItem) => item.partNumber || item.sku || '';
+  const partGroups = new Map<string, PicklistBinItem[]>();
+  for (const item of [...visibleItems].sort((a, b) =>
+    partKey(a).localeCompare(partKey(b), undefined, { numeric: true })
+  )) {
+    const k = partKey(item);
+    if (!partGroups.has(k)) partGroups.set(k, []);
+    partGroups.get(k)!.push(item);
+  }
+
+  return (
+    <div className="space-y-2">
+      {/* Column labels */}
+      <div className="flex items-center gap-3 px-3 text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-1">
+        <span className="w-4 shrink-0 text-center">Done</span>
+        <span className="flex-1">Part / Item</span>
+        <span className="shrink-0">Order</span>
+      </div>
+
+      {Array.from(partGroups.entries()).map(([key, variants]) => {
+        const allFulfilled = variants.every(v => fulfilledItems.has(v.picklistItemId));
+        const someFulfilled = variants.some(v => fulfilledItems.has(v.picklistItemId));
+        const rep = variants[0];
+
+        const handleGroupToggle = () => {
+          const target = !allFulfilled;
+          variants.forEach(v => {
+            const isIn = fulfilledItems.has(v.picklistItemId);
+            if (target !== isIn) onToggle(v.picklistItemId);
+          });
+        };
+
+        return (
+          <div
+            key={key}
+            className={`rounded-lg border overflow-hidden transition-colors ${
+              allFulfilled ? 'border-cyan-800/40' : someFulfilled ? 'border-yellow-700/40' : 'border-gray-700'
+            }`}
+            data-testid={`fulfill-group-${key}`}
+          >
+            {/* Part header */}
+            <div
+              className={`flex items-center gap-3 px-3 py-2 ${
+                allFulfilled ? 'bg-cyan-950/30' : someFulfilled ? 'bg-yellow-950/20' : 'bg-gray-800/70'
+              }`}
+            >
+              <Checkbox
+                checked={allFulfilled ? true : someFulfilled ? 'indeterminate' : false}
+                onCheckedChange={handleGroupToggle}
+                className="shrink-0 touch-auto"
+                data-testid={`checkbox-fulfill-group-${key}`}
+              />
+              <div className="flex-1 min-w-0 flex items-baseline gap-2 flex-wrap">
+                <span className="font-mono text-xs text-cyan-300 shrink-0">{rep.partNumber || rep.sku}</span>
+                <span className={`text-xs flex-1 min-w-0 truncate font-medium ${allFulfilled ? 'text-gray-500 line-through' : 'text-white'}`}>
+                  {rep.itemName}
+                </span>
+              </div>
+              {variants.length > 1 && (
+                <span className="shrink-0 text-[10px] font-bold text-gray-400 tabular-nums">
+                  {variants.length} lots
+                </span>
+              )}
+            </div>
+
+            {/* Variant rows */}
+            <div className="divide-y divide-gray-700/50">
+              {variants.map(item => {
+                const checked = fulfilledItems.has(item.picklistItemId);
+                return (
+                  <div
+                    key={item.picklistItemId}
+                    className={`flex items-center gap-3 px-3 py-1.5 cursor-pointer ${checked ? 'bg-cyan-950/20' : 'bg-gray-900/60'}`}
+                    onClick={() => onToggle(item.picklistItemId)}
+                    data-testid={`fulfill-item-${item.picklistItemId}`}
+                  >
+                    <Checkbox
+                      checked={checked}
+                      onCheckedChange={() => onToggle(item.picklistItemId)}
+                      onClick={e => e.stopPropagation()}
+                      className="shrink-0 touch-auto"
+                      data-testid={`checkbox-fulfill-item-${item.picklistItemId}`}
+                    />
+                    <div className={`flex-1 min-w-0 flex items-center gap-2 flex-wrap text-[10px] ${checked ? 'line-through text-gray-500' : ''}`}>
+                      <span className="tabular-nums">Qty {item.quantity}</span>
+                      <span className="text-gray-500">·</span>
+                      <span className="font-mono text-gray-400">{item.orderNumber}</span>
+                      {item.colorName && <span className="text-yellow-400">{item.colorName}</span>}
+                      {item.condition && (
+                        <span className={item.condition === 'N' ? 'text-green-400' : 'text-orange-400'}>
+                          {item.condition === 'N' ? 'New' : item.condition === 'U' ? 'Used' : item.condition}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function FulfillmentTool() {
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<'picklist' | 'shipping'>('picklist');
+  const [activeTab, setActiveTab] = useState<'picklist' | 'fulfillment' | 'shipping'>('picklist');
+  const [fulfilledItems, setFulfilledItems] = useState<Set<string>>(new Set());
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
   const [showLotLabelsDialog, setShowLotLabelsDialog] = useState(false);
   const [lotLabelsData, setLotLabelsData] = useState<any[]>([]);
@@ -97,6 +241,34 @@ export default function FulfillmentTool() {
     queryKey: ['/api/picklist/order-status'],
     refetchInterval: 30000,
   });
+
+  // All picklist items (for the Fulfillment tab and second-checkmark logic)
+  const { data: picklistBins = [] } = useQuery<PicklistBin[]>({
+    queryKey: ['/api/picklist'],
+    queryFn: async () => {
+      const res = await fetch('/api/picklist');
+      if (!res.ok) throw new Error('Failed to fetch picklist');
+      return res.json();
+    },
+    refetchInterval: 60000,
+  });
+  const allPicklistItems: PicklistBinItem[] = picklistBins.flatMap(b => b.items);
+  const pulledItems: PicklistBinItem[] = allPicklistItems.filter(item => item.pulled);
+
+  // Toggle fulfillment checkbox for an item
+  const toggleFulfilled = (itemId: string) => {
+    setFulfilledItems(prev => {
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId); else next.add(itemId);
+      return next;
+    });
+  };
+
+  // Is every pulled item for a given order marked fulfilled?
+  const isOrderFulfillComplete = (orderId: string) => {
+    const orderPulled = pulledItems.filter(i => i.orderId === orderId);
+    return orderPulled.length > 0 && orderPulled.every(i => fulfilledItems.has(i.picklistItemId));
+  };
 
   const fulfillMutation = useMutation({
     mutationFn: async ({ itemId, fulfilled }: { itemId: string; fulfilled: boolean }) => {
@@ -461,6 +633,7 @@ export default function FulfillmentTool() {
                 const fullName: string = (order.shipTo as any)?.name || order.customerUsername || '';
                 const lastName = fullName.trim().split(' ').pop() || '';
                 const isPickComplete = !!picklistOrderStatus[order.id];
+                const isFulfillComplete = isOrderFulfillComplete(order.id);
                 return (
                   <div
                     key={order.id}
@@ -482,6 +655,11 @@ export default function FulfillmentTool() {
                     {isPickComplete && (
                       <div className="absolute -top-2 -left-2 w-5 h-5 lg:w-6 lg:h-6 bg-green-500 rounded-full flex items-center justify-center shadow-md z-10">
                         <CheckCircle2 className="w-3 h-3 lg:w-3.5 lg:h-3.5 text-white fill-green-500" />
+                      </div>
+                    )}
+                    {isFulfillComplete && (
+                      <div className="absolute -top-2 left-4 lg:left-5 w-5 h-5 lg:w-6 lg:h-6 bg-cyan-500 rounded-full flex items-center justify-center shadow-md z-10">
+                        <CheckCircle2 className="w-3 h-3 lg:w-3.5 lg:h-3.5 text-white fill-cyan-500" />
                       </div>
                     )}
                     <p className={`text-[9px] lg:text-xs font-mono font-semibold leading-tight ${isSelected ? 'text-purple-300' : 'text-white'}`}>
@@ -506,7 +684,7 @@ export default function FulfillmentTool() {
             </div>
           </div>
 
-        {/* ── Tab switcher: Picklist | Shipping ── */}
+        {/* ── Tab switcher: Picklist | Fulfillment | Shipping ── */}
         <div className="flex gap-1 border-b border-gray-700">
           <button
             onClick={() => setActiveTab('picklist')}
@@ -519,6 +697,18 @@ export default function FulfillmentTool() {
           >
             <ClipboardList className="w-4 h-4" />
             Picklist
+          </button>
+          <button
+            onClick={() => setActiveTab('fulfillment')}
+            className={`flex items-center gap-1.5 px-4 py-2 text-sm font-semibold border-b-2 transition-colors ${
+              activeTab === 'fulfillment'
+                ? 'border-cyan-500 text-cyan-400'
+                : 'border-transparent text-gray-400 hover:text-gray-200'
+            }`}
+            data-testid="tab-fulfillment"
+          >
+            <PackageCheck className="w-4 h-4" />
+            Fulfillment
           </button>
           <button
             onClick={() => setActiveTab('shipping')}
@@ -537,6 +727,13 @@ export default function FulfillmentTool() {
         {/* ── Tab content ── */}
         {activeTab === 'picklist' ? (
           <PicklistTool filterOrderIds={selectedOrders.size > 0 ? selectedOrders : undefined} />
+        ) : activeTab === 'fulfillment' ? (
+          <FulfillmentChecklist
+            pulledItems={pulledItems}
+            selectedOrderIds={selectedOrders.size > 0 ? selectedOrders : undefined}
+            fulfilledItems={fulfilledItems}
+            onToggle={toggleFulfilled}
+          />
         ) : (
           <div className="space-y-4">
 
