@@ -420,7 +420,7 @@ export default function FulfillmentTool() {
   return (
     <>
       {/* ── Two-column layout on lg+ (iPad Pro / Mac), single column on mobile ── */}
-      <div className="flex flex-col lg:grid lg:grid-cols-2 lg:gap-6 lg:items-start gap-4">
+      <div className="flex flex-col lg:grid lg:grid-cols-[2fr_3fr] lg:gap-6 lg:items-start gap-4">
 
         {/* ═══ LEFT COLUMN: Controls + Orders + Order Details ═══ */}
         <div className="space-y-4">
@@ -514,6 +514,49 @@ export default function FulfillmentTool() {
                 );
               })}
             </div>
+          </div>
+
+          {/* Order Details - grouped by bin */}
+          <div className="space-y-2">
+            <h3 className="text-sm lg:text-base font-bold text-gray-300">Order Details</h3>
+            {Object.entries(itemsByBin).map(([binKey, bin]) => (
+              <div key={binKey} className="space-y-1.5" data-testid={`bin-group-${binKey}`}>
+                <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg px-2.5 py-1.5">
+                  <h4 className="text-[11px] lg:text-xs font-bold text-purple-400">
+                    {bin.aisleName && bin.shelfName
+                      ? `${bin.aisleName} › ${bin.shelfName} › ${bin.binName}`
+                      : bin.binName}
+                  </h4>
+                </div>
+                {bin.items.map((item) => (
+                  <div
+                    key={item.id}
+                    className="ml-3 bg-gray-800/50 border border-gray-700 rounded-lg px-2.5 py-2 hover-elevate"
+                    data-testid={`fulfillment-item-${item.id}`}
+                  >
+                    <div className="flex items-center gap-2">
+                      {isSplitMode && (
+                        <Checkbox
+                          data-testid={`checkbox-split-${item.id}`}
+                          checked={selectedItemsForSplit.has(item.id)}
+                          onCheckedChange={() => handleItemSplitToggle(item.id)}
+                        />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[11px] lg:text-xs font-medium text-white leading-tight">
+                          {item.bricklinkPartNumber && `${item.bricklinkPartNumber} - `}{cleanItemName(item.name, item.bricklinkPartNumber)}
+                        </p>
+                        <p className="text-[10px] lg:text-[11px] text-gray-400 mt-0.5">
+                          {item.colorName && `${item.colorName} • `}
+                          {item.condition && `${item.condition} • `}
+                          Qty {item.quantity} • {item.orderNumber}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))}
           </div>
 
         </div>
@@ -706,49 +749,6 @@ export default function FulfillmentTool() {
 
         </div>
         {/* ═══ end two-column grid ═══ */}
-
-      {/* ═══ Order Details - full width below both columns ═══ */}
-      <div className="space-y-3 mt-2">
-        <h3 className="text-sm lg:text-base font-bold text-gray-300">Order Details</h3>
-        {Object.entries(itemsByBin).map(([binKey, bin]) => (
-          <div key={binKey} className="space-y-2" data-testid={`bin-group-${binKey}`}>
-            <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-2 lg:p-3">
-              <h4 className="text-xs lg:text-sm font-bold text-purple-400">
-                {bin.aisleName && bin.shelfName
-                  ? `${bin.aisleName} › ${bin.shelfName} › ${bin.binName}`
-                  : bin.binName}
-              </h4>
-            </div>
-            {bin.items.map((item) => (
-              <div
-                key={item.id}
-                className="ml-4 bg-gray-800/50 border border-gray-700 rounded-lg p-2.5 lg:p-3 hover-elevate"
-                data-testid={`fulfillment-item-${item.id}`}
-              >
-                <div className="flex items-center gap-3">
-                  {isSplitMode && (
-                    <Checkbox
-                      data-testid={`checkbox-split-${item.id}`}
-                      checked={selectedItemsForSplit.has(item.id)}
-                      onCheckedChange={() => handleItemSplitToggle(item.id)}
-                    />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs lg:text-sm font-medium text-white">
-                      {item.bricklinkPartNumber && `${item.bricklinkPartNumber} - `}{cleanItemName(item.name, item.bricklinkPartNumber)}
-                    </p>
-                    <p className="text-xs lg:text-sm font-bold text-gray-300 mt-0.5">
-                      {item.colorName && `${item.colorName} • `}
-                      {item.condition && `${item.condition} • `}
-                      Qty {item.quantity} • {item.orderNumber}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        ))}
-      </div>
 
       {/* Lot Labels Dialog - Placeholder for future implementation */}
       <Dialog open={showLotLabelsDialog} onOpenChange={setShowLotLabelsDialog}>
