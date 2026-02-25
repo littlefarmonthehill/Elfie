@@ -271,45 +271,38 @@ export default function InlineShippingCard({
     >
       <div className="px-3 pt-2.5 pb-2 space-y-2">
 
-        {/* ── Row 1: Identity ── */}
-        <div className="flex items-center gap-1.5">
-          <span className="text-sm font-bold text-white font-mono">#{summary.orderNumber}</span>
+        {/* ── Row 1: Order number + preferred service ── */}
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm font-bold text-white font-mono shrink-0">#{summary.orderNumber}</span>
+          {summary.requestedService && (
+            <span className="text-[10px] text-blue-300 font-medium truncate text-right">
+              {summary.requestedService}
+            </span>
+          )}
         </div>
 
-        {/* ── Row 2: Weight + Preferred service ── */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Weight */}
-          <div className="flex items-center gap-1 shrink-0">
-            <span className="text-[10px] text-gray-500 uppercase tracking-wide font-bold">Wt</span>
-            <Input
-              type="number" step="0.1" min="0" value={weight}
-              onChange={e => { hasUserChangedWeight.current = true; setWeight(e.target.value); }}
-              placeholder="oz" className="h-7 w-14 text-xs bg-gray-900 border-gray-600 px-1.5"
-              data-testid={`input-weight-${orderId}`}
-            />
-            <Select value={weightUnits} onValueChange={v => { hasUserChangedWeight.current = true; setWeightUnits(v); }}>
-              <SelectTrigger className="h-7 w-14 text-xs bg-gray-900 border-gray-600 px-1.5" data-testid={`select-weight-units-${orderId}`}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="oz">oz</SelectItem>
-                <SelectItem value="lb">lb</SelectItem>
-                <SelectItem value="g">g</SelectItem>
-                <SelectItem value="kg">kg</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Divider + Preferred service */}
-          {summary.requestedService ? (
-            <div className="flex items-center gap-1 min-w-0 flex-1">
-              <span className="text-[10px] text-gray-600 shrink-0">|</span>
-              <span className="text-[10px] text-gray-500 shrink-0">Preferred:</span>
-              <span className="text-[10px] text-blue-300 font-medium truncate">{summary.requestedService}</span>
-            </div>
-          ) : (
-            <span className="text-[10px] text-gray-600 italic">No service preference</span>
-          )}
+        {/* ── Row 2: Weight ── */}
+        <div className="flex items-center gap-1 shrink-0">
+          <span className="text-[10px] text-gray-500 uppercase tracking-wide font-bold">Wt</span>
+          <Input
+            type="number" step="0.1" min="0" value={weight}
+            onChange={e => { hasUserChangedWeight.current = true; setWeight(e.target.value); }}
+            placeholder="oz"
+            className="h-7 w-14 bg-gray-900 border-gray-600 px-1.5"
+            style={{ fontSize: '16px' }}
+            data-testid={`input-weight-${orderId}`}
+          />
+          <Select value={weightUnits} onValueChange={v => { hasUserChangedWeight.current = true; setWeightUnits(v); }}>
+            <SelectTrigger className="h-7 w-14 bg-gray-900 border-gray-600 px-1.5" style={{ fontSize: '16px' }} data-testid={`select-weight-units-${orderId}`}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="oz">oz</SelectItem>
+              <SelectItem value="lb">lb</SelectItem>
+              <SelectItem value="g">g</SelectItem>
+              <SelectItem value="kg">kg</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {/* ── Row 3: Service selector (full-width grid, price right) ── */}
@@ -339,7 +332,8 @@ export default function InlineShippingCard({
                   <div className="min-w-0 overflow-hidden">
                     <Select value={selectedRateId ?? ""} onValueChange={setSelectedRateId}>
                       <SelectTrigger
-                        className="h-8 w-full text-xs bg-gray-900 border-gray-600 truncate"
+                        className="h-8 w-full bg-gray-900 border-gray-600 truncate"
+                        style={{ fontSize: '16px' }}
                         data-testid={`select-service-${orderId}`}
                       >
                         <SelectValue placeholder="Select service..." />
