@@ -5447,6 +5447,42 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
     }
   });
   
+  // Per-order picklist completion — returns { [orderId]: allPulled }
+  app.get("/api/picklist/order-status", isApproved, async (req, res) => {
+    try {
+      const activeOrders = await db
+        .select({ id: orders.id })
+        .from(orders)
+        .where(
+          or(
+            like(orders.orderStatus, '%awaiting_payment%'),
+            like(orders.orderStatus, '%awaiting_shipment%'),
+            like(orders.orderStatus, '%awaiting_fulfillment%')
+          )
+        );
+
+      if (activeOrders.length === 0) return res.json({});
+
+      const orderIds = activeOrders.map(o => o.id);
+      const items = await db
+        .select({ orderId: picklistItems.orderId, pulled: picklistItems.pulled })
+        .from(picklistItems)
+        .where(inArray(picklistItems.orderId, orderIds));
+
+      // Group by order and compute allPulled
+      const statusMap: Record<string, boolean> = {};
+      for (const orderId of orderIds) {
+        const orderItems = items.filter(i => i.orderId === orderId);
+        statusMap[orderId] = orderItems.length > 0 && orderItems.every(i => i.pulled);
+      }
+
+      res.json(statusMap);
+    } catch (error) {
+      console.error("Error fetching picklist order status:", error);
+      res.status(500).json({ error: "Failed to fetch picklist order status" });
+    }
+  });
+
   // Get picklist items for active orders (awaiting payment, awaiting shipment, awaiting fulfillment)
   app.get("/api/picklist", isApproved, async (req, res) => {
     try {

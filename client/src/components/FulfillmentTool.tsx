@@ -90,6 +90,12 @@ export default function FulfillmentTool() {
     queryKey: ['/api/settings'],
   });
 
+  // Per-order picklist pull completion { orderId: allPulled }
+  const { data: picklistOrderStatus = {} } = useQuery<Record<string, boolean>>({
+    queryKey: ['/api/picklist/order-status'],
+    refetchInterval: 30000,
+  });
+
   const fulfillMutation = useMutation({
     mutationFn: async ({ itemId, fulfilled }: { itemId: string; fulfilled: boolean }) => {
       const result = await apiRequest('PUT', `/api/fulfillment/item/${itemId}/fulfill`, { fulfilled });
@@ -455,6 +461,7 @@ export default function FulfillmentTool() {
                   : null;
                 const fullName: string = (order.shipTo as any)?.name || order.customerUsername || '';
                 const lastName = fullName.trim().split(' ').pop() || '';
+                const isPickComplete = !!picklistOrderStatus[order.id];
                 return (
                   <div
                     key={order.id}
@@ -471,6 +478,11 @@ export default function FulfillmentTool() {
                     {isPriority && (
                       <div className="absolute -top-2 -right-2 w-5 h-5 lg:w-6 lg:h-6 bg-amber-400 rounded-full flex items-center justify-center shadow-md z-10">
                         <Star className="w-3 h-3 lg:w-3.5 lg:h-3.5 fill-amber-900 text-amber-900" />
+                      </div>
+                    )}
+                    {isPickComplete && (
+                      <div className="absolute -top-2 -left-2 w-5 h-5 lg:w-6 lg:h-6 bg-green-500 rounded-full flex items-center justify-center shadow-md z-10">
+                        <CheckCircle2 className="w-3 h-3 lg:w-3.5 lg:h-3.5 text-white fill-green-500" />
                       </div>
                     )}
                     <p className={`text-[9px] lg:text-xs font-mono font-semibold leading-tight ${isSelected ? 'text-purple-300' : 'text-white'}`}>
