@@ -19,6 +19,25 @@ export type Rate = {
   deliveryDays: number | null;
 };
 
+type PackageOption = {
+  id: string;
+  label: string;
+  group: "standard" | "usps_priority";
+  predefined?: string;
+  dims?: { length: number; width: number; height: number };
+  customDims?: true;
+};
+
+const PACKAGES: PackageOption[] = [
+  { id: "padded_envelope", label: "Padded Envelope", group: "standard", dims: { length: 12, width: 9, height: 2 } },
+  { id: "box", label: "Box", group: "standard", customDims: true },
+  { id: "usps_flat_rate_env", label: "Flat Rate Envelope", group: "usps_priority", predefined: "FlatRateEnvelope", dims: { length: 12.5, width: 9.5, height: 0.5 } },
+  { id: "usps_padded_env", label: "Padded Flat Rate Envelope", group: "usps_priority", predefined: "FlatRatePaddedEnvelope", dims: { length: 12.5, width: 9.5, height: 1 } },
+  { id: "usps_sm_box", label: "Small Flat Rate Box", group: "usps_priority", predefined: "SmallFlatRateBox", dims: { length: 8.625, width: 5.375, height: 1.625 } },
+  { id: "usps_md_box", label: "Medium Flat Rate Box", group: "usps_priority", predefined: "MediumFlatRateBoxTopLoading", dims: { length: 11, width: 8.5, height: 5.5 } },
+  { id: "usps_lg_box", label: "Large Flat Rate Box", group: "usps_priority", predefined: "LargeFlatRateBox", dims: { length: 12, width: 12, height: 5.5 } },
+];
+
 type ShipAddress = {
   name: string;
   street1: string;
@@ -100,6 +119,10 @@ export default function InlineShippingCard({
 
   const [weight, setWeight] = useState<string>("");
   const [weightUnits, setWeightUnits] = useState<string>("oz");
+  const [packageType, setPackageType] = useState<string>("padded_envelope");
+  const [dimL, setDimL] = useState<string>("");
+  const [dimW, setDimW] = useState<string>("");
+  const [dimH, setDimH] = useState<string>("");
 
   const [addressStatus, setAddressStatus] = useState<"loading" | "valid" | "invalid" | "unknown">("unknown");
   const [addressErrors, setAddressErrors] = useState<string[]>([]);
@@ -116,15 +139,25 @@ export default function InlineShippingCard({
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [carriersExpanded, setCarriersExpanded] = useState(false);
   const hasUserChangedWeight = useRef(false);
+  const hasUserChangedPackage = useRef(false);
 
   // Auto-refresh rates when weight or units change (debounced, user-initiated only)
   useEffect(() => {
     if (!hasUserChangedWeight.current || !currentAddress || weight === "") return;
     const timer = setTimeout(() => {
-      fetchRates(currentAddress, weight, weightUnits);
+      fetchRates(currentAddress, weight, weightUnits, packageType, dimL, dimW, dimH);
     }, 700);
     return () => clearTimeout(timer);
   }, [weight, weightUnits]);
+
+  // Auto-refresh rates when package type or box dimensions change
+  useEffect(() => {
+    if (!hasUserChangedPackage.current || !currentAddress) return;
+    const timer = setTimeout(() => {
+      fetchRates(currentAddress, weight, weightUnits, packageType, dimL, dimW, dimH);
+    }, 700);
+    return () => clearTimeout(timer);
+  }, [packageType, dimL, dimW, dimH]);
 
   // Notify parent whenever ready state changes
   useEffect(() => {
@@ -153,7 +186,7 @@ export default function InlineShippingCard({
       setWeight(w);
       setWeightUnits(wu);
       validateAddress(data.address);
-      fetchRates(data.address, w, wu, data.requestedService);
+      fetchRates(data.address, w, wu, "padded_envelope", "", "", "", data.requestedService);
     } catch (e: any) {
       toast({ title: "Load Failed", description: e.message, variant: "destructive" });
     } finally {
@@ -174,8 +207,42 @@ export default function InlineShippingCard({
     } catch { setAddressStatus("unknown"); }
   };
 
+  const buildParcel = (
+    pkg: string, l: string, w_: string, h: string, weight: string, wu: string
+  ) => {
+    const selected = PACKAGES.find(p => p.id === pkg);
+    const weightVal = weight !== "" ? Number(weight) : 16;
+    if (selected?.predefined) {
+      return {
+        predefinedPackage: selected.predefined,
+        length: selected.dims?.length ?? 1,
+        width: selected.dims?.width ?? 1,
+        height: selected.dims?.height ?? 1,
+        weight: weightVal,
+        weightUnits: wu,
+      };
+    }
+    if (selected?.customDims) {
+      return {
+        length: l !== "" ? Number(l) : 6,
+        width: w_ !== "" ? Number(w_) : 4,
+        height: h !== "" ? Number(h) : 2,
+        weight: weightVal,
+        weightUnits: wu,
+      };
+    }
+    return {
+      length: selected?.dims?.length ?? 12,
+      width: selected?.dims?.width ?? 9,
+      height: selected?.dims?.height ?? 2,
+      weight: weightVal,
+      weightUnits: wu,
+    };
+  };
+
   const fetchRates = async (
     address: ShipAddress, w: string, wu: string,
+    pkg: string, l: string, w_: string, h: string,
     requestedService: string | null = summary?.requestedService ?? null
   ) => {
     setIsLoadingRates(true);
@@ -187,7 +254,7 @@ export default function InlineShippingCard({
       const fromAddress = isTestMode ? TEST_FROM_ADDRESS : PROD_FROM_ADDRESS;
       const result: any = await apiRequest("POST", "/api/shipments/create", {
         orderId, itemIdsToShip: [], fromAddress,
-        parcel: { length: 6, width: 4, height: 2, weight: w !== "" ? Number(w) : 16, weightUnits: wu },
+        parcel: buildParcel(pkg, l, w_, h, w, wu),
         overrideToAddress: address,
       });
       setShipmentId(result.shipmentId);
@@ -215,7 +282,7 @@ export default function InlineShippingCard({
     setCurrentAddress(editAddress);
     setEditingAddress(false);
     validateAddress(editAddress);
-    fetchRates(editAddress, weight, weightUnits);
+    fetchRates(editAddress, weight, weightUnits, packageType, dimL, dimW, dimH);
   };
 
   const selectedRate = rates.find(r => r.id === selectedRateId);
@@ -281,7 +348,94 @@ export default function InlineShippingCard({
           )}
         </div>
 
-        {/* ── Row 2: Weight ── */}
+        {/* ── Row 2: Package type ── */}
+        {(() => {
+          const stdPkgs = PACKAGES.filter(p => p.group === "standard");
+          const priorityPkgs = PACKAGES.filter(p => p.group === "usps_priority");
+          const selectedPkg = PACKAGES.find(p => p.id === packageType);
+          return (
+            <div className="space-y-1.5">
+              <Select
+                value={packageType}
+                onValueChange={v => {
+                  hasUserChangedPackage.current = true;
+                  setPackageType(v);
+                  if (v !== "box") { setDimL(""); setDimW(""); setDimH(""); }
+                }}
+              >
+                <SelectTrigger
+                  className="h-7 w-full bg-gray-900 border-gray-600"
+                  style={{ fontSize: '16px' }}
+                  data-testid={`select-package-${orderId}`}
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectLabel className="text-[10px] text-gray-500 px-2 py-1">Standard</SelectLabel>
+                    {stdPkgs.map(p => (
+                      <SelectItem key={p.id} value={p.id}>
+                        <span className="text-xs">{p.label}</span>
+                        {p.dims && !p.customDims && (
+                          <span className="text-gray-500 text-[10px] ml-1">
+                            {p.dims.length}×{p.dims.width}×{p.dims.height}"
+                          </span>
+                        )}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                  <SelectGroup>
+                    <SelectLabel className="text-[10px] text-gray-500 px-2 py-1">USPS Priority Mail</SelectLabel>
+                    {priorityPkgs.map(p => (
+                      <SelectItem key={p.id} value={p.id}>
+                        <span className="text-xs">{p.label}</span>
+                        {p.dims && (
+                          <span className="text-gray-500 text-[10px] ml-1">
+                            {p.dims.length}×{p.dims.width}×{p.dims.height}"
+                          </span>
+                        )}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+
+              {/* Dimensions row — only for custom box */}
+              {selectedPkg?.customDims && (
+                <div className="flex items-center gap-1">
+                  <span className="text-[10px] text-gray-500 shrink-0">L×W×H"</span>
+                  {[
+                    { val: dimL, set: setDimL, placeholder: "L" },
+                    { val: dimW, set: setDimW, placeholder: "W" },
+                    { val: dimH, set: setDimH, placeholder: "H" },
+                  ].map(({ val, set, placeholder }) => (
+                    <Input
+                      key={placeholder}
+                      type="number" step="0.25" min="0"
+                      value={val}
+                      placeholder={placeholder}
+                      onChange={e => { hasUserChangedPackage.current = true; set(e.target.value); }}
+                      className="h-7 flex-1 bg-gray-900 border-gray-600 px-1.5 min-w-0"
+                      style={{ fontSize: '16px' }}
+                      data-testid={`input-dim-${placeholder.toLowerCase()}-${orderId}`}
+                    />
+                  ))}
+                  <span className="text-[10px] text-gray-500 shrink-0">in</span>
+                </div>
+              )}
+
+              {/* Show fixed dims for non-custom packages */}
+              {selectedPkg && !selectedPkg.customDims && selectedPkg.dims && (
+                <p className="text-[10px] text-gray-600">
+                  {selectedPkg.dims.length}×{selectedPkg.dims.width}×{selectedPkg.dims.height}"
+                  {selectedPkg.predefined && <span className="ml-1 text-blue-900">· Flat rate</span>}
+                </p>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* ── Row 3: Weight ── */}
         <div className="flex items-center gap-1 shrink-0">
           <Input
             type="number" step="0.1" min="0" value={weight}
@@ -314,7 +468,7 @@ export default function InlineShippingCard({
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-3.5 h-3.5 text-red-400 shrink-0" />
             <span className="text-xs text-red-400 flex-1 min-w-0 truncate">{ratesError}</span>
-            <Button size="sm" variant="ghost" onClick={() => fetchRates(currentAddress!, weight, weightUnits)}>
+            <Button size="sm" variant="ghost" onClick={() => fetchRates(currentAddress!, weight, weightUnits, packageType, dimL, dimW, dimH)}>
               Retry
             </Button>
           </div>

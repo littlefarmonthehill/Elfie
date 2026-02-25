@@ -24,6 +24,8 @@ export interface Parcel {
   width: number; // inches
   height: number; // inches
   weight: number; // ounces
+  weightUnits?: string; // 'oz' | 'lb' | 'g' | 'kg' (defaults to oz if omitted)
+  predefinedPackage?: string; // EasyPost predefined package name (e.g. 'FlatRateEnvelope')
 }
 
 export interface ShippingRate {

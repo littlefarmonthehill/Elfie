@@ -88,6 +88,9 @@ export class EasyPostShippingVendor implements IShippingVendor {
           width: request.parcel.width.toString(),
           height: request.parcel.height.toString(),
           weight: request.parcel.weight.toString(),
+          ...(request.parcel.predefinedPackage
+            ? { predefined_package: request.parcel.predefinedPackage }
+            : {}),
         },
         reference: request.reference,
       },
