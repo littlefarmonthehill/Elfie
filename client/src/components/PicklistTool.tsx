@@ -4,6 +4,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Package, Loader2, List, Layers, Printer, Trash2 } from "lucide-react";
+import { resolvePartImageUrl } from "@/lib/part-image";
 
 type WarehouseLocation = {
   aisle: { id: number; name: string };
@@ -155,7 +156,7 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
         `${chanPrefix(item)}${rawOrder}`,
         item.inventoryId ? `Lot ${item.inventoryId}` : '',
       ].filter(Boolean).join(' · ');
-      const imgSrc = item.imageUrl || (item.partNumber ? `https://img.bricklink.com/PL/${item.partNumber}.jpg` : null);
+      const imgSrc = resolvePartImageUrl(item.imageUrl, item.partNumber);
       const imgTag = imgSrc
         ? `<img class="thumb" src="${imgSrc}" alt="" onerror="this.style.display='none'" />`
         : `<div class="thumb-placeholder"></div>`;

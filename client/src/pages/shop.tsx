@@ -11,6 +11,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useMutation } from "@tanstack/react-query";
 import { formatProductDisplayName, formatColorDisplayName } from "@/lib/lego-branding";
 import { PublicHeader } from "@/components/PublicHeader";
+import PartImage from "@/components/PartImage";
 import {
   Sheet,
   SheetContent,
@@ -28,7 +29,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import elfieRobot from "@assets/PlanetBrick_good_robot_1760672362080.png";
-import noImagePlaceholder from "@assets/generated_images/LEGO_image_unavailable_placeholder_957f3211.png";
 
 // Store URLs for showroom links (placeholders - update with actual store URLs)
 const BRICKLINK_STORE_URL = "#bricklink-store";
@@ -86,13 +86,6 @@ interface ProductLot {
   colorGroups: ColorGroup[];
 }
 
-function getProxyImageUrl(imageUrl: string | null | undefined): string | null {
-  if (!imageUrl) return null;
-  // BrickLink CDN images load directly — no proxy needed
-  if (imageUrl.includes('img.bricklink.com')) return imageUrl;
-  // Rebrickable and others go through our proxy
-  return `/api/images/proxy?url=${encodeURIComponent(imageUrl)}`;
-}
 
 // Mock data for development (will be replaced with API data)
 const mockProductLots: Array<Omit<ProductLot, 'uniqueColorCount' | 'colorGroups'>> = [
@@ -446,22 +439,8 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart, viewMode = 'gallery' 
     ? sortedColorGroups.filter(g => g.colorName === selectedColor)
     : sortedColorGroups;
   
-  // Use first variation's image (first color we have) for the card
-  const getInitialImageUrl = () => {
-    // First try the lot-level image
-    if (lot.imageUrl) return lot.imageUrl;
-    // Then try the first variation (first color)
-    if (lot.variations.length > 0 && lot.variations[0].imageUrl) {
-      return lot.variations[0].imageUrl;
-    }
-    // Fallback to any variation with an image
-    const variationWithImage = lot.variations.find(v => v.imageUrl);
-    return variationWithImage?.imageUrl || null;
-  };
-  
-  const [imageSrc, setImageSrc] = useState<string | null>(
-    getProxyImageUrl(getInitialImageUrl())
-  );
+  // Determine if any image source is available (for background styling)
+  const hasImage = !!(lot.imageUrl || lot.part);
 
   const updateQuantity = (idx: number, delta: number) => {
     setQuantities(prev => {
@@ -471,17 +450,6 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart, viewMode = 'gallery' 
     });
   };
   
-  const handleImageError = () => {
-    const originalUrl = getInitialImageUrl();
-    if (originalUrl && imageSrc !== originalUrl) {
-      console.warn(`[Shop] Proxy image failed for ${lot.part}, falling back to original URL`);
-      setImageSrc(originalUrl);
-    } else {
-      console.warn(`[Shop] No image available for ${lot.part}`);
-      setImageSrc(null);
-    }
-  };
-
   return (
     <>
       <Card
@@ -494,31 +462,21 @@ function LotCard({ lot, isOpen, onOpenChange, onAddToCart, viewMode = 'gallery' 
           <div
             className={`${viewMode === 'list' ? 'w-10 h-10 md:w-12 md:h-12 shrink-0' : 'w-full aspect-square'} rounded ${viewMode === 'gallery' ? 'mb-1' : ''} flex items-center justify-center border border-gray-700/50 relative overflow-hidden`}
             style={{
-              background: imageSrc
+              background: hasImage
                 ? 'radial-gradient(ellipse at 30% 30%, #1e3a8a 0%, #0f172a 50%, #000000 100%)'
                 : `linear-gradient(135deg, ${primaryColor.colorHex}60 0%, ${primaryColor.colorHex}30 100%)`,
             }}
           >
-            {imageSrc ? (
-              <div className="relative z-10 w-full h-full p-0.5 flex items-center justify-center">
-                <img 
-                  src={imageSrc} 
-                  alt={lot.name}
-                  className="max-w-full max-h-full object-contain"
-                  onError={handleImageError}
-                  data-testid={`img-part-${lot.id}`}
-                />
-              </div>
-            ) : (
-              <div className="relative z-10 w-full h-full p-1 flex items-center justify-center">
-                <img 
-                  src={noImagePlaceholder} 
-                  alt="Image not available"
-                  className="max-w-full max-h-full object-contain opacity-60"
-                  data-testid={`img-placeholder-${lot.id}`}
-                />
-              </div>
-            )}
+            <div className="relative z-10 w-full h-full p-0.5 flex items-center justify-center" data-testid={`img-part-${lot.id}`}>
+              <PartImage
+                imageUrl={lot.imageUrl}
+                partNumber={lot.part}
+                colorId={lot.firstColorId}
+                itemType={lot.itemType}
+                className="max-w-full max-h-full object-contain"
+                fallbackClassName="w-8 h-8 text-gray-500"
+              />
+            </div>
           </div>
           
           <div className={`${viewMode === 'list' ? 'flex-1 min-w-0' : ''}`}>

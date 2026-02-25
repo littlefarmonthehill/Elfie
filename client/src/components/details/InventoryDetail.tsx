@@ -1,4 +1,5 @@
 import { Package, DollarSign, Weight, Calendar, ExternalLink, TrendingUp, Sparkles, BarChart3, ShoppingCart, FileText, AlertCircle, Database, Tag, Box, Layers, Users, Clock, Zap, Info, MapPin, Boxes } from "lucide-react";
+import PartImage from "@/components/PartImage";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -100,27 +101,6 @@ interface InventoryDetailProps {
   onBrickLinkClick?: (url: string) => void;
 }
 
-// Color-accurate image with two-level fallback:
-// 1. BrickLink ItemImage CDN (color-specific: ItemImage/PN/{colorId}/{itemNo}.png)
-// 2. BrickLink generic large image (shape only: PL/{itemNo}.jpg)
-// 3. Package icon placeholder
-function InventoryImage({ colorId, itemNo, itemType }: { colorId: number | null; itemNo: string; itemType: string }) {
-  const [level, setLevel] = useState(0);
-  const typeCode = itemType === 'MINIFIG' ? 'MN' : itemType === 'SET' ? 'SN' : 'PN';
-  const srcs: string[] = [];
-  if (colorId) srcs.push(`https://img.bricklink.com/ItemImage/${typeCode}/${colorId}/${itemNo}.png`);
-  srcs.push(`https://img.bricklink.com/PL/${itemNo}.jpg`);
-  if (level >= srcs.length) return <Package className="w-12 h-12 text-gray-600" />;
-  return (
-    <img
-      key={srcs[level]}
-      src={srcs[level]}
-      alt=""
-      className="w-full h-full object-contain"
-      onError={() => setLevel(l => l + 1)}
-    />
-  );
-}
 
 export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDetailProps) {
   const [activeTab, setActiveTab] = useState("overview");
@@ -254,10 +234,12 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
         <div className="flex items-start gap-3">
           <div className="flex-shrink-0 w-24 h-24 bg-gray-900 rounded-lg border border-gray-700 p-1.5 flex items-center justify-center">
             {data.itemNo ? (
-              <InventoryImage
+              <PartImage
+                imageUrl={data.imageUrl}
+                partNumber={data.itemNo}
                 colorId={data.colorId ?? null}
-                itemNo={data.itemNo}
                 itemType={itemType}
+                fallbackClassName="w-12 h-12 text-gray-600"
               />
             ) : (
               <Package className="w-12 h-12 text-gray-600" />
