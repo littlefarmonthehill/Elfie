@@ -1504,11 +1504,21 @@ export default function Shop() {
             <p className="text-gray-500 text-[9px] md:text-sm mb-1.5 md:mb-2">
               © 2025 PlanetBrick.com
             </p>
-            <div className="flex justify-center gap-3 md:gap-4">
+            <div className="flex justify-center gap-3 md:gap-4 mb-2 md:mb-3">
               <a href="#" className="text-gray-400 hover:text-cyan-400 text-[9px] md:text-sm transition-colors" data-testid="link-about">About</a>
               <a href="#" className="text-gray-400 hover:text-cyan-400 text-[9px] md:text-sm transition-colors" data-testid="link-shipping">Shipping</a>
               <a href="#" className="text-gray-400 hover:text-cyan-400 text-[9px] md:text-sm transition-colors" data-testid="link-contact">Contact</a>
             </div>
+            <a
+              href="https://rebrickable.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-[9px] md:text-xs text-gray-500 hover:text-orange-400 transition-colors"
+              data-testid="link-rebrickable-attribution"
+            >
+              <span>Part images powered by</span>
+              <span className="font-bold text-orange-500">Rebrickable</span>
+            </a>
           </div>
         </footer>
       </div>
