@@ -33,9 +33,10 @@ interface PackingSlipProps {
   orders: PackingSlipOrder[];
 }
 
-// First page has the full header (logo, address, ship-to) so fewer items fit.
-// Continuation pages only have the slim bar so many more items fit.
-const FIRST_PAGE_ITEMS = 12;
+// First page carries the full header (bar + logo/address + ship-to + order meta).
+// Long international addresses can add 2-3 extra lines, and item names sometimes
+// wrap, so keep this conservative enough that no order ever overflows its page div.
+const FIRST_PAGE_ITEMS = 9;
 const CONT_PAGE_ITEMS  = 22;
 
 async function loadLogoDataUrl(): Promise<string> {
@@ -55,17 +56,26 @@ async function loadLogoDataUrl(): Promise<string> {
 export async function printPackingSlips(orders: PackingSlipOrder[]) {
   const logoDataUrl = await loadLogoDataUrl();
   const content = generatePackingSlipHTML(orders, logoDataUrl);
-  const printWindow = window.open('', '_blank', 'width=800,height=600');
+
+  // Open via a blob URL so the popup has its own URL rather than inheriting
+  // the admin page URL in the browser's print footer. Combined with
+  // @page { margin: 0 } this suppresses the footer in Chrome/Firefox entirely.
+  const blob = new Blob([content], { type: 'text/html' });
+  const blobUrl = URL.createObjectURL(blob);
+  const printWindow = window.open(blobUrl, '_blank', 'width=800,height=600');
   if (!printWindow) {
+    URL.revokeObjectURL(blobUrl);
     alert('Please allow popups to print packing slips');
     return;
   }
-  printWindow.document.write(content);
-  printWindow.document.close();
-  const cleanup = () => printWindow.close();
+  const cleanup = () => {
+    URL.revokeObjectURL(blobUrl);
+    printWindow.close();
+  };
   printWindow.addEventListener('afterprint', cleanup);
   printWindow.onafterprint = cleanup;
-  setTimeout(() => printWindow.print(), 250);
+  // Wait for the blob page to fully load before printing
+  printWindow.addEventListener('load', () => setTimeout(() => printWindow.print(), 100));
 }
 
 function channelLabel(order: PackingSlipOrder): string {
@@ -202,20 +212,27 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
   <meta charset="UTF-8">
   <title>Packing Slips</title>
   <style>
-    /* @page margin controls spacing consistently on every printed page.
-       The browser renders its URL / date footer inside this margin zone,
-       keeping it separate from our content. To suppress it entirely, open
-       your browser's print dialog and uncheck "Headers and footers". */
-    @page { size: letter portrait; margin: 0.5in; }
+    /* margin:0 eliminates the margin zone so Chrome/Firefox suppress their
+       built-in URL/date footer. Each .page div carries its own padding so
+       every virtual page gets identical 0.5in top and bottom spacing without
+       relying on position:fixed overlays that behave inconsistently. */
+    @page { size: letter portrait; margin: 0; }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       background: white;
       color: black;
       font-family: Arial, sans-serif;
       font-size: 11px;
+      padding: 0 0.5in; /* horizontal margins only; vertical handled per .page */
     }
 
-    .page { width: 100%; page-break-after: always; break-after: page; }
+    .page {
+      width: 100%;
+      padding-top: 0.5in;
+      padding-bottom: 0.5in;
+      page-break-after: always;
+      break-after: page;
+    }
     .page.last { page-break-after: auto; break-after: auto; }
 
     .slip-label-bar {
