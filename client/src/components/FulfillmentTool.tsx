@@ -30,6 +30,7 @@ type PicklistBinItem = {
   picklistItemId: string;
   orderId: string;
   orderNumber: string;
+  marketplace: string | null;
   itemName: string;
   quantity: number;
   sku: string;
@@ -177,7 +178,7 @@ function FulfillmentChecklist({ pulledItems, selectedOrderIds, fulfilledItems, o
                       <div className="flex items-center gap-2 flex-wrap text-gray-400">
                         <span className="tabular-nums">Qty {item.quantity}</span>
                         <span className="text-gray-600">·</span>
-                        <span className="font-mono">{item.orderNumber}</span>
+                        <span className="font-mono">{item.marketplace === 'BrickOwl' ? 'BO' : 'BL'}{item.orderNumber}</span>
                         {item.inventoryId && (
                           <span className="font-mono text-blue-400/70">Lot {item.inventoryId}</span>
                         )}

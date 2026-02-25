@@ -5628,6 +5628,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
             orderDetailId: item.orderDetailId,
             orderId: item.orderId,
             orderNumber: order?.orderNumber,
+            marketplace: order?.marketplace ?? null,
             itemName: detail?.name,
             quantity: detail?.quantity,
             sku: detail?.sku,

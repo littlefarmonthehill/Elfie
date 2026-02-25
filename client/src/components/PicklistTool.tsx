@@ -16,6 +16,7 @@ type BinPicklistItem = {
   orderDetailId: string;
   orderId: string;
   orderNumber: string;
+  marketplace: string | null;
   itemName: string;
   quantity: number;
   sku: string;
@@ -127,8 +128,12 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
 
     let body = '';
 
+    const chanPrefix = (item: BinPicklistItem) =>
+      item.marketplace === 'BrickOwl' ? 'BO' : 'BL';
+    const condLabel = (c: string | null) =>
+      c === 'N' ? 'New' : c === 'U' ? 'Used' : (c || '');
+
     if (viewMode === 'by_part') {
-      // Group by part number
       const partGroups: Map<string, BinPicklistItem[]> = new Map();
       for (const item of flatItems) {
         const key = partKey(item);
@@ -137,45 +142,50 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
       }
       body = Array.from(partGroups.entries()).map(([, variants]) => {
         const rep = variants[0];
+        // Line 1: part# · color · condition
+        const line1 = [
+          `<span class="part-no">${rep.partNumber || rep.sku}</span>`,
+          rep.colorName ? `<span class="color">${rep.colorName}</span>` : '',
+          rep.condition ? `<span class="cond">${condLabel(rep.condition)}</span>` : '',
+        ].filter(Boolean).join(' ');
         const variantRows = variants.map(v => {
           const meta = [
             `Qty ${v.quantity}`,
-            v.orderNumber,
+            `${chanPrefix(v)}${v.orderNumber}`,
             v.inventoryId ? `Lot ${v.inventoryId}` : '',
-            v.colorName,
-            v.condition === 'N' ? 'New' : v.condition === 'U' ? 'Used' : v.condition,
           ].filter(Boolean).join(' · ');
-          return `<tr><td class="spacer"></td><td class="meta" colspan="2">${meta}</td><td class="cb"></td></tr>`;
+          return `<tr><td class="spacer"></td><td class="meta" colspan="2">${meta}</td></tr>`;
         }).join('');
         return `
           <tr class="part-header">
-            <td class="cb">☐</td>
-            <td class="part-no">${rep.partNumber || rep.sku}</td>
+            <td class="part-no-cell">${line1}</td>
             <td class="part-name">${rep.itemName || ''}</td>
-            <td class="cb">☐</td>
           </tr>
           ${variantRows}`;
       }).join('');
     } else {
       // By shelf/bin
       for (const [aisle, shelves] of Object.entries(groupedBins).sort(([a], [b]) => b.localeCompare(a))) {
-        body += `<tr class="aisle-header"><td colspan="3">${aisle}</td></tr>`;
+        body += `<tr class="aisle-header"><td colspan="2">${aisle}</td></tr>`;
         for (const [shelf, bins] of Object.entries(shelves)) {
-          body += `<tr class="shelf-header"><td colspan="3">${shelf}</td></tr>`;
+          body += `<tr class="shelf-header"><td colspan="2">${shelf}</td></tr>`;
           for (const bin of bins) {
             const binName = bin.warehouseLocation?.bin.name || 'Unassigned';
             const sortedItems = [...bin.items].sort((a, b) => partKey(a).localeCompare(partKey(b), undefined, { numeric: true }));
             const itemRows = sortedItems.map(item => {
+              // Line 1: part# · color · condition  /  Line 2: description  /  Line 3: meta
+              const line1Parts = [
+                item.colorName,
+                condLabel(item.condition),
+              ].filter(Boolean).join(' · ');
               const meta = [
                 `Qty ${item.quantity}`,
-                item.orderNumber,
+                `${chanPrefix(item)}${item.orderNumber}`,
                 item.inventoryId ? `Lot ${item.inventoryId}` : '',
-                item.colorName,
-                item.condition === 'N' ? 'New' : item.condition === 'U' ? 'Used' : item.condition,
               ].filter(Boolean).join(' · ');
-              return `<tr><td class="cb">☐</td><td class="part-no">${item.partNumber || item.sku}</td><td class="part-name">${item.itemName || ''}<span class="meta"> — ${meta}</span></td><td class="cb"></td></tr>`;
+              return `<tr><td class="part-no-cell"><span class="part-no">${item.partNumber || item.sku}</span>${line1Parts ? ` <span class="color">${line1Parts}</span>` : ''}</td><td class="part-name">${item.itemName || ''}<br><span class="meta">${meta}</span></td></tr>`;
             }).join('');
-            body += `<tr class="bin-header"><td class="cb">☐</td><td colspan="2">${binName}</td></tr>${itemRows}`;
+            body += `<tr class="bin-header"><td colspan="2">${binName}</td></tr>${itemRows}`;
           }
         }
       }
@@ -188,11 +198,13 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
   .sub { font-size: 10px; color: #555; margin-bottom: 12px; }
   table { width: 100%; border-collapse: collapse; }
   td { padding: 2px 4px; vertical-align: top; }
-  .cb { width: 18px; text-align: center; font-size: 13px; }
-  .spacer { width: 22px; }
-  .part-no { width: 70px; font-weight: bold; white-space: nowrap; }
+  .part-no-cell { width: 130px; white-space: nowrap; }
+  .part-no { font-weight: bold; }
+  .color { color: #444; }
+  .cond { color: #444; }
   .part-name { }
   .meta { color: #555; font-size: 10px; }
+  .spacer { width: 16px; }
   .part-header td { padding-top: 6px; border-top: 1px solid #ddd; }
   .aisle-header td { background: #333; color: #fff; font-weight: bold; padding: 3px 6px; font-size: 12px; }
   .shelf-header td { background: #ccc; font-weight: bold; padding: 2px 6px; }
@@ -203,7 +215,6 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
 <div class="sub">${date} &nbsp;·&nbsp; ${filterLabel} &nbsp;·&nbsp; ${viewMode === 'by_part' ? 'By Part Number' : 'By Shelf / Bin'}</div>
 <table>
   <thead><tr>
-    <th class="cb" style="text-align:left">Pull</th>
     <th style="text-align:left">Part</th>
     <th style="text-align:left">Item</th>
   </tr></thead>
@@ -461,7 +472,7 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                           <div className="flex items-center gap-2 flex-wrap text-gray-400">
                             <span className="tabular-nums">Qty {item.quantity}</span>
                             <span className="text-gray-600">·</span>
-                            <span className="font-mono">{item.orderNumber}</span>
+                            <span className="font-mono">{item.marketplace === 'BrickOwl' ? 'BO' : 'BL'}{item.orderNumber}</span>
                             {item.inventoryId && (
                               <span className="font-mono text-blue-400/70">Lot {item.inventoryId}</span>
                             )}
@@ -562,7 +573,7 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                                         <div className="text-xs text-white leading-snug">{item.itemName}</div>
                                         {/* Line 3: qty · order · lot */}
                                         <div className="flex items-center gap-2 text-[10px] text-gray-500 mt-0.5 flex-wrap">
-                                          <span className="tabular-nums">Qty {item.quantity} · {item.orderNumber}</span>
+                                          <span className="tabular-nums">Qty {item.quantity} · {item.marketplace === 'BrickOwl' ? 'BO' : 'BL'}{item.orderNumber}</span>
                                           {item.inventoryId && (
                                             <span className="font-mono text-blue-400/70">Lot {item.inventoryId}</span>
                                           )}
