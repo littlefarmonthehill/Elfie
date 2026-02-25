@@ -512,8 +512,7 @@ export default function InlineShippingCard({
             const otherCarriers = [...new Set(otherRates.map(r => r.carrier).filter(Boolean))];
             return (
               <div className="space-y-1">
-                {/* Grid: select fills available space, price is fixed width */}
-                <div className="grid gap-1.5" style={{ gridTemplateColumns: "1fr auto" }}>
+                <div className="min-w-0">
                   <div className="min-w-0 overflow-hidden">
                     <Select value={selectedRateId ?? ""} onValueChange={setSelectedRateId}>
                       <SelectTrigger
@@ -563,14 +562,6 @@ export default function InlineShippingCard({
                       </SelectContent>
                     </Select>
                   </div>
-                  {selectedRate ? (
-                    <div className="flex flex-col items-end justify-center shrink-0">
-                      <span className="text-sm font-bold text-white leading-tight">${selectedRate.rate.toFixed(2)}</span>
-                      {selectedRate.deliveryDays != null && (
-                        <span className="text-[10px] text-gray-500">{selectedRate.deliveryDays}d</span>
-                      )}
-                    </div>
-                  ) : <div />}
                 </div>
                 {otherRates.length > 0 && (
                   <button
