@@ -1,6 +1,6 @@
 import { db } from "../db";
 import { blInventory } from "@shared/schema";
-import { isNull, sql } from "drizzle-orm";
+import { sql, inArray } from "drizzle-orm";
 import https from "https";
 
 export interface RebrickableImageSyncResult {
@@ -20,241 +20,266 @@ export interface BulkImageSyncResult {
 const REBRICKABLE_API_KEY = process.env.REBRICKABLE_API_KEY;
 const REBRICKABLE_API_BASE = 'https://rebrickable.com/api/v3';
 
-// Fetch part image URL from Rebrickable API with retry logic and timeout
-async function fetchPartImageUrl(partNum: string, colorId: number, retryCount: number = 0): Promise<string | null> {
-  if (!REBRICKABLE_API_KEY) {
-    console.error('[Rebrickable Images] API key not configured');
-    return null;
-  }
+// ── Color mapping cache ───────────────────────────────────────────────────────
+// Rebrickable and BrickLink use different color ID systems.
+// We fetch the mapping once and cache it for the server lifetime.
+let colorMapCache: Map<number, number> | null = null; // BL colorId → Rebrickable colorId
+
+async function getBlToRebrickableColorMap(): Promise<Map<number, number>> {
+  if (colorMapCache) return colorMapCache;
+  if (!REBRICKABLE_API_KEY) return new Map();
+
+  console.log('[Rebrickable Images] Fetching color ID mapping from Rebrickable...');
 
   return new Promise((resolve) => {
-    const url = `${REBRICKABLE_API_BASE}/lego/parts/${partNum}/colors/${colorId}/?key=${REBRICKABLE_API_KEY}`;
-    
-    console.log(`[Rebrickable Images] Fetching image for part ${partNum} color ${colorId}...`);
-    
+    const url = `${REBRICKABLE_API_BASE}/lego/colors/?key=${REBRICKABLE_API_KEY}&page_size=300`;
     const request = https.get(url, (response) => {
       let data = '';
-      
-      response.on('data', (chunk) => {
-        data += chunk;
+      response.on('data', (chunk) => { data += chunk; });
+      response.on('end', () => {
+        try {
+          if (response.statusCode === 200) {
+            const json = JSON.parse(data);
+            const map = new Map<number, number>();
+            for (const color of json.results ?? []) {
+              const blIds: number[] = color.external_ids?.BrickLink?.ext_ids ?? [];
+              for (const blId of blIds) {
+                map.set(blId, color.id);
+              }
+            }
+            colorMapCache = map;
+            console.log(`[Rebrickable Images] Color map built: ${map.size} BrickLink colors mapped`);
+            resolve(map);
+          } else {
+            console.error(`[Rebrickable Images] Color map fetch failed: HTTP ${response.statusCode}`);
+            resolve(new Map());
+          }
+        } catch (e) {
+          console.error('[Rebrickable Images] Color map parse error:', e);
+          resolve(new Map());
+        }
       });
-      
+    });
+    request.on('error', (e) => {
+      console.error('[Rebrickable Images] Color map request error:', e);
+      resolve(new Map());
+    });
+    request.setTimeout(15000, () => { request.destroy(); resolve(new Map()); });
+  });
+}
+
+// Invalidate cache (call after a long server uptime to refresh mappings)
+export function invalidateColorMapCache() {
+  colorMapCache = null;
+}
+
+// ── Core image fetch using Rebrickable color IDs ──────────────────────────────
+async function fetchPartImageUrl(
+  partNum: string,
+  rbColorId: number,
+  retryCount: number = 0
+): Promise<string | null> {
+  if (!REBRICKABLE_API_KEY) return null;
+
+  return new Promise((resolve) => {
+    const url = `${REBRICKABLE_API_BASE}/lego/parts/${partNum}/colors/${rbColorId}/?key=${REBRICKABLE_API_KEY}`;
+
+    const request = https.get(url, (response) => {
+      let data = '';
+      response.on('data', (chunk) => { data += chunk; });
       response.on('end', async () => {
         try {
           if (response.statusCode === 200) {
             const json = JSON.parse(data);
-            // Return the part_img_url which points to LDraw renders
-            const imageUrl = json.part_img_url;
+            const imageUrl = json.part_img_url ?? null;
             if (imageUrl) {
-              console.log(`[Rebrickable Images] ✓ Found image for part ${partNum} color ${colorId}`);
-              resolve(imageUrl);
-            } else {
-              console.warn(`[Rebrickable Images] No image URL for part ${partNum} color ${colorId}`);
-              resolve(null);
+              console.log(`[Rebrickable Images] ✓ ${partNum} color ${rbColorId} → ${imageUrl}`);
             }
+            resolve(imageUrl);
           } else if (response.statusCode === 404) {
-            // Part-color combination doesn't exist in Rebrickable
-            console.log(`[Rebrickable Images] Part ${partNum} color ${colorId} not found (404)`);
             resolve(null);
           } else if (response.statusCode === 429) {
-            // Rate limit hit - implement exponential backoff
             if (retryCount < 3) {
-              const waitTime = Math.min(30000, 5000 * Math.pow(2, retryCount)); // 5s, 10s, 20s
-              console.warn(`[Rebrickable Images] Rate limit hit for ${partNum} color ${colorId}. Waiting ${waitTime}ms before retry ${retryCount + 1}/3...`);
-              await new Promise(r => setTimeout(r, waitTime));
-              const result = await fetchPartImageUrl(partNum, colorId, retryCount + 1);
-              resolve(result);
+              const wait = Math.min(30000, 5000 * Math.pow(2, retryCount));
+              console.warn(`[Rebrickable Images] Rate limit — waiting ${wait}ms (retry ${retryCount + 1}/3)`);
+              await new Promise(r => setTimeout(r, wait));
+              resolve(await fetchPartImageUrl(partNum, rbColorId, retryCount + 1));
             } else {
-              console.error(`[Rebrickable Images] Max retries reached for part ${partNum} color ${colorId}`);
+              console.error(`[Rebrickable Images] Max retries reached for ${partNum} color ${rbColorId}`);
               resolve(null);
             }
           } else {
-            console.error(`[Rebrickable Images] API error ${response.statusCode} for part ${partNum} color ${colorId}`);
+            console.error(`[Rebrickable Images] HTTP ${response.statusCode} for ${partNum} color ${rbColorId}`);
             resolve(null);
           }
-        } catch (error) {
-          console.error(`[Rebrickable Images] Parse error for part ${partNum}:`, error);
+        } catch (e) {
+          console.error(`[Rebrickable Images] Parse error for ${partNum}:`, e);
           resolve(null);
         }
       });
-    }).on('error', (error) => {
-      console.error(`[Rebrickable Images] Request error for part ${partNum}:`, error);
+    });
+    request.on('error', (e) => {
+      console.error(`[Rebrickable Images] Request error for ${partNum}:`, e);
       resolve(null);
     });
-
-    // Set 30 second timeout for the request
     request.setTimeout(30000, () => {
-      console.error(`[Rebrickable Images] Timeout for part ${partNum} color ${colorId} - request took >30s`);
       request.destroy();
       resolve(null);
     });
   });
 }
 
-// Sync images for inventory items without images
-export async function syncRebrickableImages(): Promise<RebrickableImageSyncResult> {
-  console.log('[Rebrickable Images] Starting image sync for items without images...');
-  
-  if (!REBRICKABLE_API_KEY) {
-    console.error('[Rebrickable Images] REBRICKABLE_API_KEY not set in environment variables');
-    return {
-      imagesProcessed: 0,
-      imagesFetched: 0,
-      errors: 1,
-    };
+// ── Public helper: fetch image by BrickLink color ID ─────────────────────────
+// Used by inventory sync for newly added items
+export async function fetchImageByBlColor(
+  partNum: string,
+  blColorId: number
+): Promise<string | null> {
+  const colorMap = await getBlToRebrickableColorMap();
+  const rbColorId = colorMap.get(blColorId);
+  if (rbColorId === undefined) {
+    console.log(`[Rebrickable Images] No RB mapping for BL color ${blColorId} (part ${partNum})`);
+    return null;
   }
+  return fetchPartImageUrl(partNum, rbColorId);
+}
+
+// ── Post-inventory-sync: background image fetch for newly inserted items ──────
+// Called fire-and-forget after inventory sync inserts new items.
+// Rate-limited to avoid hammering Rebrickable (1 request per 3.5 seconds).
+export function scheduleImageFetchForNewItems(
+  newItems: Array<{ id: number; itemNo: string; colorId: number | null; itemType: string }>
+) {
+  const partsOnly = newItems.filter(
+    (item) => item.itemType === 'PART' && item.colorId !== null && item.itemNo
+  );
+  if (partsOnly.length === 0) return;
+
+  console.log(`[Rebrickable Images] Scheduling background image fetch for ${partsOnly.length} new parts...`);
+
+  // Fire-and-forget — intentionally not awaited
+  (async () => {
+    const colorMap = await getBlToRebrickableColorMap();
+    let fetched = 0;
+    for (const item of partsOnly) {
+      try {
+        const rbColorId = colorMap.get(item.colorId!);
+        if (rbColorId === undefined) continue;
+        const imageUrl = await fetchPartImageUrl(item.itemNo, rbColorId);
+        if (imageUrl) {
+          await db.update(blInventory)
+            .set({ imageUrl, thumbnailUrl: imageUrl })
+            .where(sql`${blInventory.id} = ${item.id} AND ${blInventory.imageUrl} IS NULL`);
+          fetched++;
+        }
+      } catch (e) {
+        console.error(`[Rebrickable Images] Error fetching image for new item ${item.itemNo}:`, e);
+      }
+      // Rate limit: 3.5s between requests (Rebrickable allows ~1000/day free)
+      await new Promise(r => setTimeout(r, 3500));
+    }
+    console.log(`[Rebrickable Images] Background fetch complete: ${fetched}/${partsOnly.length} images obtained`);
+  })();
+}
+
+// ── Batch sync: fill images for existing inventory items that have none ────────
+export async function syncRebrickableImages(): Promise<RebrickableImageSyncResult> {
+  if (!REBRICKABLE_API_KEY) {
+    console.error('[Rebrickable Images] REBRICKABLE_API_KEY not set');
+    return { imagesProcessed: 0, imagesFetched: 0, errors: 1 };
+  }
+
+  // Build color map first
+  const colorMap = await getBlToRebrickableColorMap();
+  if (colorMap.size === 0) {
+    console.error('[Rebrickable Images] Empty color map — skipping sync');
+    return { imagesProcessed: 0, imagesFetched: 0, errors: 1 };
+  }
+
+  console.log('[Rebrickable Images] Starting image sync for items without images...');
 
   let imagesProcessed = 0;
   let imagesFetched = 0;
   let errors = 0;
 
   try {
-    // Find all inventory items without images
     const itemsWithoutImages = await db
-      .select({
-        id: blInventory.id,
-        itemNo: blInventory.itemNo,
-        colorId: blInventory.colorId,
-      })
+      .select({ id: blInventory.id, itemNo: blInventory.itemNo, colorId: blInventory.colorId })
       .from(blInventory)
-      .where(
-        sql`${blInventory.imageUrl} IS NULL OR ${blInventory.imageUrl} = ''`
-      )
-      .limit(100); // Process in batches to avoid rate limiting
+      .where(sql`(${blInventory.imageUrl} IS NULL OR ${blInventory.imageUrl} = '') AND ${blInventory.itemType} = 'PART'`)
+      .limit(100);
 
-    console.log(`[Rebrickable Images] Found ${itemsWithoutImages.length} items without images`);
+    console.log(`[Rebrickable Images] Found ${itemsWithoutImages.length} PART items without images`);
+    if (itemsWithoutImages.length === 0) return { imagesProcessed: 0, imagesFetched: 0, errors: 0 };
 
-    if (itemsWithoutImages.length === 0) {
-      console.log('[Rebrickable Images] All items already have images');
-      return {
-        imagesProcessed: 0,
-        imagesFetched: 0,
-        errors: 0,
-      };
-    }
-
-    // Process each item
-    for (let i = 0; i < itemsWithoutImages.length; i++) {
-      const item = itemsWithoutImages[i];
+    for (const item of itemsWithoutImages) {
+      imagesProcessed++;
       try {
-        imagesProcessed++;
-        
-        console.log(`[Rebrickable Images] Processing item ${i + 1}/${itemsWithoutImages.length}: ${item.itemNo} (color ${item.colorId})`);
-        
-        // Skip if colorId is null
-        if (item.colorId === null) {
-          console.log(`[Rebrickable Images] Skipping ${item.itemNo} - no color ID`);
+        if (item.colorId === null) continue;
+
+        const rbColorId = colorMap.get(item.colorId);
+        if (rbColorId === undefined) {
+          console.log(`[Rebrickable Images] No RB color mapping for BL color ${item.colorId} (${item.itemNo})`);
           continue;
         }
-        
-        // Fetch image URL from Rebrickable
-        const imageUrl = await fetchPartImageUrl(item.itemNo, item.colorId);
-        
+
+        const imageUrl = await fetchPartImageUrl(item.itemNo, rbColorId);
         if (imageUrl) {
-          // Update the inventory item with the image URL
-          await db
-            .update(blInventory)
-            .set({ 
-              imageUrl: imageUrl,
-              thumbnailUrl: imageUrl, // Use same URL for both
-            })
+          await db.update(blInventory)
+            .set({ imageUrl, thumbnailUrl: imageUrl })
             .where(sql`${blInventory.id} = ${item.id}`);
-          
           imagesFetched++;
-          console.log(`[Rebrickable Images] ✓ Updated database for ${item.itemNo} (${imagesFetched}/${itemsWithoutImages.length} fetched so far)`);
-        } else {
-          console.log(`[Rebrickable Images] ✗ No image found for ${item.itemNo} color ${item.colorId}`);
+          console.log(`[Rebrickable Images] ✓ Saved image for ${item.itemNo} (BL:${item.colorId}→RB:${rbColorId})`);
         }
-        
-        // Rate limiting: longer delay between requests to respect API limits
-        // Rebrickable has strict rate limits, so we use 3 second delays
-        console.log(`[Rebrickable Images] Waiting 3 seconds before next request...`);
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        
-      } catch (error) {
-        console.error(`[Rebrickable Images] Error processing item ${item.itemNo}:`, error);
+      } catch (e) {
+        console.error(`[Rebrickable Images] Error for ${item.itemNo}:`, e);
         errors++;
       }
+      await new Promise(r => setTimeout(r, 3000));
     }
 
-    console.log(`[Rebrickable Images] ✓ Sync complete: ${imagesFetched} images fetched, ${errors} errors`);
-    
-    return {
-      imagesProcessed,
-      imagesFetched,
-      errors,
-    };
-    
-  } catch (error) {
-    console.error('[Rebrickable Images] Sync failed:', error);
-    throw error;
+    console.log(`[Rebrickable Images] Sync complete: ${imagesFetched} fetched, ${errors} errors`);
+    return { imagesProcessed, imagesFetched, errors };
+  } catch (e) {
+    console.error('[Rebrickable Images] Sync failed:', e);
+    throw e;
   }
 }
 
-// Bulk sync: keep fetching images until all items have them
-export async function bulkSyncRebrickableImages(maxBatches: number = 500): Promise<BulkImageSyncResult> {
-  console.log('[Rebrickable Images] Starting BULK image sync...');
-  
+// ── Bulk sync driver ──────────────────────────────────────────────────────────
+export async function bulkSyncRebrickableImages(maxBatches = 500): Promise<BulkImageSyncResult> {
   if (!REBRICKABLE_API_KEY) {
-    console.error('[Rebrickable Images] REBRICKABLE_API_KEY not set in environment variables');
-    return {
-      totalBatches: 0,
-      totalImagesProcessed: 0,
-      totalImagesFetched: 0,
-      totalErrors: 1,
-      completed: false,
-    };
+    return { totalBatches: 0, totalImagesProcessed: 0, totalImagesFetched: 0, totalErrors: 1, completed: false };
   }
 
+  console.log('[Rebrickable Images] Starting BULK image sync...');
   let totalBatches = 0;
   let totalImagesProcessed = 0;
   let totalImagesFetched = 0;
   let totalErrors = 0;
-  let hasMoreImages = true;
+  let hasMore = true;
 
-  try {
-    while (hasMoreImages && totalBatches < maxBatches) {
-      totalBatches++;
-      
-      console.log(`[Rebrickable Images] 🔄 Starting batch ${totalBatches}/${maxBatches}...`);
-      
-      // Run one batch sync
-      const batchResult = await syncRebrickableImages();
-      
-      totalImagesProcessed += batchResult.imagesProcessed;
-      totalImagesFetched += batchResult.imagesFetched;
-      totalErrors += batchResult.errors;
-      
-      // Check if there are more images to fetch
-      if (batchResult.imagesProcessed === 0) {
-        hasMoreImages = false;
-        console.log('[Rebrickable Images] ✅ No more images to fetch - bulk sync complete!');
-      } else {
-        console.log(`[Rebrickable Images] 📊 Progress: ${totalImagesFetched} total images fetched across ${totalBatches} batches`);
-        
-        // Longer delay between batches to respect strict API rate limits
-        await new Promise(resolve => setTimeout(resolve, 10000)); // 10 second delay between batches
-      }
+  while (hasMore && totalBatches < maxBatches) {
+    totalBatches++;
+    console.log(`[Rebrickable Images] Batch ${totalBatches}/${maxBatches}...`);
+    const result = await syncRebrickableImages();
+    totalImagesProcessed += result.imagesProcessed;
+    totalImagesFetched += result.imagesFetched;
+    totalErrors += result.errors;
+    if (result.imagesProcessed === 0) {
+      hasMore = false;
+      console.log('[Rebrickable Images] Bulk sync complete — no more items');
+    } else {
+      console.log(`[Rebrickable Images] Progress: ${totalImagesFetched} total images across ${totalBatches} batches`);
+      await new Promise(r => setTimeout(r, 10000));
     }
-
-    const completed = !hasMoreImages;
-    
-    if (!completed) {
-      console.log(`[Rebrickable Images] ⚠️ Reached max batch limit (${maxBatches}). Some images may remain unfetched.`);
-    }
-
-    console.log(`[Rebrickable Images] 🎉 Bulk sync finished: ${totalBatches} batches, ${totalImagesFetched} images fetched, ${totalErrors} errors`);
-    
-    return {
-      totalBatches,
-      totalImagesProcessed,
-      totalImagesFetched,
-      totalErrors,
-      completed,
-    };
-    
-  } catch (error) {
-    console.error('[Rebrickable Images] Bulk sync failed:', error);
-    throw error;
   }
+
+  return {
+    totalBatches,
+    totalImagesProcessed,
+    totalImagesFetched,
+    totalErrors,
+    completed: !hasMore,
+  };
 }

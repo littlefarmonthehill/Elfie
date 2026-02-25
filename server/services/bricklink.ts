@@ -4,6 +4,7 @@ import { eq, gte, sql, inArray, and } from "drizzle-orm";
 import OAuth from "oauth-1.0a";
 import crypto from "crypto";
 import { syncRebrickableSetParts } from "./rebrickable";
+import { scheduleImageFetchForNewItems } from "./rebrickable-images";
 import { syncLock } from "./sync-lock";
 import { batchEmbedInventory, batchEmbedSets } from "./embeddings";
 import { syncBrickLinkToBrickOwl } from "./brickowl";
@@ -489,6 +490,19 @@ export async function syncBricklinkInventory(): Promise<{ added: number; updated
         await db.insert(blInventory).values(values);
         added += batch.length;
         console.log(`Inserted batch ${Math.floor(i / BATCH_SIZE) + 1}: ${added}/${newItems.length} new items`);
+      }
+
+      // Fire-and-forget: fetch Rebrickable color-accurate images for new PART items in background
+      const newPartItems = newItems
+        .filter(item => item.item.type === 'PART' && item.color_id)
+        .map(item => ({
+          id: item.inventory_id,
+          itemNo: item.item.no,
+          colorId: item.color_id,
+          itemType: item.item.type,
+        }));
+      if (newPartItems.length > 0) {
+        scheduleImageFetchForNewItems(newPartItems);
       }
     }
     
