@@ -419,329 +419,338 @@ export default function FulfillmentTool() {
 
   return (
     <>
-      <div className="space-y-4">
-        {/* Print & Ship Controls */}
-        <div className="flex items-center justify-between gap-2 pb-3 border-b border-gray-700">
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleSelectAll}
-              className="h-7 text-xs"
-              data-testid="button-select-all"
-            >
-              {selectedOrders.size === sortedOrders.length ? 'Deselect All' : 'Select All'}
-            </Button>
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            {isSplitMode && (
-              <>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleCancelSplit}
-                  data-testid="button-cancel-split"
-                >
-                  Cancel Split
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={handleConfirmSplit}
-                  disabled={selectedItemsForSplit.size === 0}
-                  data-testid="button-confirm-split"
-                >
-                  <Scissors className="w-3.5 h-3.5 mr-1.5" />
-                  Confirm Split ({selectedItemsForSplit.size})
-                </Button>
-              </>
-            )}
-          </div>
-        </div>
+      {/* ── Two-column layout on lg+ (iPad Pro / Mac), single column on mobile ── */}
+      <div className="flex flex-col lg:grid lg:grid-cols-2 lg:gap-6 lg:items-start gap-4">
 
-        {/* Orders Section - Filter Toggles with Print Checkboxes */}
-        <div>
-          <h3 className="text-xs md:text-base lg:text-lg font-bold text-gray-300 mb-3">Orders</h3>
-          <div className="grid grid-cols-4 gap-2">
-            {sortedOrders.map((order) => {
-              const isSelected = selectedOrders.has(order.id);
-              const lotCount = data?.items.filter(i => i.orderId === order.id).length ?? 0;
-              const isPriority = !!(order.requestedShippingService &&
-                /priority|express|overnight|expedited|2-day|2nd.day|next.day|same.day|rush/i.test(order.requestedShippingService));
-              const formattedDate = order.orderDate
-                ? new Date(order.orderDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                : null;
-              const fullName: string = (order.shipTo as any)?.name || order.customerUsername || '';
-              const lastName = fullName.trim().split(' ').pop() || '';
-              return (
-                <div
-                  key={order.id}
-                  onClick={() => handleOrderToggle(order.id)}
-                  className={`relative border rounded-lg p-2 cursor-pointer transition-colors ${
-                    isSelected
-                      ? 'bg-purple-500/20 border-purple-500'
-                      : isPriority
-                        ? 'bg-amber-950/20 border-amber-500/50 hover-elevate'
-                        : 'bg-gray-800/50 border-gray-700 hover-elevate'
-                  }`}
-                  data-testid={`order-${order.orderNumber}`}
-                >
-                  {isPriority && (
-                    <div className="absolute -top-2 -right-2 w-5 h-5 bg-amber-400 rounded-full flex items-center justify-center shadow-md z-10">
-                      <Star className="w-3 h-3 fill-amber-900 text-amber-900" />
-                    </div>
-                  )}
-                  <p className={`text-[9px] font-mono font-semibold leading-tight ${isSelected ? 'text-purple-300' : 'text-white'}`}>
-                    {order.orderNumber}
-                  </p>
-                  {(lastName || order.marketplace) && (
-                    <p className="text-[10px] text-gray-300 truncate">
-                      {lastName || order.marketplace}
-                    </p>
-                  )}
-                  <div className="flex items-center justify-between mt-1">
-                    <span className="text-[10px] text-gray-300">{formattedDate}</span>
-                    {lotCount > 0 && (
-                      <span className="w-[18px] h-[18px] rounded-full bg-blue-700/80 flex items-center justify-center text-[9px] font-bold text-white tabular-nums shrink-0">
-                        {lotCount}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+        {/* ═══ LEFT COLUMN: Controls + Orders + Order Details ═══ */}
+        <div className="space-y-4">
 
-      {/* Batch Labels Results Panel */}
-      {batchResults.length > 0 && (
-        <div className="border border-green-500/40 rounded-lg overflow-hidden bg-green-950/20">
-          <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-green-500/30 bg-green-900/20">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-green-400" />
-              <span className="text-sm font-bold text-green-300">
-                {batchResults.filter(r => r.trackingNumber).length} of {batchResults.length} Labels Purchased
-              </span>
-            </div>
+          {/* Print & Ship Controls */}
+          <div className="flex items-center justify-between gap-2 pb-3 border-b border-gray-700">
             <div className="flex items-center gap-2">
               <Button
                 size="sm"
                 variant="outline"
-                className="border-green-500/40 text-green-300"
-                onClick={() => {
-                  batchResults.forEach(r => {
-                    if (r.labelUrl) window.open(r.labelUrl, "_blank");
-                  });
-                }}
-                data-testid="button-print-all-labels"
+                onClick={handleSelectAll}
+                data-testid="button-select-all"
               >
-                <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
-                Open All Labels
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="text-gray-500"
-                onClick={() => {
-                  setBatchResults([]);
-                  setPurchasedLabels(new Map());
-                  setSelectedOrders(new Set());
-                }}
-                data-testid="button-dismiss-batch-results"
-              >
-                Done
+                {selectedOrders.size === sortedOrders.length ? 'Deselect All' : 'Select All'}
               </Button>
             </div>
-          </div>
-          <div className="divide-y divide-green-900/30">
-            {batchResults.map((result) => (
-              <div key={result.orderId} className="flex items-center gap-3 px-3 py-2 flex-wrap">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-bold text-white">{result.orderNumber}</span>
-                    {result.carrier && result.service && (
-                      <span className="text-xs text-gray-400">{result.carrier} {result.service}</span>
-                    )}
-                    {result.rate != null && (
-                      <span className="text-xs font-semibold text-green-300">${result.rate.toFixed(2)}</span>
-                    )}
-                  </div>
-                  {result.trackingNumber ? (
-                    <p className="text-[11px] font-mono text-gray-300 mt-0.5">{result.trackingNumber}</p>
-                  ) : (
-                    <p className="text-[11px] text-red-400 mt-0.5">Purchase failed</p>
-                  )}
-                </div>
-                {result.labelUrl && (
-                  <Button asChild variant="outline" size="sm" className="shrink-0 border-green-500/40 text-green-300">
-                    <a href={result.labelUrl} target="_blank" rel="noopener noreferrer" data-testid={`button-label-${result.orderId}`}>
-                      <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
-                      Label
-                    </a>
-                  </Button>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Inline Shipping Panel — one card per selected order */}
-      {selectedOrders.size > 0 && (
-        <div>
-          <div className="flex items-center justify-between gap-2 mb-2">
-            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wide flex items-center gap-1.5">
-              <Truck className="w-3.5 h-3.5 text-purple-400" />
-              Shipping
-            </h3>
-            {!isSplitMode && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
+            <div className="flex gap-2 flex-wrap">
+              {isSplitMode && (
+                <>
                   <Button
                     size="sm"
                     variant="outline"
-                    disabled={selectedOrders.size === 0}
-                    data-testid="button-actions-menu"
+                    onClick={handleCancelSplit}
+                    data-testid="button-cancel-split"
                   >
-                    <MoreVertical className="w-3.5 h-3.5 mr-1.5" />
-                    Actions
-                    <ChevronDown className="w-3.5 h-3.5 ml-1.5" />
+                    Cancel Split
                   </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  {readyToShip.size > 0 && (
-                    <>
-                      <DropdownMenuItem
-                        onClick={handleShipAll}
-                        disabled={isShippingAll}
-                        data-testid="menu-ship-all"
-                      >
-                        {isShippingAll
-                          ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Shipping...</>
-                          : <><Package className="w-4 h-4 mr-2" />Ship All ({readyToShip.size})</>
-                        }
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                    </>
-                  )}
-                  <DropdownMenuItem
-                    onClick={() => handlePrintPackingSlips(Array.from(selectedOrders))}
-                    disabled={selectedOrders.size === 0}
-                    data-testid="menu-print-packing-slips"
+                  <Button
+                    size="sm"
+                    onClick={handleConfirmSplit}
+                    disabled={selectedItemsForSplit.size === 0}
+                    data-testid="button-confirm-split"
                   >
-                    <Printer className="w-4 h-4 mr-2" />
-                    Print Packing Slips
-                    {selectedOrders.size > 0 && (
-                      <Badge variant="secondary" className="ml-auto text-xs">
-                        {selectedOrders.size}
-                      </Badge>
-                    )}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => handlePrintLotLabels(Array.from(selectedOrders))}
-                    disabled={selectedOrders.size === 0}
-                    data-testid="menu-print-lot-labels"
-                  >
-                    <Tag className="w-4 h-4 mr-2" />
-                    Print Lot Labels
-                    {selectedOrders.size > 0 && (
-                      <Badge variant="secondary" className="ml-auto text-xs">
-                        {selectedOrders.size}
-                      </Badge>
-                    )}
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={handleInitiateSplit}
-                    disabled={!selectedOrderId}
-                    data-testid="menu-split-order"
-                  >
-                    <Scissors className="w-4 h-4 mr-2" />
-                    Split Order
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
+                    <Scissors className="w-3.5 h-3.5 mr-1.5" />
+                    Confirm Split ({selectedItemsForSplit.size})
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
-          <div className="space-y-2">
-            {[...selectedOrders].map((orderId) => {
-              const items: OrderItem[] = (data?.items ?? [])
-                .filter(item => item.orderId === orderId)
-                .map(item => ({
-                  id: item.id,
-                  sku: item.sku,
-                  bricklinkPartNumber: item.bricklinkPartNumber,
-                  name: item.name,
-                  quantity: item.quantity,
-                  colorName: item.colorName,
-                  condition: item.condition,
-                  binName: item.binName,
-                }));
-              return (
-                <InlineShippingCard
-                  key={orderId}
-                  orderId={orderId}
-                  isTestMode={settings?.easypostKeyMode === 'test'}
-                  onReadyChange={handleReadyChange}
-                  purchasedLabel={purchasedLabels.get(orderId)}
-                  orderItems={items}
-                />
-              );
-            })}
-          </div>
-        </div>
-      )}
 
-      {/* Fulfill Section - Grouped by bin */}
-      <div>
-        <h3 className="text-sm font-bold text-gray-300 mb-3">Order Details</h3>
-        <div className="space-y-3">
-          {Object.entries(itemsByBin).map(([binKey, bin]) => (
-            <div key={binKey} className="space-y-2" data-testid={`bin-group-${binKey}`}>
-              {/* Bin Header */}
-              <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-2">
-                <h4 className="text-xs font-bold text-purple-400">
-                  {bin.aisleName && bin.shelfName 
-                    ? `${bin.aisleName} › ${bin.shelfName} › ${bin.binName}`
-                    : bin.binName}
-                </h4>
-              </div>
-
-              {/* Items in this bin */}
-              {bin.items.map((item) => (
-                <div
-                  key={item.id}
-                  className="ml-4 bg-gray-800/50 border border-gray-700 rounded-lg p-2.5 hover-elevate"
-                  data-testid={`fulfillment-item-${item.id}`}
-                >
-                  <div className="flex items-center gap-3">
-                    {/* Split Checkbox - only show when in split mode */}
-                    {isSplitMode && (
-                      <Checkbox
-                        data-testid={`checkbox-split-${item.id}`}
-                        checked={selectedItemsForSplit.has(item.id)}
-                        onCheckedChange={() => handleItemSplitToggle(item.id)}
-                      />
+          {/* Orders Section */}
+          <div>
+            <h3 className="text-sm lg:text-lg font-bold text-gray-300 mb-3">Orders</h3>
+            <div className="grid grid-cols-4 lg:grid-cols-3 gap-2 lg:gap-3">
+              {sortedOrders.map((order) => {
+                const isSelected = selectedOrders.has(order.id);
+                const lotCount = data?.items.filter(i => i.orderId === order.id).length ?? 0;
+                const isPriority = !!(order.requestedShippingService &&
+                  /priority|express|overnight|expedited|2-day|2nd.day|next.day|same.day|rush/i.test(order.requestedShippingService));
+                const formattedDate = order.orderDate
+                  ? new Date(order.orderDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                  : null;
+                const fullName: string = (order.shipTo as any)?.name || order.customerUsername || '';
+                const lastName = fullName.trim().split(' ').pop() || '';
+                return (
+                  <div
+                    key={order.id}
+                    onClick={() => handleOrderToggle(order.id)}
+                    className={`relative border rounded-lg p-2 lg:p-3 cursor-pointer transition-colors ${
+                      isSelected
+                        ? 'bg-purple-500/20 border-purple-500'
+                        : isPriority
+                          ? 'bg-amber-950/20 border-amber-500/50 hover-elevate'
+                          : 'bg-gray-800/50 border-gray-700 hover-elevate'
+                    }`}
+                    data-testid={`order-${order.orderNumber}`}
+                  >
+                    {isPriority && (
+                      <div className="absolute -top-2 -right-2 w-5 h-5 lg:w-6 lg:h-6 bg-amber-400 rounded-full flex items-center justify-center shadow-md z-10">
+                        <Star className="w-3 h-3 lg:w-3.5 lg:h-3.5 fill-amber-900 text-amber-900" />
+                      </div>
                     )}
-
-                    {/* Item Details */}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-white">
-                        {item.bricklinkPartNumber && `${item.bricklinkPartNumber} - `}{cleanItemName(item.name, item.bricklinkPartNumber)}
+                    <p className={`text-[9px] lg:text-xs font-mono font-semibold leading-tight ${isSelected ? 'text-purple-300' : 'text-white'}`}>
+                      {order.orderNumber}
+                    </p>
+                    {(lastName || order.marketplace) && (
+                      <p className="text-[10px] lg:text-sm text-gray-300 truncate mt-0.5">
+                        {lastName || order.marketplace}
                       </p>
-                      <p className="text-xs font-bold text-gray-300 mt-0.5">
-                        {item.colorName && `${item.colorName} • `}
-                        {item.condition && `${item.condition} • `}
-                        Qty {item.quantity} • {item.orderNumber}
-                      </p>
+                    )}
+                    <div className="flex items-center justify-between mt-1 lg:mt-2">
+                      <span className="text-[10px] lg:text-xs text-gray-400">{formattedDate}</span>
+                      {lotCount > 0 && (
+                        <span className="w-[18px] h-[18px] lg:w-6 lg:h-6 rounded-full bg-blue-700/80 flex items-center justify-center text-[9px] lg:text-[11px] font-bold text-white tabular-nums shrink-0">
+                          {lotCount}
+                        </span>
+                      )}
                     </div>
                   </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Fulfill Section - Grouped by bin */}
+          <div>
+            <h3 className="text-sm lg:text-base font-bold text-gray-300 mb-3">Order Details</h3>
+            <div className="space-y-3">
+              {Object.entries(itemsByBin).map(([binKey, bin]) => (
+                <div key={binKey} className="space-y-2" data-testid={`bin-group-${binKey}`}>
+                  <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-2 lg:p-3">
+                    <h4 className="text-xs lg:text-sm font-bold text-purple-400">
+                      {bin.aisleName && bin.shelfName
+                        ? `${bin.aisleName} › ${bin.shelfName} › ${bin.binName}`
+                        : bin.binName}
+                    </h4>
+                  </div>
+                  {bin.items.map((item) => (
+                    <div
+                      key={item.id}
+                      className="ml-4 bg-gray-800/50 border border-gray-700 rounded-lg p-2.5 lg:p-3 hover-elevate"
+                      data-testid={`fulfillment-item-${item.id}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        {isSplitMode && (
+                          <Checkbox
+                            data-testid={`checkbox-split-${item.id}`}
+                            checked={selectedItemsForSplit.has(item.id)}
+                            onCheckedChange={() => handleItemSplitToggle(item.id)}
+                          />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs lg:text-sm font-medium text-white">
+                            {item.bricklinkPartNumber && `${item.bricklinkPartNumber} - `}{cleanItemName(item.name, item.bricklinkPartNumber)}
+                          </p>
+                          <p className="text-xs lg:text-sm font-bold text-gray-300 mt-0.5">
+                            {item.colorName && `${item.colorName} • `}
+                            {item.condition && `${item.condition} • `}
+                            Qty {item.quantity} • {item.orderNumber}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ))}
             </div>
-          ))}
+          </div>
+
         </div>
-      </div>
-    </div>
+        {/* ═══ end LEFT COLUMN ═══ */}
+
+        {/* ═══ RIGHT COLUMN: Batch Results + Shipping Cards ═══ */}
+        <div className="space-y-4">
+
+          {/* Batch Labels Results Panel */}
+          {batchResults.length > 0 && (
+            <div className="border border-green-500/40 rounded-lg overflow-hidden bg-green-950/20">
+              <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-green-500/30 bg-green-900/20">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-green-400" />
+                  <span className="text-sm font-bold text-green-300">
+                    {batchResults.filter(r => r.trackingNumber).length} of {batchResults.length} Labels Purchased
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-green-500/40 text-green-300"
+                    onClick={() => {
+                      batchResults.forEach(r => {
+                        if (r.labelUrl) window.open(r.labelUrl, "_blank");
+                      });
+                    }}
+                    data-testid="button-print-all-labels"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
+                    Open All Labels
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-gray-500"
+                    onClick={() => {
+                      setBatchResults([]);
+                      setPurchasedLabels(new Map());
+                      setSelectedOrders(new Set());
+                    }}
+                    data-testid="button-dismiss-batch-results"
+                  >
+                    Done
+                  </Button>
+                </div>
+              </div>
+              <div className="divide-y divide-green-900/30">
+                {batchResults.map((result) => (
+                  <div key={result.orderId} className="flex items-center gap-3 px-3 py-2 flex-wrap">
+                    <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-bold text-white">{result.orderNumber}</span>
+                          {result.carrier && result.service && (
+                            <span className="text-xs text-gray-400">{result.carrier} {result.service}</span>
+                          )}
+                          {result.rate != null && (
+                            <span className="text-xs font-semibold text-green-300">${result.rate.toFixed(2)}</span>
+                          )}
+                        </div>
+                        {result.trackingNumber ? (
+                          <p className="text-[11px] font-mono text-gray-300 mt-0.5">{result.trackingNumber}</p>
+                        ) : (
+                          <p className="text-[11px] text-red-400 mt-0.5">Purchase failed</p>
+                        )}
+                      </div>
+                      {result.labelUrl && (
+                        <Button asChild variant="outline" size="sm" className="shrink-0 border-green-500/40 text-green-300">
+                          <a href={result.labelUrl} target="_blank" rel="noopener noreferrer" data-testid={`button-label-${result.orderId}`}>
+                            <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
+                            Label
+                          </a>
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Inline Shipping Panel — one card per selected order */}
+            {selectedOrders.size > 0 && (
+              <div>
+                <div className="flex items-center justify-between gap-2 mb-3">
+                  <h3 className="text-sm lg:text-base font-bold text-gray-400 uppercase tracking-wide flex items-center gap-1.5">
+                    <Truck className="w-4 h-4 text-purple-400" />
+                    Shipping
+                  </h3>
+                  {!isSplitMode && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={selectedOrders.size === 0}
+                          data-testid="button-actions-menu"
+                        >
+                          <MoreVertical className="w-3.5 h-3.5 mr-1.5" />
+                          Actions
+                          <ChevronDown className="w-3.5 h-3.5 ml-1.5" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-56">
+                        {readyToShip.size > 0 && (
+                          <>
+                            <DropdownMenuItem
+                              onClick={handleShipAll}
+                              disabled={isShippingAll}
+                              data-testid="menu-ship-all"
+                            >
+                              {isShippingAll
+                                ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Shipping...</>
+                                : <><Package className="w-4 h-4 mr-2" />Ship All ({readyToShip.size})</>
+                              }
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                          </>
+                        )}
+                        <DropdownMenuItem
+                          onClick={() => handlePrintPackingSlips(Array.from(selectedOrders))}
+                          disabled={selectedOrders.size === 0}
+                          data-testid="menu-print-packing-slips"
+                        >
+                          <Printer className="w-4 h-4 mr-2" />
+                          Print Packing Slips
+                          {selectedOrders.size > 0 && (
+                            <Badge variant="secondary" className="ml-auto text-xs">
+                              {selectedOrders.size}
+                            </Badge>
+                          )}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handlePrintLotLabels(Array.from(selectedOrders))}
+                          disabled={selectedOrders.size === 0}
+                          data-testid="menu-print-lot-labels"
+                        >
+                          <Tag className="w-4 h-4 mr-2" />
+                          Print Lot Labels
+                          {selectedOrders.size > 0 && (
+                            <Badge variant="secondary" className="ml-auto text-xs">
+                              {selectedOrders.size}
+                            </Badge>
+                          )}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={handleInitiateSplit}
+                          disabled={!selectedOrderId}
+                          data-testid="menu-split-order"
+                        >
+                          <Scissors className="w-4 h-4 mr-2" />
+                          Split Order
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  {[...selectedOrders].map((orderId) => {
+                    const items: OrderItem[] = (data?.items ?? [])
+                      .filter(item => item.orderId === orderId)
+                      .map(item => ({
+                        id: item.id,
+                        sku: item.sku,
+                        bricklinkPartNumber: item.bricklinkPartNumber,
+                        name: item.name,
+                        quantity: item.quantity,
+                        colorName: item.colorName,
+                        condition: item.condition,
+                        binName: item.binName,
+                      }));
+                    return (
+                      <InlineShippingCard
+                        key={orderId}
+                        orderId={orderId}
+                        isTestMode={settings?.easypostKeyMode === 'test'}
+                        onReadyChange={handleReadyChange}
+                        purchasedLabel={purchasedLabels.get(orderId)}
+                        orderItems={items}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+          </div>
+          {/* ═══ end RIGHT COLUMN ═══ */}
+
+        </div>
+        {/* ═══ end two-column grid ═══ */}
 
       {/* Lot Labels Dialog - Placeholder for future implementation */}
       <Dialog open={showLotLabelsDialog} onOpenChange={setShowLotLabelsDialog}>
