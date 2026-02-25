@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { AlertCircle, ShoppingCart, Package, TrendingUp, ClipboardList, Truck, RefreshCw, PackageCheck, X } from "lucide-react";
+import { AlertCircle, ShoppingCart, Package, TrendingUp, Truck, RefreshCw, PackageCheck, X } from "lucide-react";
 import {
   Drawer,
   DrawerClose,
@@ -7,7 +7,6 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
-import PicklistTool from "./PicklistTool";
 import FulfillmentTool from "./FulfillmentTool";
 import OrderPlatformSyncTool from "./OrderPlatformSyncTool";
 import ShippedOrdersTool from "./ShippedOrdersTool";
@@ -24,8 +23,8 @@ interface Order {
 
 interface OrdersDashboardProps {
   onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
-  activeDrawer: 'picklist' | 'fulfillment' | 'platformsync' | 'shipped' | null;
-  onDrawerChange: (drawer: 'picklist' | 'fulfillment' | 'platformsync' | 'shipped' | null) => void;
+  activeDrawer: 'fulfillment' | 'platformsync' | 'shipped' | null;
+  onDrawerChange: (drawer: 'fulfillment' | 'platformsync' | 'shipped' | null) => void;
 }
 
 export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerChange }: OrdersDashboardProps) {
@@ -139,25 +138,6 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
           )}
         </div>
       </div>
-
-      {/* Picklist Drawer */}
-      <Drawer open={activeDrawer === 'picklist'} onOpenChange={(open) => !open && onDrawerChange(null)}>
-        <DrawerContent className="h-[90vh]">
-          <DrawerHeader className="relative">
-            <DrawerTitle className="flex items-center gap-2 text-base md:text-lg">
-              <ClipboardList className="w-5 h-5 text-orange-400" />
-              Picklist
-            </DrawerTitle>
-            <DrawerClose className="absolute right-4 top-4" data-testid="button-close-picklist">
-              <X className="h-4 w-4" />
-              <span className="sr-only">Close</span>
-            </DrawerClose>
-          </DrawerHeader>
-          <div className="overflow-y-auto px-4 pb-4 flex-1">
-            <PicklistTool />
-          </div>
-        </DrawerContent>
-      </Drawer>
 
       {/* Fulfillment Drawer */}
       <Drawer open={activeDrawer === 'fulfillment'} onOpenChange={(open) => !open && onDrawerChange(null)}>

@@ -37,7 +37,7 @@ export default function Home() {
     }>;
   } | null>(null);
   const [activeInventoryDrawer, setActiveInventoryDrawer] = useState<'priceomatic' | 'warehouse' | 'platformsync' | null>(null);
-  const [activeOrdersDrawer, setActiveOrdersDrawer] = useState<'picklist' | 'fulfillment' | 'platformsync' | 'shipped' | null>(null);
+  const [activeOrdersDrawer, setActiveOrdersDrawer] = useState<'fulfillment' | 'platformsync' | 'shipped' | null>(null);
   const [detailModal, setDetailModal] = useState<{ open: boolean; data: DetailData | null }>({
     open: false,
     data: null,
@@ -744,18 +744,6 @@ export default function Home() {
               </div>
               <div className="flex gap-1 md:gap-3 lg:gap-4">
                 <button
-                  onClick={() => setActiveOrdersDrawer('picklist')}
-                  className="relative text-[10px] md:text-base lg:text-lg font-bold py-1 md:py-2 lg:py-2.5 px-1.5 md:px-4 lg:px-5 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
-                  data-testid="button-picklist"
-                >
-                  Picklist
-                  {picklistStats && (picklistStats.toPull + picklistStats.toReshelve) > 0 && (
-                    <span className="absolute -top-1 -right-1 md:-top-2 md:-right-2 bg-orange-500 text-white text-[9px] md:text-xs lg:text-sm font-bold rounded-full h-4 w-4 md:h-6 md:w-6 lg:h-7 lg:w-7 flex items-center justify-center">
-                      {picklistStats.toPull + picklistStats.toReshelve}
-                    </span>
-                  )}
-                </button>
-                <button
                   onClick={() => setActiveOrdersDrawer('fulfillment')}
                   className="relative text-[10px] md:text-base lg:text-lg font-bold py-1 md:py-2 lg:py-2.5 px-1.5 md:px-4 lg:px-5 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
                   data-testid="button-fulfillment"
@@ -764,6 +752,11 @@ export default function Home() {
                   {fulfillmentStats && fulfillmentStats.unfulfilled > 0 && (
                     <span className="absolute -top-1 -right-1 md:-top-2 md:-right-2 bg-green-500 text-white text-[9px] md:text-xs lg:text-sm font-bold rounded-full h-4 w-4 md:h-6 md:w-6 lg:h-7 lg:w-7 flex items-center justify-center">
                       {fulfillmentStats.unfulfilled}
+                    </span>
+                  )}
+                  {picklistStats && (picklistStats.toPull + picklistStats.toReshelve) > 0 && (
+                    <span className="absolute -top-1 -left-1 md:-top-2 md:-left-2 bg-orange-500 text-white text-[9px] md:text-xs lg:text-sm font-bold rounded-full h-4 w-4 md:h-6 md:w-6 lg:h-7 lg:w-7 flex items-center justify-center">
+                      {picklistStats.toPull + picklistStats.toReshelve}
                     </span>
                   )}
                 </button>

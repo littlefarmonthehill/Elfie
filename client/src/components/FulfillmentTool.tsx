@@ -14,10 +14,11 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator 
 } from "@/components/ui/dropdown-menu";
-import { Truck, Loader2, Printer, AlertTriangle, ChevronDown, Tag, MoreVertical, Scissors, Package, ExternalLink, CheckCircle2, Star } from "lucide-react";
+import { Truck, Loader2, Printer, AlertTriangle, ChevronDown, Tag, MoreVertical, Scissors, Package, ExternalLink, CheckCircle2, Star, ClipboardList } from "lucide-react";
 import { printPackingSlips } from "./PackingSlip";
 import { useToast } from "@/hooks/use-toast";
 import InlineShippingCard, { ShippingReadyState, PurchasedLabelResult, OrderItem } from "./InlineShippingCard";
+import PicklistTool from "./PicklistTool";
 
 type BatchResult = {
   orderId: string;
@@ -65,6 +66,7 @@ function cleanItemName(name: string, partNumber: string | null | undefined): str
 
 export default function FulfillmentTool() {
   const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState<'picklist' | 'shipping'>('picklist');
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
   const [showLotLabelsDialog, setShowLotLabelsDialog] = useState(false);
   const [lotLabelsData, setLotLabelsData] = useState<any[]>([]);
@@ -404,53 +406,50 @@ export default function FulfillmentTool() {
 
   return (
     <>
-      {/* ── Two-column layout on lg+ (iPad Pro / Mac), single column on mobile ── */}
-      <div className="flex flex-col lg:grid lg:grid-cols-[2fr_3fr] lg:gap-6 lg:items-start gap-4">
+      {/* ── Single-column layout: tiles at top, tabbed content below ── */}
+      <div className="space-y-4">
 
-        {/* ═══ LEFT COLUMN: Controls + Orders + Order Details ═══ */}
-        <div className="space-y-4">
-
-          {/* Print & Ship Controls */}
-          <div className="flex items-center justify-between gap-2 pb-3 border-b border-gray-700">
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleSelectAll}
-                data-testid="button-select-all"
-              >
-                {selectedOrders.size === sortedOrders.length ? 'Deselect All' : 'Select All'}
-              </Button>
-            </div>
-            <div className="flex gap-2 flex-wrap">
-              {isSplitMode && (
-                <>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={handleCancelSplit}
-                    data-testid="button-cancel-split"
-                  >
-                    Cancel Split
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={handleConfirmSplit}
-                    disabled={selectedItemsForSplit.size === 0}
-                    data-testid="button-confirm-split"
-                  >
-                    <Scissors className="w-3.5 h-3.5 mr-1.5" />
-                    Confirm Split ({selectedItemsForSplit.size})
-                  </Button>
-                </>
-              )}
-            </div>
+        {/* Controls row */}
+        <div className="flex items-center justify-between gap-2 pb-3 border-b border-gray-700">
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleSelectAll}
+              data-testid="button-select-all"
+            >
+              {selectedOrders.size === sortedOrders.length ? 'Deselect All' : 'Select All'}
+            </Button>
           </div>
+          <div className="flex gap-2 flex-wrap">
+            {isSplitMode && (
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleCancelSplit}
+                  data-testid="button-cancel-split"
+                >
+                  Cancel Split
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleConfirmSplit}
+                  disabled={selectedItemsForSplit.size === 0}
+                  data-testid="button-confirm-split"
+                >
+                  <Scissors className="w-3.5 h-3.5 mr-1.5" />
+                  Confirm Split ({selectedItemsForSplit.size})
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
 
-          {/* Orders Section */}
-          <div>
-            <h3 className="text-sm lg:text-lg font-bold text-gray-300 mb-3">Orders</h3>
-            <div className="grid grid-cols-4 lg:grid-cols-3 gap-2 lg:gap-3">
+        {/* Orders tiles */}
+        <div>
+          <h3 className="text-sm lg:text-lg font-bold text-gray-300 mb-3">Orders</h3>
+          <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-2 lg:gap-3">
               {sortedOrders.map((order) => {
                 const isSelected = selectedOrders.has(order.id);
                 const lotCount = data?.items.filter(i => i.orderId === order.id).length ?? 0;
@@ -507,56 +506,84 @@ export default function FulfillmentTool() {
             </div>
           </div>
 
+        {/* ── Tab switcher: Picklist | Shipping ── */}
+        <div className="flex gap-1 border-b border-gray-700">
+          <button
+            onClick={() => setActiveTab('picklist')}
+            className={`flex items-center gap-1.5 px-4 py-2 text-sm font-semibold border-b-2 transition-colors ${
+              activeTab === 'picklist'
+                ? 'border-orange-500 text-orange-400'
+                : 'border-transparent text-gray-400 hover:text-gray-200'
+            }`}
+            data-testid="tab-picklist"
+          >
+            <ClipboardList className="w-4 h-4" />
+            Picklist
+          </button>
+          <button
+            onClick={() => setActiveTab('shipping')}
+            className={`flex items-center gap-1.5 px-4 py-2 text-sm font-semibold border-b-2 transition-colors ${
+              activeTab === 'shipping'
+                ? 'border-purple-500 text-purple-400'
+                : 'border-transparent text-gray-400 hover:text-gray-200'
+            }`}
+            data-testid="tab-shipping"
+          >
+            <Truck className="w-4 h-4" />
+            Shipping
+          </button>
         </div>
-        {/* ═══ end LEFT COLUMN ═══ */}
 
-        {/* ═══ RIGHT COLUMN: Batch Results + Shipping Cards ═══ */}
-        <div className="space-y-4">
+        {/* ── Tab content ── */}
+        {activeTab === 'picklist' ? (
+          <PicklistTool />
+        ) : (
+          <div className="space-y-4">
 
-          {/* Batch Labels Results Panel */}
-          {batchResults.length > 0 && (
-            <div className="border border-green-500/40 rounded-lg overflow-hidden bg-green-950/20">
-              <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-green-500/30 bg-green-900/20">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-400" />
-                  <span className="text-sm font-bold text-green-300">
-                    {batchResults.filter(r => r.trackingNumber).length} of {batchResults.length} Labels Purchased
-                  </span>
+            {/* Batch Labels Results Panel */}
+            {batchResults.length > 0 && (
+              <div className="border border-green-500/40 rounded-lg overflow-hidden bg-green-950/20">
+                <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-green-500/30 bg-green-900/20">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-green-400" />
+                    <span className="text-sm font-bold text-green-300">
+                      {batchResults.filter(r => r.trackingNumber).length} of {batchResults.length} Labels Purchased
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-green-500/40 text-green-300"
+                      onClick={() => {
+                        batchResults.forEach(r => {
+                          if (r.labelUrl) window.open(r.labelUrl, "_blank");
+                        });
+                      }}
+                      data-testid="button-print-all-labels"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
+                      Open All Labels
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-gray-500"
+                      onClick={() => {
+                        setBatchResults([]);
+                        setPurchasedLabels(new Map());
+                        setSelectedOrders(new Set());
+                      }}
+                      data-testid="button-dismiss-batch-results"
+                    >
+                      Done
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="border-green-500/40 text-green-300"
-                    onClick={() => {
-                      batchResults.forEach(r => {
-                        if (r.labelUrl) window.open(r.labelUrl, "_blank");
-                      });
-                    }}
-                    data-testid="button-print-all-labels"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
-                    Open All Labels
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="text-gray-500"
-                    onClick={() => {
-                      setBatchResults([]);
-                      setPurchasedLabels(new Map());
-                      setSelectedOrders(new Set());
-                    }}
-                    data-testid="button-dismiss-batch-results"
-                  >
-                    Done
-                  </Button>
-                </div>
-              </div>
-              <div className="divide-y divide-green-900/30">
-                {batchResults.map((result) => (
-                  <div key={result.orderId} className="flex items-center gap-3 px-3 py-2 flex-wrap">
-                    <div className="flex-1 min-w-0">
+                <div className="divide-y divide-green-900/30">
+                  {batchResults.map((result) => (
+                    <div key={result.orderId} className="flex items-center gap-3 px-3 py-2 flex-wrap">
+                      <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-sm font-bold text-white">{result.orderNumber}</span>
                           {result.carrier && result.service && (
@@ -586,13 +613,13 @@ export default function FulfillmentTool() {
               </div>
             )}
 
-            {/* Inline Shipping Panel — one card per selected order */}
-            {selectedOrders.size > 0 && (
+            {/* Actions bar + Shipping cards — visible when orders are selected */}
+            {selectedOrders.size > 0 ? (
               <div>
                 <div className="flex items-center justify-between gap-2 mb-3">
-                  <h3 className="text-sm lg:text-base font-bold text-gray-400 uppercase tracking-wide flex items-center gap-1.5">
+                  <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wide flex items-center gap-1.5">
                     <Truck className="w-4 h-4 text-purple-400" />
-                    Shipping
+                    Selected Orders
                   </h3>
                   {!isSplitMode && (
                     <DropdownMenu>
@@ -690,13 +717,14 @@ export default function FulfillmentTool() {
                   })}
                 </div>
               </div>
+            ) : (
+              <p className="text-sm text-gray-500 text-center py-8">Select orders above to see shipping options.</p>
             )}
 
           </div>
-          {/* ═══ end RIGHT COLUMN ═══ */}
+        )}
 
-        </div>
-        {/* ═══ end two-column grid ═══ */}
+      </div>
 
       {/* Lot Labels Dialog - Placeholder for future implementation */}
       <Dialog open={showLotLabelsDialog} onOpenChange={setShowLotLabelsDialog}>
