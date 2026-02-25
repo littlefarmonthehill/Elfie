@@ -92,6 +92,10 @@ export class EasyPostShippingVendor implements IShippingVendor {
             ? { predefined_package: request.parcel.predefinedPackage }
             : {}),
         },
+        options: {
+          label_format: 'PDF',
+          label_size: '4x6',
+        },
         reference: request.reference,
       },
     };
@@ -143,8 +147,8 @@ export class EasyPostShippingVendor implements IShippingVendor {
     return {
       shipmentId: response.id,
       trackingNumber: response.tracking_code,
-      labelUrl: response.postage_label?.label_url,
-      labelFormat: response.postage_label?.label_file_type || 'PNG',
+      labelUrl: response.postage_label?.label_pdf_url || response.postage_label?.label_url,
+      labelFormat: response.postage_label?.label_file_type || 'PDF',
       carrier: response.selected_rate?.carrier,
       service: response.selected_rate?.service,
       cost: parseFloat(response.selected_rate?.rate || '0'),
