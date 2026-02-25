@@ -489,7 +489,7 @@ export default function FulfillmentTool() {
                       <Star className="w-3 h-3 fill-amber-900 text-amber-900" />
                     </div>
                   )}
-                  <p className={`text-[10px] font-mono font-semibold truncate ${isSelected ? 'text-purple-300' : 'text-white'}`}>
+                  <p className={`text-[9px] font-mono font-semibold leading-tight ${isSelected ? 'text-purple-300' : 'text-white'}`}>
                     #{order.orderNumber}
                   </p>
                   {(lastName || order.marketplace) && (
@@ -497,12 +497,10 @@ export default function FulfillmentTool() {
                       {lastName || order.marketplace}
                     </p>
                   )}
-                  <div className="flex items-center gap-1 mt-1 flex-wrap">
-                    {formattedDate && (
-                      <span className="text-[10px] text-gray-300">{formattedDate}</span>
-                    )}
+                  <div className="flex items-center justify-between mt-1">
+                    <span className="text-[10px] text-gray-300">{formattedDate}</span>
                     {lotCount > 0 && (
-                      <span className="text-[10px] text-gray-400">{lotCount}L</span>
+                      <span className="text-[10px] text-gray-400 tabular-nums">{lotCount}L</span>
                     )}
                   </div>
                 </div>
