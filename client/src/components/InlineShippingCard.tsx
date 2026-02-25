@@ -240,19 +240,39 @@ export default function InlineShippingCard({
     } catch { setAddressStatus("unknown"); }
   };
 
+  // EasyPost always expects weight in ounces
+  const toOz = (val: number, unit: string): number => {
+    switch (unit.toLowerCase()) {
+      case "lb": return val * 16;
+      case "g":  return val * 0.035274;
+      case "kg": return val * 35.274;
+      default:   return val; // already oz
+    }
+  };
+
+  const getPackageWarning = (pkg: string, w: string, wu: string): string | null => {
+    const raw = w !== "" ? Number(w) : 0;
+    if (raw <= 0) return null;
+    const oz = toOz(raw, wu);
+    if (oz > 1120) return `${raw} ${wu} exceeds the 70 lb USPS limit`;
+    if (pkg === "padded_envelope" && oz > 80)
+      return `${raw} ${wu} is heavy for a padded envelope — consider a box`;
+    return null;
+  };
+
   const buildParcel = (
     pkg: string, l: string, w_: string, h: string, weight: string, wu: string
   ) => {
     const selected = PACKAGES.find(p => p.id === pkg);
-    const weightVal = weight !== "" ? Number(weight) : 16;
+    const rawVal = weight !== "" ? Number(weight) : 1;
+    const weightOz = Math.max(0.1, toOz(rawVal, wu)); // EasyPost always oz
     if (selected?.predefined) {
       return {
         predefinedPackage: selected.predefined,
         length: selected.dims?.length ?? 1,
         width: selected.dims?.width ?? 1,
         height: selected.dims?.height ?? 1,
-        weight: weightVal,
-        weightUnits: wu,
+        weight: weightOz,
       };
     }
     if (selected?.customDims) {
@@ -260,16 +280,14 @@ export default function InlineShippingCard({
         length: l !== "" ? Number(l) : 6,
         width: w_ !== "" ? Number(w_) : 4,
         height: h !== "" ? Number(h) : 2,
-        weight: weightVal,
-        weightUnits: wu,
+        weight: weightOz,
       };
     }
     return {
       length: selected?.dims?.length ?? 12,
       width: selected?.dims?.width ?? 9,
       height: selected?.dims?.height ?? 2,
-      weight: weightVal,
-      weightUnits: wu,
+      weight: weightOz,
     };
   };
 
@@ -344,7 +362,7 @@ export default function InlineShippingCard({
       <div className="border border-green-500/40 rounded-lg p-3 bg-green-500/10 flex items-center gap-3 flex-wrap">
         <CheckCircle2 className="w-4 h-4 text-green-400 shrink-0" />
         <div className="flex-1 min-w-0">
-          <span className="text-sm font-bold text-green-300">#{summary.orderNumber}</span>
+          <span className="text-sm font-bold text-green-300">{summary.orderNumber}</span>
           <span className="text-[11px] text-gray-400 ml-2">
             {[purchasedLabel.carrier, purchasedLabel.service].filter(Boolean).join(" ")}
             {purchasedLabel.rate != null && ` · $${purchasedLabel.rate.toFixed(2)}`}
@@ -373,7 +391,7 @@ export default function InlineShippingCard({
 
         {/* ── Row 1: Order number + preferred service ── */}
         <div className="flex items-center justify-between gap-2">
-          <span className="text-sm font-bold text-white font-mono shrink-0">#{summary.orderNumber}</span>
+          <span className="text-sm font-bold text-white font-mono shrink-0">{summary.orderNumber}</span>
           {summary.requestedService && (
             <span className="text-[10px] text-blue-300 font-medium truncate text-right">
               {summary.requestedService}
@@ -491,7 +509,18 @@ export default function InlineShippingCard({
           </Select>
         </div>
 
-        {/* ── Row 3: Service selector (full-width grid, price right) ── */}
+        {/* ── Weight/package validation warning ── */}
+        {(() => {
+          const warn = getPackageWarning(packageType, weight, weightUnits);
+          return warn ? (
+            <div className="flex items-center gap-1.5 text-amber-400">
+              <AlertTriangle className="w-3 h-3 shrink-0" />
+              <span className="text-[10px]">{warn}</span>
+            </div>
+          ) : null;
+        })()}
+
+        {/* ── Row 4: Service selector ── */}
         {isLoadingRates ? (
           <div className="flex items-center gap-2">
             <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-400 shrink-0" />

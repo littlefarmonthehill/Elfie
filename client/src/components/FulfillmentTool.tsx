@@ -305,7 +305,7 @@ export default function FulfillmentTool() {
             service: ready.selectedRate.service,
             rate: ready.selectedRate.rate,
           });
-          toast({ title: `Failed: #${order?.orderNumber}`, description: e.message, variant: "destructive" });
+          toast({ title: `Failed: ${order?.orderNumber}`, description: e.message, variant: "destructive" });
         }
       })
     );
@@ -491,7 +491,7 @@ export default function FulfillmentTool() {
                     </div>
                   )}
                   <p className={`text-[9px] font-mono font-semibold leading-tight ${isSelected ? 'text-purple-300' : 'text-white'}`}>
-                    #{order.orderNumber}
+                    {order.orderNumber}
                   </p>
                   {(lastName || order.marketplace) && (
                     <p className="text-[10px] text-gray-300 truncate">
@@ -501,7 +501,9 @@ export default function FulfillmentTool() {
                   <div className="flex items-center justify-between mt-1">
                     <span className="text-[10px] text-gray-300">{formattedDate}</span>
                     {lotCount > 0 && (
-                      <span className="text-[10px] text-gray-400 tabular-nums">{lotCount}L</span>
+                      <span className="w-[18px] h-[18px] rounded-full bg-blue-700/80 flex items-center justify-center text-[9px] font-bold text-white tabular-nums shrink-0">
+                        {lotCount}
+                      </span>
                     )}
                   </div>
                 </div>
@@ -555,7 +557,7 @@ export default function FulfillmentTool() {
               <div key={result.orderId} className="flex items-center gap-3 px-3 py-2 flex-wrap">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-bold text-white">#{result.orderNumber}</span>
+                    <span className="text-sm font-bold text-white">{result.orderNumber}</span>
                     {result.carrier && result.service && (
                       <span className="text-xs text-gray-400">{result.carrier} {result.service}</span>
                     )}
