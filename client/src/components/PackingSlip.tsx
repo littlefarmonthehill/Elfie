@@ -89,14 +89,18 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
 
     const cityLine = [city, state, postalCode].filter(Boolean).join(' ');
     const showCountry = country && country !== 'US';
-
     const orderNum = order.orderNumber;
 
     const topBarRight = totalOrders > 1
       ? `${orderNum} &nbsp;&middot;&nbsp; Order ${idx + 1} of ${totalOrders}`
       : orderNum;
 
-    const itemsHTML = order.items.map((item: any) => {
+    /*
+      FLAT structure: each item row is a direct <tbody> row.
+      This is required for <thead> to repeat on continuation pages in all browsers
+      including Safari/iOS Safari. A single large <tbody> cell does NOT trigger thead repeat.
+    */
+    const itemRowsHTML = order.items.map((item: any, itemIdx: number) => {
       const baseName = cleanItemName(item.name, item.bricklinkPartNumber);
       const colorPrefix = item.colorName ? `${item.colorName} ` : '';
       const partLabel = item.bricklinkPartNumber ? ` (${item.bricklinkPartNumber})` : '';
@@ -105,8 +109,9 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
         item.colorName ? `Color: ${item.colorName}` : '',
         item.condition ? `Condition: ${item.condition}` : '',
       ].filter(Boolean).join(', ');
+      const isLastItem = itemIdx === order.items.length - 1;
       return `
-        <tr>
+        <tr class="item-row${isLastItem ? ' last-item' : ''}">
           <td class="item-desc">
             <div class="item-name">${fullName}</div>
             ${metaParts ? `<div class="item-meta">${metaParts}</div>` : ''}
@@ -116,19 +121,31 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
       `;
     }).join('');
 
-    /*
-      Each order is wrapped in an outer <table> so the <thead> (slip bar + logo header)
-      repeats automatically on every continuation printed page.
-    */
+    const shipToHTML = [
+      shipTo.name ? `<div>${shipTo.name}</div>` : '',
+      shipTo.company ? `<div>${shipTo.company}</div>` : '',
+      street1 ? `<div>${street1}</div>` : '',
+      street2 ? `<div>${street2}</div>` : '',
+      cityLine ? `<div>${cityLine}</div>` : '',
+      showCountry ? `<div>${country}</div>` : '',
+      (!shipTo.name && !street1 && !cityLine) ? '<div class="missing-addr">Address not available</div>' : '',
+    ].join('');
+
     return `
       <table class="order-table${isLast ? ' last' : ''}">
         <thead>
+          <!-- Row 1: Slip label bar -->
           <tr>
-            <td class="order-thead-cell">
+            <td colspan="2" class="thead-bar-cell">
               <div class="slip-label-bar">
                 <span class="bar-left">Packing Slip</span>
                 <span class="bar-right">${topBarRight}</span>
               </div>
+            </td>
+          </tr>
+          <!-- Row 2: Company header with logo -->
+          <tr>
+            <td colspan="2" class="thead-company-cell">
               <div class="header">
                 <div class="header-left">
                   <div class="company-name">PlanetBrick.com</div>
@@ -141,43 +158,31 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
               </div>
             </td>
           </tr>
-        </thead>
-        <tbody>
+          <!-- Row 3: Ship-to and order meta -->
           <tr>
-            <td class="order-tbody-cell">
+            <td colspan="2" class="thead-info-cell">
               <div class="info-row">
                 <div class="ship-to">
                   <span class="section-label">Ship To</span>
-                  ${shipTo.name ? `<div>${shipTo.name}</div>` : ''}
-                  ${shipTo.company ? `<div>${shipTo.company}</div>` : ''}
-                  ${street1 ? `<div>${street1}</div>` : ''}
-                  ${street2 ? `<div>${street2}</div>` : ''}
-                  ${cityLine ? `<div>${cityLine}</div>` : ''}
-                  ${showCountry ? `<div>${country}</div>` : ''}
-                  ${!shipTo.name && !street1 && !cityLine ? '<div class="missing-addr">Address not available</div>' : ''}
+                  ${shipToHTML}
                 </div>
                 <div class="order-meta">
                   <table>
                     <tr><td class="ml">${channelLabel(order)} Order #</td><td class="mv">${orderNum}</td></tr>
                     <tr><td class="ml">Date</td><td class="mv">${order.orderDate ? new Date(order.orderDate).toLocaleDateString() : ''}</td></tr>
-                    ${order.customerUsername ? `<tr><td class="ml">User</td><td class="mv">${order.customerUsername}</td></tr>` : ''}
                   </table>
                 </div>
               </div>
-
-              <table class="items">
-                <thead>
-                  <tr>
-                    <th class="th-desc">Description</th>
-                    <th class="th-qty">Qty</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${itemsHTML}
-                </tbody>
-              </table>
             </td>
           </tr>
+          <!-- Row 4: Column headers -->
+          <tr class="col-header-row">
+            <th class="th-desc">Description</th>
+            <th class="th-qty">Qty</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${itemRowsHTML}
         </tbody>
       </table>
     `;
@@ -194,13 +199,46 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { background: white; color: black; font-family: Arial, sans-serif; font-size: 11px; }
 
-    /* Outer table — one per order, causes page break between orders */
-    .order-table { width: 100%; border-collapse: collapse; page-break-after: always; break-after: page; }
+    /* White bar fixed to the bottom of every printed page, bleeds into the margin
+       to cover the browser's URL and page-number footer */
+    .margin-cover-bottom {
+      position: fixed;
+      bottom: -0.5in;
+      left: -0.5in;
+      right: -0.5in;
+      height: 0.55in;
+      background: white;
+      z-index: 99999;
+    }
+    /* Also cover the top margin (browser prints page title there on some browsers) */
+    .margin-cover-top {
+      position: fixed;
+      top: -0.5in;
+      left: -0.5in;
+      right: -0.5in;
+      height: 0.55in;
+      background: white;
+      z-index: 99999;
+    }
+
+    /* One table per order; page break between orders */
+    .order-table {
+      width: 100%;
+      border-collapse: collapse;
+      page-break-after: always;
+      break-after: page;
+      table-layout: fixed;
+    }
     .order-table.last { page-break-after: auto; break-after: auto; }
 
-    /* thead repeats on every printed page within the same order */
-    .order-thead-cell { padding: 0; }
-    .order-tbody-cell { padding: 0; vertical-align: top; }
+    /* Force thead to behave as a repeating header group (explicit for Safari) */
+    .order-table thead { display: table-header-group; }
+    .order-table tbody { display: table-row-group; }
+
+    /* thead cells */
+    .thead-bar-cell  { padding: 0 0 0 0; }
+    .thead-company-cell { padding: 6px 0; border-bottom: 1px solid #aaa; }
+    .thead-info-cell { padding: 8px 0 6px 0; }
 
     .slip-label-bar {
       background: #444;
@@ -213,59 +251,48 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
       letter-spacing: 1px;
       text-transform: uppercase;
       padding: 3px 8px;
-      margin-bottom: 8px;
     }
     .bar-right { font-weight: normal; letter-spacing: 0.5px; }
 
     .header {
       display: flex;
       justify-content: space-between;
-      align-items: flex-start;
-      padding-bottom: 8px;
-      border-bottom: 1px solid #aaa;
-      margin-bottom: 8px;
+      align-items: center;
     }
-
     .header-left { flex: 1; }
     .company-name { font-weight: bold; font-size: 18px; margin-bottom: 2px; }
     .company-addr { font-size: 10px; color: #333; }
-
     .header-right { text-align: right; }
     .logo { height: 90px; width: auto; }
     .logo-fallback { font-size: 22px; font-weight: 900; color: #1a3a8f; letter-spacing: 1px; }
 
-    .info-row {
-      display: flex;
-      justify-content: space-between;
-      gap: 16px;
-      margin-bottom: 12px;
-    }
-
+    .info-row { display: flex; justify-content: space-between; gap: 16px; }
     .ship-to { font-size: 11px; line-height: 1.5; flex: 1; }
     .section-label { font-weight: bold; display: block; margin-bottom: 2px; }
     .missing-addr { color: #999; font-style: italic; }
-
     .order-meta { text-align: right; font-size: 11px; }
     .order-meta table { border-collapse: collapse; }
     .order-meta td { padding: 1px 0 1px 10px; white-space: nowrap; }
     .ml { font-weight: bold; color: #555; text-align: right; }
     .mv { text-align: right; }
 
-    .items { width: 100%; border-collapse: collapse; }
-    .items thead tr { background: #333; color: white; }
+    /* Column header row */
+    .col-header-row { background: #333; color: white; }
     .th-desc { text-align: left; padding: 4px 6px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
     .th-qty { text-align: right; padding: 4px 6px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; width: 40px; }
 
-    .items tbody tr td { padding: 5px 6px; border-bottom: 1px solid #e0e0e0; vertical-align: top; }
-    .items tbody tr:last-child td { border-bottom: none; }
-
+    /* Item rows */
+    .item-row td { padding: 5px 6px; border-bottom: 1px solid #e0e0e0; vertical-align: top; }
+    .item-row.last-item td { border-bottom: none; }
     .item-desc { text-align: left; }
-    .item-qty { text-align: right; font-weight: bold; white-space: nowrap; }
+    .item-qty { text-align: right; font-weight: bold; white-space: nowrap; width: 40px; }
     .item-name { font-size: 11px; line-height: 1.4; }
     .item-meta { font-size: 10px; color: #555; margin-top: 2px; }
   </style>
 </head>
 <body>
+  <div class="margin-cover-bottom"></div>
+  <div class="margin-cover-top"></div>
   ${pagesHTML}
 </body>
 </html>`;
