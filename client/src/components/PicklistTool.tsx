@@ -144,10 +144,12 @@ export default function PicklistTool() {
     },
   });
 
+  const partKey = (item: BinPicklistItem) => item.partNumber || item.sku || '';
+
   // ── Derived data ──
   const flatItems: BinPicklistItem[] = picklistData
     .flatMap(bin => bin.items)
-    .sort((a, b) => a.sku.localeCompare(b.sku));
+    .sort((a, b) => partKey(a).localeCompare(partKey(b), undefined, { numeric: true }));
 
   const groupedBins = picklistData.reduce((acc, bin) => {
     const aisleKey = bin.warehouseLocation?.aisle.name || 'No Location';
@@ -384,7 +386,7 @@ export default function PicklistTool() {
                               {/* Items within this bin */}
                               {bin.items.length > 0 && (
                                 <div className="ml-4 space-y-1">
-                                  {bin.items.map((item) => (
+                                  {[...bin.items].sort((a, b) => partKey(a).localeCompare(partKey(b), undefined, { numeric: true })).map((item) => (
                                     <div
                                       key={item.picklistItemId}
                                       className="flex items-start gap-2 bg-gray-900/60 border border-gray-700/50 rounded px-2.5 py-1.5"
