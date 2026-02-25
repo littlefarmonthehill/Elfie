@@ -156,7 +156,13 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
         `${chanPrefix(item)}${rawOrder}`,
         item.inventoryId ? `Lot ${item.inventoryId}` : '',
       ].filter(Boolean).join(' · ');
-      const imgSrc = resolvePartImageUrl(item.imageUrl, item.partNumber);
+      // resolvePartImageUrl may return a relative proxy URL (/api/images/proxy?url=...)
+      // The print window is a blank tab so relative URLs resolve against about:blank.
+      // Prefix with the app origin so Rebrickable images load correctly when printing.
+      const rawImgSrc = resolvePartImageUrl(item.imageUrl, item.partNumber);
+      const imgSrc = rawImgSrc?.startsWith('/')
+        ? `${window.location.origin}${rawImgSrc}`
+        : rawImgSrc;
       const imgTag = imgSrc
         ? `<img class="thumb" src="${imgSrc}" alt="" onerror="this.style.display='none'" />`
         : `<div class="thumb-placeholder"></div>`;

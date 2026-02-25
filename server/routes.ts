@@ -5566,13 +5566,17 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       const invMap = new Map(inventoryData.map(i => [i.id, i]));
 
       // Colors: gather all needed color IDs, one query (was up to 2 per item)
+      // IMPORTANT: BrickOwl stores its own color IDs in order_details.colorId, which are a
+      // completely different numbering system from BrickLink color IDs. Only use detail.colorId
+      // as a lookup key in blColors (which is keyed by BrickLink IDs) for BrickLink orders.
       const colorIdSet = new Set<number>();
       for (const inv of inventoryData) {
         if (!inv.colorName && inv.colorId) colorIdSet.add(inv.colorId);
       }
       for (const item of filteredItems) {
         const d = detailMap.get(item.orderDetailId);
-        if (d?.colorId) colorIdSet.add(d.colorId);
+        const o = orderMap.get(item.orderId);
+        if (d?.colorId && o?.marketplace !== 'BrickOwl') colorIdSet.add(d.colorId);
       }
       const colorsData = colorIdSet.size > 0
         ? await db.select({ id: blColors.id, name: blColors.name }).from(blColors).where(inArray(blColors.id, [...colorIdSet]))
@@ -5619,7 +5623,9 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
               condition = inv.newOrUsed;
             }
           }
-          if (!colorName && detail?.colorId) {
+          // Only fall back to detail.colorId for BrickLink orders.
+          // BrickOwl uses its own color ID system — looking those up in blColors gives wrong results.
+          if (!colorName && detail?.colorId && order?.marketplace !== 'BrickOwl') {
             colorName = colorMap.get(detail.colorId) ?? null;
           }
 
