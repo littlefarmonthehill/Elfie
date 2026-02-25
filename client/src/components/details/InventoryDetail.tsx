@@ -218,8 +218,8 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
   const itemName = data.itemName || priceOMagic?.itemName || 
     (data.itemType ? `${data.itemType.toUpperCase()} ${itemNoParam}` : itemNoParam || 'Unknown Item');
   
-  // Image URL
-  const imageUrl = priceOMagic?.imageUrl || priceOMagic?.thumbnailUrl || null;
+  // Image URL - prefer stored CDN URL (no API call), fall back to Price-o-Matic
+  const imageUrl = data.imageUrl || data.thumbnailUrl || priceOMagic?.imageUrl || priceOMagic?.thumbnailUrl || null;
 
   // Has tier pricing
   const hasTierPricing = data.tierPrice1 || data.tierPrice2 || data.tierPrice3;
