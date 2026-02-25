@@ -465,7 +465,8 @@ export default function FulfillmentTool() {
             {sortedOrders.map((order) => {
               const isSelected = selectedOrders.has(order.id);
               const lotCount = data?.items.filter(i => i.orderId === order.id).length ?? 0;
-              const hasServicePref = !!order.requestedShippingService;
+              const isPriority = !!(order.requestedShippingService &&
+                /priority|express|overnight|expedited|2-day|2nd.day|next.day|same.day|rush/i.test(order.requestedShippingService));
               const formattedDate = order.orderDate
                 ? new Date(order.orderDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
                 : null;
@@ -478,13 +479,13 @@ export default function FulfillmentTool() {
                   className={`relative border rounded-lg p-2 cursor-pointer transition-colors ${
                     isSelected
                       ? 'bg-purple-500/20 border-purple-500'
-                      : hasServicePref
+                      : isPriority
                         ? 'bg-amber-950/20 border-amber-500/50 hover-elevate'
                         : 'bg-gray-800/50 border-gray-700 hover-elevate'
                   }`}
                   data-testid={`order-${order.orderNumber}`}
                 >
-                  {hasServicePref && (
+                  {isPriority && (
                     <div className="absolute -top-2 -right-2 w-5 h-5 bg-amber-400 rounded-full flex items-center justify-center shadow-md z-10">
                       <Star className="w-3 h-3 fill-amber-900 text-amber-900" />
                     </div>
