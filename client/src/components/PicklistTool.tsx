@@ -133,12 +133,18 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
     const condLabel = (c: string | null) =>
       c === 'N' ? 'New' : c === 'U' ? 'Used' : (c || '');
 
-    // Printed picklist always groups by part number only
+    // Printed picklist groups by part + color + condition (each variant gets its own section)
+    const variantKey = (item: BinPicklistItem) =>
+      `${partKey(item)}|${item.colorName || ''}|${item.condition || ''}`;
     const partGroups: Map<string, BinPicklistItem[]> = new Map();
-    for (const item of [...flatItems].sort((a, b) =>
-      partKey(a).localeCompare(partKey(b), undefined, { numeric: true })
-    )) {
-      const key = partKey(item);
+    for (const item of [...flatItems].sort((a, b) => {
+      const pk = partKey(a).localeCompare(partKey(b), undefined, { numeric: true });
+      if (pk !== 0) return pk;
+      const ck = (a.colorName || '').localeCompare(b.colorName || '');
+      if (ck !== 0) return ck;
+      return (a.condition || '').localeCompare(b.condition || '');
+    })) {
+      const key = variantKey(item);
       if (!partGroups.has(key)) partGroups.set(key, []);
       partGroups.get(key)!.push(item);
     }
