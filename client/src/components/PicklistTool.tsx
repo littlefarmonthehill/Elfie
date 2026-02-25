@@ -159,7 +159,7 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
 
     const html = `<!DOCTYPE html><html><head><title>Picklist — ${date}</title>
 <style>
-  body { font-family: monospace; font-size: 14px; margin: 6px; color: #000; }
+  body { font-family: monospace; font-size: 14px; margin: 2px; color: #000; }
   h2 { font-size: 16px; margin: 0 0 4px; }
   .sub { font-size: 11px; color: #555; margin-bottom: 10px; }
   table { width: 100%; border-collapse: collapse; }
@@ -172,7 +172,7 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
   .item-row { page-break-inside: avoid; break-inside: avoid; }
   .cut-wrap { padding: 22px 0; }
   .cut-tick { width: 22px; border-top: 1px solid #bbb; }
-  @media print { @page { margin-top: 0.1in; margin-bottom: 0.1in; margin-left: 0.2in; margin-right: 0.2in; } }
+  @media print { @page { margin: 0.05in; } }
 </style></head><body>
 <table>${body}</table>
 </body></html>`;
