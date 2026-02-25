@@ -133,8 +133,7 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
     const condLabel = (c: string | null) =>
       c === 'N' ? 'New' : c === 'U' ? 'Used' : (c || '');
 
-    // Printed picklist: every individual order line is its own section
-    const CUT_MARKS = `<tr class="cut-row"><td><div class="cut-marks"><div class="cut-tick"></div></div></td></tr>`;
+    // Printed picklist: every individual order line is its own single <tr> — never splits
     body = [...flatItems].sort((a, b) => {
       const pk = partKey(a).localeCompare(partKey(b), undefined, { numeric: true });
       if (pk !== 0) return pk;
@@ -155,28 +154,23 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
         `${chanPrefix(item)}${rawOrder}`,
         item.inventoryId ? `Lot ${item.inventoryId}` : '',
       ].filter(Boolean).join(' · ');
-      return `<tbody>
-        ${CUT_MARKS}
-        <tr class="item-row"><td><div class="item-header">${header}</div><div class="meta">${meta}</div></td></tr>
-      </tbody>`;
+      return `<tr class="item-row"><td><div class="cut-wrap"><div class="cut-tick"></div></div><div class="item-header">${header}</div><div class="meta">${meta}</div></td></tr>`;
     }).join('');
 
     const html = `<!DOCTYPE html><html><head><title>Picklist — ${date}</title>
 <style>
-  body { font-family: monospace; font-size: 22px; margin: 6px; color: #000; }
-  h2 { font-size: 24px; margin: 0 0 4px; }
-  .sub { font-size: 16px; color: #555; margin-bottom: 10px; }
+  body { font-family: monospace; font-size: 14px; margin: 6px; color: #000; }
+  h2 { font-size: 16px; margin: 0 0 4px; }
+  .sub { font-size: 11px; color: #555; margin-bottom: 10px; }
   table { width: 100%; border-collapse: collapse; }
-  td { padding: 1px 0; vertical-align: top; }
+  td { padding: 0; vertical-align: top; }
   .part-no { font-weight: bold; }
   .color { color: #333; }
   .cond { color: #333; }
   .desc { color: #555; }
-  .meta { color: #555; font-size: 18px; margin-top: 1px; }
+  .meta { color: #555; font-size: 12px; margin-top: 2px; }
   .item-row { page-break-inside: avoid; break-inside: avoid; }
-  .item-row td { padding-top: 5px; }
-  .cut-row td { padding: 48px 0 0; }
-  .cut-marks { display: flex; align-items: center; }
+  .cut-wrap { padding: 22px 0; }
   .cut-tick { width: 22px; border-top: 1px solid #bbb; }
   @media print { @page { margin-top: 0.1in; margin-bottom: 0.1in; margin-left: 0.2in; margin-right: 0.2in; } }
 </style></head><body>
