@@ -20,6 +20,12 @@ interface Order {
   orderStatus: string;
 }
 
+interface DashboardOrders {
+  pending: Order[];
+  recentShipments: Order[];
+  highValue: Order[];
+}
+
 interface PricingInsight {
   inventoryId: number;
   itemNo: string;
@@ -60,20 +66,13 @@ export default function GeneralDashboard({ onItemClick }: GeneralDashboardProps)
     }
   });
 
-  // Fetch pending orders (actionable items, all-time)
-  const { data: pendingOrders = [] } = useQuery<Order[]>({
-    queryKey: ['/api/orders', 'pending'],
-    queryFn: async () => {
-      const response = await fetch('/api/orders');
-      if (!response.ok) throw new Error('Failed to fetch orders');
-      return response.json();
-    },
-    select: (data: Order[]) => 
-      data.filter(order => 
-        order.orderStatus === 'awaiting_payment' || 
-        order.orderStatus === 'awaiting_shipment'
-      ).slice(0, 5)
+  // Single efficient call — DB-level status filtering, no client-side filtering of huge payloads
+  const { data: dashboardOrders } = useQuery<DashboardOrders>({
+    queryKey: ['/api/orders/dashboard'],
   });
+
+  const pendingOrders = dashboardOrders?.pending ?? [];
+  const recentSales = dashboardOrders?.recentShipments ?? [];
 
   // Fetch pricing opportunities (items priced too low)
   const { data: pricingInsights } = useQuery<{ success: boolean; data: InsightsData }>({
@@ -84,21 +83,6 @@ export default function GeneralDashboard({ onItemClick }: GeneralDashboardProps)
   const pricingOpportunities = pricingInsights?.data?.tooLow
     ?.sort((a, b) => Math.abs(b.variance) - Math.abs(a.variance))
     ?.slice(0, 5) || [];
-
-  // Fetch recent high-value orders (all-time)
-  const { data: recentSales = [] } = useQuery<Order[]>({
-    queryKey: ['/api/orders', 'recent-sales'],
-    queryFn: async () => {
-      const response = await fetch('/api/orders');
-      if (!response.ok) throw new Error('Failed to fetch orders');
-      return response.json();
-    },
-    select: (data: Order[]) => 
-      data
-        .filter(order => order.orderTotal && !isNaN(Number(order.orderTotal)))
-        .sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime())
-        .slice(0, 5)
-  });
 
   const formatCurrency = (value: string | number) => {
     const num = typeof value === 'string' ? parseFloat(value) : value;
