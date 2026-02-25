@@ -193,9 +193,9 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
 
     const html = `<!DOCTYPE html><html><head><title>Picklist — ${date}</title>
 <style>
-  body { font-family: monospace; font-size: 11px; margin: 16px; color: #000; }
+  body { font-family: monospace; font-size: 11px; margin: 6px; color: #000; }
   h2 { font-size: 14px; margin: 0 0 4px; }
-  .sub { font-size: 10px; color: #555; margin-bottom: 12px; }
+  .sub { font-size: 10px; color: #555; margin-bottom: 10px; }
   table { width: 100%; border-collapse: collapse; }
   td { padding: 2px 4px; vertical-align: top; }
   .part-no-cell { width: 130px; white-space: nowrap; }
@@ -205,11 +205,11 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
   .part-name { }
   .meta { color: #555; font-size: 10px; }
   .spacer { width: 16px; }
-  .part-header td { padding-top: 6px; border-top: 1px solid #ddd; }
+  .part-header td { padding-top: 14px; border-top: 2px dashed #bbb; }
   .aisle-header td { background: #333; color: #fff; font-weight: bold; padding: 3px 6px; font-size: 12px; }
   .shelf-header td { background: #ccc; font-weight: bold; padding: 2px 6px; }
-  .bin-header td { background: #eee; font-weight: bold; padding: 2px 6px; border-top: 1px solid #bbb; }
-  @media print { @page { margin: 0.5in; } }
+  .bin-header td { background: #eee; font-weight: bold; padding: 4px 6px; border-top: 2px dashed #bbb; margin-top: 8px; }
+  @media print { @page { margin: 0.2in; } }
 </style></head><body>
 <h2>PlanetBrick Picklist</h2>
 <div class="sub">${date} &nbsp;·&nbsp; ${filterLabel} &nbsp;·&nbsp; ${viewMode === 'by_part' ? 'By Part Number' : 'By Shelf / Bin'}</div>
