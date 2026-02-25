@@ -26,6 +26,7 @@ type BinPicklistItem = {
   pulled: boolean;
   inventoryId: number | null;
   remarks: string | null;
+  imageUrl: string | null;
 };
 
 type BinPicklist = {
@@ -154,7 +155,10 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
         `${chanPrefix(item)}${rawOrder}`,
         item.inventoryId ? `Lot ${item.inventoryId}` : '',
       ].filter(Boolean).join(' · ');
-      return `<tr class="item-row"><td><div class="cut-wrap"><div class="cut-tick"></div></div><div class="item-header">${header}</div><div class="meta">${meta}</div></td></tr>`;
+      const imgTag = item.imageUrl
+        ? `<img class="thumb" src="${item.imageUrl}" alt="" />`
+        : `<div class="thumb-placeholder"></div>`;
+      return `<tr class="item-row"><td><div class="cut-wrap"><div class="cut-tick"></div></div><div class="item-body">${imgTag}<div class="item-text"><div class="item-header">${header}</div><div class="meta">${meta}</div></div></div></td></tr>`;
     }).join('');
 
     const html = `<!DOCTYPE html><html><head><title>Picklist — ${date}</title>
@@ -172,6 +176,10 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
   .item-row { page-break-inside: avoid; break-inside: avoid; }
   .cut-wrap { padding: 22px 0; }
   .cut-tick { width: 22px; border-top: 1px solid #bbb; }
+  .item-body { display: flex; align-items: flex-start; gap: 6px; }
+  .thumb { max-height: 36px; max-width: 36px; width: auto; height: auto; object-fit: contain; flex-shrink: 0; }
+  .thumb-placeholder { width: 36px; flex-shrink: 0; }
+  .item-text { flex: 1; }
   @media print { @page { margin: 0.05in; } }
 </style></head><body>
 <table>${body}</table>
