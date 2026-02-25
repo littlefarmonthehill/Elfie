@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { Package, PackageCheck, Loader2, List, Layers } from "lucide-react";
+import { Package, PackageCheck, Loader2, List, Layers, Printer } from "lucide-react";
 
 type WarehouseLocation = {
   aisle: { id: number; name: string };
@@ -146,6 +146,99 @@ export default function PicklistTool() {
 
   const partKey = (item: BinPicklistItem) => item.partNumber || item.sku || '';
 
+  const handlePrint = () => {
+    const date = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const filterLabel = filter === 'to_pull' ? 'To Pull' : filter === 'to_reshelve' ? 'To Reshelve' : 'All Items';
+
+    let body = '';
+
+    if (viewMode === 'by_part') {
+      // Group by part number
+      const partGroups: Map<string, BinPicklistItem[]> = new Map();
+      for (const item of flatItems) {
+        const key = partKey(item);
+        if (!partGroups.has(key)) partGroups.set(key, []);
+        partGroups.get(key)!.push(item);
+      }
+      body = Array.from(partGroups.entries()).map(([, variants]) => {
+        const rep = variants[0];
+        const variantRows = variants.map(v => {
+          const meta = [
+            `Qty ${v.quantity}`,
+            v.orderNumber,
+            v.colorName,
+            v.condition === 'N' ? 'New' : v.condition === 'U' ? 'Used' : v.condition,
+          ].filter(Boolean).join(' · ');
+          return `<tr><td class="spacer"></td><td class="meta" colspan="2">${meta}</td><td class="cb"></td></tr>`;
+        }).join('');
+        return `
+          <tr class="part-header">
+            <td class="cb">☐</td>
+            <td class="part-no">${rep.partNumber || rep.sku}</td>
+            <td class="part-name">${rep.itemName || ''}</td>
+            <td class="cb">☐</td>
+          </tr>
+          ${variantRows}`;
+      }).join('');
+    } else {
+      // By shelf/bin
+      for (const [aisle, shelves] of Object.entries(groupedBins).sort(([a], [b]) => b.localeCompare(a))) {
+        body += `<tr class="aisle-header"><td colspan="4">${aisle}</td></tr>`;
+        for (const [shelf, bins] of Object.entries(shelves)) {
+          body += `<tr class="shelf-header"><td colspan="4">${shelf}</td></tr>`;
+          for (const bin of bins) {
+            const binName = bin.warehouseLocation?.bin.name || 'Unassigned';
+            const sortedItems = [...bin.items].sort((a, b) => partKey(a).localeCompare(partKey(b), undefined, { numeric: true }));
+            const itemRows = sortedItems.map(item => {
+              const meta = [
+                `Qty ${item.quantity}`,
+                item.orderNumber,
+                item.colorName,
+                item.condition === 'N' ? 'New' : item.condition === 'U' ? 'Used' : item.condition,
+              ].filter(Boolean).join(' · ');
+              return `<tr><td class="cb">☐</td><td class="part-no">${item.partNumber || item.sku}</td><td class="part-name">${item.itemName || ''}<span class="meta"> — ${meta}</span></td><td class="cb"></td></tr>`;
+            }).join('');
+            body += `<tr class="bin-header"><td class="cb">☐</td><td colspan="2">${binName}</td><td class="cb">☐</td></tr>${itemRows}`;
+          }
+        }
+      }
+    }
+
+    const html = `<!DOCTYPE html><html><head><title>Picklist — ${date}</title>
+<style>
+  body { font-family: monospace; font-size: 11px; margin: 16px; color: #000; }
+  h2 { font-size: 14px; margin: 0 0 4px; }
+  .sub { font-size: 10px; color: #555; margin-bottom: 12px; }
+  table { width: 100%; border-collapse: collapse; }
+  td { padding: 2px 4px; vertical-align: top; }
+  .cb { width: 18px; text-align: center; font-size: 13px; }
+  .spacer { width: 22px; }
+  .part-no { width: 70px; font-weight: bold; white-space: nowrap; }
+  .part-name { }
+  .meta { color: #555; font-size: 10px; }
+  .part-header td { padding-top: 6px; border-top: 1px solid #ddd; }
+  .aisle-header td { background: #333; color: #fff; font-weight: bold; padding: 3px 6px; font-size: 12px; }
+  .shelf-header td { background: #ccc; font-weight: bold; padding: 2px 6px; }
+  .bin-header td { background: #eee; font-weight: bold; padding: 2px 6px; border-top: 1px solid #bbb; }
+  @media print { @page { margin: 0.5in; } }
+</style></head><body>
+<h2>PlanetBrick Picklist</h2>
+<div class="sub">${date} &nbsp;·&nbsp; ${filterLabel} &nbsp;·&nbsp; ${viewMode === 'by_part' ? 'By Part Number' : 'By Shelf / Bin'}</div>
+<table>
+  <thead><tr>
+    <th class="cb" style="text-align:left">Pull</th>
+    <th style="text-align:left">Part</th>
+    <th style="text-align:left">Item</th>
+    <th class="cb" style="text-align:left">Done</th>
+  </tr></thead>
+  <tbody>${body}</tbody>
+</table>
+</body></html>`;
+
+    const w = window.open('', '_blank');
+    if (w) { w.document.write(html); w.document.close(); w.print(); }
+  };
+
   // ── Derived data ──
   const flatItems: BinPicklistItem[] = picklistData
     .flatMap(bin => bin.items)
@@ -208,6 +301,17 @@ export default function PicklistTool() {
         {/* Spacer */}
         <div className="flex-1" />
 
+        {/* Print */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handlePrint}
+          data-testid="button-print-picklist"
+        >
+          <Printer className="h-3.5 w-3.5 mr-1" />
+          Print
+        </Button>
+
         {/* Status filters */}
         <Button
           variant={filter === 'all' ? 'default' : 'outline'}
@@ -243,7 +347,7 @@ export default function PicklistTool() {
         <span className="flex-1">
           {viewMode === 'by_part' ? 'Part / Item' : 'Bin'}
         </span>
-        <span className="w-4 text-center shrink-0">Reshelved</span>
+        <span className="shrink-0 text-right">Reshelved</span>
       </div>
 
       {/* ── Empty state ── */}
