@@ -812,21 +812,6 @@ export default function FulfillmentTool() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-56">
-                        {readyToShip.size > 0 && (
-                          <>
-                            <DropdownMenuItem
-                              onClick={handleShipAll}
-                              disabled={isShippingAll}
-                              data-testid="menu-ship-all"
-                            >
-                              {isShippingAll
-                                ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Shipping...</>
-                                : <><Package className="w-4 h-4 mr-2" />Ship All ({readyToShip.size})</>
-                              }
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                          </>
-                        )}
                         <DropdownMenuItem
                           onClick={() => handlePrintPackingSlips(Array.from(selectedOrders))}
                           disabled={selectedOrders.size === 0}
@@ -853,6 +838,21 @@ export default function FulfillmentTool() {
                             </Badge>
                           )}
                         </DropdownMenuItem>
+                        {readyToShip.size > 0 && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={handleShipAll}
+                              disabled={isShippingAll}
+                              data-testid="menu-ship-all"
+                            >
+                              {isShippingAll
+                                ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Shipping...</>
+                                : <><Package className="w-4 h-4 mr-2" />Ship All ({readyToShip.size})</>
+                              }
+                            </DropdownMenuItem>
+                          </>
+                        )}
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           onClick={handleInitiateSplit}
