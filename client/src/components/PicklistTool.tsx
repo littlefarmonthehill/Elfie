@@ -133,63 +133,37 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
     const condLabel = (c: string | null) =>
       c === 'N' ? 'New' : c === 'U' ? 'Used' : (c || '');
 
-    if (viewMode === 'by_part') {
-      const partGroups: Map<string, BinPicklistItem[]> = new Map();
-      for (const item of flatItems) {
-        const key = partKey(item);
-        if (!partGroups.has(key)) partGroups.set(key, []);
-        partGroups.get(key)!.push(item);
-      }
-      body = Array.from(partGroups.entries()).map(([, variants]) => {
-        const rep = variants[0];
-        // Line 1: part# · color · condition
-        const line1 = [
-          `<span class="part-no">${rep.partNumber || rep.sku}</span>`,
-          rep.colorName ? `<span class="color">${rep.colorName}</span>` : '',
-          rep.condition ? `<span class="cond">${condLabel(rep.condition)}</span>` : '',
-        ].filter(Boolean).join(' ');
-        const variantRows = variants.map(v => {
-          const meta = [
-            `Qty ${v.quantity}`,
-            `${chanPrefix(v)}${v.orderNumber}`,
-            v.inventoryId ? `Lot ${v.inventoryId}` : '',
-          ].filter(Boolean).join(' · ');
-          return `<tr><td class="spacer"></td><td class="meta" colspan="2">${meta}</td></tr>`;
-        }).join('');
-        return `
-          <tr class="part-header">
-            <td class="part-no-cell">${line1}</td>
-            <td class="part-name">${rep.itemName || ''}</td>
-          </tr>
-          ${variantRows}`;
-      }).join('');
-    } else {
-      // By shelf/bin
-      for (const [aisle, shelves] of Object.entries(groupedBins).sort(([a], [b]) => b.localeCompare(a))) {
-        body += `<tr class="aisle-header"><td colspan="2">${aisle}</td></tr>`;
-        for (const [shelf, bins] of Object.entries(shelves)) {
-          body += `<tr class="shelf-header"><td colspan="2">${shelf}</td></tr>`;
-          for (const bin of bins) {
-            const binName = bin.warehouseLocation?.bin.name || 'Unassigned';
-            const sortedItems = [...bin.items].sort((a, b) => partKey(a).localeCompare(partKey(b), undefined, { numeric: true }));
-            const itemRows = sortedItems.map(item => {
-              // Line 1: part# · color · condition  /  Line 2: description  /  Line 3: meta
-              const line1Parts = [
-                item.colorName,
-                condLabel(item.condition),
-              ].filter(Boolean).join(' · ');
-              const meta = [
-                `Qty ${item.quantity}`,
-                `${chanPrefix(item)}${item.orderNumber}`,
-                item.inventoryId ? `Lot ${item.inventoryId}` : '',
-              ].filter(Boolean).join(' · ');
-              return `<tr><td class="part-no-cell"><span class="part-no">${item.partNumber || item.sku}</span>${line1Parts ? ` <span class="color">${line1Parts}</span>` : ''}</td><td class="part-name">${item.itemName || ''}<br><span class="meta">${meta}</span></td></tr>`;
-            }).join('');
-            body += `<tr class="bin-header"><td colspan="2">${binName}</td></tr>${itemRows}`;
-          }
-        }
-      }
+    // Printed picklist always groups by part number only
+    const partGroups: Map<string, BinPicklistItem[]> = new Map();
+    for (const item of [...flatItems].sort((a, b) =>
+      partKey(a).localeCompare(partKey(b), undefined, { numeric: true })
+    )) {
+      const key = partKey(item);
+      if (!partGroups.has(key)) partGroups.set(key, []);
+      partGroups.get(key)!.push(item);
     }
+    body = Array.from(partGroups.entries()).map(([, variants]) => {
+      const rep = variants[0];
+      const line1 = [
+        `<span class="part-no">${rep.partNumber || rep.sku}</span>`,
+        rep.colorName ? `<span class="color">${rep.colorName}</span>` : '',
+        rep.condition ? `<span class="cond">${condLabel(rep.condition)}</span>` : '',
+      ].filter(Boolean).join(' ');
+      const variantRows = variants.map(v => {
+        const meta = [
+          `Qty ${v.quantity}`,
+          `${chanPrefix(v)}${v.orderNumber}`,
+          v.inventoryId ? `Lot ${v.inventoryId}` : '',
+        ].filter(Boolean).join(' · ');
+        return `<tr><td class="spacer"></td><td class="meta" colspan="2">${meta}</td></tr>`;
+      }).join('');
+      return `
+        <tr class="part-header">
+          <td class="part-no-cell">${line1}</td>
+          <td class="part-name">${rep.itemName || ''}</td>
+        </tr>
+        ${variantRows}`;
+    }).join('');
 
     const html = `<!DOCTYPE html><html><head><title>Picklist — ${date}</title>
 <style>
@@ -212,7 +186,7 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
   @media print { @page { margin-top: 0.1in; margin-bottom: 0.1in; margin-left: 0.2in; margin-right: 0.2in; } }
 </style></head><body>
 <h2>PlanetBrick Picklist</h2>
-<div class="sub">${date} &nbsp;·&nbsp; ${filterLabel} &nbsp;·&nbsp; ${viewMode === 'by_part' ? 'By Part Number' : 'By Shelf / Bin'}</div>
+<div class="sub">${date} &nbsp;·&nbsp; ${filterLabel} &nbsp;·&nbsp; By Part Number</div>
 <table>
   <thead><tr>
     <th style="text-align:left">Part</th>
