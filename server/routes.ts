@@ -5593,20 +5593,56 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
                 .from(orders)
                 .where(eq(orders.id, item.orderId));
 
-              // Look up inventory for part number and color
+              // Look up inventory for part number, color, and condition
+              // The sku field stores the BL inventory ID — same join the packing slip uses
               let partNumber: string | null = null;
               let colorName: string | null = null;
-              const invId = item.inventoryId ?? (detail?.bricklinkInventoryId ? String(detail.bricklinkInventoryId) : null);
-              if (invId) {
+              let condition: string | null = detail?.condition ?? null;
+
+              // Try sku first (BL inventory ID as string), then bricklinkInventoryId, then inventoryId
+              const skuAsInt = detail?.sku ? parseInt(detail.sku) : NaN;
+              const lookupId = !isNaN(skuAsInt) ? skuAsInt
+                : detail?.bricklinkInventoryId ?? (item.inventoryId ?? null);
+
+              if (lookupId) {
                 const [inv] = await db
-                  .select({ itemNo: blInventory.itemNo, colorName: blInventory.colorName })
+                  .select({
+                    itemNo: blInventory.itemNo,
+                    colorName: blInventory.colorName,
+                    newOrUsed: blInventory.newOrUsed,
+                    colorId: blInventory.colorId,
+                  })
                   .from(blInventory)
-                  .where(eq(blInventory.id, Number(invId)))
+                  .where(eq(blInventory.id, Number(lookupId)))
                   .limit(1);
                 if (inv) {
                   partNumber = inv.itemNo;
-                  colorName = inv.colorName ?? null;
+                  // Color: use colorName on inventory record, or look up from bl_colors
+                  if (inv.colorName) {
+                    colorName = inv.colorName;
+                  } else if (inv.colorId) {
+                    const [col] = await db
+                      .select({ name: blColors.name })
+                      .from(blColors)
+                      .where(eq(blColors.id, inv.colorId))
+                      .limit(1);
+                    colorName = col?.name ?? null;
+                  }
+                  // Condition: prefer order detail, fall back to inventory
+                  if (!condition && inv.newOrUsed) {
+                    condition = inv.newOrUsed === 'N' ? 'N' : inv.newOrUsed === 'U' ? 'U' : inv.newOrUsed;
+                  }
                 }
+              }
+
+              // Also try color from orderDetails.colorId if still missing
+              if (!colorName && detail?.colorId) {
+                const [col] = await db
+                  .select({ name: blColors.name })
+                  .from(blColors)
+                  .where(eq(blColors.id, detail.colorId))
+                  .limit(1);
+                colorName = col?.name ?? null;
               }
 
               return {
@@ -5619,7 +5655,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
                 sku: detail?.sku,
                 partNumber,
                 colorName,
-                condition: detail?.condition ?? null,
+                condition,
                 pulled: item.pulled,
                 reshelved: item.reshelved,
               };
