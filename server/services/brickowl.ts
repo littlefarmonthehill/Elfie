@@ -175,6 +175,7 @@ export async function createBrickOwlLot(data: {
 export async function updateBrickOwlLot(data: {
   lot_id?: string;
   external_id_1?: string;
+  external_id?: string;   // Sets external_lot_ids.other (same field as create's external_id)
   absolute_quantity?: number;
   price?: number;
   condition?: string;
@@ -186,6 +187,7 @@ export async function updateBrickOwlLot(data: {
   
   if (data.lot_id) updateData.lot_id = data.lot_id;
   if (data.external_id_1) updateData.external_id_1 = data.external_id_1;
+  if (data.external_id) updateData.external_id = data.external_id;
   if (data.absolute_quantity !== undefined) updateData.absolute_quantity = data.absolute_quantity.toString();
   if (data.price !== undefined) updateData.price = data.price.toFixed(3);
   if (data.condition) updateData.condition = data.condition;
@@ -315,39 +317,32 @@ export async function syncInventoryItem(
   error?: string;
 }> {
   try {
-    // SIMPLIFIED APPROACH: Use BrickLink inventory ID stored in external_lot_ids.other
-    // If BrickOwl lot has external_lot_ids.other = BrickLink inventory ID → UPDATE
-    // If not found → CREATE new lot
-    
     // If inventory not provided, fetch it (for backwards compatibility)
     if (!brickowlInventory) {
       brickowlInventory = await getBrickOwlInventory(false);
     }
-    
-    // Find existing BrickOwl lot by BrickLink inventory ID stored in external_lot_ids.other
-    const existingLot = brickowlInventory.find((lot: any) => 
-      lot.external_lot_ids?.other === blItem.id.toString()
-    );
 
     const newPrice = blItem.unitPrice ? parseFloat(blItem.unitPrice) : 0;
     const condition = blItem.newOrUsed === 'N' ? 'new' : 'usedg';
 
-    if (existingLot) {
-      // UPDATE existing lot
-      const existingQty = parseInt(existingLot.qty);
-      const existingPrice = parseFloat(existingLot.price);
-      
-      // Check if anything changed
+    // ─── STEP 1: Match by BrickLink inventory ID tag (fast, reliable) ───────
+    // Lots our sync previously created/tagged will always be found here.
+    const taggedLot = brickowlInventory.find((lot: any) =>
+      lot.external_lot_ids?.other === blItem.id.toString()
+    );
+
+    if (taggedLot) {
+      const existingQty = parseInt(taggedLot.qty);
+      const existingPrice = parseFloat(taggedLot.price);
       const qtyChanged = existingQty !== blItem.quantity;
       const priceChanged = Math.abs(existingPrice - newPrice) > 0.001;
-      const remarksChanged = (existingLot.personal_note || '') !== (blItem.remarks || '');
-      const descriptionChanged = (existingLot.public_note || '') !== (blItem.description || '');
-      
+      const remarksChanged = (taggedLot.personal_note || '') !== (blItem.remarks || '');
+      const descriptionChanged = (taggedLot.public_note || '') !== (blItem.description || '');
+
       if (qtyChanged || priceChanged || remarksChanged || descriptionChanged) {
-        console.log(`[Sync] Updating ${blItem.itemNo} (BL inv ${blItem.id}): Qty ${existingQty} → ${blItem.quantity}, Price $${existingPrice} → $${newPrice}, Remarks: ${remarksChanged ? 'changed' : 'same'}, Description: ${descriptionChanged ? 'changed' : 'same'}`);
-        
+        console.log(`[Sync] Updating ${blItem.itemNo} (BL inv ${blItem.id}): Qty ${existingQty} → ${blItem.quantity}, Price $${existingPrice} → $${newPrice}`);
         await updateBrickOwlLot({
-          lot_id: existingLot.lot_id,
+          lot_id: taggedLot.lot_id,
           absolute_quantity: blItem.quantity,
           price: newPrice,
           condition,
@@ -355,39 +350,77 @@ export async function syncInventoryItem(
           personal_note: blItem.remarks || undefined,
           public_note: blItem.description || undefined,
         });
-        
         return { success: true, action: 'updated' };
       } else {
         console.log(`[Sync] Skipping ${blItem.itemNo} - no changes detected`);
         return { success: true, action: 'skipped' };
       }
-    } else {
-      // CREATE new lot
-      // Lookup BOID only when creating new lots
-      const boid = await lookupBoid(blItem.itemNo, blItem.itemType);
-      
-      if (!boid) {
+    }
+
+    // ─── STEP 2: Look up BOID and check for pre-existing untagged lots ──────
+    // Pre-existing BrickOwl lots (created before external_id tagging was in place)
+    // won't have external_lot_ids.other set. We identify them by BOID + condition
+    // so we can update them in place instead of creating duplicates.
+    const boid = await lookupBoid(blItem.itemNo, blItem.itemType);
+
+    if (boid) {
+      const untaggedMatches = brickowlInventory.filter((lot: any) =>
+        lot.boid === boid && lot.condition === condition
+      );
+
+      if (untaggedMatches.length === 1) {
+        // Exactly one pre-existing lot for this part + condition — safe to adopt it.
+        const untaggedLot = untaggedMatches[0];
+        console.log(`[Sync] Adopting pre-existing BrickOwl lot ${untaggedLot.lot_id} for ${blItem.itemNo} (BOID ${boid}) and tagging with BL inv ID ${blItem.id}`);
+        await updateBrickOwlLot({
+          lot_id: untaggedLot.lot_id,
+          external_id: blItem.id.toString(), // Tag it so future syncs use Step 1
+          absolute_quantity: blItem.quantity,
+          price: newPrice,
+          condition,
+          for_sale: 1,
+          personal_note: blItem.remarks || undefined,
+          public_note: blItem.description || undefined,
+        });
+        return { success: true, action: 'updated' };
+      }
+
+      if (untaggedMatches.length > 1) {
+        // Multiple untagged lots with the same BOID + condition — ambiguous.
+        // Do NOT create yet another duplicate. Log and skip so the user can
+        // manually clean up and tag one of the existing lots.
+        const lotIds = untaggedMatches.map((l: any) => l.lot_id).join(', ');
+        console.warn(`[Sync] SKIPPED ${blItem.itemNo}: ${untaggedMatches.length} ambiguous untagged BrickOwl lots found (lot IDs: ${lotIds}). Resolve duplicates on BrickOwl before syncing.`);
         return {
           success: false,
           action: 'skipped',
-          error: `Could not find BOID for BrickLink item ${blItem.itemNo}`,
+          error: `${untaggedMatches.length} duplicate untagged BrickOwl lots found for ${blItem.itemNo} (BOID ${boid}, condition: ${condition}). Clean up duplicates on BrickOwl first.`,
         };
       }
-
-      console.log(`[Sync] Creating new lot for ${blItem.itemNo} (BL inv ${blItem.id})`);
-      await createBrickOwlLot({
-        boid,
-        quantity: blItem.quantity,
-        price: newPrice,
-        condition,
-        for_sale: 1,
-        external_id: blItem.id.toString(), // Store BrickLink inventory ID (becomes external_lot_ids.other)
-        personal_note: blItem.remarks || undefined,      // Internal notes (bin location, etc.)
-        public_note: blItem.description || undefined,    // Public notes (condition, etc.)
-      });
-      
-      return { success: true, action: 'created' };
     }
+
+    // ─── STEP 3: No existing lot found anywhere — safe to create ────────────
+    if (!boid) {
+      return {
+        success: false,
+        action: 'skipped',
+        error: `Could not find BOID for BrickLink item ${blItem.itemNo}`,
+      };
+    }
+
+    console.log(`[Sync] Creating new lot for ${blItem.itemNo} (BL inv ${blItem.id})`);
+    await createBrickOwlLot({
+      boid,
+      quantity: blItem.quantity,
+      price: newPrice,
+      condition,
+      for_sale: 1,
+      external_id: blItem.id.toString(), // Tag immediately so future syncs find it in Step 1
+      personal_note: blItem.remarks || undefined,
+      public_note: blItem.description || undefined,
+    });
+
+    return { success: true, action: 'created' };
   } catch (error) {
     return {
       success: false,
