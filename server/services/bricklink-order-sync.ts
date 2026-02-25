@@ -1,6 +1,6 @@
 import { db } from "../db";
-import { orders, orderDetails, syncMetadata } from "@shared/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { orders, orderDetails, syncMetadata, blInventory } from "@shared/schema";
+import { eq, and, sql, isNull } from "drizzle-orm";
 import { getBrickLinkOrders, getBrickLinkOrderDetail, getBrickLinkOrderItems, mapBrickLinkStatusSync, mapBrickLinkCondition } from "./bricklink-orders";
 import { mapPlatformStatus } from "../config/order-status-mapping";
 import { adjustInventoryForOrder } from "./inventory-adjustment";
@@ -220,6 +220,10 @@ async function processBrickLinkOrder(
   const cost = orderDetail?.cost || blOrder.cost || {};
   const shipping = orderDetail?.shipping || blOrder.shipping || {};
   
+  // Capture total order weight from BrickLink (grams → oz)
+  const blTotalWeightGrams = orderDetail?.weight ? parseFloat(orderDetail.weight) : null;
+  const blTotalWeightOz = blTotalWeightGrams ? Math.round(blTotalWeightGrams * 0.035274 * 100) / 100 : null;
+
   // Prepare order data
   const orderData = {
     id: orderId,
@@ -250,6 +254,8 @@ async function processBrickLinkOrder(
     requestedShippingService: shipping?.method || null,
     carrierCode: null,
     serviceCode: null,
+    weight: blTotalWeightOz ? blTotalWeightOz.toString() : null,
+    weightUnits: blTotalWeightOz ? 'oz' : null,
     updatedAt: new Date(),
   };
   
@@ -268,13 +274,17 @@ async function processBrickLinkOrder(
     }
 
     // Update existing order (use existingOrder.id in case it was found via legacy order_number lookup)
+    // Separate weight from core data — only populate weight from BL if user hasn't manually set one
+    const { weight: blWeight, weightUnits: blWeightUnits, ...coreOrderData } = orderData;
     await db
       .update(orders)
       .set({
-        ...orderData,
+        ...coreOrderData,
         id: existingOrder.id, // Preserve the existing ID — don't rename old-format records
         orderStatus: updatedStatus,
         previousStatus: existingOrder.orderStatus, // Preserve current status as previous
+        // Only set BL weight if no weight is saved yet (don't overwrite manual entries)
+        ...(existingOrder.weight == null && blWeight ? { weight: blWeight, weightUnits: blWeightUnits } : {}),
       })
       .where(eq(orders.id, existingOrder.id));
     
@@ -325,10 +335,44 @@ async function processBrickLinkOrder(
         )
         .limit(1);
       
-      if (existingItem) {
-        continue; // Skip if already exists
+      // Always try to backfill inventory weight/image from order item data (COALESCE = no-op if already set)
+      if (item.inventory_id) {
+        try {
+          const lineWeightGrams = item.weight ? parseFloat(item.weight) : null;
+          const unitWeightGrams = lineWeightGrams && item.quantity > 0
+            ? lineWeightGrams / item.quantity
+            : null;
+          const itemNo = item.item?.no;
+          const colorId = item.color_id;
+          const itemType = item.item?.type;
+          let imageUrl: string | null = null;
+          if (itemNo && colorId && itemType === 'PART') {
+            imageUrl = `https://img.bricklink.com/ItemImage/PN/${colorId}/${itemNo}.png`;
+          } else if (itemNo && itemType === 'SET') {
+            imageUrl = `https://img.bricklink.com/ItemImage/SL/${itemNo}.jpg`;
+          } else if (itemNo && colorId && itemType === 'MINIFIG') {
+            imageUrl = `https://img.bricklink.com/ItemImage/MN/${colorId}/${itemNo}.png`;
+          }
+          if (unitWeightGrams || imageUrl) {
+            await db.update(blInventory)
+              .set({
+                ...(unitWeightGrams ? { myWeight: sql`COALESCE(${blInventory.myWeight}, ${unitWeightGrams.toFixed(4)})` } : {}),
+                ...(imageUrl ? {
+                  imageUrl: sql`COALESCE(${blInventory.imageUrl}, ${imageUrl})`,
+                  thumbnailUrl: sql`COALESCE(${blInventory.thumbnailUrl}, ${imageUrl})`,
+                } : {}),
+              })
+              .where(eq(blInventory.id, item.inventory_id));
+          }
+        } catch (invErr: any) {
+          console.warn(`⚠️ Could not backfill inventory for lot ${item.inventory_id}: ${invErr.message}`);
+        }
       }
-      
+
+      if (existingItem) {
+        continue; // Order detail already exists — inventory backfill above still ran
+      }
+
       const orderDetailData = {
         orderId,
         lineItemKey,
@@ -353,7 +397,7 @@ async function processBrickLinkOrder(
       
       await db.insert(orderDetails).values([orderDetailData]);
       result.orderDetailsAdded++;
-      
+
     } catch (error: any) {
       console.error(`✗ Error processing order item for order ${orderId}:`, error);
       result.errors.push(`Order ${orderId} item error: ${error.message}`);
