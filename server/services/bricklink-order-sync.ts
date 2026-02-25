@@ -338,10 +338,8 @@ async function processBrickLinkOrder(
       // Always try to backfill inventory weight/image from order item data (COALESCE = no-op if already set)
       if (item.inventory_id) {
         try {
-          const lineWeightGrams = item.weight ? parseFloat(item.weight) : null;
-          const unitWeightGrams = lineWeightGrams && item.quantity > 0
-            ? lineWeightGrams / item.quantity
-            : null;
+          // item.weight from BrickLink is the unit weight per piece in grams (not the line total)
+          const unitWeightGrams = item.weight ? parseFloat(item.weight) : null;
           const itemNo = item.item?.no;
           const colorId = item.color_id;
           const itemType = item.item?.type;
@@ -381,8 +379,8 @@ async function processBrickLinkOrder(
         quantity: item.quantity,
         unitPrice: item.unit_price ? item.unit_price.toString() : '0',
         taxAmount: null,
-        weight: null,
-        weightUnits: null,
+        weight: item.weight ? item.weight.toString() : null,
+        weightUnits: item.weight ? 'g' : null,
         description: item.description || null,
         options: null,
         customField1: null,
