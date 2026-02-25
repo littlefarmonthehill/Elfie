@@ -243,7 +243,7 @@ export default function PicklistTool() {
         <span className="flex-1">
           {viewMode === 'by_part' ? 'Part / Item' : 'Bin'}
         </span>
-        <span className="w-4 text-center shrink-0">Done</span>
+        <span className="w-4 text-center shrink-0">Reshelved</span>
       </div>
 
       {/* ── Empty state ── */}
