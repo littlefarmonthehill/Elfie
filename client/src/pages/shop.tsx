@@ -88,7 +88,9 @@ interface ProductLot {
 
 function getProxyImageUrl(imageUrl: string | null | undefined): string | null {
   if (!imageUrl) return null;
-  // Proxy through our server which uses Remove.bg if API key is available
+  // BrickLink CDN images load directly — no proxy needed
+  if (imageUrl.includes('img.bricklink.com')) return imageUrl;
+  // Rebrickable and others go through our proxy
   return `/api/images/proxy?url=${encodeURIComponent(imageUrl)}`;
 }
 

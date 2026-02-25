@@ -398,6 +398,20 @@ export async function syncBricklinkColors(): Promise<{ added: number; updated: n
   }
 }
 
+function buildBricklinkImageUrl(itemType: string, colorId: number | null, itemNo: string): string | null {
+  if (!itemNo) return null;
+  switch (itemType) {
+    case 'PART':        return colorId ? `https://img.bricklink.com/P/${colorId}/${itemNo}.jpg` : null;
+    case 'MINIFIG':     return `https://img.bricklink.com/M/${itemNo}.jpg`;
+    case 'SET':         return `https://img.bricklink.com/S/${itemNo}.jpg`;
+    case 'GEAR':        return colorId ? `https://img.bricklink.com/G/${colorId}/${itemNo}.jpg` : null;
+    case 'INSTRUCTION': return `https://img.bricklink.com/IN/${itemNo}.jpg`;
+    case 'BOOK':        return `https://img.bricklink.com/BK/${itemNo}.jpg`;
+    case 'ORIGINAL_BOX':return `https://img.bricklink.com/S/${itemNo}.jpg`;
+    default:            return colorId ? `https://img.bricklink.com/P/${colorId}/${itemNo}.jpg` : null;
+  }
+}
+
 export async function syncBricklinkInventory(): Promise<{ added: number; updated: number; apiCalls: number }> {
   try {
     const { syncProgressTracker } = await import('./sync-progress');
@@ -470,6 +484,8 @@ export async function syncBricklinkInventory(): Promise<{ added: number; updated
           tierQuantity2: item.tier_quantity2 || null,
           tierQuantity3: item.tier_quantity3 || null,
           myWeight: item.my_weight || null,
+          imageUrl: buildBricklinkImageUrl(item.item.type, item.color_id, item.item.no),
+          thumbnailUrl: buildBricklinkImageUrl(item.item.type, item.color_id, item.item.no),
         }));
         
         await db.insert(blInventory).values(values);
