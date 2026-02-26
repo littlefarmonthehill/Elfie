@@ -5152,6 +5152,23 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
     }
   });
 
+  // Clear all Price-o-Matic cache data and reset sync status
+  app.delete("/api/sync/priceomatic/cache", isApproved, async (req, res) => {
+    try {
+      const result = await db.execute(sql`DELETE FROM price_guide_cache`);
+      const deleted = (result as any).rowCount ?? 0;
+
+      // Reset sync metadata so the dashboard shows 'never'
+      await db.delete(syncMetadata).where(eq(syncMetadata.id, 'priceomatic_cache'));
+
+      console.log(`[Price-o-Matic] Cache cleared: ${deleted} rows deleted`);
+      res.json({ success: true, deleted });
+    } catch (error) {
+      console.error("Error clearing Price-o-Matic cache:", error);
+      res.status(500).json({ success: false, error: "Failed to clear cache" });
+    }
+  });
+
   // Get all categories with their priority tiers
   app.get("/api/priceomatic/category-tiers", isApproved, async (req, res) => {
     try {

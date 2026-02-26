@@ -415,6 +415,25 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
     },
   });
 
+  const [showClearPomDialog, setShowClearPomDialog] = useState(false);
+
+  const clearPomCacheMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch('/api/sync/priceomatic/cache', { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to clear cache');
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/priceomatic/freshness'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/priceomatic/insights'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/sync/priceomatic/status'] });
+      toast({ title: "Cache Cleared", description: `Removed ${data.deleted} price guide records. Ready for a fresh sync.` });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to clear the cache.", variant: "destructive" });
+    },
+  });
+
   useEffect(() => {
     if (settings) {
       setAiEnabled(settings.aiEnabled);
@@ -2073,6 +2092,59 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                   </p>
                   <PomCategoryTiers />
                 </div>
+
+                {/* Clear Cache */}
+                <div className="bg-red-500/5 border border-red-500/20 rounded-md p-4 space-y-2">
+                  <div className="flex items-center justify-between gap-4 flex-wrap">
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <Label className="text-xs font-medium text-red-300">Clear Price Guide Cache</Label>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="h-3 w-3 text-gray-600 cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent side="right" className="max-w-64 text-xs">
+                            Deletes all stored price guide data and resets the sync history. Use this when starting fresh with new formula settings, or when all cached data is too old to be useful. The next sync run will rebuild from scratch.
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <p className="text-[10px] text-gray-500 mt-0.5">Remove all stored price guide data and reset sync history. The next sync will rebuild from scratch.</p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowClearPomDialog(true)}
+                      className="border-red-500/40 text-red-400 hover:text-red-300 shrink-0"
+                      data-testid="button-clear-pom-cache"
+                    >
+                      <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                      Clear Cache
+                    </Button>
+                  </div>
+                </div>
+
+                <AlertDialog open={showClearPomDialog} onOpenChange={setShowClearPomDialog}>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Clear Price Guide Cache?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will permanently delete all stored Price-o-Matic price guide data and reset the sync history. The next sync run will start fresh and rebuild from scratch using your current formula settings.
+                        <br /><br />
+                        This cannot be undone, but no inventory data is affected — only the pricing cache.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => clearPomCacheMutation.mutate()}
+                        className="bg-red-600 hover:bg-red-700"
+                        data-testid="button-confirm-clear-pom"
+                      >
+                        {clearPomCacheMutation.isPending ? "Clearing..." : "Yes, Clear Cache"}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
 
                 <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
                   <p className="text-xs text-blue-300">
