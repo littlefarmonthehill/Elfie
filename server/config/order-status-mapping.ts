@@ -195,7 +195,8 @@ export function shouldAdjustInventory(
   const toImpact = getInventoryImpact(toStatus);
   
   // Case 1: Order is being shipped → Reduce inventory
-  if (toStatus === 'shipped') {
+  // Only reduce if not already shipped (prevents double-reduction)
+  if (toStatus === 'shipped' && fromStatus !== 'shipped') {
     return { shouldAdjust: true, impact: 'reduce' };
   }
   
