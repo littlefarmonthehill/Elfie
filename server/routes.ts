@@ -4321,6 +4321,67 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
     }
   });
 
+  // Spot Price Lookup — any part number, in or out of inventory
+  app.get("/api/pom/spot-lookup", isApproved, async (req, res) => {
+    try {
+      const { partNo, itemType = 'P', colorId, newOrUsed = 'N' } = req.query;
+
+      if (!partNo || typeof partNo !== 'string' || !partNo.trim()) {
+        return res.status(400).json({ error: "partNo is required" });
+      }
+
+      const partNoClean = partNo.trim().toUpperCase();
+      const config = await getPomFormulaConfig();
+      const colorIdNum = colorId ? parseInt(colorId as string) : undefined;
+
+      const priceData = await fetchPriceOMagicData(
+        partNoClean,
+        itemType as string,
+        colorIdNum,
+        newOrUsed as string,
+        config.basePremium,
+        config
+      );
+
+      // Also check inventory for this part across all colors/conditions
+      const inventoryLots = await db
+        .select({
+          id: blInventory.id,
+          colorId: blInventory.colorId,
+          colorName: blColors.name,
+          colorRgb: blColors.rgb,
+          quantity: blInventory.quantity,
+          unitPrice: blInventory.unitPrice,
+          newOrUsed: blInventory.newOrUsed,
+        })
+        .from(blInventory)
+        .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+        .where(eq(blInventory.itemNo, partNoClean))
+        .orderBy(blColors.name);
+
+      res.json({ priceData, inventoryLots });
+    } catch (error: any) {
+      console.error("[POM Spot Lookup] Error:", error);
+      res.status(500).json({
+        error: "Lookup failed",
+        message: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  // Colors list for dropdowns
+  app.get("/api/colors", isApproved, async (req, res) => {
+    try {
+      const colors = await db
+        .select({ id: blColors.id, name: blColors.name, rgb: blColors.rgb })
+        .from(blColors)
+        .orderBy(blColors.name);
+      res.json(colors);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch colors" });
+    }
+  });
+
   // BrickLink Catalog Search (MUST be before /api/inventory/:id)
   app.get("/api/bricklink/catalog/:itemNo/:itemType", isApproved, async (req, res) => {
     try {

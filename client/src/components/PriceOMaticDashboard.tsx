@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import { PomSpotLookup } from "@/components/PomSpotLookup";
 
 interface SyncStatus {
   id: string;
@@ -201,6 +202,9 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
           </Tooltip>
         </div>
       </div>
+
+      {/* Spot Price Lookup */}
+      <PomSpotLookup formatCurrency={formatCurrency} />
 
       {/* Summary Cards — full-width 4-column row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
