@@ -78,6 +78,11 @@ export interface PayPalSyncResult {
 
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
+// Clear cached token so next call fetches fresh credentials (call after permission changes)
+export function clearPayPalTokenCache() {
+  cachedToken = null;
+}
+
 async function getAccessToken(): Promise<string> {
   if (cachedToken && Date.now() < cachedToken.expiresAt - 60000) {
     return cachedToken.token;
@@ -93,7 +98,8 @@ async function getAccessToken(): Promise<string> {
       'Authorization': `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
       'Content-Type': 'application/x-www-form-urlencoded',
     },
-    body: 'grant_type=client_credentials',
+    // Explicitly request the Transaction Search scope
+    body: 'grant_type=client_credentials&scope=https%3A%2F%2Furi.paypal.com%2Fservices%2Freporting%2Fsearch%2Fread',
   });
 
   const data: PayPalAccessToken = await response.json();

@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { AppSettings, User } from "@shared/schema";
 import { APP_VERSION, APP_NAME } from "@shared/version";
-import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users } from "lucide-react";
+import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -250,6 +250,7 @@ function getDeviceInfo() {
 export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   const { toast } = useToast();
   const [clearDataDialog, setClearDataDialog] = useState<'inventory' | 'orders' | null>(null);
+  const [cleanupRunning, setCleanupRunning] = useState(false);
   const [restoreWizardOpen, setRestoreWizardOpen] = useState(false);
   const [restoreStep, setRestoreStep] = useState<'select' | 'warning' | 'restoring' | 'syncing' | 'differential' | 'verification' | 'complete'>('select');
   const [restoreDate, setRestoreDate] = useState('2025-10-18');
@@ -489,6 +490,23 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
     // TODO: Implement clear data functionality
     console.log(`Clearing ${type} data`);
     setClearDataDialog(null);
+  };
+
+  const handleCleanupOldOrders = async () => {
+    setCleanupRunning(true);
+    try {
+      const res = await fetch('/api/admin/cleanup-old-orders');
+      const data = await res.json();
+      if (data.deleted === 0) {
+        toast({ title: 'Nothing to clean up', description: 'No stale orders found — already clean.' });
+      } else {
+        toast({ title: `Removed ${data.deleted} stale order${data.deleted !== 1 ? 's' : ''}`, description: `${data.orders ?? data.deleted} orders and associated records deleted.` });
+      }
+    } catch {
+      toast({ title: 'Cleanup failed', description: 'Could not remove stale orders.', variant: 'destructive' });
+    } finally {
+      setCleanupRunning(false);
+    }
   };
 
   // Handle app cache and data clearing
@@ -1790,6 +1808,31 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                         Open BrickLink Upload Page
                       </Button>
                     </div>
+                  </div>
+                </div>
+
+                <Separator className="bg-gray-700" />
+
+                {/* Maintenance Section */}
+                <div>
+                  <h3 className="text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
+                    <Wrench className="h-4 w-4 text-orange-400" />
+                    Maintenance
+                  </h3>
+                  <p className="text-xs text-gray-400 mb-3">One-time cleanup and repair operations</p>
+                  <div className="bg-gray-800 border border-gray-700 rounded-lg p-3">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full justify-start text-xs text-orange-400 border-orange-500/30 hover:bg-orange-500/10"
+                      onClick={handleCleanupOldOrders}
+                      disabled={cleanupRunning}
+                      data-testid="button-cleanup-old-orders"
+                    >
+                      <Trash2 className="h-3 w-3 mr-2" />
+                      {cleanupRunning ? 'Removing stale orders…' : 'Remove Stale Orders from Fulfillment'}
+                    </Button>
+                    <p className="text-[10px] text-gray-500 mt-2">Deletes old unpaid orders (pre-2023) that appear stuck in the fulfillment queue.</p>
                   </div>
                 </div>
 
