@@ -156,8 +156,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const beforeStr = beforeDate.toISOString().split('T')[0];
 
       const targets = await db.execute(sql.raw(
-        `SELECT id, order_number, status, order_date FROM orders
-         WHERE status IN ('awaiting_payment','awaiting_shipment','awaiting_fulfillment','pending')
+        `SELECT id, order_number, order_status, order_date FROM orders
+         WHERE order_status IN ('awaiting_payment','awaiting_shipment','awaiting_fulfillment','pending')
            AND (order_date IS NULL OR order_date < '${beforeStr}')
          ORDER BY order_date ASC`
       ));
@@ -176,7 +176,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         deleted: ids.length,
         before: beforeStr,
-        orders: rows.map((r: any) => ({ id: r.id, orderNumber: r.order_number, status: r.status, date: r.order_date })),
+        orders: rows.map((r: any) => ({ id: r.id, orderNumber: r.order_number, status: r.order_status, date: r.order_date })),
         detailsDeleted: (d1 as any).rowCount,
         adjustmentsDeleted: (d2 as any).rowCount,
         picklistDeleted: (d3 as any).rowCount,
