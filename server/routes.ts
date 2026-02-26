@@ -4334,31 +4334,15 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       const config = await getPomFormulaConfig();
       const colorIdNum = colorId ? parseInt(colorId as string) : undefined;
 
-      // Look up sales velocity for this item from our own order history (last 30 days)
-      // Join through bricklinkInventoryId → blInventory to get itemNo/colorId
-      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-      const velocityRows = await db
-        .select({ totalSold: sql<number>`COALESCE(SUM(${orderDetails.quantity}), 0)` })
-        .from(orderDetails)
-        .innerJoin(orders, eq(orderDetails.orderId, orders.id))
-        .innerJoin(blInventory, eq(orderDetails.bricklinkInventoryId, blInventory.id))
-        .where(
-          and(
-            eq(blInventory.itemNo, partNoClean),
-            colorIdNum ? eq(blInventory.colorId, colorIdNum) : undefined,
-            sql`${orders.orderDate} >= ${thirtyDaysAgo.toISOString()}`
-          )
-        );
-      const salesVelocity = Number(velocityRows[0]?.totalSold ?? 0);
-
+      // Market demand & supply signals come from the BL price guide API inside fetchPriceOMagicData.
+      // No local velocity pre-computation needed.
       const priceData = await fetchPriceOMagicData(
         partNoClean,
         itemType as string,
         colorIdNum,
         newOrUsed as string,
         config.basePremium,
-        config,
-        salesVelocity
+        config
       );
 
       // Also check inventory for this part across all colors/conditions

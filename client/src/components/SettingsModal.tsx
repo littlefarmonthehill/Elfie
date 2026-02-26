@@ -389,12 +389,11 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   const [pomCostFloorPct, setPomCostFloorPct] = useState(0);
   const [pomMinPrice, setPomMinPrice] = useState(0.02);
   const [pomTrendingEnabled, setPomTrendingEnabled] = useState(false);
-  const [pomTrendingDays, setPomTrendingDays] = useState(30);
-  const [pomTrendingThreshold, setPomTrendingThreshold] = useState(5);
-  const [pomTrendingBonus, setPomTrendingBonus] = useState(5);
-  const [pomHighSupplyEnabled, setPomHighSupplyEnabled] = useState(false);
-  const [pomHighSupplyThreshold, setPomHighSupplyThreshold] = useState(5000);
-  const [pomHighSupplyPenalty, setPomHighSupplyPenalty] = useState(5);
+  const [pomTrendingDays, setPomTrendingDays] = useState(15);       // repurposed: max % adjustment
+  const [pomTrendingThreshold, setPomTrendingThreshold] = useState(500);  // BL sold qty = "full demand"
+  const [pomTrendingBonus, setPomTrendingBonus] = useState(60);     // demand weight 0–100
+  const [pomHighSupplyThreshold, setPomHighSupplyThreshold] = useState(10000); // BL stock qty = "full supply"
+  const [pomHighSupplyPenalty, setPomHighSupplyPenalty] = useState(40);  // supply weight 0–100
 
   const { data: settings } = useQuery<AppSettings>({
     queryKey: ['/api/settings'],
@@ -485,12 +484,11 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
       setPomCostFloorPct(settings.pomCostFloorPct ?? 0);
       setPomMinPrice(parseFloat(String(settings.pomMinPrice ?? '0.02')));
       setPomTrendingEnabled(settings.pomTrendingEnabled ?? false);
-      setPomTrendingDays(settings.pomTrendingDays ?? 30);
-      setPomTrendingThreshold(settings.pomTrendingThreshold ?? 5);
-      setPomTrendingBonus(settings.pomTrendingBonus ?? 5);
-      setPomHighSupplyEnabled(settings.pomHighSupplyEnabled ?? false);
-      setPomHighSupplyThreshold(settings.pomHighSupplyThreshold ?? 5000);
-      setPomHighSupplyPenalty(settings.pomHighSupplyPenalty ?? 5);
+      setPomTrendingDays(settings.pomTrendingDays ?? 15);
+      setPomTrendingThreshold(settings.pomTrendingThreshold ?? 500);
+      setPomTrendingBonus(settings.pomTrendingBonus ?? 60);
+      setPomHighSupplyThreshold(settings.pomHighSupplyThreshold ?? 10000);
+      setPomHighSupplyPenalty(settings.pomHighSupplyPenalty ?? 40);
 
       // Fetch models
       fetchModels();
@@ -1911,19 +1909,22 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                   </div>
                 </div>
 
-                {/* Sales Velocity Bonus */}
+                {/* Market Dynamics */}
                 <div className="rounded-md border border-gray-700/60 overflow-hidden">
                   <div className="bg-gray-800/50 px-4 py-2.5 flex items-center justify-between border-b border-gray-700/40">
                     <div className="flex items-center gap-1.5">
-                      <h4 className="text-xs font-semibold text-gray-200 uppercase tracking-wider">Sales Velocity Bonus</h4>
+                      <h4 className="text-xs font-semibold text-gray-200 uppercase tracking-wider">Market Dynamics</h4>
                       <Popover>
                         <PopoverTrigger asChild>
                           <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
                             <Info className="w-3.5 h-3.5" />
                           </button>
                         </PopoverTrigger>
-                        <PopoverContent side="right" className="w-72 text-xs bg-gray-900 border-gray-700 p-3">
-                          When enabled, items that have sold frequently from your store recently get a pricing bonus. Fast-moving parts are in demand and can support a higher price. Velocity is calculated from your own order history — no extra API calls.
+                        <PopoverContent side="right" className="w-80 text-xs bg-gray-900 border-gray-700 p-3 space-y-1.5">
+                          <p>Adjusts suggested prices using live BrickLink market data — no local order history involved.</p>
+                          <p><span className="text-blue-300 font-medium">Demand signal:</span> total pieces sold globally on BrickLink (from the sold price guide). High sales volume relative to your demand threshold boosts the price.</p>
+                          <p><span className="text-orange-300 font-medium">Supply signal:</span> total pieces currently listed for sale globally. High availability relative to your supply threshold lowers the price.</p>
+                          <p>The two signals are weighted and combined: <span className="font-mono text-gray-300">adj = maxAdj × (demandRatio × demandWeight% − supplyRatio × supplyWeight%)</span></p>
                         </PopoverContent>
                       </Popover>
                     </div>
@@ -1935,67 +1936,27 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                   </div>
                   <div className={`px-4 divide-y divide-gray-700/30 ${!pomTrendingEnabled ? 'opacity-40 pointer-events-none' : ''}`}>
                     <div className="flex items-center justify-between py-3">
-                      <Label className="text-sm text-gray-300">Look-back window</Label>
-                      <div className="flex items-center gap-2">
-                        <Input type="number" min={7} max={365} value={pomTrendingDays} onChange={(e) => setPomTrendingDays(parseInt(e.target.value) || 30)} onBlur={() => updateSettingsMutation.mutate({ pomTrendingDays })} className="text-sm w-20 text-right" data-testid="input-pom-trending-days" disabled={!pomTrendingEnabled} />
-                        <span className="text-xs text-gray-400 w-8">days</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between py-3">
                       <div className="flex items-center gap-1.5">
-                        <Label className="text-sm text-gray-300">Trending threshold</Label>
+                        <Label className="text-sm text-gray-300">Max adjustment</Label>
                         <Popover>
                           <PopoverTrigger asChild>
                             <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
                               <Info className="w-3.5 h-3.5" />
                             </button>
                           </PopoverTrigger>
-                          <PopoverContent side="right" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
-                            Minimum units sold from your store in the look-back window to qualify an item as trending.
+                          <PopoverContent side="right" className="w-60 text-xs bg-gray-900 border-gray-700 p-3">
+                            The maximum percentage the market dynamics formula can move a price — either up (high demand) or down (high supply). Demand and supply weights further scale within this cap.
                           </PopoverContent>
                         </Popover>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Input type="number" min={1} max={500} value={pomTrendingThreshold} onChange={(e) => setPomTrendingThreshold(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomTrendingThreshold })} className="text-sm w-20 text-right" data-testid="input-pom-trending-threshold" disabled={!pomTrendingEnabled} />
-                        <span className="text-xs text-gray-400 w-14">units sold</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between py-3">
-                      <Label className="text-sm text-gray-300">Trending bonus</Label>
-                      <div className="flex items-center gap-2">
-                        <Input type="number" min={0} max={50} value={pomTrendingBonus} onChange={(e) => setPomTrendingBonus(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomTrendingBonus })} className="text-sm w-20 text-right" data-testid="input-pom-trending-bonus" disabled={!pomTrendingEnabled} />
+                        <Input type="number" min={1} max={50} value={pomTrendingDays} onChange={(e) => setPomTrendingDays(parseInt(e.target.value) || 15)} onBlur={() => updateSettingsMutation.mutate({ pomTrendingDays })} className="text-sm w-20 text-right" data-testid="input-pom-market-max-adj" disabled={!pomTrendingEnabled} />
                         <span className="text-xs text-gray-400 w-8">%</span>
                       </div>
                     </div>
-                  </div>
-                </div>
-
-                {/* Market Supply Penalty */}
-                <div className="rounded-md border border-gray-700/60 overflow-hidden">
-                  <div className="bg-gray-800/50 px-4 py-2.5 flex items-center justify-between border-b border-gray-700/40">
-                    <div className="flex items-center gap-1.5">
-                      <h4 className="text-xs font-semibold text-gray-200 uppercase tracking-wider">Market Supply Penalty</h4>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
-                            <Info className="w-3.5 h-3.5" />
-                          </button>
-                        </PopoverTrigger>
-                        <PopoverContent side="right" className="w-72 text-xs bg-gray-900 border-gray-700 p-3">
-                          When enabled, items with a very large number of pieces available globally on BrickLink get a discount applied to their suggested price. High global supply means more competition from other sellers, reducing your pricing power.
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                    <Switch
-                      checked={pomHighSupplyEnabled}
-                      onCheckedChange={(v) => { setPomHighSupplyEnabled(v); updateSettingsMutation.mutate({ pomHighSupplyEnabled: v }); }}
-                      data-testid="switch-pom-high-supply"
-                    />
-                  </div>
-                  <div className={`px-4 divide-y divide-gray-700/30 ${!pomHighSupplyEnabled ? 'opacity-40 pointer-events-none' : ''}`}>
                     <div className="flex items-center justify-between py-3">
                       <div className="flex items-center gap-1.5">
-                        <Label className="text-sm text-gray-300">Global quantity threshold</Label>
+                        <Label className="text-sm text-blue-300">Demand threshold</Label>
                         <Popover>
                           <PopoverTrigger asChild>
                             <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
@@ -2003,19 +1964,69 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                             </button>
                           </PopoverTrigger>
                           <PopoverContent side="right" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
-                            Total pieces of this part currently for sale across all BrickLink sellers. If this number exceeds the threshold, the penalty applies. Common commodity parts (3001 brick, 2780 pin) often have 50,000+ pieces globally.
+                            Total pieces sold globally on BrickLink that represents "fully demanded." An item at or above this level gets the full demand bonus. Below it, the bonus is proportionally reduced.
                           </PopoverContent>
                         </Popover>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Input type="number" min={100} step={100} value={pomHighSupplyThreshold} onChange={(e) => setPomHighSupplyThreshold(parseInt(e.target.value) || 100)} onBlur={() => updateSettingsMutation.mutate({ pomHighSupplyThreshold })} className="text-sm w-24 text-right" data-testid="input-pom-high-supply-threshold" disabled={!pomHighSupplyEnabled} />
+                        <Input type="number" min={1} step={100} value={pomTrendingThreshold} onChange={(e) => setPomTrendingThreshold(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomTrendingThreshold })} className="text-sm w-24 text-right" data-testid="input-pom-trending-threshold" disabled={!pomTrendingEnabled} />
+                        <span className="text-xs text-gray-400 w-14">units sold</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between py-3">
+                      <div className="flex items-center gap-1.5">
+                        <Label className="text-sm text-blue-300">Demand weight</Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                              <Info className="w-3.5 h-3.5" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent side="right" className="w-60 text-xs bg-gray-900 border-gray-700 p-3">
+                            How much of the max adjustment the demand signal can contribute. At 60 with max 15%, a fully-demanded item adds up to 9% (15 × 0.6).
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Input type="number" min={0} max={100} value={pomTrendingBonus} onChange={(e) => setPomTrendingBonus(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomTrendingBonus })} className="text-sm w-20 text-right" data-testid="input-pom-trending-bonus" disabled={!pomTrendingEnabled} />
+                        <span className="text-xs text-gray-400 w-8">%</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between py-3">
+                      <div className="flex items-center gap-1.5">
+                        <Label className="text-sm text-orange-300">Supply threshold</Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                              <Info className="w-3.5 h-3.5" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent side="right" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                            Total pieces currently listed for sale on BrickLink globally that represents "fully supplied." Common commodity parts often have 50,000+ pieces globally — set this to match your market context.
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Input type="number" min={100} step={1000} value={pomHighSupplyThreshold} onChange={(e) => setPomHighSupplyThreshold(parseInt(e.target.value) || 100)} onBlur={() => updateSettingsMutation.mutate({ pomHighSupplyThreshold })} className="text-sm w-24 text-right" data-testid="input-pom-high-supply-threshold" disabled={!pomTrendingEnabled} />
                         <span className="text-xs text-gray-400 w-12">pieces</span>
                       </div>
                     </div>
                     <div className="flex items-center justify-between py-3">
-                      <Label className="text-sm text-gray-300">Supply penalty</Label>
+                      <div className="flex items-center gap-1.5">
+                        <Label className="text-sm text-orange-300">Supply weight</Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                              <Info className="w-3.5 h-3.5" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent side="right" className="w-60 text-xs bg-gray-900 border-gray-700 p-3">
+                            How much of the max adjustment the supply signal can subtract. At 40 with max 15%, a fully-supplied item removes up to 6% (15 × 0.4).
+                          </PopoverContent>
+                        </Popover>
+                      </div>
                       <div className="flex items-center gap-2">
-                        <Input type="number" min={0} max={50} value={pomHighSupplyPenalty} onChange={(e) => setPomHighSupplyPenalty(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomHighSupplyPenalty })} className="text-sm w-20 text-right" data-testid="input-pom-high-supply-penalty" disabled={!pomHighSupplyEnabled} />
+                        <Input type="number" min={0} max={100} value={pomHighSupplyPenalty} onChange={(e) => setPomHighSupplyPenalty(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomHighSupplyPenalty })} className="text-sm w-20 text-right" data-testid="input-pom-high-supply-penalty" disabled={!pomTrendingEnabled} />
                         <span className="text-xs text-gray-400 w-8">%</span>
                       </div>
                     </div>

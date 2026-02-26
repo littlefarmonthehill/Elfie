@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 
 interface Category {
@@ -434,6 +435,7 @@ interface TierResetResult {
 
 export function PomCategoryTiers() {
   const { toast } = useToast();
+  const [showTierResetConfirm, setShowTierResetConfirm] = useState(false);
 
   const { data: tiersData, isLoading: tiersLoading } = useQuery<{ success: boolean; categories: Category[] }>({
     queryKey: ["/api/priceomatic/category-tiers"],
@@ -520,7 +522,7 @@ export function PomCategoryTiers() {
               variant="outline"
               size="sm"
               className="text-[10px] h-7 border-purple-700/60 text-purple-300 hover:text-purple-100 gap-1.5"
-              onClick={() => tierResetMutation.mutate()}
+              onClick={() => setShowTierResetConfirm(true)}
               disabled={tierResetMutation.isPending}
               data-testid="button-tier-reset"
             >
@@ -564,6 +566,29 @@ export function PomCategoryTiers() {
           onMove={(categoryId, toTier) => moveMutation.mutate({ categoryId, tier: toTier })}
         />
       ))}
+
+      <AlertDialog open={showTierResetConfirm} onOpenChange={setShowTierResetConfirm}>
+        <AlertDialogContent className="bg-gray-900 border-gray-700">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-gray-100">Auto-Assign Tiers</AlertDialogTitle>
+            <AlertDialogDescription className="text-gray-400">
+              This will reassign every category based on keyword rules and overwrite any manual tier assignments you have made. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-gray-600 text-gray-300" data-testid="button-tier-reset-cancel">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-purple-700 hover:bg-purple-600 text-white"
+              onClick={() => tierResetMutation.mutate()}
+              data-testid="button-tier-reset-confirm"
+            >
+              Auto-Assign
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -994,15 +994,14 @@ interface PomFormulaConfig {
   scarcityBonus3: number;
   costFloorPct: number;
   minPrice: number;
-  // Sales velocity bonus
-  trendingEnabled: boolean;
-  trendingDays: number;
-  trendingThreshold: number;
-  trendingBonus: number;
-  // High global supply penalty
-  highSupplyEnabled: boolean;
-  highSupplyThreshold: number;
-  highSupplyPenalty: number;
+  // Market Dynamics: combines BL market demand signal and supply signal
+  trendingEnabled: boolean;         // master on/off for market dynamics
+  trendingDays: number;             // repurposed: max % adjustment market dynamics can apply (up or down)
+  trendingThreshold: number;        // BL sold unit_quantity that represents "fully demanded" (ratio denominator)
+  trendingBonus: number;            // demand weight 0–100: how much of maxAdj goes to demand side
+  highSupplyEnabled: boolean;       // unused in formula, kept for schema compat
+  highSupplyThreshold: number;      // BL stock unit_quantity that represents "fully supplied" (ratio denominator)
+  highSupplyPenalty: number;        // supply weight 0–100: how much of maxAdj goes to supply side
 }
 
 const POM_FORMULA_DEFAULTS: PomFormulaConfig = {
@@ -1084,12 +1083,12 @@ export function applyPomFloors(
 export function calculateSuggestedPriceWithSupply(
   stockAvgPrice: number | null,
   soldAvgPrice: number | null,
-  stockTotalLots: number = 0,         // global seller listing count (for scarcity)
+  stockTotalLots: number = 0,   // BL stock guide total_lots: global seller listing count (scarcity tiers)
   basePremiumPercentage: number = 10,
   itemType: string = 'PART',
   config: PomFormulaConfig = POM_FORMULA_DEFAULTS,
-  salesVelocity: number = 0,          // units sold from our store in trending window
-  stockQuantity: number = 0           // total pieces available globally (for supply penalty)
+  marketSoldQty: number = 0,    // BL sold guide unit_quantity: total pieces sold globally (demand signal)
+  marketStockQty: number = 0    // BL stock guide unit_quantity: total pieces available globally (supply signal)
 ): number {
   const basePrice = stockAvgPrice || soldAvgPrice || 0;
   
@@ -1111,14 +1110,22 @@ export function calculateSuggestedPriceWithSupply(
     totalPremium += config.scarcityBonus3;
   }
 
-  // Apply sales velocity bonus (items trending in our store price up)
-  if (config.trendingEnabled && salesVelocity >= config.trendingThreshold) {
-    totalPremium += config.trendingBonus;
-  }
-
-  // Apply high global supply penalty (flooded market prices down)
-  if (config.highSupplyEnabled && stockQuantity >= config.highSupplyThreshold) {
-    totalPremium -= config.highSupplyPenalty;
+  // Market Dynamics: weighted combination of BL demand signal and supply signal
+  // Both use data from the BL price guide API — no local order history involved.
+  //   demandRatio = fraction of "max demand" this item has achieved (0–1, capped)
+  //   supplyRatio = fraction of "max supply" this item has (0–1, capped)
+  //   adjustment  = maxAdj × (demandRatio × demandWeight% - supplyRatio × supplyWeight%)
+  if (config.trendingEnabled) {
+    const maxAdj = config.trendingDays;  // repurposed field: max % swing allowed
+    const demandRatio = config.trendingThreshold > 0
+      ? Math.min(marketSoldQty / config.trendingThreshold, 1.0)
+      : 0;
+    const supplyRatio = config.highSupplyThreshold > 0
+      ? Math.min(marketStockQty / config.highSupplyThreshold, 1.0)
+      : 0;
+    const demandContrib = demandRatio * (config.trendingBonus / 100);
+    const supplyContrib = supplyRatio * (config.highSupplyPenalty / 100);
+    totalPremium += maxAdj * (demandContrib - supplyContrib);
   }
   
   const suggestedPrice = basePrice * (1 + totalPremium / 100);
@@ -1261,35 +1268,9 @@ export async function syncPriceOMagicCache(maxItems?: number): Promise<{
 
     console.log(`[Price-o-Matic Sync] Found ${inventoryItems.length} candidates, ${filteredItems.length} stale (${filteredItems.length - itemsToProcess.length} deferred to next run), processing ${itemsToProcess.length}`);
 
-    // Pre-compute sales velocity map (one DB query, no API calls)
-    // Key: "itemNo:colorId:newOrUsed", value: total units sold in trending window
-    const velocityMap = new Map<string, number>();
-    if (pomConfig.trendingEnabled) {
-      try {
-        const trendingWindowStart = new Date(Date.now() - pomConfig.trendingDays * 86400000);
-        const velocityRows = await db
-          .select({
-            itemNo: blInventory.itemNo,
-            colorId: blInventory.colorId,
-            newOrUsed: blInventory.newOrUsed,
-            qtySold: sql<number>`SUM(${orderDetails.quantity})`,
-          })
-          .from(orderDetails)
-          .innerJoin(orders, eq(orderDetails.orderId, orders.id))
-          .innerJoin(blInventory, eq(orderDetails.bricklinkInventoryId, blInventory.id))
-          .where(gte(orders.orderDate, trendingWindowStart))
-          .groupBy(blInventory.itemNo, blInventory.colorId, blInventory.newOrUsed);
-        for (const row of velocityRows) {
-          const key = `${row.itemNo}:${row.colorId ?? 'null'}:${row.newOrUsed}`;
-          velocityMap.set(key, Number(row.qtySold));
-        }
-        console.log(`[Price-o-Matic Sync] Trending: ${velocityRows.length} items with recent sales in last ${pomConfig.trendingDays} days`);
-      } catch (e) {
-        console.error('[Price-o-Matic Sync] Failed to compute velocity map (non-fatal):', e);
-      }
-    }
-
     // Process each item in tier-priority order
+    // Market dynamics (demand + supply) are computed inside fetchPriceOMagicData from BL API data.
+    // No local velocity pre-computation needed.
     for (const item of itemsToProcess) {
       try {
         // Check rate limit before each batch (every 10 items) to avoid hitting hard limit
@@ -1305,10 +1286,6 @@ export async function syncPriceOMagicCache(maxItems?: number): Promise<{
           }
         }
 
-        // Look up this item's sales velocity (units sold in trending window)
-        const velocityKey = `${item.itemNo}:${item.colorId ?? 'null'}:${item.newOrUsed}`;
-        const salesVelocity = velocityMap.get(velocityKey) ?? 0;
-
         // Fetch price data (uses 3 API calls: item details, stock price guide, sold price guide)
         await fetchPriceOMagicData(
           item.itemNo,
@@ -1316,8 +1293,7 @@ export async function syncPriceOMagicCache(maxItems?: number): Promise<{
           item.colorId || undefined,
           item.newOrUsed,
           pomConfig.basePremium,
-          pomConfig,
-          salesVelocity
+          pomConfig
         );
 
         itemsUpdated++;
@@ -1363,8 +1339,7 @@ export async function fetchPriceOMagicData(
   colorId?: number,
   newOrUsed: string = 'N',
   premiumPercentage: number = 15,
-  config: PomFormulaConfig = POM_FORMULA_DEFAULTS,
-  salesVelocity: number = 0
+  config: PomFormulaConfig = POM_FORMULA_DEFAULTS
 ): Promise<any> {
   try {
     // Check if we have cached data less than 24 hours old
@@ -1438,9 +1413,10 @@ export async function fetchPriceOMagicData(
     const stockAvgPrice = stockPriceData?.avg_price ? parseFloat(stockPriceData.avg_price) : null;
     const soldP85Price = computeWeightedPercentile(soldPriceData?.price_detail, 85);
     const soldAvgPrice = soldP85Price ?? (soldPriceData?.avg_price ? parseFloat(soldPriceData.avg_price) : null);
-    const stockTotalLots = stockPriceData?.total_lots ? parseInt(stockPriceData.total_lots.toString()) : 0; // Number of seller listings (for scarcity)
-    const stockQuantity = stockPriceData?.unit_quantity ? parseInt(stockPriceData.unit_quantity.toString()) : 0; // Total pieces globally (for supply penalty)
-    const suggestedPrice = calculateSuggestedPriceWithSupply(stockAvgPrice, soldAvgPrice, stockTotalLots, premiumPercentage, apiItemType, config, salesVelocity, stockQuantity);
+    const stockTotalLots = stockPriceData?.total_lots ? parseInt(stockPriceData.total_lots.toString()) : 0;   // BL seller listing count (scarcity tiers)
+    const marketStockQty = stockPriceData?.unit_quantity ? parseInt(stockPriceData.unit_quantity.toString()) : 0; // Total pieces for sale globally (supply signal)
+    const marketSoldQty  = soldPriceData?.unit_quantity  ? parseInt(soldPriceData.unit_quantity.toString())  : 0; // Total pieces sold globally (demand signal)
+    const suggestedPrice = calculateSuggestedPriceWithSupply(stockAvgPrice, soldAvgPrice, stockTotalLots, premiumPercentage, apiItemType, config, marketSoldQty, marketStockQty);
 
     // Merge and store data
     const mergedData = {
