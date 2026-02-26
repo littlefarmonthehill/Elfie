@@ -4360,6 +4360,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       const inventoryLots = await db
         .select({
           id: blInventory.id,
+          itemType: blInventory.itemType,
           colorId: blInventory.colorId,
           colorName: blColors.name,
           colorRgb: blColors.rgb,
@@ -4381,13 +4382,17 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       const mainKey = `${colorIdNum ?? 'null'}_${newOrUsed}`;
       const lotPriceData: Record<string, typeof priceData> = { [mainKey]: priceData };
 
+      // Use the actual itemType from inventory records so the cache key matches the insights JOIN
+      // (BrickLink stores "PART", "MINIFIG", etc. — not the single-letter codes)
+      const actualItemType = inventoryLots[0]?.itemType ?? (itemType as string);
+
       const seenCombos = new Set<string>([mainKey]);
-      const combosToFetch: Array<{ colorId: number | null; newOrUsed: string; key: string }> = [];
+      const combosToFetch: Array<{ colorId: number | null; itemType: string; newOrUsed: string; key: string }> = [];
       for (const lot of inventoryLots) {
         const key = `${lot.colorId ?? 'null'}_${lot.newOrUsed}`;
         if (!seenCombos.has(key)) {
           seenCombos.add(key);
-          combosToFetch.push({ colorId: lot.colorId, newOrUsed: lot.newOrUsed, key });
+          combosToFetch.push({ colorId: lot.colorId, itemType: lot.itemType, newOrUsed: lot.newOrUsed, key });
         }
       }
 
@@ -4396,7 +4401,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
           try {
             const pd = await fetchPriceOMagicData(
               partNoClean,
-              itemType as string,
+              combo.itemType,
               combo.colorId ?? undefined,
               combo.newOrUsed,
               config.basePremium,

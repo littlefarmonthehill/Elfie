@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Input } from "@/components/ui/input";
@@ -54,7 +54,6 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
   const [colorId, setColorId] = useState<string>("none");
   const [result, setResult] = useState<SpotLookupResult | null>(null);
   const [lookupError, setLookupError] = useState<string | null>(null);
-  const searchAreaRef = useRef<HTMLDivElement>(null);
 
   const { data: colors } = useQuery<Color[]>({
     queryKey: ["/api/colors"],
@@ -220,17 +219,12 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
       </div>
 
       {/* Search controls */}
-      <div ref={searchAreaRef} className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Input
           placeholder="Part # (e.g. 3001)"
           value={partNo}
           onChange={(e) => setPartNo(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleLookup()}
-          onFocus={() => {
-            setTimeout(() => {
-              searchAreaRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-            }, 300);
-          }}
           className="text-[16px] w-36 font-mono"
           data-testid="input-spot-partno"
         />
