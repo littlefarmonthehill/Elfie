@@ -251,8 +251,16 @@ export const isAuthenticated: RequestHandler = (req, res, next) => {
   res.status(401).json({ message: "Unauthorized" });
 };
 
-// Approval middleware - TEMPORARILY BYPASSED for demo viewing
+// Approval middleware - user must be authenticated and approved
 export const isApproved: RequestHandler = async (req, res, next) => {
-  // TODO: RESTORE AUTHENTICATION - temporarily bypassed for demo
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  const user = req.user as any;
+  if (!user.isApproved) {
+    return res.status(403).json({ message: "Access not approved" });
+  }
+
   next();
 };

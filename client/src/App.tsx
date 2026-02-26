@@ -32,7 +32,7 @@ function Router() {
       <Route path="/login" component={Login} />
       <Route path="/signup" component={Signup} />
 
-      {/* Protected routes - show loading while checking authentication */}
+      {/* Protected routes - require authentication and approval (no admin role required) */}
       <Route path="/admin">
         {isLoading ? (
           <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-lego-red/20">
@@ -41,6 +41,10 @@ function Router() {
               <p className="text-sm text-gray-400">Loading...</p>
             </div>
           </div>
+        ) : !isAuthenticated ? (
+          <Redirect to="/login" />
+        ) : !isApproved ? (
+          <PendingApproval />
         ) : (
           <Home />
         )}
