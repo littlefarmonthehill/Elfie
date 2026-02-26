@@ -956,7 +956,29 @@ export const insertBlForumPostSchema = createInsertSchema(blForumPosts).omit({
 export type InsertBlForumPost = z.infer<typeof insertBlForumPostSchema>;
 export type BlForumPost = typeof blForumPosts.$inferSelect;
 
-// BrickLink Forum Embeddings - For semantic search of community discussions
+// Order Adjustments - Manual financial adjustments (refunds, credits, discounts)
+export const orderAdjustments = pgTable("order_adjustments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id").notNull().references(() => orders.id, { onDelete: 'cascade' }),
+  type: text("type").notNull().default('refund'), // 'refund' | 'credit' | 'discount'
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(), // Negative = refund/deduction
+  paymentMethod: text("payment_method"), // 'paypal' | 'stripe' | 'cash' | 'other'
+  externalTransactionId: text("external_transaction_id"), // PayPal/Stripe transaction ID
+  reason: text("reason"), // e.g., "Customer return - item damaged"
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertOrderAdjustmentSchema = createInsertSchema(orderAdjustments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertOrderAdjustment = z.infer<typeof insertOrderAdjustmentSchema>;
+export type OrderAdjustment = typeof orderAdjustments.$inferSelect;
+
 export const blForumEmbeddings = pgTable("bl_forum_embeddings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   postId: varchar("post_id").notNull(), // Reference to bl_forum_posts.id
