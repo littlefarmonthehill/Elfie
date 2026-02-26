@@ -145,19 +145,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // One-time cleanup: delete specific stale old orders (no platform API calls)
+  // Cleanup: delete stale orders stuck in awaiting_* status, older than a given date
+  // ?before=YYYY-MM-DD (default 2 years ago); targets awaiting_payment, awaiting_shipment, awaiting_fulfillment
   app.get("/api/admin/cleanup-old-orders", isApproved, async (req: any, res) => {
     try {
-      const orderNumbers = [
-        '7113811','7473435','7492231','7501164','7502815','9749074',
-        '10406576','12398298','17141345','2801321','3082511','6521027',
-        '8075629', // Susan Corcoran 2017
-      ];
-      // Resolve IDs from order_number using IN list (ANY doesn't work with JS arrays)
-      const numList = orderNumbers.map(n => `'${n}'`).join(',');
-      const targets = await db.execute(sql.raw(`SELECT id FROM orders WHERE order_number IN (${numList})`));
-      const ids = targets.rows.map((r: any) => r.id);
-      if (ids.length === 0) return res.json({ deleted: 0, message: 'Nothing to clean up' });
+      const beforeDate = req.query.before
+        ? new Date(req.query.before as string)
+        : new Date(Date.now() - 365 * 2 * 24 * 60 * 60 * 1000); // default: 2 years ago
+
+      const beforeStr = beforeDate.toISOString().split('T')[0];
+
+      const targets = await db.execute(sql.raw(
+        `SELECT id, order_number, status, order_date FROM orders
+         WHERE status IN ('awaiting_payment','awaiting_shipment','awaiting_fulfillment','pending')
+           AND (order_date IS NULL OR order_date < '${beforeStr}')
+         ORDER BY order_date ASC`
+      ));
+      const rows = targets.rows as any[];
+      const ids = rows.map((r: any) => r.id);
+
+      if (ids.length === 0) return res.json({ deleted: 0, before: beforeStr, message: 'Nothing to clean up' });
 
       const idList = ids.map((id: string) => `'${id}'`).join(',');
       const d1 = await db.execute(sql.raw(`DELETE FROM order_details WHERE order_id IN (${idList})`));
@@ -165,14 +172,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const d3 = await db.execute(sql.raw(`DELETE FROM picklist_items WHERE order_id IN (${idList})`));
       const d4 = await db.execute(sql.raw(`DELETE FROM orders WHERE id IN (${idList})`));
 
-      console.log(`🧹 Admin cleanup: removed ${ids.length} old orders from production DB`);
+      console.log(`🧹 Admin cleanup: removed ${ids.length} stale awaiting orders (before ${beforeStr})`);
       res.json({
         deleted: ids.length,
-        ids,
-        details: (d1 as any).rowCount,
-        adjustments: (d2 as any).rowCount,
-        picklist: (d3 as any).rowCount,
-        orders: (d4 as any).rowCount,
+        before: beforeStr,
+        orders: rows.map((r: any) => ({ id: r.id, orderNumber: r.order_number, status: r.status, date: r.order_date })),
+        detailsDeleted: (d1 as any).rowCount,
+        adjustmentsDeleted: (d2 as any).rowCount,
+        picklistDeleted: (d3 as any).rowCount,
       });
     } catch (err: any) {
       console.error('Cleanup error:', err);
