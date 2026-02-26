@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -73,6 +73,12 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
       } else {
         setResult(data);
         setLookupError(null);
+        // If this part exists in local inventory, the result was stored to the POM cache.
+        // Invalidate POM dashboard queries so they reflect the new data immediately.
+        if (data?.storedToCache && data?.inventoryLots?.length > 0) {
+          queryClient.invalidateQueries({ queryKey: ['/api/pom/insights'] });
+          queryClient.invalidateQueries({ queryKey: ['/api/priceomatic/freshness'] });
+        }
       }
     },
     onError: (err: Error) => {

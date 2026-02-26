@@ -4334,13 +4334,31 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       const config = await getPomFormulaConfig();
       const colorIdNum = colorId ? parseInt(colorId as string) : undefined;
 
+      // Look up sales velocity for this item from our own order history (last 30 days)
+      // Join through bricklinkInventoryId → blInventory to get itemNo/colorId
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const velocityRows = await db
+        .select({ totalSold: sql<number>`COALESCE(SUM(${orderDetails.quantity}), 0)` })
+        .from(orderDetails)
+        .innerJoin(orders, eq(orderDetails.orderId, orders.id))
+        .innerJoin(blInventory, eq(orderDetails.bricklinkInventoryId, blInventory.id))
+        .where(
+          and(
+            eq(blInventory.itemNo, partNoClean),
+            colorIdNum ? eq(blInventory.colorId, colorIdNum) : undefined,
+            sql`${orders.orderDate} >= ${thirtyDaysAgo.toISOString()}`
+          )
+        );
+      const salesVelocity = Number(velocityRows[0]?.totalSold ?? 0);
+
       const priceData = await fetchPriceOMagicData(
         partNoClean,
         itemType as string,
         colorIdNum,
         newOrUsed as string,
         config.basePremium,
-        config
+        config,
+        salesVelocity
       );
 
       // Also check inventory for this part across all colors/conditions
@@ -4359,7 +4377,9 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
         .where(eq(blInventory.itemNo, partNoClean))
         .orderBy(blColors.name);
 
-      res.json({ priceData, inventoryLots });
+      // The data is stored to priceGuideCache by fetchPriceOMagicData automatically.
+      // Return a flag so the client can invalidate POM dashboard queries.
+      res.json({ priceData, inventoryLots, storedToCache: true });
     } catch (error: any) {
       console.error("[POM Spot Lookup] Error:", error);
       res.status(500).json({
@@ -5259,6 +5279,73 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
     } catch (error) {
       console.error("Error updating category tier:", error);
       res.status(500).json({ error: "Failed to update category tier" });
+    }
+  });
+
+  // Auto-assign all categories to tiers based on name keywords and inventory data
+  app.post("/api/priceomatic/tier-reset", isApproved, async (req, res) => {
+    try {
+      const categories = await db
+        .select({ id: blCategories.id, name: blCategories.name, priorityTier: blCategories.priorityTier })
+        .from(blCategories);
+
+      function autoAssignTier(name: string): string {
+        const n = name.toLowerCase();
+        // ── Tier 1: Minifigures, Bionicle, premium collectibles ─────────
+        if (n.includes('minifig') || n.startsWith('minifigure')) return 'tier1';
+        if (n.includes('bionicle')) return 'tier1';
+        if (n.includes('large figure')) return 'tier1';
+        if (n.includes('collectible minifigure') || n.startsWith('collectible')) return 'tier1';
+        // ── Tier 2: High-demand structural & specialized ─────────────────
+        if (n.startsWith('technic')) return 'tier2';
+        if (n.includes('slope') || n.includes('inverted slope')) return 'tier2';
+        if (n.includes('bracket') || n.includes('snot')) return 'tier2';
+        if (n.includes('modified brick') || n.includes('modified plate') || n.includes('modified tile')) return 'tier2';
+        if (n.includes('hinge') || n.includes('clip') || n.includes('bar, connected')) return 'tier2';
+        if (n.includes('electric') || n.includes('battery') || n.includes('motor') || n.includes('pneumatic')) return 'tier2';
+        if (n.includes('power function') || n.includes('powered up') || n.includes('train')) return 'tier2';
+        if (n.includes('windscreen') || n.includes('window') || n.includes('door,')) return 'tier2';
+        if (n.includes('decorated') && (n.includes('plate') || n.includes('brick') || n.includes('tile') || n.includes('slope'))) return 'tier2';
+        if (n.includes('container') || n.includes('vehicle') || n.includes('cockpit') || n.includes('fuselage')) return 'tier2';
+        // ── Tier 3: Core commodity parts ─────────────────────────────────
+        if (n.startsWith('brick') || n.startsWith('plate') || n.startsWith('tile') ||
+            n.startsWith('bar') || n.startsWith('cylinder') || n.startsWith('wedge') ||
+            n.startsWith('arch') || n.startsWith('round') || n.startsWith('cone') ||
+            n.startsWith('panel') || n.startsWith('fence') || n.startsWith('flag') ||
+            n.startsWith('plant') || n.startsWith('animal') || n.startsWith('rock')) return 'tier3';
+        // ── Tier 4: Niche / very low velocity ────────────────────────────
+        if (n.startsWith('sticker') || n.startsWith('label') || n.startsWith('book') ||
+            n.startsWith('magazine') || n.startsWith('catalog') || n.startsWith('instruction') ||
+            n.startsWith('display') || n.startsWith('storage')) return 'tier4';
+        // Default: tier3 (safe commodity catch-all)
+        return 'tier3';
+      }
+
+      const updates: Array<{ id: number; tier: string }> = [];
+      const summary: Record<string, number> = { tier1: 0, tier2: 0, tier3: 0, tier4: 0, unchanged: 0 };
+
+      for (const cat of categories) {
+        const newTier = autoAssignTier(cat.name);
+        if (newTier !== cat.priorityTier) {
+          updates.push({ id: cat.id, tier: newTier });
+          summary[newTier] = (summary[newTier] || 0) + 1;
+        } else {
+          summary.unchanged++;
+        }
+      }
+
+      // Batch update
+      for (const u of updates) {
+        await db
+          .update(blCategories)
+          .set({ priorityTier: u.tier, updatedAt: new Date() })
+          .where(eq(blCategories.id, u.id));
+      }
+
+      res.json({ success: true, changed: updates.length, unchanged: summary.unchanged, summary });
+    } catch (error) {
+      console.error("Error resetting tiers:", error);
+      res.status(500).json({ error: "Failed to reset tiers" });
     }
   });
 

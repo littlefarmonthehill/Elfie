@@ -1,12 +1,13 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient } from "@/lib/queryClient";
-import { X, ChevronDown, ChevronUp, Search, Clock, CheckCircle2, AlertCircle, CircleDashed, FolderOpen } from "lucide-react";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import { X, ChevronDown, ChevronUp, Search, Clock, CheckCircle2, AlertCircle, CircleDashed, FolderOpen, Wand2, Info } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useToast } from "@/hooks/use-toast";
 
 interface Category {
   id: number;
@@ -424,7 +425,16 @@ function TierSection({
   );
 }
 
+interface TierResetResult {
+  success: boolean;
+  changed: number;
+  unchanged: number;
+  summary: Record<string, number>;
+}
+
 export function PomCategoryTiers() {
+  const { toast } = useToast();
+
   const { data: tiersData, isLoading: tiersLoading } = useQuery<{ success: boolean; categories: Category[] }>({
     queryKey: ["/api/priceomatic/category-tiers"],
   });
@@ -447,6 +457,19 @@ export function PomCategoryTiers() {
       queryClient.invalidateQueries({ queryKey: ["/api/priceomatic/category-tiers"] });
       queryClient.invalidateQueries({ queryKey: ["/api/priceomatic/freshness"] });
     },
+  });
+
+  const tierResetMutation = useMutation<TierResetResult>({
+    mutationFn: () => apiRequest("POST", "/api/priceomatic/tier-reset"),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/priceomatic/category-tiers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/priceomatic/freshness"] });
+      toast({
+        title: "Tier Reset Complete",
+        description: `${data.changed} categories reassigned (${data.unchanged} unchanged). T1: ${data.summary.tier1 ?? 0} · T2: ${data.summary.tier2 ?? 0} · T3: ${data.summary.tier3 ?? 0} · T4: ${data.summary.tier4 ?? 0}`,
+      });
+    },
+    onError: () => toast({ title: "Tier reset failed", variant: "destructive" }),
   });
 
   const categories = tiersData?.categories ?? [];
@@ -483,11 +506,45 @@ export function PomCategoryTiers() {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-3 text-[10px] text-gray-500 mb-1">
-        <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-green-400" /> Fresh</span>
-        <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-yellow-400" /> Stale</span>
-        <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-red-400/70" /> Never run</span>
-        <span className="ml-2 text-gray-600">Percentage = lots with price data</span>
+      {/* Header row: legend + tier reset */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-3 text-[10px] text-gray-500 flex-1 flex-wrap">
+          <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-green-400" /> Fresh</span>
+          <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-yellow-400" /> Stale</span>
+          <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-red-400/70" /> Never run</span>
+          <span className="text-gray-600">· % = lots with price data</span>
+        </div>
+        <Popover>
+          <div className="flex items-center gap-1.5">
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-[10px] h-7 border-purple-700/60 text-purple-300 hover:text-purple-100 gap-1.5"
+              onClick={() => tierResetMutation.mutate()}
+              disabled={tierResetMutation.isPending}
+              data-testid="button-tier-reset"
+            >
+              <Wand2 className={`w-3 h-3 ${tierResetMutation.isPending ? 'animate-spin' : ''}`} />
+              {tierResetMutation.isPending ? 'Resetting...' : 'Auto-Assign Tiers'}
+            </Button>
+            <PopoverTrigger asChild>
+              <button className="text-gray-600 hover:text-gray-300 transition-colors" data-testid="button-tier-reset-info">
+                <Info className="w-3.5 h-3.5" />
+              </button>
+            </PopoverTrigger>
+          </div>
+          <PopoverContent side="left" className="w-72 text-xs bg-gray-900 border-gray-700 p-3 space-y-1.5">
+            <p className="font-semibold text-gray-200">Auto-Assign Tier Rules</p>
+            <p className="text-gray-400">Reassigns every category based on name keywords. Your manual overrides will be replaced. Rules applied in order:</p>
+            <ul className="space-y-1 text-gray-300 mt-1">
+              <li><span className="text-yellow-300 font-medium">Tier 1</span> — Minifig, Bionicle, Large Figure, Collectible</li>
+              <li><span className="text-blue-300 font-medium">Tier 2</span> — Technic, Slope, Modified, Bracket, Electric, Motor, Window, Train, Vehicle</li>
+              <li><span className="text-gray-300 font-medium">Tier 3</span> — Brick, Plate, Tile, Bar, Wedge, Panel (commodity core)</li>
+              <li><span className="text-slate-400 font-medium">Tier 4</span> — Sticker, Book, Magazine, Instruction, Display</li>
+              <li><span className="text-gray-500 font-medium">Default</span> — Tier 3 for anything not matched above</li>
+            </ul>
+          </PopoverContent>
+        </Popover>
       </div>
 
       <UnassignedSection

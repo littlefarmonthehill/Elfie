@@ -943,6 +943,27 @@ async function bricklinkCatalogRequest(endpoint: string, queryParams?: Record<st
   }
 }
 
+// Compute a weighted percentile from BrickLink price_detail entries
+function computeWeightedPercentile(
+  priceDetails: Array<{ quantity: string | number; unit_price: string }> | undefined,
+  percentile: number
+): number | null {
+  if (!priceDetails || priceDetails.length === 0) return null;
+  const weighted = priceDetails
+    .map(d => ({ price: parseFloat(d.unit_price), qty: Math.max(1, parseInt(d.quantity.toString()) || 1) }))
+    .filter(d => d.price > 0)
+    .sort((a, b) => a.price - b.price);
+  if (weighted.length === 0) return null;
+  const totalQty = weighted.reduce((sum, d) => sum + d.qty, 0);
+  const target = totalQty * (percentile / 100);
+  let cumulative = 0;
+  for (const d of weighted) {
+    cumulative += d.qty;
+    if (cumulative >= target) return Number(d.price.toFixed(4));
+  }
+  return Number(weighted[weighted.length - 1].price.toFixed(4));
+}
+
 // Calculate Price-O-Matic suggested price with premium
 function calculateSuggestedPrice(
   stockAvgPrice: number | null,
@@ -1412,8 +1433,11 @@ export async function fetchPriceOMagicData(
     const { data: soldPriceData } = await bricklinkCatalogRequest(stockPriceEndpoint, soldPriceParams);
 
     // Calculate suggested price with supply adjustment
+    // For stock price, use avg (mid-market reference)
+    // For sold price, use 85th percentile of actual transactions (more accurate than mean, filters cheap outliers)
     const stockAvgPrice = stockPriceData?.avg_price ? parseFloat(stockPriceData.avg_price) : null;
-    const soldAvgPrice = soldPriceData?.avg_price ? parseFloat(soldPriceData.avg_price) : null;
+    const soldP85Price = computeWeightedPercentile(soldPriceData?.price_detail, 85);
+    const soldAvgPrice = soldP85Price ?? (soldPriceData?.avg_price ? parseFloat(soldPriceData.avg_price) : null);
     const stockTotalLots = stockPriceData?.total_lots ? parseInt(stockPriceData.total_lots.toString()) : 0; // Number of seller listings (for scarcity)
     const stockQuantity = stockPriceData?.unit_quantity ? parseInt(stockPriceData.unit_quantity.toString()) : 0; // Total pieces globally (for supply penalty)
     const suggestedPrice = calculateSuggestedPriceWithSupply(stockAvgPrice, soldAvgPrice, stockTotalLots, premiumPercentage, apiItemType, config, salesVelocity, stockQuantity);
