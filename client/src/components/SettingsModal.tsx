@@ -1692,511 +1692,363 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
 
             {/* Price-o-Matic Formula Settings */}
             {activeSection === 'priceomatic' && (
-              <div className="space-y-6 min-h-[400px]">
+              <div className="space-y-4 min-h-[400px]">
 
-                {/* Header */}
-                <div>
-                  <h3 className="text-sm font-medium text-gray-300 mb-1">Price-o-Matic Formula</h3>
-                  <p className="text-xs text-gray-400">Configure the pricing formula and intelligence thresholds. Changes apply on the next sync run.</p>
-                </div>
-
-                {/* Base Premiums */}
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
+                {/* Base Premium */}
+                <div className="rounded-md border border-gray-700/60 overflow-hidden">
+                  <div className="bg-gray-800/50 px-4 py-2.5 flex items-center gap-1.5 border-b border-gray-700/40">
                     <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Base Premium</h4>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Info className="h-3.5 w-3.5 text-gray-500 cursor-help" />
+                        <button className="text-gray-600 hover:text-gray-400 flex items-center transition-colors">
+                          <Info className="w-3.5 h-3.5" />
+                        </button>
                       </TooltipTrigger>
-                      <TooltipContent side="right" className="max-w-60 text-xs">
-                        The base premium is the minimum percentage markup above the BrickLink average price that every item receives. It ensures margin even on commodity parts. Scarcity bonuses are added on top of this.
+                      <TooltipContent side="right" className="max-w-64 text-xs">
+                        The minimum % markup above BrickLink's average price every item receives. Avg price = midpoint of avg listed and avg sold. Scarcity bonuses stack on top of this.
                       </TooltipContent>
                     </Tooltip>
                   </div>
-                  <div className="bg-gray-800/60 border border-gray-700 rounded-md p-4 space-y-4">
-                    <div className="flex items-center justify-between gap-4">
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <Label className="text-xs font-medium text-gray-300">Parts Base Premium</Label>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Info className="h-3 w-3 text-gray-600 cursor-help" />
-                            </TooltipTrigger>
-                            <TooltipContent side="right" className="max-w-56 text-xs">
-                              Applied to all standard parts (not minifigures). Formula: suggested = avg_price × (1 + base_premium% + scarcity_bonus%). The avg price is the midpoint of BrickLink's avg listed and avg sold prices.
-                            </TooltipContent>
-                          </Tooltip>
-                        </div>
-                        <p className="text-[10px] text-gray-500 mt-0.5">Added above avg listed/sold price for all standard parts</p>
-                      </div>
+                  <div className="px-4 divide-y divide-gray-700/30">
+                    <div className="flex items-center justify-between py-3">
                       <div className="flex items-center gap-1.5">
-                        <Input
-                          type="number"
-                          min={0}
-                          max={100}
-                          value={pomBasePremium}
-                          onChange={(e) => setPomBasePremium(parseInt(e.target.value) || 0)}
-                          onBlur={() => updateSettingsMutation.mutate({ pomBasePremium })}
-                          className="text-xs w-20 text-right"
-                          data-testid="input-pom-base-premium"
-                        />
-                        <span className="text-xs text-gray-400">%</span>
+                        <Label className="text-sm text-gray-200">Parts Premium</Label>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button className="text-gray-600 hover:text-gray-400 flex items-center transition-colors">
+                              <Info className="w-3.5 h-3.5" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="right" className="max-w-56 text-xs">
+                            Applied to all standard parts. Suggested = avg_price × (1 + base% + scarcity%). Being too high pushes above market; too low leaves margin on the table.
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Input type="number" min={0} max={100} value={pomBasePremium} onChange={(e) => setPomBasePremium(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomBasePremium })} className="text-sm w-20 text-right" data-testid="input-pom-base-premium" />
+                        <span className="text-xs text-gray-400 w-5">%</span>
                       </div>
                     </div>
-                    <Separator className="bg-gray-700" />
-                    <div className="flex items-center justify-between gap-4">
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <Label className="text-xs font-medium text-gray-300">Minifigure Base Premium</Label>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Info className="h-3 w-3 text-gray-600 cursor-help" />
-                            </TooltipTrigger>
-                            <TooltipContent side="right" className="max-w-56 text-xs">
-                              Minifigures use a separate (usually lower) premium because they already sell at elevated prices relative to cost. Setting this too high risks losing buyers to competitors on high-value figs.
-                            </TooltipContent>
-                          </Tooltip>
-                        </div>
-                        <p className="text-[10px] text-gray-500 mt-0.5">Separate premium for minifigs (higher-value items, tighter margins)</p>
-                      </div>
+                    <div className="flex items-center justify-between py-3">
                       <div className="flex items-center gap-1.5">
-                        <Input
-                          type="number"
-                          min={0}
-                          max={100}
-                          value={pomMinifigPremium}
-                          onChange={(e) => setPomMinifigPremium(parseInt(e.target.value) || 0)}
-                          onBlur={() => updateSettingsMutation.mutate({ pomMinifigPremium })}
-                          className="text-xs w-20 text-right"
-                          data-testid="input-pom-minifig-premium"
-                        />
-                        <span className="text-xs text-gray-400">%</span>
+                        <Label className="text-sm text-gray-200">Minifigure Premium</Label>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button className="text-gray-600 hover:text-gray-400 flex items-center transition-colors">
+                              <Info className="w-3.5 h-3.5" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="right" className="max-w-56 text-xs">
+                            Minifigures use a separate premium because they already command elevated prices relative to cost. Setting this too high on high-value figs risks losing buyers to competitors.
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Input type="number" min={0} max={100} value={pomMinifigPremium} onChange={(e) => setPomMinifigPremium(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomMinifigPremium })} className="text-sm w-20 text-right" data-testid="input-pom-minifig-premium" />
+                        <span className="text-xs text-gray-400 w-5">%</span>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Scarcity Tiers */}
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Supply Scarcity Bonuses</h4>
+                {/* Scarcity Bonuses */}
+                <div className="rounded-md border border-gray-700/60 overflow-hidden">
+                  <div className="bg-gray-800/50 px-4 py-2.5 flex items-center gap-1.5 border-b border-gray-700/40">
+                    <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Scarcity Bonuses</h4>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Info className="h-3.5 w-3.5 text-gray-500 cursor-help" />
+                        <button className="text-gray-600 hover:text-gray-400 flex items-center transition-colors">
+                          <Info className="w-3.5 h-3.5" />
+                        </button>
                       </TooltipTrigger>
                       <TooltipContent side="right" className="max-w-64 text-xs">
-                        When fewer sellers list a part on BrickLink, you can charge more — buyers have fewer options. Each tier adds a bonus % on top of your base premium. Very Low Supply (e.g. &lt;30 lots) = maximum bonus; High Supply = no bonus, base premium only.
+                        When fewer sellers list a part on BrickLink, you can charge more. Each tier adds a bonus % on top of your base premium. Items above the highest threshold get base premium only — no bonus.
                       </TooltipContent>
                     </Tooltip>
                   </div>
-                  <div className="bg-gray-800/60 border border-gray-700 rounded-md p-4 space-y-4">
-
-                    {/* Tier 1 - Very Low */}
-                    <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-2">
-                      <div>
-                        <Label className="text-xs font-medium text-orange-300">Very Low Supply</Label>
-                        <p className="text-[10px] text-gray-500">Fewest lots in market — extract premium</p>
-                      </div>
-                      <span className="text-[10px] text-gray-500">fewer than</span>
-                      <div className="flex items-center gap-1">
-                        <Input
-                          type="number"
-                          min={1}
-                          value={pomScarcityThreshold1}
-                          onChange={(e) => setPomScarcityThreshold1(parseInt(e.target.value) || 1)}
-                          onBlur={() => updateSettingsMutation.mutate({ pomScarcityThreshold1 })}
-                          className="text-xs w-20 text-right"
-                          data-testid="input-pom-threshold1"
-                        />
-                        <span className="text-[10px] text-gray-500">lots</span>
-                      </div>
-                      <span className="text-[10px] text-gray-500">+</span>
-                      <div className="flex items-center gap-1">
-                        <Input
-                          type="number"
-                          min={0}
-                          max={200}
-                          value={pomScarcityBonus1}
-                          onChange={(e) => setPomScarcityBonus1(parseInt(e.target.value) || 0)}
-                          onBlur={() => updateSettingsMutation.mutate({ pomScarcityBonus1 })}
-                          className="text-xs w-20 text-right"
-                          data-testid="input-pom-bonus1"
-                        />
-                        <span className="text-[10px] text-gray-400">%</span>
-                      </div>
+                  <div className="px-4">
+                    <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-2 border-b border-gray-700/40">
+                      <span className="text-[10px] font-semibold text-gray-600 uppercase tracking-wider">Supply Level</span>
+                      <span className="text-[10px] font-semibold text-gray-600 uppercase tracking-wider text-right">Under</span>
+                      <span className="w-6"></span>
+                      <span className="text-[10px] font-semibold text-gray-600 uppercase tracking-wider text-right">Bonus</span>
+                      <span className="w-4"></span>
                     </div>
-
-                    <Separator className="bg-gray-700" />
-
-                    {/* Tier 2 - Low */}
-                    <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-2">
-                      <div>
-                        <Label className="text-xs font-medium text-yellow-300">Low Supply</Label>
-                        <p className="text-[10px] text-gray-500">Limited availability — moderate premium</p>
+                    <div className="divide-y divide-gray-700/30">
+                      <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-3">
+                        <span className="text-sm font-medium text-orange-300">Very Low</span>
+                        <Input type="number" min={1} value={pomScarcityThreshold1} onChange={(e) => setPomScarcityThreshold1(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityThreshold1 })} className="text-sm w-20 text-right" data-testid="input-pom-threshold1" />
+                        <span className="text-xs text-gray-500">lots</span>
+                        <Input type="number" min={0} max={200} value={pomScarcityBonus1} onChange={(e) => setPomScarcityBonus1(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityBonus1 })} className="text-sm w-20 text-right" data-testid="input-pom-bonus1" />
+                        <span className="text-xs text-gray-400">%</span>
                       </div>
-                      <span className="text-[10px] text-gray-500">fewer than</span>
-                      <div className="flex items-center gap-1">
-                        <Input
-                          type="number"
-                          min={1}
-                          value={pomScarcityThreshold2}
-                          onChange={(e) => setPomScarcityThreshold2(parseInt(e.target.value) || 1)}
-                          onBlur={() => updateSettingsMutation.mutate({ pomScarcityThreshold2 })}
-                          className="text-xs w-20 text-right"
-                          data-testid="input-pom-threshold2"
-                        />
-                        <span className="text-[10px] text-gray-500">lots</span>
+                      <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-3">
+                        <span className="text-sm font-medium text-yellow-300">Low</span>
+                        <Input type="number" min={1} value={pomScarcityThreshold2} onChange={(e) => setPomScarcityThreshold2(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityThreshold2 })} className="text-sm w-20 text-right" data-testid="input-pom-threshold2" />
+                        <span className="text-xs text-gray-500">lots</span>
+                        <Input type="number" min={0} max={200} value={pomScarcityBonus2} onChange={(e) => setPomScarcityBonus2(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityBonus2 })} className="text-sm w-20 text-right" data-testid="input-pom-bonus2" />
+                        <span className="text-xs text-gray-400">%</span>
                       </div>
-                      <span className="text-[10px] text-gray-500">+</span>
-                      <div className="flex items-center gap-1">
-                        <Input
-                          type="number"
-                          min={0}
-                          max={200}
-                          value={pomScarcityBonus2}
-                          onChange={(e) => setPomScarcityBonus2(parseInt(e.target.value) || 0)}
-                          onBlur={() => updateSettingsMutation.mutate({ pomScarcityBonus2 })}
-                          className="text-xs w-20 text-right"
-                          data-testid="input-pom-bonus2"
-                        />
-                        <span className="text-[10px] text-gray-400">%</span>
+                      <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-3">
+                        <span className="text-sm font-medium text-blue-300">Medium</span>
+                        <Input type="number" min={1} value={pomScarcityThreshold3} onChange={(e) => setPomScarcityThreshold3(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityThreshold3 })} className="text-sm w-20 text-right" data-testid="input-pom-threshold3" />
+                        <span className="text-xs text-gray-500">lots</span>
+                        <Input type="number" min={0} max={200} value={pomScarcityBonus3} onChange={(e) => setPomScarcityBonus3(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityBonus3 })} className="text-sm w-20 text-right" data-testid="input-pom-bonus3" />
+                        <span className="text-xs text-gray-400">%</span>
                       </div>
-                    </div>
-
-                    <Separator className="bg-gray-700" />
-
-                    {/* Tier 3 - Medium */}
-                    <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-2">
-                      <div>
-                        <Label className="text-xs font-medium text-blue-300">Medium Supply</Label>
-                        <p className="text-[10px] text-gray-500">Adequate availability — small premium</p>
+                      <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-3">
+                        <span className="text-sm font-medium text-gray-500">High</span>
+                        <span className="text-sm text-gray-600 text-right">{pomScarcityThreshold3}+</span>
+                        <span className="text-xs text-gray-600">lots</span>
+                        <span className="text-sm text-gray-600 w-20 text-right">—</span>
+                        <span className="text-xs text-gray-600">%</span>
                       </div>
-                      <span className="text-[10px] text-gray-500">fewer than</span>
-                      <div className="flex items-center gap-1">
-                        <Input
-                          type="number"
-                          min={1}
-                          value={pomScarcityThreshold3}
-                          onChange={(e) => setPomScarcityThreshold3(parseInt(e.target.value) || 1)}
-                          onBlur={() => updateSettingsMutation.mutate({ pomScarcityThreshold3 })}
-                          className="text-xs w-20 text-right"
-                          data-testid="input-pom-threshold3"
-                        />
-                        <span className="text-[10px] text-gray-500">lots</span>
-                      </div>
-                      <span className="text-[10px] text-gray-500">+</span>
-                      <div className="flex items-center gap-1">
-                        <Input
-                          type="number"
-                          min={0}
-                          max={200}
-                          value={pomScarcityBonus3}
-                          onChange={(e) => setPomScarcityBonus3(parseInt(e.target.value) || 0)}
-                          onBlur={() => updateSettingsMutation.mutate({ pomScarcityBonus3 })}
-                          className="text-xs w-20 text-right"
-                          data-testid="input-pom-bonus3"
-                        />
-                        <span className="text-[10px] text-gray-400">%</span>
-                      </div>
-                    </div>
-
-                    <Separator className="bg-gray-700" />
-
-                    {/* Tier 4 - High */}
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <Label className="text-xs font-medium text-gray-400">High Supply</Label>
-                        <p className="text-[10px] text-gray-500">{pomScarcityThreshold3}+ lots — base premium only, no bonus</p>
-                      </div>
-                      <span className="text-xs text-gray-500 italic">no bonus</span>
                     </div>
                   </div>
                 </div>
 
                 {/* Formula Preview */}
-                <div className="space-y-3">
-                  <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Live Formula Preview</h4>
-                  <div className="bg-gray-900/80 border border-gray-600 rounded-md p-4 font-mono text-xs space-y-1.5">
-                    <p className="text-gray-400">For a part at avg price <span className="text-white">$0.10</span> with <span className="text-orange-300">30 lots</span> (Very Low Supply):</p>
-                    <p className="text-gray-500">  base_premium   = {pomBasePremium}%</p>
-                    <p className="text-gray-500">  scarcity_bonus = +{pomScarcityBonus1}% (fewer than {pomScarcityThreshold1} lots)</p>
-                    <p className="text-gray-500">  total_premium  = {pomBasePremium + pomScarcityBonus1}%</p>
-                    <p className="text-green-400">  suggested_price = $0.10 × {(1 + (pomBasePremium + pomScarcityBonus1) / 100).toFixed(2)} = <strong>${(0.10 * (1 + (pomBasePremium + pomScarcityBonus1) / 100)).toFixed(3)}</strong></p>
-                    <Separator className="bg-gray-700 my-2" />
-                    <p className="text-gray-400">Same part with <span className="text-blue-300">350 lots</span> (Medium Supply):</p>
-                    <p className="text-gray-500">  total_premium  = {pomBasePremium + pomScarcityBonus3}%</p>
-                    <p className="text-green-400">  suggested_price = $0.10 × {(1 + (pomBasePremium + pomScarcityBonus3) / 100).toFixed(2)} = <strong>${(0.10 * (1 + (pomBasePremium + pomScarcityBonus3) / 100)).toFixed(3)}</strong></p>
+                <div className="bg-gray-900/60 rounded-md border border-gray-700/40 px-4 py-3">
+                  <div className="flex items-center gap-1.5 mb-2.5">
+                    <h4 className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Formula Preview</h4>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button className="text-gray-600 hover:text-gray-400 flex items-center transition-colors">
+                          <Info className="w-3 h-3" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-64 text-xs">
+                        Shows the suggested price for a $0.10 part at each supply level using your current settings. Adjust the premiums and bonuses above to see results update instantly.
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <div className="space-y-1.5 font-mono text-xs">
+                    {[
+                      { label: 'Very Low (30 lots)', color: 'text-orange-300', premium: pomBasePremium + pomScarcityBonus1 },
+                      { label: 'Low (100 lots)', color: 'text-yellow-300', premium: pomBasePremium + pomScarcityBonus2 },
+                      { label: 'Medium (350 lots)', color: 'text-blue-300', premium: pomBasePremium + pomScarcityBonus3 },
+                      { label: 'High (600 lots)', color: 'text-gray-500', premium: pomBasePremium },
+                    ].map(({ label, color, premium }) => (
+                      <div key={label} className="flex items-center justify-between">
+                        <span className={color}>{label}</span>
+                        <span className="text-green-400 font-semibold">${(0.10 * (1 + premium / 100)).toFixed(3)}</span>
+                      </div>
+                    ))}
+                    <div className="border-t border-gray-700/50 pt-1.5 mt-0.5">
+                      <span className="text-gray-600">Base input: $0.10 avg price</span>
+                    </div>
                   </div>
                 </div>
 
                 {/* Price Floors */}
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
+                <div className="rounded-md border border-gray-700/60 overflow-hidden">
+                  <div className="bg-gray-800/50 px-4 py-2.5 flex items-center gap-1.5 border-b border-gray-700/40">
                     <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Price Floors</h4>
                     <Tooltip>
-                      <TooltipTrigger asChild><button className="cursor-help text-gray-500 hover:text-gray-300 flex items-center"><Info className="w-3 h-3" /></button></TooltipTrigger>
-                      <TooltipContent side="right" className="max-w-xs">
-                        Price floors are a safety net applied on top of the market formula. They ensure you never suggest a price below your actual cost or below an absolute minimum — regardless of what BrickLink's market data says.
+                      <TooltipTrigger asChild>
+                        <button className="text-gray-600 hover:text-gray-400 flex items-center transition-colors">
+                          <Info className="w-3.5 h-3.5" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-64 text-xs">
+                        Safety net applied after the market formula. Final price = max(market_price, cost_floor, min_price). Cost floor only applies to items with a recorded cost (my_cost).
                       </TooltipContent>
                     </Tooltip>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-1">
-                        <Label className="text-xs font-medium text-emerald-300">Cost Floor Margin %</Label>
+                  <div className="px-4 divide-y divide-gray-700/30">
+                    <div className="flex items-center justify-between py-3">
+                      <div className="flex items-center gap-1.5">
+                        <Label className="text-sm text-gray-200">Cost Floor</Label>
                         <Tooltip>
-                          <TooltipTrigger asChild><button className="cursor-help text-gray-500 hover:text-gray-300 flex items-center"><Info className="w-3 h-3" /></button></TooltipTrigger>
-                          <TooltipContent side="right" className="max-w-xs">
-                            Minimum margin above your recorded cost (my_cost). If set to 25, the suggested price will never go below cost × 1.25. Set to 0 to disable. Only applies to items with a cost recorded.
+                          <TooltipTrigger asChild>
+                            <button className="text-gray-600 hover:text-gray-400 flex items-center transition-colors">
+                              <Info className="w-3.5 h-3.5" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="right" className="max-w-56 text-xs">
+                            Minimum margin above your recorded cost (my_cost). At 25%, the suggested price never goes below cost × 1.25. Set to 0 to disable.
                           </TooltipContent>
                         </Tooltip>
                       </div>
-                      <Input
-                        type="number"
-                        min="0"
-                        max="200"
-                        className="bg-gray-800 border-gray-600 text-white"
-                        value={pomCostFloorPct}
-                        onChange={(e) => setPomCostFloorPct(parseInt(e.target.value) || 0)}
-                        onBlur={() => updateSettingsMutation.mutate({ pomCostFloorPct })}
-                      />
-                      <p className="text-xs text-gray-500">
-                        {pomCostFloorPct > 0
-                          ? `Suggested ≥ cost × ${(1 + pomCostFloorPct / 100).toFixed(2)} (${pomCostFloorPct}% margin)`
-                          : 'Disabled — no cost floor applied'}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <Input type="number" min="0" max="200" value={pomCostFloorPct} onChange={(e) => setPomCostFloorPct(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomCostFloorPct })} className="text-sm w-20 text-right" data-testid="input-pom-cost-floor" />
+                        <span className="text-xs text-gray-400 w-16">% above cost</span>
+                      </div>
                     </div>
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-1">
-                        <Label className="text-xs font-medium text-emerald-300">Absolute Minimum Price ($)</Label>
+                    <div className="flex items-center justify-between py-3">
+                      <div className="flex items-center gap-1.5">
+                        <Label className="text-sm text-gray-200">Minimum Price</Label>
                         <Tooltip>
-                          <TooltipTrigger asChild><button className="cursor-help text-gray-500 hover:text-gray-300 flex items-center"><Info className="w-3 h-3" /></button></TooltipTrigger>
-                          <TooltipContent side="right" className="max-w-xs">
-                            No item will ever be suggested at less than this price, regardless of market data or cost. Useful for covering platform fees on micro-priced parts. Default $0.02.
+                          <TooltipTrigger asChild>
+                            <button className="text-gray-600 hover:text-gray-400 flex items-center transition-colors">
+                              <Info className="w-3.5 h-3.5" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="right" className="max-w-56 text-xs">
+                            No item will be suggested below this price regardless of market data or cost. Useful for covering platform fees on micro-priced parts. Default $0.02.
                           </TooltipContent>
                         </Tooltip>
                       </div>
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        className="bg-gray-800 border-gray-600 text-white"
-                        value={pomMinPrice}
-                        onChange={(e) => setPomMinPrice(parseFloat(e.target.value) || 0)}
-                        onBlur={() => updateSettingsMutation.mutate({ pomMinPrice: pomMinPrice.toString() })}
-                      />
-                      <p className="text-xs text-gray-500">
-                        {pomMinPrice > 0
-                          ? `No suggestion below $${pomMinPrice.toFixed(2)}`
-                          : 'Disabled — no absolute minimum'}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-400">$</span>
+                        <Input type="number" min="0" step="0.01" value={pomMinPrice} onChange={(e) => setPomMinPrice(parseFloat(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomMinPrice: pomMinPrice.toString() })} className="text-sm w-20 text-right" data-testid="input-pom-min-price" />
+                      </div>
                     </div>
-                  </div>
-                  <div className="bg-gray-800 rounded p-3 text-xs font-mono space-y-1">
-                    <p className="text-gray-400">Floor logic applied after market formula:</p>
-                    <p className="text-gray-500">  market_price = avg_listed × (1 + total_premium%)</p>
-                    {pomCostFloorPct > 0 && (
-                      <p className="text-gray-500">  cost_floor   = my_cost × {(1 + pomCostFloorPct / 100).toFixed(2)}</p>
-                    )}
-                    {pomMinPrice > 0 && (
-                      <p className="text-gray-500">  min_price    = ${pomMinPrice.toFixed(2)}</p>
-                    )}
-                    <p className="text-emerald-400">  final_price  = max(market_price{pomCostFloorPct > 0 ? ', cost_floor' : ''}{pomMinPrice > 0 ? ', min_price' : ''})</p>
                   </div>
                 </div>
 
-                {/* Pricing Intelligence Thresholds */}
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Pricing Intelligence Thresholds</h4>
+                {/* Flag Thresholds */}
+                <div className="rounded-md border border-gray-700/60 overflow-hidden">
+                  <div className="bg-gray-800/50 px-4 py-2.5 flex items-center gap-1.5 border-b border-gray-700/40">
+                    <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Flag Thresholds</h4>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Info className="h-3.5 w-3.5 text-gray-500 cursor-help" />
+                        <button className="text-gray-600 hover:text-gray-400 flex items-center transition-colors">
+                          <Info className="w-3.5 h-3.5" />
+                        </button>
                       </TooltipTrigger>
                       <TooltipContent side="right" className="max-w-64 text-xs">
-                        These thresholds control which items appear in the Price-o-Matic dashboard as needing attention. Items outside these bands are flagged — not automatically repriced. You decide whether to act on each flag.
+                        Controls which items appear in the Price-o-Matic dashboard as needing attention. Items outside these bands are flagged — not automatically repriced. You decide whether to act on each flag.
                       </TooltipContent>
                     </Tooltip>
                   </div>
-                  <div className="bg-gray-800/60 border border-gray-700 rounded-md p-4 space-y-4">
-                    <div className="flex items-center justify-between gap-4">
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <Label className="text-xs font-medium text-red-300">Too High Flag</Label>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Info className="h-3 w-3 text-gray-600 cursor-help" />
-                            </TooltipTrigger>
-                            <TooltipContent side="right" className="max-w-56 text-xs">
-                              Items priced this far above the suggested price appear in the "Too High" tab. Being priced too high can cause buyers to skip your listing in favor of cheaper competitors, reducing your sale rate.
-                            </TooltipContent>
-                          </Tooltip>
-                        </div>
-                        <p className="text-[10px] text-gray-500 mt-0.5">Flag items priced this far above suggested price</p>
-                      </div>
+                  <div className="px-4 divide-y divide-gray-700/30">
+                    <div className="flex items-center justify-between py-3">
                       <div className="flex items-center gap-1.5">
+                        <Label className="text-sm text-red-300">Too High Flag</Label>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button className="text-gray-600 hover:text-gray-400 flex items-center transition-colors">
+                              <Info className="w-3.5 h-3.5" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="right" className="max-w-56 text-xs">
+                            Items priced this far above the suggested price appear in the "Too High" tab. Buyers will likely find cheaper options elsewhere, reducing your sell-through rate.
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <div className="flex items-center gap-2">
                         <span className="text-xs text-gray-500">more than</span>
-                        <Input
-                          type="number"
-                          min={1}
-                          max={200}
-                          value={pomTooHighThreshold}
-                          onChange={(e) => setPomTooHighThreshold(parseInt(e.target.value) || 1)}
-                          onBlur={() => updateSettingsMutation.mutate({ pomTooHighThreshold })}
-                          className="text-xs w-20 text-right"
-                          data-testid="input-pom-too-high"
-                        />
-                        <span className="text-xs text-gray-400">% above</span>
+                        <Input type="number" min={1} max={200} value={pomTooHighThreshold} onChange={(e) => setPomTooHighThreshold(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomTooHighThreshold })} className="text-sm w-20 text-right" data-testid="input-pom-too-high" />
+                        <span className="text-xs text-gray-400 w-14">% above</span>
                       </div>
                     </div>
-                    <Separator className="bg-gray-700" />
-                    <div className="flex items-center justify-between gap-4">
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <Label className="text-xs font-medium text-yellow-300">Too Low Flag</Label>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Info className="h-3 w-3 text-gray-600 cursor-help" />
-                            </TooltipTrigger>
-                            <TooltipContent side="right" className="max-w-56 text-xs">
-                              Items priced this far below the suggested price appear in the "Too Low" tab. Being priced too low means leaving margin on the table — you're selling at a discount buyers didn't even need.
-                            </TooltipContent>
-                          </Tooltip>
-                        </div>
-                        <p className="text-[10px] text-gray-500 mt-0.5">Flag items priced this far below suggested price</p>
-                      </div>
+                    <div className="flex items-center justify-between py-3">
                       <div className="flex items-center gap-1.5">
+                        <Label className="text-sm text-yellow-300">Too Low Flag</Label>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button className="text-gray-600 hover:text-gray-400 flex items-center transition-colors">
+                              <Info className="w-3.5 h-3.5" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="right" className="max-w-56 text-xs">
+                            Items priced this far below the suggested price appear in the "Too Low" tab. You're leaving margin on the table — buyers didn't need that discount.
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <div className="flex items-center gap-2">
                         <span className="text-xs text-gray-500">more than</span>
-                        <Input
-                          type="number"
-                          min={1}
-                          max={200}
-                          value={pomTooLowThreshold}
-                          onChange={(e) => setPomTooLowThreshold(parseInt(e.target.value) || 1)}
-                          onBlur={() => updateSettingsMutation.mutate({ pomTooLowThreshold })}
-                          className="text-xs w-20 text-right"
-                          data-testid="input-pom-too-low"
-                        />
-                        <span className="text-xs text-gray-400">% below</span>
+                        <Input type="number" min={1} max={200} value={pomTooLowThreshold} onChange={(e) => setPomTooLowThreshold(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomTooLowThreshold })} className="text-sm w-20 text-right" data-testid="input-pom-too-low" />
+                        <span className="text-xs text-gray-400 w-14">% below</span>
                       </div>
                     </div>
                   </div>
                 </div>
 
                 {/* Sync Limits */}
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
+                <div className="rounded-md border border-gray-700/60 overflow-hidden">
+                  <div className="bg-gray-800/50 px-4 py-2.5 flex items-center gap-1.5 border-b border-gray-700/40">
                     <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Sync Limits</h4>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Info className="h-3.5 w-3.5 text-gray-500 cursor-help" />
+                        <button className="text-gray-600 hover:text-gray-400 flex items-center transition-colors">
+                          <Info className="w-3.5 h-3.5" />
+                        </button>
                       </TooltipTrigger>
                       <TooltipContent side="right" className="max-w-64 text-xs">
-                        BrickLink allows 5,000 API calls per day across all features (inventory sync, orders, price guide). Price-o-Matic uses 1 call per item. Set these limits to protect your daily budget and avoid throttling other sync features.
+                        BrickLink allows 5,000 API calls/day across all features. Price-o-Matic uses 3 calls per item. Set these to protect your daily budget and leave headroom for order and inventory syncs.
                       </TooltipContent>
                     </Tooltip>
                   </div>
-                  <div className="bg-gray-800/60 border border-gray-700 rounded-md p-4 space-y-4">
-                    <div className="flex items-center justify-between gap-4">
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <Label className="text-xs font-medium text-gray-300">Batch Size</Label>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Info className="h-3 w-3 text-gray-600 cursor-help" />
-                            </TooltipTrigger>
-                            <TooltipContent side="right" className="max-w-56 text-xs">
-                              How many items Price-o-Matic processes in a single manual or scheduled run. Larger batches use more API calls at once. The 4-tier system ensures high-priority items (minifigs, Bionicle) are always processed first.
-                            </TooltipContent>
-                          </Tooltip>
-                        </div>
-                        <p className="text-[10px] text-gray-500 mt-0.5">Max items to price per automated sync run</p>
-                      </div>
+                  <div className="px-4 divide-y divide-gray-700/30">
+                    <div className="flex items-center justify-between py-3">
                       <div className="flex items-center gap-1.5">
-                        <Input
-                          type="number"
-                          min={100}
-                          max={5000}
-                          step={100}
-                          value={pomBatchSize}
-                          onChange={(e) => setPomBatchSize(parseInt(e.target.value) || 100)}
-                          onBlur={() => updateSettingsMutation.mutate({ pomBatchSize })}
-                          className="text-xs w-24 text-right"
-                          data-testid="input-pom-batch-size"
-                        />
-                        <span className="text-xs text-gray-400">items</span>
+                        <Label className="text-sm text-gray-200">Batch Size</Label>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button className="text-gray-600 hover:text-gray-400 flex items-center transition-colors">
+                              <Info className="w-3.5 h-3.5" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="right" className="max-w-56 text-xs">
+                            Max items to process per run. Stale items across all tiers are eligible. T1 (minifigs, Bionicle) runs first within the stale pool.
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Input type="number" min={100} max={5000} step={100} value={pomBatchSize} onChange={(e) => setPomBatchSize(parseInt(e.target.value) || 100)} onBlur={() => updateSettingsMutation.mutate({ pomBatchSize })} className="text-sm w-24 text-right" data-testid="input-pom-batch-size" />
+                        <span className="text-xs text-gray-400 w-16">items / run</span>
                       </div>
                     </div>
-                    <Separator className="bg-gray-700" />
-                    <div className="flex items-center justify-between gap-4">
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <Label className="text-xs font-medium text-gray-300">Daily API Call Ceiling</Label>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Info className="h-3 w-3 text-gray-600 cursor-help" />
-                            </TooltipTrigger>
-                            <TooltipContent side="right" className="max-w-56 text-xs">
-                              Price-o-Matic stops fetching when this many total API calls have been used today (across all BrickLink features). BrickLink's hard limit is 5,000/day. Recommended: keep this at 3,000–4,000 to leave headroom for order and inventory syncs.
-                            </TooltipContent>
-                          </Tooltip>
-                        </div>
-                        <p className="text-[10px] text-gray-500 mt-0.5">Stop sync when this many BrickLink API calls have been used today</p>
-                      </div>
+                    <div className="flex items-center justify-between py-3">
                       <div className="flex items-center gap-1.5">
-                        <Input
-                          type="number"
-                          min={500}
-                          max={5000}
-                          step={100}
-                          value={pomApiCallLimit}
-                          onChange={(e) => setPomApiCallLimit(parseInt(e.target.value) || 500)}
-                          onBlur={() => updateSettingsMutation.mutate({ pomApiCallLimit })}
-                          className="text-xs w-24 text-right"
-                          data-testid="input-pom-api-limit"
-                        />
-                        <span className="text-xs text-gray-400">/ 5,000</span>
+                        <Label className="text-sm text-gray-200">Daily API Ceiling</Label>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button className="text-gray-600 hover:text-gray-400 flex items-center transition-colors">
+                              <Info className="w-3.5 h-3.5" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="right" className="max-w-56 text-xs">
+                            Price-o-Matic stops when this many API calls have been made today across all BrickLink features. Hard limit is 5,000/day. Recommended: 3,000–4,000.
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Input type="number" min={500} max={5000} step={100} value={pomApiCallLimit} onChange={(e) => setPomApiCallLimit(parseInt(e.target.value) || 500)} onBlur={() => updateSettingsMutation.mutate({ pomApiCallLimit })} className="text-sm w-24 text-right" data-testid="input-pom-api-limit" />
+                        <span className="text-xs text-gray-400 w-14">/ 5,000</span>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Category Tier Assignments with Freshness */}
+                {/* Category Tier Assignments */}
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2 mb-3">
+                  <div className="flex items-center gap-2">
                     <Layers className="h-4 w-4 text-gray-400" />
                     <h3 className="text-sm font-medium text-gray-300">Category Tier Assignments</h3>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button className="text-gray-600 hover:text-gray-400 flex items-center transition-colors">
+                          <Info className="w-3.5 h-3.5" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-64 text-xs">
+                        Assign categories to refresh tiers. T1 = daily, T2 = 3 days, T3 = weekly, T4 = monthly. Each row shows a freshness indicator and price guide coverage %.
+                      </TooltipContent>
+                    </Tooltip>
                   </div>
-                  <p className="text-xs text-gray-500 mb-3">
-                    Assign categories to refresh tiers. Each category shows a freshness dot and price guide coverage percentage.
-                  </p>
                   <PomCategoryTiers />
                 </div>
 
                 {/* Clear Cache */}
-                <div className="bg-red-500/5 border border-red-500/20 rounded-md p-4 space-y-2">
+                <div className="bg-red-500/5 border border-red-500/20 rounded-md px-4 py-3">
                   <div className="flex items-center justify-between gap-4 flex-wrap">
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <Label className="text-xs font-medium text-red-300">Clear Price Guide Cache</Label>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Info className="h-3 w-3 text-gray-600 cursor-help" />
-                          </TooltipTrigger>
-                          <TooltipContent side="right" className="max-w-64 text-xs">
-                            Deletes all stored price guide data and resets the sync history. Use this when starting fresh with new formula settings, or when all cached data is too old to be useful. The next sync run will rebuild from scratch.
-                          </TooltipContent>
-                        </Tooltip>
-                      </div>
-                      <p className="text-[10px] text-gray-500 mt-0.5">Remove all stored price guide data and reset sync history. The next sync will rebuild from scratch.</p>
+                    <div className="flex items-center gap-1.5">
+                      <Label className="text-sm font-medium text-red-300">Clear Price Guide Cache</Label>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button className="text-gray-600 hover:text-gray-400 flex items-center transition-colors">
+                            <Info className="w-3.5 h-3.5" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="max-w-64 text-xs">
+                          Deletes all stored price guide data and resets sync history. Use when starting fresh with new formula settings. The next sync rebuilds from scratch. No inventory data is affected.
+                        </TooltipContent>
+                      </Tooltip>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowClearPomDialog(true)}
-                      className="border-red-500/40 text-red-400 hover:text-red-300 shrink-0"
-                      data-testid="button-clear-pom-cache"
-                    >
+                    <Button variant="outline" size="sm" onClick={() => setShowClearPomDialog(true)} className="border-red-500/40 text-red-400 hover:text-red-300 shrink-0" data-testid="button-clear-pom-cache">
                       <Trash2 className="h-3.5 w-3.5 mr-1.5" />
                       Clear Cache
                     </Button>
