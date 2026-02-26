@@ -5155,7 +5155,15 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
   // Get Price-o-Matic insights (pricing discrepancies)
   app.get("/api/priceomatic/insights", isApproved, async (req, res) => {
     try {
-      const { priceGuideCache } = await import("@shared/schema");
+      const { priceGuideCache, appSettings: appSettingsTable } = await import("@shared/schema");
+      
+      // Read configurable thresholds from settings
+      const [pomCfg] = await db.select({
+        pomTooHighThreshold: appSettingsTable.pomTooHighThreshold,
+        pomTooLowThreshold: appSettingsTable.pomTooLowThreshold,
+      }).from(appSettingsTable).limit(1);
+      const tooHighPct = pomCfg?.pomTooHighThreshold ?? 20;
+      const tooLowPct = pomCfg?.pomTooLowThreshold ?? 20;
       
       // Join inventory with cached price data to find discrepancies
       const insights = await db
@@ -5193,8 +5201,8 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
         const variance = ((currentPrice - suggestedPrice) / suggestedPrice) * 100;
         
         let category: 'too_high' | 'too_low' | 'good' = 'good';
-        if (variance > 20) category = 'too_high';
-        else if (variance < -20) category = 'too_low';
+        if (variance > tooHighPct) category = 'too_high';
+        else if (variance < -tooLowPct) category = 'too_low';
         
         return {
           ...item,

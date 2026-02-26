@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { AppSettings, User } from "@shared/schema";
 import { APP_VERSION, APP_NAME } from "@shared/version";
-import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench } from "lucide-react";
+import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Zap, Info } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -371,6 +371,20 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   const [ordersSyncEnabled, setOrdersSyncEnabled] = useState(false);
   const [ordersSyncFrequency, setOrdersSyncFrequency] = useState(15);
 
+  // Price-o-Matic Formula Settings
+  const [pomBasePremium, setPomBasePremium] = useState(10);
+  const [pomMinifigPremium, setPomMinifigPremium] = useState(5);
+  const [pomScarcityThreshold1, setPomScarcityThreshold1] = useState(50);
+  const [pomScarcityBonus1, setPomScarcityBonus1] = useState(15);
+  const [pomScarcityThreshold2, setPomScarcityThreshold2] = useState(200);
+  const [pomScarcityBonus2, setPomScarcityBonus2] = useState(8);
+  const [pomScarcityThreshold3, setPomScarcityThreshold3] = useState(500);
+  const [pomScarcityBonus3, setPomScarcityBonus3] = useState(3);
+  const [pomTooHighThreshold, setPomTooHighThreshold] = useState(20);
+  const [pomTooLowThreshold, setPomTooLowThreshold] = useState(20);
+  const [pomBatchSize, setPomBatchSize] = useState(1500);
+  const [pomApiCallLimit, setPomApiCallLimit] = useState(4500);
+
   const { data: settings } = useQuery<AppSettings>({
     queryKey: ['/api/settings'],
     enabled: open,
@@ -424,7 +438,21 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
       setRebrickableImageSyncEnabled(settings.rebrickableImageSyncEnabled !== false);
       setOrdersSyncEnabled(settings.ordersSyncEnabled || false);
       setOrdersSyncFrequency(settings.ordersSyncFrequency || 15);
-      
+
+      // Price-o-Matic formula settings
+      setPomBasePremium(settings.pomBasePremium ?? 10);
+      setPomMinifigPremium(settings.pomMinifigPremium ?? 5);
+      setPomScarcityThreshold1(settings.pomScarcityThreshold1 ?? 50);
+      setPomScarcityBonus1(settings.pomScarcityBonus1 ?? 15);
+      setPomScarcityThreshold2(settings.pomScarcityThreshold2 ?? 200);
+      setPomScarcityBonus2(settings.pomScarcityBonus2 ?? 8);
+      setPomScarcityThreshold3(settings.pomScarcityThreshold3 ?? 500);
+      setPomScarcityBonus3(settings.pomScarcityBonus3 ?? 3);
+      setPomTooHighThreshold(settings.pomTooHighThreshold ?? 20);
+      setPomTooLowThreshold(settings.pomTooLowThreshold ?? 20);
+      setPomBatchSize(settings.pomBatchSize ?? 1500);
+      setPomApiCallLimit(settings.pomApiCallLimit ?? 4500);
+
       // Fetch models
       fetchModels();
     }
@@ -654,13 +682,14 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   };
 
   const { isAdmin } = useAuth();
-  const [activeSection, setActiveSection] = useState<'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'users'>('general');
+  const [activeSection, setActiveSection] = useState<'general' | 'platforms' | 'ai' | 'automation' | 'priceomatic' | 'data' | 'users'>('general');
 
   const navigationItems = [
     { id: 'general' as const, label: 'General', icon: Settings },
     { id: 'platforms' as const, label: 'Platforms', icon: Package },
     { id: 'ai' as const, label: 'AI & Intelligence', icon: Sparkles },
     { id: 'automation' as const, label: 'Automation', icon: Clock },
+    { id: 'priceomatic' as const, label: 'Price-o-Matic', icon: Zap },
     { id: 'data' as const, label: 'Backup & Clear', icon: Database },
     ...(isAdmin ? [{ id: 'users' as const, label: 'User Management', icon: Users }] : []),
   ];
@@ -1633,6 +1662,318 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                     </div>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* Price-o-Matic Formula Settings */}
+            {activeSection === 'priceomatic' && (
+              <div className="space-y-6 min-h-[400px]">
+
+                {/* Header */}
+                <div>
+                  <h3 className="text-sm font-medium text-gray-300 mb-1">Price-o-Matic Formula</h3>
+                  <p className="text-xs text-gray-400">Configure the pricing formula and intelligence thresholds. Changes apply on the next sync run.</p>
+                </div>
+
+                {/* Base Premiums */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Base Premium</h4>
+                  <div className="bg-gray-800/60 border border-gray-700 rounded-md p-4 space-y-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <Label className="text-xs font-medium text-gray-300">Parts Base Premium</Label>
+                        <p className="text-[10px] text-gray-500 mt-0.5">Added above avg listed/sold price for all standard parts</p>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Input
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={pomBasePremium}
+                          onChange={(e) => setPomBasePremium(parseInt(e.target.value) || 0)}
+                          onBlur={() => updateSettingsMutation.mutate({ pomBasePremium })}
+                          className="text-xs w-20 text-right"
+                          data-testid="input-pom-base-premium"
+                        />
+                        <span className="text-xs text-gray-400">%</span>
+                      </div>
+                    </div>
+                    <Separator className="bg-gray-700" />
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <Label className="text-xs font-medium text-gray-300">Minifigure Base Premium</Label>
+                        <p className="text-[10px] text-gray-500 mt-0.5">Reduced premium for minifigs (higher-value items, tighter margins)</p>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Input
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={pomMinifigPremium}
+                          onChange={(e) => setPomMinifigPremium(parseInt(e.target.value) || 0)}
+                          onBlur={() => updateSettingsMutation.mutate({ pomMinifigPremium })}
+                          className="text-xs w-20 text-right"
+                          data-testid="input-pom-minifig-premium"
+                        />
+                        <span className="text-xs text-gray-400">%</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Scarcity Tiers */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Supply Scarcity Bonuses</h4>
+                    <div className="group relative">
+                      <Info className="h-3.5 w-3.5 text-gray-500 cursor-help" />
+                      <div className="invisible group-hover:visible absolute left-5 top-0 z-50 w-56 bg-gray-800 border border-gray-600 rounded-md p-2 text-[10px] text-gray-300 shadow-lg">
+                        Bonus % is added on top of the base premium when supply is scarce. Higher scarcity = higher bonus = higher price.
+                      </div>
+                    </div>
+                  </div>
+                  <div className="bg-gray-800/60 border border-gray-700 rounded-md p-4 space-y-4">
+
+                    {/* Tier 1 - Very Low */}
+                    <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-2">
+                      <div>
+                        <Label className="text-xs font-medium text-orange-300">Very Low Supply</Label>
+                        <p className="text-[10px] text-gray-500">Fewest lots in market — extract premium</p>
+                      </div>
+                      <span className="text-[10px] text-gray-500">fewer than</span>
+                      <div className="flex items-center gap-1">
+                        <Input
+                          type="number"
+                          min={1}
+                          value={pomScarcityThreshold1}
+                          onChange={(e) => setPomScarcityThreshold1(parseInt(e.target.value) || 1)}
+                          onBlur={() => updateSettingsMutation.mutate({ pomScarcityThreshold1 })}
+                          className="text-xs w-20 text-right"
+                          data-testid="input-pom-threshold1"
+                        />
+                        <span className="text-[10px] text-gray-500">lots</span>
+                      </div>
+                      <span className="text-[10px] text-gray-500">+</span>
+                      <div className="flex items-center gap-1">
+                        <Input
+                          type="number"
+                          min={0}
+                          max={200}
+                          value={pomScarcityBonus1}
+                          onChange={(e) => setPomScarcityBonus1(parseInt(e.target.value) || 0)}
+                          onBlur={() => updateSettingsMutation.mutate({ pomScarcityBonus1 })}
+                          className="text-xs w-20 text-right"
+                          data-testid="input-pom-bonus1"
+                        />
+                        <span className="text-[10px] text-gray-400">%</span>
+                      </div>
+                    </div>
+
+                    <Separator className="bg-gray-700" />
+
+                    {/* Tier 2 - Low */}
+                    <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-2">
+                      <div>
+                        <Label className="text-xs font-medium text-yellow-300">Low Supply</Label>
+                        <p className="text-[10px] text-gray-500">Limited availability — moderate premium</p>
+                      </div>
+                      <span className="text-[10px] text-gray-500">fewer than</span>
+                      <div className="flex items-center gap-1">
+                        <Input
+                          type="number"
+                          min={1}
+                          value={pomScarcityThreshold2}
+                          onChange={(e) => setPomScarcityThreshold2(parseInt(e.target.value) || 1)}
+                          onBlur={() => updateSettingsMutation.mutate({ pomScarcityThreshold2 })}
+                          className="text-xs w-20 text-right"
+                          data-testid="input-pom-threshold2"
+                        />
+                        <span className="text-[10px] text-gray-500">lots</span>
+                      </div>
+                      <span className="text-[10px] text-gray-500">+</span>
+                      <div className="flex items-center gap-1">
+                        <Input
+                          type="number"
+                          min={0}
+                          max={200}
+                          value={pomScarcityBonus2}
+                          onChange={(e) => setPomScarcityBonus2(parseInt(e.target.value) || 0)}
+                          onBlur={() => updateSettingsMutation.mutate({ pomScarcityBonus2 })}
+                          className="text-xs w-20 text-right"
+                          data-testid="input-pom-bonus2"
+                        />
+                        <span className="text-[10px] text-gray-400">%</span>
+                      </div>
+                    </div>
+
+                    <Separator className="bg-gray-700" />
+
+                    {/* Tier 3 - Medium */}
+                    <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-2">
+                      <div>
+                        <Label className="text-xs font-medium text-blue-300">Medium Supply</Label>
+                        <p className="text-[10px] text-gray-500">Adequate availability — small premium</p>
+                      </div>
+                      <span className="text-[10px] text-gray-500">fewer than</span>
+                      <div className="flex items-center gap-1">
+                        <Input
+                          type="number"
+                          min={1}
+                          value={pomScarcityThreshold3}
+                          onChange={(e) => setPomScarcityThreshold3(parseInt(e.target.value) || 1)}
+                          onBlur={() => updateSettingsMutation.mutate({ pomScarcityThreshold3 })}
+                          className="text-xs w-20 text-right"
+                          data-testid="input-pom-threshold3"
+                        />
+                        <span className="text-[10px] text-gray-500">lots</span>
+                      </div>
+                      <span className="text-[10px] text-gray-500">+</span>
+                      <div className="flex items-center gap-1">
+                        <Input
+                          type="number"
+                          min={0}
+                          max={200}
+                          value={pomScarcityBonus3}
+                          onChange={(e) => setPomScarcityBonus3(parseInt(e.target.value) || 0)}
+                          onBlur={() => updateSettingsMutation.mutate({ pomScarcityBonus3 })}
+                          className="text-xs w-20 text-right"
+                          data-testid="input-pom-bonus3"
+                        />
+                        <span className="text-[10px] text-gray-400">%</span>
+                      </div>
+                    </div>
+
+                    <Separator className="bg-gray-700" />
+
+                    {/* Tier 4 - High */}
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label className="text-xs font-medium text-gray-400">High Supply</Label>
+                        <p className="text-[10px] text-gray-500">{pomScarcityThreshold3}+ lots — base premium only, no bonus</p>
+                      </div>
+                      <span className="text-xs text-gray-500 italic">no bonus</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Formula Preview */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Live Formula Preview</h4>
+                  <div className="bg-gray-900/80 border border-gray-600 rounded-md p-4 font-mono text-xs space-y-1.5">
+                    <p className="text-gray-400">For a part at avg price <span className="text-white">$0.10</span> with <span className="text-orange-300">30 lots</span> (Very Low Supply):</p>
+                    <p className="text-gray-500">  base_premium   = {pomBasePremium}%</p>
+                    <p className="text-gray-500">  scarcity_bonus = +{pomScarcityBonus1}% (fewer than {pomScarcityThreshold1} lots)</p>
+                    <p className="text-gray-500">  total_premium  = {pomBasePremium + pomScarcityBonus1}%</p>
+                    <p className="text-green-400">  suggested_price = $0.10 × {(1 + (pomBasePremium + pomScarcityBonus1) / 100).toFixed(2)} = <strong>${(0.10 * (1 + (pomBasePremium + pomScarcityBonus1) / 100)).toFixed(3)}</strong></p>
+                    <Separator className="bg-gray-700 my-2" />
+                    <p className="text-gray-400">Same part with <span className="text-blue-300">350 lots</span> (Medium Supply):</p>
+                    <p className="text-gray-500">  total_premium  = {pomBasePremium + pomScarcityBonus3}%</p>
+                    <p className="text-green-400">  suggested_price = $0.10 × {(1 + (pomBasePremium + pomScarcityBonus3) / 100).toFixed(2)} = <strong>${(0.10 * (1 + (pomBasePremium + pomScarcityBonus3) / 100)).toFixed(3)}</strong></p>
+                  </div>
+                </div>
+
+                {/* Pricing Intelligence Thresholds */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Pricing Intelligence Thresholds</h4>
+                  <div className="bg-gray-800/60 border border-gray-700 rounded-md p-4 space-y-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <Label className="text-xs font-medium text-red-300">Too High Flag</Label>
+                        <p className="text-[10px] text-gray-500 mt-0.5">Flag items priced this far above suggested price</p>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs text-gray-500">more than</span>
+                        <Input
+                          type="number"
+                          min={1}
+                          max={200}
+                          value={pomTooHighThreshold}
+                          onChange={(e) => setPomTooHighThreshold(parseInt(e.target.value) || 1)}
+                          onBlur={() => updateSettingsMutation.mutate({ pomTooHighThreshold })}
+                          className="text-xs w-20 text-right"
+                          data-testid="input-pom-too-high"
+                        />
+                        <span className="text-xs text-gray-400">% above</span>
+                      </div>
+                    </div>
+                    <Separator className="bg-gray-700" />
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <Label className="text-xs font-medium text-yellow-300">Too Low Flag</Label>
+                        <p className="text-[10px] text-gray-500 mt-0.5">Flag items priced this far below suggested price</p>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs text-gray-500">more than</span>
+                        <Input
+                          type="number"
+                          min={1}
+                          max={200}
+                          value={pomTooLowThreshold}
+                          onChange={(e) => setPomTooLowThreshold(parseInt(e.target.value) || 1)}
+                          onBlur={() => updateSettingsMutation.mutate({ pomTooLowThreshold })}
+                          className="text-xs w-20 text-right"
+                          data-testid="input-pom-too-low"
+                        />
+                        <span className="text-xs text-gray-400">% below</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Sync Limits */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Sync Limits</h4>
+                  <div className="bg-gray-800/60 border border-gray-700 rounded-md p-4 space-y-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <Label className="text-xs font-medium text-gray-300">Batch Size</Label>
+                        <p className="text-[10px] text-gray-500 mt-0.5">Max items to price per automated sync run</p>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Input
+                          type="number"
+                          min={100}
+                          max={5000}
+                          step={100}
+                          value={pomBatchSize}
+                          onChange={(e) => setPomBatchSize(parseInt(e.target.value) || 100)}
+                          onBlur={() => updateSettingsMutation.mutate({ pomBatchSize })}
+                          className="text-xs w-24 text-right"
+                          data-testid="input-pom-batch-size"
+                        />
+                        <span className="text-xs text-gray-400">items</span>
+                      </div>
+                    </div>
+                    <Separator className="bg-gray-700" />
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <Label className="text-xs font-medium text-gray-300">Daily API Call Ceiling</Label>
+                        <p className="text-[10px] text-gray-500 mt-0.5">Stop sync when this many BrickLink API calls have been used today</p>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Input
+                          type="number"
+                          min={500}
+                          max={5000}
+                          step={100}
+                          value={pomApiCallLimit}
+                          onChange={(e) => setPomApiCallLimit(parseInt(e.target.value) || 500)}
+                          onBlur={() => updateSettingsMutation.mutate({ pomApiCallLimit })}
+                          className="text-xs w-24 text-right"
+                          data-testid="input-pom-api-limit"
+                        />
+                        <span className="text-xs text-gray-400">/ 5,000</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
+                  <p className="text-xs text-blue-300">
+                    <strong>How it works:</strong> Price-o-Matic pulls avg listed price, avg sold price, and lot count from BrickLink for each item, then applies your formula above to compute a suggested price. Items more than {pomTooHighThreshold}% above or {pomTooLowThreshold}% below that suggested price are flagged in the dashboard.
+                  </p>
+                </div>
+
               </div>
             )}
 

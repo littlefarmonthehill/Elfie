@@ -962,58 +962,100 @@ function calculateSuggestedPrice(
   return Number(suggestedPrice.toFixed(2));
 }
 
+interface PomFormulaConfig {
+  basePremium: number;
+  minifigPremium: number;
+  scarcityThreshold1: number;
+  scarcityBonus1: number;
+  scarcityThreshold2: number;
+  scarcityBonus2: number;
+  scarcityThreshold3: number;
+  scarcityBonus3: number;
+}
+
+const POM_FORMULA_DEFAULTS: PomFormulaConfig = {
+  basePremium: 10,
+  minifigPremium: 5,
+  scarcityThreshold1: 50,
+  scarcityBonus1: 15,
+  scarcityThreshold2: 200,
+  scarcityBonus2: 8,
+  scarcityThreshold3: 500,
+  scarcityBonus3: 3,
+};
+
+async function getPomFormulaConfig(): Promise<PomFormulaConfig> {
+  try {
+    const [settings] = await db.select().from(appSettings).limit(1);
+    if (!settings) return POM_FORMULA_DEFAULTS;
+    return {
+      basePremium: settings.pomBasePremium ?? POM_FORMULA_DEFAULTS.basePremium,
+      minifigPremium: settings.pomMinifigPremium ?? POM_FORMULA_DEFAULTS.minifigPremium,
+      scarcityThreshold1: settings.pomScarcityThreshold1 ?? POM_FORMULA_DEFAULTS.scarcityThreshold1,
+      scarcityBonus1: settings.pomScarcityBonus1 ?? POM_FORMULA_DEFAULTS.scarcityBonus1,
+      scarcityThreshold2: settings.pomScarcityThreshold2 ?? POM_FORMULA_DEFAULTS.scarcityThreshold2,
+      scarcityBonus2: settings.pomScarcityBonus2 ?? POM_FORMULA_DEFAULTS.scarcityBonus2,
+      scarcityThreshold3: settings.pomScarcityThreshold3 ?? POM_FORMULA_DEFAULTS.scarcityThreshold3,
+      scarcityBonus3: settings.pomScarcityBonus3 ?? POM_FORMULA_DEFAULTS.scarcityBonus3,
+    };
+  } catch {
+    return POM_FORMULA_DEFAULTS;
+  }
+}
+
 // Calculate suggested price with supply adjustment (low supply = higher price)
 function calculateSuggestedPriceWithSupply(
   stockAvgPrice: number | null,
   soldAvgPrice: number | null,
   stockTotalLots: number = 0,
   basePremiumPercentage: number = 10,
-  itemType: string = 'PART'
+  itemType: string = 'PART',
+  config: PomFormulaConfig = POM_FORMULA_DEFAULTS
 ): number {
-  // Use stock average as base, fall back to sold average
   const basePrice = stockAvgPrice || soldAvgPrice || 0;
   
   if (basePrice === 0) {
     return 0;
   }
   
-  // Start with base premium (10% for fast turnaround and quality service)
-  let totalPremium = basePremiumPercentage;
+  // Use minifig-specific base premium if applicable
+  let totalPremium = (itemType === 'MINIFIG' || itemType === 'M')
+    ? config.minifigPremium
+    : config.basePremium;
   
-  // Minifigures: Reduce premium by half (higher quality items need less markup)
-  if (itemType === 'MINIFIG' || itemType === 'M') {
-    totalPremium = totalPremium / 2; // Reduce to 5% for minifigures (10% - 5%)
+  // Apply scarcity bonus tiers
+  if (stockTotalLots < config.scarcityThreshold1) {
+    totalPremium += config.scarcityBonus1;
+  } else if (stockTotalLots < config.scarcityThreshold2) {
+    totalPremium += config.scarcityBonus2;
+  } else if (stockTotalLots < config.scarcityThreshold3) {
+    totalPremium += config.scarcityBonus3;
   }
   
-  // Add supply adjustment premium based on scarcity (increased weights for low supply)
-  // Very low supply (< 50 lots): +15% premium (was 10%)
-  // Low supply (50-200 lots): +8% premium (was 5%)
-  // Medium supply (200-500 lots): +3% premium (was 2%)
-  // High supply (500+): no adjustment
-  if (stockTotalLots < 50) {
-    totalPremium += 15; // Very scarce - increased from 10%
-  } else if (stockTotalLots < 200) {
-    totalPremium += 8; // Low availability - increased from 5%
-  } else if (stockTotalLots < 500) {
-    totalPremium += 3; // Moderate availability - increased from 2%
-  }
-  
-  // Apply total premium percentage
   const suggestedPrice = basePrice * (1 + totalPremium / 100);
-  
   return Number(suggestedPrice.toFixed(2));
 }
 
 // Fetch and cache Price-o-Matic data for an item
-// Sync Price-o-Matic data for up to 1500 inventory items
-export async function syncPriceOMagicCache(maxItems: number = 1500): Promise<{
+// Sync Price-o-Matic data for up to N inventory items (default from settings)
+export async function syncPriceOMagicCache(maxItems?: number): Promise<{
   itemsUpdated: number;
   itemsSkipped: number;
   apiCallsUsed: number;
   stopped: boolean;
   stopReason?: string;
 }> {
-  console.log(`[Price-o-Matic Sync] Starting sync for up to ${maxItems} items`);
+  // Load settings-based config at sync start
+  const pomConfig = await getPomFormulaConfig();
+  const [pomSettings] = await db.select({
+    pomBatchSize: appSettings.pomBatchSize,
+    pomApiCallLimit: appSettings.pomApiCallLimit,
+  }).from(appSettings).limit(1);
+
+  const effectiveMaxItems = maxItems ?? pomSettings?.pomBatchSize ?? 1500;
+  const apiCallCeiling = pomSettings?.pomApiCallLimit ?? 4500;
+
+  console.log(`[Price-o-Matic Sync] Starting sync for up to ${effectiveMaxItems} items (API ceiling: ${apiCallCeiling})`);
   
   let itemsUpdated = 0;
   let itemsSkipped = 0;
@@ -1057,7 +1099,7 @@ export async function syncPriceOMagicCache(maxItems: number = 1500): Promise<{
         )
       )
       .orderBy(sql`COALESCE(${priceGuideCache.fetchedAt}, '1970-01-01'::timestamp) ASC`)
-      .limit(maxItems);
+      .limit(effectiveMaxItems);
 
     console.log(`[Price-o-Matic Sync] Found ${inventoryItems.length} items to process`);
 
@@ -1068,10 +1110,10 @@ export async function syncPriceOMagicCache(maxItems: number = 1500): Promise<{
         if (itemsUpdated % 10 === 0) {
           const currentRateLimit = await checkRateLimit();
           
-          // Stop at 4500 calls to leave buffer (each item uses ~3 calls)
-          if (currentRateLimit.callsLast24h >= 4500) {
+          // Stop at configured ceiling to preserve quota
+          if (currentRateLimit.callsLast24h >= apiCallCeiling) {
             stopped = true;
-            stopReason = `Approaching API limit: ${currentRateLimit.callsLast24h}/5000 calls. Stopping to preserve quota.`;
+            stopReason = `Approaching API limit: ${currentRateLimit.callsLast24h}/5000 calls. Stopping at configured ceiling of ${apiCallCeiling}.`;
             console.log(`[Price-o-Matic Sync] ${stopReason}`);
             break;
           }
@@ -1082,8 +1124,9 @@ export async function syncPriceOMagicCache(maxItems: number = 1500): Promise<{
           item.itemNo,
           item.itemType,
           item.colorId || undefined,
-          item.newOrUsed, // Use the item's condition
-          15 // Default 15% premium
+          item.newOrUsed,
+          pomConfig.basePremium,
+          pomConfig
         );
 
         itemsUpdated++;
@@ -1128,7 +1171,8 @@ export async function fetchPriceOMagicData(
   itemType: string,
   colorId?: number,
   newOrUsed: string = 'N',
-  premiumPercentage: number = 15
+  premiumPercentage: number = 15,
+  config: PomFormulaConfig = POM_FORMULA_DEFAULTS
 ): Promise<any> {
   try {
     // Check if we have cached data less than 24 hours old
@@ -1200,7 +1244,7 @@ export async function fetchPriceOMagicData(
     const stockAvgPrice = stockPriceData?.avg_price ? parseFloat(stockPriceData.avg_price) : null;
     const soldAvgPrice = soldPriceData?.avg_price ? parseFloat(soldPriceData.avg_price) : null;
     const stockTotalLots = stockPriceData?.unit_quantity ? parseInt(stockPriceData.unit_quantity.toString()) : 0; // Number of lots/listings
-    const suggestedPrice = calculateSuggestedPriceWithSupply(stockAvgPrice, soldAvgPrice, stockTotalLots, premiumPercentage, apiItemType);
+    const suggestedPrice = calculateSuggestedPriceWithSupply(stockAvgPrice, soldAvgPrice, stockTotalLots, premiumPercentage, apiItemType, config);
 
     // Merge and store data
     const mergedData = {

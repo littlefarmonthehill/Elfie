@@ -361,6 +361,19 @@ export const appSettings = pgTable("app_settings", {
   forumSyncFrequency: integer("forum_sync_frequency").default(60).notNull(), // minutes
   // Rebrickable Configuration
   rebrickableImageSyncEnabled: boolean("rebrickable_image_sync_enabled").default(true).notNull(),
+  // Price-o-Matic Formula Settings
+  pomBasePremium: integer("pom_base_premium").default(10).notNull(),           // Base premium % over avg price
+  pomMinifigPremium: integer("pom_minifig_premium").default(5).notNull(),      // Minifig base premium %
+  pomScarcityThreshold1: integer("pom_scarcity_threshold1").default(50).notNull(),   // Very low supply lot count
+  pomScarcityBonus1: integer("pom_scarcity_bonus1").default(15).notNull(),           // Very low supply bonus %
+  pomScarcityThreshold2: integer("pom_scarcity_threshold2").default(200).notNull(),  // Low supply lot count
+  pomScarcityBonus2: integer("pom_scarcity_bonus2").default(8).notNull(),            // Low supply bonus %
+  pomScarcityThreshold3: integer("pom_scarcity_threshold3").default(500).notNull(),  // Medium supply lot count
+  pomScarcityBonus3: integer("pom_scarcity_bonus3").default(3).notNull(),            // Medium supply bonus %
+  pomTooHighThreshold: integer("pom_too_high_threshold").default(20).notNull(),  // % above suggested = too high
+  pomTooLowThreshold: integer("pom_too_low_threshold").default(20).notNull(),    // % below suggested = too low
+  pomBatchSize: integer("pom_batch_size").default(1500).notNull(),               // Items per sync run
+  pomApiCallLimit: integer("pom_api_call_limit").default(4500).notNull(),        // Daily API call ceiling
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
