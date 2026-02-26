@@ -1135,133 +1135,137 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
         )}
       </div>
 
-      {/* Key Metrics */}
-      <div className="bg-gray-900/50 border border-yellow-500/20 rounded-lg p-3" data-testid="section-sales-metrics">
-        <div className="flex items-center gap-2 mb-2">
-          <Target className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-yellow-400" />
-          <h3 className="text-xs md:text-base lg:text-lg font-semibold text-yellow-400 uppercase tracking-wide">Key Metrics</h3>
-        </div>
-        <div className="grid grid-cols-3 gap-2">
-          <div className="text-center">
-            <div className="text-[9px] md:text-sm lg:text-base text-gray-500">Total Orders</div>
-            <div className="text-xs md:text-base lg:text-lg text-gray-300 font-mono">{filteredOrders.length}</div>
+      {/* Two-column layout in landscape, single column in portrait */}
+      <div className="grid grid-cols-1 landscape:grid-cols-2 gap-1.5 items-start">
+
+        {/* LEFT COLUMN: headline stats + top revenue */}
+        <div className="space-y-1.5">
+
+        {/* Key Metrics */}
+        <div className="bg-gray-900/50 border border-yellow-500/20 rounded-lg p-3" data-testid="section-sales-metrics">
+          <div className="flex items-center gap-2 mb-2">
+            <Target className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-yellow-400" />
+            <h3 className="text-xs md:text-base lg:text-lg font-semibold text-yellow-400 uppercase tracking-wide">Key Metrics</h3>
           </div>
-          <div className="text-center">
-            <div className="text-[9px] md:text-sm lg:text-base text-gray-500">Avg Order Value</div>
-            <div className="text-xs md:text-base lg:text-lg text-lego-green font-mono">${averageOrderValue.toFixed(2)}</div>
-          </div>
-          <div className="text-center">
-            <div className="text-[9px] md:text-sm lg:text-base text-gray-500">Gross Revenue</div>
-            <div className="text-xs md:text-base lg:text-lg text-lego-green font-mono">${Math.round(totalRevenue).toLocaleString()}</div>
-          </div>
-        </div>
-        {adjustmentSummary && (adjustmentSummary.totalRefunds > 0 || adjustmentSummary.totalFees > 0) && (
-          <div className="mt-2 pt-2 border-t border-yellow-500/10 grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             <div className="text-center">
-              <div className="text-[9px] md:text-xs text-gray-600">Refunds</div>
-              <div className="text-[10px] md:text-sm text-lego-red font-mono">
-                {adjustmentSummary.totalRefunds > 0 ? `-$${adjustmentSummary.totalRefunds.toFixed(2)}` : '—'}
-              </div>
-              {adjustmentSummary.refundedOrderCount > 0 && (
-                <div className="text-[8px] text-gray-600">{adjustmentSummary.refundedOrderCount} orders</div>
-              )}
+              <div className="text-[9px] md:text-sm lg:text-base text-gray-500">Total Orders</div>
+              <div className="text-xs md:text-base lg:text-lg text-gray-300 font-mono">{filteredOrders.length}</div>
             </div>
             <div className="text-center">
-              <div className="text-[9px] md:text-xs text-gray-600">Merchant Fees</div>
-              <div className="text-[10px] md:text-sm text-amber-500/70 font-mono">
-                {adjustmentSummary.totalFees > 0 ? `-$${adjustmentSummary.totalFees.toFixed(2)}` : '—'}
-              </div>
-              {adjustmentSummary.totalFees > 0 && (
-                <div className="text-[8px] text-gray-600">COGS</div>
-              )}
+              <div className="text-[9px] md:text-sm lg:text-base text-gray-500">Avg Order Value</div>
+              <div className="text-xs md:text-base lg:text-lg text-lego-green font-mono">${averageOrderValue.toFixed(2)}</div>
             </div>
             <div className="text-center">
-              <div className="text-[9px] md:text-xs text-gray-600">Net Revenue</div>
-              <div className="text-[10px] md:text-sm text-lego-green font-mono">
-                ${Math.max(0, totalRevenue - adjustmentSummary.totalRefunds).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              <div className="text-[9px] md:text-sm lg:text-base text-gray-500">Gross Revenue</div>
+              <div className="text-xs md:text-base lg:text-lg text-lego-green font-mono">${Math.round(totalRevenue).toLocaleString()}</div>
+            </div>
+          </div>
+          {adjustmentSummary && (adjustmentSummary.totalRefunds > 0 || adjustmentSummary.totalFees > 0) && (
+            <div className="mt-2 pt-2 border-t border-yellow-500/10 grid grid-cols-3 gap-2">
+              <div className="text-center">
+                <div className="text-[9px] md:text-xs text-gray-600">Refunds</div>
+                <div className="text-[10px] md:text-sm text-lego-red font-mono">
+                  {adjustmentSummary.totalRefunds > 0 ? `-$${adjustmentSummary.totalRefunds.toFixed(2)}` : '—'}
+                </div>
+                {adjustmentSummary.refundedOrderCount > 0 && (
+                  <div className="text-[8px] text-gray-600">{adjustmentSummary.refundedOrderCount} orders</div>
+                )}
               </div>
+              <div className="text-center">
+                <div className="text-[9px] md:text-xs text-gray-600">Merchant Fees</div>
+                <div className="text-[10px] md:text-sm text-amber-500/70 font-mono">
+                  {adjustmentSummary.totalFees > 0 ? `-$${adjustmentSummary.totalFees.toFixed(2)}` : '—'}
+                </div>
+                {adjustmentSummary.totalFees > 0 && (
+                  <div className="text-[8px] text-gray-600">COGS</div>
+                )}
+              </div>
+              <div className="text-center">
+                <div className="text-[9px] md:text-xs text-gray-600">Net Revenue</div>
+                <div className="text-[10px] md:text-sm text-lego-green font-mono">
+                  ${Math.max(0, totalRevenue - adjustmentSummary.totalRefunds).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Comparison Metrics */}
+        {compareMode && comparisonType === 'year' && validCompareYears.length > 0 && (
+          <div className="bg-gray-900/50 border border-purple-500/20 rounded-lg p-3" data-testid="section-yoy-metrics">
+            <div className="flex items-center gap-2 mb-2">
+              <TrendingUp className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-purple-400" />
+              <h3 className="text-xs md:text-base lg:text-lg font-semibold text-purple-400 uppercase tracking-wide">Year-over-Year Growth</h3>
+            </div>
+            <div className={`grid gap-2 ${validCompareYears.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+              {(() => {
+                const yearTotals = comparisonYears.reduce((acc, year) => {
+                  const total = comparisonData.reduce((sum, monthData) => {
+                    const value = monthData[`${year}`] as number || 0;
+                    return sum + value;
+                  }, 0);
+                  acc[year] = total;
+                  return acc;
+                }, {} as Record<number, number>);
+
+                return validCompareYears.map(compareYear => {
+                  const growth = yearTotals[compareYear] > 0
+                    ? ((yearTotals[currentYear] - yearTotals[compareYear]) / yearTotals[compareYear]) * 100
+                    : 0;
+
+                  return (
+                    <div key={compareYear} className="bg-gray-800/50 rounded p-2">
+                      <div className="text-[9px] md:text-xs text-gray-500 mb-1">
+                        {currentYear} vs {compareYear}
+                      </div>
+                      <div className={`text-sm font-mono font-bold ${growth >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                        {growth >= 0 ? '+' : ''}{growth.toFixed(1)}%
+                      </div>
+                      <div className="text-[9px] md:text-xs text-gray-400 mt-1">
+                        ${Math.round(yearTotals[currentYear]).toLocaleString()} vs ${Math.round(yearTotals[compareYear]).toLocaleString()}
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
             </div>
           </div>
         )}
-      </div>
 
-      {/* Comparison Metrics */}
-      {compareMode && comparisonType === 'year' && validCompareYears.length > 0 && (
-        <div className="bg-gray-900/50 border border-purple-500/20 rounded-lg p-3" data-testid="section-yoy-metrics">
-          <div className="flex items-center gap-2 mb-2">
-            <TrendingUp className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-purple-400" />
-            <h3 className="text-xs md:text-base lg:text-lg font-semibold text-purple-400 uppercase tracking-wide">Year-over-Year Growth</h3>
-          </div>
-          <div className={`grid gap-2 ${validCompareYears.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
-            {(() => {
-              // Calculate total revenue for each year using the same date range filter
-              const yearTotals = comparisonYears.reduce((acc, year) => {
-                const total = comparisonData.reduce((sum, monthData) => {
-                  const value = monthData[`${year}`] as number || 0;
-                  return sum + value;
-                }, 0);
-                acc[year] = total;
-                return acc;
-              }, {} as Record<number, number>);
+        {/* Platform Comparison Metrics */}
+        {compareMode && comparisonType === 'platform' && validPlatforms.length > 0 && (
+          <div className="bg-gray-900/50 border border-purple-500/20 rounded-lg p-3" data-testid="section-platform-metrics">
+            <div className="flex items-center gap-2 mb-2">
+              <TrendingUp className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-purple-400" />
+              <h3 className="text-xs md:text-base lg:text-lg font-semibold text-purple-400 uppercase tracking-wide">Platform Performance</h3>
+            </div>
+            <div className={`grid gap-2 ${validPlatforms.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+              {(() => {
+                const platformTotals = validPlatforms.reduce((acc, platform) => {
+                  const total = comparisonData.reduce((sum, monthData) => {
+                    const value = monthData[platform] as number || 0;
+                    return sum + value;
+                  }, 0);
+                  acc[platform] = total;
+                  return acc;
+                }, {} as Record<string, number>);
 
-              return validCompareYears.map(compareYear => {
-                const growth = yearTotals[compareYear] > 0
-                  ? ((yearTotals[currentYear] - yearTotals[compareYear]) / yearTotals[compareYear]) * 100
-                  : 0;
+                const totalRevenue = Object.values(platformTotals).reduce((sum, val) => sum + val, 0);
 
-                return (
-                  <div key={compareYear} className="bg-gray-800/50 rounded p-2">
-                    <div className="text-[9px] md:text-xs text-gray-500 mb-1">
-                      {currentYear} vs {compareYear}
-                    </div>
-                    <div className={`text-sm font-mono font-bold ${growth >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                      {growth >= 0 ? '+' : ''}{growth.toFixed(1)}%
-                    </div>
-                    <div className="text-[9px] md:text-xs text-gray-400 mt-1">
-                      ${Math.round(yearTotals[currentYear]).toLocaleString()} vs ${Math.round(yearTotals[compareYear]).toLocaleString()}
-                    </div>
-                  </div>
-                );
-              });
-            })()}
-          </div>
-        </div>
-      )}
+                return validPlatforms.map(platform => {
+                  const revenue = platformTotals[platform];
+                  const percentage = totalRevenue > 0 ? (revenue / totalRevenue) * 100 : 0;
 
-      {/* Platform Comparison Metrics */}
-      {compareMode && comparisonType === 'platform' && validPlatforms.length > 0 && (
-        <div className="bg-gray-900/50 border border-purple-500/20 rounded-lg p-3" data-testid="section-platform-metrics">
-          <div className="flex items-center gap-2 mb-2">
-            <TrendingUp className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-purple-400" />
-            <h3 className="text-xs md:text-base lg:text-lg font-semibold text-purple-400 uppercase tracking-wide">Platform Performance</h3>
-          </div>
-          <div className={`grid gap-2 ${validPlatforms.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
-            {(() => {
-              // Calculate total revenue for each platform using the same date range filter
-              const platformTotals = validPlatforms.reduce((acc, platform) => {
-                const total = comparisonData.reduce((sum, monthData) => {
-                  const value = monthData[platform] as number || 0;
-                  return sum + value;
-                }, 0);
-                acc[platform] = total;
-                return acc;
-              }, {} as Record<string, number>);
-
-              const totalRevenue = Object.values(platformTotals).reduce((sum, val) => sum + val, 0);
-
-              return validPlatforms.map(platform => {
-                const revenue = platformTotals[platform];
-                const percentage = totalRevenue > 0 ? (revenue / totalRevenue) * 100 : 0;
-
-                return (
-                  <div key={platform} className="bg-gray-800/50 rounded p-2">
-                    <div className="flex items-center gap-1 mb-1">
-                      <div 
-                        className="w-2 h-2 rounded-full" 
-                        style={{ backgroundColor: PLATFORM_COLORS[platform] || PLATFORM_COLORS['Other'] }}
-                      />
-                      <div className="text-[9px] md:text-xs text-gray-500">
-                        {platform}
+                  return (
+                    <div key={platform} className="bg-gray-800/50 rounded p-2">
+                      <div className="flex items-center gap-1 mb-1">
+                        <div 
+                          className="w-2 h-2 rounded-full" 
+                          style={{ backgroundColor: PLATFORM_COLORS[platform] || PLATFORM_COLORS['Other'] }}
+                        />
+                        <div className="text-[9px] md:text-xs text-gray-500">
+                          {platform}
                       </div>
                     </div>
                     <div className="text-sm font-mono font-bold text-white">
@@ -1311,6 +1315,11 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
           )}
         </div>
       </div>
+
+        </div>{/* end left column */}
+
+        {/* RIGHT COLUMN: activity lists + analysis */}
+        <div className="space-y-1.5">
 
       {/* Recent Activity - High Value Sales */}
       <div className="bg-gray-900/50 border border-blue-500/20 rounded-lg p-3" data-testid="section-recent-high-value">
@@ -1506,6 +1515,9 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
           <div className="text-[11px] text-gray-500 italic">No product line data available</div>
         )}
       </div>
+
+        </div>{/* end right column */}
+      </div>{/* end 2-col grid */}
 
       {/* Platform Orders Drawer */}
       <PlatformOrdersDrawer
