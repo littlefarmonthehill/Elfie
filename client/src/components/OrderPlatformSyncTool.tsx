@@ -40,6 +40,41 @@ export default function OrderPlatformSyncTool() {
   const [syncingPlatform, setSyncingPlatform] = useState<string | null>(null);
   const [brickowlFullSync, setBrickowlFullSync] = useState(false);
 
+  function buildSyncDescription(r: {
+    bricklink?: { success: boolean; skipped: boolean; ordersAdded: number; error: string | null };
+    brickowl?:  { success: boolean; skipped: boolean; ordersAdded: number; error: string | null };
+    stripe:     { success: boolean; skipped: boolean; refunds: number; fees: number; error: string | null };
+    paypal:     { success: boolean; skipped: boolean; refunds: number; fees: number; error: string | null };
+  }): string {
+    const parts: string[] = [];
+
+    const blAdded  = r.bricklink?.ordersAdded ?? 0;
+    const boAdded  = r.brickowl?.ordersAdded  ?? 0;
+    const totalOrders = blAdded + boAdded;
+
+    if (totalOrders > 0) {
+      parts.push(`${totalOrders} order${totalOrders !== 1 ? "s" : ""} synced`);
+    } else if (!r.bricklink?.skipped || !r.brickowl?.skipped) {
+      parts.push("No new orders");
+    }
+
+    if (r.stripe.success) {
+      const fin = r.stripe.refunds + r.stripe.fees;
+      parts.push(fin > 0 ? `Stripe: ${r.stripe.refunds}r ${r.stripe.fees}f` : "Stripe up-to-date");
+    } else if (r.stripe.error) {
+      parts.push(`Stripe error`);
+    }
+
+    if (r.paypal.success) {
+      const fin = r.paypal.refunds + r.paypal.fees;
+      parts.push(fin > 0 ? `PayPal: ${r.paypal.refunds}r ${r.paypal.fees}f` : "PayPal up-to-date");
+    } else if (!r.paypal.skipped && r.paypal.error) {
+      parts.push("PayPal: permission error — enable Transaction Search in PayPal Developer Dashboard");
+    }
+
+    return parts.join(" · ") || "Sync complete";
+  }
+
   // Fetch order sync status
   const { data, isLoading } = useQuery<OrderSyncStatus>({
     queryKey: ['/api/order-sync/status'],
@@ -59,7 +94,7 @@ export default function OrderPlatformSyncTool() {
       queryClient.invalidateQueries({ queryKey: ['/api/orders/dashboard'] });
       toast({
         title: "BrickLink Sync Complete",
-        description: `${result.data.ordersAdded} added, ${result.data.ordersUpdated} updated`,
+        description: buildSyncDescription(result.data),
       });
       setSyncingPlatform(null);
     },
@@ -84,15 +119,9 @@ export default function OrderPlatformSyncTool() {
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['/api/order-sync/status'] });
       queryClient.invalidateQueries({ queryKey: ['/api/orders/dashboard'] });
-      
-      const parts = [`${result.data.ordersAdded} added, ${result.data.ordersUpdated} updated`];
-      if (result.data.skusMigrated > 0) {
-        parts.push(`${result.data.skusMigrated} SKUs migrated`);
-      }
-      
       toast({
         title: "BrickOwl Sync Complete",
-        description: parts.join(', '),
+        description: buildSyncDescription(result.data),
       });
       setSyncingPlatform(null);
     },
@@ -124,21 +153,10 @@ export default function OrderPlatformSyncTool() {
           description: "Please configure BrickLink and/or BrickOwl API credentials in Settings.",
           variant: "destructive",
         });
-      } else if (result.success) {
-        const successCount = [
-          result.results.bricklink.success,
-          result.results.brickowl.success,
-        ].filter(Boolean).length;
-        
-        toast({
-          title: "Sync Complete",
-          description: `Successfully synced ${successCount} platform(s)`,
-        });
       } else {
         toast({
-          title: "Sync Completed with Errors",
-          description: "Some platforms failed to sync. Check individual platform status.",
-          variant: "destructive",
+          title: "Sync All Complete",
+          description: buildSyncDescription(result.results),
         });
       }
       setSyncingPlatform(null);

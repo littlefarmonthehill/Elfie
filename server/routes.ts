@@ -950,21 +950,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { dateRange = 'mtd' } = req.query as { dateRange?: string };
       const now = new Date();
       let sinceDate: Date;
+      let endDate: Date | null = null;
       switch (dateRange) {
-        case 'lastmonth': sinceDate = new Date(now.getFullYear(), now.getMonth() - 1, 1); break;
-        case '3months': sinceDate = new Date(now.getFullYear(), now.getMonth() - 3, 1); break;
-        case '6months': sinceDate = new Date(now.getFullYear(), now.getMonth() - 6, 1); break;
-        case 'ytd': sinceDate = new Date(now.getFullYear(), 0, 1); break;
-        case '1y': sinceDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000); break;
-        case '5y': sinceDate = new Date(now.getTime() - 5 * 365 * 24 * 60 * 60 * 1000); break;
-        case 'all': sinceDate = new Date(2000, 0, 1); break;
-        default: sinceDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        case 'lastmonth':
+          sinceDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+          endDate   = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+          break;
+        case '3months':  sinceDate = new Date(now.getFullYear(), now.getMonth() - 3, 1); break;
+        case '1year':
+        case '1y':       sinceDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000); break;
+        case 'prevyear':
+          sinceDate = new Date(now.getFullYear() - 1, 0, 1);
+          endDate   = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59);
+          break;
+        case 'all':      sinceDate = new Date(2000, 0, 1); break;
+        default:         sinceDate = new Date(now.getFullYear(), now.getMonth(), 1); // mtd
       }
       const result = await db.execute(sql`
         SELECT oa.order_id, SUM(ABS(oa.amount::numeric)) AS total_refunds
         FROM order_adjustments oa
         JOIN orders o ON o.id = oa.order_id
-        WHERE oa.type = 'refund' AND o.order_date >= ${sinceDate}
+        WHERE oa.type = 'refund'
+          AND o.order_date >= ${sinceDate}
+          ${endDate ? sql`AND o.order_date <= ${endDate}` : sql``}
         GROUP BY oa.order_id
       `);
       const refundsByOrder: Record<string, number> = {};
@@ -983,13 +991,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { dateRange = 'mtd' } = req.query as { dateRange?: string };
 
       let sinceDate: Date;
+      let endDate: Date | null = null;
       const now = new Date();
       switch (dateRange) {
-        case 'ytd': sinceDate = new Date(now.getFullYear(), 0, 1); break;
-        case '1y': sinceDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000); break;
-        case '5y': sinceDate = new Date(now.getTime() - 5 * 365 * 24 * 60 * 60 * 1000); break;
-        case 'all': sinceDate = new Date(2000, 0, 1); break;
-        default: sinceDate = new Date(now.getFullYear(), now.getMonth(), 1); // mtd
+        case 'lastmonth':
+          sinceDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+          endDate   = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+          break;
+        case '3months':  sinceDate = new Date(now.getFullYear(), now.getMonth() - 3, 1); break;
+        case '1year':
+        case '1y':       sinceDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000); break;
+        case 'prevyear':
+          sinceDate = new Date(now.getFullYear() - 1, 0, 1);
+          endDate   = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59);
+          break;
+        case 'all':      sinceDate = new Date(2000, 0, 1); break;
+        default:         sinceDate = new Date(now.getFullYear(), now.getMonth(), 1); // mtd
       }
 
       const result = await db.execute(sql`
@@ -1002,6 +1019,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         FROM order_adjustments oa
         JOIN orders o ON o.id = oa.order_id
         WHERE o.order_date >= ${sinceDate}
+          ${endDate ? sql`AND o.order_date <= ${endDate}` : sql``}
       `);
 
       const row = result.rows[0] as any;
