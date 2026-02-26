@@ -984,7 +984,7 @@ const POM_FORMULA_DEFAULTS: PomFormulaConfig = {
   scarcityBonus3: 3,
 };
 
-async function getPomFormulaConfig(): Promise<PomFormulaConfig> {
+export async function getPomFormulaConfig(): Promise<PomFormulaConfig> {
   try {
     const [settings] = await db.select().from(appSettings).limit(1);
     if (!settings) return POM_FORMULA_DEFAULTS;
@@ -1004,7 +1004,7 @@ async function getPomFormulaConfig(): Promise<PomFormulaConfig> {
 }
 
 // Calculate suggested price with supply adjustment (low supply = higher price)
-function calculateSuggestedPriceWithSupply(
+export function calculateSuggestedPriceWithSupply(
   stockAvgPrice: number | null,
   soldAvgPrice: number | null,
   stockTotalLots: number = 0,

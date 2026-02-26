@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, isApproved } from "./auth";
-import { syncBricklinkData, fetchPriceOMagicData, searchBricklinkCatalogItem, syncPriceOMagicCache } from "./services/bricklink";
+import { syncBricklinkData, fetchPriceOMagicData, searchBricklinkCatalogItem, syncPriceOMagicCache, getPomFormulaConfig, calculateSuggestedPriceWithSupply } from "./services/bricklink";
 import { syncShipStationOrders } from "./services/shipstation";
 import { syncBrickLinkToBrickOwl } from "./services/brickowl";
 import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBackup } from "./services/export";
@@ -5301,15 +5301,18 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
     try {
       const { priceGuideCache, appSettings: appSettingsTable } = await import("@shared/schema");
       
-      // Read configurable thresholds from settings
+      // Load current formula config AND flag thresholds — formula is applied live so changes take effect immediately
       const [pomCfg] = await db.select({
         pomTooHighThreshold: appSettingsTable.pomTooHighThreshold,
         pomTooLowThreshold: appSettingsTable.pomTooLowThreshold,
       }).from(appSettingsTable).limit(1);
       const tooHighPct = pomCfg?.pomTooHighThreshold ?? 20;
       const tooLowPct = pomCfg?.pomTooLowThreshold ?? 20;
+
+      // Load current formula config to recompute suggested price on-the-fly
+      const formulaConfig = await getPomFormulaConfig();
       
-      // Join inventory with cached price data to find discrepancies
+      // Join inventory with cached price data — select raw market data so we can recompute live
       const insights = await db
         .select({
           inventoryId: blInventory.id,
@@ -5320,10 +5323,9 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
           colorName: blInventory.colorName,
           newOrUsed: blInventory.newOrUsed,
           currentPrice: blInventory.unitPrice,
-          suggestedPrice: priceGuideCache.suggestedPrice,
           stockAvgPrice: priceGuideCache.stockAvgPrice,
           soldAvgPrice: priceGuideCache.soldAvgPrice,
-          premiumPercentage: priceGuideCache.premiumPercentage,
+          stockTotalLots: priceGuideCache.stockTotalLots,
           quantity: blInventory.quantity,
           lastFetched: priceGuideCache.fetchedAt,
         })
@@ -5336,12 +5338,16 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
             sql`(${blInventory.colorId} = ${priceGuideCache.colorId} OR (${blInventory.colorId} IS NULL AND ${priceGuideCache.colorId} IS NULL))`
           )
         )
-        .where(sql`${blInventory.unitPrice} IS NOT NULL AND ${priceGuideCache.suggestedPrice} IS NOT NULL`);
+        .where(sql`${blInventory.unitPrice} IS NOT NULL AND (${priceGuideCache.stockAvgPrice} IS NOT NULL OR ${priceGuideCache.soldAvgPrice} IS NOT NULL)`);
 
-      // Calculate price variance and categorize
+      // Recompute suggested price live from current formula — formula changes take effect immediately
       const categorizedInsights = insights.map(item => {
         const currentPrice = parseFloat(item.currentPrice || '0');
-        const suggestedPrice = parseFloat(item.suggestedPrice || '0');
+        const stockAvg = item.stockAvgPrice ? parseFloat(item.stockAvgPrice) : null;
+        const soldAvg = item.soldAvgPrice ? parseFloat(item.soldAvgPrice) : null;
+        const lots = item.stockTotalLots ?? 0;
+        const suggestedPrice = calculateSuggestedPriceWithSupply(stockAvg, soldAvg, lots, formulaConfig.basePremium, item.itemType, formulaConfig);
+        if (suggestedPrice === 0) return null;
         const variance = ((currentPrice - suggestedPrice) / suggestedPrice) * 100;
         
         let category: 'too_high' | 'too_low' | 'good' = 'good';
@@ -5349,11 +5355,21 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
         else if (variance < -tooLowPct) category = 'too_low';
         
         return {
-          ...item,
+          inventoryId: item.inventoryId,
+          itemNo: item.itemNo,
+          itemName: item.itemName,
+          itemType: item.itemType,
+          colorName: item.colorName,
+          newOrUsed: item.newOrUsed,
+          currentPrice: item.currentPrice,
+          suggestedPrice: suggestedPrice.toFixed(3),
+          stockAvgPrice: item.stockAvgPrice,
           variance: Math.round(variance),
+          quantity: item.quantity,
+          lastFetched: item.lastFetched,
           category,
         };
-      });
+      }).filter((i): i is NonNullable<typeof i> => i !== null);
 
       // Separate into categories
       const tooHigh = categorizedInsights.filter(i => i.category === 'too_high');
@@ -5367,7 +5383,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
           tooLow,
           wellPriced,
           summary: {
-            total: insights.length,
+            total: categorizedInsights.length,
             tooHigh: tooHigh.length,
             tooLow: tooLow.length,
             wellPriced: wellPriced.length,

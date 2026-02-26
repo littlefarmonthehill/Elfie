@@ -275,11 +275,12 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
             </Tooltip>
           </div>
           <ul className="text-[10px] md:text-sm text-gray-300 space-y-0.5">
-            <li>• Processes up to {batchSize.toLocaleString()} items per run</li>
+            <li>• Processes up to {batchSize.toLocaleString()} items per run (3 API calls each)</li>
             <li>• {tooHighPct}%+ above suggested = Too High (losing sales)</li>
             <li>• {tooLowPct}%+ below suggested = Too Low (losing profit)</li>
             <li>• Stops at {apiCeiling.toLocaleString()} API calls to preserve daily quota</li>
             <li>• Tier 1 categories (minifigs) always run first</li>
+            <li>• Formula changes apply immediately — no re-sync needed</li>
           </ul>
         </Card>
       </div>
