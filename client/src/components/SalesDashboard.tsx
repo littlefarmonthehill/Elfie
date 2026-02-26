@@ -798,15 +798,18 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
     });
   };
 
-  // Get top revenue orders
+  // Get top revenue orders — sorted and filtered by net (after refunds/fees)
+  const getNetTotal = (order: { id: string; orderTotal: string | null }) =>
+    Math.max(0, parseOrderTotal(order.orderTotal) - (refundsByOrder[order.id] || 0));
+
   const topRevenueOrders = filteredOrders
-    .filter(order => parseOrderTotal(order.orderTotal) > 0)
-    .sort((a, b) => parseOrderTotal(b.orderTotal) - parseOrderTotal(a.orderTotal))
+    .filter(order => getNetTotal(order) > 0)
+    .sort((a, b) => getNetTotal(b) - getNetTotal(a))
     .slice(0, 5);
 
-  // Get recent high-value sales
+  // Get recent high-value sales — net >= $100
   const recentHighValueSales = filteredOrders
-    .filter(order => parseOrderTotal(order.orderTotal) >= 100)
+    .filter(order => getNetTotal(order) >= 100)
     .sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime())
     .slice(0, 5);
 
@@ -1295,7 +1298,12 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
                   <span className="text-gray-200 font-mono text-xs md:text-base lg:text-lg font-medium">#{order.orderNumber}</span>
                   <span className="text-gray-400 text-[11px] md:text-sm lg:text-base">{order.customerUsername}</span>
                 </div>
-                <span className="text-lego-green font-mono font-medium text-xs md:text-base lg:text-lg ml-2 flex-shrink-0">${parseOrderTotal(order.orderTotal).toFixed(2)}</span>
+                <span className="flex items-center gap-1.5 ml-2 flex-shrink-0">
+                  {refundsByOrder[order.id] ? (
+                    <span className="text-gray-500 line-through font-mono text-[10px] md:text-sm">${parseOrderTotal(order.orderTotal).toFixed(2)}</span>
+                  ) : null}
+                  <span className="text-lego-green font-mono font-medium text-xs md:text-base lg:text-lg">${getNetTotal(order).toFixed(2)}</span>
+                </span>
               </div>
             ))
           ) : (
@@ -1325,7 +1333,12 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
                   <span className="text-gray-400 text-[11px] md:text-sm lg:text-base">{order.customerUsername}</span>
                   <span className="text-gray-400 text-[11px] md:text-sm lg:text-base">{new Date(order.orderDate).toLocaleDateString()}</span>
                 </div>
-                <span className="text-lego-green font-mono font-medium text-xs md:text-base lg:text-lg ml-2 flex-shrink-0">${parseOrderTotal(order.orderTotal).toFixed(2)}</span>
+                <span className="flex items-center gap-1.5 ml-2 flex-shrink-0">
+                  {refundsByOrder[order.id] ? (
+                    <span className="text-gray-500 line-through font-mono text-[10px] md:text-sm">${parseOrderTotal(order.orderTotal).toFixed(2)}</span>
+                  ) : null}
+                  <span className="text-lego-green font-mono font-medium text-xs md:text-base lg:text-lg">${getNetTotal(order).toFixed(2)}</span>
+                </span>
               </div>
             ))
           ) : (
