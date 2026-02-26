@@ -200,7 +200,26 @@ async function executeOrderSync(settings: any) {
       }
     }
     
-    // 5. Check for orders where inventory was never deducted (silent failure detector)
+    // 5. Sync Stripe refunds (if key configured)
+    if (process.env.STRIPE_SECRET_KEY) {
+      try {
+        console.log('💳 Syncing Stripe refunds...');
+        const { syncStripeRefunds } = await import('./stripe-refunds');
+        const stripeResult = await syncStripeRefunds(90); // Look back 90 days
+        if (stripeResult.matched > 0) {
+          console.log(`✅ Stripe sync: ${stripeResult.matched} new refunds matched to orders`);
+        } else if (stripeResult.alreadySynced > 0) {
+          console.log(`✅ Stripe sync: ${stripeResult.alreadySynced} refunds already synced`);
+        } else {
+          console.log(`✅ Stripe sync: no new refunds`);
+        }
+      } catch (error: any) {
+        console.error('❌ Stripe refund sync failed (non-fatal):', error.message);
+        // Non-fatal — don't block order sync
+      }
+    }
+
+    // 6. Check for orders where inventory was never deducted (silent failure detector)
     await checkStuckInventoryDeductions();
     
     // Summary
