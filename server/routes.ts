@@ -4816,6 +4816,42 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
         console.log("⏭️ BrickOwl skipped - credentials not configured");
       }
       
+      // 3. Sync Stripe refunds + fees (non-fatal)
+      const stripeResult = { success: false, skipped: false, refunds: 0, fees: 0, error: null as string | null };
+      if (process.env.STRIPE_SECRET_KEY) {
+        try {
+          const { syncStripeRefunds, syncStripeFees } = await import('./services/stripe-refunds');
+          const [refundRes, feeRes] = await Promise.all([syncStripeRefunds(90), syncStripeFees(90)]);
+          stripeResult.success = true;
+          stripeResult.refunds = refundRes.matched;
+          stripeResult.fees = feeRes.matched;
+          console.log(`✅ Stripe: ${refundRes.matched} refunds, ${feeRes.matched} fees matched`);
+        } catch (err: any) {
+          stripeResult.error = err.message;
+          console.error('❌ Stripe sync failed (non-fatal):', err.message);
+        }
+      } else {
+        stripeResult.skipped = true;
+      }
+
+      // 4. Sync PayPal refunds + fees (non-fatal)
+      const paypalResult = { success: false, skipped: false, refunds: 0, fees: 0, error: null as string | null };
+      if (process.env.PAYPAL_CLIENT_ID && process.env.PAYPAL_CLIENT_SECRET) {
+        try {
+          const { syncPayPalTransactions } = await import('./services/paypal-sync');
+          const ppRes = await syncPayPalTransactions(90);
+          paypalResult.success = true;
+          paypalResult.refunds = ppRes.refundsMatched;
+          paypalResult.fees = ppRes.feesMatched;
+          console.log(`✅ PayPal: ${ppRes.refundsMatched} refunds, ${ppRes.feesMatched} fees matched`);
+        } catch (err: any) {
+          paypalResult.error = err.message;
+          console.error('❌ PayPal sync failed (non-fatal):', err.message);
+        }
+      } else {
+        paypalResult.skipped = true;
+      }
+
       // Determine overall success
       const anySuccess = results.bricklink.success || results.brickowl.success;
       const allSkipped = results.bricklink.skipped && results.brickowl.skipped;
@@ -4826,6 +4862,8 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
         success: anySuccess,
         allSkipped,
         results,
+        stripe: stripeResult,
+        paypal: paypalResult,
       });
     } catch (error: any) {
       console.error("❌ Multi-platform order sync error:", error);
