@@ -74,9 +74,9 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
         setResult(data);
         setLookupError(null);
         // If this part exists in local inventory, the result was stored to the POM cache.
-        // Invalidate POM dashboard queries so they reflect the new data immediately.
-        if (data?.storedToCache && data?.inventoryLots?.length > 0) {
-          queryClient.invalidateQueries({ queryKey: ['/api/pom/insights'] });
+        // Invalidate POM dashboard queries so the filter counts and list reflect the new data.
+        if (data?.inventoryLots?.length > 0) {
+          queryClient.invalidateQueries({ queryKey: ['/api/priceomatic/insights'] });
           queryClient.invalidateQueries({ queryKey: ['/api/priceomatic/freshness'] });
         }
       }
