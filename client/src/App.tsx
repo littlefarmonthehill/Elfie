@@ -44,9 +44,11 @@ function Router() {
         ) : !isAuthenticated ? (
           <Redirect to="/login" />
         ) : !isApproved ? (
-          <PendingApproval />
-        ) : (
+          <Redirect to="/" />
+        ) : isAdmin ? (
           <Home />
+        ) : (
+          <Redirect to="/showroom" />
         )}
       </Route>
 
