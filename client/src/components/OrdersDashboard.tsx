@@ -17,8 +17,27 @@ interface Order {
   orderDate: string;
   orderStatus: string;
   orderTotal: string;
+  netTotal: string;
   customerUsername: string;
   items: any[];
+}
+
+function OrderAmount({ order }: { order: Order }) {
+  const gross = Number(order.orderTotal || 0);
+  const net = Number(order.netTotal ?? order.orderTotal ?? 0);
+  const hasAdj = Math.abs(gross - net) >= 0.01;
+  return (
+    <span className="flex flex-col items-end ml-2 flex-shrink-0">
+      <span className="text-lego-green font-mono font-medium text-xs md:text-base lg:text-lg">
+        ${net.toFixed(2)}
+      </span>
+      {hasAdj && (
+        <span className="text-gray-500 font-mono text-[10px] md:text-xs line-through leading-none">
+          ${gross.toFixed(2)}
+        </span>
+      )}
+    </span>
+  );
 }
 
 interface OrdersDashboardProps {
@@ -72,7 +91,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                   <span className="text-gray-200 font-mono text-xs md:text-base lg:text-lg font-medium">#{order.orderNumber}</span>
                   <span className="text-gray-400 text-[11px] md:text-sm lg:text-base">{order.customerUsername}</span>
                 </div>
-                <span className="text-lego-green font-mono font-medium text-xs md:text-base lg:text-lg ml-2 flex-shrink-0">${Number(order.orderTotal || 0).toFixed(2)}</span>
+                <OrderAmount order={order} />
               </div>
             ))
           ) : (
@@ -101,7 +120,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                   <span className="text-gray-200 font-mono text-xs md:text-base lg:text-lg font-medium">#{order.orderNumber}</span>
                   <span className="text-gray-400 text-[11px] md:text-sm lg:text-base">{order.customerUsername}</span>
                 </div>
-                <span className="text-lego-green font-mono font-medium text-xs md:text-base lg:text-lg ml-2 flex-shrink-0">${Number(order.orderTotal || 0).toFixed(2)}</span>
+                <OrderAmount order={order} />
               </div>
             ))
           ) : (
@@ -130,7 +149,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                   <span className="text-gray-200 font-mono text-xs md:text-base lg:text-lg font-medium">#{order.orderNumber}</span>
                   <span className="text-gray-400 text-[11px] md:text-sm lg:text-base">{order.customerUsername}</span>
                 </div>
-                <span className="text-lego-green font-mono font-medium text-xs md:text-base lg:text-lg ml-2 flex-shrink-0">${Number(order.orderTotal).toFixed(2)}</span>
+                <OrderAmount order={order} />
               </div>
             ))
           ) : (

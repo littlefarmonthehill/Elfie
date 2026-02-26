@@ -429,34 +429,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Optimized endpoint for Orders Dashboard - only fetches what's needed
   app.get("/api/orders/dashboard", isApproved, async (req, res) => {
     try {
-      // Run all three queries in parallel for speed
+      // CTE calculates net total (gross - refunds - fees) per order
+      const withAdjustments = sql`
+        WITH adj AS (
+          SELECT order_id,
+            COALESCE(SUM(ABS(amount::numeric)), 0) AS total_adj
+          FROM order_adjustments
+          GROUP BY order_id
+        )
+      `;
+
+      const orderCols = sql`
+        o.id, o.order_number, o.order_date, o.order_status,
+        o.order_total, o.customer_username, o.marketplace,
+        GREATEST(0, o.order_total::numeric - COALESCE(a.total_adj, 0)) AS net_total
+      `;
+
       const [pendingOrders, recentShipments, highValueOrders] = await Promise.all([
-        // Pending orders awaiting payment or shipment
-        db.select()
-          .from(orders)
-          .where(sql`${orders.orderStatus} IN ('awaiting_payment', 'awaiting_shipment')`)
-          .orderBy(desc(orders.orderDate))
-          .limit(5),
-
-        // Recent shipments
-        db.select()
-          .from(orders)
-          .where(eq(orders.orderStatus, 'shipped'))
-          .orderBy(desc(orders.orderDate))
-          .limit(5),
-
-        // High value orders — only valid numeric totals > 0
-        db.select()
-          .from(orders)
-          .where(sql`${orders.orderTotal} IS NOT NULL AND ${orders.orderTotal} > 0`)
-          .orderBy(desc(orders.orderTotal))
-          .limit(5),
+        db.execute(sql`
+          ${withAdjustments}
+          SELECT ${orderCols}
+          FROM orders o
+          LEFT JOIN adj a ON a.order_id = o.id
+          WHERE o.order_status IN ('awaiting_payment', 'awaiting_shipment')
+          ORDER BY o.order_date DESC
+          LIMIT 5
+        `),
+        db.execute(sql`
+          ${withAdjustments}
+          SELECT ${orderCols}
+          FROM orders o
+          LEFT JOIN adj a ON a.order_id = o.id
+          WHERE o.order_status = 'shipped'
+          ORDER BY o.order_date DESC
+          LIMIT 5
+        `),
+        db.execute(sql`
+          ${withAdjustments}
+          SELECT ${orderCols}
+          FROM orders o
+          LEFT JOIN adj a ON a.order_id = o.id
+          WHERE o.order_total IS NOT NULL AND o.order_total::numeric > 0
+          ORDER BY net_total DESC
+          LIMIT 5
+        `),
       ]);
 
+      const mapRow = (r: any) => ({
+        id: r.id,
+        orderNumber: r.order_number,
+        orderDate: r.order_date,
+        orderStatus: r.order_status,
+        orderTotal: r.order_total,
+        netTotal: r.net_total,
+        customerUsername: r.customer_username,
+        marketplace: r.marketplace,
+        items: [],
+      });
+
       res.json({
-        pending: pendingOrders,
-        recentShipments,
-        highValue: highValueOrders,
+        pending: pendingOrders.rows.map(mapRow),
+        recentShipments: recentShipments.rows.map(mapRow),
+        highValue: highValueOrders.rows.map(mapRow),
       });
     } catch (error) {
       console.error("Error fetching dashboard orders:", error);
