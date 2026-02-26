@@ -171,7 +171,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
             <PopoverContent side="bottom" align="end" className="w-80 bg-gray-900 border-gray-700 p-3">
               <h3 className="text-xs font-bold text-purple-400 mb-2">How It Works</h3>
               <ul className="text-xs text-gray-300 space-y-1.5">
-                <li>• Fetches avg listed + avg sold prices from BrickLink — 3 API calls per item</li>
+                <li>• Fetches item details, avg listed (stock) + avg sold price guides from BrickLink — 3 API calls per item</li>
                 <li>• Applies your premium formula (Settings) to compute a suggested price, then applies cost floor and minimum price if configured</li>
                 <li>• Processes up to <strong className="text-white">{batchSize.toLocaleString()}</strong> stale items per run — all tiers compete fairly, T1 items go first only within the stale pool</li>
                 <li>• <strong className="text-red-300">{tooHighPct}%+ above suggested</strong> = Too High (losing sales to cheaper competitors)</li>
@@ -193,11 +193,11 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
                 data-testid="button-sync"
               >
                 <RefreshCw className={`w-3 h-3 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
-                {syncMutation.isPending ? 'Syncing...' : 'Update Prices'}
+                {syncMutation.isPending ? 'Refreshing...' : 'Refresh Market Data'}
               </Button>
             </TooltipTrigger>
             <TooltipContent side="left" className="max-w-56 text-xs">
-              Fetches fresh price guide data from BrickLink for stale items across all tiers (3 API calls each). Skips items with 0 stock.
+              Refreshes local POM price data from BrickLink for stale items across all tiers (3 API calls each: item details, stock guide, sold guide). Does not change your BrickLink prices. Skips items with 0 stock.
             </TooltipContent>
           </Tooltip>
         </div>

@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { blCategories, blColors, blInventory, blApiCalls, appSettings, priceGuideCache, setPartRelationships } from "@shared/schema";
+import { blCategories, blColors, blInventory, blApiCalls, appSettings, priceGuideCache, setPartRelationships, orderDetails, orders } from "@shared/schema";
 import { eq, gte, sql, inArray, and, gt } from "drizzle-orm";
 import OAuth from "oauth-1.0a";
 import crypto from "crypto";
@@ -973,6 +973,15 @@ interface PomFormulaConfig {
   scarcityBonus3: number;
   costFloorPct: number;
   minPrice: number;
+  // Sales velocity bonus
+  trendingEnabled: boolean;
+  trendingDays: number;
+  trendingThreshold: number;
+  trendingBonus: number;
+  // High global supply penalty
+  highSupplyEnabled: boolean;
+  highSupplyThreshold: number;
+  highSupplyPenalty: number;
 }
 
 const POM_FORMULA_DEFAULTS: PomFormulaConfig = {
@@ -986,6 +995,13 @@ const POM_FORMULA_DEFAULTS: PomFormulaConfig = {
   scarcityBonus3: 3,
   costFloorPct: 0,
   minPrice: 0.02,
+  trendingEnabled: false,
+  trendingDays: 30,
+  trendingThreshold: 5,
+  trendingBonus: 5,
+  highSupplyEnabled: false,
+  highSupplyThreshold: 5000,
+  highSupplyPenalty: 5,
 };
 
 export async function getPomFormulaConfig(): Promise<PomFormulaConfig> {
@@ -1003,6 +1019,13 @@ export async function getPomFormulaConfig(): Promise<PomFormulaConfig> {
       scarcityBonus3: settings.pomScarcityBonus3 ?? POM_FORMULA_DEFAULTS.scarcityBonus3,
       costFloorPct: settings.pomCostFloorPct ?? POM_FORMULA_DEFAULTS.costFloorPct,
       minPrice: parseFloat(String(settings.pomMinPrice ?? POM_FORMULA_DEFAULTS.minPrice)),
+      trendingEnabled: settings.pomTrendingEnabled ?? POM_FORMULA_DEFAULTS.trendingEnabled,
+      trendingDays: settings.pomTrendingDays ?? POM_FORMULA_DEFAULTS.trendingDays,
+      trendingThreshold: settings.pomTrendingThreshold ?? POM_FORMULA_DEFAULTS.trendingThreshold,
+      trendingBonus: settings.pomTrendingBonus ?? POM_FORMULA_DEFAULTS.trendingBonus,
+      highSupplyEnabled: settings.pomHighSupplyEnabled ?? POM_FORMULA_DEFAULTS.highSupplyEnabled,
+      highSupplyThreshold: settings.pomHighSupplyThreshold ?? POM_FORMULA_DEFAULTS.highSupplyThreshold,
+      highSupplyPenalty: settings.pomHighSupplyPenalty ?? POM_FORMULA_DEFAULTS.highSupplyPenalty,
     };
   } catch {
     return POM_FORMULA_DEFAULTS;
@@ -1040,10 +1063,12 @@ export function applyPomFloors(
 export function calculateSuggestedPriceWithSupply(
   stockAvgPrice: number | null,
   soldAvgPrice: number | null,
-  stockTotalLots: number = 0,
+  stockTotalLots: number = 0,         // global seller listing count (for scarcity)
   basePremiumPercentage: number = 10,
   itemType: string = 'PART',
-  config: PomFormulaConfig = POM_FORMULA_DEFAULTS
+  config: PomFormulaConfig = POM_FORMULA_DEFAULTS,
+  salesVelocity: number = 0,          // units sold from our store in trending window
+  stockQuantity: number = 0           // total pieces available globally (for supply penalty)
 ): number {
   const basePrice = stockAvgPrice || soldAvgPrice || 0;
   
@@ -1056,13 +1081,23 @@ export function calculateSuggestedPriceWithSupply(
     ? config.minifigPremium
     : config.basePremium;
   
-  // Apply scarcity bonus tiers
+  // Apply scarcity bonus tiers (fewer sellers globally = price up)
   if (stockTotalLots < config.scarcityThreshold1) {
     totalPremium += config.scarcityBonus1;
   } else if (stockTotalLots < config.scarcityThreshold2) {
     totalPremium += config.scarcityBonus2;
   } else if (stockTotalLots < config.scarcityThreshold3) {
     totalPremium += config.scarcityBonus3;
+  }
+
+  // Apply sales velocity bonus (items trending in our store price up)
+  if (config.trendingEnabled && salesVelocity >= config.trendingThreshold) {
+    totalPremium += config.trendingBonus;
+  }
+
+  // Apply high global supply penalty (flooded market prices down)
+  if (config.highSupplyEnabled && stockQuantity >= config.highSupplyThreshold) {
+    totalPremium -= config.highSupplyPenalty;
   }
   
   const suggestedPrice = basePrice * (1 + totalPremium / 100);
@@ -1205,6 +1240,34 @@ export async function syncPriceOMagicCache(maxItems?: number): Promise<{
 
     console.log(`[Price-o-Matic Sync] Found ${inventoryItems.length} candidates, ${filteredItems.length} stale (${filteredItems.length - itemsToProcess.length} deferred to next run), processing ${itemsToProcess.length}`);
 
+    // Pre-compute sales velocity map (one DB query, no API calls)
+    // Key: "itemNo:colorId:newOrUsed", value: total units sold in trending window
+    const velocityMap = new Map<string, number>();
+    if (pomConfig.trendingEnabled) {
+      try {
+        const trendingWindowStart = new Date(Date.now() - pomConfig.trendingDays * 86400000);
+        const velocityRows = await db
+          .select({
+            itemNo: blInventory.itemNo,
+            colorId: blInventory.colorId,
+            newOrUsed: blInventory.newOrUsed,
+            qtySold: sql<number>`SUM(${orderDetails.quantity})`,
+          })
+          .from(orderDetails)
+          .innerJoin(orders, eq(orderDetails.orderId, orders.id))
+          .innerJoin(blInventory, eq(orderDetails.bricklinkInventoryId, blInventory.id))
+          .where(gte(orders.orderDate, trendingWindowStart))
+          .groupBy(blInventory.itemNo, blInventory.colorId, blInventory.newOrUsed);
+        for (const row of velocityRows) {
+          const key = `${row.itemNo}:${row.colorId ?? 'null'}:${row.newOrUsed}`;
+          velocityMap.set(key, Number(row.qtySold));
+        }
+        console.log(`[Price-o-Matic Sync] Trending: ${velocityRows.length} items with recent sales in last ${pomConfig.trendingDays} days`);
+      } catch (e) {
+        console.error('[Price-o-Matic Sync] Failed to compute velocity map (non-fatal):', e);
+      }
+    }
+
     // Process each item in tier-priority order
     for (const item of itemsToProcess) {
       try {
@@ -1221,14 +1284,19 @@ export async function syncPriceOMagicCache(maxItems?: number): Promise<{
           }
         }
 
-        // Fetch price data (uses 3 API calls per item)
+        // Look up this item's sales velocity (units sold in trending window)
+        const velocityKey = `${item.itemNo}:${item.colorId ?? 'null'}:${item.newOrUsed}`;
+        const salesVelocity = velocityMap.get(velocityKey) ?? 0;
+
+        // Fetch price data (uses 3 API calls: item details, stock price guide, sold price guide)
         await fetchPriceOMagicData(
           item.itemNo,
           item.itemType,
           item.colorId || undefined,
           item.newOrUsed,
           pomConfig.basePremium,
-          pomConfig
+          pomConfig,
+          salesVelocity
         );
 
         itemsUpdated++;
@@ -1274,7 +1342,8 @@ export async function fetchPriceOMagicData(
   colorId?: number,
   newOrUsed: string = 'N',
   premiumPercentage: number = 15,
-  config: PomFormulaConfig = POM_FORMULA_DEFAULTS
+  config: PomFormulaConfig = POM_FORMULA_DEFAULTS,
+  salesVelocity: number = 0
 ): Promise<any> {
   try {
     // Check if we have cached data less than 24 hours old
@@ -1345,8 +1414,9 @@ export async function fetchPriceOMagicData(
     // Calculate suggested price with supply adjustment
     const stockAvgPrice = stockPriceData?.avg_price ? parseFloat(stockPriceData.avg_price) : null;
     const soldAvgPrice = soldPriceData?.avg_price ? parseFloat(soldPriceData.avg_price) : null;
-    const stockTotalLots = stockPriceData?.unit_quantity ? parseInt(stockPriceData.unit_quantity.toString()) : 0; // Number of lots/listings
-    const suggestedPrice = calculateSuggestedPriceWithSupply(stockAvgPrice, soldAvgPrice, stockTotalLots, premiumPercentage, apiItemType, config);
+    const stockTotalLots = stockPriceData?.total_lots ? parseInt(stockPriceData.total_lots.toString()) : 0; // Number of seller listings (for scarcity)
+    const stockQuantity = stockPriceData?.unit_quantity ? parseInt(stockPriceData.unit_quantity.toString()) : 0; // Total pieces globally (for supply penalty)
+    const suggestedPrice = calculateSuggestedPriceWithSupply(stockAvgPrice, soldAvgPrice, stockTotalLots, premiumPercentage, apiItemType, config, salesVelocity, stockQuantity);
 
     // Merge and store data
     const mergedData = {

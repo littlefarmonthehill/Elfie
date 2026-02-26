@@ -387,6 +387,15 @@ export const appSettings = pgTable("app_settings", {
   pomApiCallLimit: integer("pom_api_call_limit").default(4500).notNull(),        // Daily API call ceiling
   pomCostFloorPct: integer("pom_cost_floor_pct").default(0).notNull(),           // Min % margin above my_cost (0 = off)
   pomMinPrice: decimal("pom_min_price", { precision: 10, scale: 4 }).default('0.02').notNull(), // Absolute min price per item
+  // Sales velocity (trending) bonus
+  pomTrendingEnabled: boolean("pom_trending_enabled").default(false).notNull(),
+  pomTrendingDays: integer("pom_trending_days").default(30).notNull(),           // Look-back window in days
+  pomTrendingThreshold: integer("pom_trending_threshold").default(5).notNull(),  // Min units sold to count as trending
+  pomTrendingBonus: integer("pom_trending_bonus").default(5).notNull(),          // % bonus for trending items
+  // High global supply penalty
+  pomHighSupplyEnabled: boolean("pom_high_supply_enabled").default(false).notNull(),
+  pomHighSupplyThreshold: integer("pom_high_supply_threshold").default(5000).notNull(), // Global total-qty threshold
+  pomHighSupplyPenalty: integer("pom_high_supply_penalty").default(5).notNull(),        // % discount for flooded market
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
