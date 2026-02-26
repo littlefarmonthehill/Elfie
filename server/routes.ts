@@ -4303,6 +4303,61 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
     }
   });
 
+  // Live BrickLink vs Local quantity comparison
+  app.get("/api/bricklink-quantity-comparison", isApproved, async (req, res) => {
+    try {
+      const { bricklinkRequest } = await import('./services/bricklink');
+      const { data: blLiveData } = await bricklinkRequest('/inventories');
+      const blLiveItems: any[] = Array.isArray(blLiveData) ? blLiveData : [];
+
+      const localItems = await db.select().from(blInventory);
+      const localMap = new Map<number, typeof localItems[0]>();
+      for (const item of localItems) localMap.set(item.id, item);
+
+      const discrepancies: Array<{
+        inventoryId: number;
+        itemNo: string;
+        itemType: string;
+        colorId: number;
+        condition: string;
+        localQty: number | null;
+        bricklinkQty: number;
+        difference: number;
+        unitPrice: string;
+        remarks: string;
+      }> = [];
+
+      for (const blItem of blLiveItems) {
+        const id = blItem.inventory_id;
+        const blQty = blItem.quantity ?? 0;
+        const local = localMap.get(id);
+        const localQty = local ? local.quantity : null;
+
+        if (localQty === null || localQty !== blQty) {
+          discrepancies.push({
+            inventoryId: id,
+            itemNo: blItem.item?.no ?? '',
+            itemType: blItem.item?.type ?? '',
+            colorId: blItem.color_id ?? 0,
+            condition: blItem.new_or_used ?? '',
+            localQty,
+            bricklinkQty: blQty,
+            difference: blQty - (localQty ?? 0),
+            unitPrice: blItem.unit_price ?? '',
+            remarks: blItem.remarks ?? '',
+          });
+        }
+      }
+
+      discrepancies.sort((a, b) => Math.abs(b.difference) - Math.abs(a.difference));
+
+      res.json({ success: true, total: blLiveItems.length, discrepancies });
+    } catch (error: any) {
+      console.error("BrickLink comparison error:", error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
   // Bulk Rebrickable Image Sync (one-time operation to fetch all images)
   app.post("/api/sync/rebrickable/bulk-images", isApproved, async (req, res) => {
     console.log('🔍 [DEBUG] Bulk image sync route HIT');

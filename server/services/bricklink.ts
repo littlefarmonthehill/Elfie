@@ -78,7 +78,7 @@ async function trackApiCall(endpoint: string, success: boolean = true): Promise<
 }
 
 // Make a BrickLink API request with rate limiting (GET)
-async function bricklinkRequest(endpoint: string, queryParams?: Record<string, string>): Promise<{ data: any; apiCalls: number }> {
+export async function bricklinkRequest(endpoint: string, queryParams?: Record<string, string>): Promise<{ data: any; apiCalls: number }> {
   // Get credentials from database settings (with fallback to env vars)
   const [settings] = await db.select().from(appSettings).limit(1);
   
