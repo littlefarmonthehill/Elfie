@@ -385,6 +385,8 @@ export const appSettings = pgTable("app_settings", {
   pomTooLowThreshold: integer("pom_too_low_threshold").default(20).notNull(),    // % below suggested = too low
   pomBatchSize: integer("pom_batch_size").default(1500).notNull(),               // Items per sync run
   pomApiCallLimit: integer("pom_api_call_limit").default(4500).notNull(),        // Daily API call ceiling
+  pomCostFloorPct: integer("pom_cost_floor_pct").default(0).notNull(),           // Min % margin above my_cost (0 = off)
+  pomMinPrice: decimal("pom_min_price", { precision: 10, scale: 4 }).default('0.02').notNull(), // Absolute min price per item
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

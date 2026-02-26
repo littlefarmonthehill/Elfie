@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, isApproved } from "./auth";
-import { syncBricklinkData, fetchPriceOMagicData, searchBricklinkCatalogItem, syncPriceOMagicCache, getPomFormulaConfig, calculateSuggestedPriceWithSupply } from "./services/bricklink";
+import { syncBricklinkData, fetchPriceOMagicData, searchBricklinkCatalogItem, syncPriceOMagicCache, getPomFormulaConfig, calculateSuggestedPriceWithSupply, applyPomFloors } from "./services/bricklink";
 import { syncShipStationOrders } from "./services/shipstation";
 import { syncBrickLinkToBrickOwl } from "./services/brickowl";
 import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBackup } from "./services/export";
@@ -5323,6 +5323,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
           colorName: blInventory.colorName,
           newOrUsed: blInventory.newOrUsed,
           currentPrice: blInventory.unitPrice,
+          myCost: blInventory.myCost,
           stockAvgPrice: priceGuideCache.stockAvgPrice,
           soldAvgPrice: priceGuideCache.soldAvgPrice,
           stockTotalLots: priceGuideCache.stockTotalLots,
@@ -5346,8 +5347,10 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
         const stockAvg = item.stockAvgPrice ? parseFloat(item.stockAvgPrice) : null;
         const soldAvg = item.soldAvgPrice ? parseFloat(item.soldAvgPrice) : null;
         const lots = item.stockTotalLots ?? 0;
-        const suggestedPrice = calculateSuggestedPriceWithSupply(stockAvg, soldAvg, lots, formulaConfig.basePremium, item.itemType, formulaConfig);
-        if (suggestedPrice === 0) return null;
+        const marketPrice = calculateSuggestedPriceWithSupply(stockAvg, soldAvg, lots, formulaConfig.basePremium, item.itemType, formulaConfig);
+        if (marketPrice === 0) return null;
+        const myCost = item.myCost ? parseFloat(item.myCost) : null;
+        const { finalPrice: suggestedPrice, floorApplied } = applyPomFloors(marketPrice, myCost, formulaConfig);
         const variance = ((currentPrice - suggestedPrice) / suggestedPrice) * 100;
         
         let category: 'too_high' | 'too_low' | 'good' = 'good';
@@ -5362,7 +5365,10 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
           colorName: item.colorName,
           newOrUsed: item.newOrUsed,
           currentPrice: item.currentPrice,
-          suggestedPrice: suggestedPrice.toFixed(3),
+          myCost: item.myCost,
+          suggestedPrice: suggestedPrice.toFixed(4),
+          marketPrice: marketPrice.toFixed(4),
+          floorApplied,
           stockAvgPrice: item.stockAvgPrice,
           variance: Math.round(variance),
           quantity: item.quantity,

@@ -386,6 +386,8 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   const [pomTooLowThreshold, setPomTooLowThreshold] = useState(20);
   const [pomBatchSize, setPomBatchSize] = useState(1500);
   const [pomApiCallLimit, setPomApiCallLimit] = useState(4500);
+  const [pomCostFloorPct, setPomCostFloorPct] = useState(0);
+  const [pomMinPrice, setPomMinPrice] = useState(0.02);
 
   const { data: settings } = useQuery<AppSettings>({
     queryKey: ['/api/settings'],
@@ -473,6 +475,8 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
       setPomTooLowThreshold(settings.pomTooLowThreshold ?? 20);
       setPomBatchSize(settings.pomBatchSize ?? 1500);
       setPomApiCallLimit(settings.pomApiCallLimit ?? 4500);
+      setPomCostFloorPct(settings.pomCostFloorPct ?? 0);
+      setPomMinPrice(parseFloat(String(settings.pomMinPrice ?? '0.02')));
 
       // Fetch models
       fetchModels();
@@ -1922,6 +1926,82 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                     <p className="text-gray-400">Same part with <span className="text-blue-300">350 lots</span> (Medium Supply):</p>
                     <p className="text-gray-500">  total_premium  = {pomBasePremium + pomScarcityBonus3}%</p>
                     <p className="text-green-400">  suggested_price = $0.10 × {(1 + (pomBasePremium + pomScarcityBonus3) / 100).toFixed(2)} = <strong>${(0.10 * (1 + (pomBasePremium + pomScarcityBonus3) / 100)).toFixed(3)}</strong></p>
+                  </div>
+                </div>
+
+                {/* Price Floors */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Price Floors</h4>
+                    <Tooltip>
+                      <TooltipTrigger asChild><span className="cursor-help text-gray-500 hover:text-gray-300 text-xs">[?]</span></TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-xs">
+                        Price floors are a safety net applied on top of the market formula. They ensure you never suggest a price below your actual cost or below an absolute minimum — regardless of what BrickLink's market data says.
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1">
+                        <Label className="text-xs font-medium text-emerald-300">Cost Floor Margin %</Label>
+                        <Tooltip>
+                          <TooltipTrigger asChild><span className="cursor-help text-gray-500 hover:text-gray-300 text-xs">[?]</span></TooltipTrigger>
+                          <TooltipContent side="right" className="max-w-xs">
+                            Minimum margin above your recorded cost (my_cost). If set to 25, the suggested price will never go below cost × 1.25. Set to 0 to disable. Only applies to items with a cost recorded.
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <Input
+                        type="number"
+                        min="0"
+                        max="200"
+                        className="bg-gray-800 border-gray-600 text-white"
+                        value={pomCostFloorPct}
+                        onChange={(e) => setPomCostFloorPct(parseInt(e.target.value) || 0)}
+                        onBlur={() => updateSettingsMutation.mutate({ pomCostFloorPct })}
+                      />
+                      <p className="text-xs text-gray-500">
+                        {pomCostFloorPct > 0
+                          ? `Suggested ≥ cost × ${(1 + pomCostFloorPct / 100).toFixed(2)} (${pomCostFloorPct}% margin)`
+                          : 'Disabled — no cost floor applied'}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1">
+                        <Label className="text-xs font-medium text-emerald-300">Absolute Minimum Price ($)</Label>
+                        <Tooltip>
+                          <TooltipTrigger asChild><span className="cursor-help text-gray-500 hover:text-gray-300 text-xs">[?]</span></TooltipTrigger>
+                          <TooltipContent side="right" className="max-w-xs">
+                            No item will ever be suggested at less than this price, regardless of market data or cost. Useful for covering platform fees on micro-priced parts. Default $0.02.
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        className="bg-gray-800 border-gray-600 text-white"
+                        value={pomMinPrice}
+                        onChange={(e) => setPomMinPrice(parseFloat(e.target.value) || 0)}
+                        onBlur={() => updateSettingsMutation.mutate({ pomMinPrice: pomMinPrice.toString() })}
+                      />
+                      <p className="text-xs text-gray-500">
+                        {pomMinPrice > 0
+                          ? `No suggestion below $${pomMinPrice.toFixed(2)}`
+                          : 'Disabled — no absolute minimum'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="bg-gray-800 rounded p-3 text-xs font-mono space-y-1">
+                    <p className="text-gray-400">Floor logic applied after market formula:</p>
+                    <p className="text-gray-500">  market_price = avg_listed × (1 + total_premium%)</p>
+                    {pomCostFloorPct > 0 && (
+                      <p className="text-gray-500">  cost_floor   = my_cost × {(1 + pomCostFloorPct / 100).toFixed(2)}</p>
+                    )}
+                    {pomMinPrice > 0 && (
+                      <p className="text-gray-500">  min_price    = ${pomMinPrice.toFixed(2)}</p>
+                    )}
+                    <p className="text-emerald-400">  final_price  = max(market_price{pomCostFloorPct > 0 ? ', cost_floor' : ''}{pomMinPrice > 0 ? ', min_price' : ''})</p>
                   </div>
                 </div>
 

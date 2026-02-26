@@ -971,6 +971,8 @@ interface PomFormulaConfig {
   scarcityBonus2: number;
   scarcityThreshold3: number;
   scarcityBonus3: number;
+  costFloorPct: number;
+  minPrice: number;
 }
 
 const POM_FORMULA_DEFAULTS: PomFormulaConfig = {
@@ -982,6 +984,8 @@ const POM_FORMULA_DEFAULTS: PomFormulaConfig = {
   scarcityBonus2: 8,
   scarcityThreshold3: 500,
   scarcityBonus3: 3,
+  costFloorPct: 0,
+  minPrice: 0.02,
 };
 
 export async function getPomFormulaConfig(): Promise<PomFormulaConfig> {
@@ -997,10 +1001,39 @@ export async function getPomFormulaConfig(): Promise<PomFormulaConfig> {
       scarcityBonus2: settings.pomScarcityBonus2 ?? POM_FORMULA_DEFAULTS.scarcityBonus2,
       scarcityThreshold3: settings.pomScarcityThreshold3 ?? POM_FORMULA_DEFAULTS.scarcityThreshold3,
       scarcityBonus3: settings.pomScarcityBonus3 ?? POM_FORMULA_DEFAULTS.scarcityBonus3,
+      costFloorPct: settings.pomCostFloorPct ?? POM_FORMULA_DEFAULTS.costFloorPct,
+      minPrice: parseFloat(String(settings.pomMinPrice ?? POM_FORMULA_DEFAULTS.minPrice)),
     };
   } catch {
     return POM_FORMULA_DEFAULTS;
   }
+}
+
+// Apply cost floor and minimum price floors to a market-derived suggested price
+export function applyPomFloors(
+  marketPrice: number,
+  myCost: number | null | undefined,
+  config: PomFormulaConfig = POM_FORMULA_DEFAULTS
+): { finalPrice: number; floorApplied: 'cost' | 'min' | 'none' } {
+  let finalPrice = marketPrice;
+  let floorApplied: 'cost' | 'min' | 'none' = 'none';
+
+  // Cost floor: never price below my_cost × (1 + costFloorPct%)
+  if (config.costFloorPct > 0 && myCost && myCost > 0) {
+    const costFloor = myCost * (1 + config.costFloorPct / 100);
+    if (costFloor > finalPrice) {
+      finalPrice = costFloor;
+      floorApplied = 'cost';
+    }
+  }
+
+  // Absolute minimum price floor
+  if (config.minPrice > 0 && config.minPrice > finalPrice) {
+    finalPrice = config.minPrice;
+    if (floorApplied === 'none') floorApplied = 'min';
+  }
+
+  return { finalPrice: Number(finalPrice.toFixed(4)), floorApplied };
 }
 
 // Calculate suggested price with supply adjustment (low supply = higher price)

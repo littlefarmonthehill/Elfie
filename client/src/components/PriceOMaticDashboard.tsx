@@ -36,7 +36,10 @@ interface PricingInsight {
   colorName: string | null;
   newOrUsed: string;
   currentPrice: string;
+  myCost?: string | null;
   suggestedPrice: string;
+  marketPrice?: string;
+  floorApplied?: 'cost' | 'min' | 'none';
   stockAvgPrice: string;
   variance: number;
   quantity: number;
@@ -404,6 +407,12 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
                       </div>
                       <div className="w-16 text-right">
                         <p className="text-[10px] md:text-sm font-mono text-purple-400">{formatCurrency(item.suggestedPrice)}</p>
+                        {item.floorApplied === 'cost' && (
+                          <p className="text-[8px] text-emerald-500 leading-none">cost floor</p>
+                        )}
+                        {item.floorApplied === 'min' && (
+                          <p className="text-[8px] text-blue-500 leading-none">min price</p>
+                        )}
                       </div>
                       <div className="w-14 text-right">
                         <p className={`text-[10px] md:text-sm font-mono font-bold ${
