@@ -970,8 +970,8 @@ function calculateSuggestedPrice(
   soldAvgPrice: number | null,
   premiumPercentage: number = 15
 ): number {
-  // Use stock average as base, fall back to sold average
-  const basePrice = stockAvgPrice || soldAvgPrice || 0;
+  // Use 85th-percentile sold price as primary reference — fall back to stock avg if no sold data
+  const basePrice = soldAvgPrice || stockAvgPrice || 0;
   
   if (basePrice === 0) {
     return 0;
@@ -1090,7 +1090,7 @@ export function calculateSuggestedPriceWithSupply(
   marketSoldQty: number = 0,    // BL sold guide unit_quantity: total pieces sold globally (demand signal)
   marketStockQty: number = 0    // BL stock guide unit_quantity: total pieces available globally (supply signal)
 ): number {
-  const basePrice = stockAvgPrice || soldAvgPrice || 0;
+  const basePrice = soldAvgPrice || stockAvgPrice || 0;
   
   if (basePrice === 0) {
     return 0;

@@ -1716,7 +1716,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                           <Info className="w-3.5 h-3.5" />
                         </button>
                       </PopoverTrigger>
-                      <PopoverContent side="right" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                      <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
                         The minimum % markup above BrickLink's average price every item receives. Avg price = midpoint of avg listed and avg sold. Scarcity bonuses stack on top of this.
                       </PopoverContent>
                     </Popover>
@@ -1731,7 +1731,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                               <Info className="w-3.5 h-3.5" />
                             </button>
                           </PopoverTrigger>
-                          <PopoverContent side="right" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
+                          <PopoverContent side="bottom" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
                             Applied to all standard parts. Suggested = avg_price × (1 + base% + scarcity%). Being too high pushes above market; too low leaves margin on the table.
                           </PopoverContent>
                         </Popover>
@@ -1750,7 +1750,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                               <Info className="w-3.5 h-3.5" />
                             </button>
                           </PopoverTrigger>
-                          <PopoverContent side="right" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
+                          <PopoverContent side="bottom" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
                             Minifigures use a separate premium because they already command elevated prices relative to cost. Setting this too high on high-value figs risks losing buyers to competitors.
                           </PopoverContent>
                         </Popover>
@@ -1773,7 +1773,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                           <Info className="w-3.5 h-3.5" />
                         </button>
                       </PopoverTrigger>
-                      <PopoverContent side="right" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                      <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
                         When fewer sellers list a part on BrickLink, you can charge more. Each tier adds a bonus % on top of your base premium. Items above the highest threshold get base premium only — no bonus.
                       </PopoverContent>
                     </Popover>
@@ -1829,7 +1829,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                           <Info className="w-3 h-3" />
                         </button>
                       </PopoverTrigger>
-                      <PopoverContent side="right" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                      <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
                         Shows the suggested price for a $0.10 part at each supply level using your current settings. Adjust the premiums and bonuses above to see results update instantly.
                       </PopoverContent>
                     </Popover>
@@ -1862,7 +1862,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                           <Info className="w-3.5 h-3.5" />
                         </button>
                       </PopoverTrigger>
-                      <PopoverContent side="right" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                      <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
                         Safety net applied after the market formula. Final price = max(market_price, cost_floor, min_price). Cost floor only applies to items with a recorded cost (my_cost).
                       </PopoverContent>
                     </Popover>
@@ -1877,7 +1877,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                               <Info className="w-3.5 h-3.5" />
                             </button>
                           </PopoverTrigger>
-                          <PopoverContent side="right" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
+                          <PopoverContent side="bottom" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
                             Minimum margin above your recorded cost (my_cost). At 25%, the suggested price never goes below cost × 1.25. Set to 0 to disable.
                           </PopoverContent>
                         </Popover>
@@ -1896,7 +1896,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                               <Info className="w-3.5 h-3.5" />
                             </button>
                           </PopoverTrigger>
-                          <PopoverContent side="right" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
+                          <PopoverContent side="bottom" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
                             No item will be suggested below this price regardless of market data or cost. Useful for covering platform fees on micro-priced parts. Default $0.02.
                           </PopoverContent>
                         </Popover>
@@ -1920,7 +1920,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                             <Info className="w-3.5 h-3.5" />
                           </button>
                         </PopoverTrigger>
-                        <PopoverContent side="right" className="w-80 text-xs bg-gray-900 border-gray-700 p-3 space-y-1.5">
+                        <PopoverContent side="bottom" className="w-80 text-xs bg-gray-900 border-gray-700 p-3 space-y-1.5">
                           <p>Adjusts suggested prices using live BrickLink market data — no local order history involved.</p>
                           <p><span className="text-blue-300 font-medium">Demand signal:</span> total pieces sold globally on BrickLink (from the sold price guide). High sales volume relative to your demand threshold boosts the price.</p>
                           <p><span className="text-orange-300 font-medium">Supply signal:</span> total pieces currently listed for sale globally. High availability relative to your supply threshold lowers the price.</p>
@@ -1944,7 +1944,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                               <Info className="w-3.5 h-3.5" />
                             </button>
                           </PopoverTrigger>
-                          <PopoverContent side="right" className="w-60 text-xs bg-gray-900 border-gray-700 p-3">
+                          <PopoverContent side="bottom" className="w-60 text-xs bg-gray-900 border-gray-700 p-3">
                             The maximum percentage the market dynamics formula can move a price — either up (high demand) or down (high supply). Demand and supply weights further scale within this cap.
                           </PopoverContent>
                         </Popover>
@@ -1963,7 +1963,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                               <Info className="w-3.5 h-3.5" />
                             </button>
                           </PopoverTrigger>
-                          <PopoverContent side="right" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                          <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
                             Total pieces sold globally on BrickLink that represents "fully demanded." An item at or above this level gets the full demand bonus. Below it, the bonus is proportionally reduced.
                           </PopoverContent>
                         </Popover>
@@ -1982,7 +1982,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                               <Info className="w-3.5 h-3.5" />
                             </button>
                           </PopoverTrigger>
-                          <PopoverContent side="right" className="w-60 text-xs bg-gray-900 border-gray-700 p-3">
+                          <PopoverContent side="bottom" className="w-60 text-xs bg-gray-900 border-gray-700 p-3">
                             How much of the max adjustment the demand signal can contribute. At 60 with max 15%, a fully-demanded item adds up to 9% (15 × 0.6).
                           </PopoverContent>
                         </Popover>
@@ -2001,7 +2001,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                               <Info className="w-3.5 h-3.5" />
                             </button>
                           </PopoverTrigger>
-                          <PopoverContent side="right" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                          <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
                             Total pieces currently listed for sale on BrickLink globally that represents "fully supplied." Common commodity parts often have 50,000+ pieces globally — set this to match your market context.
                           </PopoverContent>
                         </Popover>
@@ -2020,7 +2020,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                               <Info className="w-3.5 h-3.5" />
                             </button>
                           </PopoverTrigger>
-                          <PopoverContent side="right" className="w-60 text-xs bg-gray-900 border-gray-700 p-3">
+                          <PopoverContent side="bottom" className="w-60 text-xs bg-gray-900 border-gray-700 p-3">
                             How much of the max adjustment the supply signal can subtract. At 40 with max 15%, a fully-supplied item removes up to 6% (15 × 0.4).
                           </PopoverContent>
                         </Popover>
@@ -2043,7 +2043,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                           <Info className="w-3.5 h-3.5" />
                         </button>
                       </PopoverTrigger>
-                      <PopoverContent side="right" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                      <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
                         Controls which items appear in the Price-o-Matic dashboard as needing attention. Items outside these bands are flagged — not automatically repriced. You decide whether to act on each flag.
                       </PopoverContent>
                     </Popover>
@@ -2058,7 +2058,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                               <Info className="w-3.5 h-3.5" />
                             </button>
                           </PopoverTrigger>
-                          <PopoverContent side="right" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
+                          <PopoverContent side="bottom" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
                             Items priced this far above the suggested price appear in the "Too High" tab. Buyers will likely find cheaper options elsewhere, reducing your sell-through rate.
                           </PopoverContent>
                         </Popover>
@@ -2078,7 +2078,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                               <Info className="w-3.5 h-3.5" />
                             </button>
                           </PopoverTrigger>
-                          <PopoverContent side="right" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
+                          <PopoverContent side="bottom" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
                             Items priced this far below the suggested price appear in the "Too Low" tab. You're leaving margin on the table — buyers didn't need that discount.
                           </PopoverContent>
                         </Popover>
@@ -2102,7 +2102,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                           <Info className="w-3.5 h-3.5" />
                         </button>
                       </PopoverTrigger>
-                      <PopoverContent side="right" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                      <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
                         BrickLink allows 5,000 API calls/day across all features. Price-o-Matic uses 3 calls per item. Set these to protect your daily budget and leave headroom for order and inventory syncs.
                       </PopoverContent>
                     </Popover>
@@ -2117,7 +2117,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                               <Info className="w-3.5 h-3.5" />
                             </button>
                           </PopoverTrigger>
-                          <PopoverContent side="right" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
+                          <PopoverContent side="bottom" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
                             Max items to process per run. Stale items across all tiers are eligible. T1 (minifigs, Bionicle) runs first within the stale pool.
                           </PopoverContent>
                         </Popover>
@@ -2136,7 +2136,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                               <Info className="w-3.5 h-3.5" />
                             </button>
                           </PopoverTrigger>
-                          <PopoverContent side="right" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
+                          <PopoverContent side="bottom" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
                             Price-o-Matic stops when this many API calls have been made today across all BrickLink features. Hard limit is 5,000/day. Recommended: 3,000–4,000.
                           </PopoverContent>
                         </Popover>
@@ -2160,7 +2160,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                           <Info className="w-3.5 h-3.5" />
                         </button>
                       </PopoverTrigger>
-                      <PopoverContent side="right" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                      <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
                         Assign categories to refresh tiers. T1 = daily, T2 = 3 days, T3 = weekly, T4 = monthly. Each row shows a freshness indicator and price guide coverage %.
                       </PopoverContent>
                     </Popover>
@@ -2179,7 +2179,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                             <Info className="w-3.5 h-3.5" />
                           </button>
                         </PopoverTrigger>
-                        <PopoverContent side="right" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                        <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
                           Deletes all stored price guide data and resets sync history. Use when starting fresh with new formula settings. The next sync rebuilds from scratch. No inventory data is affected.
                         </PopoverContent>
                       </Popover>
