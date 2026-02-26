@@ -275,9 +275,16 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
       });
     }
 
-    const monthsToShow = dateRange === '2years' ? 24 :
-                        dateRange === '1year' ? 12 :
-                        dateRange === '6months' ? 6 : 3;
+    if (dateRange === 'prevyear') {
+      const startOfPrevYear = new Date(new Date().getFullYear() - 1, 0, 1);
+      const startOfCurrentYear = new Date(new Date().getFullYear(), 0, 1);
+      return orders.filter(order => {
+        const orderDate = safeParseDate(order.orderDate);
+        return orderDate >= startOfPrevYear && orderDate < startOfCurrentYear;
+      });
+    }
+
+    const monthsToShow = dateRange === '1year' ? 12 : 3;
     
     // Start from the beginning of the month (N-1) months ago
     // This ensures we get exactly N months: current month + (N-1) prior months
@@ -371,9 +378,9 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
       }));
     }
 
-    // 3 months and 6 months: show weekly data
-    if (dateRange === '3months' || dateRange === '6months') {
-      const monthsBack = dateRange === '3months' ? 2 : 5;
+    // 3 months: show weekly data
+    if (dateRange === '3months') {
+      const monthsBack = 2;
       const startDate = startOfMonth(subMonths(new Date(), monthsBack));
       const endDate = new Date();
       
@@ -506,15 +513,23 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
           sales: 0,
         };
       });
+    } else if (dateRange === 'prevyear') {
+      // Previous year: all 12 months of last calendar year
+      const prevYear = new Date().getFullYear() - 1;
+      months = Array.from({ length: 12 }, (_, i) => {
+        const monthDate = new Date(prevYear, i, 1);
+        return {
+          date: format(monthDate, 'MMM yyyy'),
+          month: startOfMonth(monthDate),
+          sales: 0,
+        };
+      });
     } else {
-      // For 1 year and 2 years, use monthly data
-      const monthsToShow = dateRange === '2years' ? 24 :
-                          dateRange === '1year' ? 12 :
-                          dateRange === '6months' ? 6 : 3;
+      // For 1 year: use monthly data (rolling 12 months), otherwise 3 months
+      const monthsToShow = dateRange === '1year' ? 12 : 3;
       
       months = Array.from({ length: monthsToShow }, (_, i) => {
         const date = subMonths(new Date(), monthsToShow - 1 - i);
-        // Use full year format for clarity (Nov 2023 instead of Nov 23)
         return {
           date: format(date, 'MMM yyyy'),
           month: startOfMonth(date),
@@ -575,18 +590,14 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
       // 3 months = current month + 2 prior months
       startDate = startOfMonth(subMonths(now, 2));
       endDate = now;
-    } else if (dateRange === '6months') {
-      // 6 months = current month + 5 prior months
-      startDate = startOfMonth(subMonths(now, 5));
-      endDate = now;
     } else if (dateRange === '1year') {
       // 12 months = current month + 11 prior months
       startDate = startOfMonth(subMonths(now, 11));
       endDate = now;
-    } else if (dateRange === '2years') {
-      // 24 months = current month + 23 prior months
-      startDate = startOfMonth(subMonths(now, 23));
-      endDate = now;
+    } else if (dateRange === 'prevyear') {
+      // Previous calendar year: Jan 1 to Dec 31
+      startDate = new Date(now.getFullYear() - 1, 0, 1);
+      endDate = new Date(now.getFullYear() - 1, 11, 31);
     } else {
       // 'all' - get oldest order date
       const oldestOrder = orders.reduce((oldest, order) => {
@@ -699,15 +710,12 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
     } else if (dateRange === '3months') {
       startDate = startOfMonth(subMonths(now, 2));
       endDate = now;
-    } else if (dateRange === '6months') {
-      startDate = startOfMonth(subMonths(now, 5));
-      endDate = now;
     } else if (dateRange === '1year') {
       startDate = startOfMonth(subMonths(now, 11));
       endDate = now;
-    } else if (dateRange === '2years') {
-      startDate = startOfMonth(subMonths(now, 23));
-      endDate = now;
+    } else if (dateRange === 'prevyear') {
+      startDate = new Date(now.getFullYear() - 1, 0, 1);
+      endDate = new Date(now.getFullYear() - 1, 11, 31);
     } else {
       // 'all' - get oldest order date
       const oldestOrder = orders.reduce((oldest, order) => {
@@ -1124,6 +1132,56 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
         )}
       </div>
 
+      {/* Key Metrics */}
+      <div className="bg-gray-900/50 border border-yellow-500/20 rounded-lg p-3" data-testid="section-sales-metrics">
+        <div className="flex items-center gap-2 mb-2">
+          <Target className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-yellow-400" />
+          <h3 className="text-xs md:text-base lg:text-lg font-semibold text-yellow-400 uppercase tracking-wide">Key Metrics</h3>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          <div className="text-center">
+            <div className="text-[9px] md:text-sm lg:text-base text-gray-500">Total Orders</div>
+            <div className="text-xs md:text-base lg:text-lg text-gray-300 font-mono">{filteredOrders.length}</div>
+          </div>
+          <div className="text-center">
+            <div className="text-[9px] md:text-sm lg:text-base text-gray-500">Avg Order Value</div>
+            <div className="text-xs md:text-base lg:text-lg text-lego-green font-mono">${averageOrderValue.toFixed(2)}</div>
+          </div>
+          <div className="text-center">
+            <div className="text-[9px] md:text-sm lg:text-base text-gray-500">Gross Revenue</div>
+            <div className="text-xs md:text-base lg:text-lg text-lego-green font-mono">${Math.round(totalRevenue).toLocaleString()}</div>
+          </div>
+        </div>
+        {adjustmentSummary && (adjustmentSummary.totalRefunds > 0 || adjustmentSummary.totalFees > 0) && (
+          <div className="mt-2 pt-2 border-t border-yellow-500/10 grid grid-cols-3 gap-2">
+            <div className="text-center">
+              <div className="text-[9px] md:text-xs text-gray-600">Refunds</div>
+              <div className="text-[10px] md:text-sm text-lego-red font-mono">
+                {adjustmentSummary.totalRefunds > 0 ? `-$${adjustmentSummary.totalRefunds.toFixed(2)}` : '—'}
+              </div>
+              {adjustmentSummary.refundedOrderCount > 0 && (
+                <div className="text-[8px] text-gray-600">{adjustmentSummary.refundedOrderCount} orders</div>
+              )}
+            </div>
+            <div className="text-center">
+              <div className="text-[9px] md:text-xs text-gray-600">Merchant Fees</div>
+              <div className="text-[10px] md:text-sm text-amber-500/70 font-mono">
+                {adjustmentSummary.totalFees > 0 ? `-$${adjustmentSummary.totalFees.toFixed(2)}` : '—'}
+              </div>
+              {adjustmentSummary.totalFees > 0 && (
+                <div className="text-[8px] text-gray-600">COGS</div>
+              )}
+            </div>
+            <div className="text-center">
+              <div className="text-[9px] md:text-xs text-gray-600">Net Revenue</div>
+              <div className="text-[10px] md:text-sm text-lego-green font-mono">
+                ${Math.max(0, totalRevenue - adjustmentSummary.totalRefunds).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Comparison Metrics */}
       {compareMode && comparisonType === 'year' && validCompareYears.length > 0 && (
         <div className="bg-gray-900/50 border border-purple-500/20 rounded-lg p-3" data-testid="section-yoy-metrics">
@@ -1274,56 +1332,6 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
             <div className="text-[11px] text-gray-500 italic">No high value sales</div>
           )}
         </div>
-      </div>
-
-      {/* Action Items - Sales Metrics */}
-      <div className="bg-gray-900/50 border border-yellow-500/20 rounded-lg p-3" data-testid="section-sales-metrics">
-        <div className="flex items-center gap-2 mb-2">
-          <Target className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-yellow-400" />
-          <h3 className="text-xs md:text-base lg:text-lg font-semibold text-yellow-400 uppercase tracking-wide">Key Metrics</h3>
-        </div>
-        <div className="grid grid-cols-3 gap-2">
-          <div className="text-center">
-            <div className="text-[9px] md:text-sm lg:text-base text-gray-500">Total Orders</div>
-            <div className="text-xs md:text-base lg:text-lg text-gray-300 font-mono">{filteredOrders.length}</div>
-          </div>
-          <div className="text-center">
-            <div className="text-[9px] md:text-sm lg:text-base text-gray-500">Avg Order Value</div>
-            <div className="text-xs md:text-base lg:text-lg text-lego-green font-mono">${averageOrderValue.toFixed(2)}</div>
-          </div>
-          <div className="text-center">
-            <div className="text-[9px] md:text-sm lg:text-base text-gray-500">Gross Revenue</div>
-            <div className="text-xs md:text-base lg:text-lg text-lego-green font-mono">${Math.round(totalRevenue).toLocaleString()}</div>
-          </div>
-        </div>
-        {adjustmentSummary && (adjustmentSummary.totalRefunds > 0 || adjustmentSummary.totalFees > 0) && (
-          <div className="mt-2 pt-2 border-t border-yellow-500/10 grid grid-cols-3 gap-2">
-            <div className="text-center">
-              <div className="text-[9px] md:text-xs text-gray-600">Refunds</div>
-              <div className="text-[10px] md:text-sm text-lego-red font-mono">
-                {adjustmentSummary.totalRefunds > 0 ? `-$${adjustmentSummary.totalRefunds.toFixed(2)}` : '—'}
-              </div>
-              {adjustmentSummary.refundedOrderCount > 0 && (
-                <div className="text-[8px] text-gray-600">{adjustmentSummary.refundedOrderCount} orders</div>
-              )}
-            </div>
-            <div className="text-center">
-              <div className="text-[9px] md:text-xs text-gray-600">Merchant Fees</div>
-              <div className="text-[10px] md:text-sm text-amber-500/70 font-mono">
-                {adjustmentSummary.totalFees > 0 ? `-$${adjustmentSummary.totalFees.toFixed(2)}` : '—'}
-              </div>
-              {adjustmentSummary.totalFees > 0 && (
-                <div className="text-[8px] text-gray-600">COGS</div>
-              )}
-            </div>
-            <div className="text-center">
-              <div className="text-[9px] md:text-xs text-gray-600">Net Revenue</div>
-              <div className="text-[10px] md:text-sm text-lego-green font-mono">
-                ${Math.max(0, totalRevenue - adjustmentSummary.totalRefunds).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Platform Performance */}

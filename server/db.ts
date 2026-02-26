@@ -1,9 +1,7 @@
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
-import ws from "ws";
+import pg from 'pg';
+const { Pool } = pg;
+import { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from "@shared/schema";
-
-neonConfig.webSocketConstructor = ws;
 
 if (!process.env.DATABASE_URL) {
   throw new Error(
@@ -11,16 +9,24 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-pool.on('error', (err) => {
-  console.error('[DB] Pool idle client error (handled):', err.message);
+export const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  max: 10,
+  idleTimeoutMillis: 300000,
+  connectionTimeoutMillis: 10000,
 });
 
-// Keep the connection warm so WebSocket doesn't go idle and crash on reconnect
-setInterval(() => {
-  pool.query('SELECT 1').catch((err) => {
-    console.error('[DB] Keepalive query failed (handled):', err.message);
-  });
-}, 10000);
+pool.on('error', (err) => {
+  console.error('[DB] Idle client error (handled):', err.message);
+});
 
-export const db = drizzle({ client: pool, schema });
+// Keepalive: run a lightweight query every 4 minutes to prevent Neon
+// serverless from suspending its compute during idle periods. This avoids
+// the 1-2s reconnect delay that can destabilize the server.
+setInterval(() => {
+  pool.query('SELECT 1').catch((err: Error) => {
+    console.error('[DB] Keepalive query failed (will retry):', err.message);
+  });
+}, 4 * 60 * 1000);
+
+export const db = drizzle(pool, { schema });

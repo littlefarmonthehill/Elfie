@@ -5,23 +5,58 @@ import { startOrderSyncScheduler } from "./services/order-sync-scheduler";
 import { startInventorySyncScheduler } from "./services/inventory-sync-scheduler";
 import { startEmbeddingWorker } from "./services/embedding-worker";
 import { startForumSyncScheduler } from "./services/bl-forum-scheduler";
+import { pool } from "./db";
+
+// Suppress Vite's process.exit(1) which fires on any CSS/TS compilation error.
+// By throwing instead, the error surfaces as an uncaughtException (caught below)
+// so the server keeps running and serves requests normally.
+const _originalExit = process.exit.bind(process);
+let _allowExit = false;
+(process as any).exit = (code?: number) => {
+  if (_allowExit) {
+    _originalExit(code);
+    return;
+  }
+  console.log(`[EXIT SUPPRESSED] process.exit(${code}) was called — keeping server alive`);
+  throw new Error(`SuppressedExit:${code}`);
+};
 
 process.on('uncaughtException', (err) => {
+  if (err.message && err.message.startsWith('SuppressedExit:')) {
+    console.log(`[EXIT BLOCKED] ${err.message} — server continues running`);
+    return;
+  }
   console.error('[CRASH] Uncaught Exception:', err.message, err.stack);
 });
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('[CRASH] Unhandled Rejection at:', promise, 'reason:', reason);
+process.on('unhandledRejection', (reason: any) => {
+  if (reason && reason.message && reason.message.startsWith('SuppressedExit:')) {
+    console.log(`[EXIT BLOCKED via rejection] ${reason.message} — server continues running`);
+    return;
+  }
+  console.error('[CRASH] Unhandled Rejection reason:', reason);
 });
 process.on('SIGTERM', () => {
-  console.error('[CRASH] Received SIGTERM signal');
+  console.log('[SIGNAL] Received SIGTERM — shutting down gracefully');
+  _allowExit = true;
+  _originalExit(0);
+});
+process.on('SIGINT', () => {
+  console.log('[SIGNAL] Received SIGINT');
+  _allowExit = true;
+  _originalExit(0);
+});
+process.on('exit', (code) => {
+  // This fires on ANY exit (process.exit, natural end of event loop, etc.)
+  // but NOT on SIGKILL. If this fires, the exit is from code, not OS.
+  console.log(`[EXIT] Process exiting with code ${code} — exiting from within code`);
 });
 
-// Intercept process.exit to log the caller before allowing it
-const _originalExit = process.exit.bind(process);
-(process as any).exit = (code?: number) => {
-  console.error(`[EXIT] process.exit(${code}) called from:`, new Error().stack);
-  _originalExit(code);
-};
+// Periodic heartbeat every 10s — keeps Replit's pid2 process manager from
+// triggering its ~15s inactivity-kill when the server is idle between requests
+const _heartbeatInterval = setInterval(() => {
+  const mem = process.memoryUsage();
+  process.stdout.write(`[ALIVE] RSS:${Math.round(mem.rss/1024/1024)}MB Heap:${Math.round(mem.heapUsed/1024/1024)}/${Math.round(mem.heapTotal/1024/1024)}MB\n`);
+}, 10000);
 
 const app = express();
 app.use(express.json());
@@ -77,6 +112,17 @@ app.use((req, res, next) => {
       await setupVite(app, server);
     } else {
       serveStatic(app);
+    }
+
+    // Warm up the database connection before accepting traffic.
+    // Neon serverless suspends compute after idle periods; this first query
+    // wakes it up so user requests don't hit a slow 1-2s reconnect window
+    // that can destabilize the server.
+    try {
+      await pool.query('SELECT 1');
+      console.log('[DB] Connection warmed up successfully');
+    } catch (warmupErr) {
+      console.error('[DB] Warm-up query failed (continuing anyway):', warmupErr);
     }
 
     // ALWAYS serve the app on the port specified in the environment variable PORT

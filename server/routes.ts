@@ -173,14 +173,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           case '3months':
             dateFilter = new Date(now.getFullYear(), now.getMonth() - 3, 1);
             break;
-          case '6months':
-            dateFilter = new Date(now.getFullYear(), now.getMonth() - 6, 1);
-            break;
           case '1year':
             dateFilter = new Date(now.getFullYear() - 1, now.getMonth(), 1);
             break;
-          case '2years':
-            dateFilter = new Date(now.getFullYear() - 2, now.getMonth(), 1);
+          case 'prevyear':
+            dateFilter = new Date(now.getFullYear() - 1, 0, 1);
+            endDateFilter = new Date(now.getFullYear(), 0, 1);
             break;
         }
       }
@@ -275,16 +273,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return;
       }
 
-      // Standard query without product line filter
+      // Return only the fields needed by the frontend to avoid large memory spikes.
+      // The SalesDashboard only uses: id, orderDate, orderStatus, orderTotal, marketplace, orderNumber.
+      const selectFields = {
+        id: orders.id,
+        orderNumber: orders.orderNumber,
+        marketplace: orders.marketplace,
+        orderDate: orders.orderDate,
+        orderTotal: orders.orderTotal,
+        orderStatus: orders.orderStatus,
+      };
+
       const allOrders = dateFilter
         ? endDateFilter
-          ? await db.select().from(orders)
+          ? await db.select(selectFields).from(orders)
               .where(sql`${orders.orderDate} >= ${dateFilter.toISOString()} AND ${orders.orderDate} < ${endDateFilter.toISOString()}`)
               .orderBy(desc(orders.orderDate))
-          : await db.select().from(orders)
+          : await db.select(selectFields).from(orders)
               .where(sql`${orders.orderDate} >= ${dateFilter.toISOString()}`)
               .orderBy(desc(orders.orderDate))
-        : await db.select().from(orders).orderBy(desc(orders.orderDate));
+        : await db.select(selectFields).from(orders).orderBy(desc(orders.orderDate));
       
       const responseSize = JSON.stringify(allOrders).length;
       console.log(`📊 Sending ${allOrders.length} order summaries (no details), response size: ${(responseSize / 1024 / 1024).toFixed(2)} MB (dateFilter: ${dateFilter ? 'set' : 'none'})`);
@@ -322,14 +330,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           case '3months':
             dateFilter = new Date(now.getFullYear(), now.getMonth() - 3, 1);
             break;
-          case '6months':
-            dateFilter = new Date(now.getFullYear(), now.getMonth() - 6, 1);
-            break;
           case '1year':
             dateFilter = new Date(now.getFullYear() - 1, now.getMonth(), 1);
             break;
-          case '2years':
-            dateFilter = new Date(now.getFullYear() - 2, now.getMonth(), 1);
+          case 'prevyear':
+            dateFilter = new Date(now.getFullYear() - 1, 0, 1);
+            endDateFilter = new Date(now.getFullYear(), 0, 1);
             break;
         }
       }
@@ -496,14 +502,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           case '3months':
             dateFilter = new Date(now.getFullYear(), now.getMonth() - 3, 1);
             break;
-          case '6months':
-            dateFilter = new Date(now.getFullYear(), now.getMonth() - 6, 1);
-            break;
           case '1year':
             dateFilter = new Date(now.getFullYear() - 1, now.getMonth(), 1);
             break;
-          case '2years':
-            dateFilter = new Date(now.getFullYear() - 2, now.getMonth(), 1);
+          case 'prevyear':
+            dateFilter = new Date(now.getFullYear() - 1, 0, 1);
+            endDateFilter = new Date(now.getFullYear(), 0, 1);
             break;
         }
       }
@@ -562,14 +566,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           case '3months':
             dateFilter = new Date(now.getFullYear(), now.getMonth() - 3, 1);
             break;
-          case '6months':
-            dateFilter = new Date(now.getFullYear(), now.getMonth() - 6, 1);
-            break;
           case '1year':
             dateFilter = new Date(now.getFullYear() - 1, now.getMonth(), 1);
             break;
-          case '2years':
-            dateFilter = new Date(now.getFullYear() - 2, now.getMonth(), 1);
+          case 'prevyear':
+            dateFilter = new Date(now.getFullYear() - 1, 0, 1);
+            endDateFilter = new Date(now.getFullYear(), 0, 1);
             break;
         }
       }
@@ -650,14 +652,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           case '3months':
             dateFilter = new Date(now.getFullYear(), now.getMonth() - 3, 1);
             break;
-          case '6months':
-            dateFilter = new Date(now.getFullYear(), now.getMonth() - 6, 1);
-            break;
           case '1year':
             dateFilter = new Date(now.getFullYear() - 1, now.getMonth(), 1);
             break;
-          case '2years':
-            dateFilter = new Date(now.getFullYear() - 2, now.getMonth(), 1);
+          case 'prevyear':
+            dateFilter = new Date(now.getFullYear() - 1, 0, 1);
+            endDateFilter = new Date(now.getFullYear(), 0, 1);
             break;
         }
       }
@@ -1113,14 +1113,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           case '3months':
             dateFilter = new Date(now.setMonth(now.getMonth() - 3));
             break;
-          case '6months':
-            dateFilter = new Date(now.setMonth(now.getMonth() - 6));
-            break;
           case '1year':
             dateFilter = new Date(now.setFullYear(now.getFullYear() - 1));
             break;
-          case '2years':
-            dateFilter = new Date(now.setFullYear(now.getFullYear() - 2));
+          case 'prevyear':
+            dateFilter = new Date(now.getFullYear() - 1, 0, 1);
+            endDateFilter = new Date(now.getFullYear(), 0, 1);
             break;
         }
       }
@@ -4310,14 +4308,12 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
           case '3months':
             dateFilter = new Date(now.setMonth(now.getMonth() - 3));
             break;
-          case '6months':
-            dateFilter = new Date(now.setMonth(now.getMonth() - 6));
-            break;
           case '1year':
             dateFilter = new Date(now.setFullYear(now.getFullYear() - 1));
             break;
-          case '2years':
-            dateFilter = new Date(now.setFullYear(now.getFullYear() - 2));
+          case 'prevyear':
+            dateFilter = new Date(now.getFullYear() - 1, 0, 1);
+            endDateFilter = new Date(now.getFullYear(), 0, 1);
             break;
           default:
             dateFilter = null; // 'all' or invalid range
