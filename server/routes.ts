@@ -5248,7 +5248,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
   app.patch("/api/priceomatic/category-tier", isApproved, async (req, res) => {
     try {
       const { categoryId, tier } = req.body as { categoryId: number; tier: string };
-      if (!categoryId || !['top', 'standard', 'commodity'].includes(tier)) {
+      if (!categoryId || !['tier1', 'tier2', 'tier3', 'tier4', 'standard'].includes(tier)) {
         return res.status(400).json({ error: "Invalid categoryId or tier" });
       }
       await db
