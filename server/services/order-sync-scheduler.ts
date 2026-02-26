@@ -204,14 +204,22 @@ async function executeOrderSync(settings: any) {
     if (process.env.STRIPE_SECRET_KEY) {
       try {
         console.log('💳 Syncing Stripe refunds...');
-        const { syncStripeRefunds } = await import('./stripe-refunds');
-        const stripeResult = await syncStripeRefunds(90); // Look back 90 days
+        const { syncStripeRefunds, syncStripeFees } = await import('./stripe-refunds');
+
+        // Sync refunds first
+        const stripeResult = await syncStripeRefunds(90);
         if (stripeResult.matched > 0) {
-          console.log(`✅ Stripe sync: ${stripeResult.matched} new refunds matched to orders`);
-        } else if (stripeResult.alreadySynced > 0) {
-          console.log(`✅ Stripe sync: ${stripeResult.alreadySynced} refunds already synced`);
+          console.log(`✅ Stripe refunds: ${stripeResult.matched} new refunds matched`);
         } else {
-          console.log(`✅ Stripe sync: no new refunds`);
+          console.log(`✅ Stripe refunds: ${stripeResult.alreadySynced} already synced, none new`);
+        }
+
+        // Then sync merchant fees
+        const feeResult = await syncStripeFees(90);
+        if (feeResult.matched > 0) {
+          console.log(`✅ Stripe fees: ${feeResult.matched} new charges matched`);
+        } else {
+          console.log(`✅ Stripe fees: ${feeResult.alreadySynced} already synced, none new`);
         }
       } catch (error: any) {
         console.error('❌ Stripe refund sync failed (non-fatal):', error.message);

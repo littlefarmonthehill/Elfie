@@ -166,9 +166,13 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
   const shipping = data.shipping ?? 0;
   const tax = data.tax ?? 0;
   const total = data.total ?? 0;
-  const adjustmentsTotal = (data.adjustments ?? []).reduce((sum, a) => sum + a.amount, 0);
+  const refundAdjustments = (data.adjustments ?? []).filter(a => a.type !== 'merchant_fee');
+  const feeAdjustments = (data.adjustments ?? []).filter(a => a.type === 'merchant_fee');
+  const adjustmentsTotal = refundAdjustments.reduce((sum, a) => sum + a.amount, 0);
+  const totalFees = feeAdjustments.reduce((sum, a) => sum + Math.abs(a.amount), 0);
   const netTotal = total + adjustmentsTotal;
-  const hasAdjustments = (data.adjustments ?? []).length > 0;
+  const hasAdjustments = refundAdjustments.length > 0;
+  const hasFees = feeAdjustments.length > 0;
 
   const allCustomerOrders = data.previousOrders ? [
     {
@@ -444,7 +448,7 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
             </div>
             {hasAdjustments && (
               <div className="pt-1 mt-1 border-t border-lego-red/30 space-y-1">
-                {data.adjustments!.map(adj => (
+                {refundAdjustments.map(adj => (
                   <div key={adj.id} className="flex justify-between items-center gap-1">
                     <span className="text-lego-red flex items-center gap-1 min-w-0">
                       <RotateCcw className="h-2.5 w-2.5 flex-shrink-0" />
@@ -487,6 +491,29 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
           )}
         </div>
       </div>
+
+      {/* Business Costs — COGS, not part of the customer order */}
+      {hasFees && (
+        <div className="bg-gray-900/60 border border-amber-500/20 rounded-lg p-2.5">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <CreditCard className="h-3 w-3 text-amber-500/70" />
+            <span className="text-[9px] md:text-xs font-bold text-amber-500/70 uppercase tracking-wide">Business Costs</span>
+            <span className="text-[8px] text-gray-600 ml-auto">COGS — not part of customer order</span>
+          </div>
+          <div className="space-y-0.5 text-[9px] md:text-xs">
+            {feeAdjustments.map(fee => (
+              <div key={fee.id} className="flex justify-between items-center">
+                <span className="text-gray-500">{fee.reason || 'Merchant fee'}</span>
+                <span className="font-mono text-amber-500/80">-${Math.abs(fee.amount).toFixed(2)}</span>
+              </div>
+            ))}
+            <div className="flex justify-between items-center pt-1 border-t border-amber-500/10 mt-1">
+              <span className="text-gray-500 font-medium">Total fees</span>
+              <span className="font-mono text-amber-500/80 font-bold">-${totalFees.toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Shipping Info */}
       {(data.shippedDate || data.trackingNumber) && (

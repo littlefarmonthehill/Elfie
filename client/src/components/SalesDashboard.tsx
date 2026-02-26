@@ -98,6 +98,23 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
     staleTime: 30000,
   });
 
+  // Fetch adjustment summary (refunds + fees) for the selected date range
+  const { data: adjustmentSummary } = useQuery<{
+    totalRefunds: number;
+    refundedOrderCount: number;
+    totalFees: number;
+    bricklinkFees: number;
+    stripeFees: number;
+  }>({
+    queryKey: ['/api/orders/adjustments/summary', dateRange],
+    queryFn: async () => {
+      const response = await fetch(`/api/orders/adjustments/summary?dateRange=${dateRange}`);
+      if (!response.ok) throw new Error('Failed to fetch adjustment summary');
+      return response.json();
+    },
+    staleTime: 60000,
+  });
+
   // Fetch orders filtered by product line and platform for the drawer
   const { data: productLineOrders = [] } = useQuery<Order[]>({
     queryKey: ['/api/orders/summary', dateRange, platformDrawer.productLine, platformDrawer.platform],
@@ -1259,10 +1276,38 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
             <div className="text-xs md:text-base lg:text-lg text-lego-green font-mono">${averageOrderValue.toFixed(2)}</div>
           </div>
           <div className="text-center">
-            <div className="text-[9px] md:text-sm lg:text-base text-gray-500">Total Revenue</div>
+            <div className="text-[9px] md:text-sm lg:text-base text-gray-500">Gross Revenue</div>
             <div className="text-xs md:text-base lg:text-lg text-lego-green font-mono">${Math.round(totalRevenue).toLocaleString()}</div>
           </div>
         </div>
+        {adjustmentSummary && (adjustmentSummary.totalRefunds > 0 || adjustmentSummary.totalFees > 0) && (
+          <div className="mt-2 pt-2 border-t border-yellow-500/10 grid grid-cols-3 gap-2">
+            <div className="text-center">
+              <div className="text-[9px] md:text-xs text-gray-600">Refunds</div>
+              <div className="text-[10px] md:text-sm text-lego-red font-mono">
+                {adjustmentSummary.totalRefunds > 0 ? `-$${adjustmentSummary.totalRefunds.toFixed(2)}` : '—'}
+              </div>
+              {adjustmentSummary.refundedOrderCount > 0 && (
+                <div className="text-[8px] text-gray-600">{adjustmentSummary.refundedOrderCount} orders</div>
+              )}
+            </div>
+            <div className="text-center">
+              <div className="text-[9px] md:text-xs text-gray-600">Merchant Fees</div>
+              <div className="text-[10px] md:text-sm text-amber-500/70 font-mono">
+                {adjustmentSummary.totalFees > 0 ? `-$${adjustmentSummary.totalFees.toFixed(2)}` : '—'}
+              </div>
+              {adjustmentSummary.totalFees > 0 && (
+                <div className="text-[8px] text-gray-600">COGS</div>
+              )}
+            </div>
+            <div className="text-center">
+              <div className="text-[9px] md:text-xs text-gray-600">Net Revenue</div>
+              <div className="text-[10px] md:text-sm text-lego-green font-mono">
+                ${Math.max(0, totalRevenue - adjustmentSummary.totalRefunds).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Platform Performance */}

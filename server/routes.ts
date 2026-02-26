@@ -944,6 +944,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Order Adjustments - Summary (total refunds + fees for a date range)
+  app.get("/api/orders/adjustments/summary", isApproved, async (req, res) => {
+    try {
+      const { dateRange = 'mtd' } = req.query as { dateRange?: string };
+
+      let sinceDate: Date;
+      const now = new Date();
+      switch (dateRange) {
+        case 'ytd': sinceDate = new Date(now.getFullYear(), 0, 1); break;
+        case '1y': sinceDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000); break;
+        case '5y': sinceDate = new Date(now.getTime() - 5 * 365 * 24 * 60 * 60 * 1000); break;
+        case 'all': sinceDate = new Date(2000, 0, 1); break;
+        default: sinceDate = new Date(now.getFullYear(), now.getMonth(), 1); // mtd
+      }
+
+      const result = await db.execute(sql`
+        SELECT
+          COALESCE(SUM(CASE WHEN oa.type = 'refund' THEN ABS(oa.amount::numeric) ELSE 0 END), 0) AS total_refunds,
+          COUNT(DISTINCT CASE WHEN oa.type = 'refund' THEN oa.order_id END) AS refunded_order_count,
+          COALESCE(SUM(CASE WHEN oa.type = 'merchant_fee' THEN ABS(oa.amount::numeric) ELSE 0 END), 0) AS total_fees,
+          COALESCE(SUM(CASE WHEN oa.type = 'merchant_fee' AND oa.reason LIKE '%BrickLink%' THEN ABS(oa.amount::numeric) ELSE 0 END), 0) AS bricklink_fees,
+          COALESCE(SUM(CASE WHEN oa.type = 'merchant_fee' AND oa.reason LIKE '%Stripe%' THEN ABS(oa.amount::numeric) ELSE 0 END), 0) AS stripe_fees
+        FROM order_adjustments oa
+        JOIN orders o ON o.id = oa.order_id
+        WHERE o.order_date >= ${sinceDate}
+      `);
+
+      const row = result.rows[0] as any;
+      res.json({
+        totalRefunds: Number(row.total_refunds),
+        refundedOrderCount: Number(row.refunded_order_count),
+        totalFees: Number(row.total_fees),
+        bricklinkFees: Number(row.bricklink_fees),
+        stripeFees: Number(row.stripe_fees),
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Order Adjustments - CRUD
   app.get("/api/orders/:id/adjustments", isApproved, async (req, res) => {
     try {
@@ -994,13 +1034,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/stripe/sync-refunds", isApproved, async (req, res) => {
     try {
       const { sinceDays = 90 } = req.body;
-      const { syncStripeRefunds } = await import('./services/stripe-refunds');
-      const result = await syncStripeRefunds(sinceDays);
-      console.log(`✅ Stripe refund sync: ${result.matched} matched, ${result.alreadySynced} already synced, ${result.unmatched} unmatched`);
-      res.json(result);
+      const { syncStripeRefunds, syncStripeFees } = await import('./services/stripe-refunds');
+      const [refundResult, feeResult] = await Promise.all([
+        syncStripeRefunds(sinceDays),
+        syncStripeFees(sinceDays),
+      ]);
+      console.log(`✅ Stripe sync: ${refundResult.matched} refunds matched, ${feeResult.matched} fee charges matched`);
+      res.json({ refunds: refundResult, fees: feeResult });
     } catch (error: any) {
-      console.error("Error syncing Stripe refunds:", error);
-      res.status(500).json({ error: error.message || "Failed to sync Stripe refunds" });
+      console.error("Error syncing Stripe data:", error);
+      res.status(500).json({ error: error.message || "Failed to sync Stripe data" });
     }
   });
 
