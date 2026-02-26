@@ -43,6 +43,7 @@ export type User = typeof users.$inferSelect;
 export const blCategories = pgTable("bl_categories", {
   id: integer("id").primaryKey(),
   name: text("name").notNull(),
+  priorityTier: text("priority_tier").default('standard').notNull(), // 'top' | 'standard' | 'commodity'
   syncedAt: timestamp("synced_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -361,6 +362,12 @@ export const appSettings = pgTable("app_settings", {
   forumSyncFrequency: integer("forum_sync_frequency").default(60).notNull(), // minutes
   // Rebrickable Configuration
   rebrickableImageSyncEnabled: boolean("rebrickable_image_sync_enabled").default(true).notNull(),
+  // Price-o-Matic Refresh Tier Settings
+  pomTierHotSoldDays: integer("pom_tier_hot_sold_days").default(30).notNull(),         // "Sold in last X days" = Hot
+  pomTierHotRefreshDays: integer("pom_tier_hot_refresh_days").default(7).notNull(),    // Refresh Hot items every X days
+  pomTierActiveRefreshDays: integer("pom_tier_active_refresh_days").default(14).notNull(), // Refresh Active items every X days
+  pomTierStableRefreshDays: integer("pom_tier_stable_refresh_days").default(45).notNull(), // Refresh Stable items every X days
+  pomTierPriority: text("pom_tier_priority").default('hot,active,stable').notNull(),   // Processing order (comma-separated)
   // Price-o-Matic Formula Settings
   pomBasePremium: integer("pom_base_premium").default(10).notNull(),           // Base premium % over avg price
   pomMinifigPremium: integer("pom_minifig_premium").default(5).notNull(),      // Minifig base premium %
@@ -502,6 +509,7 @@ export const priceGuideCache = pgTable("price_guide_cache", {
   // Cache management
   fetchedAt: timestamp("fetched_at").defaultNow().notNull(),
   nextRefresh: timestamp("next_refresh"), // When this item should be refreshed next
+  volatilityTier: text("volatility_tier").default('stable'), // 'hot' | 'active' | 'stable'
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

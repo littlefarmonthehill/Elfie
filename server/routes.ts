@@ -5152,6 +5152,38 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
     }
   });
 
+  // Get all categories with their priority tiers
+  app.get("/api/priceomatic/category-tiers", isApproved, async (req, res) => {
+    try {
+      const categories = await db
+        .select({ id: blCategories.id, name: blCategories.name, priorityTier: blCategories.priorityTier })
+        .from(blCategories)
+        .orderBy(blCategories.name);
+      res.json({ success: true, categories });
+    } catch (error) {
+      console.error("Error fetching category tiers:", error);
+      res.status(500).json({ error: "Failed to fetch category tiers" });
+    }
+  });
+
+  // Update a category's priority tier
+  app.patch("/api/priceomatic/category-tier", isApproved, async (req, res) => {
+    try {
+      const { categoryId, tier } = req.body as { categoryId: number; tier: string };
+      if (!categoryId || !['top', 'standard', 'commodity'].includes(tier)) {
+        return res.status(400).json({ error: "Invalid categoryId or tier" });
+      }
+      await db
+        .update(blCategories)
+        .set({ priorityTier: tier, updatedAt: new Date() })
+        .where(eq(blCategories.id, categoryId));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error updating category tier:", error);
+      res.status(500).json({ error: "Failed to update category tier" });
+    }
+  });
+
   // Get Price-o-Matic insights (pricing discrepancies)
   app.get("/api/priceomatic/insights", isApproved, async (req, res) => {
     try {

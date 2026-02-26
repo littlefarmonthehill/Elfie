@@ -1,0 +1,151 @@
+Good. Now we’re designing the refresh engine.
+
+Since your objective is max margin + automation, your tiers should not be based on LEGO “category names” alone.
+
+They should be based on:
+	•	Margin potential
+	•	Market volatility
+	•	Revenue contribution
+	•	API efficiency
+
+But we can use part categories as a shortcut layer.
+
+Below is a clean, scalable tier structure that works extremely well at your size (~20k lots).
+
+⸻
+
+🥇 Tier 1 — High Volatility / High Margin (Daily Cycle)
+
+Refresh: Daily
+
+These are your profit drivers.
+
+Categories:
+	•	Minifigures (complete)
+	•	Minifigure heads / torsos / legs
+	•	Minifigure accessories (weapons, animals)
+	•	Printed parts
+	•	Licensed/theme-specific parts (Star Wars, Marvel, etc.)
+	•	Rare colors (sand red, dark turquoise, old brown, etc.)
+	•	Retired / discontinued parts
+
+Why?
+	•	Supply shifts quickly
+	•	Buyers are less price-sensitive
+	•	Low availability = premium opportunity
+
+This tier is usually ~10–20% of lots but drives a large portion of margin.
+
+⸻
+
+🥈 Tier 2 — Strong Demand Structural Parts (Every 2–3 Days)
+
+Refresh: Every 2–3 days (rotating batches)
+
+Categories:
+	•	Slopes
+	•	Brackets
+	•	Modified plates
+	•	Tiles with clips
+	•	Hinges
+	•	Technic connectors
+	•	Popular MOC structural pieces
+
+Why?
+	•	Good velocity
+	•	Medium volatility
+	•	Margin sensitive to availability changes
+
+⸻
+
+🥉 Tier 3 — Core Commodity Bricks & Plates (Weekly)
+
+Refresh: Weekly
+
+Categories:
+	•	Basic bricks (2x4, 2x2, 1x4, etc.)
+	•	Basic plates
+	•	Standard tiles
+	•	Common Technic beams
+	•	Common colors (black, white, red, blue, LBG, DBG)
+
+Why?
+	•	Extremely stable pricing
+	•	High competition
+	•	Thin margins
+	•	Mostly cart-fillers
+
+No reason to burn daily API calls here.
+
+⸻
+
+🧊 Tier 4 — Deep Inventory / Low Velocity (Monthly or Event-Driven)
+
+Refresh: Monthly OR when triggered
+
+Categories:
+	•	Parts with zero sales in 6+ months
+	•	Extremely high market supply
+	•	Bulk color variants nobody hunts for
+	•	Oddball legacy parts
+
+These don’t justify frequent refreshes.
+
+⸻
+
+🔥 Bonus Layer: Quantity-Based Overrides
+
+Regardless of category:
+
+If your stock ≤ 5 units
+→ promote to Tier 1 temporarily.
+
+If your stock ≥ 500 units
+→ demote to Tier 3.
+
+Scarcity inside your store matters too.
+
+⸻
+
+🧠 Even Better: Revenue-Based Overlay
+
+After 30 days of data, classify:
+	•	Top 20% revenue lots → Tier 1 or 2 automatically
+	•	Bottom 30% → Tier 3 or 4
+
+This keeps system aligned with profit reality.
+
+⸻
+
+📊 Practical Daily API Allocation Example
+
+If you have ~20k lots:
+	•	Tier 1: 3,000 lots (daily)
+	•	Tier 2: 6,000 lots (rotate 1/3 every day = 2,000/day)
+	•	Tier 3: 8,000 lots (1/7 weekly rotation ≈ 1,150/day)
+	•	Tier 4: 3,000 lots (monthly ≈ 100/day)
+
+Total daily calls ≈ 4,250
+Safe under 5,000.
+
+⸻
+
+🧭 Why This Works for Max Margin
+
+You:
+	•	Extract premium where volatility exists
+	•	Avoid over-refreshing commodities
+	•	Let stable parts float
+	•	Focus compute on money
+
+Automation stays intact.
+Margins increase without micromanaging.
+
+⸻
+
+If you’d like, I can next:
+	•	Design the actual tier assignment SQL logic
+	•	Or design the pricing multipliers per tier
+	•	Or help you decide whether category-based or data-based tiering is better long term
+
+At your scale, category grouping is just the starting point — data-driven tiering becomes the real advantage.
