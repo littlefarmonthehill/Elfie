@@ -145,6 +145,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // One-time cleanup: delete specific stale old orders (no platform API calls)
+  app.get("/api/admin/cleanup-old-orders", isApproved, async (req: any, res) => {
+    try {
+      const orderNumbers = [
+        '7113811','7473435','7492231','7501164','7502815','9749074',
+        '10406576','12398298','17141345','2801321','3082511','6521027',
+        '8075629', // Susan Corcoran 2017
+      ];
+      // Resolve IDs from order_number
+      const targets = await db.execute(sql`
+        SELECT id FROM orders WHERE order_number = ANY(${orderNumbers})
+      `);
+      const ids = targets.rows.map((r: any) => r.id);
+      if (ids.length === 0) return res.json({ deleted: 0, message: 'Nothing to clean up' });
+
+      const idList = ids.map((id: string) => `'${id}'`).join(',');
+      const d1 = await db.execute(sql.raw(`DELETE FROM order_details WHERE order_id IN (${idList})`));
+      const d2 = await db.execute(sql.raw(`DELETE FROM order_adjustments WHERE order_id IN (${idList})`));
+      const d3 = await db.execute(sql.raw(`DELETE FROM picklist_items WHERE order_id IN (${idList})`));
+      const d4 = await db.execute(sql.raw(`DELETE FROM orders WHERE id IN (${idList})`));
+
+      console.log(`🧹 Admin cleanup: removed ${ids.length} old orders from production DB`);
+      res.json({
+        deleted: ids.length,
+        ids,
+        details: (d1 as any).rowCount,
+        adjustments: (d2 as any).rowCount,
+        picklist: (d3 as any).rowCount,
+        orders: (d4 as any).rowCount,
+      });
+    } catch (err: any) {
+      console.error('Cleanup error:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // Lightweight endpoint for Sales Dashboard - orders without details
   app.get("/api/orders/summary", isApproved, async (req, res) => {
     try {
