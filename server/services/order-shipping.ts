@@ -5,10 +5,77 @@
  */
 
 import { db } from '../db';
-import { orders, orderDetails, orderSplits, orderSplitItems, shipments } from '@shared/schema';
+import { orders, orderDetails, orderSplits, orderSplitItems, shipments, appSettings } from '@shared/schema';
 import { eq, and, inArray, desc } from 'drizzle-orm';
 import { getShippingVendor } from './easypost';
-import type { CreateShipmentRequest, BuyLabelRequest, Address, Parcel } from './shipping-vendor';
+import type { CreateShipmentRequest, BuyLabelRequest, Address, Parcel, CustomsInfo, TaxIdentifier } from './shipping-vendor';
+
+// EU member states (ISO 3166-1 alpha-2) — IOSS applies for B2C shipments under €150
+const EU_COUNTRIES = new Set([
+  'AT','BE','BG','CY','CZ','DE','DK','EE','ES','FI',
+  'FR','GR','HR','HU','IE','IT','LT','LU','LV','MT',
+  'NL','PL','PT','RO','SE','SI','SK',
+]);
+
+/**
+ * Build customs info and tax identifiers for international shipments.
+ * Returns null for domestic (US) shipments.
+ */
+async function buildInternationalShipping(
+  destinationCountry: string,
+  marketplace: string | null,
+  itemSubtotal: number,
+  totalWeightOz: number,
+  totalQty: number,
+): Promise<{ customsInfo: CustomsInfo; taxIdentifiers: TaxIdentifier[] } | null> {
+  const country = (destinationCountry || 'US').toUpperCase();
+  if (country === 'US') return null;
+
+  // Fetch app settings for customs signer + IOSS/VAT numbers
+  const [settings] = await db.select().from(appSettings).limit(1);
+  const signer = settings?.customsSigner || 'Shipper';
+  const isBrickLink = marketplace === 'BrickLink';
+
+  // Tax identifier: IOSS (EU), UK VAT, etc.
+  const taxIdentifiers: TaxIdentifier[] = [];
+
+  if (EU_COUNTRIES.has(country)) {
+    const iossNumber = isBrickLink ? settings?.blIossNumber : settings?.boIossNumber;
+    if (iossNumber) {
+      taxIdentifiers.push({ issuingCountry: 'EU', taxIdType: 'IOSS', taxId: iossNumber });
+    }
+  } else if (country === 'GB') {
+    const ukVat = isBrickLink ? settings?.blUkVatNumber : settings?.boUkVatNumber;
+    if (ukVat) {
+      taxIdentifiers.push({ issuingCountry: 'GB', taxIdType: 'VAT', taxId: ukVat });
+    }
+  }
+
+  // EEL/PFC: NOEEI 30.37(a) covers most low-value merchandise exports under $2,500
+  const eelPfc = itemSubtotal < 2500 ? 'NOEEI 30.37(a)' : 'EEI';
+
+  const customsInfo: CustomsInfo = {
+    contentsType: 'merchandise',
+    contentsExplanation: 'LEGO plastic brick parts',
+    eelPfc,
+    customsCertify: true,
+    customsSigner: signer,
+    nonDeliveryOption: 'return',
+    restrictionType: 'none',
+    items: [
+      {
+        description: 'LEGO plastic brick parts',
+        quantity: Math.max(totalQty, 1),
+        weight: Math.max(Math.round(totalWeightOz), 1),
+        value: Math.max(itemSubtotal, 0.01),
+        hsTariffNumber: '9503.00',
+        originCountry: 'US',
+      },
+    ],
+  };
+
+  return { customsInfo, taxIdentifiers };
+}
 
 export interface OverrideAddress {
   name?: string;
@@ -237,11 +304,45 @@ export async function createShipment(request: ShipOrderRequest): Promise<{
       }
     : baseShipTo;
 
+  // Build customs info for international shipments
+  let customsInfo: CustomsInfo | undefined;
+  let taxIdentifiers: TaxIdentifier[] | undefined;
+  const destCountry = (shipTo.country || 'US').toUpperCase();
+  if (destCountry !== 'US') {
+    // Fetch order items for declared value and quantity
+    const items = await db
+      .select({ quantity: orderDetails.quantity, unitPrice: orderDetails.unitPrice, weight: orderDetails.weight })
+      .from(orderDetails)
+      .where(eq(orderDetails.orderId, request.orderId));
+
+    const itemSubtotal = items.reduce((sum, i) => {
+      return sum + (i.quantity ?? 0) * parseFloat(i.unitPrice?.toString() || '0');
+    }, 0);
+    const totalQty = items.reduce((sum, i) => sum + (i.quantity ?? 0), 0);
+    // Use parcel weight as the authoritative weight (already computed by caller)
+    const totalWeightOz = request.parcel.weight;
+
+    const intlShipping = await buildInternationalShipping(
+      destCountry,
+      order.marketplace,
+      itemSubtotal,
+      totalWeightOz,
+      totalQty,
+    );
+    if (intlShipping) {
+      customsInfo = intlShipping.customsInfo;
+      taxIdentifiers = intlShipping.taxIdentifiers.length > 0 ? intlShipping.taxIdentifiers : undefined;
+    }
+    console.log(`🌍 International shipment to ${destCountry} — customs info built, declared value $${itemSubtotal.toFixed(2)}, tax IDs: ${taxIdentifiers?.length ?? 0}`);
+  }
+
   const createRequest: CreateShipmentRequest = {
     toAddress: shipTo,
     fromAddress: request.fromAddress,
     parcel: request.parcel,
     reference: order.orderNumber,
+    customsInfo,
+    taxIdentifiers,
   };
 
   const result = await vendor.createShipment(createRequest);

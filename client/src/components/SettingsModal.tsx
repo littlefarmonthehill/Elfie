@@ -355,6 +355,12 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   const [easypostApiKey, setEasypostApiKey] = useState("");
   const [easypostTestApiKey, setEasypostTestApiKey] = useState("");
   const [easypostKeyMode, setEasypostKeyMode] = useState<'test' | 'production'>('test');
+  // International Shipping / Customs
+  const [customsSigner, setCustomsSigner] = useState("");
+  const [blIossNumber, setBlIossNumber] = useState("");
+  const [boIossNumber, setBoIossNumber] = useState("");
+  const [blUkVatNumber, setBlUkVatNumber] = useState("");
+  const [boUkVatNumber, setBoUkVatNumber] = useState("");
 
   // Automation Settings
   const [inventorySyncEnabled, setInventorySyncEnabled] = useState(false);
@@ -406,6 +412,11 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
       setEasypostApiKey(settings.easypostApiKey || "");
       setEasypostTestApiKey(settings.easypostTestApiKey || "");
       setEasypostKeyMode((settings.easypostKeyMode as 'test' | 'production') || 'test');
+      setCustomsSigner(settings.customsSigner || "");
+      setBlIossNumber(settings.blIossNumber || "");
+      setBoIossNumber(settings.boIossNumber || "");
+      setBlUkVatNumber(settings.blUkVatNumber || "");
+      setBoUkVatNumber(settings.boUkVatNumber || "");
       setInventorySyncEnabled(settings.inventorySyncEnabled || false);
       setInventorySyncTime(settings.inventorySyncTime || "02:00");
       setPriceOMaticEnabled(settings.priceOMaticEnabled || false);
@@ -1242,6 +1253,82 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                         }}
                         data-testid="input-easypost-test-key"
                       />
+                    </div>
+
+                    {/* International Shipping / Customs */}
+                    <div className="pt-3 border-t border-gray-700 space-y-3">
+                      <div>
+                        <p className="text-xs font-semibold text-gray-300 mb-0.5">International Shipping</p>
+                        <p className="text-[11px] text-gray-500">Customs declarations are auto-generated for international orders. Fill in tax IDs to prevent buyers from being double-charged VAT/GST.</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="customs-signer" className="text-xs text-gray-400">Customs Signer Name <span className="text-red-400">*</span></Label>
+                        <Input
+                          id="customs-signer"
+                          type="text"
+                          placeholder="Full name of person certifying customs forms"
+                          className="text-xs"
+                          value={customsSigner}
+                          onChange={(e) => setCustomsSigner(e.target.value)}
+                          onBlur={() => updateSettingsMutation.mutate({ customsSigner: customsSigner || null })}
+                          data-testid="input-customs-signer"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <Label htmlFor="bl-ioss" className="text-xs text-gray-400">BrickLink EU IOSS #</Label>
+                          <Input
+                            id="bl-ioss"
+                            type="text"
+                            placeholder="IM..."
+                            className="text-xs font-mono"
+                            value={blIossNumber}
+                            onChange={(e) => setBlIossNumber(e.target.value)}
+                            onBlur={() => updateSettingsMutation.mutate({ blIossNumber: blIossNumber || null })}
+                            data-testid="input-bl-ioss"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="bo-ioss" className="text-xs text-gray-400">BrickOwl EU IOSS #</Label>
+                          <Input
+                            id="bo-ioss"
+                            type="text"
+                            placeholder="IM..."
+                            className="text-xs font-mono"
+                            value={boIossNumber}
+                            onChange={(e) => setBoIossNumber(e.target.value)}
+                            onBlur={() => updateSettingsMutation.mutate({ boIossNumber: boIossNumber || null })}
+                            data-testid="input-bo-ioss"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="bl-uk-vat" className="text-xs text-gray-400">BrickLink UK VAT #</Label>
+                          <Input
+                            id="bl-uk-vat"
+                            type="text"
+                            placeholder="GB..."
+                            className="text-xs font-mono"
+                            value={blUkVatNumber}
+                            onChange={(e) => setBlUkVatNumber(e.target.value)}
+                            onBlur={() => updateSettingsMutation.mutate({ blUkVatNumber: blUkVatNumber || null })}
+                            data-testid="input-bl-uk-vat"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="bo-uk-vat" className="text-xs text-gray-400">BrickOwl UK VAT #</Label>
+                          <Input
+                            id="bo-uk-vat"
+                            type="text"
+                            placeholder="GB..."
+                            className="text-xs font-mono"
+                            value={boUkVatNumber}
+                            onChange={(e) => setBoUkVatNumber(e.target.value)}
+                            onBlur={() => updateSettingsMutation.mutate({ boUkVatNumber: boUkVatNumber || null })}
+                            data-testid="input-bo-uk-vat"
+                          />
+                        </div>
+                      </div>
+                      <p className="text-[11px] text-gray-600">Find IOSS/VAT numbers in your BrickLink and BrickOwl seller dashboards under Tax Settings.</p>
                     </div>
                       </div>
                     </AccordionContent>

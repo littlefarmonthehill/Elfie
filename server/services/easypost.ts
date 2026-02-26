@@ -13,6 +13,8 @@ import {
   ShipmentLabel,
   CreateShipmentRequest,
   BuyLabelRequest,
+  CustomsInfo,
+  TaxIdentifier,
 } from './shipping-vendor';
 
 const EASYPOST_API_URL = 'https://api.easypost.com/v2';
@@ -97,6 +99,35 @@ export class EasyPostShippingVendor implements IShippingVendor {
           label_size: '4x6',
         },
         reference: request.reference,
+        // Customs info for international shipments
+        ...(request.customsInfo ? {
+          customs_info: {
+            eel_pfc: request.customsInfo.eelPfc,
+            contents_type: request.customsInfo.contentsType,
+            contents_explanation: request.customsInfo.contentsExplanation,
+            customs_certify: request.customsInfo.customsCertify,
+            customs_signer: request.customsInfo.customsSigner,
+            non_delivery_option: request.customsInfo.nonDeliveryOption,
+            restriction_type: request.customsInfo.restrictionType,
+            customs_items: request.customsInfo.items.map(item => ({
+              description: item.description,
+              quantity: item.quantity,
+              weight: item.weight,
+              value: item.value,
+              hs_tariff_number: item.hsTariffNumber,
+              code: item.hsTariffNumber,
+              origin_country: item.originCountry,
+            })),
+          },
+        } : {}),
+        // Tax identifiers (IOSS, UK VAT, etc.) for marketplace-collected taxes
+        ...(request.taxIdentifiers && request.taxIdentifiers.length > 0 ? {
+          tax_identifiers: request.taxIdentifiers.map(ti => ({
+            issuing_country: ti.issuingCountry,
+            tax_id_type: ti.taxIdType,
+            tax_id: ti.taxId,
+          })),
+        } : {}),
       },
     };
 

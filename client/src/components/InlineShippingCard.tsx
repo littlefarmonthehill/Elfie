@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -8,8 +9,15 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrig
 import { useToast } from "@/hooks/use-toast";
 import {
   Loader2, CheckCircle2, AlertTriangle, ExternalLink,
-  Pencil, X, ChevronDown, ChevronUp,
+  Pencil, X, ChevronDown, ChevronUp, Globe,
 } from "lucide-react";
+import type { AppSettings } from "@shared/schema";
+
+const EU_COUNTRIES = new Set([
+  'AT','BE','BG','CY','CZ','DE','DK','EE','ES','FI',
+  'FR','GR','HR','HU','IE','IT','LT','LU','LV','MT',
+  'NL','PL','PT','RO','SE','SI','SK',
+]);
 
 export type Rate = {
   id: string;
@@ -117,6 +125,10 @@ export default function InlineShippingCard({
   orderId, isTestMode, orderItems = [], onReadyChange, purchasedLabel,
 }: Props) {
   const { toast } = useToast();
+
+  const { data: appSettings } = useQuery<AppSettings>({
+    queryKey: ['/api/settings'],
+  });
 
   const [summary, setSummary] = useState<OrderShippingSummary | null>(null);
   const [isLoadingSummary, setIsLoadingSummary] = useState(true);
@@ -405,6 +417,52 @@ export default function InlineShippingCard({
             </span>
           )}
         </div>
+
+        {/* ── International shipment banner ── */}
+        {(() => {
+          const destCountry = (currentAddress?.country || 'US').toUpperCase();
+          if (destCountry === 'US') return null;
+
+          const isEU = EU_COUNTRIES.has(destCountry);
+          const isUK = destCountry === 'GB';
+          const marketplace = summary?.marketplace;
+          const isBL = marketplace === 'BrickLink';
+
+          const missingFlags: string[] = [];
+          if (!appSettings?.customsSigner) missingFlags.push('Customs signer name');
+          if (isEU && isBL && !appSettings?.blIossNumber) missingFlags.push('BrickLink EU IOSS number');
+          if (isEU && !isBL && !appSettings?.boIossNumber) missingFlags.push('BrickOwl EU IOSS number');
+          if (isUK && isBL && !appSettings?.blUkVatNumber) missingFlags.push('BrickLink UK VAT number');
+          if (isUK && !isBL && !appSettings?.boUkVatNumber) missingFlags.push('BrickOwl UK VAT number');
+
+          return (
+            <div className={`rounded-md border px-2.5 py-2 space-y-1 ${missingFlags.length > 0 ? 'border-amber-500/50 bg-amber-950/20' : 'border-blue-500/40 bg-blue-950/20'}`}>
+              <div className="flex items-center gap-1.5">
+                <Globe className={`w-3.5 h-3.5 shrink-0 ${missingFlags.length > 0 ? 'text-amber-400' : 'text-blue-400'}`} />
+                <span className={`text-[11px] font-semibold ${missingFlags.length > 0 ? 'text-amber-300' : 'text-blue-300'}`}>
+                  International Shipment — {destCountry}
+                  {isEU && ' (EU)'}
+                  {isUK && ' (UK)'}
+                </span>
+              </div>
+              <p className="text-[10px] text-gray-400 leading-snug">
+                Customs declaration auto-generated: HS 9503.00 · Merchandise · Non-delivery: return
+                {(isEU || isUK) && ' · Tax ID will be included if configured'}
+              </p>
+              {missingFlags.length > 0 && (
+                <div className="text-[10px] text-amber-400 space-y-0.5">
+                  <span className="font-semibold">Missing settings (configure in EasyPost settings):</span>
+                  {missingFlags.map(f => (
+                    <div key={f} className="flex items-center gap-1 ml-1">
+                      <AlertTriangle className="w-2.5 h-2.5 shrink-0" />
+                      {f}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* ── Row 2: Package type ── */}
         {(() => {

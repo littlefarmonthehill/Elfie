@@ -344,6 +344,12 @@ export const appSettings = pgTable("app_settings", {
   easypostApiKey: text("easypost_api_key"),
   easypostTestApiKey: text("easypost_test_api_key"),
   easypostKeyMode: text("easypost_key_mode").default('test').notNull(), // 'test' or 'production'
+  // International Shipping / Customs
+  customsSigner: text("customs_signer"),           // Name to sign customs declarations
+  blIossNumber: text("bl_ioss_number"),            // BrickLink EU IOSS number
+  boIossNumber: text("bo_ioss_number"),            // BrickOwl EU IOSS number
+  blUkVatNumber: text("bl_uk_vat_number"),         // BrickLink UK VAT number
+  boUkVatNumber: text("bo_uk_vat_number"),         // BrickOwl UK VAT number
   // Automation & Scheduling
   inventorySyncEnabled: boolean("inventory_sync_enabled").default(false).notNull(),
   inventorySyncTime: text("inventory_sync_time").default('02:00'), // Time of day (HH:MM format)

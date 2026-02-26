@@ -50,11 +50,39 @@ export interface ShipmentLabel {
   metadata: any; // Vendor-specific data
 }
 
+export interface CustomsItem {
+  description: string;
+  quantity: number;
+  weight: number;      // ounces
+  value: number;       // USD declared value
+  hsTariffNumber: string;
+  originCountry: string;
+}
+
+export interface CustomsInfo {
+  contentsType: 'merchandise' | 'gift' | 'sample' | 'documents' | 'returned_goods' | 'humanitarian_donation' | 'other';
+  contentsExplanation?: string;
+  eelPfc: string;                // e.g. "NOEEI 30.37(a)" for exports under $2,500
+  customsCertify: boolean;
+  customsSigner: string;
+  nonDeliveryOption: 'return' | 'abandon';
+  restrictionType: 'none' | 'other';
+  items: CustomsItem[];
+}
+
+export interface TaxIdentifier {
+  issuingCountry: string;  // ISO 2-letter country code or "EU"
+  taxIdType: string;       // "IOSS", "VAT", etc.
+  taxId: string;
+}
+
 export interface CreateShipmentRequest {
   toAddress: Address;
   fromAddress: Address;
   parcel: Parcel;
   reference?: string; // Order number or reference
+  customsInfo?: CustomsInfo;
+  taxIdentifiers?: TaxIdentifier[];
 }
 
 export interface BuyLabelRequest {
