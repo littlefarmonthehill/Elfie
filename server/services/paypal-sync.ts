@@ -152,8 +152,9 @@ async function fetchTransactions(startDate: Date, endDate: Date): Promise<PayPal
 /**
  * Fetch all transactions for the past `sinceDays` days.
  * PayPal's API has a 31-day window limit, so we split into chunks.
+ * Exported for diagnostic use.
  */
-async function fetchAllTransactions(sinceDays: number): Promise<PayPalTransaction[]> {
+export async function fetchAllPayPalTransactions(sinceDays: number): Promise<PayPalTransaction[]> {
   const endDate = new Date();
   const startDate = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000);
 
@@ -211,7 +212,7 @@ export async function syncPayPalTransactions(sinceDays = 90): Promise<PayPalSync
     unmatchedTransactions: [],
   };
 
-  const allTransactions = await fetchAllTransactions(sinceDays);
+  const allTransactions = await fetchAllPayPalTransactions(sinceDays);
   result.transactionsChecked = allTransactions.length;
 
   if (allTransactions.length === 0) return result;
@@ -229,11 +230,14 @@ export async function syncPayPalTransactions(sinceDays = 90): Promise<PayPalSync
     existingAdjustments.map(a => a.externalTransactionId).filter(Boolean) as string[]
   );
 
-  // Process refunds
+  // Process refunds: T1107=full refund, T1108=reversal, T2105=dispute refund
+  // T0113 (tax reversal) and T1106 (partial) are handled separately below
   const refunds = allTransactions.filter(t => {
     const code = t.transaction_info.transaction_event_code;
     return classifyTransaction(code) === 'refund' && t.transaction_info.transaction_status === 'S';
   });
+
+  console.log(`🅿️ PayPal: found ${refunds.length} refund transactions to evaluate`);
 
   for (const txn of refunds) {
     const info = txn.transaction_info;
@@ -247,18 +251,32 @@ export async function syncPayPalTransactions(sinceDays = 90): Promise<PayPalSync
     const refundAmount = parseAmount(info.transaction_amount.value);
     const txnDate = new Date(info.transaction_initiation_date);
 
-    const match = dbOrders.find(order => {
+    // Strategy 1: exact match on order total (full refund) — most reliable
+    let match = dbOrders.find(order => {
       if (!order.orderTotal) return false;
       const orderTotal = Number(order.orderTotal);
       const orderDate = new Date(order.orderDate);
-
       if (Math.abs(orderTotal - refundAmount) > 0.01) return false;
       if (txnDate < orderDate) return false;
       const daysDiff = (txnDate.getTime() - orderDate.getTime()) / (1000 * 60 * 60 * 24);
-      if (daysDiff > 60) return false;
-
-      return true;
+      return daysDiff <= 180;
     });
+
+    // Strategy 2: partial refund — amount < order total, within 30 days of order
+    if (!match && refundAmount >= 1.00) {
+      match = dbOrders.find(order => {
+        if (!order.orderTotal) return false;
+        const orderTotal = Number(order.orderTotal);
+        const orderDate = new Date(order.orderDate);
+        if (refundAmount >= orderTotal) return false; // already tried exact match
+        if (txnDate < orderDate) return false;
+        const daysDiff = (txnDate.getTime() - orderDate.getTime()) / (1000 * 60 * 60 * 24);
+        return daysDiff <= 30; // tighter window for partial refunds
+      });
+    }
+
+    console.log(`  Refund ${txnId}: $${refundAmount} on ${txnDate.toISOString().split('T')[0]} → ${match ? `matched order ${match.orderNumber}` : 'no match'}`);
+
 
     if (!match) {
       result.unmatched++;

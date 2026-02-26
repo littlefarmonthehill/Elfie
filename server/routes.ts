@@ -1181,6 +1181,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Diagnostic: see raw PayPal transactions (refunds + sales) for debugging
+  app.get("/api/paypal/transactions", isApproved, async (req, res) => {
+    try {
+      const { fetchAllPayPalTransactions } = await import('./services/paypal-sync');
+      const sinceDays = req.query.days ? Number(req.query.days) : 30;
+      const transactions = await fetchAllPayPalTransactions(sinceDays);
+      const refunds = transactions.filter(t => {
+        const code = t.transaction_info?.transaction_event_code || '';
+        return ['T1107','T1108','T2105','T1106'].includes(code);
+      });
+      res.json({
+        total: transactions.length,
+        refundCount: refunds.length,
+        refunds: refunds.map(t => ({
+          id: t.transaction_info.transaction_id,
+          eventCode: t.transaction_info.transaction_event_code,
+          status: t.transaction_info.transaction_status,
+          amount: t.transaction_info.transaction_amount?.value,
+          date: t.transaction_info.transaction_initiation_date,
+          subject: t.transaction_info.transaction_subject,
+          invoiceId: t.transaction_info.invoice_id,
+          referenceId: t.transaction_info.paypal_reference_id,
+          referenceType: t.transaction_info.paypal_reference_id_type,
+        })),
+        eventCodeSummary: transactions.reduce((acc: Record<string, number>, t) => {
+          const code = t.transaction_info?.transaction_event_code || 'unknown';
+          acc[code] = (acc[code] || 0) + 1;
+          return acc;
+        }, {}),
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.get("/api/stripe/refunds", isApproved, async (req, res) => {
     try {
       const { fetchStripeRefunds } = await import('./services/stripe-refunds');
