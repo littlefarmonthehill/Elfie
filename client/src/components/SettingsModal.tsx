@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGr
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { EmbeddingsManager } from "@/components/EmbeddingsManager";
 import { useToast } from "@/hooks/use-toast";
@@ -1678,11 +1679,31 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
 
                 {/* Base Premiums */}
                 <div className="space-y-3">
-                  <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Base Premium</h4>
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Base Premium</h4>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-3.5 w-3.5 text-gray-500 cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-60 text-xs">
+                        The base premium is the minimum percentage markup above the BrickLink average price that every item receives. It ensures margin even on commodity parts. Scarcity bonuses are added on top of this.
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
                   <div className="bg-gray-800/60 border border-gray-700 rounded-md p-4 space-y-4">
                     <div className="flex items-center justify-between gap-4">
                       <div>
-                        <Label className="text-xs font-medium text-gray-300">Parts Base Premium</Label>
+                        <div className="flex items-center gap-1.5">
+                          <Label className="text-xs font-medium text-gray-300">Parts Base Premium</Label>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="h-3 w-3 text-gray-600 cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent side="right" className="max-w-56 text-xs">
+                              Applied to all standard parts (not minifigures). Formula: suggested = avg_price × (1 + base_premium% + scarcity_bonus%). The avg price is the midpoint of BrickLink's avg listed and avg sold prices.
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
                         <p className="text-[10px] text-gray-500 mt-0.5">Added above avg listed/sold price for all standard parts</p>
                       </div>
                       <div className="flex items-center gap-1.5">
@@ -1702,8 +1723,18 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                     <Separator className="bg-gray-700" />
                     <div className="flex items-center justify-between gap-4">
                       <div>
-                        <Label className="text-xs font-medium text-gray-300">Minifigure Base Premium</Label>
-                        <p className="text-[10px] text-gray-500 mt-0.5">Reduced premium for minifigs (higher-value items, tighter margins)</p>
+                        <div className="flex items-center gap-1.5">
+                          <Label className="text-xs font-medium text-gray-300">Minifigure Base Premium</Label>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="h-3 w-3 text-gray-600 cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent side="right" className="max-w-56 text-xs">
+                              Minifigures use a separate (usually lower) premium because they already sell at elevated prices relative to cost. Setting this too high risks losing buyers to competitors on high-value figs.
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+                        <p className="text-[10px] text-gray-500 mt-0.5">Separate premium for minifigs (higher-value items, tighter margins)</p>
                       </div>
                       <div className="flex items-center gap-1.5">
                         <Input
@@ -1726,12 +1757,14 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Supply Scarcity Bonuses</h4>
-                    <div className="group relative">
-                      <Info className="h-3.5 w-3.5 text-gray-500 cursor-help" />
-                      <div className="invisible group-hover:visible absolute left-5 top-0 z-50 w-56 bg-gray-800 border border-gray-600 rounded-md p-2 text-[10px] text-gray-300 shadow-lg">
-                        Bonus % is added on top of the base premium when supply is scarce. Higher scarcity = higher bonus = higher price.
-                      </div>
-                    </div>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-3.5 w-3.5 text-gray-500 cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-64 text-xs">
+                        When fewer sellers list a part on BrickLink, you can charge more — buyers have fewer options. Each tier adds a bonus % on top of your base premium. Very Low Supply (e.g. &lt;30 lots) = maximum bonus; High Supply = no bonus, base premium only.
+                      </TooltipContent>
+                    </Tooltip>
                   </div>
                   <div className="bg-gray-800/60 border border-gray-700 rounded-md p-4 space-y-4">
 
@@ -1875,11 +1908,31 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
 
                 {/* Pricing Intelligence Thresholds */}
                 <div className="space-y-3">
-                  <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Pricing Intelligence Thresholds</h4>
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Pricing Intelligence Thresholds</h4>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-3.5 w-3.5 text-gray-500 cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-64 text-xs">
+                        These thresholds control which items appear in the Price-o-Matic dashboard as needing attention. Items outside these bands are flagged — not automatically repriced. You decide whether to act on each flag.
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
                   <div className="bg-gray-800/60 border border-gray-700 rounded-md p-4 space-y-4">
                     <div className="flex items-center justify-between gap-4">
                       <div>
-                        <Label className="text-xs font-medium text-red-300">Too High Flag</Label>
+                        <div className="flex items-center gap-1.5">
+                          <Label className="text-xs font-medium text-red-300">Too High Flag</Label>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="h-3 w-3 text-gray-600 cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent side="right" className="max-w-56 text-xs">
+                              Items priced this far above the suggested price appear in the "Too High" tab. Being priced too high can cause buyers to skip your listing in favor of cheaper competitors, reducing your sale rate.
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
                         <p className="text-[10px] text-gray-500 mt-0.5">Flag items priced this far above suggested price</p>
                       </div>
                       <div className="flex items-center gap-1.5">
@@ -1900,7 +1953,17 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                     <Separator className="bg-gray-700" />
                     <div className="flex items-center justify-between gap-4">
                       <div>
-                        <Label className="text-xs font-medium text-yellow-300">Too Low Flag</Label>
+                        <div className="flex items-center gap-1.5">
+                          <Label className="text-xs font-medium text-yellow-300">Too Low Flag</Label>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="h-3 w-3 text-gray-600 cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent side="right" className="max-w-56 text-xs">
+                              Items priced this far below the suggested price appear in the "Too Low" tab. Being priced too low means leaving margin on the table — you're selling at a discount buyers didn't even need.
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
                         <p className="text-[10px] text-gray-500 mt-0.5">Flag items priced this far below suggested price</p>
                       </div>
                       <div className="flex items-center gap-1.5">
@@ -1923,11 +1986,31 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
 
                 {/* Sync Limits */}
                 <div className="space-y-3">
-                  <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Sync Limits</h4>
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Sync Limits</h4>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-3.5 w-3.5 text-gray-500 cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-64 text-xs">
+                        BrickLink allows 5,000 API calls per day across all features (inventory sync, orders, price guide). Price-o-Matic uses 1 call per item. Set these limits to protect your daily budget and avoid throttling other sync features.
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
                   <div className="bg-gray-800/60 border border-gray-700 rounded-md p-4 space-y-4">
                     <div className="flex items-center justify-between gap-4">
                       <div>
-                        <Label className="text-xs font-medium text-gray-300">Batch Size</Label>
+                        <div className="flex items-center gap-1.5">
+                          <Label className="text-xs font-medium text-gray-300">Batch Size</Label>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="h-3 w-3 text-gray-600 cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent side="right" className="max-w-56 text-xs">
+                              How many items Price-o-Matic processes in a single manual or scheduled run. Larger batches use more API calls at once. The 4-tier system ensures high-priority items (minifigs, Bionicle) are always processed first.
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
                         <p className="text-[10px] text-gray-500 mt-0.5">Max items to price per automated sync run</p>
                       </div>
                       <div className="flex items-center gap-1.5">
@@ -1948,7 +2031,17 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                     <Separator className="bg-gray-700" />
                     <div className="flex items-center justify-between gap-4">
                       <div>
-                        <Label className="text-xs font-medium text-gray-300">Daily API Call Ceiling</Label>
+                        <div className="flex items-center gap-1.5">
+                          <Label className="text-xs font-medium text-gray-300">Daily API Call Ceiling</Label>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="h-3 w-3 text-gray-600 cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent side="right" className="max-w-56 text-xs">
+                              Price-o-Matic stops fetching when this many total API calls have been used today (across all BrickLink features). BrickLink's hard limit is 5,000/day. Recommended: keep this at 3,000–4,000 to leave headroom for order and inventory syncs.
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
                         <p className="text-[10px] text-gray-500 mt-0.5">Stop sync when this many BrickLink API calls have been used today</p>
                       </div>
                       <div className="flex items-center gap-1.5">
