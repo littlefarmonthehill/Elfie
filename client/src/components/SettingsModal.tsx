@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGr
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { EmbeddingsManager } from "@/components/EmbeddingsManager";
 import { useToast } from "@/hooks/use-toast";
@@ -1698,31 +1698,31 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                 <div className="rounded-md border border-gray-700/60 overflow-hidden">
                   <div className="bg-gray-800/50 px-4 py-2.5 flex items-center gap-1.5 border-b border-gray-700/40">
                     <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Base Premium</h4>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
+                    <Popover>
+                      <PopoverTrigger asChild>
                         <button className="text-gray-600 hover:text-gray-400 flex items-center transition-colors">
                           <Info className="w-3.5 h-3.5" />
                         </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="right" className="max-w-64 text-xs">
+                      </PopoverTrigger>
+                      <PopoverContent side="right" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
                         The minimum % markup above BrickLink's average price every item receives. Avg price = midpoint of avg listed and avg sold. Scarcity bonuses stack on top of this.
-                      </TooltipContent>
-                    </Tooltip>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                   <div className="px-4 divide-y divide-gray-700/30">
                     <div className="flex items-center justify-between py-3">
                       <div className="flex items-center gap-1.5">
                         <Label className="text-sm text-gray-200">Parts Premium</Label>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
+                        <Popover>
+                          <PopoverTrigger asChild>
                             <button className="text-gray-600 hover:text-gray-400 flex items-center transition-colors">
                               <Info className="w-3.5 h-3.5" />
                             </button>
-                          </TooltipTrigger>
-                          <TooltipContent side="right" className="max-w-56 text-xs">
+                          </PopoverTrigger>
+                          <PopoverContent side="right" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
                             Applied to all standard parts. Suggested = avg_price × (1 + base% + scarcity%). Being too high pushes above market; too low leaves margin on the table.
-                          </TooltipContent>
-                        </Tooltip>
+                          </PopoverContent>
+                        </Popover>
                       </div>
                       <div className="flex items-center gap-2">
                         <Input type="number" min={0} max={100} value={pomBasePremium} onChange={(e) => setPomBasePremium(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomBasePremium })} className="text-sm w-20 text-right" data-testid="input-pom-base-premium" />
@@ -1732,16 +1732,16 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                     <div className="flex items-center justify-between py-3">
                       <div className="flex items-center gap-1.5">
                         <Label className="text-sm text-gray-200">Minifigure Premium</Label>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
+                        <Popover>
+                          <PopoverTrigger asChild>
                             <button className="text-gray-600 hover:text-gray-400 flex items-center transition-colors">
                               <Info className="w-3.5 h-3.5" />
                             </button>
-                          </TooltipTrigger>
-                          <TooltipContent side="right" className="max-w-56 text-xs">
+                          </PopoverTrigger>
+                          <PopoverContent side="right" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
                             Minifigures use a separate premium because they already command elevated prices relative to cost. Setting this too high on high-value figs risks losing buyers to competitors.
-                          </TooltipContent>
-                        </Tooltip>
+                          </PopoverContent>
+                        </Popover>
                       </div>
                       <div className="flex items-center gap-2">
                         <Input type="number" min={0} max={100} value={pomMinifigPremium} onChange={(e) => setPomMinifigPremium(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomMinifigPremium })} className="text-sm w-20 text-right" data-testid="input-pom-minifig-premium" />
@@ -1755,16 +1755,16 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                 <div className="rounded-md border border-gray-700/60 overflow-hidden">
                   <div className="bg-gray-800/50 px-4 py-2.5 flex items-center gap-1.5 border-b border-gray-700/40">
                     <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Scarcity Bonuses</h4>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
+                    <Popover>
+                      <PopoverTrigger asChild>
                         <button className="text-gray-600 hover:text-gray-400 flex items-center transition-colors">
                           <Info className="w-3.5 h-3.5" />
                         </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="right" className="max-w-64 text-xs">
+                      </PopoverTrigger>
+                      <PopoverContent side="right" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
                         When fewer sellers list a part on BrickLink, you can charge more. Each tier adds a bonus % on top of your base premium. Items above the highest threshold get base premium only — no bonus.
-                      </TooltipContent>
-                    </Tooltip>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                   <div className="px-4">
                     <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-2 border-b border-gray-700/40">
@@ -1811,16 +1811,16 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                 <div className="bg-gray-900/60 rounded-md border border-gray-700/40 px-4 py-3">
                   <div className="flex items-center gap-1.5 mb-2.5">
                     <h4 className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Formula Preview</h4>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
+                    <Popover>
+                      <PopoverTrigger asChild>
                         <button className="text-gray-600 hover:text-gray-400 flex items-center transition-colors">
                           <Info className="w-3 h-3" />
                         </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="right" className="max-w-64 text-xs">
+                      </PopoverTrigger>
+                      <PopoverContent side="right" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
                         Shows the suggested price for a $0.10 part at each supply level using your current settings. Adjust the premiums and bonuses above to see results update instantly.
-                      </TooltipContent>
-                    </Tooltip>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                   <div className="space-y-1.5 font-mono text-xs">
                     {[
@@ -1844,31 +1844,31 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                 <div className="rounded-md border border-gray-700/60 overflow-hidden">
                   <div className="bg-gray-800/50 px-4 py-2.5 flex items-center gap-1.5 border-b border-gray-700/40">
                     <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Price Floors</h4>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
+                    <Popover>
+                      <PopoverTrigger asChild>
                         <button className="text-gray-600 hover:text-gray-400 flex items-center transition-colors">
                           <Info className="w-3.5 h-3.5" />
                         </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="right" className="max-w-64 text-xs">
+                      </PopoverTrigger>
+                      <PopoverContent side="right" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
                         Safety net applied after the market formula. Final price = max(market_price, cost_floor, min_price). Cost floor only applies to items with a recorded cost (my_cost).
-                      </TooltipContent>
-                    </Tooltip>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                   <div className="px-4 divide-y divide-gray-700/30">
                     <div className="flex items-center justify-between py-3">
                       <div className="flex items-center gap-1.5">
                         <Label className="text-sm text-gray-200">Cost Floor</Label>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
+                        <Popover>
+                          <PopoverTrigger asChild>
                             <button className="text-gray-600 hover:text-gray-400 flex items-center transition-colors">
                               <Info className="w-3.5 h-3.5" />
                             </button>
-                          </TooltipTrigger>
-                          <TooltipContent side="right" className="max-w-56 text-xs">
+                          </PopoverTrigger>
+                          <PopoverContent side="right" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
                             Minimum margin above your recorded cost (my_cost). At 25%, the suggested price never goes below cost × 1.25. Set to 0 to disable.
-                          </TooltipContent>
-                        </Tooltip>
+                          </PopoverContent>
+                        </Popover>
                       </div>
                       <div className="flex items-center gap-2">
                         <Input type="number" min="0" max="200" value={pomCostFloorPct} onChange={(e) => setPomCostFloorPct(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomCostFloorPct })} className="text-sm w-20 text-right" data-testid="input-pom-cost-floor" />
@@ -1878,16 +1878,16 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                     <div className="flex items-center justify-between py-3">
                       <div className="flex items-center gap-1.5">
                         <Label className="text-sm text-gray-200">Minimum Price</Label>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
+                        <Popover>
+                          <PopoverTrigger asChild>
                             <button className="text-gray-600 hover:text-gray-400 flex items-center transition-colors">
                               <Info className="w-3.5 h-3.5" />
                             </button>
-                          </TooltipTrigger>
-                          <TooltipContent side="right" className="max-w-56 text-xs">
+                          </PopoverTrigger>
+                          <PopoverContent side="right" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
                             No item will be suggested below this price regardless of market data or cost. Useful for covering platform fees on micro-priced parts. Default $0.02.
-                          </TooltipContent>
-                        </Tooltip>
+                          </PopoverContent>
+                        </Popover>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-sm text-gray-400">$</span>
@@ -1901,31 +1901,31 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                 <div className="rounded-md border border-gray-700/60 overflow-hidden">
                   <div className="bg-gray-800/50 px-4 py-2.5 flex items-center gap-1.5 border-b border-gray-700/40">
                     <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Flag Thresholds</h4>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
+                    <Popover>
+                      <PopoverTrigger asChild>
                         <button className="text-gray-600 hover:text-gray-400 flex items-center transition-colors">
                           <Info className="w-3.5 h-3.5" />
                         </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="right" className="max-w-64 text-xs">
+                      </PopoverTrigger>
+                      <PopoverContent side="right" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
                         Controls which items appear in the Price-o-Matic dashboard as needing attention. Items outside these bands are flagged — not automatically repriced. You decide whether to act on each flag.
-                      </TooltipContent>
-                    </Tooltip>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                   <div className="px-4 divide-y divide-gray-700/30">
                     <div className="flex items-center justify-between py-3">
                       <div className="flex items-center gap-1.5">
                         <Label className="text-sm text-red-300">Too High Flag</Label>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
+                        <Popover>
+                          <PopoverTrigger asChild>
                             <button className="text-gray-600 hover:text-gray-400 flex items-center transition-colors">
                               <Info className="w-3.5 h-3.5" />
                             </button>
-                          </TooltipTrigger>
-                          <TooltipContent side="right" className="max-w-56 text-xs">
+                          </PopoverTrigger>
+                          <PopoverContent side="right" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
                             Items priced this far above the suggested price appear in the "Too High" tab. Buyers will likely find cheaper options elsewhere, reducing your sell-through rate.
-                          </TooltipContent>
-                        </Tooltip>
+                          </PopoverContent>
+                        </Popover>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-gray-500">more than</span>
@@ -1936,16 +1936,16 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                     <div className="flex items-center justify-between py-3">
                       <div className="flex items-center gap-1.5">
                         <Label className="text-sm text-yellow-300">Too Low Flag</Label>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
+                        <Popover>
+                          <PopoverTrigger asChild>
                             <button className="text-gray-600 hover:text-gray-400 flex items-center transition-colors">
                               <Info className="w-3.5 h-3.5" />
                             </button>
-                          </TooltipTrigger>
-                          <TooltipContent side="right" className="max-w-56 text-xs">
+                          </PopoverTrigger>
+                          <PopoverContent side="right" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
                             Items priced this far below the suggested price appear in the "Too Low" tab. You're leaving margin on the table — buyers didn't need that discount.
-                          </TooltipContent>
-                        </Tooltip>
+                          </PopoverContent>
+                        </Popover>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-gray-500">more than</span>
@@ -1960,31 +1960,31 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                 <div className="rounded-md border border-gray-700/60 overflow-hidden">
                   <div className="bg-gray-800/50 px-4 py-2.5 flex items-center gap-1.5 border-b border-gray-700/40">
                     <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Sync Limits</h4>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
+                    <Popover>
+                      <PopoverTrigger asChild>
                         <button className="text-gray-600 hover:text-gray-400 flex items-center transition-colors">
                           <Info className="w-3.5 h-3.5" />
                         </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="right" className="max-w-64 text-xs">
+                      </PopoverTrigger>
+                      <PopoverContent side="right" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
                         BrickLink allows 5,000 API calls/day across all features. Price-o-Matic uses 3 calls per item. Set these to protect your daily budget and leave headroom for order and inventory syncs.
-                      </TooltipContent>
-                    </Tooltip>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                   <div className="px-4 divide-y divide-gray-700/30">
                     <div className="flex items-center justify-between py-3">
                       <div className="flex items-center gap-1.5">
                         <Label className="text-sm text-gray-200">Batch Size</Label>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
+                        <Popover>
+                          <PopoverTrigger asChild>
                             <button className="text-gray-600 hover:text-gray-400 flex items-center transition-colors">
                               <Info className="w-3.5 h-3.5" />
                             </button>
-                          </TooltipTrigger>
-                          <TooltipContent side="right" className="max-w-56 text-xs">
+                          </PopoverTrigger>
+                          <PopoverContent side="right" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
                             Max items to process per run. Stale items across all tiers are eligible. T1 (minifigs, Bionicle) runs first within the stale pool.
-                          </TooltipContent>
-                        </Tooltip>
+                          </PopoverContent>
+                        </Popover>
                       </div>
                       <div className="flex items-center gap-2">
                         <Input type="number" min={100} max={5000} step={100} value={pomBatchSize} onChange={(e) => setPomBatchSize(parseInt(e.target.value) || 100)} onBlur={() => updateSettingsMutation.mutate({ pomBatchSize })} className="text-sm w-24 text-right" data-testid="input-pom-batch-size" />
@@ -1994,16 +1994,16 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                     <div className="flex items-center justify-between py-3">
                       <div className="flex items-center gap-1.5">
                         <Label className="text-sm text-gray-200">Daily API Ceiling</Label>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
+                        <Popover>
+                          <PopoverTrigger asChild>
                             <button className="text-gray-600 hover:text-gray-400 flex items-center transition-colors">
                               <Info className="w-3.5 h-3.5" />
                             </button>
-                          </TooltipTrigger>
-                          <TooltipContent side="right" className="max-w-56 text-xs">
+                          </PopoverTrigger>
+                          <PopoverContent side="right" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
                             Price-o-Matic stops when this many API calls have been made today across all BrickLink features. Hard limit is 5,000/day. Recommended: 3,000–4,000.
-                          </TooltipContent>
-                        </Tooltip>
+                          </PopoverContent>
+                        </Popover>
                       </div>
                       <div className="flex items-center gap-2">
                         <Input type="number" min={500} max={5000} step={100} value={pomApiCallLimit} onChange={(e) => setPomApiCallLimit(parseInt(e.target.value) || 500)} onBlur={() => updateSettingsMutation.mutate({ pomApiCallLimit })} className="text-sm w-24 text-right" data-testid="input-pom-api-limit" />
@@ -2018,16 +2018,16 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                   <div className="flex items-center gap-2">
                     <Layers className="h-4 w-4 text-gray-400" />
                     <h3 className="text-sm font-medium text-gray-300">Category Tier Assignments</h3>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
+                    <Popover>
+                      <PopoverTrigger asChild>
                         <button className="text-gray-600 hover:text-gray-400 flex items-center transition-colors">
                           <Info className="w-3.5 h-3.5" />
                         </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="right" className="max-w-64 text-xs">
+                      </PopoverTrigger>
+                      <PopoverContent side="right" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
                         Assign categories to refresh tiers. T1 = daily, T2 = 3 days, T3 = weekly, T4 = monthly. Each row shows a freshness indicator and price guide coverage %.
-                      </TooltipContent>
-                    </Tooltip>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                   <PomCategoryTiers />
                 </div>
@@ -2037,16 +2037,16 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                   <div className="flex items-center justify-between gap-4 flex-wrap">
                     <div className="flex items-center gap-1.5">
                       <Label className="text-sm font-medium text-red-300">Clear Price Guide Cache</Label>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
+                      <Popover>
+                        <PopoverTrigger asChild>
                           <button className="text-gray-600 hover:text-gray-400 flex items-center transition-colors">
                             <Info className="w-3.5 h-3.5" />
                           </button>
-                        </TooltipTrigger>
-                        <TooltipContent side="right" className="max-w-64 text-xs">
+                        </PopoverTrigger>
+                        <PopoverContent side="right" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
                           Deletes all stored price guide data and resets sync history. Use when starting fresh with new formula settings. The next sync rebuilds from scratch. No inventory data is affected.
-                        </TooltipContent>
-                      </Tooltip>
+                        </PopoverContent>
+                      </Popover>
                     </div>
                     <Button variant="outline" size="sm" onClick={() => setShowClearPomDialog(true)} className="border-red-500/40 text-red-400 hover:text-red-300 shrink-0" data-testid="button-clear-pom-cache">
                       <Trash2 className="h-3.5 w-3.5 mr-1.5" />

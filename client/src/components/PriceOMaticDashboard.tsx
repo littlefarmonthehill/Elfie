@@ -167,7 +167,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
                 <Info className="w-4 h-4 text-gray-400" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent side="left" className="w-80 bg-gray-900 border-gray-700 p-3">
+            <PopoverContent side="bottom" align="end" className="w-80 bg-gray-900 border-gray-700 p-3">
               <h3 className="text-xs font-bold text-purple-400 mb-2">How It Works</h3>
               <ul className="text-xs text-gray-300 space-y-1.5">
                 <li>• Fetches avg listed + avg sold prices from BrickLink — 3 API calls per item</li>
