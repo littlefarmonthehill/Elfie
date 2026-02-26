@@ -376,7 +376,7 @@ export default function OrderPlatformSyncTool() {
                 <li>• Syncs orders from BrickLink and BrickOwl</li>
                 <li>• Only fetches orders modified since last sync</li>
                 <li>• Automatically adjusts inventory when order status changes</li>
-                <li>• Sync All also pulls Stripe &amp; PayPal refunds and fees</li>
+                <li>• Every sync (channel or Sync All) also pulls Stripe &amp; PayPal refunds and fees</li>
                 <li>• Requires API credentials configured in Settings</li>
               </ul>
             </div>

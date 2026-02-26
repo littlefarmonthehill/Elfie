@@ -4660,41 +4660,12 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
   app.post("/api/sync/bricklink/orders", isApproved, async (req, res) => {
     try {
       const { limit, fullSync } = req.body;
-      
-      // Get BrickLink credentials from settings
-      const [settings] = await db
-        .select()
-        .from(appSettings)
-        .limit(1);
-      
-      if (!settings?.bricklinkConsumerKey || !settings?.bricklinkConsumerSecret || 
-          !settings?.bricklinkTokenValue || !settings?.bricklinkTokenSecret) {
-        return res.status(400).json({
-          success: false,
-          error: "BrickLink API credentials not configured",
-        });
-      }
-      
-      const { syncBrickLinkOrders } = await import("./services/bricklink-order-sync");
-      
-      const result = await syncBrickLinkOrders(
-        settings.bricklinkConsumerKey,
-        settings.bricklinkConsumerSecret,
-        settings.bricklinkTokenValue,
-        settings.bricklinkTokenSecret,
-        { limit, fullSync }
-      );
-      
-      res.json({
-        success: true,
-        data: result,
-      });
+      const { runPlatformOrderSync } = await import("./services/order-sync-core");
+      const result = await runPlatformOrderSync("bricklink", { limit, fullSync });
+      res.json({ success: true, data: result });
     } catch (error: any) {
       console.error("BrickLink order sync error:", error);
-      res.status(500).json({
-        success: false,
-        error: error.message || "Failed to sync BrickLink orders",
-      });
+      res.status(500).json({ success: false, error: error.message || "Failed to sync BrickLink orders" });
     }
   });
 
@@ -4702,175 +4673,29 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
   app.post("/api/sync/brickowl/orders", isApproved, async (req, res) => {
     try {
       const { limit, fullSync } = req.body;
-      
-      // Get BrickOwl API key from settings
-      const [settings] = await db
-        .select()
-        .from(appSettings)
-        .limit(1);
-      
-      if (!settings?.brickowlApiKey) {
-        return res.status(400).json({
-          success: false,
-          error: "BrickOwl API key not configured",
-        });
-      }
-      
-      const { syncBrickOwlOrders } = await import("./services/brickowl-order-sync");
-      
-      const result = await syncBrickOwlOrders(
-        settings.brickowlApiKey,
-        { limit, fullSync }
-      );
-      
-      res.json({
-        success: true,
-        data: result,
-      });
+      const { runPlatformOrderSync } = await import("./services/order-sync-core");
+      const result = await runPlatformOrderSync("brickowl", { limit, fullSync });
+      res.json({ success: true, data: result });
     } catch (error: any) {
       console.error("BrickOwl order sync error:", error);
-      res.status(500).json({
-        success: false,
-        error: error.message || "Failed to sync BrickOwl orders",
-      });
+      res.status(500).json({ success: false, error: error.message || "Failed to sync BrickOwl orders" });
     }
   });
 
-  // Multi-platform order sync endpoint (BrickLink + BrickOwl)
+  // Multi-platform order sync endpoint (BrickLink + BrickOwl + Stripe + PayPal)
   app.post("/api/sync/all-platforms/orders", isApproved, async (req, res) => {
     try {
-      const { limit = 50, fullSync = false } = req.body; // Default to 50 orders for manual sync
-      
-      console.log(`🔄 Manual platform sync triggered (limit: ${limit}, fullSync: ${fullSync})`);
-      
-      // Get API credentials from settings
-      const [settings] = await db
-        .select()
-        .from(appSettings)
-        .limit(1);
-      
-      const results = {
-        bricklink: { 
-          success: false, 
-          data: null as any, 
-          error: null as string | null,
-          skipped: false,
-        },
-        brickowl: { 
-          success: false, 
-          data: null as any, 
-          error: null as string | null,
-          skipped: false,
-        },
-      };
-      
-      // 1. Sync BrickLink orders
-      if (settings?.bricklinkConsumerKey && settings?.bricklinkConsumerSecret && 
-          settings?.bricklinkTokenValue && settings?.bricklinkTokenSecret) {
-        try {
-          console.log(`📦 Starting BrickLink sync (limit: ${limit})...`);
-          const { syncBrickLinkOrders } = await import("./services/bricklink-order-sync");
-          
-          const result = await syncBrickLinkOrders(
-            settings.bricklinkConsumerKey,
-            settings.bricklinkConsumerSecret,
-            settings.bricklinkTokenValue,
-            settings.bricklinkTokenSecret,
-            { limit, fullSync }
-          );
-          
-          results.bricklink.success = true;
-          results.bricklink.data = result;
-          console.log(`✅ BrickLink sync complete:`, result);
-        } catch (error: any) {
-          console.error("❌ BrickLink sync failed:", error);
-          results.bricklink.error = error.message || "Failed to sync BrickLink orders";
-        }
-      } else {
-        results.bricklink.skipped = true;
-        results.bricklink.error = "BrickLink credentials not configured";
-        console.log("⏭️ BrickLink skipped - credentials not configured");
-      }
-      
-      // 2. Sync BrickOwl orders
-      if (settings?.brickowlApiKey) {
-        try {
-          console.log(`🦉 Starting BrickOwl sync (limit: ${limit})...`);
-          const { syncBrickOwlOrders } = await import("./services/brickowl-order-sync");
-          
-          const result = await syncBrickOwlOrders(
-            settings.brickowlApiKey,
-            { limit, fullSync }
-          );
-          
-          results.brickowl.success = true;
-          results.brickowl.data = result;
-          console.log(`✅ BrickOwl sync complete:`, result);
-        } catch (error: any) {
-          console.error("❌ BrickOwl sync failed:", error);
-          results.brickowl.error = error.message || "Failed to sync BrickOwl orders";
-        }
-      } else {
-        results.brickowl.skipped = true;
-        results.brickowl.error = "BrickOwl API key not configured";
-        console.log("⏭️ BrickOwl skipped - credentials not configured");
-      }
-      
-      // 3. Sync Stripe refunds + fees (non-fatal)
-      const stripeResult = { success: false, skipped: false, refunds: 0, fees: 0, error: null as string | null };
-      if (process.env.STRIPE_SECRET_KEY) {
-        try {
-          const { syncStripeRefunds, syncStripeFees } = await import('./services/stripe-refunds');
-          const [refundRes, feeRes] = await Promise.all([syncStripeRefunds(90), syncStripeFees(90)]);
-          stripeResult.success = true;
-          stripeResult.refunds = refundRes.matched;
-          stripeResult.fees = feeRes.matched;
-          console.log(`✅ Stripe: ${refundRes.matched} refunds, ${feeRes.matched} fees matched`);
-        } catch (err: any) {
-          stripeResult.error = err.message;
-          console.error('❌ Stripe sync failed (non-fatal):', err.message);
-        }
-      } else {
-        stripeResult.skipped = true;
-      }
-
-      // 4. Sync PayPal refunds + fees (non-fatal)
-      const paypalResult = { success: false, skipped: false, refunds: 0, fees: 0, error: null as string | null };
-      if (process.env.PAYPAL_CLIENT_ID && process.env.PAYPAL_CLIENT_SECRET) {
-        try {
-          const { syncPayPalTransactions } = await import('./services/paypal-sync');
-          const ppRes = await syncPayPalTransactions(90);
-          paypalResult.success = true;
-          paypalResult.refunds = ppRes.refundsMatched;
-          paypalResult.fees = ppRes.feesMatched;
-          console.log(`✅ PayPal: ${ppRes.refundsMatched} refunds, ${ppRes.feesMatched} fees matched`);
-        } catch (err: any) {
-          paypalResult.error = err.message;
-          console.error('❌ PayPal sync failed (non-fatal):', err.message);
-        }
-      } else {
-        paypalResult.skipped = true;
-      }
-
-      // Determine overall success
-      const anySuccess = results.bricklink.success || results.brickowl.success;
-      const allSkipped = results.bricklink.skipped && results.brickowl.skipped;
-      
-      console.log(`✨ Manual platform sync complete (success: ${anySuccess}, allSkipped: ${allSkipped})`);
-      
-      res.json({
-        success: anySuccess,
-        allSkipped,
-        results,
-        stripe: stripeResult,
-        paypal: paypalResult,
-      });
+      const { limit = 50, fullSync = false } = req.body;
+      console.log(`🔄 Manual Sync All triggered (limit: ${limit}, fullSync: ${fullSync})`);
+      const { runPlatformOrderSync } = await import("./services/order-sync-core");
+      const result = await runPlatformOrderSync("all", { limit, fullSync });
+      const anySuccess = result.bricklink.success || result.brickowl.success;
+      const allSkipped = result.bricklink.skipped && result.brickowl.skipped;
+      console.log(`✨ Sync All complete`);
+      res.json({ success: anySuccess, allSkipped, results: result });
     } catch (error: any) {
       console.error("❌ Multi-platform order sync error:", error);
-      res.status(500).json({
-        success: false,
-        error: error.message || "Failed to sync platform orders",
-      });
+      res.status(500).json({ success: false, error: error.message || "Failed to sync platform orders" });
     }
   });
 
