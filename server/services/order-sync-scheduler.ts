@@ -5,6 +5,7 @@ import { syncBrickOwlOrders } from "./brickowl-order-sync";
 import { syncLock } from "./sync-lock";
 import { batchEmbedOrders, batchEmbedOrderDetails } from "./embeddings";
 import { sql } from "drizzle-orm";
+import { checkStuckInventoryDeductions } from "./sync-issue-service";
 
 let syncInterval: NodeJS.Timeout | null = null;
 let isRunning = false;
@@ -198,6 +199,9 @@ async function executeOrderSync(settings: any) {
         console.error('✗ Order embedding failed (non-fatal):', error);
       }
     }
+    
+    // 5. Check for orders where inventory was never deducted (silent failure detector)
+    await checkStuckInventoryDeductions();
     
     // Summary
     const successCount = Object.values(results).filter(r => r.success).length;

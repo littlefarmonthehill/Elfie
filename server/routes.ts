@@ -3886,6 +3886,33 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
     }
   });
   
+  // Bulk-resolve all open issues for given syncTypes (clears an entire dashboard group)
+  app.post("/api/sync-issues/bulk-resolve", isApproved, async (req, res) => {
+    try {
+      const { syncTypes, status = "resolved" } = req.body as { syncTypes: string[]; status?: string };
+
+      if (!Array.isArray(syncTypes) || syncTypes.length === 0) {
+        return res.status(400).json({ success: false, error: "syncTypes array required" });
+      }
+
+      const conditions = [
+        eq(syncIssues.status, "open"),
+        inArray(syncIssues.syncType, syncTypes),
+      ];
+
+      const updated = await db
+        .update(syncIssues)
+        .set({ status, resolvedAt: new Date(), resolvedBy: "user" })
+        .where(and(...conditions))
+        .returning({ id: syncIssues.id });
+
+      res.json({ success: true, resolved: updated.length });
+    } catch (error) {
+      console.error("Error bulk-resolving sync issues:", error);
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed" });
+    }
+  });
+
   // Delete a sync issue
   app.delete("/api/sync-issues/:id", isApproved, async (req, res) => {
     try {

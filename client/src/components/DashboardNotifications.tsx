@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { X, AlertTriangle, AlertCircle, Info, XCircle } from "lucide-react";
+import { AlertTriangle, ChevronRight, Copy, Check, X } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Badge } from "@/components/ui/badge";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
 
 interface SyncIssue {
   id: string;
@@ -23,139 +25,235 @@ interface SyncIssuesResponse {
   count: number;
 }
 
-export default function DashboardNotifications() {
-  // Fetch open sync issues
-  const { data } = useQuery<SyncIssuesResponse>({
-    queryKey: ['/api/sync-issues', { status: 'open' }],
-    queryFn: async () => {
-      const response = await fetch('/api/sync-issues?status=open');
-      if (!response.ok) throw new Error('Failed to fetch sync issues');
-      return response.json();
-    },
-    refetchInterval: 30000, // Refresh every 30 seconds
-  });
+interface DashboardGroup {
+  key: string;
+  label: string;
+  syncTypes: string[];
+}
 
-  const issues = data?.issues || [];
+const GROUPS: DashboardGroup[] = [
+  {
+    key: "orders",
+    label: "Orders",
+    syncTypes: ["order_sync", "cross_platform_sync", "inventory_deduction"],
+  },
+  {
+    key: "product",
+    label: "Product",
+    syncTypes: ["inventory_sync", "brickowl_lot", "quantity_health"],
+  },
+  {
+    key: "dashboard",
+    label: "Dashboard",
+    syncTypes: ["embedding_sync", "api_health"],
+  },
+];
 
-  // Dismiss notification mutation
-  const dismissMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: 'resolved' | 'ignored' }) => {
-      return apiRequest('PATCH', `/api/sync-issues/${id}`, { status, resolvedBy: 'user' });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/sync-issues'] });
-    },
-  });
-
-  const handleDismiss = (id: string, status: 'resolved' | 'ignored' = 'resolved') => {
-    dismissMutation.mutate({ id, status });
-  };
-
-  // Don't show notification section if there are no issues
-  if (issues.length === 0) return null;
-
-  // Group issues by severity
-  const criticalIssues = issues.filter(i => i.severity === 'critical');
-  const highIssues = issues.filter(i => i.severity === 'high');
-  const mediumIssues = issues.filter(i => i.severity === 'medium');
-  const lowIssues = issues.filter(i => i.severity === 'low');
-
-  const getSeverityIcon = (severity: string) => {
-    switch (severity) {
-      case 'critical': return <XCircle className="w-4 h-4 md:w-5 md:h-5" />;
-      case 'high': return <AlertTriangle className="w-4 h-4 md:w-5 md:h-5" />;
-      case 'medium': return <AlertCircle className="w-4 h-4 md:w-5 md:h-5" />;
-      default: return <Info className="w-4 h-4 md:w-5 md:h-5" />;
+function formatForAgent(issue: SyncIssue): string {
+  const group = GROUPS.find(g => g.syncTypes.includes(issue.syncType));
+  let text = `PlanetBrick Issue Report\n`;
+  text += `Dashboard: ${group?.label ?? "Unknown"}\n`;
+  text += `Capability: ${issue.syncType.replace(/_/g, " ")}\n`;
+  text += `Issue Type: ${issue.issueType.replace(/_/g, " ")}\n`;
+  text += `Platform: ${issue.platform}\n`;
+  if (issue.itemNo) text += `Item: ${issue.itemNo}\n`;
+  if (issue.itemId && issue.itemId !== issue.itemNo) text += `ID: ${issue.itemId}\n`;
+  text += `Severity: ${issue.severity}\n`;
+  text += `Description: ${issue.issueDescription}\n`;
+  text += `Time: ${new Date(issue.createdAt).toLocaleString()}\n`;
+  if (issue.metadata) {
+    try {
+      const parsed = JSON.parse(issue.metadata);
+      text += `Metadata: ${JSON.stringify(parsed, null, 2)}\n`;
+    } catch {
+      text += `Metadata: ${issue.metadata}\n`;
     }
-  };
+  }
+  return text;
+}
 
-  const getSeverityStyles = (severity: string) => {
-    switch (severity) {
-      case 'critical':
-        return 'bg-red-900/50 border-red-500/50 text-red-200';
-      case 'high':
-        return 'bg-orange-900/50 border-orange-500/50 text-orange-200';
-      case 'medium':
-        return 'bg-yellow-900/50 border-yellow-500/50 text-yellow-200';
-      default:
-        return 'bg-blue-900/50 border-blue-500/50 text-blue-200';
-    }
-  };
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
 
-  const renderIssues = (issuesList: SyncIssue[]) => {
-    return issuesList.map((issue) => (
-      <div
-        key={issue.id}
-        className={`flex items-start gap-2 md:gap-3 p-2 md:p-3 rounded-lg border ${getSeverityStyles(issue.severity)}`}
-        data-testid={`notification-${issue.id}`}
-      >
-        <div className="flex-shrink-0 mt-0.5">
-          {getSeverityIcon(issue.severity)}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-[9px] md:text-xs font-semibold uppercase">
-              {issue.syncType.replace('_', ' ')}
-            </span>
-            <Badge variant="outline" className="text-[10px] md:text-sm md:text-xs">
-              {issue.platform}
-            </Badge>
-            {issue.itemNo && (
-              <span className="text-[9px] md:text-xs font-mono text-gray-300">
-                {issue.itemNo}
-              </span>
-            )}
-          </div>
-          <p className="text-[9px] md:text-xs text-gray-300 leading-relaxed">
-            {issue.issueDescription}
-          </p>
-          <div className="flex items-center gap-2 mt-1.5 text-[10px] md:text-sm md:text-xs text-gray-400">
-            <span>{issue.issueType.replace('_', ' ')}</span>
-            <span>•</span>
-            <span>{new Date(issue.createdAt).toLocaleString()}</span>
-          </div>
-        </div>
-        <button
-          onClick={() => handleDismiss(issue.id)}
-          className="flex-shrink-0 hover-elevate p-1 rounded"
-          data-testid={`button-dismiss-${issue.id}`}
-          aria-label="Dismiss notification"
-        >
-          <X className="w-4 h-4 md:w-5 md:h-5" />
-        </button>
-      </div>
-    ));
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
-    <div className="space-y-2 md:space-y-3" data-testid="section-notifications">
-      {/* Critical Issues */}
-      {criticalIssues.length > 0 && (
-        <div className="space-y-1.5 md:space-y-2">
-          {renderIssues(criticalIssues)}
-        </div>
-      )}
+    <Button
+      size="sm"
+      variant="ghost"
+      onClick={handleCopy}
+      data-testid="button-copy-for-agent"
+      className="shrink-0 gap-1.5 text-xs text-muted-foreground"
+    >
+      {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+      {copied ? "Copied" : "Copy for Agent"}
+    </Button>
+  );
+}
 
-      {/* High Priority Issues */}
-      {highIssues.length > 0 && (
-        <div className="space-y-1.5 md:space-y-2">
-          {renderIssues(highIssues)}
-        </div>
-      )}
+function IssueRow({ issue }: { issue: SyncIssue }) {
+  const severityColor: Record<string, string> = {
+    critical: "text-red-400",
+    high: "text-orange-400",
+    medium: "text-yellow-400",
+    low: "text-blue-400",
+  };
 
-      {/* Medium Priority Issues */}
-      {mediumIssues.length > 0 && (
-        <div className="space-y-1.5 md:space-y-2">
-          {renderIssues(mediumIssues)}
+  return (
+    <div className="flex flex-col gap-1 py-3 border-b border-border/40 last:border-0" data-testid={`issue-row-${issue.id}`}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-wrap items-center gap-1.5 mb-1">
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              {issue.syncType.replace(/_/g, " ")}
+            </span>
+            <span className="text-[10px] text-muted-foreground">·</span>
+            <span className={`text-[10px] font-medium uppercase ${severityColor[issue.severity] ?? "text-muted-foreground"}`}>
+              {issue.severity}
+            </span>
+            <span className="text-[10px] text-muted-foreground">·</span>
+            <span className="text-[10px] text-muted-foreground">{issue.platform}</span>
+            {issue.itemNo && (
+              <>
+                <span className="text-[10px] text-muted-foreground">·</span>
+                <span className="text-[10px] font-mono text-muted-foreground">{issue.itemNo}</span>
+              </>
+            )}
+          </div>
+          <p className="text-xs leading-relaxed">{issue.issueDescription}</p>
+          <p className="text-[10px] text-muted-foreground mt-1">
+            {new Date(issue.createdAt).toLocaleString()}
+          </p>
         </div>
-      )}
-
-      {/* Low Priority Issues */}
-      {lowIssues.length > 0 && (
-        <div className="space-y-1.5 md:space-y-2">
-          {renderIssues(lowIssues)}
-        </div>
-      )}
+        <CopyButton text={formatForAgent(issue)} />
+      </div>
     </div>
+  );
+}
+
+function GroupSheet({
+  group,
+  issues,
+  open,
+  onClose,
+}: {
+  group: DashboardGroup;
+  issues: SyncIssue[];
+  open: boolean;
+  onClose: () => void;
+}) {
+  const clearMutation = useMutation({
+    mutationFn: () =>
+      apiRequest("POST", "/api/sync-issues/bulk-resolve", {
+        syncTypes: group.syncTypes,
+        status: "resolved",
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sync-issues"] });
+      onClose();
+    },
+  });
+
+  return (
+    <Sheet open={open} onOpenChange={v => !v && onClose()}>
+      <SheetContent side="right" className="w-full sm:max-w-lg flex flex-col gap-0 p-0">
+        <SheetHeader className="flex flex-row items-center justify-between px-4 py-3 border-b gap-2 flex-wrap">
+          <SheetTitle className="text-sm font-semibold">
+            {group.label} — {issues.length} {issues.length === 1 ? "issue" : "issues"}
+          </SheetTitle>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => clearMutation.mutate()}
+              disabled={clearMutation.isPending}
+              data-testid={`button-clear-group-${group.key}`}
+            >
+              {clearMutation.isPending ? "Clearing…" : "Clear all"}
+            </Button>
+            <Button size="icon" variant="ghost" onClick={onClose} data-testid="button-close-sheet">
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+        </SheetHeader>
+        <div className="flex-1 overflow-y-auto px-4">
+          {issues.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-6 text-center">No open issues</p>
+          ) : (
+            issues.map(issue => <IssueRow key={issue.id} issue={issue} />)
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+export default function DashboardNotifications() {
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
+
+  const { data } = useQuery<SyncIssuesResponse>({
+    queryKey: ["/api/sync-issues", { status: "open" }],
+    queryFn: async () => {
+      const response = await fetch("/api/sync-issues?status=open");
+      if (!response.ok) throw new Error("Failed to fetch sync issues");
+      return response.json();
+    },
+    refetchInterval: 30000,
+  });
+
+  const issues = data?.issues ?? [];
+
+  const groupsWithIssues = GROUPS.map(group => ({
+    group,
+    issues: issues.filter(i => group.syncTypes.includes(i.syncType)),
+  })).filter(({ issues }) => issues.length > 0);
+
+  if (groupsWithIssues.length === 0) return null;
+
+  const activeGroup = GROUPS.find(g => g.key === openGroup);
+  const activeIssues = activeGroup
+    ? issues.filter(i => activeGroup.syncTypes.includes(i.syncType))
+    : [];
+
+  return (
+    <>
+      <div className="space-y-1" data-testid="section-take-action">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground px-1 mb-2">
+          Take Action
+        </p>
+        {groupsWithIssues.map(({ group, issues: groupIssues }) => (
+          <button
+            key={group.key}
+            onClick={() => setOpenGroup(group.key)}
+            className="w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-md text-left hover-elevate active-elevate-2 bg-orange-500/10 border border-orange-500/20 text-orange-200"
+            data-testid={`button-group-${group.key}`}
+          >
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-orange-400" />
+              <span className="text-xs font-medium">{group.label}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-orange-300/70">
+                {groupIssues.length} {groupIssues.length === 1 ? "issue" : "issues"}
+              </span>
+              <ChevronRight className="w-3.5 h-3.5 text-orange-400/60" />
+            </div>
+          </button>
+        ))}
+      </div>
+
+      {activeGroup && (
+        <GroupSheet
+          group={activeGroup}
+          issues={activeIssues}
+          open={!!openGroup}
+          onClose={() => setOpenGroup(null)}
+        />
+      )}
+    </>
   );
 }
