@@ -153,10 +153,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         '10406576','12398298','17141345','2801321','3082511','6521027',
         '8075629', // Susan Corcoran 2017
       ];
-      // Resolve IDs from order_number
-      const targets = await db.execute(sql`
-        SELECT id FROM orders WHERE order_number = ANY(${orderNumbers})
-      `);
+      // Resolve IDs from order_number using IN list (ANY doesn't work with JS arrays)
+      const numList = orderNumbers.map(n => `'${n}'`).join(',');
+      const targets = await db.execute(sql.raw(`SELECT id FROM orders WHERE order_number IN (${numList})`));
       const ids = targets.rows.map((r: any) => r.id);
       if (ids.length === 0) return res.json({ deleted: 0, message: 'Nothing to clean up' });
 
