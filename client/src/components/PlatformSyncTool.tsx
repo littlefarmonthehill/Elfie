@@ -55,10 +55,25 @@ type DiscrepancyItem = {
   boDescription?: string;
 };
 
+type BricklinkSyncResult = {
+  categoriesAdded: number;
+  categoriesUpdated: number;
+  colorsAdded: number;
+  colorsUpdated: number;
+  inventoryAdded: number;
+  inventoryUpdated: number;
+  totalApiCalls: number;
+  rateLimitWarning?: string;
+  rebrickableSets: number;
+  rebrickableParts: number;
+  completedAt: string;
+};
+
 export default function PlatformSyncTool() {
   const [syncingPlatform, setSyncingPlatform] = useState<string | null>(null);
   const [syncingBrickLink, setSyncingBrickLink] = useState(false);
   const [syncingBulkImages, setSyncingBulkImages] = useState(false);
+  const [bricklinkSyncResult, setBricklinkSyncResult] = useState<BricklinkSyncResult | null>(null);
   const [discrepancyDrawer, setDiscrepancyDrawer] = useState<{
     open: boolean;
     platform: string;
@@ -168,9 +183,11 @@ export default function PlatformSyncTool() {
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['/api/platform-sync/status'] });
       queryClient.invalidateQueries({ queryKey: ['/api/bricklink/rate-limit'] });
-      toast({
-        title: "BrickLink Sync Complete",
-        description: `${result.data.inventoryAdded} added, ${result.data.inventoryUpdated} updated`,
+      queryClient.invalidateQueries({ queryKey: ['/api/inventory/recent-updates'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/inventory/stats'] });
+      setBricklinkSyncResult({
+        ...result.data,
+        completedAt: new Date().toLocaleTimeString(),
       });
       setSyncingBrickLink(false);
     },
@@ -193,6 +210,7 @@ export default function PlatformSyncTool() {
       });
       return;
     }
+    setBricklinkSyncResult(null);
     setSyncingBrickLink(true);
     bricklinkSyncMutation.mutate();
   };
@@ -370,6 +388,98 @@ export default function PlatformSyncTool() {
                   {syncProgress.details.itemsUpdated !== undefined && (
                     <span>Updated: {syncProgress.details.itemsUpdated.toLocaleString()}</span>
                   )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Sync Result Summary — stays visible until dismissed or next sync */}
+          {bricklinkSyncResult && (
+            <div className="mb-2 p-3 bg-green-500/10 border border-green-500/30 rounded-lg" data-testid="bricklink-sync-result">
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <div className="flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-green-400 shrink-0" />
+                  <span className="text-xs md:text-sm font-semibold text-green-400">Sync Complete — {bricklinkSyncResult.completedAt}</span>
+                </div>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => setBricklinkSyncResult(null)}
+                  className="h-5 w-5 shrink-0 text-gray-500 hover:text-gray-300"
+                  data-testid="button-dismiss-sync-result"
+                >
+                  <X className="w-3 h-3" />
+                </Button>
+              </div>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[10px] md:text-xs">
+                {/* Inventory */}
+                <div className="col-span-2 text-gray-400 font-semibold uppercase tracking-wide mt-1 mb-0.5">Inventory Lots</div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">New lots added</span>
+                  <span className={`font-mono font-bold ${bricklinkSyncResult.inventoryAdded > 0 ? 'text-green-400' : 'text-gray-500'}`}>
+                    {bricklinkSyncResult.inventoryAdded.toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Lots updated</span>
+                  <span className={`font-mono font-bold ${bricklinkSyncResult.inventoryUpdated > 0 ? 'text-blue-400' : 'text-gray-500'}`}>
+                    {bricklinkSyncResult.inventoryUpdated.toLocaleString()}
+                  </span>
+                </div>
+                {/* Categories */}
+                <div className="col-span-2 text-gray-400 font-semibold uppercase tracking-wide mt-2 mb-0.5">Categories</div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">New</span>
+                  <span className={`font-mono font-bold ${bricklinkSyncResult.categoriesAdded > 0 ? 'text-green-400' : 'text-gray-500'}`}>
+                    {bricklinkSyncResult.categoriesAdded.toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Updated</span>
+                  <span className={`font-mono font-bold ${bricklinkSyncResult.categoriesUpdated > 0 ? 'text-blue-400' : 'text-gray-500'}`}>
+                    {bricklinkSyncResult.categoriesUpdated.toLocaleString()}
+                  </span>
+                </div>
+                {/* Colors */}
+                <div className="col-span-2 text-gray-400 font-semibold uppercase tracking-wide mt-2 mb-0.5">Colors</div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">New</span>
+                  <span className={`font-mono font-bold ${bricklinkSyncResult.colorsAdded > 0 ? 'text-green-400' : 'text-gray-500'}`}>
+                    {bricklinkSyncResult.colorsAdded.toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Updated</span>
+                  <span className={`font-mono font-bold ${bricklinkSyncResult.colorsUpdated > 0 ? 'text-blue-400' : 'text-gray-500'}`}>
+                    {bricklinkSyncResult.colorsUpdated.toLocaleString()}
+                  </span>
+                </div>
+                {/* Rebrickable */}
+                {(bricklinkSyncResult.rebrickableSets > 0 || bricklinkSyncResult.rebrickableParts > 0) && (
+                  <>
+                    <div className="col-span-2 text-gray-400 font-semibold uppercase tracking-wide mt-2 mb-0.5">Rebrickable</div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Sets synced</span>
+                      <span className="font-mono font-bold text-purple-400">{bricklinkSyncResult.rebrickableSets.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Part relationships</span>
+                      <span className="font-mono font-bold text-purple-400">{bricklinkSyncResult.rebrickableParts.toLocaleString()}</span>
+                    </div>
+                  </>
+                )}
+                {/* API Usage */}
+                <div className="col-span-2 border-t border-gray-700 mt-2 pt-2 flex justify-between">
+                  <span className="text-gray-400">API calls used</span>
+                  <span className={`font-mono font-bold ${bricklinkSyncResult.totalApiCalls > 4000 ? 'text-yellow-400' : 'text-gray-300'}`}>
+                    {bricklinkSyncResult.totalApiCalls.toLocaleString()} / 5,000
+                  </span>
+                </div>
+              </div>
+              {bricklinkSyncResult.rateLimitWarning && (
+                <div className="mt-2 flex items-start gap-1.5 text-[10px] md:text-xs text-yellow-400">
+                  <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" />
+                  <span>{bricklinkSyncResult.rateLimitWarning}</span>
                 </div>
               )}
             </div>
