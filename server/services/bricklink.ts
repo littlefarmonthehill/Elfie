@@ -1076,8 +1076,27 @@ export async function syncPriceOMagicCache(maxItems?: number): Promise<{
       };
     }
 
-    // Find inventory items that need price refresh
-    // Priority: items without cache first, then oldest cache
+    // Load tier refresh settings
+    const [tierSettings] = await db.select({
+      pomTier1RefreshDays: appSettings.pomTier1RefreshDays,
+      pomTier2RefreshDays: appSettings.pomTier2RefreshDays,
+      pomTier3RefreshDays: appSettings.pomTier3RefreshDays,
+      pomTier4RefreshDays: appSettings.pomTier4RefreshDays,
+      pomQtyPromoteThreshold: appSettings.pomQtyPromoteThreshold,
+      pomQtyDemoteThreshold: appSettings.pomQtyDemoteThreshold,
+    }).from(appSettings).limit(1);
+
+    const tier1Days = tierSettings?.pomTier1RefreshDays ?? 1;
+    const tier2Days = tierSettings?.pomTier2RefreshDays ?? 3;
+    const tier3Days = tierSettings?.pomTier3RefreshDays ?? 7;
+    const tier4Days = tierSettings?.pomTier4RefreshDays ?? 30;
+    const qtyPromote = tierSettings?.pomQtyPromoteThreshold ?? 5;
+    const qtyDemote = tierSettings?.pomQtyDemoteThreshold ?? 500;
+
+    // Build tier-priority-ordered queue with quantity overrides
+    // Tier ordering: 1 (daily) → 2 (every few days) → 3 (weekly) → 4 (monthly)
+    // Quantity overrides: stock ≤ qtyPromote → promote 1 tier; stock ≥ qtyDemote → demote 1 tier
+    // Only include items whose cache is stale relative to their effective tier's refresh period
     const inventoryItems = await db
       .select({
         id: blInventory.id,
@@ -1085,10 +1104,13 @@ export async function syncPriceOMagicCache(maxItems?: number): Promise<{
         itemType: blInventory.itemType,
         colorId: blInventory.colorId,
         newOrUsed: blInventory.newOrUsed,
+        quantity: blInventory.quantity,
+        categoryTier: blCategories.priorityTier,
         cacheId: priceGuideCache.id,
         lastFetched: priceGuideCache.fetchedAt,
       })
       .from(blInventory)
+      .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
       .leftJoin(
         priceGuideCache,
         and(
@@ -1098,13 +1120,56 @@ export async function syncPriceOMagicCache(maxItems?: number): Promise<{
           sql`${blInventory.newOrUsed} = ${priceGuideCache.newOrUsed}`
         )
       )
-      .orderBy(sql`COALESCE(${priceGuideCache.fetchedAt}, '1970-01-01'::timestamp) ASC`)
+      .orderBy(
+        // Sort by effective tier priority (tier1 first), then staleness within each tier
+        sql`
+          CASE
+            WHEN COALESCE(${blInventory.quantity}, 0) <= ${qtyPromote} THEN
+              GREATEST(1, (CASE COALESCE(${blCategories.priorityTier}, 'tier2')
+                WHEN 'tier1' THEN 1 WHEN 'tier2' THEN 1 WHEN 'tier3' THEN 2 WHEN 'tier4' THEN 3
+                ELSE 1 END))
+            WHEN COALESCE(${blInventory.quantity}, 0) >= ${qtyDemote} THEN
+              LEAST(4, (CASE COALESCE(${blCategories.priorityTier}, 'tier2')
+                WHEN 'tier1' THEN 2 WHEN 'tier2' THEN 3 WHEN 'tier3' THEN 4 WHEN 'tier4' THEN 4
+                ELSE 3 END))
+            ELSE
+              (CASE COALESCE(${blCategories.priorityTier}, 'tier2')
+                WHEN 'tier1' THEN 1 WHEN 'tier2' THEN 2 WHEN 'tier3' THEN 3 WHEN 'tier4' THEN 4
+                ELSE 2 END)
+          END ASC,
+          COALESCE(${priceGuideCache.fetchedAt}, '1970-01-01'::timestamp) ASC
+        `
+      )
       .limit(effectiveMaxItems);
 
-    console.log(`[Price-o-Matic Sync] Found ${inventoryItems.length} items to process`);
+    // Filter out items that don't need refresh yet based on their effective tier
+    const tierRefreshMs: Record<string, number> = {
+      tier1: tier1Days * 86400000,
+      tier2: tier2Days * 86400000,
+      tier3: tier3Days * 86400000,
+      tier4: tier4Days * 86400000,
+    };
+    const now = Date.now();
+    const filteredItems = inventoryItems.filter((item) => {
+      if (!item.lastFetched) return true; // Never fetched — always include
+      const baseTier = item.categoryTier || 'tier2';
+      const qty = item.quantity ?? 0;
+      let effectiveTier = baseTier;
+      if (qty <= qtyPromote) {
+        const tierNum = parseInt(baseTier.replace('tier', '')) || 2;
+        effectiveTier = `tier${Math.max(1, tierNum - 1)}`;
+      } else if (qty >= qtyDemote) {
+        const tierNum = parseInt(baseTier.replace('tier', '')) || 2;
+        effectiveTier = `tier${Math.min(4, tierNum + 1)}`;
+      }
+      const refreshMs = tierRefreshMs[effectiveTier] ?? tierRefreshMs.tier2;
+      return now - new Date(item.lastFetched).getTime() >= refreshMs;
+    });
 
-    // Process each item
-    for (const item of inventoryItems) {
+    console.log(`[Price-o-Matic Sync] Found ${inventoryItems.length} candidates, ${filteredItems.length} need refresh (tier-filtered)`);
+
+    // Process each item in tier-priority order
+    for (const item of filteredItems) {
       try {
         // Check rate limit before each batch (every 10 items) to avoid hitting hard limit
         if (itemsUpdated % 10 === 0) {

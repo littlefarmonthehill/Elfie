@@ -3,7 +3,8 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { AppSettings, User } from "@shared/schema";
 import { APP_VERSION, APP_NAME } from "@shared/version";
-import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Zap, Info } from "lucide-react";
+import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Zap, Info, Layers } from "lucide-react";
+import { PomCategoryTiers } from "@/components/PomCategoryTiers";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1966,6 +1967,18 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                       </div>
                     </div>
                   </div>
+                </div>
+
+                {/* Category Tier Assignments with Freshness */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Layers className="h-4 w-4 text-gray-400" />
+                    <h3 className="text-sm font-medium text-gray-300">Category Tier Assignments</h3>
+                  </div>
+                  <p className="text-xs text-gray-500 mb-3">
+                    Assign categories to refresh tiers. Each category shows a freshness dot and price guide coverage percentage.
+                  </p>
+                  <PomCategoryTiers />
                 </div>
 
                 <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">

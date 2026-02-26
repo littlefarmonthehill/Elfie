@@ -362,12 +362,16 @@ export const appSettings = pgTable("app_settings", {
   forumSyncFrequency: integer("forum_sync_frequency").default(60).notNull(), // minutes
   // Rebrickable Configuration
   rebrickableImageSyncEnabled: boolean("rebrickable_image_sync_enabled").default(true).notNull(),
-  // Price-o-Matic Refresh Tier Settings
-  pomTierHotSoldDays: integer("pom_tier_hot_sold_days").default(30).notNull(),         // "Sold in last X days" = Hot
-  pomTierHotRefreshDays: integer("pom_tier_hot_refresh_days").default(7).notNull(),    // Refresh Hot items every X days
-  pomTierActiveRefreshDays: integer("pom_tier_active_refresh_days").default(14).notNull(), // Refresh Active items every X days
-  pomTierStableRefreshDays: integer("pom_tier_stable_refresh_days").default(45).notNull(), // Refresh Stable items every X days
-  pomTierPriority: text("pom_tier_priority").default('hot,active,stable').notNull(),   // Processing order (comma-separated)
+  // Price-o-Matic 4-Tier Refresh Settings
+  pomTier1RefreshDays: integer("pom_tier1_refresh_days").default(1).notNull(),   // T1 High Volatility: daily
+  pomTier2RefreshDays: integer("pom_tier2_refresh_days").default(3).notNull(),   // T2 Strong Demand: every 2-3 days
+  pomTier3RefreshDays: integer("pom_tier3_refresh_days").default(7).notNull(),   // T3 Commodity: weekly
+  pomTier4RefreshDays: integer("pom_tier4_refresh_days").default(30).notNull(),  // T4 Deep Inventory: monthly
+  // Quantity-Based Override Thresholds
+  pomQtyPromoteThreshold: integer("pom_qty_promote_threshold").default(5).notNull(),   // Stock ≤ N → promote 1 tier
+  pomQtyDemoteThreshold: integer("pom_qty_demote_threshold").default(500).notNull(),   // Stock ≥ N → demote 1 tier
+  // Revenue-Based Overlay
+  pomRevenueTopPct: integer("pom_revenue_top_pct").default(20).notNull(),  // Top N% revenue lots → T1/T2
   // Price-o-Matic Formula Settings
   pomBasePremium: integer("pom_base_premium").default(10).notNull(),           // Base premium % over avg price
   pomMinifigPremium: integer("pom_minifig_premium").default(5).notNull(),      // Minifig base premium %

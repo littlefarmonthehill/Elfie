@@ -5185,6 +5185,101 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
   });
 
   // Get Price-o-Matic insights (pricing discrepancies)
+  // Per-category Price-o-Matic freshness stats
+  app.get("/api/priceomatic/freshness", isApproved, async (req, res) => {
+    try {
+      // Load tier refresh thresholds from settings
+      const [cfg] = await db.select({
+        pomTier1RefreshDays: appSettings.pomTier1RefreshDays,
+        pomTier2RefreshDays: appSettings.pomTier2RefreshDays,
+        pomTier3RefreshDays: appSettings.pomTier3RefreshDays,
+        pomTier4RefreshDays: appSettings.pomTier4RefreshDays,
+      }).from(appSettings).limit(1);
+
+      const tierDays: Record<string, number> = {
+        tier1: cfg?.pomTier1RefreshDays ?? 1,
+        tier2: cfg?.pomTier2RefreshDays ?? 3,
+        tier3: cfg?.pomTier3RefreshDays ?? 7,
+        tier4: cfg?.pomTier4RefreshDays ?? 30,
+      };
+
+      // Aggregate per-category: total lots, how many have price guide data, last fetch time
+      const rows = await db.execute(sql`
+        SELECT
+          c.id                                          AS category_id,
+          c.name                                        AS category_name,
+          c.priority_tier                               AS tier,
+          COUNT(i.id)                                   AS total_lots,
+          COUNT(pgc.id)                                 AS fetched_lots,
+          MAX(pgc.fetched_at)                           AS last_fetched_at
+        FROM bl_inventory i
+        LEFT JOIN bl_categories c ON i.category_id = c.id
+        LEFT JOIN price_guide_cache pgc
+          ON i.item_no = pgc.item_no
+          AND i.item_type = pgc.item_type
+          AND i.new_or_used = pgc.new_or_used
+          AND (i.color_id = pgc.color_id OR (i.color_id IS NULL AND pgc.color_id IS NULL))
+        GROUP BY c.id, c.name, c.priority_tier
+        ORDER BY c.name
+      `);
+
+      const now = Date.now();
+      const categories = (rows.rows as any[]).map((row) => {
+        const tier = row.tier || 'tier2';
+        const refreshMs = (tierDays[tier] ?? 3) * 86400000;
+        const lastFetchedAt = row.last_fetched_at ? new Date(row.last_fetched_at) : null;
+        const totalLots = parseInt(row.total_lots) || 0;
+        const fetchedLots = parseInt(row.fetched_lots) || 0;
+        const neverFetched = totalLots - fetchedLots;
+
+        let status: 'fresh' | 'stale' | 'never' = 'never';
+        if (lastFetchedAt) {
+          status = now - lastFetchedAt.getTime() < refreshMs ? 'fresh' : 'stale';
+        }
+        const daysSince = lastFetchedAt
+          ? Math.floor((now - lastFetchedAt.getTime()) / 86400000)
+          : null;
+
+        return {
+          categoryId: row.category_id ? parseInt(row.category_id) : null,
+          categoryName: row.category_name || '(Uncategorized)',
+          tier,
+          totalLots,
+          fetchedLots,
+          neverFetched,
+          coveragePct: totalLots > 0 ? Math.round((fetchedLots / totalLots) * 100) : 0,
+          lastFetchedAt: lastFetchedAt?.toISOString() ?? null,
+          daysSince,
+          status,
+          refreshDays: tierDays[tier] ?? 3,
+        };
+      });
+
+      // Also compute per-tier summaries
+      const tierSummary = Object.fromEntries(
+        Object.keys(tierDays).map((tier) => {
+          const cats = categories.filter((c) => c.tier === tier);
+          const totalLots = cats.reduce((s, c) => s + c.totalLots, 0);
+          const fetchedLots = cats.reduce((s, c) => s + c.fetchedLots, 0);
+          const freshCats = cats.filter((c) => c.status === 'fresh').length;
+          const staleCats = cats.filter((c) => c.status === 'stale').length;
+          const neverCats = cats.filter((c) => c.status === 'never').length;
+          const lastFetch = cats.reduce((best, c) => {
+            if (!c.lastFetchedAt) return best;
+            if (!best) return c.lastFetchedAt;
+            return c.lastFetchedAt > best ? c.lastFetchedAt : best;
+          }, null as string | null);
+          return [tier, { totalLots, fetchedLots, coveragePct: totalLots > 0 ? Math.round((fetchedLots / totalLots) * 100) : 0, freshCats, staleCats, neverCats, lastFetch, refreshDays: tierDays[tier] }];
+        })
+      );
+
+      res.json({ success: true, categories, tierSummary });
+    } catch (error) {
+      console.error("Error fetching POM freshness:", error);
+      res.status(500).json({ error: "Failed to fetch freshness stats" });
+    }
+  });
+
   app.get("/api/priceomatic/insights", isApproved, async (req, res) => {
     try {
       const { priceGuideCache, appSettings: appSettingsTable } = await import("@shared/schema");
