@@ -52,7 +52,6 @@ interface PomSpotLookupProps {
 export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
   const [partNo, setPartNo] = useState("");
   const [colorId, setColorId] = useState<string>("none");
-  const [newOrUsed, setNewOrUsed] = useState<"N" | "U">("N");
   const [result, setResult] = useState<SpotLookupResult | null>(null);
   const [lookupError, setLookupError] = useState<string | null>(null);
   const searchAreaRef = useRef<HTMLDivElement>(null);
@@ -71,7 +70,7 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
       const params = new URLSearchParams({
         partNo: partNo.trim().toUpperCase(),
         itemType: "P",
-        newOrUsed,
+        newOrUsed: "N",
       });
       if (colorId && colorId !== "none") params.set("colorId", colorId);
       return await apiRequest("GET", `/api/pom/spot-lookup?${params}`);
@@ -178,27 +177,6 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
           </SelectContent>
         </Select>
 
-        <div className="flex rounded-md overflow-hidden border border-gray-700 flex-shrink-0">
-          <button
-            onClick={() => setNewOrUsed("N")}
-            className={`px-2.5 py-1.5 text-xs font-medium transition-colors ${
-              newOrUsed === "N" ? "bg-purple-600 text-white" : "bg-gray-800 text-gray-400 hover:text-gray-200"
-            }`}
-            data-testid="toggle-spot-new"
-          >
-            New
-          </button>
-          <button
-            onClick={() => setNewOrUsed("U")}
-            className={`px-2.5 py-1.5 text-xs font-medium transition-colors ${
-              newOrUsed === "U" ? "bg-purple-600 text-white" : "bg-gray-800 text-gray-400 hover:text-gray-200"
-            }`}
-            data-testid="toggle-spot-used"
-          >
-            Used
-          </button>
-        </div>
-
         <Button
           onClick={handleLookup}
           disabled={!partNo.trim() || lookupMutation.isPending}
@@ -244,7 +222,7 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
                   {pd.itemName || "—"}
                 </div>
                 <div className="text-[11px] text-gray-500 font-mono mt-0.5">
-                  #{pd.itemNo} · {newOrUsed === "N" ? "New" : "Used"}
+                  #{pd.itemNo}
                   {colorId && colorId !== "none" && colors
                     ? ` · ${colors.find((c) => c.id.toString() === colorId)?.name ?? ""}`
                     : " · All Colors"}
@@ -319,7 +297,7 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
                         )}
                         <span className="text-xs text-gray-200 truncate">{lot.colorName || "N/A"}</span>
                         <span className="text-[10px] text-gray-500 flex-shrink-0">
-                          {lot.newOrUsed === "N" ? "New" : "Used"} · {lot.quantity}×
+                          {lot.quantity}×
                         </span>
                       </div>
 

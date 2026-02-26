@@ -427,12 +427,8 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
                         <span className="text-[10px] md:text-sm font-mono text-gray-400 flex-shrink-0">{item.itemNo}</span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[10px] md:text-sm text-gray-400">{item.newOrUsed === 'N' ? 'New' : 'Used'}</span>
                         {item.colorName && (
-                          <>
-                            <span className="text-gray-600">•</span>
-                            <span className="text-[10px] md:text-sm text-gray-400">{item.colorName}</span>
-                          </>
+                          <span className="text-[10px] md:text-sm text-gray-400">{item.colorName}</span>
                         )}
                       </div>
                     </div>
