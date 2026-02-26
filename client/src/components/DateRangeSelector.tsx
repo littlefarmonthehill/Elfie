@@ -10,12 +10,12 @@ interface DateRangeSelectorProps {
 
 export default function DateRangeSelector({ value, onChange, className = "" }: DateRangeSelectorProps) {
   const options: { label: string; value: DateRangeValue }[] = [
-    { label: 'MTD', value: 'mtd' },
-    { label: 'Last Mo', value: 'lastmonth' },
-    { label: '3M', value: '3months' },
-    { label: '1Y', value: '1year' },
-    { label: 'Prev Yr', value: 'prevyear' },
-    { label: 'All', value: 'all' },
+    { label: 'All Time',    value: 'all' },
+    { label: 'Prev Year',   value: 'prevyear' },
+    { label: '1 Year',      value: '1year' },
+    { label: '3 Months',    value: '3months' },
+    { label: 'Prev Month',  value: 'lastmonth' },
+    { label: 'This Month',  value: 'mtd' },
   ];
 
   return (
