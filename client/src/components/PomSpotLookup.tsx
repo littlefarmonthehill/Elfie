@@ -95,6 +95,86 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
 
   const handleLookup = () => {
     if (!partNo.trim()) return;
+
+    const searchPart = partNo.trim().toUpperCase();
+    const searchColorId = colorId !== "none" ? parseInt(colorId) : null;
+
+    // Check the already-loaded insights cache before hitting the API
+    const insightsCache = queryClient.getQueryData<{ success: boolean; data: any }>(['/api/priceomatic/insights']);
+    const allInsights = insightsCache?.data;
+
+    if (allInsights) {
+      const allItems: any[] = [
+        ...(allInsights.tooHigh ?? []),
+        ...(allInsights.tooLow ?? []),
+        ...(allInsights.wellPriced ?? []),
+      ];
+
+      const matches = allItems.filter((item) => {
+        const partMatch = item.itemNo === searchPart;
+        const colorMatch = searchColorId === null || item.colorId === searchColorId;
+        return partMatch && colorMatch;
+      });
+
+      if (matches.length > 0) {
+        // Build lotPriceData from cached insights — one entry per (colorId, newOrUsed) combo
+        const lotPriceData: Record<string, LotPriceEntry> = {};
+        for (const m of matches) {
+          const key = `${m.colorId ?? "null"}_${m.newOrUsed}`;
+          lotPriceData[key] = {
+            itemNo: m.itemNo,
+            itemName: m.itemName,
+            thumbnailUrl: null,
+            stockAvgPrice: m.stockAvgPrice ?? null,
+            soldAvgPrice: m.soldAvgPrice ?? null,
+            stockTotalLots: m.stockTotalLots ?? null,
+            suggestedPrice: m.suggestedPrice,
+            premiumPercentage: 0,
+          };
+        }
+
+        // priceData for the header: prefer the selected color, else use first match
+        const primaryMatch =
+          searchColorId !== null
+            ? (matches.find((m) => m.colorId === searchColorId) ?? matches[0])
+            : matches[0];
+
+        const priceData: LotPriceEntry = {
+          itemNo: primaryMatch.itemNo,
+          itemName: primaryMatch.itemName,
+          thumbnailUrl: null,
+          stockAvgPrice: primaryMatch.stockAvgPrice ?? null,
+          soldAvgPrice: primaryMatch.soldAvgPrice ?? null,
+          stockTotalLots: primaryMatch.stockTotalLots ?? null,
+          suggestedPrice: primaryMatch.suggestedPrice,
+          premiumPercentage: 0,
+        };
+
+        // inventoryLots from matched insight items
+        const inventoryLots = matches.map((m) => ({
+          id: m.inventoryId,
+          colorId: m.colorId,
+          colorName: m.colorName,
+          colorRgb: colors?.find((c: Color) => c.id === m.colorId)?.rgb ?? null,
+          quantity: m.quantity,
+          unitPrice: m.currentPrice,
+          newOrUsed: m.newOrUsed,
+        }));
+
+        // Thresholds from settings cache
+        const settingsCache = queryClient.getQueryData<any>(['/api/settings']);
+        const thresholds = {
+          tooHigh: settingsCache?.pomTooHighThreshold ?? 20,
+          tooLow: settingsCache?.pomTooLowThreshold ?? 20,
+        };
+
+        setResult({ priceData, lotPriceData, inventoryLots, thresholds });
+        setLookupError(null);
+        return; // Skip the API call entirely
+      }
+    }
+
+    // No cached insights found — fall back to the API
     lookupMutation.mutate();
   };
 
