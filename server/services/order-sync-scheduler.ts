@@ -227,6 +227,23 @@ async function executeOrderSync(settings: any) {
       }
     }
 
+    // 5b. Sync PayPal transactions (if credentials configured)
+    if (process.env.PAYPAL_CLIENT_ID && process.env.PAYPAL_CLIENT_SECRET) {
+      try {
+        console.log('🅿️ Syncing PayPal transactions...');
+        const { syncPayPalTransactions } = await import('./paypal-sync');
+        const ppResult = await syncPayPalTransactions(90);
+        const newMatches = ppResult.refundsMatched + ppResult.feesMatched;
+        if (newMatches > 0) {
+          console.log(`✅ PayPal: ${ppResult.refundsMatched} refunds + ${ppResult.feesMatched} fees matched`);
+        } else {
+          console.log(`✅ PayPal: ${ppResult.alreadySynced} already synced, none new`);
+        }
+      } catch (error: any) {
+        console.error('❌ PayPal sync failed (non-fatal):', error.message);
+      }
+    }
+
     // 6. Check for orders where inventory was never deducted (silent failure detector)
     await checkStuckInventoryDeductions();
     

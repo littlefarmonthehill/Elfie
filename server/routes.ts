@@ -1080,6 +1080,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // PayPal Transaction Sync
+  app.post("/api/paypal/sync", isApproved, async (req, res) => {
+    try {
+      const { sinceDays = 90 } = req.body;
+      const { syncPayPalTransactions } = await import('./services/paypal-sync');
+      const result = await syncPayPalTransactions(sinceDays);
+      console.log(`✅ PayPal sync: ${result.refundsMatched} refunds, ${result.feesMatched} fees matched`);
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error syncing PayPal data:", error);
+      res.status(500).json({ error: error.message || "Failed to sync PayPal data" });
+    }
+  });
+
   app.get("/api/stripe/refunds", isApproved, async (req, res) => {
     try {
       const { fetchStripeRefunds } = await import('./services/stripe-refunds');

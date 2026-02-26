@@ -362,6 +362,12 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   const [blUkVatNumber, setBlUkVatNumber] = useState("");
   const [boUkVatNumber, setBoUkVatNumber] = useState("");
 
+  // Financial sync state
+  const [stripeSyncStatus, setStripeSyncStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle');
+  const [stripeSyncResult, setStripeSyncResult] = useState<string | null>(null);
+  const [paypalSyncStatus, setPaypalSyncStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle');
+  const [paypalSyncResult, setPaypalSyncResult] = useState<string | null>(null);
+
   // Automation Settings
   const [inventorySyncEnabled, setInventorySyncEnabled] = useState(false);
   const [inventorySyncTime, setInventorySyncTime] = useState("02:00");
@@ -1611,6 +1617,86 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                       <p className="text-xs text-purple-300">
                         <strong>Note:</strong> All automation respects BrickLink's 5,000 API calls/day limit. Syncs will automatically pause when approaching the limit.
                       </p>
+                    </div>
+
+                    <Separator className="bg-gray-700 mt-4" />
+
+                    {/* Financial Sync */}
+                    <div className="mt-4">
+                      <h3 className="text-sm font-medium text-gray-300 mb-1">Financial Sync</h3>
+                      <p className="text-xs text-gray-400 mb-3">Manually pull refunds and merchant fees from payment processors. Runs automatically with each order sync.</p>
+
+                      <div className="space-y-3">
+                        {/* Stripe */}
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <Label className="text-xs font-medium text-gray-300">Stripe</Label>
+                            <p className="text-[10px] text-gray-500">Refunds + BrickLink connector fees (last 90 days)</p>
+                            {stripeSyncResult && (
+                              <p className={`text-[10px] mt-0.5 ${stripeSyncStatus === 'error' ? 'text-red-400' : 'text-green-400'}`}>
+                                {stripeSyncResult}
+                              </p>
+                            )}
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={stripeSyncStatus === 'running'}
+                            data-testid="button-stripe-sync"
+                            onClick={async () => {
+                              setStripeSyncStatus('running');
+                              setStripeSyncResult(null);
+                              try {
+                                const data = await apiRequest('POST', '/api/stripe/sync-refunds', { sinceDays: 90 });
+                                const r = data.refunds;
+                                const f = data.fees;
+                                setStripeSyncResult(`${r.matched} refunds, ${f.matched} fees matched (${r.alreadySynced + f.alreadySynced} already synced)`);
+                                setStripeSyncStatus('done');
+                                queryClient.invalidateQueries({ queryKey: ['/api/orders/adjustments'] });
+                              } catch (err: any) {
+                                setStripeSyncResult(err.message || 'Sync failed');
+                                setStripeSyncStatus('error');
+                              }
+                            }}
+                          >
+                            {stripeSyncStatus === 'running' ? 'Syncing...' : 'Sync Now'}
+                          </Button>
+                        </div>
+
+                        {/* PayPal */}
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <Label className="text-xs font-medium text-gray-300">PayPal</Label>
+                            <p className="text-[10px] text-gray-500">Refunds + transaction fees (last 90 days)</p>
+                            {paypalSyncResult && (
+                              <p className={`text-[10px] mt-0.5 ${paypalSyncStatus === 'error' ? 'text-red-400' : 'text-green-400'}`}>
+                                {paypalSyncResult}
+                              </p>
+                            )}
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={paypalSyncStatus === 'running'}
+                            data-testid="button-paypal-sync"
+                            onClick={async () => {
+                              setPaypalSyncStatus('running');
+                              setPaypalSyncResult(null);
+                              try {
+                                const data = await apiRequest('POST', '/api/paypal/sync', { sinceDays: 90 });
+                                setPaypalSyncResult(`${data.refundsMatched} refunds, ${data.feesMatched} fees matched (${data.alreadySynced} already synced)`);
+                                setPaypalSyncStatus('done');
+                                queryClient.invalidateQueries({ queryKey: ['/api/orders/adjustments'] });
+                              } catch (err: any) {
+                                setPaypalSyncResult(err.message || 'Sync failed');
+                                setPaypalSyncStatus('error');
+                              }
+                            }}
+                          >
+                            {paypalSyncStatus === 'running' ? 'Syncing...' : 'Sync Now'}
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
