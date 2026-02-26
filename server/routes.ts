@@ -4372,9 +4372,47 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
         .where(eq(blInventory.itemNo, partNoClean))
         .orderBy(blColors.name);
 
-      // The data is stored to priceGuideCache by fetchPriceOMagicData automatically.
-      // Return a flag so the client can invalidate POM dashboard queries.
-      res.json({ priceData, inventoryLots, storedToCache: true });
+      // Build price data for each unique (colorId, newOrUsed) combo found in inventory.
+      // This allows the UI to show a suggested price next to each color variation's current price.
+      const mainKey = `${colorIdNum ?? 'null'}_${newOrUsed}`;
+      const lotPriceData: Record<string, typeof priceData> = { [mainKey]: priceData };
+
+      const seenCombos = new Set<string>([mainKey]);
+      const combosToFetch: Array<{ colorId: number | null; newOrUsed: string; key: string }> = [];
+      for (const lot of inventoryLots) {
+        const key = `${lot.colorId ?? 'null'}_${lot.newOrUsed}`;
+        if (!seenCombos.has(key)) {
+          seenCombos.add(key);
+          combosToFetch.push({ colorId: lot.colorId, newOrUsed: lot.newOrUsed, key });
+        }
+      }
+
+      await Promise.all(
+        combosToFetch.map(async (combo) => {
+          const pd = await fetchPriceOMagicData(
+            partNoClean,
+            itemType as string,
+            combo.colorId ?? undefined,
+            combo.newOrUsed,
+            config.basePremium,
+            config
+          );
+          lotPriceData[combo.key] = pd;
+        })
+      );
+
+      // Include flag thresholds so the UI can badge each lot as Too High / Too Low / Well Priced
+      const [settingsRow] = await db.select({
+        pomTooHighThreshold: appSettings.pomTooHighThreshold,
+        pomTooLowThreshold: appSettings.pomTooLowThreshold,
+      }).from(appSettings).limit(1);
+
+      const thresholds = {
+        tooHigh: settingsRow?.pomTooHighThreshold ?? 25,
+        tooLow: settingsRow?.pomTooLowThreshold ?? 25,
+      };
+
+      res.json({ priceData, inventoryLots, lotPriceData, thresholds, storedToCache: true });
     } catch (error: any) {
       console.error("[POM Spot Lookup] Error:", error);
       res.status(500).json({

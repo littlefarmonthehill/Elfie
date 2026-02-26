@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Package, RefreshCw, AlertCircle } from "lucide-react";
+import { Search, Package, RefreshCw, AlertCircle, X, TrendingUp, TrendingDown, CheckCircle } from "lucide-react";
 
 interface Color {
   id: number;
@@ -19,17 +19,21 @@ interface Color {
   rgb: string | null;
 }
 
+interface LotPriceEntry {
+  itemNo: string;
+  itemName: string | null;
+  thumbnailUrl: string | null;
+  stockAvgPrice: string | null;
+  soldAvgPrice: string | null;
+  stockTotalLots: number | null;
+  suggestedPrice: string;
+  premiumPercentage: number;
+}
+
 interface SpotLookupResult {
-  priceData: {
-    itemNo: string;
-    itemName: string | null;
-    thumbnailUrl: string | null;
-    stockAvgPrice: string | null;
-    soldAvgPrice: string | null;
-    stockTotalLots: number | null;
-    suggestedPrice: string;
-    premiumPercentage: number;
-  };
+  priceData: LotPriceEntry;
+  lotPriceData: Record<string, LotPriceEntry>;
+  thresholds: { tooHigh: number; tooLow: number };
   inventoryLots: Array<{
     id: number;
     colorId: number | null;
@@ -51,10 +55,16 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
   const [newOrUsed, setNewOrUsed] = useState<"N" | "U">("N");
   const [result, setResult] = useState<SpotLookupResult | null>(null);
   const [lookupError, setLookupError] = useState<string | null>(null);
+  const searchAreaRef = useRef<HTMLDivElement>(null);
 
   const { data: colors } = useQuery<Color[]>({
     queryKey: ["/api/colors"],
   });
+
+  const invalidateDashboard = () => {
+    queryClient.invalidateQueries({ queryKey: ['/api/priceomatic/insights'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/priceomatic/freshness'] });
+  };
 
   const lookupMutation = useMutation({
     mutationFn: async () => {
@@ -73,11 +83,8 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
       } else {
         setResult(data);
         setLookupError(null);
-        // If this part exists in local inventory, the result was stored to the POM cache.
-        // Invalidate POM dashboard queries so the filter counts and list reflect the new data.
         if (data?.inventoryLots?.length > 0) {
-          queryClient.invalidateQueries({ queryKey: ['/api/priceomatic/insights'] });
-          queryClient.invalidateQueries({ queryKey: ['/api/priceomatic/freshness'] });
+          invalidateDashboard();
         }
       }
     },
@@ -92,26 +99,34 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
     lookupMutation.mutate();
   };
 
+  const handleClose = () => {
+    if (result?.inventoryLots?.length) {
+      invalidateDashboard();
+    }
+    setResult(null);
+    setLookupError(null);
+  };
+
   const pd = result?.priceData;
   const lots = result?.inventoryLots ?? [];
+  const lotPriceData = result?.lotPriceData ?? {};
+  const thresholds = result?.thresholds ?? { tooHigh: 25, tooLow: 25 };
 
   const sellerCount = Number(pd?.stockTotalLots ?? 0);
   const scarcityLabel =
-    sellerCount < 5
-      ? "Very Low"
-      : sellerCount < 15
-      ? "Low"
-      : sellerCount < 50
-      ? "Medium"
-      : "Normal";
+    sellerCount < 5 ? "Very Low" : sellerCount < 15 ? "Low" : sellerCount < 50 ? "Medium" : "Normal";
   const scarcityColor =
-    sellerCount < 5
-      ? "text-orange-300"
-      : sellerCount < 15
-      ? "text-yellow-300"
-      : sellerCount < 50
-      ? "text-blue-300"
-      : "text-gray-400";
+    sellerCount < 5 ? "text-orange-300" : sellerCount < 15 ? "text-yellow-300" : sellerCount < 50 ? "text-blue-300" : "text-gray-400";
+
+  const getPricingStatus = (currentPrice: string | null, suggestedPrice: string) => {
+    const current = currentPrice ? parseFloat(currentPrice) : 0;
+    const suggested = parseFloat(suggestedPrice);
+    if (!current || !suggested) return null;
+    const variancePct = ((current - suggested) / suggested) * 100;
+    if (variancePct > thresholds.tooHigh) return "too-high";
+    if (variancePct < -thresholds.tooLow) return "too-low";
+    return "good";
+  };
 
   return (
     <div className="bg-gray-900/60 border border-purple-500/20 rounded-lg p-3">
@@ -126,13 +141,18 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
       </div>
 
       {/* Search controls */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div ref={searchAreaRef} className="flex flex-wrap items-center gap-2">
         <Input
           placeholder="Part # (e.g. 3001)"
           value={partNo}
           onChange={(e) => setPartNo(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleLookup()}
-          className="text-sm w-36 font-mono"
+          onFocus={() => {
+            setTimeout(() => {
+              searchAreaRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+            }, 300);
+          }}
+          className="text-[16px] w-36 font-mono"
           data-testid="input-spot-partno"
         />
 
@@ -162,9 +182,7 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
           <button
             onClick={() => setNewOrUsed("N")}
             className={`px-2.5 py-1.5 text-xs font-medium transition-colors ${
-              newOrUsed === "N"
-                ? "bg-purple-600 text-white"
-                : "bg-gray-800 text-gray-400 hover:text-gray-200"
+              newOrUsed === "N" ? "bg-purple-600 text-white" : "bg-gray-800 text-gray-400 hover:text-gray-200"
             }`}
             data-testid="toggle-spot-new"
           >
@@ -173,9 +191,7 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
           <button
             onClick={() => setNewOrUsed("U")}
             className={`px-2.5 py-1.5 text-xs font-medium transition-colors ${
-              newOrUsed === "U"
-                ? "bg-purple-600 text-white"
-                : "bg-gray-800 text-gray-400 hover:text-gray-200"
+              newOrUsed === "U" ? "bg-purple-600 text-white" : "bg-gray-800 text-gray-400 hover:text-gray-200"
             }`}
             data-testid="toggle-spot-used"
           >
@@ -208,35 +224,45 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
 
       {/* Results */}
       {pd && (
-        <div className="mt-3 space-y-2 border-t border-gray-700/50 pt-3 max-h-[260px] overflow-y-auto pr-1">
-          {/* Part identity */}
-          <div className="flex items-start gap-2.5">
-            {pd.thumbnailUrl ? (
-              <img
-                src={pd.thumbnailUrl}
-                alt={pd.itemName || pd.itemNo}
-                className="w-12 h-12 object-contain rounded bg-gray-800 flex-shrink-0"
-              />
-            ) : (
-              <div className="w-12 h-12 rounded bg-gray-800 flex-shrink-0 flex items-center justify-center">
-                <Package className="w-5 h-5 text-gray-600" />
-              </div>
-            )}
-            <div>
-              <div className="text-sm font-semibold text-white leading-tight">
-                {pd.itemName || "—"}
-              </div>
-              <div className="text-[11px] text-gray-500 font-mono mt-0.5">
-                #{pd.itemNo} · {newOrUsed === "N" ? "New" : "Used"}
-                {colorId && colorId !== "none" && colors
-                  ? ` · ${colors.find((c) => c.id.toString() === colorId)?.name ?? ""}`
-                  : " · All Colors"}
+        <div className="mt-3 border-t border-gray-700/50 pt-3">
+          {/* Results header with close button */}
+          <div className="flex items-start justify-between gap-2 mb-2.5">
+            <div className="flex items-start gap-2.5">
+              {pd.thumbnailUrl ? (
+                <img
+                  src={pd.thumbnailUrl}
+                  alt={pd.itemName || pd.itemNo}
+                  className="w-12 h-12 object-contain rounded bg-gray-800 flex-shrink-0"
+                />
+              ) : (
+                <div className="w-12 h-12 rounded bg-gray-800 flex-shrink-0 flex items-center justify-center">
+                  <Package className="w-5 h-5 text-gray-600" />
+                </div>
+              )}
+              <div>
+                <div className="text-sm font-semibold text-white leading-tight">
+                  {pd.itemName || "—"}
+                </div>
+                <div className="text-[11px] text-gray-500 font-mono mt-0.5">
+                  #{pd.itemNo} · {newOrUsed === "N" ? "New" : "Used"}
+                  {colorId && colorId !== "none" && colors
+                    ? ` · ${colors.find((c) => c.id.toString() === colorId)?.name ?? ""}`
+                    : " · All Colors"}
+                </div>
               </div>
             </div>
+            <button
+              onClick={handleClose}
+              className="text-gray-500 hover:text-gray-300 transition-colors flex-shrink-0 mt-0.5"
+              data-testid="button-spot-close"
+              aria-label="Close results"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
 
-          {/* Price data grid */}
-          <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs bg-gray-800/40 rounded-md px-3 py-2.5">
+          {/* Price data grid for queried combo */}
+          <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs bg-gray-800/40 rounded-md px-3 py-2.5 mb-3">
             <div className="flex justify-between gap-2">
               <span className="text-gray-400">Avg Listed</span>
               <span className="text-gray-200 font-mono">
@@ -263,49 +289,77 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
             </div>
           </div>
 
-          {/* Inventory lots */}
-          {lots.length > 0 ? (
-            <div className="text-xs">
-              <div className="text-gray-500 mb-1.5 font-medium">
-                In your inventory ({lots.length} lot{lots.length !== 1 ? "s" : ""}):
-              </div>
-              <div className="space-y-1">
-                {lots.map((lot) => (
-                  <div
-                    key={lot.id}
-                    className="flex items-center justify-between px-2 py-1.5 rounded bg-gray-800/40 border border-gray-700/30"
-                  >
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      {lot.colorRgb && (
-                        <span
-                          className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: `#${lot.colorRgb}` }}
-                        />
-                      )}
-                      <span className="text-gray-200">
-                        {lot.colorName || "N/A"}
-                      </span>
-                      <Badge
-                        variant="outline"
-                        className="text-[9px] px-1 py-0 h-4 border-gray-600 text-gray-400"
-                      >
-                        {lot.newOrUsed === "N" ? "New" : "Used"}
-                      </Badge>
-                      <span className="text-gray-500">{lot.quantity} qty</span>
+          {/* Inventory lots with per-color suggested prices */}
+          <div className="max-h-[220px] overflow-y-auto pr-0.5 space-y-1">
+            {lots.length > 0 ? (
+              <>
+                <div className="text-[10px] text-gray-500 font-medium uppercase tracking-wide mb-1.5">
+                  Your inventory ({lots.length} lot{lots.length !== 1 ? "s" : ""})
+                </div>
+                {lots.map((lot) => {
+                  const lotKey = `${lot.colorId ?? "null"}_${lot.newOrUsed}`;
+                  const lotPd = lotPriceData[lotKey];
+                  const suggestedPrice = lotPd?.suggestedPrice;
+                  const status = suggestedPrice ? getPricingStatus(lot.unitPrice, suggestedPrice) : null;
+
+                  return (
+                    <div
+                      key={lot.id}
+                      className="flex items-center justify-between gap-2 px-2.5 py-2 rounded bg-gray-800/50 border border-gray-700/30"
+                    >
+                      {/* Color + condition */}
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        {lot.colorRgb ? (
+                          <span
+                            className="w-2.5 h-2.5 rounded-full flex-shrink-0 border border-gray-600"
+                            style={{ backgroundColor: `#${lot.colorRgb}` }}
+                          />
+                        ) : (
+                          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-gray-600" />
+                        )}
+                        <span className="text-xs text-gray-200 truncate">{lot.colorName || "N/A"}</span>
+                        <span className="text-[10px] text-gray-500 flex-shrink-0">
+                          {lot.newOrUsed === "N" ? "New" : "Used"} · {lot.quantity}×
+                        </span>
+                      </div>
+
+                      {/* Prices + status */}
+                      <div className="flex items-center gap-2 flex-shrink-0 text-xs font-mono">
+                        <span className="text-gray-300">
+                          {lot.unitPrice ? formatCurrency(lot.unitPrice) : "—"}
+                        </span>
+                        {suggestedPrice && (
+                          <>
+                            <span className="text-gray-600">→</span>
+                            <span className="text-green-400 font-semibold">
+                              {formatCurrency(suggestedPrice)}
+                            </span>
+                            {status === "too-high" && (
+                              <TrendingDown className="w-3 h-3 text-red-400 flex-shrink-0" />
+                            )}
+                            {status === "too-low" && (
+                              <TrendingUp className="w-3 h-3 text-yellow-400 flex-shrink-0" />
+                            )}
+                            {status === "good" && (
+                              <CheckCircle className="w-3 h-3 text-green-500 flex-shrink-0" />
+                            )}
+                          </>
+                        )}
+                        {!suggestedPrice && lotPd === undefined && (
+                          <RefreshCw className="w-3 h-3 text-gray-600 animate-spin flex-shrink-0" />
+                        )}
+                      </div>
                     </div>
-                    <span className="text-gray-200 font-mono font-medium">
-                      {lot.unitPrice ? formatCurrency(lot.unitPrice) : "—"}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
+              </>
+            ) : (
+              <div className="text-[11px] text-gray-600 flex items-center gap-1.5">
+                <Package className="w-3 h-3" />
+                Not currently in your inventory
               </div>
-            </div>
-          ) : (
-            <div className="text-[11px] text-gray-600 flex items-center gap-1.5">
-              <Package className="w-3 h-3" />
-              Not currently in your inventory
-            </div>
-          )}
+            )}
+          </div>
         </div>
       )}
     </div>
