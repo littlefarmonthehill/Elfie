@@ -8,7 +8,7 @@ import { syncBrickLinkToBrickOwl } from "./services/brickowl";
 import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBackup } from "./services/export";
 import { getProcessedPartImage, processImageFromUrl } from "./services/image-proxy";
 import { db } from "./db";
-import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, setPartRelationships, blForumPosts } from "@shared/schema";
+import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema } from "@shared/schema";
 import { eq, desc, sql, inArray, like, or, and, isNotNull } from "drizzle-orm";
 import { z } from "zod";
 import multer from "multer";
@@ -751,6 +751,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Fetch order items
       const items = await db.select().from(orderDetails).where(eq(orderDetails.orderId, orderId));
 
+      // Fetch adjustments (refunds, credits)
+      const adjustments = await db
+        .select()
+        .from(orderAdjustments)
+        .where(eq(orderAdjustments.orderId, orderId))
+        .orderBy(orderAdjustments.createdAt);
+
       // Fetch most recent shipment for tracking number
       const [shipment] = await db
         .select({ trackingNumber: shipments.trackingNumber, labelUrl: shipments.labelUrl, carrier: shipments.carrier, service: shipments.service })
@@ -825,6 +832,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         shippingCarrier: shipment?.carrier || undefined,
         shippingService: shipment?.service || undefined,
         isRepeatCustomer: isRepeatCustomer,
+        adjustments: adjustments.map(a => ({
+          id: a.id,
+          type: a.type,
+          amount: Number(a.amount),
+          paymentMethod: a.paymentMethod,
+          externalTransactionId: a.externalTransactionId,
+          reason: a.reason,
+          notes: a.notes,
+          createdAt: a.createdAt.toISOString(),
+        })),
         previousOrders: allCustomerOrders
           .filter(o => o.id !== orderId) // Exclude current order from previous orders
           .map(o => ({
@@ -924,6 +941,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ 
         error: error instanceof Error ? error.message : "Failed to adjust inventory" 
       });
+    }
+  });
+
+  // Order Adjustments - CRUD
+  app.get("/api/orders/:id/adjustments", isApproved, async (req, res) => {
+    try {
+      const adjustments = await db
+        .select()
+        .from(orderAdjustments)
+        .where(eq(orderAdjustments.orderId, req.params.id))
+        .orderBy(orderAdjustments.createdAt);
+      res.json(adjustments);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch adjustments" });
+    }
+  });
+
+  app.post("/api/orders/:id/adjustments", isApproved, async (req, res) => {
+    try {
+      const parsed = insertOrderAdjustmentSchema.safeParse({
+        ...req.body,
+        orderId: req.params.id,
+      });
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.flatten() });
+      }
+      const [adj] = await db.insert(orderAdjustments).values(parsed.data).returning();
+      res.json(adj);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to create adjustment" });
+    }
+  });
+
+  app.delete("/api/orders/:orderId/adjustments/:adjustmentId", isApproved, async (req, res) => {
+    try {
+      await db
+        .delete(orderAdjustments)
+        .where(
+          and(
+            eq(orderAdjustments.id, req.params.adjustmentId),
+            eq(orderAdjustments.orderId, req.params.orderId)
+          )
+        );
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to delete adjustment" });
+    }
+  });
+
+  // Stripe Refund Sync
+  app.post("/api/stripe/sync-refunds", isApproved, async (req, res) => {
+    try {
+      const { sinceDays = 90 } = req.body;
+      const { syncStripeRefunds } = await import('./services/stripe-refunds');
+      const result = await syncStripeRefunds(sinceDays);
+      console.log(`✅ Stripe refund sync: ${result.matched} matched, ${result.alreadySynced} already synced, ${result.unmatched} unmatched`);
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error syncing Stripe refunds:", error);
+      res.status(500).json({ error: error.message || "Failed to sync Stripe refunds" });
+    }
+  });
+
+  app.get("/api/stripe/refunds", isApproved, async (req, res) => {
+    try {
+      const { fetchStripeRefunds } = await import('./services/stripe-refunds');
+      const sinceDays = req.query.days ? Number(req.query.days) : 30;
+      const refunds = await fetchStripeRefunds(sinceDays);
+      res.json(refunds);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to fetch Stripe refunds" });
     }
   });
 

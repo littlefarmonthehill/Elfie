@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Package, DollarSign, User, MapPin, Calendar, Truck, RefreshCcw, Pencil, X, Save, Weight } from "lucide-react";
+import { Package, DollarSign, User, MapPin, Calendar, Truck, RefreshCcw, Pencil, X, Save, Weight, RotateCcw, CreditCard } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,6 +46,16 @@ interface OrderDetailProps {
     shippingService?: string;
     weight?: number | null;
     weightUnits?: string;
+    adjustments?: Array<{
+      id: string;
+      type: string;
+      amount: number;
+      paymentMethod?: string | null;
+      externalTransactionId?: string | null;
+      reason?: string | null;
+      notes?: string | null;
+      createdAt: string;
+    }>;
     isRepeatCustomer?: boolean;
     previousOrders?: Array<{
       orderId: string;
@@ -156,6 +166,9 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
   const shipping = data.shipping ?? 0;
   const tax = data.tax ?? 0;
   const total = data.total ?? 0;
+  const adjustmentsTotal = (data.adjustments ?? []).reduce((sum, a) => sum + a.amount, 0);
+  const netTotal = total + adjustmentsTotal;
+  const hasAdjustments = (data.adjustments ?? []).length > 0;
 
   const allCustomerOrders = data.previousOrders ? [
     {
@@ -429,6 +442,24 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
               <span className="text-gray-400">Tax</span>
               <span className="font-mono text-white">${tax.toFixed(2)}</span>
             </div>
+            {hasAdjustments && (
+              <div className="pt-1 mt-1 border-t border-lego-red/30 space-y-1">
+                {data.adjustments!.map(adj => (
+                  <div key={adj.id} className="flex justify-between items-center gap-1">
+                    <span className="text-lego-red flex items-center gap-1 min-w-0">
+                      <RotateCcw className="h-2.5 w-2.5 flex-shrink-0" />
+                      <span className="truncate">{adj.reason || 'Refund'}</span>
+                      {adj.paymentMethod && (
+                        <Badge className="text-[8px] h-3 px-1 bg-lego-red/20 text-lego-red border-lego-red/30 ml-1">
+                          {adj.paymentMethod}
+                        </Badge>
+                      )}
+                    </span>
+                    <span className="font-mono text-lego-red flex-shrink-0">${adj.amount.toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
             {(data.weight != null) && !isEditing && (
               <div className="flex justify-between pt-1 border-t border-gray-700 mt-1">
                 <span className="text-gray-400 flex items-center gap-1">
@@ -440,9 +471,20 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-lego-green/20 to-lego-green/5 border-2 border-lego-green/50 rounded-lg p-3 flex flex-col justify-center items-center">
-          <span className="text-[9px] md:text-xs font-bold text-gray-400 mb-1">ORDER TOTAL</span>
-          <span className="text-2xl md:text-3xl font-black font-mono text-lego-green leading-none">${total.toFixed(2)}</span>
+        <div className={`rounded-lg p-3 flex flex-col justify-center items-center ${hasAdjustments ? 'bg-gradient-to-br from-lego-red/20 to-lego-red/5 border-2 border-lego-red/50' : 'bg-gradient-to-br from-lego-green/20 to-lego-green/5 border-2 border-lego-green/50'}`}>
+          {hasAdjustments ? (
+            <>
+              <span className="text-[9px] md:text-xs font-bold text-gray-400 mb-0.5">ORIGINAL</span>
+              <span className="text-sm font-mono text-gray-400 line-through leading-none mb-1">${total.toFixed(2)}</span>
+              <span className="text-[9px] md:text-xs font-bold text-lego-red mb-0.5">NET AFTER REFUND</span>
+              <span className="text-2xl md:text-3xl font-black font-mono text-lego-red leading-none">${netTotal.toFixed(2)}</span>
+            </>
+          ) : (
+            <>
+              <span className="text-[9px] md:text-xs font-bold text-gray-400 mb-1">ORDER TOTAL</span>
+              <span className="text-2xl md:text-3xl font-black font-mono text-lego-green leading-none">${total.toFixed(2)}</span>
+            </>
+          )}
         </div>
       </div>
 
