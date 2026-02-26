@@ -4324,7 +4324,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
   // Spot Price Lookup — any part number, in or out of inventory
   app.get("/api/pom/spot-lookup", isApproved, async (req, res) => {
     try {
-      const { partNo, itemType = 'P', colorId, newOrUsed = 'N' } = req.query;
+      const { partNo, itemType = 'P', colorId, newOrUsed = 'N', forceRefresh } = req.query;
 
       if (!partNo || typeof partNo !== 'string' || !partNo.trim()) {
         return res.status(400).json({ error: "partNo is required" });
@@ -4333,6 +4333,17 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       const partNoClean = partNo.trim().toUpperCase();
       const config = await getPomFormulaConfig();
       const colorIdNum = colorId ? parseInt(colorId as string) : undefined;
+
+      // If forceRefresh=true, delete any cached entry so fetchPriceOMagicData makes fresh API calls
+      if (forceRefresh === 'true') {
+        const { priceGuideCache: pgc } = await import("@shared/schema");
+        await db.delete(pgc).where(and(
+          eq(pgc.itemNo, partNoClean),
+          eq(pgc.itemType, itemType as string),
+          colorIdNum ? eq(pgc.colorId, colorIdNum) : sql`${pgc.colorId} IS NULL`,
+          eq(pgc.newOrUsed, newOrUsed as string)
+        ));
+      }
 
       // Market demand & supply signals come from the BL price guide API inside fetchPriceOMagicData.
       // No local velocity pre-computation needed.
@@ -5494,6 +5505,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
           itemNo: item.itemNo,
           itemName: item.itemName,
           itemType: item.itemType,
+          colorId: item.colorId,
           colorName: item.colorName,
           newOrUsed: item.newOrUsed,
           currentPrice: item.currentPrice,

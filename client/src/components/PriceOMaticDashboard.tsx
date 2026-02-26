@@ -35,6 +35,7 @@ interface PricingInsight {
   itemNo: string;
   itemName: string | null;
   itemType: string;
+  colorId: number | null;
   colorName: string | null;
   newOrUsed: string;
   currentPrice: string;
@@ -68,6 +69,33 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
   const { toast } = useToast();
   const [selectedCategory, setSelectedCategory] = useState<'too-high' | 'too-low' | 'good'>('too-high');
   const [itemsToShow, setItemsToShow] = useState(50);
+  const [refreshingItems, setRefreshingItems] = useState<Set<number>>(new Set());
+
+  const refreshItemMutation = useMutation({
+    mutationFn: async (item: { itemNo: string; itemType: string; colorId: number | null; newOrUsed: string; inventoryId: number }) => {
+      const params = new URLSearchParams({
+        partNo: item.itemNo,
+        itemType: item.itemType,
+        newOrUsed: item.newOrUsed,
+        forceRefresh: 'true',
+      });
+      if (item.colorId != null) params.set('colorId', item.colorId.toString());
+      return await apiRequest("GET", `/api/pom/spot-lookup?${params}`);
+    },
+    onMutate: (item) => {
+      setRefreshingItems(prev => new Set([...prev, item.inventoryId]));
+    },
+    onSettled: (_data, _err, item) => {
+      setRefreshingItems(prev => { const next = new Set(prev); next.delete(item.inventoryId); return next; });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/priceomatic/insights'] });
+      toast({ title: "Refreshed", description: "Price data updated from BrickLink" });
+    },
+    onError: () => {
+      toast({ title: "Refresh failed", description: "Could not reach BrickLink", variant: "destructive" });
+    },
+  });
 
   // Fetch sync status
   const { data: syncStatus } = useQuery<{ success: boolean; data: SyncStatus }>({
@@ -171,7 +199,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
             <PopoverContent side="bottom" align="end" className="w-80 bg-gray-900 border-gray-700 p-3">
               <h3 className="text-xs font-bold text-purple-400 mb-2">How It Works</h3>
               <ul className="text-xs text-gray-300 space-y-1.5">
-                <li>• Fetches item details, avg listed (stock) + avg sold price guides from BrickLink — 3 API calls per item</li>
+                <li>• Fetches item details, avg listed price + <strong className="text-purple-300">85th-percentile sold price</strong> from BrickLink — 3 API calls per item. The 85th percentile filters cheap outlier sales for a truer market reference.</li>
                 <li>• Applies your premium formula (Settings) to compute a suggested price, then applies cost floor and minimum price if configured</li>
                 <li>• Processes up to <strong className="text-white">{batchSize.toLocaleString()}</strong> stale items per run — all tiers compete fairly, T1 items go first only within the stale pool</li>
                 <li>• <strong className="text-red-300">{tooHighPct}%+ above suggested</strong> = Too High (losing sales to cheaper competitors)</li>
@@ -352,8 +380,8 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
                     <TooltipTrigger asChild>
                       <Info className="w-2.5 h-2.5 text-gray-600 cursor-help" />
                     </TooltipTrigger>
-                    <TooltipContent side="top" className="max-w-56 text-xs">
-                      Suggested price = BrickLink avg price × (1 + base premium% + scarcity bonus%). Adjust your formula in Settings → Price-o-Matic.
+                    <TooltipContent side="top" className="max-w-64 text-xs">
+                      Suggested price uses BrickLink avg listed price and 85th-percentile sold price, then applies your premium formula (base %, scarcity tiers, market dynamics). Adjust in Settings → Price-o-Matic.
                     </TooltipContent>
                   </Tooltip>
                   <p className="text-[9px] uppercase tracking-wider text-gray-600">Suggested</p>
@@ -384,7 +412,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
                 <div
                   key={item.inventoryId}
                   onClick={() => onItemClick?.('inventory', item.inventoryId)}
-                  className="bg-gray-900/50 border border-gray-700 rounded-lg p-1.5 hover-elevate active-elevate-2 cursor-pointer"
+                  className="group bg-gray-900/50 border border-gray-700 rounded-lg p-1.5 hover-elevate active-elevate-2 cursor-pointer"
                   data-testid={`item-${item.inventoryId}`}
                 >
                   <div className="flex items-center justify-between gap-2">
@@ -404,6 +432,30 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
                       </div>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              refreshItemMutation.mutate({
+                                inventoryId: item.inventoryId,
+                                itemNo: item.itemNo,
+                                itemType: item.itemType,
+                                colorId: item.colorId,
+                                newOrUsed: item.newOrUsed,
+                              });
+                            }}
+                            disabled={refreshingItems.has(item.inventoryId)}
+                            className="invisible group-hover:visible text-gray-500 hover:text-purple-400 disabled:text-gray-600 transition-colors p-0.5 flex-shrink-0"
+                            data-testid={`button-refresh-item-${item.inventoryId}`}
+                          >
+                            <RefreshCw className={`w-3 h-3 ${refreshingItems.has(item.inventoryId) ? 'animate-spin text-purple-400' : ''}`} />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="left" className="text-xs">
+                          Refresh BrickLink price data for this item (3 API calls)
+                        </TooltipContent>
+                      </Tooltip>
                       <div className="w-16 text-right">
                         <p className="text-[10px] md:text-sm font-mono text-white">{formatCurrency(item.currentPrice)}</p>
                       </div>

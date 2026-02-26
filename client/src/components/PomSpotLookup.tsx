@@ -208,7 +208,7 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
 
       {/* Results */}
       {pd && (
-        <div className="mt-3 space-y-2 border-t border-gray-700/50 pt-3">
+        <div className="mt-3 space-y-2 border-t border-gray-700/50 pt-3 max-h-[260px] overflow-y-auto pr-1">
           {/* Part identity */}
           <div className="flex items-start gap-2.5">
             {pd.thumbnailUrl ? (
@@ -250,7 +250,7 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
               </span>
             </div>
             <div className="flex justify-between gap-2">
-              <span className="text-gray-400">Avg Sold</span>
+              <span className="text-gray-400">Sold P85</span>
               <span className="text-gray-200 font-mono">
                 {pd.soldAvgPrice ? formatCurrency(pd.soldAvgPrice) : "—"}
               </span>
