@@ -1697,10 +1697,10 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                 {/* Base Premium */}
                 <div className="rounded-md border border-gray-700/60 overflow-hidden">
                   <div className="bg-gray-800/50 px-4 py-2.5 flex items-center gap-1.5 border-b border-gray-700/40">
-                    <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Base Premium</h4>
+                    <h4 className="text-xs font-semibold text-gray-200 uppercase tracking-wider">Base Premium</h4>
                     <Popover>
                       <PopoverTrigger asChild>
-                        <button className="text-gray-600 hover:text-gray-400 flex items-center transition-colors">
+                        <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
                           <Info className="w-3.5 h-3.5" />
                         </button>
                       </PopoverTrigger>
@@ -1715,7 +1715,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                         <Label className="text-sm text-gray-200">Parts Premium</Label>
                         <Popover>
                           <PopoverTrigger asChild>
-                            <button className="text-gray-600 hover:text-gray-400 flex items-center transition-colors">
+                            <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
                               <Info className="w-3.5 h-3.5" />
                             </button>
                           </PopoverTrigger>
@@ -1734,7 +1734,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                         <Label className="text-sm text-gray-200">Minifigure Premium</Label>
                         <Popover>
                           <PopoverTrigger asChild>
-                            <button className="text-gray-600 hover:text-gray-400 flex items-center transition-colors">
+                            <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
                               <Info className="w-3.5 h-3.5" />
                             </button>
                           </PopoverTrigger>
@@ -1754,10 +1754,10 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                 {/* Scarcity Bonuses */}
                 <div className="rounded-md border border-gray-700/60 overflow-hidden">
                   <div className="bg-gray-800/50 px-4 py-2.5 flex items-center gap-1.5 border-b border-gray-700/40">
-                    <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Scarcity Bonuses</h4>
+                    <h4 className="text-xs font-semibold text-gray-200 uppercase tracking-wider">Scarcity Bonuses</h4>
                     <Popover>
                       <PopoverTrigger asChild>
-                        <button className="text-gray-600 hover:text-gray-400 flex items-center transition-colors">
+                        <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
                           <Info className="w-3.5 h-3.5" />
                         </button>
                       </PopoverTrigger>
@@ -1768,40 +1768,40 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                   </div>
                   <div className="px-4">
                     <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-2 border-b border-gray-700/40">
-                      <span className="text-[10px] font-semibold text-gray-600 uppercase tracking-wider">Supply Level</span>
-                      <span className="text-[10px] font-semibold text-gray-600 uppercase tracking-wider text-right">Under</span>
+                      <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Supply Level</span>
+                      <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider text-right">Under</span>
                       <span className="w-6"></span>
-                      <span className="text-[10px] font-semibold text-gray-600 uppercase tracking-wider text-right">Bonus</span>
+                      <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider text-right">Bonus</span>
                       <span className="w-4"></span>
                     </div>
                     <div className="divide-y divide-gray-700/30">
                       <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-3">
                         <span className="text-sm font-medium text-orange-300">Very Low</span>
                         <Input type="number" min={1} value={pomScarcityThreshold1} onChange={(e) => setPomScarcityThreshold1(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityThreshold1 })} className="text-sm w-20 text-right" data-testid="input-pom-threshold1" />
-                        <span className="text-xs text-gray-500">lots</span>
+                        <span className="text-xs text-gray-300">lots</span>
                         <Input type="number" min={0} max={200} value={pomScarcityBonus1} onChange={(e) => setPomScarcityBonus1(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityBonus1 })} className="text-sm w-20 text-right" data-testid="input-pom-bonus1" />
                         <span className="text-xs text-gray-400">%</span>
                       </div>
                       <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-3">
                         <span className="text-sm font-medium text-yellow-300">Low</span>
                         <Input type="number" min={1} value={pomScarcityThreshold2} onChange={(e) => setPomScarcityThreshold2(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityThreshold2 })} className="text-sm w-20 text-right" data-testid="input-pom-threshold2" />
-                        <span className="text-xs text-gray-500">lots</span>
+                        <span className="text-xs text-gray-300">lots</span>
                         <Input type="number" min={0} max={200} value={pomScarcityBonus2} onChange={(e) => setPomScarcityBonus2(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityBonus2 })} className="text-sm w-20 text-right" data-testid="input-pom-bonus2" />
                         <span className="text-xs text-gray-400">%</span>
                       </div>
                       <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-3">
                         <span className="text-sm font-medium text-blue-300">Medium</span>
                         <Input type="number" min={1} value={pomScarcityThreshold3} onChange={(e) => setPomScarcityThreshold3(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityThreshold3 })} className="text-sm w-20 text-right" data-testid="input-pom-threshold3" />
-                        <span className="text-xs text-gray-500">lots</span>
+                        <span className="text-xs text-gray-300">lots</span>
                         <Input type="number" min={0} max={200} value={pomScarcityBonus3} onChange={(e) => setPomScarcityBonus3(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityBonus3 })} className="text-sm w-20 text-right" data-testid="input-pom-bonus3" />
                         <span className="text-xs text-gray-400">%</span>
                       </div>
                       <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-3">
-                        <span className="text-sm font-medium text-gray-500">High</span>
-                        <span className="text-sm text-gray-600 text-right">{pomScarcityThreshold3}+</span>
-                        <span className="text-xs text-gray-600">lots</span>
-                        <span className="text-sm text-gray-600 w-20 text-right">—</span>
-                        <span className="text-xs text-gray-600">%</span>
+                        <span className="text-sm font-medium text-gray-300">High</span>
+                        <span className="text-sm text-gray-400 text-right">{pomScarcityThreshold3}+</span>
+                        <span className="text-xs text-gray-400">lots</span>
+                        <span className="text-sm text-gray-400 w-20 text-right">—</span>
+                        <span className="text-xs text-gray-400">%</span>
                       </div>
                     </div>
                   </div>
@@ -1810,10 +1810,10 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                 {/* Formula Preview */}
                 <div className="bg-gray-900/60 rounded-md border border-gray-700/40 px-4 py-3">
                   <div className="flex items-center gap-1.5 mb-2.5">
-                    <h4 className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Formula Preview</h4>
+                    <h4 className="text-[10px] font-semibold text-gray-300 uppercase tracking-wider">Formula Preview</h4>
                     <Popover>
                       <PopoverTrigger asChild>
-                        <button className="text-gray-600 hover:text-gray-400 flex items-center transition-colors">
+                        <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
                           <Info className="w-3 h-3" />
                         </button>
                       </PopoverTrigger>
@@ -1835,7 +1835,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                       </div>
                     ))}
                     <div className="border-t border-gray-700/50 pt-1.5 mt-0.5">
-                      <span className="text-gray-600">Base input: $0.10 avg price</span>
+                      <span className="text-gray-400">Base input: $0.10 avg price</span>
                     </div>
                   </div>
                 </div>
@@ -1843,10 +1843,10 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                 {/* Price Floors */}
                 <div className="rounded-md border border-gray-700/60 overflow-hidden">
                   <div className="bg-gray-800/50 px-4 py-2.5 flex items-center gap-1.5 border-b border-gray-700/40">
-                    <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Price Floors</h4>
+                    <h4 className="text-xs font-semibold text-gray-200 uppercase tracking-wider">Price Floors</h4>
                     <Popover>
                       <PopoverTrigger asChild>
-                        <button className="text-gray-600 hover:text-gray-400 flex items-center transition-colors">
+                        <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
                           <Info className="w-3.5 h-3.5" />
                         </button>
                       </PopoverTrigger>
@@ -1861,7 +1861,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                         <Label className="text-sm text-gray-200">Cost Floor</Label>
                         <Popover>
                           <PopoverTrigger asChild>
-                            <button className="text-gray-600 hover:text-gray-400 flex items-center transition-colors">
+                            <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
                               <Info className="w-3.5 h-3.5" />
                             </button>
                           </PopoverTrigger>
@@ -1880,7 +1880,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                         <Label className="text-sm text-gray-200">Minimum Price</Label>
                         <Popover>
                           <PopoverTrigger asChild>
-                            <button className="text-gray-600 hover:text-gray-400 flex items-center transition-colors">
+                            <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
                               <Info className="w-3.5 h-3.5" />
                             </button>
                           </PopoverTrigger>
@@ -1900,10 +1900,10 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                 {/* Flag Thresholds */}
                 <div className="rounded-md border border-gray-700/60 overflow-hidden">
                   <div className="bg-gray-800/50 px-4 py-2.5 flex items-center gap-1.5 border-b border-gray-700/40">
-                    <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Flag Thresholds</h4>
+                    <h4 className="text-xs font-semibold text-gray-200 uppercase tracking-wider">Flag Thresholds</h4>
                     <Popover>
                       <PopoverTrigger asChild>
-                        <button className="text-gray-600 hover:text-gray-400 flex items-center transition-colors">
+                        <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
                           <Info className="w-3.5 h-3.5" />
                         </button>
                       </PopoverTrigger>
@@ -1918,7 +1918,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                         <Label className="text-sm text-red-300">Too High Flag</Label>
                         <Popover>
                           <PopoverTrigger asChild>
-                            <button className="text-gray-600 hover:text-gray-400 flex items-center transition-colors">
+                            <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
                               <Info className="w-3.5 h-3.5" />
                             </button>
                           </PopoverTrigger>
@@ -1928,7 +1928,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                         </Popover>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-500">more than</span>
+                        <span className="text-xs text-gray-300">more than</span>
                         <Input type="number" min={1} max={200} value={pomTooHighThreshold} onChange={(e) => setPomTooHighThreshold(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomTooHighThreshold })} className="text-sm w-20 text-right" data-testid="input-pom-too-high" />
                         <span className="text-xs text-gray-400 w-14">% above</span>
                       </div>
@@ -1938,7 +1938,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                         <Label className="text-sm text-yellow-300">Too Low Flag</Label>
                         <Popover>
                           <PopoverTrigger asChild>
-                            <button className="text-gray-600 hover:text-gray-400 flex items-center transition-colors">
+                            <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
                               <Info className="w-3.5 h-3.5" />
                             </button>
                           </PopoverTrigger>
@@ -1948,7 +1948,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                         </Popover>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-500">more than</span>
+                        <span className="text-xs text-gray-300">more than</span>
                         <Input type="number" min={1} max={200} value={pomTooLowThreshold} onChange={(e) => setPomTooLowThreshold(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomTooLowThreshold })} className="text-sm w-20 text-right" data-testid="input-pom-too-low" />
                         <span className="text-xs text-gray-400 w-14">% below</span>
                       </div>
@@ -1959,10 +1959,10 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                 {/* Sync Limits */}
                 <div className="rounded-md border border-gray-700/60 overflow-hidden">
                   <div className="bg-gray-800/50 px-4 py-2.5 flex items-center gap-1.5 border-b border-gray-700/40">
-                    <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Sync Limits</h4>
+                    <h4 className="text-xs font-semibold text-gray-200 uppercase tracking-wider">Sync Limits</h4>
                     <Popover>
                       <PopoverTrigger asChild>
-                        <button className="text-gray-600 hover:text-gray-400 flex items-center transition-colors">
+                        <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
                           <Info className="w-3.5 h-3.5" />
                         </button>
                       </PopoverTrigger>
@@ -1977,7 +1977,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                         <Label className="text-sm text-gray-200">Batch Size</Label>
                         <Popover>
                           <PopoverTrigger asChild>
-                            <button className="text-gray-600 hover:text-gray-400 flex items-center transition-colors">
+                            <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
                               <Info className="w-3.5 h-3.5" />
                             </button>
                           </PopoverTrigger>
@@ -1996,7 +1996,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                         <Label className="text-sm text-gray-200">Daily API Ceiling</Label>
                         <Popover>
                           <PopoverTrigger asChild>
-                            <button className="text-gray-600 hover:text-gray-400 flex items-center transition-colors">
+                            <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
                               <Info className="w-3.5 h-3.5" />
                             </button>
                           </PopoverTrigger>
@@ -2020,7 +2020,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                     <h3 className="text-sm font-medium text-gray-300">Category Tier Assignments</h3>
                     <Popover>
                       <PopoverTrigger asChild>
-                        <button className="text-gray-600 hover:text-gray-400 flex items-center transition-colors">
+                        <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
                           <Info className="w-3.5 h-3.5" />
                         </button>
                       </PopoverTrigger>
@@ -2039,7 +2039,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                       <Label className="text-sm font-medium text-red-300">Clear Price Guide Cache</Label>
                       <Popover>
                         <PopoverTrigger asChild>
-                          <button className="text-gray-600 hover:text-gray-400 flex items-center transition-colors">
+                          <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
                             <Info className="w-3.5 h-3.5" />
                           </button>
                         </PopoverTrigger>
