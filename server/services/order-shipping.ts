@@ -56,7 +56,7 @@ async function buildInternationalShipping(
 
   const customsInfo: CustomsInfo = {
     contentsType: 'merchandise',
-    contentsExplanation: 'LEGO plastic brick parts',
+    contentsExplanation: 'Plastic toy parts',
     eelPfc,
     customsCertify: true,
     customsSigner: signer,
@@ -64,7 +64,7 @@ async function buildInternationalShipping(
     restrictionType: 'none',
     items: [
       {
-        description: 'LEGO plastic brick parts',
+        description: 'Plastic toy parts',
         quantity: Math.max(totalQty, 1),
         weight: Math.max(Math.round(totalWeightOz), 1),
         value: Math.max(itemSubtotal, 0.01),
