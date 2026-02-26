@@ -1,19 +1,18 @@
 import { db } from "../db";
 import { blInventory, orders, orderDetails } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
-import { shouldAdjustInventory } from "../config/order-status-mapping";
-import { syncMultipleItemsAcrossPlatforms } from "./cross-platform-sync";
+import { syncMultipleItemsAcrossPlatforms, SyncItem } from "./cross-platform-sync";
 
 /**
- * Adjust inventory based on order status change
- * 
- * This service implements the critical inventory logic:
- * - Reduce inventory ONLY when order ships (any status → 'shipped')
- * - Restore inventory ONLY when shipped order is cancelled/returned ('shipped' → 'cancelled'/'returned')
- * - No adjustment for orders cancelled before shipping
+ * Adjust inventory based on order state.
+ *
+ * New timing rules:
+ * - REDUCE inventory immediately when an order arrives (any active status), not at ship time.
+ * - RESTORE inventory when an order is cancelled or returned (regardless of ship status).
+ * - The `inventoryDeducted` flag on the order prevents double-adjustment.
+ * - The source platform is excluded from cross-platform sync; all others are updated.
  */
 export async function adjustInventoryForOrder(orderId: string) {
-  // Get order with current and previous status
   const [order] = await db
     .select()
     .from(orders)
@@ -24,30 +23,34 @@ export async function adjustInventoryForOrder(orderId: string) {
     throw new Error(`Order ${orderId} not found`);
   }
 
-  // Check if inventory adjustment is needed
-  const { shouldAdjust, impact } = shouldAdjustInventory(
-    order.previousStatus || null,
-    order.orderStatus
-  );
+  const toStatus = order.orderStatus;
+  const isActive = !['cancelled', 'returned'].includes(toStatus);
+  const isCancelledOrReturned = toStatus === 'cancelled' || toStatus === 'returned';
 
-  if (!shouldAdjust) {
-    console.log(`No inventory adjustment needed for order ${orderId}: ${order.previousStatus} → ${order.orderStatus}`);
+  let impact: 'reduce' | 'restore' | 'none' = 'none';
+
+  if (!order.inventoryDeducted && isActive) {
+    // First time we're seeing this order in an active state — reduce inventory now
+    impact = 'reduce';
+  } else if (order.inventoryDeducted && isCancelledOrReturned) {
+    // Inventory was previously deducted and now the order is cancelled/returned — restore it
+    impact = 'restore';
+  } else {
+    console.log(`No inventory adjustment needed for order ${orderId}: status=${toStatus}, inventoryDeducted=${order.inventoryDeducted}`);
     return {
       adjusted: false,
-      reason: `No adjustment needed for status change: ${order.previousStatus || 'new'} → ${order.orderStatus}`
+      reason: `No adjustment needed (status=${toStatus}, inventoryDeducted=${order.inventoryDeducted})`
     };
   }
 
-  // Get order line items with BrickLink inventory IDs
   const lineItems = await db
     .select()
     .from(orderDetails)
     .where(eq(orderDetails.orderId, orderId));
 
-  const adjustments: Array<{ inventoryId: number; quantity: number; action: string }> = [];
+  const adjustments: Array<{ inventoryId: number; quantityChange: number; action: string }> = [];
   const errors: Array<{ inventoryId: number | null; sku: string; error: string }> = [];
 
-  // Process each line item
   for (const item of lineItems) {
     if (!item.bricklinkInventoryId) {
       errors.push({
@@ -58,39 +61,29 @@ export async function adjustInventoryForOrder(orderId: string) {
       continue;
     }
 
-    const adjustmentQty = item.quantity;
-    
+    const qty = item.quantity;
+
     try {
       if (impact === 'reduce') {
-        // Reduce inventory when order ships
         await db
           .update(blInventory)
           .set({
-            quantity: sql`GREATEST(0, ${blInventory.quantity} - ${adjustmentQty})`, // Prevent negative inventory
+            quantity: sql`GREATEST(0, ${blInventory.quantity} - ${qty})`,
             updatedAt: new Date()
           })
           .where(eq(blInventory.id, item.bricklinkInventoryId));
 
-        adjustments.push({
-          inventoryId: item.bricklinkInventoryId,
-          quantity: adjustmentQty,
-          action: 'reduced'
-        });
+        adjustments.push({ inventoryId: item.bricklinkInventoryId, quantityChange: -qty, action: 'reduced' });
       } else if (impact === 'restore') {
-        // Restore inventory when shipped order is cancelled/returned
         await db
           .update(blInventory)
           .set({
-            quantity: sql`${blInventory.quantity} + ${adjustmentQty}`,
+            quantity: sql`${blInventory.quantity} + ${qty}`,
             updatedAt: new Date()
           })
           .where(eq(blInventory.id, item.bricklinkInventoryId));
 
-        adjustments.push({
-          inventoryId: item.bricklinkInventoryId,
-          quantity: adjustmentQty,
-          action: 'restored'
-        });
+        adjustments.push({ inventoryId: item.bricklinkInventoryId, quantityChange: qty, action: 'restored' });
       }
     } catch (error) {
       errors.push({
@@ -101,43 +94,49 @@ export async function adjustInventoryForOrder(orderId: string) {
     }
   }
 
+  // Update the inventoryDeducted flag on the order
+  await db
+    .update(orders)
+    .set({ inventoryDeducted: impact === 'reduce' })
+    .where(eq(orders.id, orderId));
+
   console.log(`📦 Inventory adjusted for order ${orderId}:`, {
-    statusChange: `${order.previousStatus || 'new'} → ${order.orderStatus}`,
+    status: toStatus,
     impact,
     adjustments: adjustments.length,
     errors: errors.length
   });
 
-  // Trigger cross-platform inventory sync for all adjusted items
-  // Fire-and-forget async - don't block order processing
+  // Cross-platform sync — fire-and-forget
   if (adjustments.length > 0) {
+    const sourcePlatform = order.marketplace || 'unknown';
+
     (async () => {
       try {
-        // Fetch updated quantities from database
-        const itemsToSync: Array<{ inventoryId: string; newQuantity: number }> = [];
-        
-        for (const adjustment of adjustments) {
+        const itemsToSync: SyncItem[] = [];
+
+        for (const adj of adjustments) {
           const [inventoryItem] = await db
             .select()
             .from(blInventory)
-            .where(eq(blInventory.id, adjustment.inventoryId))
+            .where(eq(blInventory.id, adj.inventoryId))
             .limit(1);
-          
+
           if (inventoryItem) {
             itemsToSync.push({
               inventoryId: inventoryItem.id.toString(),
-              newQuantity: inventoryItem.quantity,
+              newQuantity: inventoryItem.quantity,       // Absolute — for BrickOwl
+              quantityDelta: adj.quantityChange,          // Delta — for BrickLink
+              sourcePlatform,
             });
           }
         }
-        
-        // Sync to all platforms (BrickOwl, eBay, BigCommerce, Amazon, etc.)
+
         if (itemsToSync.length > 0) {
           await syncMultipleItemsAcrossPlatforms(itemsToSync);
         }
       } catch (error) {
         console.error(`⚠️ Cross-platform sync failed for order ${orderId}:`, error);
-        // Don't throw - sync failures should not block order processing
       }
     })();
   }
@@ -145,22 +144,16 @@ export async function adjustInventoryForOrder(orderId: string) {
   return {
     adjusted: true,
     impact,
-    statusChange: `${order.previousStatus || 'new'} → ${order.orderStatus}`,
+    status: toStatus,
     adjustments,
     errors
   };
 }
 
 /**
- * Update order status and trigger inventory adjustment
- * 
- * This function:
- * 1. Updates the order status
- * 2. Stores the previous status for transition tracking
- * 3. Triggers inventory adjustment based on status change
+ * Update order status and trigger inventory adjustment.
  */
 export async function updateOrderStatus(orderId: string, newStatus: string) {
-  // Get current order
   const [currentOrder] = await db
     .select()
     .from(orders)
@@ -171,18 +164,15 @@ export async function updateOrderStatus(orderId: string, newStatus: string) {
     throw new Error(`Order ${orderId} not found`);
   }
 
-  // Update order status and store previous status
   await db
     .update(orders)
     .set({
-      previousStatus: currentOrder.orderStatus, // Store current status as previous
+      previousStatus: currentOrder.orderStatus,
       orderStatus: newStatus,
       updatedAt: new Date()
     })
     .where(eq(orders.id, orderId));
 
-  // Adjust inventory based on status change
   const result = await adjustInventoryForOrder(orderId);
-
   return result;
 }

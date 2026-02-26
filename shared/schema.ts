@@ -181,6 +181,7 @@ export const orders = pgTable("orders", {
   packageHeight: decimal("package_height", { precision: 6, scale: 2 }), // inches
   localOnly: boolean("local_only").default(false).notNull(), // True for split orders that don't sync to platforms
   parentOrderId: varchar("parent_order_id"), // Reference to parent order if this is a split
+  inventoryDeducted: boolean("inventory_deducted").default(false).notNull(), // True once inventory has been reduced for this order
   syncedAt: timestamp("synced_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

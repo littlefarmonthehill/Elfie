@@ -243,27 +243,44 @@ async function bricklinkPutRequest(endpoint: string, body: any): Promise<{ data:
 }
 
 /**
- * Update BrickLink inventory quantity
+ * Adjust BrickLink inventory quantity using delta (relative) format.
+ * BrickLink's API uses "+N" / "-N" string deltas, NOT absolute values.
+ * Sending an absolute value would be treated as additive and inflate the qty.
+ *
  * @param inventoryId - BrickLink inventory ID (numeric from bl_inventory.id)
- * @param newQuantity - New quantity to set
+ * @param delta - Change in quantity: negative to reduce, positive to restore
+ */
+export async function adjustBrickLinkInventoryDelta(
+  inventoryId: number,
+  delta: number
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    if (delta === 0) return { success: true };
+    const deltaStr = delta > 0 ? `+${delta}` : `${delta}`;
+    console.log(`Adjusting BrickLink inventory ${inventoryId} by ${deltaStr}...`);
+    
+    await bricklinkPutRequest(`/inventories/${inventoryId}`, {
+      quantity: deltaStr,
+    });
+    
+    console.log(`✓ BrickLink: Adjusted inventory ${inventoryId} by ${deltaStr}`);
+    return { success: true };
+  } catch (error: any) {
+    console.error(`✗ BrickLink adjustment failed for inventory ${inventoryId}:`, error);
+    return { success: false, error: error.message || 'Unknown error' };
+  }
+}
+
+/**
+ * @deprecated Use adjustBrickLinkInventoryDelta instead.
+ * Left here in case any legacy callers reference it directly.
  */
 export async function updateBrickLinkInventoryQuantity(
   inventoryId: number,
   newQuantity: number
 ): Promise<{ success: boolean; error?: string }> {
-  try {
-    console.log(`Updating BrickLink inventory ${inventoryId} to quantity ${newQuantity}...`);
-    
-    await bricklinkPutRequest(`/inventories/${inventoryId}`, {
-      quantity: newQuantity,
-    });
-    
-    console.log(`✓ BrickLink: Updated inventory ${inventoryId} to quantity ${newQuantity}`);
-    return { success: true };
-  } catch (error: any) {
-    console.error(`✗ BrickLink update failed for inventory ${inventoryId}:`, error);
-    return { success: false, error: error.message || 'Unknown error' };
-  }
+  console.warn(`updateBrickLinkInventoryQuantity is deprecated. Use adjustBrickLinkInventoryDelta.`);
+  return { success: false, error: 'Deprecated: BrickLink requires delta adjustments, not absolute quantity.' };
 }
 
 /**

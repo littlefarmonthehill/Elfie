@@ -307,6 +307,8 @@ async function processBrickLinkOrder(
     result.ordersAdded++;
   }
   
+  const isNewOrder = !existingOrder;
+  
   // Fetch order items
   const blOrderItems = await getBrickLinkOrderItems(
     blOrder.order_id,
@@ -388,5 +390,13 @@ async function processBrickLinkOrder(
       console.error(`✗ Error processing order item for order ${orderId}:`, error);
       result.errors.push(`Order ${orderId} item error: ${error.message}`);
     }
+  }
+
+  // Trigger inventory adjustment for new orders after items are inserted
+  if (isNewOrder) {
+    console.log(`📦 New BrickLink order ${orderId} — triggering inventory adjustment`);
+    adjustInventoryForOrder(orderId).catch(error => {
+      console.error(`⚠️ Inventory adjustment failed for new order ${orderId}:`, error);
+    });
   }
 }

@@ -216,8 +216,10 @@ async function processBrickOwlOrder(
   // Safely parse order date - prefer ISO format from API
   const orderDate = safeTimestampToDate(boOrder.iso_order_time, boOrder.order_time);
   
+  let isNewOrder = false;
+
   // Only update/insert order if we have valid data AND order doesn't exist
-  // If order exists, we'll skip updating it but STILL process items for SKU migration
+  // If order exists, check for status changes
   if (!existingOrder && orderDate) {
     // Prepare order data for NEW orders only
     const orderData = {
@@ -254,9 +256,30 @@ async function processBrickOwlOrder(
     // Insert new order
     await db.insert(orders).values([orderData]);
     result.ordersAdded++;
+    isNewOrder = true;
   } else if (existingOrder) {
-    // Order exists - we'll process items but skip order update to avoid timestamp issues
     result.ordersUpdated++;
+
+    // Handle status changes on existing orders (e.g., BrickOwl marks as cancelled)
+    const statusChanged = existingOrder.orderStatus !== normalizedStatus;
+    // Don't demote a locally-shipped order
+    const isLocallyShipped = existingOrder.orderStatus === 'shipped';
+    const wouldDemote = isLocallyShipped && normalizedStatus !== 'shipped';
+    if (statusChanged && !wouldDemote) {
+      console.log(`📦 BrickOwl order ${effectiveOrderId} status changed: ${existingOrder.orderStatus} → ${normalizedStatus}`);
+      await db
+        .update(orders)
+        .set({
+          previousStatus: existingOrder.orderStatus,
+          orderStatus: normalizedStatus,
+          updatedAt: new Date(),
+        })
+        .where(eq(orders.id, effectiveOrderId));
+      
+      adjustInventoryForOrder(effectiveOrderId).catch(error => {
+        console.error(`⚠️ Inventory adjustment failed for BrickOwl order ${effectiveOrderId}:`, error);
+      });
+    }
   }
   
   // Process order items
@@ -331,5 +354,13 @@ async function processBrickOwlOrder(
       console.error(`✗ Error processing order item for order ${orderId}:`, error);
       result.errors.push(`Order ${orderId} item error: ${error.message}`);
     }
+  }
+
+  // Trigger inventory adjustment for new orders after items are inserted
+  if (isNewOrder) {
+    console.log(`📦 New BrickOwl order ${effectiveOrderId} — triggering inventory adjustment`);
+    adjustInventoryForOrder(effectiveOrderId).catch(error => {
+      console.error(`⚠️ Inventory adjustment failed for new BrickOwl order ${effectiveOrderId}:`, error);
+    });
   }
 }

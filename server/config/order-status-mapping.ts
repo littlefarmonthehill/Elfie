@@ -181,36 +181,28 @@ export function getInventoryImpact(normalizedStatus: string): InventoryImpact {
 }
 
 /**
- * Check if status transition requires inventory adjustment
- * 
- * Critical Logic:
- * - Reduce inventory ONLY when order ships (any status → 'shipped')
- * - Restore inventory ONLY when shipped order is cancelled/returned ('shipped' → 'cancelled'/'returned')
- * - No adjustment for cancelled orders that were never shipped (e.g., 'awaiting_shipment' → 'cancelled')
+ * Check if status transition requires inventory adjustment.
+ *
+ * NOTE: As of the "reduce-on-receipt" update, inventory is now managed via the
+ * `inventoryDeducted` flag on the order record rather than status transitions.
+ * See `server/services/inventory-adjustment.ts` for the current logic.
+ *
+ * This function is kept for reference and potential use in edge cases,
+ * but is no longer the primary decision-maker.
  */
 export function shouldAdjustInventory(
   fromStatus: string | null,
   toStatus: string
 ): { shouldAdjust: boolean; impact: InventoryImpact } {
-  const toImpact = getInventoryImpact(toStatus);
-  
-  // Case 1: Order is being shipped → Reduce inventory
-  // Only reduce if not already shipped (prevents double-reduction)
   if (toStatus === 'shipped' && fromStatus !== 'shipped') {
     return { shouldAdjust: true, impact: 'reduce' };
   }
-  
-  // Case 2: Order is cancelled or returned
   if (toStatus === 'cancelled' || toStatus === 'returned') {
-    // Only restore if order was previously shipped
     if (fromStatus === 'shipped') {
       return { shouldAdjust: true, impact: 'restore' };
     }
-    // If cancelled before shipping, no adjustment needed
     return { shouldAdjust: false, impact: 'none' };
   }
-  
-  // Case 3: All other status changes (delivered, on_hold, etc.)
   return { shouldAdjust: false, impact: 'none' };
 }
 
