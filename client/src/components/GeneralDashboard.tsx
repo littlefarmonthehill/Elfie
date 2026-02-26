@@ -103,9 +103,6 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment }: Gen
   return (
     <div className="p-2 md:p-4 lg:p-6 space-y-2 md:space-y-4 lg:space-y-6 bg-gradient-to-br from-lego-red/5 to-transparent rounded-lg border border-lego-red/10 shadow-[0_0_15px_rgba(239,68,68,0.1)]">
 
-      {/* Notifications */}
-      <DashboardNotifications />
-
       {/* Key Metrics */}
       <div className="grid grid-cols-2 gap-2 md:gap-3 lg:gap-4">
         <MetricCard 
@@ -144,6 +141,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment }: Gen
               {pendingCount > 0 ? pendingCount : '—'}
             </span>
           </div>
+          <DashboardNotifications />
         </div>
 
         {/* Top Pricing Opportunities */}

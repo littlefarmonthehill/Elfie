@@ -83,14 +83,13 @@ function CopyButton({ text }: { text: string }) {
 
   return (
     <Button
-      size="sm"
+      size="icon"
       variant="ghost"
       onClick={handleCopy}
       data-testid="button-copy-for-agent"
-      className="shrink-0 gap-1.5 text-xs text-muted-foreground"
+      title="Copy for Agent"
     >
-      {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-      {copied ? "Copied" : "Copy for Agent"}
+      {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
     </Button>
   );
 }
@@ -103,33 +102,51 @@ function IssueRow({ issue }: { issue: SyncIssue }) {
     low: "text-blue-400",
   };
 
+  const dismissMutation = useMutation({
+    mutationFn: () =>
+      apiRequest("PATCH", `/api/sync-issues/${issue.id}`, { status: "resolved", resolvedBy: "user" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sync-issues"] });
+    },
+  });
+
   return (
-    <div className="flex flex-col gap-1 py-3 border-b border-border/40 last:border-0" data-testid={`issue-row-${issue.id}`}>
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex-1 min-w-0">
-          <div className="flex flex-wrap items-center gap-1.5 mb-1">
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-              {issue.syncType.replace(/_/g, " ")}
-            </span>
-            <span className="text-[10px] text-muted-foreground">·</span>
-            <span className={`text-[10px] font-medium uppercase ${severityColor[issue.severity] ?? "text-muted-foreground"}`}>
-              {issue.severity}
-            </span>
-            <span className="text-[10px] text-muted-foreground">·</span>
-            <span className="text-[10px] text-muted-foreground">{issue.platform}</span>
-            {issue.itemNo && (
-              <>
-                <span className="text-[10px] text-muted-foreground">·</span>
-                <span className="text-[10px] font-mono text-muted-foreground">{issue.itemNo}</span>
-              </>
-            )}
-          </div>
-          <p className="text-xs leading-relaxed">{issue.issueDescription}</p>
-          <p className="text-[10px] text-muted-foreground mt-1">
-            {new Date(issue.createdAt).toLocaleString()}
-          </p>
+    <div className="flex items-start gap-2 py-3 border-b border-border/40 last:border-0" data-testid={`issue-row-${issue.id}`}>
+      <div className="flex-1 min-w-0">
+        <div className="flex flex-wrap items-center gap-1.5 mb-1">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            {issue.syncType.replace(/_/g, " ")}
+          </span>
+          <span className="text-[10px] text-muted-foreground">·</span>
+          <span className={`text-[10px] font-medium uppercase ${severityColor[issue.severity] ?? "text-muted-foreground"}`}>
+            {issue.severity}
+          </span>
+          <span className="text-[10px] text-muted-foreground">·</span>
+          <span className="text-[10px] text-muted-foreground">{issue.platform}</span>
+          {issue.itemNo && (
+            <>
+              <span className="text-[10px] text-muted-foreground">·</span>
+              <span className="text-[10px] font-mono text-muted-foreground">{issue.itemNo}</span>
+            </>
+          )}
         </div>
+        <p className="text-xs leading-relaxed">{issue.issueDescription}</p>
+        <p className="text-[10px] text-muted-foreground mt-1">
+          {new Date(issue.createdAt).toLocaleString()}
+        </p>
+      </div>
+      <div className="flex items-center shrink-0">
         <CopyButton text={formatForAgent(issue)} />
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={() => dismissMutation.mutate()}
+          disabled={dismissMutation.isPending}
+          data-testid={`button-dismiss-${issue.id}`}
+          title="Dismiss"
+        >
+          <X className="w-3.5 h-3.5" />
+        </Button>
       </div>
     </div>
   );
@@ -170,7 +187,7 @@ function GroupSheet({
               size="sm"
               variant="outline"
               onClick={() => clearMutation.mutate()}
-              disabled={clearMutation.isPending}
+              disabled={clearMutation.isPending || issues.length === 0}
               data-testid={`button-clear-group-${group.key}`}
             >
               {clearMutation.isPending ? "Clearing…" : "Clear all"}
@@ -221,26 +238,23 @@ export default function DashboardNotifications() {
 
   return (
     <>
-      <div className="space-y-1" data-testid="section-take-action">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground px-1 mb-2">
-          Take Action
-        </p>
+      <div className="mt-2 space-y-1" data-testid="section-sync-issues">
         {groupsWithIssues.map(({ group, issues: groupIssues }) => (
           <button
             key={group.key}
             onClick={() => setOpenGroup(group.key)}
-            className="w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-md text-left hover-elevate active-elevate-2 bg-orange-500/10 border border-orange-500/20 text-orange-200"
+            className="w-full flex items-center justify-between gap-3 px-2 py-2 rounded text-left hover-elevate active-elevate-2 text-orange-200"
             data-testid={`button-group-${group.key}`}
           >
             <div className="flex items-center gap-2">
-              <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-orange-400" />
-              <span className="text-xs font-medium">{group.label}</span>
+              <AlertTriangle className="w-3 h-3 md:w-3.5 md:h-3.5 shrink-0 text-orange-400" />
+              <span className="text-xs md:text-sm">{group.label}</span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <span className="text-xs text-orange-300/70">
                 {groupIssues.length} {groupIssues.length === 1 ? "issue" : "issues"}
               </span>
-              <ChevronRight className="w-3.5 h-3.5 text-orange-400/60" />
+              <ChevronRight className="w-3 h-3 text-orange-400/60" />
             </div>
           </button>
         ))}
