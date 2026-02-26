@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Package, ClipboardList, RefreshCw, ExternalLink, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { useAdminScaling } from "@/hooks/useAdminScaling";
 import Header from "@/components/Header";
 import DashboardNav, { DashboardType } from "@/components/DashboardNav";
 import SettingsModal from "@/components/SettingsModal";
@@ -18,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { ElfieCharacter } from "@/components/ElfieCharacter";
 
 export default function Home() {
+  useAdminScaling();
   const [activeDashboard, setActiveDashboard] = useState<DashboardType>('dashboard');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [salesPeriod, setSalesPeriod] = useState<'mtd' | 'ytd' | '1y' | '5y'>('ytd');

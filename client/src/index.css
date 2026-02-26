@@ -383,3 +383,21 @@
     height: calc(4rem + env(safe-area-inset-bottom));
   }
 }
+
+/*
+ * Admin ops fluid scaling — applied only when the admin/operations dashboard is mounted.
+ * Uses clamp() to smoothly scale the root font-size between small laptop and large desktop
+ * viewports. Because Tailwind uses rem for all text and spacing, this single rule scales
+ * the entire admin UI proportionally — no snapping, no breakpoints.
+ *
+ * Scaling range:
+ *   ≤ 900px viewport  → 14px  (87.5% of default — small laptop or zoomed display)
+ *   ~ 1280px viewport  → ~15.9px
+ *   ≥ 1440px viewport  → 16px  (100% — standard desktop)
+ *
+ * Public routes (showroom, events, deals, community) are never affected because
+ * the 'admin-mode' class is only added to <html> while the admin dashboard is mounted.
+ */
+html.admin-mode {
+  font-size: clamp(14px, 0.5vw + 9.5px, 16px);
+}
