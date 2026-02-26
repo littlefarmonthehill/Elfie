@@ -12,4 +12,15 @@ if (!process.env.DATABASE_URL) {
 }
 
 export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+pool.on('error', (err) => {
+  console.error('[DB] Pool idle client error (handled):', err.message);
+});
+
+// Keep the connection warm so WebSocket doesn't go idle and crash on reconnect
+setInterval(() => {
+  pool.query('SELECT 1').catch((err) => {
+    console.error('[DB] Keepalive query failed (handled):', err.message);
+  });
+}, 10000);
+
 export const db = drizzle({ client: pool, schema });

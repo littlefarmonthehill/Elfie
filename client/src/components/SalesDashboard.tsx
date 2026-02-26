@@ -115,6 +115,17 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
     staleTime: 60000,
   });
 
+  // Fetch per-order refund totals for chart deduction
+  const { data: refundsByOrder = {} } = useQuery<Record<string, number>>({
+    queryKey: ['/api/orders/adjustments/by-order', dateRange],
+    queryFn: async () => {
+      const response = await fetch(`/api/orders/adjustments/by-order?dateRange=${dateRange}`);
+      if (!response.ok) throw new Error('Failed to fetch per-order refunds');
+      return response.json();
+    },
+    staleTime: 60000,
+  });
+
   // Fetch orders filtered by product line and platform for the drawer
   const { data: productLineOrders = [] } = useQuery<Order[]>({
     queryKey: ['/api/orders/summary', dateRange, platformDrawer.productLine, platformDrawer.platform],
@@ -343,8 +354,9 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
 
       // Aggregate orders into days
       filteredOrders.forEach(order => {
-        const total = parseOrderTotal(order.orderTotal);
-        if (total > 0) {
+        const gross = parseOrderTotal(order.orderTotal);
+        const total = Math.max(0, gross - (refundsByOrder[order.id] || 0));
+        if (gross > 0) {
           const orderDay = startOfDay(safeParseDate(order.orderDate));
           const dayData = days.find(d => d.day.getTime() === orderDay.getTime());
           if (dayData) {
@@ -381,8 +393,9 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
 
       // Aggregate orders into weeks
       filteredOrders.forEach(order => {
-        const total = parseOrderTotal(order.orderTotal);
-        if (total > 0) {
+        const gross = parseOrderTotal(order.orderTotal);
+        const total = Math.max(0, gross - (refundsByOrder[order.id] || 0));
+        if (gross > 0) {
           const orderDate = safeParseDate(order.orderDate);
           const orderWeek = startOfWeek(orderDate, { weekStartsOn: 0 });
           const weekData = weeks.find(w => w.week.getTime() === orderWeek.getTime());
@@ -446,8 +459,9 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
         
         // Aggregate orders by year
         filteredOrders.forEach(order => {
-          const total = parseOrderTotal(order.orderTotal);
-          if (total > 0) {
+          const gross = parseOrderTotal(order.orderTotal);
+          const total = Math.max(0, gross - (refundsByOrder[order.id] || 0));
+          if (gross > 0) {
             let orderDate: Date;
             try {
               orderDate = safeParseDate(order.orderDate);
@@ -511,8 +525,9 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
 
     // Aggregate orders into months
     filteredOrders.forEach(order => {
-      const total = parseOrderTotal(order.orderTotal);
-      if (total > 0) {
+      const gross = parseOrderTotal(order.orderTotal);
+      const total = Math.max(0, gross - (refundsByOrder[order.id] || 0));
+      if (gross > 0) {
         // Use fallback date parser to handle various date formats
         let orderDate: Date;
         try {
@@ -1042,8 +1057,9 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
                 <Tooltip
                   contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151', borderRadius: '6px', fontSize: '12px' }}
                   labelStyle={{ color: '#D1D5DB' }}
+                  formatter={(value: number) => [`$${value.toLocaleString()}`, 'Net Revenue']}
                 />
-                <Line type="monotone" dataKey="sales" stroke="hsl(140 70% 50%)" strokeWidth={2} dot={{ fill: 'hsl(140 70% 50%)', r: 1 }} />
+                <Line type="monotone" dataKey="sales" name="Net Revenue" stroke="hsl(140 70% 50%)" strokeWidth={2} dot={{ fill: 'hsl(140 70% 50%)', r: 1 }} />
               </LineChart>
             </ResponsiveContainer>
           </>

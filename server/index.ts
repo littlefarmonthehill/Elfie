@@ -6,6 +6,23 @@ import { startInventorySyncScheduler } from "./services/inventory-sync-scheduler
 import { startEmbeddingWorker } from "./services/embedding-worker";
 import { startForumSyncScheduler } from "./services/bl-forum-scheduler";
 
+process.on('uncaughtException', (err) => {
+  console.error('[CRASH] Uncaught Exception:', err.message, err.stack);
+});
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[CRASH] Unhandled Rejection at:', promise, 'reason:', reason);
+});
+process.on('SIGTERM', () => {
+  console.error('[CRASH] Received SIGTERM signal');
+});
+
+// Intercept process.exit to log the caller before allowing it
+const _originalExit = process.exit.bind(process);
+(process as any).exit = (code?: number) => {
+  console.error(`[EXIT] process.exit(${code}) called from:`, new Error().stack);
+  _originalExit(code);
+};
+
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));

@@ -944,6 +944,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Order Adjustments - Per-order refund totals (for chart deduction)
+  app.get("/api/orders/adjustments/by-order", isApproved, async (req, res) => {
+    try {
+      const { dateRange = 'mtd' } = req.query as { dateRange?: string };
+      const now = new Date();
+      let sinceDate: Date;
+      switch (dateRange) {
+        case 'lastmonth': sinceDate = new Date(now.getFullYear(), now.getMonth() - 1, 1); break;
+        case '3months': sinceDate = new Date(now.getFullYear(), now.getMonth() - 3, 1); break;
+        case '6months': sinceDate = new Date(now.getFullYear(), now.getMonth() - 6, 1); break;
+        case 'ytd': sinceDate = new Date(now.getFullYear(), 0, 1); break;
+        case '1y': sinceDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000); break;
+        case '5y': sinceDate = new Date(now.getTime() - 5 * 365 * 24 * 60 * 60 * 1000); break;
+        case 'all': sinceDate = new Date(2000, 0, 1); break;
+        default: sinceDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      }
+      const result = await db.execute(sql`
+        SELECT oa.order_id, SUM(ABS(oa.amount::numeric)) AS total_refunds
+        FROM order_adjustments oa
+        JOIN orders o ON o.id = oa.order_id
+        WHERE oa.type = 'refund' AND o.order_date >= ${sinceDate}
+        GROUP BY oa.order_id
+      `);
+      const refundsByOrder: Record<string, number> = {};
+      for (const row of result.rows as any[]) {
+        refundsByOrder[row.order_id] = Number(row.total_refunds);
+      }
+      res.json(refundsByOrder);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Order Adjustments - Summary (total refunds + fees for a date range)
   app.get("/api/orders/adjustments/summary", isApproved, async (req, res) => {
     try {
