@@ -61,8 +61,8 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
   });
 
   const invalidateDashboard = () => {
-    queryClient.invalidateQueries({ queryKey: ['/api/priceomatic/insights'] });
-    queryClient.invalidateQueries({ queryKey: ['/api/priceomatic/freshness'] });
+    queryClient.refetchQueries({ queryKey: ['/api/priceomatic/insights'] });
+    queryClient.refetchQueries({ queryKey: ['/api/priceomatic/freshness'] });
   };
 
   const lookupMutation = useMutation({

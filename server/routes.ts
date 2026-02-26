@@ -4356,7 +4356,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
         config
       );
 
-      // Also check inventory for this part across all colors/conditions
+      // Also check inventory for this part — filter by color if one was specified
       const inventoryLots = await db
         .select({
           id: blInventory.id,
@@ -4369,7 +4369,11 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
         })
         .from(blInventory)
         .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
-        .where(eq(blInventory.itemNo, partNoClean))
+        .where(
+          colorIdNum !== undefined
+            ? and(eq(blInventory.itemNo, partNoClean), eq(blInventory.colorId, colorIdNum))
+            : eq(blInventory.itemNo, partNoClean)
+        )
         .orderBy(blColors.name);
 
       // Build price data for each unique (colorId, newOrUsed) combo found in inventory.
