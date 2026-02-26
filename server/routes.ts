@@ -4389,15 +4389,19 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
 
       await Promise.all(
         combosToFetch.map(async (combo) => {
-          const pd = await fetchPriceOMagicData(
-            partNoClean,
-            itemType as string,
-            combo.colorId ?? undefined,
-            combo.newOrUsed,
-            config.basePremium,
-            config
-          );
-          lotPriceData[combo.key] = pd;
+          try {
+            const pd = await fetchPriceOMagicData(
+              partNoClean,
+              itemType as string,
+              combo.colorId ?? undefined,
+              combo.newOrUsed,
+              config.basePremium,
+              config
+            );
+            lotPriceData[combo.key] = pd;
+          } catch (err) {
+            console.warn(`[POM Spot Lookup] Failed price fetch for combo ${combo.key}:`, err);
+          }
         })
       );
 
@@ -5517,6 +5521,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
           and(
             eq(blInventory.itemNo, priceGuideCache.itemNo),
             eq(blInventory.itemType, priceGuideCache.itemType),
+            eq(blInventory.newOrUsed, priceGuideCache.newOrUsed),
             sql`(${blInventory.colorId} = ${priceGuideCache.colorId} OR (${blInventory.colorId} IS NULL AND ${priceGuideCache.colorId} IS NULL))`
           )
         )

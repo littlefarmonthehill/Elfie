@@ -179,7 +179,9 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
   }, [selectedCategory]);
 
   return (
-    <div className="space-y-4 p-4 touch-pan-y">
+    <div className="flex flex-col h-full">
+    {/* ── Fixed top section: header + spot lookup + filter tiles ── */}
+    <div className="flex-shrink-0 px-4 pt-3 pb-2 space-y-3">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -317,6 +319,9 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
           <p className="text-xs text-gray-500">Items analyzed</p>
         </Card>
       </div>
+    </div>
+    {/* ── Scrollable bottom section: sync status + item list ── */}
+    <div className="flex-1 overflow-y-auto min-h-0 px-4 pb-4 space-y-3">
 
       {/* Sync Status */}
       {status && status.lastSyncStatus !== 'never' && (
@@ -512,6 +517,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
           </Button>
         </div>
       )}
+    </div>
     </div>
   );
 }
