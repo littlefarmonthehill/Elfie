@@ -1,6 +1,6 @@
 import { db } from "../db";
 import { blCategories, blColors, blInventory, blApiCalls, appSettings, priceGuideCache, setPartRelationships } from "@shared/schema";
-import { eq, gte, sql, inArray, and } from "drizzle-orm";
+import { eq, gte, sql, inArray, and, gt } from "drizzle-orm";
 import OAuth from "oauth-1.0a";
 import crypto from "crypto";
 import { syncRebrickableSetParts } from "./rebrickable";
@@ -1153,6 +1153,7 @@ export async function syncPriceOMagicCache(maxItems?: number): Promise<{
           sql`${blInventory.newOrUsed} = ${priceGuideCache.newOrUsed}`
         )
       )
+      .where(gt(blInventory.quantity, 0))
       .orderBy(
         // Sort by effective tier priority (tier1 first), then staleness within each tier
         sql`
@@ -1173,7 +1174,7 @@ export async function syncPriceOMagicCache(maxItems?: number): Promise<{
           COALESCE(${priceGuideCache.fetchedAt}, '1970-01-01'::timestamp) ASC
         `
       )
-      .limit(effectiveMaxItems);
+      .limit(100000); // Fetch all candidates — JS filter + slice enforces the real batch limit below
 
     // Filter out items that don't need refresh yet based on their effective tier
     const tierRefreshMs: Record<string, number> = {
@@ -1199,10 +1200,13 @@ export async function syncPriceOMagicCache(maxItems?: number): Promise<{
       return now - new Date(item.lastFetched).getTime() >= refreshMs;
     });
 
-    console.log(`[Price-o-Matic Sync] Found ${inventoryItems.length} candidates, ${filteredItems.length} need refresh (tier-filtered)`);
+    // Apply batch size limit AFTER stale filtering so T1 freshness never blocks T2–T4 stale items
+    const itemsToProcess = filteredItems.slice(0, effectiveMaxItems);
+
+    console.log(`[Price-o-Matic Sync] Found ${inventoryItems.length} candidates, ${filteredItems.length} stale (${filteredItems.length - itemsToProcess.length} deferred to next run), processing ${itemsToProcess.length}`);
 
     // Process each item in tier-priority order
-    for (const item of filteredItems) {
+    for (const item of itemsToProcess) {
       try {
         // Check rate limit before each batch (every 10 items) to avoid hitting hard limit
         if (itemsUpdated % 10 === 0) {

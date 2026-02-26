@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {  
   Sparkles,
   TrendingUp,
@@ -159,132 +160,129 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
             <p className="text-[10px] md:text-sm text-gray-400">Smart Pricing Insights</p>
           </div>
         </div>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              onClick={handleSync}
-              disabled={syncMutation.isPending || status?.lastSyncStatus === 'in_progress'}
-              size="sm"
-              className="gap-2"
-              data-testid="button-sync"
-            >
-              <RefreshCw className={`w-3 h-3 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
-              {syncMutation.isPending ? 'Syncing...' : 'Update Prices'}
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="left" className="max-w-56 text-xs">
-            Fetches fresh price guide data from BrickLink for up to {batchSize} items. High-priority categories (minifigs, Bionicle) are processed first. Uses 1 API call per item.
-          </TooltipContent>
-        </Tooltip>
+        <div className="flex items-center gap-2">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button size="icon" variant="ghost" data-testid="button-pom-info">
+                <Info className="w-4 h-4 text-gray-400" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent side="left" className="w-80 bg-gray-900 border-gray-700 p-3">
+              <h3 className="text-xs font-bold text-purple-400 mb-2">How It Works</h3>
+              <ul className="text-xs text-gray-300 space-y-1.5">
+                <li>• Fetches avg listed + avg sold prices from BrickLink — 3 API calls per item</li>
+                <li>• Applies your premium formula (Settings) to compute a suggested price, then applies cost floor and minimum price if configured</li>
+                <li>• Processes up to <strong className="text-white">{batchSize.toLocaleString()}</strong> stale items per run — all tiers compete fairly, T1 items go first only within the stale pool</li>
+                <li>• <strong className="text-red-300">{tooHighPct}%+ above suggested</strong> = Too High (losing sales to cheaper competitors)</li>
+                <li>• <strong className="text-orange-300">{tooLowPct}%+ below suggested</strong> = Too Low (leaving margin on the table)</li>
+                <li>• Stops at <strong className="text-white">{apiCeiling.toLocaleString()}</strong> API calls to preserve your daily BrickLink quota</li>
+                <li>• Items with 0 stock are skipped — no calls wasted on unlisted inventory</li>
+                <li>• Formula changes apply instantly — no re-sync needed</li>
+              </ul>
+              <p className="text-[10px] text-gray-500 pt-2 mt-2 border-t border-gray-700">Does not auto-reprice. You review each flag and decide what to change.</p>
+            </PopoverContent>
+          </Popover>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                onClick={handleSync}
+                disabled={syncMutation.isPending || status?.lastSyncStatus === 'in_progress'}
+                size="sm"
+                className="gap-2"
+                data-testid="button-sync"
+              >
+                <RefreshCw className={`w-3 h-3 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
+                {syncMutation.isPending ? 'Syncing...' : 'Update Prices'}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="left" className="max-w-56 text-xs">
+              Fetches fresh price guide data from BrickLink for stale items across all tiers (3 API calls each). Skips items with 0 stock.
+            </TooltipContent>
+          </Tooltip>
+        </div>
       </div>
 
-      {/* Compact Summary Cards & How It Works */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        {/* Stats - Now Clickable for Filtering */}
-        <div className="grid grid-cols-2 gap-2">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Card 
-                className={`p-2.5 cursor-pointer hover-elevate active-elevate-2 ${
-                  selectedCategory === 'too-high' 
-                    ? 'bg-red-500/20 border-red-500/50' 
-                    : 'bg-red-500/10 border-red-500/30'
-                }`}
-                onClick={() => setSelectedCategory('too-high')}
-                data-testid="stat-too-high"
-              >
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <TrendingUp className="w-3.5 h-3.5 text-red-400" />
-                  <p className="text-[9px] md:text-xs text-red-400 uppercase">Too High</p>
-                </div>
-                <p className="text-xl font-mono font-bold text-red-400">{insightsData?.summary.tooHigh || 0}</p>
-                <p className="text-xs text-gray-500">Losing sales</p>
-              </Card>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="max-w-56 text-xs">
-              Items priced more than {tooHighPct}% above the suggested price. Buyers can likely find it cheaper elsewhere, hurting your sell-through rate. Click to review and consider lowering these prices.
-            </TooltipContent>
-          </Tooltip>
-          
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Card 
-                className={`p-2.5 cursor-pointer hover-elevate active-elevate-2 ${
-                  selectedCategory === 'too-low' 
-                    ? 'bg-orange-500/20 border-orange-500/50' 
-                    : 'bg-orange-500/10 border-orange-500/30'
-                }`}
-                onClick={() => setSelectedCategory('too-low')}
-                data-testid="stat-too-low"
-              >
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <TrendingDown className="w-3.5 h-3.5 text-orange-400" />
-                  <p className="text-[9px] md:text-xs text-orange-400 uppercase">Too Low</p>
-                </div>
-                <p className="text-xl font-mono font-bold text-orange-400">{insightsData?.summary.tooLow || 0}</p>
-                <p className="text-xs text-gray-500">Losing profit</p>
-              </Card>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="max-w-56 text-xs">
-              Items priced more than {tooLowPct}% below the suggested price. You're selling these at an unnecessary discount — consider raising the price to capture more margin. Click to review.
-            </TooltipContent>
-          </Tooltip>
-          
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Card 
-                className={`p-2.5 cursor-pointer hover-elevate active-elevate-2 ${
-                  selectedCategory === 'good' 
-                    ? 'bg-green-500/20 border-green-500/50' 
-                    : 'bg-green-500/10 border-green-500/30'
-                }`}
-                onClick={() => setSelectedCategory('good')}
-                data-testid="stat-good"
-              >
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <CheckCircle className="w-3.5 h-3.5 text-green-400" />
-                  <p className="text-[9px] md:text-xs text-green-400 uppercase">Well Priced</p>
-                </div>
-                <p className="text-xl font-mono font-bold text-green-400">{insightsData?.summary.wellPriced || 0}</p>
-                <p className="text-xs text-gray-500">Optimal range</p>
-              </Card>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="max-w-56 text-xs">
-              Items within ±{Math.max(tooHighPct, tooLowPct)}% of the suggested price. These are in the optimal margin-to-competitiveness zone — no action needed.
-            </TooltipContent>
-          </Tooltip>
-          
-          <Card className="p-2.5 bg-gray-900/50 border-gray-700" data-testid="stat-total">
-            <div className="flex items-center gap-1.5 mb-0.5">
-              <Zap className="w-3.5 h-3.5 text-purple-400" />
-              <p className="text-[9px] md:text-xs text-gray-400 uppercase">Total</p>
-            </div>
-            <p className="text-xl font-mono font-bold text-white">{insightsData?.summary.total || 0}</p>
-            <p className="text-xs text-gray-500">Items analyzed</p>
-          </Card>
-        </div>
+      {/* Summary Cards — full-width 4-column row */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Card 
+              className={`p-2.5 cursor-pointer hover-elevate active-elevate-2 ${
+                selectedCategory === 'too-high' 
+                  ? 'bg-red-500/20 border-red-500/50' 
+                  : 'bg-red-500/10 border-red-500/30'
+              }`}
+              onClick={() => setSelectedCategory('too-high')}
+              data-testid="stat-too-high"
+            >
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <TrendingUp className="w-3.5 h-3.5 text-red-400" />
+                <p className="text-[9px] md:text-xs text-red-400 uppercase">Too High</p>
+              </div>
+              <p className="text-xl font-mono font-bold text-red-400">{insightsData?.summary.tooHigh || 0}</p>
+              <p className="text-xs text-gray-500">Losing sales</p>
+            </Card>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="max-w-56 text-xs">
+            Items priced more than {tooHighPct}% above the suggested price. Buyers can likely find it cheaper elsewhere, hurting your sell-through rate. Click to review.
+          </TooltipContent>
+        </Tooltip>
 
-        {/* How It Works — uses real settings values */}
-        <Card className="p-3 bg-purple-500/10 border-purple-500/30">
-          <div className="flex items-center gap-1.5 mb-1.5">
-            <h3 className="text-xs font-bold text-purple-400">How It Works</h3>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Info className="w-3 h-3 text-purple-400/60 cursor-help" />
-              </TooltipTrigger>
-              <TooltipContent side="left" className="max-w-64 text-xs">
-                Price-o-Matic fetches BrickLink's avg listed and avg sold prices for each item, computes a suggested price using your premium formula in Settings, then flags items that deviate beyond your thresholds. It does not auto-reprice — you review and decide.
-              </TooltipContent>
-            </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Card 
+              className={`p-2.5 cursor-pointer hover-elevate active-elevate-2 ${
+                selectedCategory === 'too-low' 
+                  ? 'bg-orange-500/20 border-orange-500/50' 
+                  : 'bg-orange-500/10 border-orange-500/30'
+              }`}
+              onClick={() => setSelectedCategory('too-low')}
+              data-testid="stat-too-low"
+            >
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <TrendingDown className="w-3.5 h-3.5 text-orange-400" />
+                <p className="text-[9px] md:text-xs text-orange-400 uppercase">Too Low</p>
+              </div>
+              <p className="text-xl font-mono font-bold text-orange-400">{insightsData?.summary.tooLow || 0}</p>
+              <p className="text-xs text-gray-500">Leaving margin</p>
+            </Card>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="max-w-56 text-xs">
+            Items priced more than {tooLowPct}% below the suggested price. You're selling at an unnecessary discount — consider raising the price. Click to review.
+          </TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Card 
+              className={`p-2.5 cursor-pointer hover-elevate active-elevate-2 ${
+                selectedCategory === 'good' 
+                  ? 'bg-green-500/20 border-green-500/50' 
+                  : 'bg-green-500/10 border-green-500/30'
+              }`}
+              onClick={() => setSelectedCategory('good')}
+              data-testid="stat-good"
+            >
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <CheckCircle className="w-3.5 h-3.5 text-green-400" />
+                <p className="text-[9px] md:text-xs text-green-400 uppercase">Well Priced</p>
+              </div>
+              <p className="text-xl font-mono font-bold text-green-400">{insightsData?.summary.wellPriced || 0}</p>
+              <p className="text-xs text-gray-500">Optimal range</p>
+            </Card>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="max-w-56 text-xs">
+            Items within ±{Math.max(tooHighPct, tooLowPct)}% of the suggested price. In the optimal margin-to-competitiveness zone — no action needed.
+          </TooltipContent>
+        </Tooltip>
+
+        <Card className="p-2.5 bg-gray-900/50 border-gray-700" data-testid="stat-total">
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <Zap className="w-3.5 h-3.5 text-purple-400" />
+            <p className="text-[9px] md:text-xs text-gray-400 uppercase">Total</p>
           </div>
-          <ul className="text-[10px] md:text-sm text-gray-300 space-y-0.5">
-            <li>• Processes up to {batchSize.toLocaleString()} items per run (3 API calls each)</li>
-            <li>• {tooHighPct}%+ above suggested = Too High (losing sales)</li>
-            <li>• {tooLowPct}%+ below suggested = Too Low (losing profit)</li>
-            <li>• Stops at {apiCeiling.toLocaleString()} API calls to preserve daily quota</li>
-            <li>• Tier 1 categories (minifigs) always run first</li>
-            <li>• Formula changes apply immediately — no re-sync needed</li>
-          </ul>
+          <p className="text-xl font-mono font-bold text-white">{insightsData?.summary.total || 0}</p>
+          <p className="text-xs text-gray-500">Items analyzed</p>
         </Card>
       </div>
 

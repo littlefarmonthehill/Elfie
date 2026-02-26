@@ -1934,7 +1934,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                   <div className="flex items-center gap-2">
                     <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Price Floors</h4>
                     <Tooltip>
-                      <TooltipTrigger asChild><span className="cursor-help text-gray-500 hover:text-gray-300 text-xs">[?]</span></TooltipTrigger>
+                      <TooltipTrigger asChild><button className="cursor-help text-gray-500 hover:text-gray-300 flex items-center"><Info className="w-3 h-3" /></button></TooltipTrigger>
                       <TooltipContent side="right" className="max-w-xs">
                         Price floors are a safety net applied on top of the market formula. They ensure you never suggest a price below your actual cost or below an absolute minimum — regardless of what BrickLink's market data says.
                       </TooltipContent>
@@ -1945,7 +1945,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                       <div className="flex items-center gap-1">
                         <Label className="text-xs font-medium text-emerald-300">Cost Floor Margin %</Label>
                         <Tooltip>
-                          <TooltipTrigger asChild><span className="cursor-help text-gray-500 hover:text-gray-300 text-xs">[?]</span></TooltipTrigger>
+                          <TooltipTrigger asChild><button className="cursor-help text-gray-500 hover:text-gray-300 flex items-center"><Info className="w-3 h-3" /></button></TooltipTrigger>
                           <TooltipContent side="right" className="max-w-xs">
                             Minimum margin above your recorded cost (my_cost). If set to 25, the suggested price will never go below cost × 1.25. Set to 0 to disable. Only applies to items with a cost recorded.
                           </TooltipContent>
@@ -1970,7 +1970,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                       <div className="flex items-center gap-1">
                         <Label className="text-xs font-medium text-emerald-300">Absolute Minimum Price ($)</Label>
                         <Tooltip>
-                          <TooltipTrigger asChild><span className="cursor-help text-gray-500 hover:text-gray-300 text-xs">[?]</span></TooltipTrigger>
+                          <TooltipTrigger asChild><button className="cursor-help text-gray-500 hover:text-gray-300 flex items-center"><Info className="w-3 h-3" /></button></TooltipTrigger>
                           <TooltipContent side="right" className="max-w-xs">
                             No item will ever be suggested at less than this price, regardless of market data or cost. Useful for covering platform fees on micro-priced parts. Default $0.02.
                           </TooltipContent>
