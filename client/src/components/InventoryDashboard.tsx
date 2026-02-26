@@ -290,7 +290,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
 
       {/* Price-O-Matic Drawer */}
       <Drawer open={activeDrawer === 'priceomatic'} onOpenChange={(open) => !open && onDrawerChange(null)}>
-        <DrawerContent className="max-h-[92vh]">
+        <DrawerContent className="h-[92vh]">
           <DrawerHeader>
             <DrawerTitle className="flex items-center gap-2 text-base md:text-lg">
               <Sparkles className="w-5 h-5 text-lego-orange" />
