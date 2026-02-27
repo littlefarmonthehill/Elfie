@@ -205,15 +205,30 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
     {/* ── Fixed top section: header + spot lookup + filter tiles ── */}
     <div className="flex-shrink-0 px-4 pt-3 pb-2 space-y-3">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Sparkles className="w-5 h-5 text-purple-400" />
-          <div>
-            <h2 className="text-base font-bold text-white">Price-o-Matic</h2>
-            <p className="text-[10px] md:text-sm text-gray-400">Smart Pricing Insights</p>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <Sparkles className="w-4 h-4 text-purple-400 flex-shrink-0" />
+          <div className="min-w-0">
+            <h2 className="text-sm font-bold text-white leading-tight">Price-o-Matic</h2>
+            <p className="text-[10px] text-gray-500 leading-tight">Smart Pricing Insights</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          {/* API call counter */}
+          {status?.callsLast24h !== undefined && (
+            <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-gray-800/60 border border-gray-700">
+              <span className={`text-[10px] font-mono font-semibold ${
+                status.callsLast24h >= apiCeiling * 0.9 ? 'text-red-400' :
+                status.callsLast24h >= apiCeiling * 0.6 ? 'text-orange-400' :
+                'text-gray-400'
+              }`}>
+                {status.callsLast24h.toLocaleString()}
+              </span>
+              <span className="text-[10px] text-gray-600">/</span>
+              <span className="text-[10px] font-mono text-gray-600">{(apiCeiling / 1000).toFixed(1)}k</span>
+              <span className="text-[9px] text-gray-600 ml-0.5">calls</span>
+            </div>
+          )}
           <Popover>
             <PopoverTrigger asChild>
               <Button size="icon" variant="ghost" data-testid="button-pom-info">
@@ -236,33 +251,37 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
             </PopoverContent>
           </Popover>
           {isSyncRunning && (
-            <Button
-              onClick={handleStop}
-              disabled={stopMutation.isPending}
-              size="sm"
-              variant="destructive"
-              className="gap-2"
-              data-testid="button-stop-sync"
-            >
-              <Square className="w-3 h-3 fill-current" />
-              {stopMutation.isPending ? 'Stopping...' : 'Stop Sync'}
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={handleStop}
+                  disabled={stopMutation.isPending}
+                  size="icon"
+                  variant="destructive"
+                  data-testid="button-stop-sync"
+                >
+                  <Square className="w-3.5 h-3.5 fill-current" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="left" className="text-xs">
+                {stopMutation.isPending ? 'Stopping...' : 'Stop Sync'}
+              </TooltipContent>
+            </Tooltip>
           )}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 onClick={handleSync}
                 disabled={isSyncRunning}
-                size="sm"
-                className="gap-2"
+                size="icon"
+                variant="ghost"
                 data-testid="button-sync"
               >
-                <RefreshCw className={`w-3 h-3 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
-                {isSyncRunning && !syncMutation.isPending ? 'Syncing...' : syncMutation.isPending ? 'Starting...' : 'Refresh Market Data'}
+                <RefreshCw className={`w-4 h-4 text-gray-400 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="left" className="max-w-56 text-xs">
-              Refreshes local POM price data from BrickLink for stale items across all tiers (3 API calls each: item details, stock guide, sold guide). Does not change your BrickLink prices. Skips items with 0 stock.
+              {isSyncRunning ? 'Syncing in progress...' : 'Refresh Market Data — fetches BrickLink price data for stale items (3 API calls each). Does not change your prices.'}
             </TooltipContent>
           </Tooltip>
         </div>
