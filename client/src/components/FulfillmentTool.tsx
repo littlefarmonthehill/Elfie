@@ -764,8 +764,8 @@ export default function FulfillmentTool() {
               {scanFormMutation.isPending
                 ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Generating...</>
                 : scanFormUrl
-                  ? <><ExternalLink className="w-3.5 h-3.5 mr-1.5" />Reopen SCAN Form</>
-                  : <><ScanLine className="w-3.5 h-3.5 mr-1.5" />SCAN Form</>
+                  ? <><ExternalLink className="w-3.5 h-3.5 mr-1.5" />Reopen EOD Form</>
+                  : <><ScanLine className="w-3.5 h-3.5 mr-1.5" />EOD Form</>
               }
               {!scanFormUrl && endOfDayData && endOfDayData.count > 0 && (
                 <Badge variant="secondary" className="ml-1.5 text-[10px] px-1">{endOfDayData.count}</Badge>
