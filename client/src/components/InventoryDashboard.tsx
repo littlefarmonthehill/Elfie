@@ -457,7 +457,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
           })()}
 
           <div className="overflow-y-auto px-4 pb-4 flex-1">
-            <PriceOMaticDashboard onItemClick={(type, id) => onItemClick?.(type, id, 'pricing')} />
+            <PriceOMaticDashboard onItemClick={(type, id) => onItemClick?.(type, id, 'pricing')} isSyncRunning={isPomSyncRunning} />
           </div>
         </DrawerContent>
       </Drawer>

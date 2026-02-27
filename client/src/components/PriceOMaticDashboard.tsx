@@ -74,11 +74,12 @@ interface GroupedInsight {
 
 interface PriceOMaticDashboardProps {
   onItemClick?: (type: 'inventory' | 'order', id: number) => void;
+  isSyncRunning?: boolean;
 }
 
-export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboardProps) {
+export default function PriceOMaticDashboard({ onItemClick, isSyncRunning }: PriceOMaticDashboardProps) {
   const { toast } = useToast();
-  const [itemsToShow, setItemsToShow] = useState(100);
+  const [itemsToShow, setItemsToShow] = useState(25);
   const [refreshingItems, setRefreshingItems] = useState<Set<number>>(new Set());
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc');
   const [pricingData, setPricingData] = useState<Map<string, { n: string | null; u: string | null }>>(new Map());
@@ -147,6 +148,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
     queryKey: ['/api/priceomatic/insights'],
     refetchOnMount: 'always',
     staleTime: 0,
+    refetchInterval: isSyncRunning ? 5000 : false,
   });
 
   const { data: settingsData } = useQuery<any>({
@@ -221,7 +223,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
   const selectedGroups = getSelectedGroups();
 
   useEffect(() => {
-    setItemsToShow(100);
+    setItemsToShow(25);
   }, [sortDir]);
 
   const ScoreSortButton = () => (
@@ -399,12 +401,12 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setItemsToShow(prev => prev + 100)}
+                  onClick={() => setItemsToShow(prev => prev + 25)}
                   className="w-full gap-2"
                   data-testid="button-show-more"
                 >
                   <ChevronDown className="w-4 h-4" />
-                  Next 100 items ({selectedGroups.length - itemsToShow} remaining)
+                  Show 25 more ({selectedGroups.length - itemsToShow} remaining)
                 </Button>
               )}
             </>
