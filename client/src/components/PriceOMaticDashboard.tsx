@@ -414,50 +414,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
 
       {/* Item List */}
       {insightsData && (
-        <div className="space-y-2">
-          {/* Column headers with info tooltips */}
-          {selectedItems.length > 0 && (
-            <div className="flex items-center px-1.5 mb-1 gap-2">
-              <p className="flex-1 min-w-0 text-[9px] uppercase tracking-wider text-gray-600">Item</p>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <div className="flex items-center gap-1 w-16 justify-end">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Info className="w-2.5 h-2.5 text-gray-600 cursor-help" />
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="max-w-48 text-xs">
-                      Your current price in BrickLink for this listing.
-                    </TooltipContent>
-                  </Tooltip>
-                  <p className="text-[9px] uppercase tracking-wider text-gray-600">Current</p>
-                </div>
-                <div className="flex items-center gap-1 w-16 justify-end">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Info className="w-2.5 h-2.5 text-gray-600 cursor-help" />
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="max-w-64 text-xs">
-                      Suggested price uses BrickLink avg listed price and 85th-percentile sold price, then applies your premium formula (base %, scarcity tiers, market dynamics). Adjust in Settings → Price-o-Matic.
-                    </TooltipContent>
-                  </Tooltip>
-                  <p className="text-[9px] uppercase tracking-wider text-gray-600">Suggested</p>
-                </div>
-                <div className="flex items-center gap-1 w-14 justify-end">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Info className="w-2.5 h-2.5 text-gray-600 cursor-help" />
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="max-w-48 text-xs">
-                      How far your current price deviates from the suggested price. Positive = priced above; negative = priced below.
-                    </TooltipContent>
-                  </Tooltip>
-                  <p className="text-[9px] uppercase tracking-wider text-gray-600">Variance</p>
-                </div>
-                <p className="text-[9px] uppercase tracking-wider text-gray-600 w-8 text-right">Qty</p>
-              </div>
-            </div>
-          )}
-
+        <div className="space-y-1.5">
           {selectedItems.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
               <p className="text-xs">No items in this category</p>
@@ -468,65 +425,54 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
                 <div
                   key={item.inventoryId}
                   onClick={() => onItemClick?.('inventory', item.inventoryId)}
-                  className="group bg-gray-900/50 border border-gray-700 rounded-lg p-1.5 hover-elevate active-elevate-2 cursor-pointer"
+                  className="group bg-gray-900/50 border border-gray-700 rounded-lg px-2 py-1.5 hover-elevate active-elevate-2 cursor-pointer"
                   data-testid={`item-${item.inventoryId}`}
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs text-white leading-snug line-clamp-2">{item.itemName || 'Unknown Item'}</p>
-                      <p className="text-[10px] text-gray-500 mt-0.5 leading-none">
-                        <span className="font-mono">{item.itemNo}</span>
-                        {item.colorName && <span> · {item.colorName}</span>}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              refreshItemMutation.mutate({
-                                inventoryId: item.inventoryId,
-                                itemNo: item.itemNo,
-                                itemType: item.itemType,
-                                colorId: item.colorId,
-                                newOrUsed: item.newOrUsed,
-                              });
-                            }}
-                            disabled={refreshingItems.has(item.inventoryId)}
-                            className="invisible group-hover:visible text-gray-500 hover:text-purple-400 disabled:text-gray-600 transition-colors p-0.5 flex-shrink-0"
-                            data-testid={`button-refresh-item-${item.inventoryId}`}
-                          >
-                            <RefreshCw className={`w-3 h-3 ${refreshingItems.has(item.inventoryId) ? 'animate-spin text-purple-400' : ''}`} />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent side="left" className="text-xs">
-                          Refresh BrickLink price data for this item (3 API calls)
-                        </TooltipContent>
-                      </Tooltip>
-                      <div className="w-16 text-right">
-                        <p className="text-[10px] md:text-sm font-mono text-white">{formatCurrency(item.currentPrice)}</p>
-                      </div>
-                      <div className="w-16 text-right">
-                        <p className="text-[10px] md:text-sm font-mono text-purple-400">{formatCurrency(item.suggestedPrice)}</p>
-                        {item.floorApplied === 'cost' && (
-                          <p className="text-[8px] text-emerald-500 leading-none">cost floor</p>
-                        )}
-                        {item.floorApplied === 'min' && (
-                          <p className="text-[8px] text-blue-500 leading-none">min price</p>
-                        )}
-                      </div>
-                      <div className="w-14 text-right">
-                        <p className={`text-[10px] md:text-sm font-mono font-bold ${
-                          item.variance > 0 ? 'text-red-400' : item.variance < 0 ? 'text-orange-400' : 'text-green-400'
-                        }`}>
-                          {item.variance > 0 ? '+' : ''}{item.variance}%
-                        </p>
-                      </div>
-                      <div className="w-8 text-right">
-                        <p className="text-[10px] md:text-sm font-mono text-gray-300">{item.quantity}</p>
-                      </div>
-                    </div>
+                  {/* Row 1: Part number + Item name */}
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="font-mono text-[10px] text-gray-500 flex-shrink-0">{item.itemNo}</span>
+                    <p className="text-xs text-white truncate flex-1 min-w-0">{item.itemName || 'Unknown Item'}</p>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            refreshItemMutation.mutate({
+                              inventoryId: item.inventoryId,
+                              itemNo: item.itemNo,
+                              itemType: item.itemType,
+                              colorId: item.colorId,
+                              newOrUsed: item.newOrUsed,
+                            });
+                          }}
+                          disabled={refreshingItems.has(item.inventoryId)}
+                          className="invisible group-hover:visible text-gray-600 hover:text-purple-400 disabled:text-gray-700 transition-colors flex-shrink-0"
+                          data-testid={`button-refresh-item-${item.inventoryId}`}
+                        >
+                          <RefreshCw className={`w-2.5 h-2.5 ${refreshingItems.has(item.inventoryId) ? 'animate-spin text-purple-400 visible' : ''}`} />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="left" className="text-xs">
+                        Refresh BrickLink price data for this item (3 API calls)
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  {/* Row 2: Color · current → suggested · variance · qty */}
+                  <div className="flex items-center gap-2 mt-0.5 min-w-0">
+                    <span className="text-[10px] text-gray-500 flex-1 min-w-0 truncate">{item.colorName || '—'}</span>
+                    <span className="text-[10px] font-mono text-gray-300 flex-shrink-0">{formatCurrency(item.currentPrice)}</span>
+                    <span className="text-[10px] text-gray-600 flex-shrink-0">→</span>
+                    <span className="text-[10px] font-mono text-purple-400 flex-shrink-0">
+                      {formatCurrency(item.suggestedPrice)}
+                      {item.floorApplied === 'cost' && <span className="text-emerald-500 ml-0.5">↑</span>}
+                      {item.floorApplied === 'min' && <span className="text-blue-400 ml-0.5">↑</span>}
+                    </span>
+                    <span className={`text-[10px] font-mono font-bold flex-shrink-0 ${
+                      item.variance > 0 ? 'text-red-400' : item.variance < 0 ? 'text-orange-400' : 'text-green-400'
+                    }`}>
+                      {item.variance > 0 ? '+' : ''}{item.variance}%
+                    </span>
+                    <span className="text-[10px] font-mono text-gray-500 flex-shrink-0">×{item.quantity}</span>
                   </div>
                 </div>
               ))}
