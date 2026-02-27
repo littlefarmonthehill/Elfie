@@ -29,6 +29,7 @@ interface SyncStatus {
   lastSyncTime: string | null;
   recordsUpdated: number;
   errorMessage?: string | null;
+  callsLast24h?: number;
 }
 
 interface PricingInsight {
@@ -316,7 +317,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
         <Tooltip>
           <TooltipTrigger asChild>
             <Card 
-              className={`p-2.5 cursor-pointer hover-elevate active-elevate-2 ${
+              className={`px-3 py-2 cursor-pointer hover-elevate active-elevate-2 ${
                 selectedCategory === 'too-high' 
                   ? 'bg-red-500/20 border-red-500/50' 
                   : 'bg-red-500/10 border-red-500/30'
@@ -324,16 +325,20 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
               onClick={() => setSelectedCategory('too-high')}
               data-testid="stat-too-high"
             >
-              <div className="flex items-center gap-1.5 mb-0.5">
-                <TrendingUp className="w-3.5 h-3.5 text-red-400" />
-                <p className="text-[9px] md:text-xs text-red-400 uppercase">Too High</p>
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <TrendingUp className="w-3 h-3 text-red-400" />
+                    <p className="text-[9px] uppercase tracking-wider text-red-400">Too High</p>
+                  </div>
+                  <p className="text-[10px] text-gray-500 mt-1">Losing sales</p>
+                </div>
+                {insightsLoading ? (
+                  <Skeleton className="h-6 w-8" />
+                ) : (
+                  <p className="text-2xl font-mono font-bold text-red-400">{insightsData?.summary.tooHigh ?? 0}</p>
+                )}
               </div>
-              {insightsLoading ? (
-                <Skeleton className="h-7 w-10 mt-0.5" />
-              ) : (
-                <p className="text-xl font-mono font-bold text-red-400">{insightsData?.summary.tooHigh ?? 0}</p>
-              )}
-              <p className="text-xs text-gray-500">Losing sales</p>
             </Card>
           </TooltipTrigger>
           <TooltipContent side="bottom" className="max-w-56 text-xs">
@@ -344,7 +349,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
         <Tooltip>
           <TooltipTrigger asChild>
             <Card 
-              className={`p-2.5 cursor-pointer hover-elevate active-elevate-2 ${
+              className={`px-3 py-2 cursor-pointer hover-elevate active-elevate-2 ${
                 selectedCategory === 'too-low' 
                   ? 'bg-orange-500/20 border-orange-500/50' 
                   : 'bg-orange-500/10 border-orange-500/30'
@@ -352,16 +357,20 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
               onClick={() => setSelectedCategory('too-low')}
               data-testid="stat-too-low"
             >
-              <div className="flex items-center gap-1.5 mb-0.5">
-                <TrendingDown className="w-3.5 h-3.5 text-orange-400" />
-                <p className="text-[9px] md:text-xs text-orange-400 uppercase">Too Low</p>
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <TrendingDown className="w-3 h-3 text-orange-400" />
+                    <p className="text-[9px] uppercase tracking-wider text-orange-400">Too Low</p>
+                  </div>
+                  <p className="text-[10px] text-gray-500 mt-1">Leaving margin</p>
+                </div>
+                {insightsLoading ? (
+                  <Skeleton className="h-6 w-8" />
+                ) : (
+                  <p className="text-2xl font-mono font-bold text-orange-400">{insightsData?.summary.tooLow ?? 0}</p>
+                )}
               </div>
-              {insightsLoading ? (
-                <Skeleton className="h-7 w-10 mt-0.5" />
-              ) : (
-                <p className="text-xl font-mono font-bold text-orange-400">{insightsData?.summary.tooLow ?? 0}</p>
-              )}
-              <p className="text-xs text-gray-500">Leaving margin</p>
             </Card>
           </TooltipTrigger>
           <TooltipContent side="bottom" className="max-w-56 text-xs">
@@ -372,7 +381,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
         <Tooltip>
           <TooltipTrigger asChild>
             <Card 
-              className={`p-2.5 cursor-pointer hover-elevate active-elevate-2 ${
+              className={`px-3 py-2 cursor-pointer hover-elevate active-elevate-2 ${
                 selectedCategory === 'good' 
                   ? 'bg-green-500/20 border-green-500/50' 
                   : 'bg-green-500/10 border-green-500/30'
@@ -380,16 +389,20 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
               onClick={() => setSelectedCategory('good')}
               data-testid="stat-good"
             >
-              <div className="flex items-center gap-1.5 mb-0.5">
-                <CheckCircle className="w-3.5 h-3.5 text-green-400" />
-                <p className="text-[9px] md:text-xs text-green-400 uppercase">Well Priced</p>
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle className="w-3 h-3 text-green-400" />
+                    <p className="text-[9px] uppercase tracking-wider text-green-400">On Target</p>
+                  </div>
+                  <p className="text-[10px] text-gray-500 mt-1">Optimal range</p>
+                </div>
+                {insightsLoading ? (
+                  <Skeleton className="h-6 w-8" />
+                ) : (
+                  <p className="text-2xl font-mono font-bold text-green-400">{insightsData?.summary.wellPriced ?? 0}</p>
+                )}
               </div>
-              {insightsLoading ? (
-                <Skeleton className="h-7 w-10 mt-0.5" />
-              ) : (
-                <p className="text-xl font-mono font-bold text-green-400">{insightsData?.summary.wellPriced ?? 0}</p>
-              )}
-              <p className="text-xs text-gray-500">Optimal range</p>
             </Card>
           </TooltipTrigger>
           <TooltipContent side="bottom" className="max-w-56 text-xs">

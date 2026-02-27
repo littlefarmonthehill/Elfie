@@ -5261,13 +5261,19 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
         .where(eq(syncMetadata.id, 'priceomatic_cache'))
         .limit(1);
 
+      const { checkRateLimit } = await import("./services/bricklink");
+      const rateLimit = await checkRateLimit();
+
       res.json({
         success: true,
-        data: status || {
-          id: 'priceomatic_cache',
-          lastSyncStatus: 'never',
-          lastSyncTime: null,
-          recordsUpdated: 0,
+        data: {
+          ...(status || {
+            id: 'priceomatic_cache',
+            lastSyncStatus: 'never',
+            lastSyncTime: null,
+            recordsUpdated: 0,
+          }),
+          callsLast24h: rateLimit.callsLast24h,
         },
       });
     } catch (error) {
