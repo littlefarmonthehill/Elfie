@@ -116,17 +116,18 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
         orderIdx === orders.length - 1 && chunkIdx === chunks.length - 1;
       const isContinuation = chunkIdx > 0;
 
+      // ── Bar (first page of each order only) ───────────────────────────────
+      const barHTML = !isContinuation ? `
+        <div class="slip-label-bar">
+          <span class="bar-left">Packing Slip</span>
+        </div>
+      ` : '';
+
+      // ── Bottom-right footer (order# + page info on every page) ────────────
       const pageLabel = totalChunks > 1
         ? `${orderNum} &nbsp;&middot;&nbsp; Page ${chunkIdx + 1} of ${totalChunks}`
         : orderNum;
-
-      // ── Bar (appears on every page) ────────────────────────────────────────
-      const barHTML = `
-        <div class="slip-label-bar">
-          <span class="bar-left">Packing Slip</span>
-          <span class="bar-right">${pageLabel}</span>
-        </div>
-      `;
+      const footerHTML = `<div class="page-footer">${pageLabel}</div>`;
 
       // ── Full header (first page of each order only) ────────────────────────
       const shipToHTML = [
@@ -201,6 +202,7 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
             </thead>
             <tbody>${rowsHTML}</tbody>
           </table>
+          ${footerHTML}
         </div>
       `);
     });
@@ -229,14 +231,15 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
     .page {
       width: 100%;
       padding-top: 0.5in;
-      padding-bottom: 0.5in;
+      padding-bottom: 0.35in;
       page-break-after: always;
       break-after: page;
+      position: relative;
     }
     .page.last { page-break-after: auto; break-after: auto; }
 
     .slip-label-bar {
-      background: #444;
+      background: #777;
       color: white;
       display: flex;
       justify-content: space-between;
@@ -248,7 +251,14 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
       padding: 3px 8px;
       margin-bottom: 8px;
     }
-    .bar-right { font-weight: normal; letter-spacing: 0.5px; }
+
+    .page-footer {
+      text-align: right;
+      font-size: 9px;
+      color: #666;
+      margin-top: 8px;
+      letter-spacing: 0.3px;
+    }
 
     .header {
       display: flex;
@@ -276,9 +286,9 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
     .mv { text-align: right; }
 
     .items { width: 100%; border-collapse: collapse; margin-top: 2px; }
-    .items thead tr { background: #333; color: white; }
-    .th-desc { text-align: left; padding: 4px 6px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
-    .th-qty  { text-align: right; padding: 4px 6px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; width: 40px; }
+    .items thead tr { background: #777; color: white; }
+    .th-desc { text-align: left; padding: 4px 6px; font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; }
+    .th-qty  { text-align: right; padding: 4px 6px; font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; width: 40px; }
     .items tbody tr { break-inside: avoid; page-break-inside: avoid; }
     .items tbody tr td { padding: 5px 6px; border-bottom: 1px solid #e0e0e0; vertical-align: top; }
     .items tbody tr:last-child td { border-bottom: none; }
