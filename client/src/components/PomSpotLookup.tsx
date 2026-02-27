@@ -510,25 +510,22 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
                         key={colorKey}
                         className="bg-gray-900/50 border border-gray-700 rounded-lg px-2 py-1.5"
                       >
-                        {/* Left: qty · color swatch · color name; peak on sub-line */}
-                        <div className="flex flex-col min-w-0">
-                          <div className="flex items-center gap-1 min-w-0">
-                            <span className="text-[10px] font-mono text-gray-300 flex-shrink-0">×{totalQty}</span>
-                            {anyLot.colorRgb ? (
-                              <span className="w-2 h-2 rounded-full flex-shrink-0 border border-gray-600" style={{ backgroundColor: `#${anyLot.colorRgb}` }} />
-                            ) : (
-                              <span className="w-2 h-2 rounded-full flex-shrink-0 bg-gray-600" />
+                        {/* Single row: left=color+peak flex-col, right=N/U pricing — mirrors filter results */}
+                        <div className="flex items-center gap-1 min-w-0">
+                          <div className="flex flex-col flex-1 min-w-0">
+                            <div className="flex items-center gap-1 min-w-0">
+                              <span className="text-[10px] font-mono text-gray-300 flex-shrink-0">×{totalQty}</span>
+                              {anyLot.colorRgb ? (
+                                <span className="w-2 h-2 rounded-full flex-shrink-0 border border-gray-600" style={{ backgroundColor: `#${anyLot.colorRgb}` }} />
+                              ) : (
+                                <span className="w-2 h-2 rounded-full flex-shrink-0 bg-gray-600" />
+                              )}
+                              <span className="text-[10px] text-gray-300 truncate">{anyLot.colorName || '—'}</span>
+                            </div>
+                            {peakStr && (
+                              <span className="text-[9px] text-gray-400 pl-0.5">peak {formatCurrency(peakStr)}</span>
                             )}
-                            <span className="text-[10px] text-gray-300 truncate">{anyLot.colorName || '—'}</span>
                           </div>
-                          {peakStr && (
-                            <span className="text-[9px] text-gray-400 pl-0.5">peak {formatCurrency(peakStr)}</span>
-                          )}
-                        </div>
-
-                        {/* Row 2: N price | N score | U price | U score */}
-                        <div className="flex items-center gap-1 mt-0.5 min-w-0">
-                          <div className="flex-1 min-w-0" />
                           <LotPriceCell lot={newLot} />
                           <span className={`text-[10px] font-mono font-bold text-right flex-shrink-0 w-[58px] ${scoreColor(nScore)}`}>
                             {nScore != null ? `${nScore}×` : '—'}
