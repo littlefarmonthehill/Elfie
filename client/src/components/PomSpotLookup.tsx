@@ -125,7 +125,7 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
       ];
 
       const matches = allItems.filter((item) => {
-        const partMatch = item.itemNo === searchPart;
+        const partMatch = item.itemNo.toUpperCase() === searchPart;
         const colorMatch = searchColorId === null || item.colorId === searchColorId;
         return partMatch && colorMatch;
       });
@@ -480,6 +480,8 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
                         <div className="flex items-center gap-1 min-w-0">
                           <div className="flex flex-col flex-1 min-w-0">
                             <div className="flex items-center gap-1 min-w-0">
+                              {/* In-stock indicator */}
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" title="In your inventory" />
                               <span className="text-[10px] font-mono text-gray-300 flex-shrink-0">×{totalQty}</span>
                               {anyLot.colorRgb ? (
                                 <span className="w-2 h-2 rounded-full flex-shrink-0 border border-gray-600" style={{ backgroundColor: `#${anyLot.colorRgb}` }} />
@@ -507,10 +509,48 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
                 </>
               );
             })() : (
-              <div className="text-[11px] text-gray-600 flex items-center gap-1.5">
-                <Package className="w-3 h-3" />
-                Not currently in your inventory
-              </div>
+              /* Not in inventory — still show market pricing from priceData for new listings */
+              pd && (
+                <>
+                  {/* Column header */}
+                  <div className="flex items-center gap-1 px-2 pb-0.5">
+                    <div className="flex-1 min-w-0" />
+                    <div className="flex flex-col items-end w-14 flex-shrink-0">
+                      <span className="text-[9px] uppercase tracking-wider text-gray-400 leading-none">N Cur</span>
+                      <span className="text-[9px] uppercase tracking-wider text-gray-400 leading-none">Sugg</span>
+                    </div>
+                    <span className="text-[9px] uppercase tracking-wider text-gray-400 rounded px-1.5 py-0.5 whitespace-nowrap flex-shrink-0">N Score</span>
+                    <div className="flex flex-col items-end w-14 flex-shrink-0">
+                      <span className="text-[9px] uppercase tracking-wider text-gray-400 leading-none">U Cur</span>
+                      <span className="text-[9px] uppercase tracking-wider text-gray-400 leading-none">Sugg</span>
+                    </div>
+                    <span className="text-[9px] uppercase tracking-wider text-gray-400 rounded px-1.5 py-0.5 whitespace-nowrap flex-shrink-0">U Score</span>
+                  </div>
+                  <div className="bg-gray-900/50 border border-gray-700/50 border-dashed rounded-lg px-2 py-1.5">
+                    <div className="flex items-center gap-1 min-w-0">
+                      <div className="flex flex-col flex-1 min-w-0">
+                        <div className="flex items-center gap-1 min-w-0">
+                          {/* Not-owned indicator */}
+                          <span className="w-1.5 h-1.5 rounded-full bg-gray-600 flex-shrink-0" title="Not in your inventory" />
+                          <span className="text-[10px] text-gray-500 truncate">Not in inventory</span>
+                        </div>
+                        <span className="text-[9px] text-gray-600 pl-0.5">New listing pricing</span>
+                      </div>
+                      {/* Suggested price in the N column (no current price) */}
+                      <div className="flex flex-col items-end w-14 flex-shrink-0">
+                        <span className="text-[10px] font-mono text-gray-600 leading-tight">—</span>
+                        <span className="text-[9px] font-mono text-purple-400 leading-tight">{formatCurrency(pd.suggestedPrice)}</span>
+                      </div>
+                      <span className="text-[10px] font-mono text-gray-700 text-right flex-shrink-0 w-[58px]">—</span>
+                      <div className="flex flex-col items-end w-14 flex-shrink-0">
+                        <span className="text-[10px] font-mono text-gray-600 leading-tight">—</span>
+                        <span className="text-[9px] font-mono text-gray-700 leading-tight">—</span>
+                      </div>
+                      <span className="text-[10px] font-mono text-gray-700 text-right flex-shrink-0 w-[58px]">—</span>
+                    </div>
+                  </div>
+                </>
+              )
             )}
           </div>
         </div>
