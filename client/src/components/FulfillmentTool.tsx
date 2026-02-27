@@ -7,14 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger,
-  DropdownMenuSeparator 
-} from "@/components/ui/dropdown-menu";
-import { Truck, Loader2, Printer, AlertTriangle, ChevronDown, Tag, MoreVertical, Scissors, Package, ExternalLink, CheckCircle2, Star, ClipboardList, PackageCheck, ScanLine } from "lucide-react";
+import { Truck, Loader2, Printer, AlertTriangle, Tag, Scissors, Package, ExternalLink, CheckCircle2, Star, ClipboardList, PackageCheck, ScanLine } from "lucide-react";
 import { printPackingSlips } from "./PackingSlip";
 import { useToast } from "@/hooks/use-toast";
 import { cleanItemName, PRIORITY_REGEX, toggleSetItem } from "@/lib/item-utils";
@@ -701,6 +694,86 @@ export default function FulfillmentTool() {
           </button>
         </div>
 
+        {/* ── Persistent action bar ── */}
+        {!isSplitMode && (
+          <div className="flex flex-wrap items-center gap-1.5 px-1 py-2 border-b border-gray-700/60">
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={selectedOrders.size === 0}
+              onClick={() => handlePrintPackingSlips(Array.from(selectedOrders))}
+              className="text-gray-300 text-xs"
+              data-testid="button-print-packing-slips"
+            >
+              <Printer className="w-3.5 h-3.5 mr-1.5" />
+              Packing Slips
+              {selectedOrders.size > 0 && (
+                <Badge variant="secondary" className="ml-1.5 text-[10px] px-1">{selectedOrders.size}</Badge>
+              )}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={selectedOrders.size === 0}
+              onClick={() => handlePrintLotLabels(Array.from(selectedOrders))}
+              className="text-gray-300 text-xs"
+              data-testid="button-print-lot-labels"
+            >
+              <Tag className="w-3.5 h-3.5 mr-1.5" />
+              Lot Labels
+              {selectedOrders.size > 0 && (
+                <Badge variant="secondary" className="ml-1.5 text-[10px] px-1">{selectedOrders.size}</Badge>
+              )}
+            </Button>
+            <div className="w-px h-4 bg-gray-700 mx-0.5" />
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={!selectedOrderId}
+              onClick={handleInitiateSplit}
+              className="text-gray-300 text-xs"
+              data-testid="button-split-order"
+            >
+              <Scissors className="w-3.5 h-3.5 mr-1.5" />
+              Split Order
+            </Button>
+            {readyToShip.size > 0 && (
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={isShippingAll}
+                onClick={handleShipAll}
+                className="text-gray-300 text-xs"
+                data-testid="button-ship-all"
+              >
+                {isShippingAll
+                  ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Shipping...</>
+                  : <><Package className="w-3.5 h-3.5 mr-1.5" />Ship All ({readyToShip.size})</>
+                }
+              </Button>
+            )}
+            <div className="w-px h-4 bg-gray-700 mx-0.5" />
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={scanFormMutation.isPending || (endOfDayData?.count === 0 && !scanFormUrl)}
+              onClick={() => scanFormUrl ? window.open(scanFormUrl, '_blank') : scanFormMutation.mutate()}
+              className="text-gray-300 text-xs"
+              data-testid="button-end-of-day-scan"
+            >
+              {scanFormMutation.isPending
+                ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Generating...</>
+                : scanFormUrl
+                  ? <><ExternalLink className="w-3.5 h-3.5 mr-1.5" />Reopen SCAN Form</>
+                  : <><ScanLine className="w-3.5 h-3.5 mr-1.5" />SCAN Form</>
+              }
+              {!scanFormUrl && endOfDayData && endOfDayData.count > 0 && (
+                <Badge variant="secondary" className="ml-1.5 text-[10px] px-1">{endOfDayData.count}</Badge>
+              )}
+            </Button>
+          </div>
+        )}
+
         {/* ── Tab content ── */}
         {activeTab === 'picklist' ? (
           <PicklistTool filterOrderIds={selectedOrders.size > 0 ? selectedOrders : undefined} />
@@ -787,107 +860,13 @@ export default function FulfillmentTool() {
               </div>
             )}
 
-            {/* Actions bar + Shipping cards — visible when orders are selected */}
+            {/* Shipping cards — visible when orders are selected */}
             {selectedOrders.size > 0 ? (
               <div>
-                <div className="flex items-center justify-between gap-2 mb-3">
-                  <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wide flex items-center gap-1.5">
-                    <Truck className="w-4 h-4 text-purple-400" />
-                    Selected Orders
-                  </h3>
-                  {!isSplitMode && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={selectedOrders.size === 0}
-                          data-testid="button-actions-menu"
-                        >
-                          <MoreVertical className="w-3.5 h-3.5 mr-1.5" />
-                          Actions
-                          <ChevronDown className="w-3.5 h-3.5 ml-1.5" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-56">
-                        <DropdownMenuItem
-                          onClick={() => handlePrintPackingSlips(Array.from(selectedOrders))}
-                          disabled={selectedOrders.size === 0}
-                          data-testid="menu-print-packing-slips"
-                        >
-                          <Printer className="w-4 h-4 mr-2" />
-                          Print Packing Slips
-                          {selectedOrders.size > 0 && (
-                            <Badge variant="secondary" className="ml-auto text-xs">
-                              {selectedOrders.size}
-                            </Badge>
-                          )}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => handlePrintLotLabels(Array.from(selectedOrders))}
-                          disabled={selectedOrders.size === 0}
-                          data-testid="menu-print-lot-labels"
-                        >
-                          <Tag className="w-4 h-4 mr-2" />
-                          Print Lot Labels
-                          {selectedOrders.size > 0 && (
-                            <Badge variant="secondary" className="ml-auto text-xs">
-                              {selectedOrders.size}
-                            </Badge>
-                          )}
-                        </DropdownMenuItem>
-                        {readyToShip.size > 0 && (
-                          <>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={handleShipAll}
-                              disabled={isShippingAll}
-                              data-testid="menu-ship-all"
-                            >
-                              {isShippingAll
-                                ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Shipping...</>
-                                : <><Package className="w-4 h-4 mr-2" />Ship All ({readyToShip.size})</>
-                              }
-                            </DropdownMenuItem>
-                          </>
-                        )}
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => {
-                            if (scanFormUrl) {
-                              window.open(scanFormUrl, '_blank');
-                            } else {
-                              scanFormMutation.mutate();
-                            }
-                          }}
-                          disabled={scanFormMutation.isPending || (endOfDayData?.count === 0 && !scanFormUrl)}
-                          data-testid="menu-end-of-day-scan"
-                        >
-                          {scanFormMutation.isPending
-                            ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Generating...</>
-                            : scanFormUrl
-                              ? <><ExternalLink className="w-4 h-4 mr-2" />Reopen SCAN Form</>
-                              : <><ScanLine className="w-4 h-4 mr-2" />End of Day SCAN Form</>
-                          }
-                          {!scanFormUrl && endOfDayData && endOfDayData.count > 0 && (
-                            <Badge variant="secondary" className="ml-auto text-xs">
-                              {endOfDayData.count}
-                            </Badge>
-                          )}
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={handleInitiateSplit}
-                          disabled={!selectedOrderId}
-                          data-testid="menu-split-order"
-                        >
-                          <Scissors className="w-4 h-4 mr-2" />
-                          Split Order
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )}
-                </div>
+                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wide flex items-center gap-1.5 mb-3">
+                  <Truck className="w-4 h-4 text-purple-400" />
+                  Selected Orders
+                </h3>
                 <div className="space-y-2">
                   {[...selectedOrders].map((orderId) => {
                     const items: OrderItem[] = (data?.items ?? [])
