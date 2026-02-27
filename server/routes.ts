@@ -5418,12 +5418,13 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
     }
   });
 
-  // Get all categories with their priority tiers
+  // Get categories with their priority tiers — only categories that exist in our inventory
   app.get("/api/priceomatic/category-tiers", isApproved, async (req, res) => {
     try {
       const categories = await db
-        .select({ id: blCategories.id, name: blCategories.name, priorityTier: blCategories.priorityTier })
+        .selectDistinct({ id: blCategories.id, name: blCategories.name, priorityTier: blCategories.priorityTier })
         .from(blCategories)
+        .innerJoin(blInventory, eq(blInventory.categoryId, blCategories.id))
         .orderBy(blCategories.name);
       res.json({ success: true, categories });
     } catch (error) {
@@ -5536,7 +5537,8 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
         tier4: cfg?.pomTier4RefreshDays ?? 30,
       };
 
-      // Aggregate per-category: total lots, how many have price guide data, last fetch time
+      // Aggregate per-category: total lots, fetched lots, oldest + newest fetch times
+      // MIN(fetched_at) = oldest cache entry — freshness is only "fresh" when ALL lots are within window
       const rows = await db.execute(sql`
         SELECT
           c.id                                          AS category_id,
@@ -5544,6 +5546,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
           c.priority_tier                               AS tier,
           COUNT(i.id)                                   AS total_lots,
           COUNT(pgc.id)                                 AS fetched_lots,
+          MIN(pgc.fetched_at)                           AS oldest_fetched_at,
           MAX(pgc.fetched_at)                           AS last_fetched_at
         FROM bl_inventory i
         LEFT JOIN bl_categories c ON i.category_id = c.id
@@ -5560,17 +5563,25 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       const categories = (rows.rows as any[]).map((row) => {
         const tier = row.tier || 'tier2';
         const refreshMs = (tierDays[tier] ?? 3) * 86400000;
+        const oldestFetchedAt = row.oldest_fetched_at ? new Date(row.oldest_fetched_at) : null;
         const lastFetchedAt = row.last_fetched_at ? new Date(row.last_fetched_at) : null;
         const totalLots = parseInt(row.total_lots) || 0;
         const fetchedLots = parseInt(row.fetched_lots) || 0;
         const neverFetched = totalLots - fetchedLots;
 
+        // Fresh = every lot in the category has been fetched AND the oldest fetch is still within the refresh window
+        // Stale = at least one lot fetched but either not all covered or oldest is expired
+        // Never = no lots have any price guide data
         let status: 'fresh' | 'stale' | 'never' = 'never';
-        if (lastFetchedAt) {
-          status = now - lastFetchedAt.getTime() < refreshMs ? 'fresh' : 'stale';
+        if (oldestFetchedAt) {
+          const allCovered = fetchedLots >= totalLots;
+          const oldestStillFresh = now - oldestFetchedAt.getTime() < refreshMs;
+          status = allCovered && oldestStillFresh ? 'fresh' : 'stale';
         }
-        const daysSince = lastFetchedAt
-          ? Math.floor((now - lastFetchedAt.getTime()) / 86400000)
+
+        // daysSince reflects the OLDEST cached entry — shows how stale the worst-case lot is
+        const daysSince = oldestFetchedAt
+          ? Math.floor((now - oldestFetchedAt.getTime()) / 86400000)
           : null;
 
         return {
