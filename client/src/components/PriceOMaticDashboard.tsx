@@ -202,46 +202,9 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
   return (
     <div className="space-y-4">
 
-      {/* Status row + action buttons */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          {status && status.lastSyncStatus !== 'never' ? (
-            <>
-              <span className={`w-2 h-2 rounded-full flex-shrink-0 inline-block ${
-                status.lastSyncStatus === 'success' ? 'bg-green-400' :
-                status.lastSyncStatus === 'in_progress' ? 'bg-blue-400 animate-pulse' :
-                status.lastSyncStatus === 'partial' ? 'bg-orange-400' :
-                status.lastSyncStatus === 'stopped' ? 'bg-yellow-400' :
-                'bg-red-400'
-              }`} />
-              <span className="text-xs text-gray-400 truncate">
-                {status.lastSyncStatus === 'success' && 'Sync complete'}
-                {status.lastSyncStatus === 'partial' && 'Partial sync'}
-                {status.lastSyncStatus === 'in_progress' && 'Syncing...'}
-                {status.lastSyncStatus === 'stopped' && 'Stopped'}
-                {status.lastSyncStatus === 'failed' && 'Sync failed'}
-                {status.lastSyncTime && (
-                  <span className="text-gray-600"> · {formatDistanceToNow(new Date(status.lastSyncTime), { addSuffix: true })}</span>
-                )}
-                {status.recordsUpdated > 0 && (
-                  <span className="text-purple-500/80"> · {status.recordsUpdated.toLocaleString()} items</span>
-                )}
-              </span>
-            </>
-          ) : (
-            <span className="text-xs text-gray-500">Smart Pricing Insights</span>
-          )}
-          {status?.callsLast24h !== undefined && (
-            <span className={`text-xs font-mono flex-shrink-0 ${
-              status.callsLast24h >= apiCeiling * 0.9 ? 'text-red-400' :
-              status.callsLast24h >= apiCeiling * 0.6 ? 'text-orange-400' :
-              'text-gray-600'
-            }`}>
-              · {status.callsLast24h.toLocaleString()}/{(apiCeiling / 1000).toFixed(1)}k calls
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-1 flex-shrink-0">
+      {/* Action buttons — right-aligned, no status text */}
+      <div className="flex justify-end">
+        <div className="flex items-center gap-1">
           <Popover>
             <PopoverTrigger asChild>
               <Button size="icon" variant="ghost" data-testid="button-pom-info">

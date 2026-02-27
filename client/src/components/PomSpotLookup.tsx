@@ -207,7 +207,6 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
   return (
     <div className="bg-gray-900/50 border border-purple-500/20 rounded-lg p-2.5">
       <div className="flex items-center gap-2">
-        <Search className="w-3.5 h-3.5 text-purple-400 flex-shrink-0" />
         <Input
           placeholder="Part # (e.g. 3001)"
           value={partNo}

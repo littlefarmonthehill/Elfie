@@ -29,7 +29,7 @@ export default function DashboardNav({ active, onSelect }: DashboardNavProps) {
             onClick={() => onSelect(dashboard.id)}
             data-testid={`tab-${dashboard.id}`}
             className={cn(
-              "px-3 md:px-6 lg:px-8 py-1.5 md:py-2.5 lg:py-3 rounded-full text-xs md:text-base lg:text-lg font-semibold whitespace-nowrap transition-all",
+              "px-3 md:px-6 lg:px-8 py-1.5 md:py-2.5 lg:py-3 rounded-full text-sm md:text-base lg:text-lg font-semibold whitespace-nowrap transition-all",
               isActive && dashboard.color === 'lego-red' && "bg-lego-red text-white",
               !isActive && dashboard.color === 'lego-red' && "text-lego-red/60 hover:bg-lego-red/30",
               isActive && dashboard.color === 'lego-blue' && "bg-lego-blue text-white",
