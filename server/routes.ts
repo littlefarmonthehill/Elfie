@@ -4321,6 +4321,52 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
     }
   });
 
+  // On-demand pricing — fetches stock guide + computes suggested price for a specific lot
+  // Called when user explicitly clicks "Get pricing" in filter results or spot lookup
+  app.post("/api/priceomatic/fetch-pricing", isApproved, async (req, res) => {
+    try {
+      const { itemNo, itemType, colorId, newOrUsed } = req.body;
+      if (!itemNo || !itemType || !newOrUsed) {
+        return res.status(400).json({ error: "itemNo, itemType and newOrUsed are required" });
+      }
+      const colorIdNum = colorId != null ? parseInt(colorId) : undefined;
+      const config = await getPomFormulaConfig();
+
+      // Force full refresh: delete existing cache entry so fetchPriceOMagicData re-fetches both sold + stock
+      const { priceGuideCache: pgc } = await import("@shared/schema");
+      await db.delete(pgc).where(
+        and(
+          eq(pgc.itemNo, itemNo),
+          eq(pgc.itemType, itemType),
+          colorIdNum != null ? eq(pgc.colorId, colorIdNum) : sql`${pgc.colorId} IS NULL`,
+          eq(pgc.newOrUsed, newOrUsed)
+        )
+      );
+
+      const result = await fetchPriceOMagicData(
+        itemNo,
+        itemType,
+        colorIdNum,
+        newOrUsed,
+        config.basePremium ?? 15,
+        config,
+        false // full fetch — stock guide included
+      );
+
+      res.json({
+        suggestedPrice: result.suggestedPrice,
+        stockAvgPrice: result.stockAvgPrice,
+        stockMinPrice: result.stockMinPrice,
+        stockTotalLots: result.stockTotalLots,
+        soldAvgPrice: result.soldAvgPrice,
+        soldMaxPrice: result.soldMaxPrice,
+      });
+    } catch (error) {
+      console.error("[POM fetch-pricing] Error:", error);
+      res.status(500).json({ error: "Failed to fetch pricing", message: error instanceof Error ? error.message : "Unknown error" });
+    }
+  });
+
   // Spot Price Lookup — any part number, in or out of inventory
   app.get("/api/pom/spot-lookup", isApproved, async (req, res) => {
     try {
@@ -4346,14 +4392,15 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       }
 
       // Market demand & supply signals come from the BL price guide API inside fetchPriceOMagicData.
-      // No local velocity pre-computation needed.
+      // skipStock=true — score-only fetch; user clicks "Get pricing" for suggested price.
       const priceData = await fetchPriceOMagicData(
         partNoClean,
         itemType as string,
         colorIdNum,
         newOrUsed as string,
         config.basePremium,
-        config
+        config,
+        true // skipStock
       );
 
       // Also check inventory for this part — filter by color if one was specified
@@ -4415,7 +4462,8 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
               combo.colorId ?? undefined,
               combo.newOrUsed,
               config.basePremium,
-              config
+              config,
+              true // skipStock — score-only; user fetches pricing on demand
             );
             lotPriceData[combo.key] = pd;
           } catch (err) {

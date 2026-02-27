@@ -16,7 +16,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Search, Package, RefreshCw, AlertCircle, X, Camera } from "lucide-react";
+import { Search, Package, RefreshCw, AlertCircle, X, Camera, DollarSign } from "lucide-react";
 
 interface Color {
   id: number;
@@ -70,6 +70,45 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
   const [isScanning, setIsScanning] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  // lotKey → suggestedPrice from on-demand pricing fetch
+  const [pricingCache, setPricingCache] = useState<Map<string, string>>(new Map());
+  const [pricingLoading, setPricingLoading] = useState<Set<string>>(new Set());
+
+  const fetchPricingMutation = useMutation({
+    mutationFn: async (lots: Array<{ itemNo: string; itemType: string; colorId: number | null; newOrUsed: string; key: string }>) => {
+      const results: Array<{ key: string; suggestedPrice: string | null }> = [];
+      await Promise.all(lots.map(async (lot) => {
+        const data = await apiRequest("POST", "/api/priceomatic/fetch-pricing", {
+          itemNo: lot.itemNo,
+          itemType: lot.itemType,
+          colorId: lot.colorId,
+          newOrUsed: lot.newOrUsed,
+        });
+        results.push({ key: lot.key, suggestedPrice: data.suggestedPrice ?? null });
+      }));
+      return results;
+    },
+    onMutate: (lots) => {
+      setPricingLoading(prev => new Set([...prev, ...lots.map(l => l.key)]));
+    },
+    onSettled: (_data, _err, lots) => {
+      setPricingLoading(prev => {
+        const next = new Set(prev);
+        lots.forEach(l => next.delete(l.key));
+        return next;
+      });
+    },
+    onSuccess: (results) => {
+      setPricingCache(prev => {
+        const next = new Map(prev);
+        results.forEach(r => { if (r.suggestedPrice) next.set(r.key, r.suggestedPrice); });
+        return next;
+      });
+    },
+    onError: () => {
+      toast({ title: "Pricing failed", description: "Could not fetch suggested price from BrickLink", variant: "destructive" });
+    },
+  });
 
   const { data: colors } = useQuery<Color[]>({
     queryKey: ["/api/colors"],
@@ -415,24 +454,17 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
               const LotPriceCell = ({ lot }: { lot: InventoryLot | undefined }) => {
                 if (!lot) return <span className="text-[10px] text-gray-700 w-14 text-right flex-shrink-0">—</span>;
                 const lotKey = `${lot.colorId ?? "null"}_${lot.newOrUsed}`;
-                const lotPd = lotPriceData[lotKey];
-                const suggestedPrice = lot.suggestedPrice ?? lotPd?.suggestedPrice ?? null;
+                const fetchedSugg = pricingCache.get(lotKey) ?? null;
                 return (
                   <div className="flex flex-col items-end w-14 flex-shrink-0">
                     <span className="text-[10px] font-mono text-gray-300 leading-tight">
                       {lot.unitPrice ? formatCurrency(lot.unitPrice) : "—"}
                     </span>
-                    {suggestedPrice ? (
+                    {fetchedSugg ? (
                       <span className="text-[9px] font-mono text-purple-400 leading-tight">
-                        {formatCurrency(suggestedPrice)}
-                        {lot.floorApplied === 'cost' && <span className="text-emerald-500 ml-0.5">↑</span>}
-                        {lot.floorApplied === 'min' && <span className="text-blue-400 ml-0.5">↑</span>}
+                        {formatCurrency(fetchedSugg)}
                       </span>
-                    ) : lotPd === undefined ? (
-                      <RefreshCw className="w-2.5 h-2.5 text-gray-600 animate-spin mt-0.5" />
-                    ) : (
-                      <span className="text-[9px] text-gray-700">—</span>
-                    )}
+                    ) : null}
                   </div>
                 );
               };
@@ -452,16 +484,11 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
                   {/* Column header — matches filter results */}
                   <div className="flex items-center gap-1 px-2 pb-0.5">
                     <div className="flex-1 min-w-0" />
-                    <div className="flex flex-col items-end w-14 flex-shrink-0">
-                      <span className="text-[9px] uppercase tracking-wider text-gray-400 leading-none">N Cur</span>
-                      <span className="text-[9px] uppercase tracking-wider text-gray-400 leading-none">Sugg</span>
-                    </div>
+                    <span className="text-[9px] uppercase tracking-wider text-gray-400 w-14 text-right flex-shrink-0">N Cur</span>
                     <span className="text-[9px] uppercase tracking-wider text-gray-400 rounded px-1.5 py-0.5 whitespace-nowrap flex-shrink-0">N Score</span>
-                    <div className="flex flex-col items-end w-14 flex-shrink-0">
-                      <span className="text-[9px] uppercase tracking-wider text-gray-400 leading-none">U Cur</span>
-                      <span className="text-[9px] uppercase tracking-wider text-gray-400 leading-none">Sugg</span>
-                    </div>
+                    <span className="text-[9px] uppercase tracking-wider text-gray-400 w-14 text-right flex-shrink-0">U Cur</span>
                     <span className="text-[9px] uppercase tracking-wider text-gray-400 rounded px-1.5 py-0.5 whitespace-nowrap flex-shrink-0">U Score</span>
+                    <span className="w-5 flex-shrink-0" />
                   </div>
 
                   {Array.from(colorGroups.entries()).map(([colorKey, { newLot, usedLot }]) => {
@@ -502,6 +529,25 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
                           <span className={`text-[10px] font-mono font-bold text-right flex-shrink-0 w-[58px] ${scoreColor(uScore)}`}>
                             {uScore != null ? `${uScore}×` : '—'}
                           </span>
+                          {/* Pricing button */}
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                onClick={() => {
+                                  const lotsToPrice = [
+                                    newLot ? { itemNo: result.priceData.itemNo, itemType: 'P', colorId: newLot.colorId, newOrUsed: 'N', key: `${newLot.colorId ?? 'null'}_N` } : null,
+                                    usedLot ? { itemNo: result.priceData.itemNo, itemType: 'P', colorId: usedLot.colorId, newOrUsed: 'U', key: `${usedLot.colorId ?? 'null'}_U` } : null,
+                                  ].filter(Boolean) as any[];
+                                  fetchPricingMutation.mutate(lotsToPrice);
+                                }}
+                                disabled={[newLot, usedLot].some(l => l && pricingLoading.has(`${l.colorId ?? 'null'}_${l.newOrUsed}`))}
+                                className="text-gray-600 hover:text-purple-400 disabled:text-gray-700 transition-colors flex-shrink-0"
+                              >
+                                <DollarSign className={`w-3 h-3 ${[newLot, usedLot].some(l => l && pricingLoading.has(`${l.colorId ?? 'null'}_${l.newOrUsed}`)) ? 'animate-pulse text-purple-400' : ''}`} />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="left" className="text-xs">Get suggested price</TooltipContent>
+                          </Tooltip>
                         </div>
                       </div>
                     );
@@ -515,38 +561,54 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
                   {/* Column header */}
                   <div className="flex items-center gap-1 px-2 pb-0.5">
                     <div className="flex-1 min-w-0" />
-                    <div className="flex flex-col items-end w-14 flex-shrink-0">
-                      <span className="text-[9px] uppercase tracking-wider text-gray-400 leading-none">N Cur</span>
-                      <span className="text-[9px] uppercase tracking-wider text-gray-400 leading-none">Sugg</span>
-                    </div>
+                    <span className="text-[9px] uppercase tracking-wider text-gray-400 w-14 text-right flex-shrink-0">N Cur</span>
                     <span className="text-[9px] uppercase tracking-wider text-gray-400 rounded px-1.5 py-0.5 whitespace-nowrap flex-shrink-0">N Score</span>
-                    <div className="flex flex-col items-end w-14 flex-shrink-0">
-                      <span className="text-[9px] uppercase tracking-wider text-gray-400 leading-none">U Cur</span>
-                      <span className="text-[9px] uppercase tracking-wider text-gray-400 leading-none">Sugg</span>
-                    </div>
+                    <span className="text-[9px] uppercase tracking-wider text-gray-400 w-14 text-right flex-shrink-0">U Cur</span>
                     <span className="text-[9px] uppercase tracking-wider text-gray-400 rounded px-1.5 py-0.5 whitespace-nowrap flex-shrink-0">U Score</span>
+                    <span className="w-5 flex-shrink-0" />
                   </div>
                   <div className="bg-gray-900/50 border border-gray-700/50 border-dashed rounded-lg px-2 py-1.5">
                     <div className="flex items-center gap-1 min-w-0">
                       <div className="flex flex-col flex-1 min-w-0">
                         <div className="flex items-center gap-1 min-w-0">
-                          {/* Not-owned indicator */}
                           <span className="w-1.5 h-1.5 rounded-full bg-gray-600 flex-shrink-0" title="Not in your inventory" />
                           <span className="text-[10px] text-gray-500 truncate">Not in inventory</span>
                         </div>
-                        <span className="text-[9px] text-gray-600 pl-0.5">New listing pricing</span>
+                        <span className="text-[9px] text-gray-600 pl-0.5">Click $ to get suggested price</span>
                       </div>
-                      {/* Suggested price in the N column (no current price) */}
+                      {/* N Cur + optional suggested */}
                       <div className="flex flex-col items-end w-14 flex-shrink-0">
                         <span className="text-[10px] font-mono text-gray-600 leading-tight">—</span>
-                        <span className="text-[9px] font-mono text-purple-400 leading-tight">{formatCurrency(pd.suggestedPrice)}</span>
+                        {pricingCache.get('newlisting_N') && (
+                          <span className="text-[9px] font-mono text-purple-400 leading-tight">{formatCurrency(pricingCache.get('newlisting_N')!)}</span>
+                        )}
                       </div>
                       <span className="text-[10px] font-mono text-gray-700 text-right flex-shrink-0 w-[58px]">—</span>
                       <div className="flex flex-col items-end w-14 flex-shrink-0">
                         <span className="text-[10px] font-mono text-gray-600 leading-tight">—</span>
-                        <span className="text-[9px] font-mono text-gray-700 leading-tight">—</span>
                       </div>
                       <span className="text-[10px] font-mono text-gray-700 text-right flex-shrink-0 w-[58px]">—</span>
+                      {/* Pricing button */}
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={() => {
+                              fetchPricingMutation.mutate([{
+                                itemNo: pd.itemNo,
+                                itemType: 'P',
+                                colorId: colorId !== 'none' ? parseInt(colorId) : null,
+                                newOrUsed: 'N',
+                                key: 'newlisting_N',
+                              }]);
+                            }}
+                            disabled={pricingLoading.has('newlisting_N')}
+                            className="text-gray-600 hover:text-purple-400 disabled:text-gray-700 transition-colors flex-shrink-0"
+                          >
+                            <DollarSign className={`w-3 h-3 ${pricingLoading.has('newlisting_N') ? 'animate-pulse text-purple-400' : ''}`} />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="left" className="text-xs">Get suggested price</TooltipContent>
+                      </Tooltip>
                     </div>
                   </div>
                 </>

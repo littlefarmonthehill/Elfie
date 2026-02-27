@@ -1299,18 +1299,20 @@ export async function syncPriceOMagicCache(maxItems?: number): Promise<{
           }
         }
 
-        // Fetch price data (uses 3 API calls: item details, stock price guide, sold price guide)
+        // Fetch price data — score-only sync (2 API calls: item details + sold price guide)
+        // Stock guide is skipped; existing pricing data preserved. Use on-demand pricing for suggested prices.
         await fetchPriceOMagicData(
           item.itemNo,
           item.itemType,
           item.colorId || undefined,
           item.newOrUsed,
           pomConfig.basePremium,
-          pomConfig
+          pomConfig,
+          true // skipStock
         );
 
         itemsUpdated++;
-        apiCallsUsed += 3; // Track approximate API usage
+        apiCallsUsed += 2; // Track approximate API usage (item details + sold guide only)
         
         // Log progress every 100 items
         if (itemsUpdated % 100 === 0) {
@@ -1352,7 +1354,8 @@ export async function fetchPriceOMagicData(
   colorId?: number,
   newOrUsed: string = 'N',
   premiumPercentage: number = 15,
-  config: PomFormulaConfig = POM_FORMULA_DEFAULTS
+  config: PomFormulaConfig = POM_FORMULA_DEFAULTS,
+  skipStock: boolean = false
 ): Promise<any> {
   try {
     // Check if we have cached data less than 24 hours old
@@ -1399,18 +1402,23 @@ export async function fetchPriceOMagicData(
     const itemDetailsEndpoint = `/items/${apiItemType}/${itemNo}`;
     const { data: itemDetails } = await bricklinkCatalogRequest(itemDetailsEndpoint);
 
-    // Fetch price guide - stock
-    const stockPriceParams: Record<string, string> = { 
-      guide_type: 'stock',
-      new_or_used: newOrUsed
-    };
-    if (colorId) {
-      stockPriceParams.color_id = colorId.toString();
-    }
     const stockPriceEndpoint = `/items/${apiItemType}/${itemNo}/price`;
-    const { data: stockPriceData } = await bricklinkCatalogRequest(stockPriceEndpoint, stockPriceParams);
 
-    // Fetch price guide - sold
+    // Fetch price guide - stock (skipped in score-only sync mode to save API quota)
+    let stockPriceData: any = null;
+    if (!skipStock) {
+      const stockPriceParams: Record<string, string> = { 
+        guide_type: 'stock',
+        new_or_used: newOrUsed
+      };
+      if (colorId) {
+        stockPriceParams.color_id = colorId.toString();
+      }
+      const { data } = await bricklinkCatalogRequest(stockPriceEndpoint, stockPriceParams);
+      stockPriceData = data;
+    }
+
+    // Fetch price guide - sold (always — needed for opportunity score)
     const soldPriceParams: Record<string, string> = { 
       guide_type: 'sold',
       new_or_used: newOrUsed
@@ -1429,10 +1437,39 @@ export async function fetchPriceOMagicData(
     const stockTotalLots = stockPriceData?.total_lots ? parseInt(stockPriceData.total_lots.toString()) : 0;   // BL seller listing count (scarcity tiers)
     const marketStockQty = stockPriceData?.unit_quantity ? parseInt(stockPriceData.unit_quantity.toString()) : 0; // Total pieces for sale globally (supply signal)
     const marketSoldQty  = soldPriceData?.unit_quantity  ? parseInt(soldPriceData.unit_quantity.toString())  : 0; // Total pieces sold globally (demand signal)
-    const marketPrice = calculateSuggestedPriceWithSupply(stockAvgPrice, soldAvgPrice, stockTotalLots, premiumPercentage, apiItemType, config, marketSoldQty, marketStockQty);
-    // Apply absolute minimum price floor before storing — same floor the detail modal shows
-    const { finalPrice: suggestedPriceNum } = applyPomFloors(marketPrice, null, config);
-    const suggestedPrice = Number(suggestedPriceNum.toFixed(4));
+
+    // Suggested price only computed when stock data is available (on-demand pricing, not score-only sync)
+    let suggestedPrice: number | null = null;
+    if (!skipStock) {
+      const marketPrice = calculateSuggestedPriceWithSupply(stockAvgPrice, soldAvgPrice, stockTotalLots, premiumPercentage, apiItemType, config, marketSoldQty, marketStockQty);
+      const { finalPrice: suggestedPriceNum } = applyPomFloors(marketPrice, null, config);
+      suggestedPrice = Number(suggestedPriceNum.toFixed(4));
+    }
+
+    // When skipStock=true, preserve existing stock/suggestedPrice from cache so previous pricing data isn't lost
+    let preservedStock: { stockAvgPrice?: string | null; stockMinPrice?: string | null; stockMaxPrice?: string | null; stockQuantity?: number | null; stockTotalLots?: number | null; suggestedPrice?: string | null } = {};
+    if (skipStock) {
+      const existingRec = await db
+        .select({
+          stockAvgPrice: priceGuideCache.stockAvgPrice,
+          stockMinPrice: priceGuideCache.stockMinPrice,
+          stockMaxPrice: priceGuideCache.stockMaxPrice,
+          stockQuantity: priceGuideCache.stockQuantity,
+          stockTotalLots: priceGuideCache.stockTotalLots,
+          suggestedPrice: priceGuideCache.suggestedPrice,
+        })
+        .from(priceGuideCache)
+        .where(
+          and(
+            eq(priceGuideCache.itemNo, itemNo),
+            eq(priceGuideCache.itemType, itemType),
+            colorId ? eq(priceGuideCache.colorId, colorId) : sql`${priceGuideCache.colorId} IS NULL`,
+            eq(priceGuideCache.newOrUsed, newOrUsed)
+          )
+        )
+        .limit(1);
+      if (existingRec.length > 0) preservedStock = existingRec[0];
+    }
 
     // Merge and store data
     const mergedData = {
@@ -1452,12 +1489,12 @@ export async function fetchPriceOMagicData(
       dimensionZ: itemDetails?.dim_z ? itemDetails.dim_z.toString() : null,
       yearReleased: itemDetails?.year_released || null,
       
-      // Stock price guide
-      stockAvgPrice: stockAvgPrice?.toString() || null,
-      stockMinPrice: stockPriceData?.min_price ? stockPriceData.min_price.toString() : null,
-      stockMaxPrice: stockPriceData?.max_price ? stockPriceData.max_price.toString() : null,
-      stockQuantity: stockPriceData?.qty_avg || null,
-      stockTotalLots: stockPriceData?.unit_quantity || null, // Number of lots/listings
+      // Stock price guide (preserved from cache when skipStock=true, fetched fresh otherwise)
+      stockAvgPrice: skipStock ? (preservedStock.stockAvgPrice ?? null) : (stockAvgPrice?.toString() || null),
+      stockMinPrice: skipStock ? (preservedStock.stockMinPrice ?? null) : (stockPriceData?.min_price ? stockPriceData.min_price.toString() : null),
+      stockMaxPrice: skipStock ? (preservedStock.stockMaxPrice ?? null) : (stockPriceData?.max_price ? stockPriceData.max_price.toString() : null),
+      stockQuantity: skipStock ? (preservedStock.stockQuantity ?? null) : (stockPriceData?.qty_avg || null),
+      stockTotalLots: skipStock ? (preservedStock.stockTotalLots ?? null) : (stockPriceData?.unit_quantity || null),
       
       // Sold price guide
       soldAvgPrice: soldAvgPrice?.toString() || null,
@@ -1466,8 +1503,8 @@ export async function fetchPriceOMagicData(
       soldQuantity: soldPriceData?.qty_avg || null,
       soldTotalLots: soldPriceData?.unit_quantity || null, // Number of lots/listings
       
-      // Price-O-Matic
-      suggestedPrice: suggestedPrice.toString(),
+      // Price-O-Matic (null when skipStock=true; preserved from cache if available)
+      suggestedPrice: skipStock ? (preservedStock.suggestedPrice ?? null) : (suggestedPrice?.toString() ?? null),
       premiumPercentage,
     };
 

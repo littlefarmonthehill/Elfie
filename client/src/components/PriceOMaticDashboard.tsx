@@ -13,6 +13,7 @@ import {
   ChevronDown,
   ArrowUp,
   ArrowDown,
+  DollarSign,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { PomSpotLookup } from "@/components/PomSpotLookup";
@@ -85,6 +86,41 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
   const [refreshingItems, setRefreshingItems] = useState<Set<number>>(new Set());
   const [sortField, setSortField] = useState<'new' | 'used'>('new');
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc');
+  const [pricingData, setPricingData] = useState<Map<string, { n: string | null; u: string | null }>>(new Map());
+  const [pricingLoading, setPricingLoading] = useState<Set<string>>(new Set());
+
+  const fetchPricingMutation = useMutation({
+    mutationFn: async (group: GroupedInsight) => {
+      const lots = [
+        group.newLot ? { lot: group.newLot, condition: 'n' as const } : null,
+        group.usedLot ? { lot: group.usedLot, condition: 'u' as const } : null,
+      ].filter(Boolean) as { lot: PricingInsight; condition: 'n' | 'u' }[];
+
+      const results: { n: string | null; u: string | null } = { n: null, u: null };
+      await Promise.all(lots.map(async ({ lot, condition }) => {
+        const data = await apiRequest("POST", "/api/priceomatic/fetch-pricing", {
+          itemNo: lot.itemNo,
+          itemType: lot.itemType,
+          colorId: lot.colorId,
+          newOrUsed: lot.newOrUsed,
+        });
+        results[condition] = data.suggestedPrice ?? null;
+      }));
+      return { key: group.key, results };
+    },
+    onMutate: (group) => {
+      setPricingLoading(prev => new Set([...prev, group.key]));
+    },
+    onSettled: (_data, _err, group) => {
+      setPricingLoading(prev => { const next = new Set(prev); next.delete(group.key); return next; });
+    },
+    onSuccess: ({ key, results }) => {
+      setPricingData(prev => new Map(prev).set(key, results));
+    },
+    onError: () => {
+      toast({ title: "Pricing failed", description: "Could not fetch suggested price from BrickLink", variant: "destructive" });
+    },
+  });
 
   const refreshItemMutation = useMutation({
     mutationFn: async (item: { itemNo: string; itemType: string; colorId: number | null; newOrUsed: string; inventoryId: number }) => {
@@ -350,18 +386,11 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
               {/* Column headers with sort controls */}
               <div className="flex items-center gap-1 px-2 pb-0.5">
                 <div className="flex-1 min-w-0" />
-                {/* New: stacked price header | Score sort button */}
-                <div className="flex flex-col items-end w-14 flex-shrink-0">
-                  <span className="text-[9px] uppercase tracking-wider text-gray-400 leading-none">N Cur</span>
-                  <span className="text-[9px] uppercase tracking-wider text-gray-400 leading-none">Sugg</span>
-                </div>
+                <span className="text-[9px] uppercase tracking-wider text-gray-400 w-14 text-right flex-shrink-0">N Cur</span>
                 <ScoreSortButton field="new" prefix="N" />
-                {/* Used: stacked price header | Score sort button */}
-                <div className="flex flex-col items-end w-14 flex-shrink-0">
-                  <span className="text-[9px] uppercase tracking-wider text-gray-400 leading-none">U Cur</span>
-                  <span className="text-[9px] uppercase tracking-wider text-gray-400 leading-none">Sugg</span>
-                </div>
+                <span className="text-[9px] uppercase tracking-wider text-gray-400 w-14 text-right flex-shrink-0">U Cur</span>
                 <ScoreSortButton field="used" prefix="U" />
+                <span className="w-5 flex-shrink-0" />
               </div>
 
               {selectedGroups.slice(0, itemsToShow).map((group) => {
@@ -375,36 +404,56 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
                       if (primaryLot) onItemClick?.('inventory', primaryLot.inventoryId);
                     }}
                   >
-                    {/* Row 1: Part number + Item name + refresh */}
+                    {/* Row 1: Part number + Item name + buttons */}
                     <div className="flex items-center gap-1.5 min-w-0">
                       <span className="font-mono text-[10px] text-white flex-shrink-0">{group.itemNo}</span>
                       <p className="text-xs text-gray-400 truncate flex-1 min-w-0">{group.itemName || 'Unknown Item'}</p>
                       {primaryLot && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const lots = [group.newLot, group.usedLot].filter(Boolean) as PricingInsight[];
-                                lots.forEach(lot => refreshItemMutation.mutate({
-                                  inventoryId: lot.inventoryId,
-                                  itemNo: lot.itemNo,
-                                  itemType: lot.itemType,
-                                  colorId: lot.colorId,
-                                  newOrUsed: lot.newOrUsed,
-                                }));
-                              }}
-                              disabled={[group.newLot, group.usedLot].some(l => l && refreshingItems.has(l.inventoryId))}
-                              className="invisible group-hover:visible text-gray-600 hover:text-purple-400 disabled:text-gray-700 transition-colors flex-shrink-0"
-                              data-testid={`button-refresh-group-${group.key}`}
-                            >
-                              <RefreshCw className={`w-2.5 h-2.5 ${[group.newLot, group.usedLot].some(l => l && refreshingItems.has(l.inventoryId)) ? 'animate-spin text-purple-400 visible' : ''}`} />
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent side="left" className="text-xs">
-                            Refresh BrickLink price data (3 API calls per condition)
-                          </TooltipContent>
-                        </Tooltip>
+                        <div className="invisible group-hover:visible flex items-center gap-0.5 flex-shrink-0">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  fetchPricingMutation.mutate(group);
+                                }}
+                                disabled={pricingLoading.has(group.key)}
+                                className="text-gray-600 hover:text-purple-400 disabled:text-gray-700 transition-colors"
+                                data-testid={`button-price-group-${group.key}`}
+                              >
+                                <DollarSign className={`w-2.5 h-2.5 ${pricingLoading.has(group.key) ? 'animate-pulse text-purple-400' : ''}`} />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="left" className="text-xs">
+                              Get suggested price (2 API calls)
+                            </TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const lots = [group.newLot, group.usedLot].filter(Boolean) as PricingInsight[];
+                                  lots.forEach(lot => refreshItemMutation.mutate({
+                                    inventoryId: lot.inventoryId,
+                                    itemNo: lot.itemNo,
+                                    itemType: lot.itemType,
+                                    colorId: lot.colorId,
+                                    newOrUsed: lot.newOrUsed,
+                                  }));
+                                }}
+                                disabled={[group.newLot, group.usedLot].some(l => l && refreshingItems.has(l.inventoryId))}
+                                className="text-gray-600 hover:text-gray-400 disabled:text-gray-700 transition-colors"
+                                data-testid={`button-refresh-group-${group.key}`}
+                              >
+                                <RefreshCw className={`w-2.5 h-2.5 ${[group.newLot, group.usedLot].some(l => l && refreshingItems.has(l.inventoryId)) ? 'animate-spin text-purple-400' : ''}`} />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="left" className="text-xs">
+                              Refresh score data (2 API calls per condition)
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
                       )}
                     </div>
 
@@ -425,7 +474,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
                         )}
                       </div>
 
-                      {/* New: current + suggested stacked (click opens new lot) */}
+                      {/* New: current price + suggested if fetched (click opens new lot) */}
                       <div
                         className="flex flex-col items-end w-14 flex-shrink-0 cursor-pointer"
                         onClick={(e) => { if (group.newLot) { e.stopPropagation(); onItemClick?.('inventory', group.newLot.inventoryId); } }}
@@ -433,11 +482,9 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
                         {group.newLot ? (
                           <>
                             <span className="text-[10px] font-mono text-gray-300 leading-tight">{formatCurrency(group.newLot.currentPrice)}</span>
-                            <span className="text-[9px] font-mono text-purple-400 leading-tight">
-                              {formatCurrency(group.newLot.suggestedPrice)}
-                              {group.newLot.floorApplied === 'cost' && <span className="text-emerald-500 ml-0.5">↑</span>}
-                              {group.newLot.floorApplied === 'min' && <span className="text-blue-400 ml-0.5">↑</span>}
-                            </span>
+                            {pricingData.get(group.key)?.n ? (
+                              <span className="text-[9px] font-mono text-purple-400 leading-tight">{formatCurrency(pricingData.get(group.key)!.n)}</span>
+                            ) : null}
                           </>
                         ) : (
                           <span className="text-[10px] text-gray-700">—</span>
@@ -449,7 +496,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
                         {group.newLot?.opportunityScore != null ? `${group.newLot.opportunityScore}×` : '—'}
                       </span>
 
-                      {/* Used: current + suggested stacked (click opens used lot) */}
+                      {/* Used: current price + suggested if fetched (click opens used lot) */}
                       <div
                         className="flex flex-col items-end w-14 flex-shrink-0 cursor-pointer"
                         onClick={(e) => { if (group.usedLot) { e.stopPropagation(); onItemClick?.('inventory', group.usedLot.inventoryId); } }}
@@ -457,11 +504,9 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
                         {group.usedLot ? (
                           <>
                             <span className="text-[10px] font-mono text-gray-300 leading-tight">{formatCurrency(group.usedLot.currentPrice)}</span>
-                            <span className="text-[9px] font-mono text-purple-400 leading-tight">
-                              {formatCurrency(group.usedLot.suggestedPrice)}
-                              {group.usedLot.floorApplied === 'cost' && <span className="text-emerald-500 ml-0.5">↑</span>}
-                              {group.usedLot.floorApplied === 'min' && <span className="text-blue-400 ml-0.5">↑</span>}
-                            </span>
+                            {pricingData.get(group.key)?.u ? (
+                              <span className="text-[9px] font-mono text-purple-400 leading-tight">{formatCurrency(pricingData.get(group.key)!.u)}</span>
+                            ) : null}
                           </>
                         ) : (
                           <span className="text-[10px] text-gray-700">—</span>
@@ -472,6 +517,9 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
                       <span className={`text-[10px] font-mono font-bold text-right flex-shrink-0 w-[58px] ${group.usedLot ? scoreColor(group.usedLot.opportunityScore) : 'text-gray-700'}`}>
                         {group.usedLot?.opportunityScore != null ? `${group.usedLot.opportunityScore}×` : '—'}
                       </span>
+
+                      {/* Pricing button spacer — keeps layout consistent with header */}
+                      <span className="w-5 flex-shrink-0" />
                     </div>
                   </div>
                 );
