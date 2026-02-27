@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
 import {
   Select,
   SelectContent,
@@ -11,7 +11,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Package, RefreshCw, AlertCircle, X, TrendingUp, TrendingDown, CheckCircle } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Search, Package, RefreshCw, AlertCircle, X, TrendingUp, TrendingDown, CheckCircle, Camera } from "lucide-react";
 
 interface Color {
   id: number;
@@ -54,6 +59,10 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
   const [colorId, setColorId] = useState<string>("none");
   const [result, setResult] = useState<SpotLookupResult | null>(null);
   const [lookupError, setLookupError] = useState<string | null>(null);
+  const [scanResult, setScanResult] = useState<{ name: string; id: string; confidence: number } | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   const { data: colors } = useQuery<Color[]>({
     queryKey: ["/api/colors"],
@@ -65,9 +74,10 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
   };
 
   const lookupMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (overridePartNo?: string) => {
+      const searchPart = (overridePartNo ?? partNo).trim().toUpperCase();
       const params = new URLSearchParams({
-        partNo: partNo.trim().toUpperCase(),
+        partNo: searchPart,
         itemType: "P",
         newOrUsed: "N",
       });
@@ -90,13 +100,13 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
     },
   });
 
-  const handleLookup = () => {
-    if (!partNo.trim()) return;
+  const handleLookup = (overridePartNo?: string) => {
+    const searchStr = (overridePartNo ?? partNo).trim();
+    if (!searchStr) return;
 
-    const searchPart = partNo.trim().toUpperCase();
+    const searchPart = searchStr.toUpperCase();
     const searchColorId = colorId !== "none" ? parseInt(colorId) : null;
 
-    // Check the already-loaded insights cache before hitting the API
     const insightsCache = queryClient.getQueryData<{ success: boolean; data: any }>(['/api/priceomatic/insights']);
     const allInsights = insightsCache?.data;
 
@@ -114,7 +124,6 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
       });
 
       if (matches.length > 0) {
-        // Build lotPriceData from cached insights — one entry per (colorId, newOrUsed) combo
         const lotPriceData: Record<string, LotPriceEntry> = {};
         for (const m of matches) {
           const key = `${m.colorId ?? "null"}_${m.newOrUsed}`;
@@ -130,7 +139,6 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
           };
         }
 
-        // priceData for the header: prefer the selected color, else use first match
         const primaryMatch =
           searchColorId !== null
             ? (matches.find((m) => m.colorId === searchColorId) ?? matches[0])
@@ -147,7 +155,6 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
           premiumPercentage: 0,
         };
 
-        // inventoryLots from matched insight items
         const inventoryLots = matches.map((m) => ({
           id: m.inventoryId,
           colorId: m.colorId,
@@ -158,7 +165,6 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
           newOrUsed: m.newOrUsed,
         }));
 
-        // Thresholds from settings cache
         const settingsCache = queryClient.getQueryData<any>(['/api/settings']);
         const thresholds = {
           tooHigh: settingsCache?.pomTooHighThreshold ?? 20,
@@ -167,12 +173,53 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
 
         setResult({ priceData, lotPriceData, inventoryLots, thresholds });
         setLookupError(null);
-        return; // Skip the API call entirely
+        return;
       }
     }
 
-    // No cached insights found — fall back to the API
-    lookupMutation.mutate();
+    lookupMutation.mutate(overridePartNo);
+  };
+
+  const handleImageUpload = async (file: File) => {
+    if (!file) return;
+    setIsScanning(true);
+    setScanResult(null);
+    setLookupError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+      formData.append('itemType', 'parts');
+
+      const response = await fetch('/api/brickognize/identify', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error('Image recognition failed');
+
+      const data = await response.json();
+
+      if (data.items && data.items.length > 0) {
+        const top = data.items[0];
+        const confidence = Math.round(top.score * 100);
+        setScanResult({ name: top.name, id: top.id, confidence });
+        setPartNo(top.id);
+        // Auto-trigger lookup with the identified part number
+        handleLookup(top.id);
+        toast({
+          title: `Part identified (${confidence}% confidence)`,
+          description: `${top.name} — Part ${top.id}`,
+        });
+      } else {
+        setLookupError("Couldn't identify the part. Try a clearer photo.");
+      }
+    } catch {
+      setLookupError("Image recognition failed. Try again.");
+    } finally {
+      setIsScanning(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   };
 
   const handleClose = () => {
@@ -181,6 +228,7 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
     }
     setResult(null);
     setLookupError(null);
+    setScanResult(null);
   };
 
   const pd = result?.priceData;
@@ -207,6 +255,42 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
   return (
     <div className="bg-gray-900/50 border border-purple-500/20 rounded-lg p-2.5">
       <div className="flex items-center gap-2">
+        {/* Camera button — left of search bar */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="flex-shrink-0 text-purple-400"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isScanning}
+              data-testid="button-pom-camera"
+            >
+              {isScanning ? (
+                <RefreshCw className="w-4 h-4 animate-spin" />
+              ) : (
+                <Camera className="w-4 h-4" />
+              )}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="text-xs">
+            {isScanning ? 'Identifying part...' : 'Photo ID — take or upload a photo to identify the part'}
+          </TooltipContent>
+        </Tooltip>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          data-testid="input-pom-image"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) handleImageUpload(file);
+          }}
+        />
+
         <Input
           placeholder="Part # (e.g. 3001)"
           value={partNo}
@@ -241,7 +325,7 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
           </SelectContent>
         </Select>
         <Button
-          onClick={handleLookup}
+          onClick={() => handleLookup()}
           disabled={!partNo.trim() || lookupMutation.isPending}
           size="icon"
           variant="ghost"
@@ -255,6 +339,14 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
           )}
         </Button>
       </div>
+
+      {/* Scan badge */}
+      {scanResult && !result && (
+        <div className="mt-2 flex items-center gap-1.5 text-xs text-purple-300">
+          <Camera className="w-3 h-3 flex-shrink-0" />
+          <span>Identified: <span className="font-mono text-white">{scanResult.id}</span> · {scanResult.name} · {scanResult.confidence}% confidence</span>
+        </div>
+      )}
 
       {/* Error */}
       {lookupError && (
@@ -291,6 +383,12 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
                     ? ` · ${colors.find((c) => c.id.toString() === colorId)?.name ?? ""}`
                     : " · All Colors"}
                 </div>
+                {scanResult && (
+                  <div className="text-[10px] text-purple-400 mt-0.5 flex items-center gap-1">
+                    <Camera className="w-2.5 h-2.5" />
+                    Photo ID · {scanResult.confidence}% confidence
+                  </div>
+                )}
               </div>
             </div>
             <button
@@ -349,7 +447,6 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
                       key={lot.id}
                       className="flex items-center justify-between gap-2 px-2.5 py-2 rounded bg-gray-800/50 border border-gray-700/30"
                     >
-                      {/* Color + condition */}
                       <div className="flex items-center gap-1.5 min-w-0">
                         {lot.colorRgb ? (
                           <span
@@ -365,7 +462,6 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
                         </span>
                       </div>
 
-                      {/* Prices + status */}
                       <div className="flex items-center gap-2 flex-shrink-0 text-xs font-mono">
                         <span className="text-gray-300">
                           {lot.unitPrice ? formatCurrency(lot.unitPrice) : "—"}
