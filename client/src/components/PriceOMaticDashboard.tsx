@@ -427,11 +427,11 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
               {/* Column labels for row 2 */}
               <div className="flex items-center gap-2 px-2 pb-0.5">
                 <span className="text-[9px] uppercase tracking-wider text-gray-600 flex-1 min-w-0">Color</span>
-                <span className="text-[9px] uppercase tracking-wider text-gray-600 flex-shrink-0">Current</span>
-                <span className="text-[9px] text-gray-800 flex-shrink-0">→</span>
-                <span className="text-[9px] uppercase tracking-wider text-gray-600 flex-shrink-0">Suggested</span>
-                <span className="text-[9px] uppercase tracking-wider text-gray-600 flex-shrink-0">Var%</span>
-                <span className="text-[9px] uppercase tracking-wider text-gray-600 flex-shrink-0">Qty</span>
+                <span className="text-[9px] uppercase tracking-wider text-gray-600 w-14 text-right">Current</span>
+                <span className="text-[9px] text-gray-700 w-3 text-center">→</span>
+                <span className="text-[9px] uppercase tracking-wider text-gray-600 w-20 text-right">Suggested</span>
+                <span className="text-[9px] uppercase tracking-wider text-gray-600 w-10 text-right">Var%</span>
+                <span className="text-[9px] uppercase tracking-wider text-gray-600 w-6 text-right">Qty</span>
               </div>
 
               {selectedItems.slice(0, itemsToShow).map((item) => (
@@ -473,19 +473,19 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
                   {/* Row 2: Color · current → suggested · variance · qty */}
                   <div className="flex items-center gap-2 mt-0.5 min-w-0">
                     <span className="text-[10px] text-gray-500 flex-1 min-w-0 truncate">{item.colorName || '—'}</span>
-                    <span className="text-[10px] font-mono text-gray-300 flex-shrink-0">{formatCurrency(item.currentPrice)}</span>
-                    <span className="text-[10px] text-gray-600 flex-shrink-0">→</span>
-                    <span className="text-[10px] font-mono text-purple-400 flex-shrink-0">
+                    <span className="text-[10px] font-mono text-gray-300 w-14 text-right">{formatCurrency(item.currentPrice)}</span>
+                    <span className="text-[10px] text-gray-600 w-3 text-center">→</span>
+                    <span className="text-[10px] font-mono text-purple-400 w-20 text-right">
                       {formatCurrency(item.suggestedPrice)}
                       {item.floorApplied === 'cost' && <span className="text-emerald-500 ml-0.5">↑</span>}
                       {item.floorApplied === 'min' && <span className="text-blue-400 ml-0.5">↑</span>}
                     </span>
-                    <span className={`text-[10px] font-mono font-bold flex-shrink-0 ${
+                    <span className={`text-[10px] font-mono font-bold w-10 text-right ${
                       item.variance > 0 ? 'text-red-400' : item.variance < 0 ? 'text-orange-400' : 'text-green-400'
                     }`}>
                       {item.variance > 0 ? '+' : ''}{item.variance}%
                     </span>
-                    <span className="text-[10px] font-mono text-gray-500 flex-shrink-0">×{item.quantity}</span>
+                    <span className="text-[10px] font-mono text-gray-500 w-6 text-right">×{item.quantity}</span>
                   </div>
                 </div>
               ))}
