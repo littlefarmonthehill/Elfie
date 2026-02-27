@@ -4386,13 +4386,23 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       // (BrickLink stores "PART", "MINIFIG", etc. — not the single-letter codes)
       const actualItemType = inventoryLots[0]?.itemType ?? (itemType as string);
 
+      // For each unique colorId in inventory, always fetch BOTH N and U so the peak is
+      // condition-agnostic (e.g. a Used-only lot still sees the New peak price).
       const seenCombos = new Set<string>([mainKey]);
       const combosToFetch: Array<{ colorId: number | null; itemType: string; newOrUsed: string; key: string }> = [];
+      const seenColors = new Set<string>();
       for (const lot of inventoryLots) {
-        const key = `${lot.colorId ?? 'null'}_${lot.newOrUsed}`;
-        if (!seenCombos.has(key)) {
-          seenCombos.add(key);
-          combosToFetch.push({ colorId: lot.colorId, itemType: lot.itemType, newOrUsed: lot.newOrUsed, key });
+        const colorKey = String(lot.colorId ?? 'null');
+        const lotItemType = lot.itemType ?? actualItemType;
+        if (!seenColors.has(colorKey)) {
+          seenColors.add(colorKey);
+          for (const condition of ['N', 'U']) {
+            const key = `${colorKey}_${condition}`;
+            if (!seenCombos.has(key)) {
+              seenCombos.add(key);
+              combosToFetch.push({ colorId: lot.colorId, itemType: lotItemType, newOrUsed: condition, key });
+            }
+          }
         }
       }
 
