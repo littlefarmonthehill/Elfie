@@ -1429,7 +1429,10 @@ export async function fetchPriceOMagicData(
     const stockTotalLots = stockPriceData?.total_lots ? parseInt(stockPriceData.total_lots.toString()) : 0;   // BL seller listing count (scarcity tiers)
     const marketStockQty = stockPriceData?.unit_quantity ? parseInt(stockPriceData.unit_quantity.toString()) : 0; // Total pieces for sale globally (supply signal)
     const marketSoldQty  = soldPriceData?.unit_quantity  ? parseInt(soldPriceData.unit_quantity.toString())  : 0; // Total pieces sold globally (demand signal)
-    const suggestedPrice = calculateSuggestedPriceWithSupply(stockAvgPrice, soldAvgPrice, stockTotalLots, premiumPercentage, apiItemType, config, marketSoldQty, marketStockQty);
+    const marketPrice = calculateSuggestedPriceWithSupply(stockAvgPrice, soldAvgPrice, stockTotalLots, premiumPercentage, apiItemType, config, marketSoldQty, marketStockQty);
+    // Apply absolute minimum price floor before storing — same floor the detail modal shows
+    const { finalPrice: suggestedPriceNum } = applyPomFloors(marketPrice, null, config);
+    const suggestedPrice = Number(suggestedPriceNum.toFixed(4));
 
     // Merge and store data
     const mergedData = {

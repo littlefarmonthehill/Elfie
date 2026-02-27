@@ -241,7 +241,11 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
     return { liveSuggestedPrice: Number(finalPrice.toFixed(4)), liveTotalPremiumPct: Math.round(totalPremium) };
   })();
 
-  const suggestedPrice = liveSuggestedPrice;
+  // Use the DB-stored value (same source as POM list and spot lookup).
+  // Fall back to live computation only when there is no cached entry yet.
+  const suggestedPrice = priceOMagic?.suggestedPrice
+    ? parseFloat(priceOMagic.suggestedPrice)
+    : liveSuggestedPrice;
   
   const quantity = data.quantity ?? 0;
   const totalValue = quantity * currentPrice;
@@ -726,7 +730,7 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
                             <div className="bg-purple-500/10 border border-purple-500/50 rounded-lg p-3">
                               <p className="text-xs text-gray-400 mb-1">SUGGESTED PRICE</p>
                               <p className="text-3xl font-mono font-black text-purple-400 mb-1">
-                                ${liveSuggestedPrice.toFixed(3)}
+                                ${suggestedPrice.toFixed(3)}
                               </p>
                               {priceOMagic.stockMinPrice && priceOMagic.stockMaxPrice && (
                                 <p className="text-[10px] text-gray-500 mb-2">
@@ -735,9 +739,9 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
                               )}
                               <div className="pt-2 border-t border-purple-500/30 space-y-0.5">
                                 <p className="text-[10px] text-purple-300 font-mono">
-                                  {basePrice.toFixed(3)} × (1 + {totalPremium.toFixed(1)}%) = ${marketPrice.toFixed(3)}{floorApplied !== 'none' ? ` → floor applied → $${liveSuggestedPrice.toFixed(3)}` : ''}
+                                  {basePrice.toFixed(3)} × (1 + {totalPremium.toFixed(1)}%) = ${marketPrice.toFixed(3)}{floorApplied !== 'none' ? ` → floor applied → $${suggestedPrice.toFixed(3)}` : ''}
                                 </p>
-                                <p className="text-[10px] text-gray-500">Computed live from current settings — updates instantly when formula changes.</p>
+                                <p className="text-[10px] text-gray-500">From last sync — matches the POM list and spot lookup exactly.</p>
                               </div>
                             </div>
                           </>
