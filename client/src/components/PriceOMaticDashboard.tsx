@@ -229,7 +229,7 @@ export default function PriceOMaticDashboard({ onItemClick, isSyncRunning }: Pri
   const ScoreSortButton = () => (
     <button
       onClick={() => setSortDir(d => d === 'desc' ? 'asc' : 'desc')}
-      className="flex items-center gap-0.5 text-[9px] uppercase tracking-wider rounded px-1.5 py-0.5 bg-purple-500/20 text-purple-300 whitespace-nowrap"
+      className="flex items-center gap-0.5 text-[9px] uppercase tracking-wider rounded px-1.5 py-0.5 bg-purple-500/20 text-purple-300 whitespace-nowrap w-[52px]"
       data-testid="button-sort-score"
     >
       Score
@@ -257,11 +257,12 @@ export default function PriceOMaticDashboard({ onItemClick, isSyncRunning }: Pri
             <>
               {/* Column headers with sort control */}
               <div className="flex items-center gap-1 px-2 pb-0.5">
+                <ScoreSortButton />
                 <div className="flex-1 min-w-0" />
                 <span className="text-[9px] uppercase tracking-wider text-gray-400 w-14 text-right flex-shrink-0">N Cur</span>
-                <span className="text-[9px] uppercase tracking-wider text-gray-400 rounded px-1.5 py-0.5 whitespace-nowrap flex-shrink-0">N Score</span>
+                <span className="text-[9px] uppercase tracking-wider text-gray-400 w-[58px] text-right flex-shrink-0">N Score</span>
                 <span className="text-[9px] uppercase tracking-wider text-gray-400 w-14 text-right flex-shrink-0">U Cur</span>
-                <ScoreSortButton />
+                <span className="text-[9px] uppercase tracking-wider text-gray-400 w-[58px] text-right flex-shrink-0">U Score</span>
                 <span className="w-5 flex-shrink-0" />
               </div>
 
@@ -270,7 +271,7 @@ export default function PriceOMaticDashboard({ onItemClick, isSyncRunning }: Pri
                 return (
                   <div
                     key={group.key}
-                    className="group bg-gray-900/50 border border-gray-700 rounded-lg px-2 py-1.5 hover-elevate active-elevate-2 cursor-pointer"
+                    className="group relative bg-gradient-to-br from-blue-950/50 via-slate-800/70 to-blue-900/30 border border-blue-700/25 rounded-lg px-2 py-1.5 cursor-pointer shadow-[0_2px_8px_rgba(15,40,100,0.35),inset_0_1px_0_rgba(147,197,253,0.07)] hover:shadow-[0_4px_14px_rgba(15,40,100,0.5),inset_0_1px_0_rgba(147,197,253,0.12)] hover:border-blue-600/40 transition-shadow duration-150"
                     data-testid={`item-group-${group.key}`}
                     onClick={() => {
                       if (primaryLot) onItemClick?.('inventory', primaryLot.inventoryId);
@@ -278,8 +279,8 @@ export default function PriceOMaticDashboard({ onItemClick, isSyncRunning }: Pri
                   >
                     {/* Row 1: Part number + Item name + buttons */}
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="font-mono text-[10px] text-white flex-shrink-0">{group.itemNo}</span>
-                      <p className="text-xs text-gray-400 truncate flex-1 min-w-0">{group.itemName || 'Unknown Item'}</p>
+                      <span className="font-mono text-[10px] text-blue-200/80 flex-shrink-0">{group.itemNo}</span>
+                      <p className="text-xs text-slate-300 truncate flex-1 min-w-0">{group.itemName || 'Unknown Item'}</p>
                       {primaryLot && (
                         <div className="invisible group-hover:visible flex items-center gap-0.5 flex-shrink-0">
                           <Tooltip>
@@ -329,64 +330,75 @@ export default function PriceOMaticDashboard({ onItemClick, isSyncRunning }: Pri
                       )}
                     </div>
 
-                    {/* Row 2: Qty · Color · Peak | [N cur/sugg stacked] N Score | [U cur/sugg stacked] U Score */}
+                    {/* Row 2: Combined score (left) | Qty · Color · Peak | [N cur/sugg] N Score | [U cur/sugg] U Score */}
                     <div className="flex items-center gap-1 mt-0.5 min-w-0">
-                      {/* Qty + Color + market peak on sub-line */}
+                      {/* Combined max score — left-aligned, matches header sort button width */}
+                      {(() => {
+                        const maxScore = Math.max(group.newScore ?? 0, group.usedScore ?? 0);
+                        const hasScore = (group.newLot?.opportunityScore != null) || (group.usedLot?.opportunityScore != null);
+                        return (
+                          <span className={`text-[11px] font-mono font-bold flex-shrink-0 w-[52px] ${hasScore ? scoreColor(maxScore) : 'text-slate-600'}`}>
+                            {hasScore ? `${maxScore}×` : '—'}
+                          </span>
+                        );
+                      })()}
+
+                      {/* Qty + Color + market peak */}
                       <div className="flex flex-col flex-1 min-w-0">
                         <div className="flex items-center gap-1 min-w-0">
-                          <span className="text-[10px] font-mono text-gray-300 flex-shrink-0">
+                          <span className="text-[10px] font-mono text-slate-400 flex-shrink-0">
                             ×{(group.newLot?.quantity ?? 0) + (group.usedLot?.quantity ?? 0)}
                           </span>
-                          <span className="text-[10px] text-gray-300 truncate">{group.colorName || '—'}</span>
+                          <span className="text-[10px] text-slate-400 truncate">{group.colorName || '—'}</span>
                         </div>
                         {group.marketPeakSoldPrice != null && (
-                          <span className="text-[9px] text-gray-400 pl-0.5">
+                          <span className="text-[9px] text-blue-400/60 pl-0.5">
                             peak {formatCurrency(group.marketPeakSoldPrice)}
                           </span>
                         )}
                       </div>
 
-                      {/* New: current price + suggested if fetched (click opens new lot) */}
+                      {/* New: current price + suggested if fetched */}
                       <div
                         className="flex flex-col items-end w-14 flex-shrink-0 cursor-pointer"
                         onClick={(e) => { if (group.newLot) { e.stopPropagation(); onItemClick?.('inventory', group.newLot.inventoryId); } }}
                       >
                         {group.newLot ? (
                           <>
-                            <span className="text-[10px] font-mono text-gray-300 leading-tight">{formatCurrency(group.newLot.currentPrice)}</span>
+                            <span className="text-[10px] font-mono text-slate-300 leading-tight">{formatCurrency(group.newLot.currentPrice)}</span>
                             {pricingData.get(group.key)?.n ? (
                               <span className="text-[9px] font-mono text-purple-400 leading-tight">{formatCurrency(pricingData.get(group.key)!.n)}</span>
                             ) : null}
                           </>
                         ) : (
-                          <span className="text-[10px] text-gray-700">—</span>
+                          <span className="text-[10px] text-slate-700">—</span>
                         )}
                       </div>
 
                       {/* New score */}
-                      <span className={`text-[10px] font-mono font-bold text-right flex-shrink-0 w-[58px] ${group.newLot ? scoreColor(group.newLot.opportunityScore) : 'text-gray-700'}`}>
+                      <span className={`text-[10px] font-mono font-bold text-right flex-shrink-0 w-[58px] ${group.newLot ? scoreColor(group.newLot.opportunityScore) : 'text-slate-700'}`}>
                         {group.newLot?.opportunityScore != null ? `${group.newLot.opportunityScore}×` : '—'}
                       </span>
 
-                      {/* Used: current price + suggested if fetched (click opens used lot) */}
+                      {/* Used: current price + suggested if fetched */}
                       <div
                         className="flex flex-col items-end w-14 flex-shrink-0 cursor-pointer"
                         onClick={(e) => { if (group.usedLot) { e.stopPropagation(); onItemClick?.('inventory', group.usedLot.inventoryId); } }}
                       >
                         {group.usedLot ? (
                           <>
-                            <span className="text-[10px] font-mono text-gray-300 leading-tight">{formatCurrency(group.usedLot.currentPrice)}</span>
+                            <span className="text-[10px] font-mono text-slate-300 leading-tight">{formatCurrency(group.usedLot.currentPrice)}</span>
                             {pricingData.get(group.key)?.u ? (
                               <span className="text-[9px] font-mono text-purple-400 leading-tight">{formatCurrency(pricingData.get(group.key)!.u)}</span>
                             ) : null}
                           </>
                         ) : (
-                          <span className="text-[10px] text-gray-700">—</span>
+                          <span className="text-[10px] text-slate-700">—</span>
                         )}
                       </div>
 
                       {/* Used score */}
-                      <span className={`text-[10px] font-mono font-bold text-right flex-shrink-0 w-[58px] ${group.usedLot ? scoreColor(group.usedLot.opportunityScore) : 'text-gray-700'}`}>
+                      <span className={`text-[10px] font-mono font-bold text-right flex-shrink-0 w-[58px] ${group.usedLot ? scoreColor(group.usedLot.opportunityScore) : 'text-slate-700'}`}>
                         {group.usedLot?.opportunityScore != null ? `${group.usedLot.opportunityScore}×` : '—'}
                       </span>
 
