@@ -297,110 +297,94 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
       {/* Spot Price Lookup */}
       <PomSpotLookup formatCurrency={formatCurrency} />
 
-      {/* Summary Cards — full-width 3-column row */}
-      <div className="grid grid-cols-3 gap-2">
+      {/* Filter tiles — single line each, Warehouse drawer pattern */}
+      <div className="flex gap-2">
         <Tooltip>
           <TooltipTrigger asChild>
-            <Card 
-              className={`px-3 py-2.5 cursor-pointer hover-elevate active-elevate-2 ${
-                selectedCategory === 'too-high' 
-                  ? 'bg-red-500/20 border-red-500/40' 
-                  : 'bg-red-500/8 border-red-500/20'
-              }`}
+            <button
               onClick={() => setSelectedCategory('too-high')}
               data-testid="stat-too-high"
+              className={`flex-1 flex items-center justify-between gap-2 p-2.5 rounded-lg text-xs hover-elevate whitespace-nowrap cursor-pointer ${
+                selectedCategory === 'too-high'
+                  ? 'bg-red-500/20 border-2 border-red-500/50'
+                  : 'bg-gray-800/30 border-2 border-gray-700'
+              }`}
             >
-              <div className="flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1">
-                    <TrendingUp className="w-2.5 h-2.5 text-red-400 flex-shrink-0" />
-                    <p className="text-[9px] uppercase tracking-widest text-red-400 font-medium">Too High</p>
-                  </div>
-                  <p className="text-[10px] text-gray-500 mt-1 leading-none">Losing sales</p>
-                </div>
-                <div className="w-9 text-right flex-shrink-0">
-                  {insightsLoading ? (
-                    <Skeleton className="h-5 w-8 ml-auto" />
-                  ) : (
-                    <p className="text-xl font-mono font-bold text-red-400 tabular-nums">{insightsData?.summary.tooHigh ?? 0}</p>
-                  )}
-                </div>
+              <div className="flex items-center gap-1.5">
+                <TrendingUp className={`w-3.5 h-3.5 flex-shrink-0 ${selectedCategory === 'too-high' ? 'text-red-400' : 'text-gray-500'}`} />
+                <span className={`text-xs font-semibold ${selectedCategory === 'too-high' ? 'text-red-300' : 'text-gray-400'}`}>Too High</span>
               </div>
-            </Card>
+              {insightsLoading ? (
+                <Skeleton className="h-5 w-6" />
+              ) : (
+                <span className={`text-base font-mono font-bold tabular-nums ${selectedCategory === 'too-high' ? 'text-red-400' : 'text-gray-300'}`}>
+                  {insightsData?.summary.tooHigh ?? 0}
+                </span>
+              )}
+            </button>
           </TooltipTrigger>
           <TooltipContent side="bottom" className="max-w-56 text-xs">
-            Items priced more than {tooHighPct}% above the suggested price. Buyers can likely find it cheaper elsewhere, hurting your sell-through rate. Click to review.
+            Items priced more than {tooHighPct}% above suggested — losing sales to cheaper competitors. Click to review.
           </TooltipContent>
         </Tooltip>
 
         <Tooltip>
           <TooltipTrigger asChild>
-            <Card 
-              className={`px-3 py-2.5 cursor-pointer hover-elevate active-elevate-2 ${
-                selectedCategory === 'too-low' 
-                  ? 'bg-orange-500/20 border-orange-500/40' 
-                  : 'bg-orange-500/8 border-orange-500/20'
-              }`}
+            <button
               onClick={() => setSelectedCategory('too-low')}
               data-testid="stat-too-low"
+              className={`flex-1 flex items-center justify-between gap-2 p-2.5 rounded-lg text-xs hover-elevate whitespace-nowrap cursor-pointer ${
+                selectedCategory === 'too-low'
+                  ? 'bg-orange-500/20 border-2 border-orange-500/50'
+                  : 'bg-gray-800/30 border-2 border-gray-700'
+              }`}
             >
-              <div className="flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1">
-                    <TrendingDown className="w-2.5 h-2.5 text-orange-400 flex-shrink-0" />
-                    <p className="text-[9px] uppercase tracking-widest text-orange-400 font-medium">Too Low</p>
-                  </div>
-                  <p className="text-[10px] text-gray-500 mt-1 leading-none">Leaving margin</p>
-                </div>
-                <div className="w-9 text-right flex-shrink-0">
-                  {insightsLoading ? (
-                    <Skeleton className="h-5 w-8 ml-auto" />
-                  ) : (
-                    <p className="text-xl font-mono font-bold text-orange-400 tabular-nums">{insightsData?.summary.tooLow ?? 0}</p>
-                  )}
-                </div>
+              <div className="flex items-center gap-1.5">
+                <TrendingDown className={`w-3.5 h-3.5 flex-shrink-0 ${selectedCategory === 'too-low' ? 'text-orange-400' : 'text-gray-500'}`} />
+                <span className={`text-xs font-semibold ${selectedCategory === 'too-low' ? 'text-orange-300' : 'text-gray-400'}`}>Too Low</span>
               </div>
-            </Card>
+              {insightsLoading ? (
+                <Skeleton className="h-5 w-6" />
+              ) : (
+                <span className={`text-base font-mono font-bold tabular-nums ${selectedCategory === 'too-low' ? 'text-orange-400' : 'text-gray-300'}`}>
+                  {insightsData?.summary.tooLow ?? 0}
+                </span>
+              )}
+            </button>
           </TooltipTrigger>
           <TooltipContent side="bottom" className="max-w-56 text-xs">
-            Items priced more than {tooLowPct}% below the suggested price. You're selling at an unnecessary discount — consider raising the price. Click to review.
+            Items priced more than {tooLowPct}% below suggested — leaving margin on the table. Click to review.
           </TooltipContent>
         </Tooltip>
 
         <Tooltip>
           <TooltipTrigger asChild>
-            <Card 
-              className={`px-3 py-2.5 cursor-pointer hover-elevate active-elevate-2 ${
-                selectedCategory === 'good' 
-                  ? 'bg-green-500/20 border-green-500/40' 
-                  : 'bg-green-500/8 border-green-500/20'
-              }`}
+            <button
               onClick={() => setSelectedCategory('good')}
               data-testid="stat-good"
+              className={`flex-1 flex items-center justify-between gap-2 p-2.5 rounded-lg text-xs hover-elevate whitespace-nowrap cursor-pointer ${
+                selectedCategory === 'good'
+                  ? 'bg-green-500/20 border-2 border-green-500/50'
+                  : 'bg-gray-800/30 border-2 border-gray-700'
+              }`}
             >
-              <div className="flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1">
-                    <CheckCircle className="w-2.5 h-2.5 text-green-400 flex-shrink-0" />
-                    <p className="text-[9px] uppercase tracking-widest text-green-400 font-medium">On Target</p>
-                  </div>
-                  <p className="text-[10px] text-gray-500 mt-1 leading-none">Optimal range</p>
-                </div>
-                <div className="w-9 text-right flex-shrink-0">
-                  {insightsLoading ? (
-                    <Skeleton className="h-5 w-8 ml-auto" />
-                  ) : (
-                    <p className="text-xl font-mono font-bold text-green-400 tabular-nums">{insightsData?.summary.wellPriced ?? 0}</p>
-                  )}
-                </div>
+              <div className="flex items-center gap-1.5">
+                <CheckCircle className={`w-3.5 h-3.5 flex-shrink-0 ${selectedCategory === 'good' ? 'text-green-400' : 'text-gray-500'}`} />
+                <span className={`text-xs font-semibold ${selectedCategory === 'good' ? 'text-green-300' : 'text-gray-400'}`}>On Target</span>
               </div>
-            </Card>
+              {insightsLoading ? (
+                <Skeleton className="h-5 w-6" />
+              ) : (
+                <span className={`text-base font-mono font-bold tabular-nums ${selectedCategory === 'good' ? 'text-green-400' : 'text-gray-300'}`}>
+                  {insightsData?.summary.wellPriced ?? 0}
+                </span>
+              )}
+            </button>
           </TooltipTrigger>
           <TooltipContent side="bottom" className="max-w-56 text-xs">
-            Items within ±{Math.max(tooHighPct, tooLowPct)}% of the suggested price. In the optimal margin-to-competitiveness zone — no action needed.
+            Items within ±{Math.max(tooHighPct, tooLowPct)}% of suggested — optimal range, no action needed. Click to review.
           </TooltipContent>
         </Tooltip>
-
       </div>
     </div>
     {/* ── Scrollable bottom section: item list ── */}
