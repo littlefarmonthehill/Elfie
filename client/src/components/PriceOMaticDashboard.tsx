@@ -343,17 +343,15 @@ export default function PriceOMaticDashboard({ onItemClick, isSyncRunning }: Pri
                         );
                       })()}
 
-                      {/* Qty + Color + market peak */}
-                      <div className="flex flex-col flex-1 min-w-0">
-                        <div className="flex items-center gap-1 min-w-0">
-                          <span className="text-[10px] font-mono text-slate-400 flex-shrink-0">
-                            ×{(group.newLot?.quantity ?? 0) + (group.usedLot?.quantity ?? 0)}
-                          </span>
-                          <span className="text-[10px] text-slate-400 truncate">{group.colorName || '—'}</span>
-                        </div>
+                      {/* Qty + Color + market peak — single line */}
+                      <div className="flex items-center gap-1 flex-1 min-w-0">
+                        <span className="text-[10px] font-mono text-slate-400 flex-shrink-0">
+                          ×{(group.newLot?.quantity ?? 0) + (group.usedLot?.quantity ?? 0)}
+                        </span>
+                        <span className="text-[10px] text-slate-400 truncate min-w-0">{group.colorName || '—'}</span>
                         {group.marketPeakSoldPrice != null && (
-                          <span className="text-[9px] text-blue-400/60 pl-0.5">
-                            peak {formatCurrency(group.marketPeakSoldPrice)}
+                          <span className="text-[9px] text-blue-400/70 flex-shrink-0 whitespace-nowrap">
+                            · peak {formatCurrency(group.marketPeakSoldPrice)}
                           </span>
                         )}
                       </div>
