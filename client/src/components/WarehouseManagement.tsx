@@ -184,8 +184,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
 
   const updateShelfMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: { name: string; aisleId?: number; description?: string } }) => {
-      const response = await apiRequest('PUT', `/api/warehouse/shelves/${id}`, data);
-      return await response.json();
+      return await apiRequest('PUT', `/api/warehouse/shelves/${id}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/warehouse/shelves'] });
@@ -198,8 +197,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
 
   const updateBinMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: { name: string; shelfId?: number; description?: string } }) => {
-      const response = await apiRequest('PUT', `/api/warehouse/bins/${id}`, data);
-      return await response.json();
+      return await apiRequest('PUT', `/api/warehouse/bins/${id}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/warehouse/bins'] });
