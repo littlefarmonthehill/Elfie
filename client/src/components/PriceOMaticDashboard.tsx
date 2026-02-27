@@ -380,9 +380,6 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
       </div>
 
       {/* Item list */}
-      <div className="space-y-3">
-
-      {/* Item List */}
       {insightsData && (
         <div className="space-y-1.5">
           {selectedItems.length === 0 ? (
