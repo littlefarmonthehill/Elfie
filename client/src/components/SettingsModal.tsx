@@ -734,8 +734,14 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   return (
     <>
       <Dialog open={open} onOpenChange={onClose}>
-        <DialogContent className="sm:max-w-[800px] max-h-[90vh] bg-gray-900 border-gray-700 p-0">
-          <div className="flex flex-col sm:flex-row h-full max-h-[90vh]">
+        <DialogContent
+          className="sm:max-w-[800px] bg-gray-900 border-gray-700 p-0"
+          style={{ maxHeight: 'calc(90dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom))' }}
+        >
+          <div
+            className="flex flex-col sm:flex-row h-full"
+            style={{ maxHeight: 'calc(90dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom))' }}
+          >
             {/* Left Navigation */}
             <div className="sm:w-48 border-b sm:border-b-0 sm:border-r border-gray-700 bg-gray-800/50">
               <DialogHeader className="p-4 sm:p-6">
@@ -2471,14 +2477,6 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
             </div>
           </div>
           
-          <div className="flex justify-end gap-2 pt-4 border-t border-gray-700">
-            <Button variant="outline" size="sm" onClick={onClose} data-testid="button-cancel">
-              Cancel
-            </Button>
-            <Button size="sm" onClick={onClose} data-testid="button-save">
-              Save Settings
-            </Button>
-          </div>
         </DialogContent>
       </Dialog>
 
