@@ -252,12 +252,6 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
   const lots = result?.inventoryLots ?? [];
   const lotPriceData = result?.lotPriceData ?? {};
 
-  const sellerCount = Number(pd?.stockTotalLots ?? 0);
-  const scarcityLabel =
-    sellerCount < 5 ? "Very Low" : sellerCount < 15 ? "Low" : sellerCount < 50 ? "Medium" : "Normal";
-  const scarcityColor =
-    sellerCount < 5 ? "text-orange-300" : sellerCount < 15 ? "text-yellow-300" : sellerCount < 50 ? "text-blue-300" : "text-gray-400";
-
   return (
     <div className="bg-gray-900/50 border border-purple-500/20 rounded-lg p-2.5">
       <div className="flex items-center gap-2">
@@ -405,34 +399,6 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
             >
               <X className="w-4 h-4" />
             </button>
-          </div>
-
-          {/* Price data grid for queried combo */}
-          <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs bg-gray-800/40 rounded-md px-3 py-2.5 mb-3">
-            <div className="flex justify-between gap-2">
-              <span className="text-gray-400">Avg Listed</span>
-              <span className="text-gray-200 font-mono">
-                {pd.stockAvgPrice ? formatCurrency(pd.stockAvgPrice) : "—"}
-              </span>
-            </div>
-            <div className="flex justify-between gap-2">
-              <span className="text-gray-400">Sellers</span>
-              <span className={`font-mono ${scarcityColor}`}>
-                {sellerCount > 0 ? `${sellerCount} · ${scarcityLabel}` : "—"}
-              </span>
-            </div>
-            <div className="flex justify-between gap-2">
-              <span className="text-gray-400">Sold P85</span>
-              <span className="text-gray-200 font-mono">
-                {pd.soldAvgPrice ? formatCurrency(pd.soldAvgPrice) : "—"}
-              </span>
-            </div>
-            <div className="flex justify-between gap-2">
-              <span className="text-gray-400">Suggested</span>
-              <span className="text-green-400 font-mono font-semibold">
-                {formatCurrency(pd.suggestedPrice)}
-              </span>
-            </div>
           </div>
 
           {/* Inventory lots — grouped by color, N/U side-by-side matching filter card style */}
