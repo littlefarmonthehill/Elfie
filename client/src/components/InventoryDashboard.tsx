@@ -290,8 +290,14 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
 
       {/* Price-O-Matic Drawer */}
       <Drawer open={activeDrawer === 'priceomatic'} onOpenChange={(open) => !open && onDrawerChange(null)}>
-        <DrawerContent className="flex flex-col h-[92dvh]">
-          <div className="flex-1 min-h-0 overflow-hidden">
+        <DrawerContent className="h-[92dvh] flex flex-col">
+          <DrawerHeader>
+            <DrawerTitle className="flex items-center gap-2 text-base md:text-lg">
+              <Sparkles className="w-5 h-5 text-purple-400" />
+              Price-o-Matic
+            </DrawerTitle>
+          </DrawerHeader>
+          <div className="overflow-y-auto px-4 pb-4 flex-1">
             <PriceOMaticDashboard onItemClick={onItemClick} />
           </div>
         </DrawerContent>

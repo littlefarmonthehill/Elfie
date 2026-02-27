@@ -200,56 +200,48 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
   }, [selectedCategory]);
 
   return (
-    <div className="flex flex-col h-full">
-    {/* ── Fixed top section ── */}
-    <div className="flex-shrink-0 px-4 pt-3 pb-2 space-y-2">
-      {/* Header row: title + inline API count on left, icons on right */}
+    <div className="space-y-4">
+
+      {/* Status row + action buttons */}
       <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <Sparkles className="w-4 h-4 text-purple-400 flex-shrink-0" />
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <h2 className="text-sm font-bold text-white leading-tight">Price-o-Matic</h2>
-              {status?.callsLast24h !== undefined && (
-                <span className={`text-[10px] font-mono leading-tight ${
-                  status.callsLast24h >= apiCeiling * 0.9 ? 'text-red-400' :
-                  status.callsLast24h >= apiCeiling * 0.6 ? 'text-orange-400' :
-                  'text-gray-600'
-                }`}>
-                  {status.callsLast24h.toLocaleString()}/{(apiCeiling / 1000).toFixed(1)}k calls
-                </span>
-              )}
-            </div>
-            {/* Lightweight sync status below the title */}
-            {status && status.lastSyncStatus !== 'never' ? (
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 inline-block ${
-                  status.lastSyncStatus === 'success' ? 'bg-green-400' :
-                  status.lastSyncStatus === 'in_progress' ? 'bg-blue-400' :
-                  status.lastSyncStatus === 'partial' ? 'bg-orange-400' :
-                  status.lastSyncStatus === 'stopped' ? 'bg-yellow-400' :
-                  'bg-red-400'
-                }`} />
-                <span className="text-[10px] text-gray-500 leading-tight">
-                  {status.lastSyncStatus === 'success' && 'Sync complete'}
-                  {status.lastSyncStatus === 'partial' && 'Partial sync'}
-                  {status.lastSyncStatus === 'in_progress' && 'Syncing...'}
-                  {status.lastSyncStatus === 'stopped' && 'Stopped'}
-                  {status.lastSyncStatus === 'failed' && 'Sync failed'}
-                  {status.lastSyncTime && (
-                    <> · {formatDistanceToNow(new Date(status.lastSyncTime), { addSuffix: true })}</>
-                  )}
-                  {status.recordsUpdated > 0 && (
-                    <span className="text-purple-500"> · {status.recordsUpdated.toLocaleString()} items</span>
-                  )}
-                </span>
-              </div>
-            ) : (
-              <p className="text-[10px] text-gray-600 leading-tight mt-0.5">Smart Pricing Insights</p>
-            )}
-          </div>
+        <div className="flex items-center gap-2 min-w-0">
+          {status && status.lastSyncStatus !== 'never' ? (
+            <>
+              <span className={`w-2 h-2 rounded-full flex-shrink-0 inline-block ${
+                status.lastSyncStatus === 'success' ? 'bg-green-400' :
+                status.lastSyncStatus === 'in_progress' ? 'bg-blue-400 animate-pulse' :
+                status.lastSyncStatus === 'partial' ? 'bg-orange-400' :
+                status.lastSyncStatus === 'stopped' ? 'bg-yellow-400' :
+                'bg-red-400'
+              }`} />
+              <span className="text-xs text-gray-400 truncate">
+                {status.lastSyncStatus === 'success' && 'Sync complete'}
+                {status.lastSyncStatus === 'partial' && 'Partial sync'}
+                {status.lastSyncStatus === 'in_progress' && 'Syncing...'}
+                {status.lastSyncStatus === 'stopped' && 'Stopped'}
+                {status.lastSyncStatus === 'failed' && 'Sync failed'}
+                {status.lastSyncTime && (
+                  <span className="text-gray-600"> · {formatDistanceToNow(new Date(status.lastSyncTime), { addSuffix: true })}</span>
+                )}
+                {status.recordsUpdated > 0 && (
+                  <span className="text-purple-500/80"> · {status.recordsUpdated.toLocaleString()} items</span>
+                )}
+              </span>
+            </>
+          ) : (
+            <span className="text-xs text-gray-500">Smart Pricing Insights</span>
+          )}
+          {status?.callsLast24h !== undefined && (
+            <span className={`text-xs font-mono flex-shrink-0 ${
+              status.callsLast24h >= apiCeiling * 0.9 ? 'text-red-400' :
+              status.callsLast24h >= apiCeiling * 0.6 ? 'text-orange-400' :
+              'text-gray-600'
+            }`}>
+              · {status.callsLast24h.toLocaleString()}/{(apiCeiling / 1000).toFixed(1)}k calls
+            </span>
+          )}
         </div>
-        <div className="flex items-center gap-0.5 flex-shrink-0">
+        <div className="flex items-center gap-1 flex-shrink-0">
           <Popover>
             <PopoverTrigger asChild>
               <Button size="icon" variant="ghost" data-testid="button-pom-info">
@@ -304,7 +296,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
             <button
               onClick={() => setSelectedCategory('too-high')}
               data-testid="stat-too-high"
-              className={`flex-1 flex items-center justify-between gap-2 p-2.5 rounded-lg text-xs hover-elevate whitespace-nowrap cursor-pointer ${
+              className={`flex-1 flex items-center justify-between gap-2 p-3 rounded-lg text-xs hover-elevate whitespace-nowrap cursor-pointer ${
                 selectedCategory === 'too-high'
                   ? 'bg-red-500/20 border-2 border-red-500/50'
                   : 'bg-gray-800/30 border-2 border-gray-700'
@@ -333,7 +325,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
             <button
               onClick={() => setSelectedCategory('too-low')}
               data-testid="stat-too-low"
-              className={`flex-1 flex items-center justify-between gap-2 p-2.5 rounded-lg text-xs hover-elevate whitespace-nowrap cursor-pointer ${
+              className={`flex-1 flex items-center justify-between gap-2 p-3 rounded-lg text-xs hover-elevate whitespace-nowrap cursor-pointer ${
                 selectedCategory === 'too-low'
                   ? 'bg-orange-500/20 border-2 border-orange-500/50'
                   : 'bg-gray-800/30 border-2 border-gray-700'
@@ -362,7 +354,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
             <button
               onClick={() => setSelectedCategory('good')}
               data-testid="stat-good"
-              className={`flex-1 flex items-center justify-between gap-2 p-2.5 rounded-lg text-xs hover-elevate whitespace-nowrap cursor-pointer ${
+              className={`flex-1 flex items-center justify-between gap-2 p-3 rounded-lg text-xs hover-elevate whitespace-nowrap cursor-pointer ${
                 selectedCategory === 'good'
                   ? 'bg-green-500/20 border-2 border-green-500/50'
                   : 'bg-gray-800/30 border-2 border-gray-700'
@@ -386,9 +378,9 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
           </TooltipContent>
         </Tooltip>
       </div>
-    </div>
-    {/* ── Scrollable bottom section: item list ── */}
-    <div className="flex-1 overflow-y-auto min-h-0 px-4 pb-4 space-y-3">
+
+      {/* Item list */}
+      <div className="space-y-3">
 
       {/* Item List */}
       {insightsData && (
@@ -494,7 +486,6 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
           </Button>
         </div>
       )}
-    </div>
     </div>
   );
 }
