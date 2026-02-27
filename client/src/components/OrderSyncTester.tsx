@@ -21,8 +21,7 @@ export default function OrderSyncTester({ open, onOpenChange }: OrderSyncTesterP
 
   const runTestMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/orders/dry-run-test", { platform, limit });
-      return response.json();
+      return await apiRequest("POST", "/api/orders/dry-run-test", { platform, limit });
     },
     onSuccess: (data) => {
       setTestResults(data);

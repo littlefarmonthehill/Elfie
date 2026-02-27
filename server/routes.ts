@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, isApproved } from "./auth";
-import { syncBricklinkData, fetchPriceOMagicData, searchBricklinkCatalogItem, syncPriceOMagicCache, getPomFormulaConfig, calculateSuggestedPriceWithSupply, applyPomFloors } from "./services/bricklink";
+import { syncBricklinkData, fetchPriceOMagicData, searchBricklinkCatalogItem, syncPriceOMagicCache, requestPomSyncStop, getPomFormulaConfig, calculateSuggestedPriceWithSupply, applyPomFloors } from "./services/bricklink";
 import { syncShipStationOrders } from "./services/shipstation";
 import { syncBrickLinkToBrickOwl } from "./services/brickowl";
 import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBackup } from "./services/export";
@@ -5276,6 +5276,35 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
         success: false,
         error: "Failed to fetch sync status",
       });
+    }
+  });
+
+  // Stop an in-progress Price-o-Matic sync
+  app.post("/api/sync/priceomatic/stop", isApproved, async (req, res) => {
+    try {
+      requestPomSyncStop();
+      // Mark the sync as stopped in the DB so the UI reflects it immediately
+      await db
+        .insert(syncMetadata)
+        .values({
+          id: 'priceomatic_cache',
+          lastSyncStatus: 'stopped',
+          lastSyncTime: new Date(),
+          errorMessage: 'Sync stopped by user request.',
+        })
+        .onConflictDoUpdate({
+          target: syncMetadata.id,
+          set: {
+            lastSyncStatus: 'stopped',
+            errorMessage: 'Sync stopped by user request.',
+            updatedAt: new Date(),
+          },
+        });
+      console.log('[Price-o-Matic] Stop requested by user');
+      res.json({ success: true, message: 'Stop signal sent — sync will halt before the next item.' });
+    } catch (error) {
+      console.error("Error stopping Price-o-Matic sync:", error);
+      res.status(500).json({ success: false, error: "Failed to stop sync" });
     }
   });
 

@@ -122,8 +122,7 @@ export default function PlatformSyncTool() {
   const syncMutation = useMutation({
     mutationFn: async ({ platform, limit }: { platform: string; limit?: number }) => {
       console.log('[Platform Sync] Mutation triggered with platform:', platform, 'limit:', limit);
-      const response = await apiRequest('POST', '/api/platform-sync/sync', { platform, limit });
-      const data = await response.json();
+      const data = await apiRequest('POST', '/api/platform-sync/sync', { platform, limit });
       console.log('[Platform Sync] Response:', data);
       return data;
     },

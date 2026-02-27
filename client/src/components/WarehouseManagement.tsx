@@ -96,8 +96,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   // Create mutations
   const createAisleMutation = useMutation({
     mutationFn: async (data: { name: string; description?: string }) => {
-      const response = await apiRequest('POST', '/api/warehouse/aisles', data);
-      return await response.json();
+      return await apiRequest('POST', '/api/warehouse/aisles', data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/warehouse/aisles'] });
@@ -108,8 +107,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
 
   const createShelfMutation = useMutation({
     mutationFn: async (data: { name: string; aisleId?: number; description?: string }) => {
-      const response = await apiRequest('POST', '/api/warehouse/shelves', data);
-      return await response.json();
+      return await apiRequest('POST', '/api/warehouse/shelves', data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/warehouse/shelves'] });
@@ -122,8 +120,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
 
   const createBinMutation = useMutation({
     mutationFn: async (data: { name: string; shelfId?: number; description?: string }) => {
-      const response = await apiRequest('POST', '/api/warehouse/bins', data);
-      return await response.json();
+      return await apiRequest('POST', '/api/warehouse/bins', data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/warehouse/bins'] });
@@ -137,8 +134,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
 
   const assignInventoryMutation = useMutation({
     mutationFn: async (data: { inventoryId: number; binId: number; bagLabel?: string }) => {
-      const response = await apiRequest('POST', '/api/warehouse/assign/inventory', data);
-      return await response.json();
+      return await apiRequest('POST', '/api/warehouse/assign/inventory', data);
     },
     onSuccess: () => {
       // Only invalidate queries, don't clear state here (bulk handler will do that)
@@ -153,8 +149,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
 
   const assignBinToShelfMutation = useMutation({
     mutationFn: async ({ binId, shelfId }: { binId: number; shelfId: number }) => {
-      const response = await apiRequest('PUT', `/api/warehouse/assign/bin/${binId}/shelf/${shelfId}`, {});
-      return await response.json();
+      return await apiRequest('PUT', `/api/warehouse/assign/bin/${binId}/shelf/${shelfId}`, {});
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/warehouse/bins'] });
@@ -166,8 +161,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
 
   const assignShelfToAisleMutation = useMutation({
     mutationFn: async ({ shelfId, aisleId }: { shelfId: number; aisleId: number }) => {
-      const response = await apiRequest('PUT', `/api/warehouse/assign/shelf/${shelfId}/aisle/${aisleId}`, {});
-      return await response.json();
+      return await apiRequest('PUT', `/api/warehouse/assign/shelf/${shelfId}/aisle/${aisleId}`, {});
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/warehouse/shelves'] });
@@ -179,8 +173,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   // Edit mutations
   const updateAisleMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: { name: string; description?: string } }) => {
-      const response = await apiRequest('PUT', `/api/warehouse/aisles/${id}`, data);
-      return await response.json();
+      return await apiRequest('PUT', `/api/warehouse/aisles/${id}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/warehouse/aisles'] });

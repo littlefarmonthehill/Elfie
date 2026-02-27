@@ -1132,6 +1132,10 @@ export function calculateSuggestedPriceWithSupply(
   return Number(suggestedPrice.toFixed(2));
 }
 
+// Module-level stop flag — set via requestPomSyncStop(), cleared at sync start
+let pomSyncStopRequested = false;
+export function requestPomSyncStop() { pomSyncStopRequested = true; }
+
 // Fetch and cache Price-o-Matic data for an item
 // Sync Price-o-Matic data for up to N inventory items (default from settings)
 export async function syncPriceOMagicCache(maxItems?: number): Promise<{
@@ -1152,7 +1156,8 @@ export async function syncPriceOMagicCache(maxItems?: number): Promise<{
   const apiCallCeiling = pomSettings?.pomApiCallLimit ?? 4500;
 
   console.log(`[Price-o-Matic Sync] Starting sync for up to ${effectiveMaxItems} items (API ceiling: ${apiCallCeiling})`);
-  
+  pomSyncStopRequested = false; // Clear any prior stop request
+
   let itemsUpdated = 0;
   let itemsSkipped = 0;
   let apiCallsUsed = 0;
@@ -1273,6 +1278,14 @@ export async function syncPriceOMagicCache(maxItems?: number): Promise<{
     // No local velocity pre-computation needed.
     for (const item of itemsToProcess) {
       try {
+        // Check stop request (user-initiated stop)
+        if (pomSyncStopRequested) {
+          stopped = true;
+          stopReason = 'Sync stopped by user request.';
+          console.log(`[Price-o-Matic Sync] ${stopReason}`);
+          break;
+        }
+
         // Check rate limit before each batch (every 10 items) to avoid hitting hard limit
         if (itemsUpdated % 10 === 0) {
           const currentRateLimit = await checkRateLimit();

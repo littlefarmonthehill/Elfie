@@ -18,6 +18,7 @@ import {
   Zap,
   ChevronDown,
   Info,
+  Square,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -119,8 +120,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
   // Sync mutation
   const syncMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest('POST', '/api/sync/priceomatic', { maxItems: 1500 });
-      return await response.json();
+      return await apiRequest('POST', '/api/sync/priceomatic', { maxItems: 1500 });
     },
     onSuccess: () => {
       queryClient.refetchQueries({ queryKey: ['/api/sync/priceomatic/status'] });
@@ -140,12 +140,31 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
     },
   });
 
+  const stopMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest('POST', '/api/sync/priceomatic/stop', {});
+    },
+    onSuccess: () => {
+      queryClient.refetchQueries({ queryKey: ['/api/sync/priceomatic/status'] });
+      toast({ title: "Stop Signal Sent", description: "Sync will halt before the next item." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Stop Failed", description: error.message, variant: "destructive" });
+    },
+  });
+
   const handleSync = () => {
     syncMutation.mutate();
   };
 
+  const handleStop = () => {
+    stopMutation.mutate();
+  };
+
   const status = syncStatus?.data;
   const insightsData = insights?.data;
+
+  const isSyncRunning = syncMutation.isPending || status?.lastSyncStatus === 'in_progress';
 
   // Pull real thresholds from settings, fall back to safe defaults
   const tooHighPct = settingsData?.pomTooHighThreshold ?? 20;
@@ -216,17 +235,30 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
               <p className="text-[10px] text-gray-500 pt-2 mt-2 border-t border-gray-700">Does not auto-reprice. You review each flag and decide what to change.</p>
             </PopoverContent>
           </Popover>
+          {isSyncRunning && (
+            <Button
+              onClick={handleStop}
+              disabled={stopMutation.isPending}
+              size="sm"
+              variant="destructive"
+              className="gap-2"
+              data-testid="button-stop-sync"
+            >
+              <Square className="w-3 h-3 fill-current" />
+              {stopMutation.isPending ? 'Stopping...' : 'Stop Sync'}
+            </Button>
+          )}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 onClick={handleSync}
-                disabled={syncMutation.isPending || status?.lastSyncStatus === 'in_progress'}
+                disabled={isSyncRunning}
                 size="sm"
                 className="gap-2"
                 data-testid="button-sync"
               >
                 <RefreshCw className={`w-3 h-3 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
-                {syncMutation.isPending ? 'Refreshing...' : 'Refresh Market Data'}
+                {isSyncRunning && !syncMutation.isPending ? 'Syncing...' : syncMutation.isPending ? 'Starting...' : 'Refresh Market Data'}
               </Button>
             </TooltipTrigger>
             <TooltipContent side="left" className="max-w-56 text-xs">
