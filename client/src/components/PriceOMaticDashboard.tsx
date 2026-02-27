@@ -215,7 +215,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
     setItemsToShow(50);
   }, [selectedCategory, sortField, sortDir]);
 
-  const SortButton = ({ field, label }: { field: 'new' | 'used'; label: string }) => {
+  const ScoreSortButton = ({ field, prefix }: { field: 'new' | 'used'; prefix: string }) => {
     const active = sortField === field;
     const toggle = () => {
       if (active) {
@@ -228,16 +228,16 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
     return (
       <button
         onClick={toggle}
-        className={`flex items-center gap-0.5 text-[9px] uppercase tracking-wider rounded px-1.5 py-0.5 transition-colors ${
+        className={`flex items-center gap-0.5 text-[9px] uppercase tracking-wider rounded px-1.5 py-0.5 transition-colors whitespace-nowrap ${
           active ? 'bg-purple-500/20 text-purple-300' : 'text-gray-600 hover:text-gray-400'
         }`}
         data-testid={`button-sort-${field}`}
       >
-        {label}
-        {active && (sortDir === 'desc'
-          ? <ArrowDown className="w-2.5 h-2.5" />
-          : <ArrowUp className="w-2.5 h-2.5" />
-        )}
+        {prefix} Score
+        {active ? (sortDir === 'desc'
+          ? <ArrowDown className="w-2.5 h-2.5 ml-0.5" />
+          : <ArrowUp className="w-2.5 h-2.5 ml-0.5" />
+        ) : <ArrowDown className="w-2.5 h-2.5 ml-0.5 opacity-30" />}
       </button>
     );
   };
@@ -349,20 +349,14 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
             <>
               {/* Column headers with sort controls */}
               <div className="flex items-center gap-1 px-2 pb-0.5">
-                <span className="text-[9px] uppercase tracking-wider text-gray-600 flex-1 min-w-0">Color · Peak</span>
-                {/* New column */}
-                <div className="flex items-center gap-0.5 w-[108px] justify-end">
-                  <SortButton field="new" label="New" />
-                  <span className="text-[9px] text-gray-700 w-3 text-center">/</span>
-                  <span className="text-[9px] uppercase tracking-wider text-gray-700 w-10 text-right">Score</span>
-                </div>
-                {/* Used column */}
-                <div className="flex items-center gap-0.5 w-[108px] justify-end">
-                  <SortButton field="used" label="Used" />
-                  <span className="text-[9px] text-gray-700 w-3 text-center">/</span>
-                  <span className="text-[9px] uppercase tracking-wider text-gray-700 w-10 text-right">Score</span>
-                </div>
-                <span className="text-[9px] uppercase tracking-wider text-gray-600 w-5 text-right">Qty</span>
+                <span className="text-[9px] uppercase tracking-wider text-gray-600 flex-1 min-w-0">Color · Peak sold</span>
+                {/* New: Price header | Score sort button */}
+                <span className="text-[9px] uppercase tracking-wider text-gray-700 w-14 text-right flex-shrink-0">N Price</span>
+                <ScoreSortButton field="new" prefix="N" />
+                {/* Used: Price header | Score sort button */}
+                <span className="text-[9px] uppercase tracking-wider text-gray-700 w-14 text-right flex-shrink-0">U Price</span>
+                <ScoreSortButton field="used" prefix="U" />
+                <span className="text-[9px] uppercase tracking-wider text-gray-600 w-5 text-right flex-shrink-0">Qty</span>
               </div>
 
               {selectedGroups.slice(0, itemsToShow).map((group) => {
@@ -409,55 +403,45 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
                       )}
                     </div>
 
-                    {/* Row 2: Color · Peak sold | New price / score | Used price / score | qty */}
+                    {/* Row 2: Color · Peak sold | N Price | N Score | U Price | U Score | qty */}
                     <div className="flex items-center gap-1 mt-0.5 min-w-0">
                       {/* Color + market peak */}
                       <div className="flex items-center gap-1 flex-1 min-w-0">
                         <span className="text-[10px] text-gray-500 truncate">{group.colorName || '—'}</span>
                         {group.marketPeakSoldPrice != null && (
                           <span className="text-[9px] text-gray-600 flex-shrink-0">
-                            · peak {formatCurrency(group.marketPeakSoldPrice)}
+                            · {formatCurrency(group.marketPeakSoldPrice)}
                           </span>
                         )}
                       </div>
 
-                      {/* New: price / score */}
-                      <div
-                        className="flex items-center gap-1 w-[108px] justify-end flex-shrink-0"
+                      {/* New price (click opens new lot) */}
+                      <span
+                        className="text-[10px] font-mono text-gray-300 w-14 text-right flex-shrink-0 cursor-pointer"
                         onClick={(e) => { if (group.newLot) { e.stopPropagation(); onItemClick?.('inventory', group.newLot.inventoryId); } }}
                       >
-                        {group.newLot ? (
-                          <>
-                            <span className="text-[10px] font-mono text-gray-300">{formatCurrency(group.newLot.currentPrice)}</span>
-                            <span className="text-[9px] text-gray-700">/</span>
-                            <span className={`text-[10px] font-mono font-bold w-10 text-right ${scoreColor(group.newLot.opportunityScore)}`}>
-                              {group.newLot.opportunityScore != null ? `${group.newLot.opportunityScore}×` : '—'}
-                            </span>
-                          </>
-                        ) : (
-                          <span className="text-[10px] text-gray-700 w-full text-right">—</span>
-                        )}
-                      </div>
+                        {group.newLot ? formatCurrency(group.newLot.currentPrice) : <span className="text-gray-700">—</span>}
+                      </span>
 
-                      {/* Used: price / score */}
-                      <div
-                        className="flex items-center gap-1 w-[108px] justify-end flex-shrink-0"
+                      {/* New score */}
+                      <span className={`text-[10px] font-mono font-bold text-right flex-shrink-0 w-[58px] ${group.newLot ? scoreColor(group.newLot.opportunityScore) : 'text-gray-700'}`}>
+                        {group.newLot?.opportunityScore != null ? `${group.newLot.opportunityScore}×` : '—'}
+                      </span>
+
+                      {/* Used price (click opens used lot) */}
+                      <span
+                        className="text-[10px] font-mono text-gray-300 w-14 text-right flex-shrink-0 cursor-pointer"
                         onClick={(e) => { if (group.usedLot) { e.stopPropagation(); onItemClick?.('inventory', group.usedLot.inventoryId); } }}
                       >
-                        {group.usedLot ? (
-                          <>
-                            <span className="text-[10px] font-mono text-gray-300">{formatCurrency(group.usedLot.currentPrice)}</span>
-                            <span className="text-[9px] text-gray-700">/</span>
-                            <span className={`text-[10px] font-mono font-bold w-10 text-right ${scoreColor(group.usedLot.opportunityScore)}`}>
-                              {group.usedLot.opportunityScore != null ? `${group.usedLot.opportunityScore}×` : '—'}
-                            </span>
-                          </>
-                        ) : (
-                          <span className="text-[10px] text-gray-700 w-full text-right">—</span>
-                        )}
-                      </div>
+                        {group.usedLot ? formatCurrency(group.usedLot.currentPrice) : <span className="text-gray-700">—</span>}
+                      </span>
 
-                      {/* Qty (sum of all conditions) */}
+                      {/* Used score */}
+                      <span className={`text-[10px] font-mono font-bold text-right flex-shrink-0 w-[58px] ${group.usedLot ? scoreColor(group.usedLot.opportunityScore) : 'text-gray-700'}`}>
+                        {group.usedLot?.opportunityScore != null ? `${group.usedLot.opportunityScore}×` : '—'}
+                      </span>
+
+                      {/* Qty */}
                       <span className="text-[10px] font-mono text-gray-500 w-5 text-right flex-shrink-0">
                         ×{(group.newLot?.quantity ?? 0) + (group.usedLot?.quantity ?? 0)}
                       </span>

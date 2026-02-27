@@ -357,36 +357,51 @@ export default function PlatformSyncTool() {
             </Button>
           </div>
 
-          {/* Sync Progress Display */}
-          {syncProgress && syncProgress.status === 'syncing' && (
+          {/* Sync Progress Display — shown whenever the BrickLink sync request is in-flight */}
+          {syncingBrickLink && (
             <div className="mb-2 p-2 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[10px] md:text-sm font-semibold text-blue-400">
-                  {syncProgress.currentStep}
-                </span>
-                <span className="text-[10px] md:text-sm text-blue-400">
-                  {syncProgress.progress}%
-                </span>
-              </div>
-              {/* Progress bar */}
-              <div className="w-full bg-gray-700 rounded-full h-1.5">
-                <div 
-                  className="bg-blue-500 h-1.5 rounded-full transition-all duration-300"
-                  style={{ width: `${syncProgress.progress}%` }}
-                />
-              </div>
-              {/* Details */}
-              {syncProgress.details && (
-                <div className="mt-1 flex gap-2 text-[9px] md:text-xs text-gray-400">
-                  {syncProgress.details.itemsDownloaded !== undefined && (
-                    <span>Downloaded: {syncProgress.details.itemsDownloaded.toLocaleString()}</span>
+              {syncProgress?.status === 'syncing' ? (
+                <>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[10px] md:text-sm font-semibold text-blue-400">
+                      {syncProgress.currentStep}
+                    </span>
+                    <span className="text-[10px] md:text-sm text-blue-400">
+                      {syncProgress.progress}%
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-700 rounded-full h-1.5">
+                    <div 
+                      className="bg-blue-500 h-1.5 rounded-full transition-all duration-300"
+                      style={{ width: `${syncProgress.progress}%` }}
+                    />
+                  </div>
+                  {syncProgress.details && (
+                    <div className="mt-1 flex gap-2 text-[9px] md:text-xs text-gray-400">
+                      {syncProgress.details.itemsDownloaded !== undefined && (
+                        <span>Downloaded: {syncProgress.details.itemsDownloaded.toLocaleString()}</span>
+                      )}
+                      {syncProgress.details.itemsAdded !== undefined && (
+                        <span>Added: {syncProgress.details.itemsAdded.toLocaleString()}</span>
+                      )}
+                      {syncProgress.details.itemsUpdated !== undefined && (
+                        <span>Updated: {syncProgress.details.itemsUpdated.toLocaleString()}</span>
+                      )}
+                    </div>
                   )}
-                  {syncProgress.details.itemsAdded !== undefined && (
-                    <span>Added: {syncProgress.details.itemsAdded.toLocaleString()}</span>
-                  )}
-                  {syncProgress.details.itemsUpdated !== undefined && (
-                    <span>Updated: {syncProgress.details.itemsUpdated.toLocaleString()}</span>
-                  )}
+                </>
+              ) : (
+                /* Progress tracker has finished its main phase but sync request is still running — tail steps (Rebrickable, embeddings, etc.) */
+                <div className="flex items-center gap-2">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-400 flex-shrink-0" />
+                  <div className="flex-1">
+                    <span className="text-[10px] md:text-sm font-semibold text-blue-400">
+                      {syncProgress?.status === 'complete' ? 'Finalizing — updating catalog, colors & Rebrickable data…' : 'Starting sync…'}
+                    </span>
+                    <div className="w-full bg-gray-700 rounded-full h-1 mt-1">
+                      <div className="bg-blue-500/50 h-1 rounded-full animate-pulse" style={{ width: '100%' }} />
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
