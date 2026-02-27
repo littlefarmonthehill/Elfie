@@ -255,14 +255,14 @@ export default function PriceOMaticDashboard({ onItemClick, isSyncRunning }: Pri
             </div>
           ) : (
             <>
-              {/* Column headers with sort control */}
+              {/* Column headers */}
               <div className="flex items-center gap-1 px-2 pb-0.5">
                 <ScoreSortButton />
                 <div className="flex-1 min-w-0" />
                 <span className="text-[9px] uppercase tracking-wider text-gray-400 w-14 text-right flex-shrink-0">N Cur</span>
-                <span className="text-[9px] uppercase tracking-wider text-gray-400 w-[58px] text-right flex-shrink-0">N Score</span>
+                <span className="text-[9px] uppercase tracking-wider text-gray-400 w-[52px] text-right flex-shrink-0">N Score</span>
                 <span className="text-[9px] uppercase tracking-wider text-gray-400 w-14 text-right flex-shrink-0">U Cur</span>
-                <span className="text-[9px] uppercase tracking-wider text-gray-400 w-[58px] text-right flex-shrink-0">U Score</span>
+                <span className="text-[9px] uppercase tracking-wider text-gray-400 w-[52px] text-right flex-shrink-0">U Score</span>
                 <span className="w-5 flex-shrink-0" />
               </div>
 
@@ -330,9 +330,8 @@ export default function PriceOMaticDashboard({ onItemClick, isSyncRunning }: Pri
                       )}
                     </div>
 
-                    {/* Row 2: Combined score (left) | Qty · Color · Peak | [N cur/sugg] N Score | [U cur/sugg] U Score */}
-                    <div className="flex items-center gap-1 mt-0.5 min-w-0">
-                      {/* Combined max score — left-aligned, matches header sort button width */}
+                    {/* Row 2: Score · Qty · Color · Peak — no pricing, full width */}
+                    <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
                       {(() => {
                         const maxScore = Math.max(group.newScore ?? 0, group.usedScore ?? 0);
                         const hasScore = (group.newLot?.opportunityScore != null) || (group.usedLot?.opportunityScore != null);
@@ -342,19 +341,21 @@ export default function PriceOMaticDashboard({ onItemClick, isSyncRunning }: Pri
                           </span>
                         );
                       })()}
-
-                      {/* Qty + Color + market peak — single line */}
-                      <div className="flex items-center gap-1 flex-1 min-w-0">
-                        <span className="text-[10px] font-mono text-slate-400 flex-shrink-0">
-                          ×{(group.newLot?.quantity ?? 0) + (group.usedLot?.quantity ?? 0)}
+                      <span className="text-[10px] font-mono text-slate-400 flex-shrink-0">
+                        ×{(group.newLot?.quantity ?? 0) + (group.usedLot?.quantity ?? 0)}
+                      </span>
+                      <span className="text-[10px] text-slate-400 truncate min-w-0 flex-1">{group.colorName || '—'}</span>
+                      {group.marketPeakSoldPrice != null && (
+                        <span className="text-[9px] text-blue-400/70 flex-shrink-0 whitespace-nowrap">
+                          peak {formatCurrency(group.marketPeakSoldPrice)}
                         </span>
-                        <span className="text-[10px] text-slate-400 truncate min-w-0">{group.colorName || '—'}</span>
-                        {group.marketPeakSoldPrice != null && (
-                          <span className="text-[9px] text-blue-400/70 flex-shrink-0 whitespace-nowrap">
-                            · peak {formatCurrency(group.marketPeakSoldPrice)}
-                          </span>
-                        )}
-                      </div>
+                      )}
+                    </div>
+
+                    {/* Row 3: N Cur | N Score | U Cur | U Score */}
+                    <div className="flex items-center gap-1 mt-0.5 min-w-0">
+                      {/* Left spacer aligns prices under name, not under score */}
+                      <div className="w-[52px] flex-shrink-0" />
 
                       {/* New: current price + suggested if fetched */}
                       <div
@@ -364,9 +365,9 @@ export default function PriceOMaticDashboard({ onItemClick, isSyncRunning }: Pri
                         {group.newLot ? (
                           <>
                             <span className="text-[10px] font-mono text-slate-300 leading-tight">{formatCurrency(group.newLot.currentPrice)}</span>
-                            {pricingData.get(group.key)?.n ? (
+                            {pricingData.get(group.key)?.n && (
                               <span className="text-[9px] font-mono text-purple-400 leading-tight">{formatCurrency(pricingData.get(group.key)!.n)}</span>
-                            ) : null}
+                            )}
                           </>
                         ) : (
                           <span className="text-[10px] text-slate-700">—</span>
@@ -374,7 +375,7 @@ export default function PriceOMaticDashboard({ onItemClick, isSyncRunning }: Pri
                       </div>
 
                       {/* New score */}
-                      <span className={`text-[10px] font-mono font-bold text-right flex-shrink-0 w-[58px] ${group.newLot ? scoreColor(group.newLot.opportunityScore) : 'text-slate-700'}`}>
+                      <span className={`text-[10px] font-mono font-bold text-right flex-shrink-0 w-[52px] ${group.newLot ? scoreColor(group.newLot.opportunityScore) : 'text-slate-700'}`}>
                         {group.newLot?.opportunityScore != null ? `${group.newLot.opportunityScore}×` : '—'}
                       </span>
 
@@ -386,9 +387,9 @@ export default function PriceOMaticDashboard({ onItemClick, isSyncRunning }: Pri
                         {group.usedLot ? (
                           <>
                             <span className="text-[10px] font-mono text-slate-300 leading-tight">{formatCurrency(group.usedLot.currentPrice)}</span>
-                            {pricingData.get(group.key)?.u ? (
+                            {pricingData.get(group.key)?.u && (
                               <span className="text-[9px] font-mono text-purple-400 leading-tight">{formatCurrency(pricingData.get(group.key)!.u)}</span>
-                            ) : null}
+                            )}
                           </>
                         ) : (
                           <span className="text-[10px] text-slate-700">—</span>
@@ -396,11 +397,11 @@ export default function PriceOMaticDashboard({ onItemClick, isSyncRunning }: Pri
                       </div>
 
                       {/* Used score */}
-                      <span className={`text-[10px] font-mono font-bold text-right flex-shrink-0 w-[58px] ${group.usedLot ? scoreColor(group.usedLot.opportunityScore) : 'text-slate-700'}`}>
+                      <span className={`text-[10px] font-mono font-bold text-right flex-shrink-0 w-[52px] ${group.usedLot ? scoreColor(group.usedLot.opportunityScore) : 'text-slate-700'}`}>
                         {group.usedLot?.opportunityScore != null ? `${group.usedLot.opportunityScore}×` : '—'}
                       </span>
 
-                      {/* Pricing button spacer — keeps layout consistent with header */}
+                      {/* Spacer to keep widths consistent with header */}
                       <span className="w-5 flex-shrink-0" />
                     </div>
                   </div>
