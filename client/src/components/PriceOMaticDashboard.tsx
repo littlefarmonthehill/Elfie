@@ -4,6 +4,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {  
@@ -89,7 +90,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
       setRefreshingItems(prev => { const next = new Set(prev); next.delete(item.inventoryId); return next; });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/priceomatic/insights'] });
+      queryClient.refetchQueries({ queryKey: ['/api/priceomatic/insights'] });
       toast({ title: "Refreshed", description: "Price data updated from BrickLink" });
     },
     onError: () => {
@@ -103,9 +104,11 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
     refetchInterval: 10000,
   });
 
-  // Fetch pricing insights
+  // Fetch pricing insights — always refetch on mount so opening the panel shows current data
   const { data: insights, isLoading: insightsLoading } = useQuery<{ success: boolean; data: InsightsData }>({
     queryKey: ['/api/priceomatic/insights'],
+    refetchOnMount: 'always',
+    staleTime: 0,
   });
 
   // Fetch settings to get real thresholds
@@ -120,8 +123,8 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/sync/priceomatic/status'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/priceomatic/insights'] });
+      queryClient.refetchQueries({ queryKey: ['/api/sync/priceomatic/status'] });
+      queryClient.refetchQueries({ queryKey: ['/api/priceomatic/insights'] });
       
       toast({
         title: "Sync Started",
@@ -253,7 +256,11 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
                 <TrendingUp className="w-3.5 h-3.5 text-red-400" />
                 <p className="text-[9px] md:text-xs text-red-400 uppercase">Too High</p>
               </div>
-              <p className="text-xl font-mono font-bold text-red-400">{insightsData?.summary.tooHigh || 0}</p>
+              {insightsLoading ? (
+                <Skeleton className="h-7 w-10 mt-0.5" />
+              ) : (
+                <p className="text-xl font-mono font-bold text-red-400">{insightsData?.summary.tooHigh ?? 0}</p>
+              )}
               <p className="text-xs text-gray-500">Losing sales</p>
             </Card>
           </TooltipTrigger>
@@ -277,7 +284,11 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
                 <TrendingDown className="w-3.5 h-3.5 text-orange-400" />
                 <p className="text-[9px] md:text-xs text-orange-400 uppercase">Too Low</p>
               </div>
-              <p className="text-xl font-mono font-bold text-orange-400">{insightsData?.summary.tooLow || 0}</p>
+              {insightsLoading ? (
+                <Skeleton className="h-7 w-10 mt-0.5" />
+              ) : (
+                <p className="text-xl font-mono font-bold text-orange-400">{insightsData?.summary.tooLow ?? 0}</p>
+              )}
               <p className="text-xs text-gray-500">Leaving margin</p>
             </Card>
           </TooltipTrigger>
@@ -301,7 +312,11 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
                 <CheckCircle className="w-3.5 h-3.5 text-green-400" />
                 <p className="text-[9px] md:text-xs text-green-400 uppercase">Well Priced</p>
               </div>
-              <p className="text-xl font-mono font-bold text-green-400">{insightsData?.summary.wellPriced || 0}</p>
+              {insightsLoading ? (
+                <Skeleton className="h-7 w-10 mt-0.5" />
+              ) : (
+                <p className="text-xl font-mono font-bold text-green-400">{insightsData?.summary.wellPriced ?? 0}</p>
+              )}
               <p className="text-xs text-gray-500">Optimal range</p>
             </Card>
           </TooltipTrigger>
@@ -315,7 +330,11 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
             <Zap className="w-3.5 h-3.5 text-purple-400" />
             <p className="text-[9px] md:text-xs text-gray-400 uppercase">Total</p>
           </div>
-          <p className="text-xl font-mono font-bold text-white">{insightsData?.summary.total || 0}</p>
+          {insightsLoading ? (
+            <Skeleton className="h-7 w-12 mt-0.5" />
+          ) : (
+            <p className="text-xl font-mono font-bold text-white">{insightsData?.summary.total ?? 0}</p>
+          )}
           <p className="text-xs text-gray-500">Items analyzed</p>
         </Card>
       </div>

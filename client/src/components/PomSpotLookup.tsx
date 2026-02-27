@@ -81,9 +81,7 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
       } else {
         setResult(data);
         setLookupError(null);
-        if (data?.inventoryLots?.length > 0) {
-          invalidateDashboard();
-        }
+        invalidateDashboard();
       }
     },
     onError: (err: Error) => {
