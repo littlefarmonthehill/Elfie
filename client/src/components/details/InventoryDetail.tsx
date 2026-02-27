@@ -110,6 +110,12 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
   const [setsDialogOpen, setSetsDialogOpen] = useState(false);
   const priceOMagic = data.priceOMagic;
 
+  // Fetch current POM formula settings for live price computation
+  const { data: pomSettings } = useQuery<any>({
+    queryKey: ['/api/settings'],
+    staleTime: 5 * 60 * 1000,
+  });
+
   // Fetch warehouse location
   const { data: warehouseLocation } = useQuery<any[]>({
     queryKey: [`/api/warehouse/locations?inventoryId=${data.id}`],
@@ -194,9 +200,48 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
   }
   const currentPrice = data.unitPrice ? parseFloat(data.unitPrice) : 0;
   const myCost = data.myCost ? parseFloat(data.myCost) : null;
-  const suggestedPrice = priceOMagic ? parseFloat(priceOMagic.suggestedPrice) : null;
   const stockAvgPrice = priceOMagic?.stockAvgPrice ? parseFloat(priceOMagic.stockAvgPrice) : null;
   const soldAvgPrice = priceOMagic?.soldAvgPrice ? parseFloat(priceOMagic.soldAvgPrice) : null;
+
+  // Compute suggested price LIVE using current settings — matches calculateSuggestedPriceWithSupply
+  const { liveSuggestedPrice, liveTotalPremiumPct } = (() => {
+    const empty = { liveSuggestedPrice: null as number | null, liveTotalPremiumPct: 0 };
+    if (!priceOMagic || (!stockAvgPrice && !soldAvgPrice)) return empty;
+    const s = pomSettings;
+    const basePrice = soldAvgPrice || stockAvgPrice || 0;
+    if (basePrice === 0) return empty;
+    const isMinifig = data.itemType === 'MINIFIG' || data.itemType === 'M';
+    let totalPremium = isMinifig
+      ? (s?.pomMinifigPremium ?? 5)
+      : (s?.pomBasePremium ?? 10);
+    const lots = priceOMagic.stockTotalLots ?? 0;
+    const t1 = s?.pomScarcityThreshold1 ?? 50;
+    const t2 = s?.pomScarcityThreshold2 ?? 200;
+    const t3 = s?.pomScarcityThreshold3 ?? 500;
+    if (lots < t1) totalPremium += (s?.pomScarcityBonus1 ?? 15);
+    else if (lots < t2) totalPremium += (s?.pomScarcityBonus2 ?? 8);
+    else if (lots < t3) totalPremium += (s?.pomScarcityBonus3 ?? 3);
+    if (s?.pomTrendingEnabled) {
+      const maxAdj = s?.pomTrendingDays ?? 30;
+      const demandDenom = s?.pomTrendingThreshold ?? 5;
+      const supplyDenom = s?.pomHighSupplyThreshold ?? 5000;
+      const demandRatio = demandDenom > 0 ? Math.min((priceOMagic.soldQuantity ?? 0) / demandDenom, 1.0) : 0;
+      const supplyRatio = supplyDenom > 0 ? Math.min((priceOMagic.stockQuantity ?? 0) / supplyDenom, 1.0) : 0;
+      const demandContrib = demandRatio * ((s?.pomTrendingBonus ?? 5) / 100);
+      const supplyContrib = supplyRatio * ((s?.pomHighSupplyPenalty ?? 5) / 100);
+      totalPremium += maxAdj * (demandContrib - supplyContrib);
+    }
+    let finalPrice = basePrice * (1 + totalPremium / 100);
+    if ((s?.pomCostFloorPct ?? 0) > 0 && myCost && myCost > 0) {
+      const costFloor = myCost * (1 + (s.pomCostFloorPct / 100));
+      if (costFloor > finalPrice) finalPrice = costFloor;
+    }
+    const minPrice = parseFloat(String(s?.pomMinPrice ?? '0.02'));
+    if (minPrice > 0 && minPrice > finalPrice) finalPrice = minPrice;
+    return { liveSuggestedPrice: Number(finalPrice.toFixed(4)), liveTotalPremiumPct: Math.round(totalPremium) };
+  })();
+
+  const suggestedPrice = liveSuggestedPrice;
   
   const quantity = data.quantity ?? 0;
   const totalValue = quantity * currentPrice;
@@ -476,7 +521,7 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
                   <Sparkles className="h-4 w-4 text-purple-400" />
                   <h4 className="text-xs font-black text-purple-400">PRICE-O-MAGIC</h4>
                   <Badge className="bg-purple-500/30 text-purple-300 border-purple-400/40 text-[9px] md:text-xs h-4 px-2 font-bold ml-auto">
-                    +{priceOMagic.premiumPercentage}% PREMIUM
+                    +{liveTotalPremiumPct}% PREMIUM
                   </Badge>
                 </div>
                 
@@ -513,124 +558,186 @@ export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDet
                     </DialogHeader>
                     <div className="space-y-3 mt-4">
                       {(() => {
-                        // Calculate pricing components
-                        const basePremium = priceOMagic.premiumPercentage || 10;
-                        const stockLots = priceOMagic.stockTotalLots;
-                        let scarcityBonus = 0;
-                        
-                        // Calculate scarcity bonus based on supply (increased weights)
-                        if (stockLots !== null && stockLots !== undefined && typeof stockLots === 'number') {
-                          if (stockLots < 50) {
-                            scarcityBonus = 15; // Very scarce
-                          } else if (stockLots < 200) {
-                            scarcityBonus = 8; // Low availability
-                          } else if (stockLots < 500) {
-                            scarcityBonus = 3; // Moderate availability
-                          }
-                        }
-                        
-                        // Check if item is a minifigure (reduces premium by half)
+                        if (!liveSuggestedPrice || !priceOMagic) return null;
+                        const s = pomSettings;
                         const isMinifig = data.itemType === 'MINIFIG' || data.itemType === 'M';
-                        const minifigReduction = isMinifig ? basePremium / 2 : 0;
-                        const effectivePremium = isMinifig ? basePremium - minifigReduction : basePremium;
-                        
-                        const marketBase = stockAvgPrice !== null ? stockAvgPrice : 0;
-                        const planetBrickPremium = marketBase * (basePremium / 100);
-                        const supplyAdjustment = marketBase * (scarcityBonus / 100);
-                        const minifigAdjustment = marketBase * (minifigReduction / 100);
-                        
+                        const basePrice = soldAvgPrice || stockAvgPrice || 0;
+                        const basePremiumPct = isMinifig ? (s?.pomMinifigPremium ?? 5) : (s?.pomBasePremium ?? 10);
+
+                        // Scarcity
+                        const lots = priceOMagic.stockTotalLots ?? 0;
+                        const t1 = s?.pomScarcityThreshold1 ?? 50;
+                        const t2 = s?.pomScarcityThreshold2 ?? 200;
+                        const t3 = s?.pomScarcityThreshold3 ?? 500;
+                        let scarcityBonus = 0;
+                        let scarcityLabel = '';
+                        if (lots < t1) { scarcityBonus = s?.pomScarcityBonus1 ?? 15; scarcityLabel = `< ${t1} listings`; }
+                        else if (lots < t2) { scarcityBonus = s?.pomScarcityBonus2 ?? 8; scarcityLabel = `< ${t2} listings`; }
+                        else if (lots < t3) { scarcityBonus = s?.pomScarcityBonus3 ?? 3; scarcityLabel = `< ${t3} listings`; }
+
+                        // Market dynamics
+                        let trendingAdj = 0;
+                        const trendingEnabled = s?.pomTrendingEnabled ?? false;
+                        if (trendingEnabled) {
+                          const maxAdj = s?.pomTrendingDays ?? 30;
+                          const demandDenom = s?.pomTrendingThreshold ?? 5;
+                          const supplyDenom = s?.pomHighSupplyThreshold ?? 5000;
+                          const demandRatio = demandDenom > 0 ? Math.min((priceOMagic.soldQuantity ?? 0) / demandDenom, 1.0) : 0;
+                          const supplyRatio = supplyDenom > 0 ? Math.min((priceOMagic.stockQuantity ?? 0) / supplyDenom, 1.0) : 0;
+                          const demandContrib = demandRatio * ((s?.pomTrendingBonus ?? 5) / 100);
+                          const supplyContrib = supplyRatio * ((s?.pomHighSupplyPenalty ?? 5) / 100);
+                          trendingAdj = maxAdj * (demandContrib - supplyContrib);
+                        }
+
+                        const totalPremium = basePremiumPct + scarcityBonus + trendingAdj;
+                        const marketPrice = basePrice * (1 + totalPremium / 100);
+
+                        // Floors
+                        const costFloorPct = s?.pomCostFloorPct ?? 0;
+                        const minPrice = parseFloat(String(s?.pomMinPrice ?? '0.02'));
+                        let floorApplied: 'cost' | 'min' | 'none' = 'none';
+                        let finalPrice = marketPrice;
+                        if (costFloorPct > 0 && myCost && myCost > 0) {
+                          const costFloor = myCost * (1 + costFloorPct / 100);
+                          if (costFloor > finalPrice) { finalPrice = costFloor; floorApplied = 'cost'; }
+                        }
+                        if (minPrice > 0 && minPrice > finalPrice) { floorApplied = floorApplied === 'none' ? 'min' : floorApplied; finalPrice = minPrice; }
+
                         return (
                           <>
-                            {/* Market Base with Context */}
+                            {/* Step 1: Market Base */}
                             <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3">
-                              <p className="text-xs font-bold text-gray-400 mb-2">MARKET BASE PRICE</p>
+                              <p className="text-xs font-bold text-gray-400 mb-2">STEP 1 — MARKET BASE PRICE</p>
                               <p className="text-2xl font-mono font-black text-white mb-2">
-                                ${marketBase.toFixed(3)}
+                                ${basePrice.toFixed(3)}
                               </p>
-                              <div className="space-y-1 text-[10px] md:text-sm">
-                                {stockAvgPrice !== null && (
-                                  <div className="flex justify-between">
-                                    <span className="text-gray-400">Current Stock Avg:</span>
-                                    <span className="font-mono text-blue-400">${stockAvgPrice.toFixed(3)}</span>
-                                  </div>
-                                )}
+                              <div className="space-y-1 text-xs">
                                 {soldAvgPrice !== null && (
                                   <div className="flex justify-between">
-                                    <span className="text-gray-400">Recent Sold Avg (6mo):</span>
+                                    <span className="text-green-400 font-semibold">✓ 6-mo Sold Avg (primary):</span>
                                     <span className="font-mono text-green-400">${soldAvgPrice.toFixed(3)}</span>
                                   </div>
                                 )}
-                                {priceOMagic.stockMinPrice && priceOMagic.stockMaxPrice && (
+                                {stockAvgPrice !== null && (
                                   <div className="flex justify-between">
-                                    <span className="text-gray-400">Market Range:</span>
-                                    <span className="font-mono text-gray-300">
-                                      ${parseFloat(priceOMagic.stockMinPrice).toFixed(2)} - ${parseFloat(priceOMagic.stockMaxPrice).toFixed(2)}
+                                    <span className={`${soldAvgPrice ? 'text-gray-500' : 'text-blue-400 font-semibold'}`}>
+                                      {soldAvgPrice ? 'Stock Avg (fallback):' : '✓ Stock Avg (primary):'}
                                     </span>
+                                    <span className={`font-mono ${soldAvgPrice ? 'text-gray-500' : 'text-blue-400'}`}>${stockAvgPrice.toFixed(3)}</span>
                                   </div>
                                 )}
+                                {priceOMagic.stockMinPrice && priceOMagic.stockMaxPrice && (
+                                  <div className="flex justify-between text-gray-500">
+                                    <span>Market range:</span>
+                                    <span className="font-mono">${parseFloat(priceOMagic.stockMinPrice).toFixed(2)} – ${parseFloat(priceOMagic.stockMaxPrice).toFixed(2)}</span>
+                                  </div>
+                                )}
+                                <p className="text-[10px] text-gray-500 pt-1">Sold avg used when available — reflects actual demand. Stock avg used as fallback.</p>
                               </div>
                             </div>
-                            
-                            {/* PlanetBrick Premium + Stock Supply */}
+
+                            {/* Step 2: Premiums */}
                             <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 space-y-2">
-                              <p className="text-xs font-bold text-gray-400 mb-1">PRICING ADJUSTMENTS</p>
-                              
-                              {/* PlanetBrick Premium */}
-                              <div className="flex justify-between items-center">
-                                <span className="text-xs text-gray-400">PlanetBrick Premium:</span>
-                                <div className="text-right">
-                                  <span className="text-sm font-mono font-bold text-purple-400">+{basePremium}%</span>
-                                  <span className="text-[10px] md:text-sm text-gray-500 ml-2">${planetBrickPremium.toFixed(3)}</span>
+                              <p className="text-xs font-bold text-gray-400 mb-1">STEP 2 — PREMIUM ADJUSTMENTS</p>
+
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <span className="text-xs text-gray-300">{isMinifig ? 'Minifig' : 'Base'} Premium</span>
+                                  <p className="text-[10px] text-gray-500">{isMinifig ? 'Minifig-specific rate from settings' : 'Base rate from settings'}</p>
+                                </div>
+                                <div className="text-right shrink-0 ml-2">
+                                  <span className="text-sm font-mono font-bold text-purple-400">+{basePremiumPct}%</span>
+                                  <span className="text-xs text-gray-500 ml-2">+${(basePrice * basePremiumPct / 100).toFixed(3)}</span>
                                 </div>
                               </div>
-                              
-                              {/* Minifigure Reduction */}
-                              {isMinifig && (
-                                <div className="flex justify-between items-center pl-4 border-l-2 border-yellow-500/30">
-                                  <span className="text-xs text-gray-400">Minifigure Adjustment:</span>
-                                  <div className="text-right">
-                                    <span className="text-sm font-mono font-bold text-yellow-400">
-                                      -{minifigReduction}%
-                                    </span>
-                                    <span className="text-[10px] md:text-sm text-gray-500 ml-2">-${minifigAdjustment.toFixed(3)}</span>
+
+                              {scarcityBonus > 0 && (
+                                <div className="flex justify-between items-start border-t border-gray-700 pt-2">
+                                  <div>
+                                    <span className="text-xs text-gray-300">Scarcity Bonus</span>
+                                    <p className="text-[10px] text-gray-500">{lots} listings worldwide ({scarcityLabel})</p>
+                                  </div>
+                                  <div className="text-right shrink-0 ml-2">
+                                    <span className="text-sm font-mono font-bold text-orange-400">+{scarcityBonus}%</span>
+                                    <span className="text-xs text-gray-500 ml-2">+${(basePrice * scarcityBonus / 100).toFixed(3)}</span>
                                   </div>
                                 </div>
                               )}
-                              
-                              {/* Market Supply Impact */}
-                              <div className="space-y-0.5">
-                                <div className="flex justify-between items-center">
-                                  <span className="text-xs text-gray-400">Market Supply Impact:</span>
-                                  <div className="text-right">
-                                    <span className={`text-sm font-mono font-bold ${scarcityBonus > 0 ? 'text-orange-400' : 'text-gray-500'}`}>
-                                      +{scarcityBonus}%
+                              {scarcityBonus === 0 && priceOMagic.stockTotalLots !== null && (
+                                <div className="flex justify-between items-center border-t border-gray-700 pt-2">
+                                  <div>
+                                    <span className="text-xs text-gray-500">Scarcity Bonus</span>
+                                    <p className="text-[10px] text-gray-500">{lots} listings (≥ {t3} — normal supply)</p>
+                                  </div>
+                                  <span className="text-xs font-mono text-gray-600">+0%</span>
+                                </div>
+                              )}
+
+                              {trendingEnabled && trendingAdj !== 0 && (
+                                <div className="flex justify-between items-start border-t border-gray-700 pt-2">
+                                  <div>
+                                    <span className="text-xs text-gray-300">Market Dynamics</span>
+                                    <p className="text-[10px] text-gray-500">Demand vs. supply signal</p>
+                                  </div>
+                                  <div className="text-right shrink-0 ml-2">
+                                    <span className={`text-sm font-mono font-bold ${trendingAdj >= 0 ? 'text-blue-400' : 'text-red-400'}`}>
+                                      {trendingAdj >= 0 ? '+' : ''}{trendingAdj.toFixed(1)}%
                                     </span>
-                                    <span className="text-[10px] md:text-sm text-gray-500 ml-2">${supplyAdjustment.toFixed(3)}</span>
+                                    <span className="text-xs text-gray-500 ml-2">{trendingAdj >= 0 ? '+' : ''}${(basePrice * trendingAdj / 100).toFixed(3)}</span>
                                   </div>
                                 </div>
-                                {priceOMagic.stockTotalLots !== null && (
-                                  <p className="text-[9px] md:text-xs text-gray-500 pl-1">
-                                    {priceOMagic.stockTotalLots} {priceOMagic.stockTotalLots === 1 ? 'listing' : 'listings'} available worldwide
-                                  </p>
-                                )}
+                              )}
+
+                              <div className="flex justify-between items-center border-t border-gray-700 pt-2">
+                                <span className="text-xs font-bold text-gray-300">Total Premium</span>
+                                <span className="text-sm font-mono font-bold text-white">+{totalPremium.toFixed(1)}% → ${marketPrice.toFixed(3)}</span>
                               </div>
                             </div>
-                            
-                            {/* Final Suggested Price with Range */}
+
+                            {/* Step 3: Floors */}
+                            {(costFloorPct > 0 || minPrice > 0) && (
+                              <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 space-y-2">
+                                <p className="text-xs font-bold text-gray-400 mb-1">STEP 3 — PRICE FLOORS</p>
+                                {costFloorPct > 0 && myCost && myCost > 0 && (
+                                  <div className="flex justify-between items-start">
+                                    <div>
+                                      <span className={`text-xs ${floorApplied === 'cost' ? 'text-yellow-400 font-bold' : 'text-gray-500'}`}>
+                                        Cost Floor {floorApplied === 'cost' ? '← applied' : ''}
+                                      </span>
+                                      <p className="text-[10px] text-gray-500">My cost ${myCost.toFixed(3)} × {100 + costFloorPct}%</p>
+                                    </div>
+                                    <span className={`text-sm font-mono ${floorApplied === 'cost' ? 'text-yellow-400' : 'text-gray-600'}`}>
+                                      ${(myCost * (1 + costFloorPct / 100)).toFixed(3)}
+                                    </span>
+                                  </div>
+                                )}
+                                {minPrice > 0 && (
+                                  <div className="flex justify-between items-center">
+                                    <span className={`text-xs ${floorApplied === 'min' ? 'text-yellow-400 font-bold' : 'text-gray-500'}`}>
+                                      Min Price {floorApplied === 'min' ? '← applied' : ''}
+                                    </span>
+                                    <span className={`text-sm font-mono ${floorApplied === 'min' ? 'text-yellow-400' : 'text-gray-600'}`}>${minPrice.toFixed(3)}</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Final */}
                             <div className="bg-purple-500/10 border border-purple-500/50 rounded-lg p-3">
                               <p className="text-xs text-gray-400 mb-1">SUGGESTED PRICE</p>
-                              <p className="text-3xl font-mono font-black text-purple-400 mb-2">
-                                ${suggestedPrice.toFixed(3)}
+                              <p className="text-3xl font-mono font-black text-purple-400 mb-1">
+                                ${liveSuggestedPrice.toFixed(3)}
                               </p>
                               {priceOMagic.stockMinPrice && priceOMagic.stockMaxPrice && (
-                                <p className="text-[9px] md:text-xs text-gray-500 mb-2">
-                                  Market range: ${parseFloat(priceOMagic.stockMinPrice).toFixed(2)} - ${parseFloat(priceOMagic.stockMaxPrice).toFixed(2)}
+                                <p className="text-[10px] text-gray-500 mb-2">
+                                  Market range: ${parseFloat(priceOMagic.stockMinPrice).toFixed(2)} – ${parseFloat(priceOMagic.stockMaxPrice).toFixed(2)}
                                 </p>
                               )}
-                              <div className="pt-2 border-t border-purple-500/30">
-                                <p className="text-[9px] md:text-xs text-purple-300 font-mono">
-                                  Market Base + PlanetBrick Premium{isMinifig ? ' (reduced for minifigs)' : ''} + Market Supply Impact
+                              <div className="pt-2 border-t border-purple-500/30 space-y-0.5">
+                                <p className="text-[10px] text-purple-300 font-mono">
+                                  {basePrice.toFixed(3)} × (1 + {totalPremium.toFixed(1)}%) = ${marketPrice.toFixed(3)}{floorApplied !== 'none' ? ` → floor applied → $${liveSuggestedPrice.toFixed(3)}` : ''}
                                 </p>
+                                <p className="text-[10px] text-gray-500">Computed live from current settings — updates instantly when formula changes.</p>
                               </div>
                             </div>
                           </>
