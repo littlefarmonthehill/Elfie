@@ -424,6 +424,16 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
             </div>
           ) : (
             <>
+              {/* Column labels for row 2 */}
+              <div className="flex items-center gap-2 px-2 pb-0.5">
+                <span className="text-[9px] uppercase tracking-wider text-gray-600 flex-1 min-w-0">Color</span>
+                <span className="text-[9px] uppercase tracking-wider text-gray-600 flex-shrink-0">Current</span>
+                <span className="text-[9px] text-gray-800 flex-shrink-0">→</span>
+                <span className="text-[9px] uppercase tracking-wider text-gray-600 flex-shrink-0">Suggested</span>
+                <span className="text-[9px] uppercase tracking-wider text-gray-600 flex-shrink-0">Var%</span>
+                <span className="text-[9px] uppercase tracking-wider text-gray-600 flex-shrink-0">Qty</span>
+              </div>
+
               {selectedItems.slice(0, itemsToShow).map((item) => (
                 <div
                   key={item.inventoryId}
