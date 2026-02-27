@@ -6524,6 +6524,72 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
   });
 
 
+  // End of Day SCAN Form — generate a USPS SCAN form for today's EasyPost shipments
+  app.get("/api/shipments/end-of-day", isApproved, async (req, res) => {
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todaysShipments = await db.select().from(shipments)
+        .where(
+          and(
+            eq(shipments.vendorCode, 'easypost'),
+            eq(shipments.status, 'purchased'),
+            sql`${shipments.purchasedAt} >= ${today.toISOString()}`
+          )
+        );
+      const vendorIds = todaysShipments.map(s => s.vendorShipmentId).filter(Boolean);
+      res.json({ count: vendorIds.length, shipments: todaysShipments.map(s => ({ id: s.id, orderId: s.orderId, trackingNumber: s.trackingNumber, carrier: s.carrier, service: s.service, purchasedAt: s.purchasedAt })) });
+    } catch (error) {
+      console.error("Error fetching today's shipments:", error);
+      res.status(500).json({ error: "Failed to fetch today's shipments" });
+    }
+  });
+
+  app.post("/api/shipments/scan-form", isApproved, async (req, res) => {
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todaysShipments = await db.select().from(shipments)
+        .where(
+          and(
+            eq(shipments.vendorCode, 'easypost'),
+            eq(shipments.status, 'purchased'),
+            sql`${shipments.purchasedAt} >= ${today.toISOString()}`
+          )
+        );
+
+      const vendorIds = todaysShipments.map(s => s.vendorShipmentId).filter(Boolean);
+      if (vendorIds.length === 0) {
+        return res.status(400).json({ error: 'No EasyPost shipments purchased today' });
+      }
+
+      const settingsRows = await db.select().from(appSettings).limit(1);
+      const cfg = settingsRows[0];
+      const apiKey = cfg?.easypostKeyMode === 'production' ? cfg?.easypostApiKey : cfg?.easypostTestApiKey;
+      if (!apiKey) {
+        return res.status(400).json({ error: 'EasyPost API key not configured' });
+      }
+
+      const auth = Buffer.from(`${apiKey}:`).toString('base64');
+      const epRes = await fetch('https://api.easypost.com/v2/scan_forms', {
+        method: 'POST',
+        headers: { 'Authorization': `Basic ${auth}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shipments: vendorIds.map(id => ({ id })) }),
+      });
+
+      if (!epRes.ok) {
+        const err = await epRes.json().catch(() => ({}));
+        return res.status(400).json({ error: err.error?.message || 'EasyPost SCAN form creation failed' });
+      }
+
+      const scanForm = await epRes.json();
+      res.json({ formUrl: scanForm.form_url, scanFormId: scanForm.id, shipmentCount: vendorIds.length });
+    } catch (error: any) {
+      console.error("Error creating SCAN form:", error);
+      res.status(500).json({ error: error.message || "Failed to create SCAN form" });
+    }
+  });
+
   // Fulfillment Stats - Count unfulfilled orders
   app.get("/api/fulfillment/stats", isApproved, async (req, res) => {
     try {
