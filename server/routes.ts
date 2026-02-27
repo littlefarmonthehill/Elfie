@@ -4414,6 +4414,28 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
         })
       );
 
+      // Compute market peak sold price: MAX(soldMaxPrice) across all (colorId, newOrUsed) combos fetched
+      const allSoldMaxPrices = Object.values(lotPriceData)
+        .map((pd: any) => pd.soldMaxPrice ? parseFloat(pd.soldMaxPrice) : 0)
+        .filter(v => v > 0);
+      const marketPeakSoldPrice = allSoldMaxPrices.length > 0 ? Math.max(...allSoldMaxPrices) : null;
+
+      // Enrich each inventory lot with suggestedPrice + opportunityScore
+      const inventoryLotsEnriched = inventoryLots.map(lot => {
+        const lotKey = `${lot.colorId ?? 'null'}_${lot.newOrUsed}`;
+        const lotPd = lotPriceData[lotKey] as any;
+        const currentPrice = lot.unitPrice ? parseFloat(lot.unitPrice) : 0;
+        const opportunityScore = (marketPeakSoldPrice && currentPrice > 0)
+          ? Number((marketPeakSoldPrice / currentPrice).toFixed(2))
+          : null;
+        return {
+          ...lot,
+          suggestedPrice: lotPd?.suggestedPrice ?? null,
+          opportunityScore,
+          marketPeakSoldPrice: marketPeakSoldPrice ? marketPeakSoldPrice.toFixed(4) : null,
+        };
+      });
+
       // Include flag thresholds so the UI can badge each lot as Too High / Too Low / Well Priced
       const [settingsRow] = await db.select({
         pomTooHighThreshold: appSettings.pomTooHighThreshold,
@@ -4425,7 +4447,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
         tooLow: settingsRow?.pomTooLowThreshold ?? 25,
       };
 
-      res.json({ priceData, inventoryLots, lotPriceData, thresholds, storedToCache: true });
+      res.json({ priceData, inventoryLots: inventoryLotsEnriched, lotPriceData, thresholds, marketPeakSoldPrice, storedToCache: true });
     } catch (error: any) {
       console.error("[POM Spot Lookup] Error:", error);
       res.status(500).json({

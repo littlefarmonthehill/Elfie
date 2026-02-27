@@ -16,7 +16,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Search, Package, RefreshCw, AlertCircle, X, TrendingUp, TrendingDown, CheckCircle, Camera } from "lucide-react";
+import { Search, Package, RefreshCw, AlertCircle, X, Camera } from "lucide-react";
 
 interface Color {
   id: number;
@@ -35,19 +35,26 @@ interface LotPriceEntry {
   premiumPercentage: number;
 }
 
+interface InventoryLot {
+  id: number;
+  colorId: number | null;
+  colorName: string | null;
+  colorRgb: string | null;
+  quantity: number;
+  unitPrice: string | null;
+  newOrUsed: string;
+  suggestedPrice?: string | null;
+  opportunityScore?: number | null;
+  marketPeakSoldPrice?: string | null;
+  floorApplied?: 'cost' | 'min' | 'none' | null;
+}
+
 interface SpotLookupResult {
   priceData: LotPriceEntry;
   lotPriceData: Record<string, LotPriceEntry>;
   thresholds: { tooHigh: number; tooLow: number };
-  inventoryLots: Array<{
-    id: number;
-    colorId: number | null;
-    colorName: string | null;
-    colorRgb: string | null;
-    quantity: number;
-    unitPrice: string | null;
-    newOrUsed: string;
-  }>;
+  marketPeakSoldPrice?: number | null;
+  inventoryLots: InventoryLot[];
 }
 
 interface PomSpotLookupProps {
@@ -155,7 +162,13 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
           premiumPercentage: 0,
         };
 
-        const inventoryLots = matches.map((m) => ({
+        // Compute market peak from cached insights (max marketPeakSoldPrice across all matched lots)
+        const peakValues = matches
+          .map((m: any) => m.marketPeakSoldPrice != null ? parseFloat(String(m.marketPeakSoldPrice)) : 0)
+          .filter((v: number) => v > 0);
+        const marketPeakSoldPrice = peakValues.length > 0 ? Math.max(...peakValues) : null;
+
+        const inventoryLots: InventoryLot[] = matches.map((m: any) => ({
           id: m.inventoryId,
           colorId: m.colorId,
           colorName: m.colorName,
@@ -163,6 +176,10 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
           quantity: m.quantity,
           unitPrice: m.currentPrice,
           newOrUsed: m.newOrUsed,
+          suggestedPrice: m.suggestedPrice ?? null,
+          opportunityScore: m.opportunityScore ?? null,
+          marketPeakSoldPrice: m.marketPeakSoldPrice ?? null,
+          floorApplied: m.floorApplied ?? null,
         }));
 
         const settingsCache = queryClient.getQueryData<any>(['/api/settings']);
@@ -171,7 +188,7 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
           tooLow: settingsCache?.pomTooLowThreshold ?? 20,
         };
 
-        setResult({ priceData, lotPriceData, inventoryLots, thresholds });
+        setResult({ priceData, lotPriceData, inventoryLots, thresholds, marketPeakSoldPrice });
         setLookupError(null);
         return;
       }
@@ -234,23 +251,12 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
   const pd = result?.priceData;
   const lots = result?.inventoryLots ?? [];
   const lotPriceData = result?.lotPriceData ?? {};
-  const thresholds = result?.thresholds ?? { tooHigh: 25, tooLow: 25 };
 
   const sellerCount = Number(pd?.stockTotalLots ?? 0);
   const scarcityLabel =
     sellerCount < 5 ? "Very Low" : sellerCount < 15 ? "Low" : sellerCount < 50 ? "Medium" : "Normal";
   const scarcityColor =
     sellerCount < 5 ? "text-orange-300" : sellerCount < 15 ? "text-yellow-300" : sellerCount < 50 ? "text-blue-300" : "text-gray-400";
-
-  const getPricingStatus = (currentPrice: string | null, suggestedPrice: string) => {
-    const current = currentPrice ? parseFloat(currentPrice) : 0;
-    const suggested = parseFloat(suggestedPrice);
-    if (!current || !suggested) return null;
-    const variancePct = ((current - suggested) / suggested) * 100;
-    if (variancePct > thresholds.tooHigh) return "too-high";
-    if (variancePct < -thresholds.tooLow) return "too-low";
-    return "good";
-  };
 
   return (
     <div className="bg-gray-900/50 border border-purple-500/20 rounded-lg p-2.5">
@@ -429,64 +435,81 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
             </div>
           </div>
 
-          {/* Inventory lots with per-color suggested prices */}
-          <div className="max-h-[220px] overflow-y-auto pr-0.5 space-y-1">
+          {/* Inventory lots — stacked price + score, matching filter results style */}
+          <div className="max-h-[280px] overflow-y-auto pr-0.5 space-y-1">
             {lots.length > 0 ? (
               <>
-                <div className="text-[10px] text-gray-500 font-medium uppercase tracking-wide mb-1.5">
-                  Your inventory ({lots.length} lot{lots.length !== 1 ? "s" : ""})
+                {/* Column header */}
+                <div className="flex items-center gap-1 px-1 pb-0.5">
+                  <span className="text-[9px] uppercase tracking-wider text-gray-600 flex-1 min-w-0">Qty · Color · Peak sold</span>
+                  <span className="text-[9px] uppercase tracking-wider text-gray-700 w-14 text-right flex-shrink-0">Cur / Sugg</span>
+                  <span className="text-[9px] uppercase tracking-wider text-gray-700 w-12 text-right flex-shrink-0">Score</span>
                 </div>
+
                 {lots.map((lot) => {
                   const lotKey = `${lot.colorId ?? "null"}_${lot.newOrUsed}`;
                   const lotPd = lotPriceData[lotKey];
-                  const suggestedPrice = lotPd?.suggestedPrice;
-                  const status = suggestedPrice ? getPricingStatus(lot.unitPrice, suggestedPrice) : null;
+                  const suggestedPrice = lot.suggestedPrice ?? lotPd?.suggestedPrice ?? null;
+                  const score = lot.opportunityScore ?? null;
+                  const peakStr = lot.marketPeakSoldPrice;
+
+                  const scoreColor = (s: number | null) => {
+                    if (s === null) return 'text-gray-600';
+                    if (s >= 2.0) return 'text-emerald-400';
+                    if (s >= 1.5) return 'text-orange-400';
+                    if (s >= 1.0) return 'text-yellow-500';
+                    return 'text-gray-500';
+                  };
 
                   return (
                     <div
                       key={lot.id}
-                      className="flex items-center justify-between gap-2 px-2.5 py-2 rounded bg-gray-800/50 border border-gray-700/30"
+                      className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-gray-800/50 border border-gray-700/30"
                     >
-                      <div className="flex items-center gap-1.5 min-w-0">
+                      {/* Left: qty · color swatch + name · condition · peak */}
+                      <div className="flex items-center gap-1 flex-1 min-w-0">
+                        <span className="text-[10px] font-mono text-gray-500 flex-shrink-0">×{lot.quantity}</span>
                         {lot.colorRgb ? (
                           <span
-                            className="w-2.5 h-2.5 rounded-full flex-shrink-0 border border-gray-600"
+                            className="w-2 h-2 rounded-full flex-shrink-0 border border-gray-600"
                             style={{ backgroundColor: `#${lot.colorRgb}` }}
                           />
                         ) : (
-                          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-gray-600" />
+                          <span className="w-2 h-2 rounded-full flex-shrink-0 bg-gray-600" />
                         )}
-                        <span className="text-xs text-gray-200 truncate">{lot.colorName || "N/A"}</span>
-                        <span className="text-[10px] text-gray-500 flex-shrink-0">
-                          {lot.quantity}×
+                        <span className="text-[10px] text-gray-300 truncate">{lot.colorName || "N/A"}</span>
+                        <span className={`text-[9px] font-mono flex-shrink-0 px-1 rounded ${lot.newOrUsed === 'N' ? 'text-blue-400 bg-blue-500/10' : 'text-amber-400 bg-amber-500/10'}`}>
+                          {lot.newOrUsed === 'N' ? 'N' : 'U'}
                         </span>
+                        {peakStr && (
+                          <span className="text-[9px] text-gray-600 flex-shrink-0 truncate">
+                            · {formatCurrency(peakStr)}
+                          </span>
+                        )}
                       </div>
 
-                      <div className="flex items-center gap-2 flex-shrink-0 text-xs font-mono">
-                        <span className="text-gray-300">
+                      {/* Stacked: current / suggested */}
+                      <div className="flex flex-col items-end w-14 flex-shrink-0">
+                        <span className="text-[10px] font-mono text-gray-300 leading-tight">
                           {lot.unitPrice ? formatCurrency(lot.unitPrice) : "—"}
                         </span>
-                        {suggestedPrice && (
-                          <>
-                            <span className="text-gray-600">→</span>
-                            <span className="text-green-400 font-semibold">
-                              {formatCurrency(suggestedPrice)}
-                            </span>
-                            {status === "too-high" && (
-                              <TrendingDown className="w-3 h-3 text-red-400 flex-shrink-0" />
-                            )}
-                            {status === "too-low" && (
-                              <TrendingUp className="w-3 h-3 text-yellow-400 flex-shrink-0" />
-                            )}
-                            {status === "good" && (
-                              <CheckCircle className="w-3 h-3 text-green-500 flex-shrink-0" />
-                            )}
-                          </>
-                        )}
-                        {!suggestedPrice && lotPd === undefined && (
-                          <RefreshCw className="w-3 h-3 text-gray-600 animate-spin flex-shrink-0" />
+                        {suggestedPrice ? (
+                          <span className="text-[9px] font-mono text-purple-400 leading-tight">
+                            {formatCurrency(suggestedPrice)}
+                            {lot.floorApplied === 'cost' && <span className="text-emerald-500 ml-0.5">↑</span>}
+                            {lot.floorApplied === 'min' && <span className="text-blue-400 ml-0.5">↑</span>}
+                          </span>
+                        ) : lotPd === undefined ? (
+                          <RefreshCw className="w-2.5 h-2.5 text-gray-600 animate-spin mt-0.5" />
+                        ) : (
+                          <span className="text-[9px] text-gray-700">—</span>
                         )}
                       </div>
+
+                      {/* Score */}
+                      <span className={`text-[10px] font-mono font-bold w-12 text-right flex-shrink-0 ${scoreColor(score)}`}>
+                        {score != null ? `${score}×` : '—'}
+                      </span>
                     </div>
                   );
                 })}
