@@ -229,7 +229,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
       <button
         onClick={toggle}
         className={`flex items-center gap-0.5 text-[9px] uppercase tracking-wider rounded px-1.5 py-0.5 transition-colors whitespace-nowrap ${
-          active ? 'bg-purple-500/20 text-purple-300' : 'text-gray-600 hover:text-gray-400'
+          active ? 'bg-purple-500/20 text-purple-300' : 'text-gray-400 hover:text-gray-200'
         }`}
         data-testid={`button-sort-${field}`}
       >
@@ -349,17 +349,17 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
             <>
               {/* Column headers with sort controls */}
               <div className="flex items-center gap-1 px-2 pb-0.5">
-                <span className="text-[9px] uppercase tracking-wider text-gray-600 flex-1 min-w-0">Qty · Color · Peak sold</span>
+                <div className="flex-1 min-w-0" />
                 {/* New: stacked price header | Score sort button */}
                 <div className="flex flex-col items-end w-14 flex-shrink-0">
-                  <span className="text-[9px] uppercase tracking-wider text-gray-700 leading-none">N Cur</span>
-                  <span className="text-[9px] uppercase tracking-wider text-gray-600 leading-none">Sugg</span>
+                  <span className="text-[9px] uppercase tracking-wider text-gray-400 leading-none">N Cur</span>
+                  <span className="text-[9px] uppercase tracking-wider text-gray-400 leading-none">Sugg</span>
                 </div>
                 <ScoreSortButton field="new" prefix="N" />
                 {/* Used: stacked price header | Score sort button */}
                 <div className="flex flex-col items-end w-14 flex-shrink-0">
-                  <span className="text-[9px] uppercase tracking-wider text-gray-700 leading-none">U Cur</span>
-                  <span className="text-[9px] uppercase tracking-wider text-gray-600 leading-none">Sugg</span>
+                  <span className="text-[9px] uppercase tracking-wider text-gray-400 leading-none">U Cur</span>
+                  <span className="text-[9px] uppercase tracking-wider text-gray-400 leading-none">Sugg</span>
                 </div>
                 <ScoreSortButton field="used" prefix="U" />
               </div>
@@ -418,7 +418,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
                         <span className="text-[10px] text-gray-500 truncate">{group.colorName || '—'}</span>
                         {group.marketPeakSoldPrice != null && (
                           <span className="text-[9px] text-gray-600 flex-shrink-0">
-                            · {formatCurrency(group.marketPeakSoldPrice)}
+                            · peak {formatCurrency(group.marketPeakSoldPrice)}
                           </span>
                         )}
                       </div>

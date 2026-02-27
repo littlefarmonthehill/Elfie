@@ -483,7 +483,7 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
                         </span>
                         {peakStr && (
                           <span className="text-[9px] text-gray-600 flex-shrink-0 truncate">
-                            · {formatCurrency(peakStr)}
+                            · peak {formatCurrency(peakStr)}
                           </span>
                         )}
                       </div>
