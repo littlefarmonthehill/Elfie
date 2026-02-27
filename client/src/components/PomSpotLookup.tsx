@@ -205,34 +205,25 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
   };
 
   return (
-    <div className="bg-gray-900/60 border border-purple-500/20 rounded-lg p-3">
-      <div className="flex items-center gap-2 mb-2.5">
+    <div className="bg-gray-900/60 border border-purple-500/20 rounded-lg p-2.5">
+      {/* Single-row: label + inputs + button */}
+      <div className="flex items-center gap-2 min-w-0">
         <Search className="w-3.5 h-3.5 text-purple-400 flex-shrink-0" />
-        <h3 className="text-xs font-semibold text-purple-300 uppercase tracking-wide">
-          Spot Price Lookup
-        </h3>
-        <span className="text-[10px] text-gray-500 hidden sm:inline">
-          any part, in or out of inventory
-        </span>
-      </div>
-
-      {/* Search controls */}
-      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-[10px] font-semibold text-purple-300 uppercase tracking-wide flex-shrink-0">Spot Lookup</span>
         <Input
           placeholder="Part # (e.g. 3001)"
           value={partNo}
           onChange={(e) => setPartNo(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleLookup()}
-          className="text-[16px] w-36 font-mono touch-manipulation"
+          className="text-[16px] w-28 font-mono touch-manipulation flex-shrink-0"
           data-testid="input-spot-partno"
           autoComplete="off"
           autoCorrect="off"
           autoCapitalize="characters"
           spellCheck={false}
         />
-
         <Select value={colorId} onValueChange={setColorId}>
-          <SelectTrigger className="w-36 text-[16px] touch-manipulation" data-testid="select-spot-color">
+          <SelectTrigger className="flex-1 min-w-0 text-[16px] touch-manipulation" data-testid="select-spot-color">
             <SelectValue placeholder="Any color" />
           </SelectTrigger>
           <SelectContent>
@@ -252,11 +243,11 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
             ))}
           </SelectContent>
         </Select>
-
         <Button
           onClick={handleLookup}
           disabled={!partNo.trim() || lookupMutation.isPending}
-          className="bg-purple-600 hover:bg-purple-500 text-white flex-shrink-0"
+          size="icon"
+          className="bg-purple-600 text-white flex-shrink-0"
           data-testid="button-spot-lookup"
         >
           {lookupMutation.isPending ? (
@@ -264,7 +255,6 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
           ) : (
             <Search className="w-3.5 h-3.5" />
           )}
-          <span className="ml-1.5">Look Up</span>
         </Button>
       </div>
 

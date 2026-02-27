@@ -15,7 +15,6 @@ import {
   RefreshCw,
   AlertCircle,
   Clock,
-  Zap,
   ChevronDown,
   Info,
   Square,
@@ -312,8 +311,8 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
       {/* Spot Price Lookup */}
       <PomSpotLookup formatCurrency={formatCurrency} />
 
-      {/* Summary Cards — full-width 4-column row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+      {/* Summary Cards — full-width 3-column row */}
+      <div className="grid grid-cols-3 gap-2">
         <Tooltip>
           <TooltipTrigger asChild>
             <Card 
@@ -398,18 +397,6 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
           </TooltipContent>
         </Tooltip>
 
-        <Card className="p-2.5 bg-gray-900/50 border-gray-700" data-testid="stat-total">
-          <div className="flex items-center gap-1.5 mb-0.5">
-            <Zap className="w-3.5 h-3.5 text-purple-400" />
-            <p className="text-[9px] md:text-xs text-gray-400 uppercase">Total</p>
-          </div>
-          {insightsLoading ? (
-            <Skeleton className="h-7 w-12 mt-0.5" />
-          ) : (
-            <p className="text-xl font-mono font-bold text-white">{insightsData?.summary.total ?? 0}</p>
-          )}
-          <p className="text-xs text-gray-500">Items analyzed</p>
-        </Card>
       </div>
     </div>
     {/* ── Scrollable bottom section: item list ── */}
