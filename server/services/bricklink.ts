@@ -1366,7 +1366,7 @@ export async function fetchPriceOMagicData(
       .from(priceGuideCache)
       .where(
         and(
-          eq(priceGuideCache.itemNo, itemNo),
+          sql`upper(${priceGuideCache.itemNo}) = upper(${itemNo})`,
           eq(priceGuideCache.itemType, itemType),
           colorId ? eq(priceGuideCache.colorId, colorId) : sql`${priceGuideCache.colorId} IS NULL`,
           eq(priceGuideCache.newOrUsed, newOrUsed),
@@ -1461,7 +1461,7 @@ export async function fetchPriceOMagicData(
         .from(priceGuideCache)
         .where(
           and(
-            eq(priceGuideCache.itemNo, itemNo),
+            sql`upper(${priceGuideCache.itemNo}) = upper(${itemNo})`,
             eq(priceGuideCache.itemType, itemType),
             colorId ? eq(priceGuideCache.colorId, colorId) : sql`${priceGuideCache.colorId} IS NULL`,
             eq(priceGuideCache.newOrUsed, newOrUsed)
@@ -1509,11 +1509,12 @@ export async function fetchPriceOMagicData(
     };
 
     // Delete old cache entry if exists
+    // Case-insensitive delete — handles parts like "x161" stored lowercase but looked up as "X161"
     await db
       .delete(priceGuideCache)
       .where(
         and(
-          eq(priceGuideCache.itemNo, itemNo),
+          sql`upper(${priceGuideCache.itemNo}) = upper(${itemNo})`,
           eq(priceGuideCache.itemType, itemType),
           colorId ? eq(priceGuideCache.colorId, colorId) : sql`${priceGuideCache.colorId} IS NULL`,
           eq(priceGuideCache.newOrUsed, newOrUsed)

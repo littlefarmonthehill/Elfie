@@ -4381,10 +4381,11 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       const colorIdNum = colorId ? parseInt(colorId as string) : undefined;
 
       // If forceRefresh=true, delete any cached entry so fetchPriceOMagicData makes fresh API calls
+      // Use case-insensitive match for itemNo — BrickLink stores some parts with lowercase prefix (e.g. "x161")
       if (forceRefresh === 'true') {
         const { priceGuideCache: pgc } = await import("@shared/schema");
         await db.delete(pgc).where(and(
-          eq(pgc.itemNo, partNoClean),
+          sql`upper(${pgc.itemNo}) = ${partNoClean}`,
           eq(pgc.itemType, itemType as string),
           colorIdNum ? eq(pgc.colorId, colorIdNum) : sql`${pgc.colorId} IS NULL`,
           eq(pgc.newOrUsed, newOrUsed as string)
@@ -4419,8 +4420,8 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
         .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
         .where(
           colorIdNum !== undefined
-            ? and(eq(blInventory.itemNo, partNoClean), eq(blInventory.colorId, colorIdNum))
-            : eq(blInventory.itemNo, partNoClean)
+            ? and(sql`upper(${blInventory.itemNo}) = ${partNoClean}`, eq(blInventory.colorId, colorIdNum))
+            : sql`upper(${blInventory.itemNo}) = ${partNoClean}`
         )
         .orderBy(blColors.name);
 
