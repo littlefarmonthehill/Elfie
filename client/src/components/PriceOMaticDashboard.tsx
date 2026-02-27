@@ -413,13 +413,13 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
                       {/* Qty + Color + market peak on sub-line */}
                       <div className="flex flex-col flex-1 min-w-0">
                         <div className="flex items-center gap-1 min-w-0">
-                          <span className="text-[10px] font-mono text-gray-500 flex-shrink-0">
+                          <span className="text-[10px] font-mono text-gray-300 flex-shrink-0">
                             ×{(group.newLot?.quantity ?? 0) + (group.usedLot?.quantity ?? 0)}
                           </span>
-                          <span className="text-[10px] text-gray-500 truncate">{group.colorName || '—'}</span>
+                          <span className="text-[10px] text-gray-300 truncate">{group.colorName || '—'}</span>
                         </div>
                         {group.marketPeakSoldPrice != null && (
-                          <span className="text-[9px] text-gray-600 pl-0.5">
+                          <span className="text-[9px] text-gray-400 pl-0.5">
                             peak {formatCurrency(group.marketPeakSoldPrice)}
                           </span>
                         )}
