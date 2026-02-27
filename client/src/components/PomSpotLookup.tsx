@@ -205,17 +205,18 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
   };
 
   return (
-    <div className="bg-gray-900/60 border border-purple-500/20 rounded-lg p-2.5">
-      {/* Single-row: label + inputs + button */}
-      <div className="flex items-center gap-2 min-w-0">
-        <Search className="w-3.5 h-3.5 text-purple-400 flex-shrink-0" />
-        <span className="text-[10px] font-semibold text-purple-300 uppercase tracking-wide flex-shrink-0">Spot Lookup</span>
+    <div className="bg-gray-900/50 border border-gray-700 rounded-lg">
+      {/* Integrated search bar row */}
+      <div className="flex items-center gap-0 min-w-0">
+        <div className="flex items-center gap-2 px-2.5 flex-shrink-0">
+          <Search className="w-3.5 h-3.5 text-gray-500" />
+        </div>
         <Input
           placeholder="Part # (e.g. 3001)"
           value={partNo}
           onChange={(e) => setPartNo(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleLookup()}
-          className="text-[16px] w-28 font-mono touch-manipulation flex-shrink-0"
+          className="w-28 flex-shrink-0 border-0 border-r border-gray-700 rounded-none bg-transparent text-[16px] font-mono touch-manipulation focus-visible:ring-0 focus-visible:ring-offset-0 px-2 h-9"
           data-testid="input-spot-partno"
           autoComplete="off"
           autoCorrect="off"
@@ -223,7 +224,10 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
           spellCheck={false}
         />
         <Select value={colorId} onValueChange={setColorId}>
-          <SelectTrigger className="flex-1 min-w-0 text-[16px] touch-manipulation" data-testid="select-spot-color">
+          <SelectTrigger
+            className="flex-1 min-w-0 border-0 rounded-none bg-transparent text-[16px] touch-manipulation focus:ring-0 h-9 px-2.5"
+            data-testid="select-spot-color"
+          >
             <SelectValue placeholder="Any color" />
           </SelectTrigger>
           <SelectContent>
@@ -243,24 +247,27 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
             ))}
           </SelectContent>
         </Select>
-        <Button
-          onClick={handleLookup}
-          disabled={!partNo.trim() || lookupMutation.isPending}
-          size="icon"
-          className="bg-purple-600 text-white flex-shrink-0"
-          data-testid="button-spot-lookup"
-        >
-          {lookupMutation.isPending ? (
-            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-          ) : (
-            <Search className="w-3.5 h-3.5" />
-          )}
-        </Button>
+        <div className="px-1.5 flex-shrink-0 border-l border-gray-700">
+          <Button
+            onClick={handleLookup}
+            disabled={!partNo.trim() || lookupMutation.isPending}
+            size="icon"
+            variant="ghost"
+            className="text-gray-400 hover:text-purple-400"
+            data-testid="button-spot-lookup"
+          >
+            {lookupMutation.isPending ? (
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Search className="w-3.5 h-3.5" />
+            )}
+          </Button>
+        </div>
       </div>
 
       {/* Error */}
       {lookupError && (
-        <div className="mt-2 flex items-center gap-1.5 text-xs text-red-400">
+        <div className="px-3 py-2 border-t border-gray-700 flex items-center gap-1.5 text-xs text-red-400">
           <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
           {lookupError}
         </div>
@@ -268,7 +275,7 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
 
       {/* Results */}
       {pd && (
-        <div className="mt-3 border-t border-gray-700/50 pt-3">
+        <div className="border-t border-gray-700 px-3 pt-3 pb-3">
           {/* Results header with close button */}
           <div className="flex items-start justify-between gap-2 mb-2.5">
             <div className="flex items-start gap-2.5">

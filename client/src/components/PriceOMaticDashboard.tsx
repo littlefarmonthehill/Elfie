@@ -14,7 +14,6 @@ import {
   CheckCircle,
   RefreshCw,
   AlertCircle,
-  Clock,
   ChevronDown,
   Info,
   Square,
@@ -202,50 +201,70 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
 
   return (
     <div className="flex flex-col h-full">
-    {/* ── Fixed top section: header + spot lookup + filter tiles ── */}
-    <div className="flex-shrink-0 px-4 pt-3 pb-2 space-y-3">
-      {/* Header */}
+    {/* ── Fixed top section ── */}
+    <div className="flex-shrink-0 px-4 pt-3 pb-2 space-y-2">
+      {/* Header row: title + inline API count on left, icons on right */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2.5 min-w-0">
           <Sparkles className="w-4 h-4 text-purple-400 flex-shrink-0" />
           <div className="min-w-0">
-            <h2 className="text-sm font-bold text-white leading-tight">Price-o-Matic</h2>
-            <p className="text-[10px] text-gray-500 leading-tight">Smart Pricing Insights</p>
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-bold text-white leading-tight">Price-o-Matic</h2>
+              {status?.callsLast24h !== undefined && (
+                <span className={`text-[10px] font-mono leading-tight ${
+                  status.callsLast24h >= apiCeiling * 0.9 ? 'text-red-400' :
+                  status.callsLast24h >= apiCeiling * 0.6 ? 'text-orange-400' :
+                  'text-gray-600'
+                }`}>
+                  {status.callsLast24h.toLocaleString()}/{(apiCeiling / 1000).toFixed(1)}k calls
+                </span>
+              )}
+            </div>
+            {/* Lightweight sync status below the title */}
+            {status && status.lastSyncStatus !== 'never' ? (
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 inline-block ${
+                  status.lastSyncStatus === 'success' ? 'bg-green-400' :
+                  status.lastSyncStatus === 'in_progress' ? 'bg-blue-400' :
+                  status.lastSyncStatus === 'partial' ? 'bg-orange-400' :
+                  status.lastSyncStatus === 'stopped' ? 'bg-yellow-400' :
+                  'bg-red-400'
+                }`} />
+                <span className="text-[10px] text-gray-500 leading-tight">
+                  {status.lastSyncStatus === 'success' && 'Sync complete'}
+                  {status.lastSyncStatus === 'partial' && 'Partial sync'}
+                  {status.lastSyncStatus === 'in_progress' && 'Syncing...'}
+                  {status.lastSyncStatus === 'stopped' && 'Stopped'}
+                  {status.lastSyncStatus === 'failed' && 'Sync failed'}
+                  {status.lastSyncTime && (
+                    <> · {formatDistanceToNow(new Date(status.lastSyncTime), { addSuffix: true })}</>
+                  )}
+                  {status.recordsUpdated > 0 && (
+                    <span className="text-purple-500"> · {status.recordsUpdated.toLocaleString()} items</span>
+                  )}
+                </span>
+              </div>
+            ) : (
+              <p className="text-[10px] text-gray-600 leading-tight mt-0.5">Smart Pricing Insights</p>
+            )}
           </div>
         </div>
-        <div className="flex items-center gap-1.5 flex-shrink-0">
-          {/* API call counter */}
-          {status?.callsLast24h !== undefined && (
-            <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-gray-800/60 border border-gray-700">
-              <span className={`text-[10px] font-mono font-semibold ${
-                status.callsLast24h >= apiCeiling * 0.9 ? 'text-red-400' :
-                status.callsLast24h >= apiCeiling * 0.6 ? 'text-orange-400' :
-                'text-gray-400'
-              }`}>
-                {status.callsLast24h.toLocaleString()}
-              </span>
-              <span className="text-[10px] text-gray-600">/</span>
-              <span className="text-[10px] font-mono text-gray-600">{(apiCeiling / 1000).toFixed(1)}k</span>
-              <span className="text-[9px] text-gray-600 ml-0.5">calls</span>
-            </div>
-          )}
+        <div className="flex items-center gap-0.5 flex-shrink-0">
           <Popover>
             <PopoverTrigger asChild>
               <Button size="icon" variant="ghost" data-testid="button-pom-info">
-                <Info className="w-4 h-4 text-gray-400" />
+                <Info className="w-4 h-4 text-gray-500" />
               </Button>
             </PopoverTrigger>
             <PopoverContent side="bottom" align="end" className="w-80 bg-gray-900 border-gray-700 p-3">
               <h3 className="text-xs font-bold text-purple-400 mb-2">How It Works</h3>
               <ul className="text-xs text-gray-300 space-y-1.5">
-                <li>• Fetches item details, avg listed price + <strong className="text-purple-300">85th-percentile sold price</strong> from BrickLink — 3 API calls per item. The 85th percentile filters cheap outlier sales for a truer market reference.</li>
+                <li>• Fetches item details, avg listed price + <strong className="text-purple-300">85th-percentile sold price</strong> from BrickLink — 3 API calls per item.</li>
                 <li>• Applies your premium formula (Settings) to compute a suggested price, then applies cost floor and minimum price if configured</li>
-                <li>• Processes up to <strong className="text-white">{batchSize.toLocaleString()}</strong> stale items per run — all tiers compete fairly, T1 items go first only within the stale pool</li>
-                <li>• <strong className="text-red-300">{tooHighPct}%+ above suggested</strong> = Too High (losing sales to cheaper competitors)</li>
-                <li>• <strong className="text-orange-300">{tooLowPct}%+ below suggested</strong> = Too Low (leaving margin on the table)</li>
-                <li>• Stops at <strong className="text-white">{apiCeiling.toLocaleString()}</strong> API calls to preserve your daily BrickLink quota</li>
-                <li>• Items with 0 stock are skipped — no calls wasted on unlisted inventory</li>
-                <li>• Formula changes apply instantly — no re-sync needed</li>
+                <li>• Processes up to <strong className="text-white">{batchSize.toLocaleString()}</strong> stale items per run</li>
+                <li>• <strong className="text-red-300">{tooHighPct}%+ above suggested</strong> = Too High · <strong className="text-orange-300">{tooLowPct}%+ below</strong> = Too Low</li>
+                <li>• Stops at <strong className="text-white">{apiCeiling.toLocaleString()}</strong> API calls to preserve your daily quota</li>
+                <li>• Items with 0 stock are skipped. Formula changes apply instantly.</li>
               </ul>
               <p className="text-[10px] text-gray-500 pt-2 mt-2 border-t border-gray-700">Does not auto-reprice. You review each flag and decide what to change.</p>
             </PopoverContent>
@@ -253,13 +272,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
           {isSyncRunning && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button
-                  onClick={handleStop}
-                  disabled={stopMutation.isPending}
-                  size="icon"
-                  variant="destructive"
-                  data-testid="button-stop-sync"
-                >
+                <Button onClick={handleStop} disabled={stopMutation.isPending} size="icon" variant="destructive" data-testid="button-stop-sync">
                   <Square className="w-3.5 h-3.5 fill-current" />
                 </Button>
               </TooltipTrigger>
@@ -270,14 +283,8 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
           )}
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                onClick={handleSync}
-                disabled={isSyncRunning}
-                size="icon"
-                variant="ghost"
-                data-testid="button-sync"
-              >
-                <RefreshCw className={`w-4 h-4 text-gray-400 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
+              <Button onClick={handleSync} disabled={isSyncRunning} size="icon" variant="ghost" data-testid="button-sync">
+                <RefreshCw className={`w-4 h-4 text-gray-500 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="left" className="max-w-56 text-xs">
@@ -287,47 +294,6 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
         </div>
       </div>
 
-      {/* Sync Status Bar — sits just below the sync/stop buttons */}
-      {status && status.lastSyncStatus !== 'never' && (
-        <Card className="p-2.5 bg-gray-900/50 border-gray-700">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className={`w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0 ${
-                status.lastSyncStatus === 'success' ? 'bg-green-500/20' :
-                status.lastSyncStatus === 'partial' ? 'bg-orange-500/20' :
-                status.lastSyncStatus === 'in_progress' ? 'bg-blue-500/20' :
-                status.lastSyncStatus === 'stopped' ? 'bg-yellow-500/20' :
-                'bg-red-500/20'
-              }`}>
-                {status.lastSyncStatus === 'success' && <CheckCircle className="w-3.5 h-3.5 text-green-400" />}
-                {status.lastSyncStatus === 'partial' && <AlertCircle className="w-3.5 h-3.5 text-orange-400" />}
-                {status.lastSyncStatus === 'in_progress' && <RefreshCw className="w-3.5 h-3.5 text-blue-400 animate-spin" />}
-                {status.lastSyncStatus === 'stopped' && <Square className="w-3.5 h-3.5 text-yellow-400" />}
-                {status.lastSyncStatus === 'failed' && <AlertCircle className="w-3.5 h-3.5 text-red-400" />}
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-white leading-none">
-                  {status.lastSyncStatus === 'success' && 'Sync Completed'}
-                  {status.lastSyncStatus === 'partial' && 'Partial Sync'}
-                  {status.lastSyncStatus === 'in_progress' && 'Syncing...'}
-                  {status.lastSyncStatus === 'stopped' && 'Sync Stopped'}
-                  {status.lastSyncStatus === 'failed' && 'Sync Failed'}
-                </p>
-                <p className="text-[10px] text-gray-500 mt-0.5 leading-none">
-                  {status.lastSyncTime && formatDistanceToNow(new Date(status.lastSyncTime), { addSuffix: true })}
-                </p>
-              </div>
-            </div>
-            {status.recordsUpdated !== undefined && status.recordsUpdated > 0 && (
-              <div className="text-right">
-                <p className="text-base font-mono font-bold text-purple-400">{status.recordsUpdated}</p>
-                <p className="text-[10px] text-gray-500 uppercase leading-none">Items</p>
-              </div>
-            )}
-          </div>
-        </Card>
-      )}
-
       {/* Spot Price Lookup */}
       <PomSpotLookup formatCurrency={formatCurrency} />
 
@@ -336,27 +302,29 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
         <Tooltip>
           <TooltipTrigger asChild>
             <Card 
-              className={`px-3 py-2 cursor-pointer hover-elevate active-elevate-2 ${
+              className={`px-3 py-2.5 cursor-pointer hover-elevate active-elevate-2 ${
                 selectedCategory === 'too-high' 
-                  ? 'bg-red-500/20 border-red-500/50' 
-                  : 'bg-red-500/10 border-red-500/30'
+                  ? 'bg-red-500/20 border-red-500/40' 
+                  : 'bg-red-500/8 border-red-500/20'
               }`}
               onClick={() => setSelectedCategory('too-high')}
               data-testid="stat-too-high"
             >
               <div className="flex items-center justify-between gap-2">
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <TrendingUp className="w-3 h-3 text-red-400" />
-                    <p className="text-[9px] uppercase tracking-wider text-red-400">Too High</p>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1">
+                    <TrendingUp className="w-2.5 h-2.5 text-red-400 flex-shrink-0" />
+                    <p className="text-[9px] uppercase tracking-widest text-red-400 font-medium">Too High</p>
                   </div>
-                  <p className="text-[10px] text-gray-500 mt-1">Losing sales</p>
+                  <p className="text-[10px] text-gray-500 mt-1 leading-none">Losing sales</p>
                 </div>
-                {insightsLoading ? (
-                  <Skeleton className="h-6 w-8" />
-                ) : (
-                  <p className="text-2xl font-mono font-bold text-red-400">{insightsData?.summary.tooHigh ?? 0}</p>
-                )}
+                <div className="w-9 text-right flex-shrink-0">
+                  {insightsLoading ? (
+                    <Skeleton className="h-5 w-8 ml-auto" />
+                  ) : (
+                    <p className="text-xl font-mono font-bold text-red-400 tabular-nums">{insightsData?.summary.tooHigh ?? 0}</p>
+                  )}
+                </div>
               </div>
             </Card>
           </TooltipTrigger>
@@ -368,27 +336,29 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
         <Tooltip>
           <TooltipTrigger asChild>
             <Card 
-              className={`px-3 py-2 cursor-pointer hover-elevate active-elevate-2 ${
+              className={`px-3 py-2.5 cursor-pointer hover-elevate active-elevate-2 ${
                 selectedCategory === 'too-low' 
-                  ? 'bg-orange-500/20 border-orange-500/50' 
-                  : 'bg-orange-500/10 border-orange-500/30'
+                  ? 'bg-orange-500/20 border-orange-500/40' 
+                  : 'bg-orange-500/8 border-orange-500/20'
               }`}
               onClick={() => setSelectedCategory('too-low')}
               data-testid="stat-too-low"
             >
               <div className="flex items-center justify-between gap-2">
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <TrendingDown className="w-3 h-3 text-orange-400" />
-                    <p className="text-[9px] uppercase tracking-wider text-orange-400">Too Low</p>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1">
+                    <TrendingDown className="w-2.5 h-2.5 text-orange-400 flex-shrink-0" />
+                    <p className="text-[9px] uppercase tracking-widest text-orange-400 font-medium">Too Low</p>
                   </div>
-                  <p className="text-[10px] text-gray-500 mt-1">Leaving margin</p>
+                  <p className="text-[10px] text-gray-500 mt-1 leading-none">Leaving margin</p>
                 </div>
-                {insightsLoading ? (
-                  <Skeleton className="h-6 w-8" />
-                ) : (
-                  <p className="text-2xl font-mono font-bold text-orange-400">{insightsData?.summary.tooLow ?? 0}</p>
-                )}
+                <div className="w-9 text-right flex-shrink-0">
+                  {insightsLoading ? (
+                    <Skeleton className="h-5 w-8 ml-auto" />
+                  ) : (
+                    <p className="text-xl font-mono font-bold text-orange-400 tabular-nums">{insightsData?.summary.tooLow ?? 0}</p>
+                  )}
+                </div>
               </div>
             </Card>
           </TooltipTrigger>
@@ -400,27 +370,29 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
         <Tooltip>
           <TooltipTrigger asChild>
             <Card 
-              className={`px-3 py-2 cursor-pointer hover-elevate active-elevate-2 ${
+              className={`px-3 py-2.5 cursor-pointer hover-elevate active-elevate-2 ${
                 selectedCategory === 'good' 
-                  ? 'bg-green-500/20 border-green-500/50' 
-                  : 'bg-green-500/10 border-green-500/30'
+                  ? 'bg-green-500/20 border-green-500/40' 
+                  : 'bg-green-500/8 border-green-500/20'
               }`}
               onClick={() => setSelectedCategory('good')}
               data-testid="stat-good"
             >
               <div className="flex items-center justify-between gap-2">
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <CheckCircle className="w-3 h-3 text-green-400" />
-                    <p className="text-[9px] uppercase tracking-wider text-green-400">On Target</p>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1">
+                    <CheckCircle className="w-2.5 h-2.5 text-green-400 flex-shrink-0" />
+                    <p className="text-[9px] uppercase tracking-widest text-green-400 font-medium">On Target</p>
                   </div>
-                  <p className="text-[10px] text-gray-500 mt-1">Optimal range</p>
+                  <p className="text-[10px] text-gray-500 mt-1 leading-none">Optimal range</p>
                 </div>
-                {insightsLoading ? (
-                  <Skeleton className="h-6 w-8" />
-                ) : (
-                  <p className="text-2xl font-mono font-bold text-green-400">{insightsData?.summary.wellPriced ?? 0}</p>
-                )}
+                <div className="w-9 text-right flex-shrink-0">
+                  {insightsLoading ? (
+                    <Skeleton className="h-5 w-8 ml-auto" />
+                  ) : (
+                    <p className="text-xl font-mono font-bold text-green-400 tabular-nums">{insightsData?.summary.wellPriced ?? 0}</p>
+                  )}
+                </div>
               </div>
             </Card>
           </TooltipTrigger>
