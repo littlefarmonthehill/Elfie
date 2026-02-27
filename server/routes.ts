@@ -5348,8 +5348,9 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
         .where(eq(syncMetadata.id, 'priceomatic_cache'))
         .limit(1);
 
-      const { checkRateLimit } = await import("./services/bricklink");
+      const { checkRateLimit, getPomSyncProgress } = await import("./services/bricklink");
       const rateLimit = await checkRateLimit();
+      const liveProgress = getPomSyncProgress();
 
       res.json({
         success: true,
@@ -5361,6 +5362,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
             recordsUpdated: 0,
           }),
           callsLast24h: rateLimit.callsLast24h,
+          liveProgress,
         },
       });
     } catch (error) {

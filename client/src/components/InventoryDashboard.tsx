@@ -71,9 +71,16 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
   const { toast } = useToast();
 
   // POM sync state lifted here so buttons live in the header row
-  const { data: pomSyncStatus } = useQuery<{ success: boolean; data: { lastSyncStatus: string; callsLast24h?: number } }>({
+  const { data: pomSyncStatus } = useQuery<{
+    success: boolean;
+    data: {
+      lastSyncStatus: string;
+      callsLast24h?: number;
+      liveProgress?: { active: boolean; itemsProcessed: number; itemsTotal: number; apiCallsAtStart: number };
+    };
+  }>({
     queryKey: ['/api/sync/priceomatic/status'],
-    refetchInterval: activeDrawer === 'priceomatic' ? 10000 : false,
+    refetchInterval: activeDrawer === 'priceomatic' ? 3000 : false,
   });
   const pomStatus = pomSyncStatus?.data;
   const isPomSyncRunning = pomStatus?.lastSyncStatus === 'in_progress';
@@ -397,6 +404,58 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               </div>
             </DrawerTitle>
           </DrawerHeader>
+
+          {/* Live sync progress — shown only when a sync is running */}
+          {isPomSyncRunning && (() => {
+            const lp = pomStatus?.liveProgress;
+            const itemsProcessed = lp?.itemsProcessed ?? 0;
+            const itemsTotal = lp?.itemsTotal ?? 0;
+            const callsNow = pomStatus?.callsLast24h ?? 0;
+            const callsAtStart = lp?.apiCallsAtStart ?? callsNow;
+            const callsThisRun = Math.max(0, callsNow - callsAtStart);
+            const itemPct = itemsTotal > 0 ? Math.min(100, (itemsProcessed / itemsTotal) * 100) : 0;
+            const callPct = Math.min(100, (callsNow / apiCeiling) * 100);
+            return (
+              <div className="px-4 pb-3 space-y-2 border-b border-gray-700/50" data-testid="pom-sync-progress">
+                {/* Items progress */}
+                <div className="space-y-1">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[11px] text-gray-400">Items synced</span>
+                    <span className="text-[11px] font-mono text-purple-300">
+                      {itemsProcessed.toLocaleString()}{itemsTotal > 0 ? ` / ${itemsTotal.toLocaleString()}` : ''}
+                    </span>
+                  </div>
+                  <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-purple-500 rounded-full transition-all duration-500"
+                      style={{ width: `${itemPct}%` }}
+                    />
+                  </div>
+                </div>
+                {/* API calls progress */}
+                <div className="space-y-1">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[11px] text-gray-400">API calls today</span>
+                    <span className={`text-[11px] font-mono ${
+                      callPct >= 90 ? 'text-red-400' : callPct >= 60 ? 'text-orange-400' : 'text-gray-300'
+                    }`}>
+                      {callsNow.toLocaleString()} / {apiCeiling.toLocaleString()}
+                      {callsThisRun > 0 && <span className="text-gray-500 ml-1">(+{callsThisRun.toLocaleString()} this run)</span>}
+                    </span>
+                  </div>
+                  <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${
+                        callPct >= 90 ? 'bg-red-500' : callPct >= 60 ? 'bg-orange-400' : 'bg-green-500'
+                      }`}
+                      style={{ width: `${callPct}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
           <div className="overflow-y-auto px-4 pb-4 flex-1">
             <PriceOMaticDashboard onItemClick={(type, id) => onItemClick?.(type, id, 'pricing')} />
           </div>

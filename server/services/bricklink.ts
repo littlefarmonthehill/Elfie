@@ -1136,6 +1136,10 @@ export function calculateSuggestedPriceWithSupply(
 let pomSyncStopRequested = false;
 export function requestPomSyncStop() { pomSyncStopRequested = true; }
 
+// Live progress object — updated throughout the sync loop so the status endpoint can surface it
+let pomSyncProgress = { active: false, itemsProcessed: 0, itemsTotal: 0, apiCallsAtStart: 0 };
+export function getPomSyncProgress() { return { ...pomSyncProgress }; }
+
 // Fetch and cache Price-o-Matic data for an item
 // Sync Price-o-Matic data for up to N inventory items (default from settings)
 export async function syncPriceOMagicCache(maxItems?: number): Promise<{
@@ -1167,6 +1171,7 @@ export async function syncPriceOMagicCache(maxItems?: number): Promise<{
   try {
     // Get initial rate limit status
     const initialRateLimit = await checkRateLimit();
+    pomSyncProgress = { active: true, itemsProcessed: 0, itemsTotal: 0, apiCallsAtStart: initialRateLimit.callsLast24h };
     if (!initialRateLimit.allowed) {
       return {
         itemsUpdated: 0,
@@ -1270,6 +1275,7 @@ export async function syncPriceOMagicCache(maxItems?: number): Promise<{
 
     // Apply batch size limit AFTER stale filtering so T1 freshness never blocks T2–T4 stale items
     const itemsToProcess = filteredItems.slice(0, effectiveMaxItems);
+    pomSyncProgress.itemsTotal = itemsToProcess.length;
 
     console.log(`[Price-o-Matic Sync] Found ${inventoryItems.length} candidates, ${filteredItems.length} stale (${filteredItems.length - itemsToProcess.length} deferred to next run), processing ${itemsToProcess.length}`);
 
@@ -1312,11 +1318,12 @@ export async function syncPriceOMagicCache(maxItems?: number): Promise<{
         );
 
         itemsUpdated++;
+        pomSyncProgress.itemsProcessed = itemsUpdated;
         apiCallsUsed += 2; // Track approximate API usage (item details + sold guide only)
         
         // Log progress every 100 items
         if (itemsUpdated % 100 === 0) {
-          console.log(`[Price-o-Matic Sync] Progress: ${itemsUpdated}/${inventoryItems.length} items updated`);
+          console.log(`[Price-o-Matic Sync] Progress: ${itemsUpdated}/${itemsToProcess.length} items updated`);
         }
 
       } catch (error) {
@@ -1333,6 +1340,7 @@ export async function syncPriceOMagicCache(maxItems?: number): Promise<{
     }
 
     console.log(`[Price-o-Matic Sync] Completed: ${itemsUpdated} updated, ${itemsSkipped} skipped, ${apiCallsUsed} API calls used`);
+    pomSyncProgress = { active: false, itemsProcessed: itemsUpdated, itemsTotal: itemsToProcess.length, apiCallsAtStart: pomSyncProgress.apiCallsAtStart };
 
     return {
       itemsUpdated,
@@ -1344,6 +1352,7 @@ export async function syncPriceOMagicCache(maxItems?: number): Promise<{
 
   } catch (error) {
     console.error('[Price-o-Matic Sync] Fatal error:', error);
+    pomSyncProgress = { ...pomSyncProgress, active: false };
     throw error;
   }
 }
