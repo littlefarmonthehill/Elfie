@@ -14,7 +14,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator 
 } from "@/components/ui/dropdown-menu";
-import { Truck, Loader2, Printer, AlertTriangle, ChevronDown, Tag, MoreVertical, Scissors, Package, ExternalLink, CheckCircle2, Star, ClipboardList, PackageCheck, ScanLine, CalendarDays } from "lucide-react";
+import { Truck, Loader2, Printer, AlertTriangle, ChevronDown, Tag, MoreVertical, Scissors, Package, ExternalLink, CheckCircle2, Star, ClipboardList, PackageCheck, ScanLine } from "lucide-react";
 import { printPackingSlips } from "./PackingSlip";
 import { useToast } from "@/hooks/use-toast";
 import { cleanItemName, PRIORITY_REGEX, toggleSetItem } from "@/lib/item-utils";
@@ -244,7 +244,7 @@ export default function FulfillmentTool() {
   });
 
   // Today's EasyPost shipments (for End of Day panel)
-  const { data: endOfDayData, refetch: refetchEndOfDay } = useQuery<{ count: number; shipments: any[] }>({
+  const { data: endOfDayData } = useQuery<{ count: number; shipments: any[] }>({
     queryKey: ['/api/shipments/end-of-day'],
     enabled: activeTab === 'shipping',
     staleTime: 30000,
@@ -714,64 +714,6 @@ export default function FulfillmentTool() {
         ) : (
           <div className="space-y-4">
 
-            {/* End of Day SCAN Form Panel */}
-            <div className="border border-blue-500/30 rounded-lg overflow-hidden bg-blue-950/20">
-              <div className="flex items-center justify-between gap-2 px-3 py-2.5">
-                <div className="flex items-center gap-2">
-                  <ScanLine className="w-4 h-4 text-blue-400 flex-shrink-0" />
-                  <div>
-                    <span className="text-sm font-bold text-blue-300">End of Day</span>
-                    <span className="text-xs text-gray-500 ml-2 flex items-center gap-1 inline-flex">
-                      <CalendarDays className="w-3 h-3" />
-                      {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                    </span>
-                  </div>
-                  {endOfDayData && (
-                    <span className="text-xs text-gray-400">
-                      {endOfDayData.count === 0
-                        ? 'No shipments yet today'
-                        : `${endOfDayData.count} shipment${endOfDayData.count !== 1 ? 's' : ''} ready`}
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  {scanFormUrl && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="border-blue-500/40 text-blue-300 text-xs"
-                      onClick={() => window.open(scanFormUrl, '_blank')}
-                      data-testid="button-reopen-scan-form"
-                    >
-                      <ExternalLink className="w-3 h-3 mr-1" />
-                      Reopen Form
-                    </Button>
-                  )}
-                  <Button
-                    size="sm"
-                    className="bg-blue-600 hover:bg-blue-700 text-white text-xs"
-                    disabled={!endOfDayData || endOfDayData.count === 0 || scanFormMutation.isPending}
-                    onClick={() => scanFormMutation.mutate()}
-                    data-testid="button-generate-scan-form"
-                  >
-                    {scanFormMutation.isPending
-                      ? <><Loader2 className="w-3 h-3 mr-1.5 animate-spin" />Generating...</>
-                      : <><ScanLine className="w-3 h-3 mr-1.5" />Generate SCAN Form</>
-                    }
-                  </Button>
-                </div>
-              </div>
-              {endOfDayData && endOfDayData.shipments.length > 0 && (
-                <div className="border-t border-blue-900/40 px-3 py-1.5 flex flex-wrap gap-1.5">
-                  {endOfDayData.shipments.map((s: any) => (
-                    <span key={s.id} className="text-[10px] font-mono text-gray-500 bg-gray-900/60 px-1.5 py-0.5 rounded">
-                      {s.trackingNumber?.slice(-8) || s.carrier || '—'}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-
             {/* Batch Labels Results Panel */}
             {batchResults.length > 0 && (
               <div className="border border-green-500/40 rounded-lg overflow-hidden bg-green-950/20">
@@ -909,6 +851,30 @@ export default function FulfillmentTool() {
                             </DropdownMenuItem>
                           </>
                         )}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => {
+                            if (scanFormUrl) {
+                              window.open(scanFormUrl, '_blank');
+                            } else {
+                              scanFormMutation.mutate();
+                            }
+                          }}
+                          disabled={scanFormMutation.isPending || (endOfDayData?.count === 0 && !scanFormUrl)}
+                          data-testid="menu-end-of-day-scan"
+                        >
+                          {scanFormMutation.isPending
+                            ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Generating...</>
+                            : scanFormUrl
+                              ? <><ExternalLink className="w-4 h-4 mr-2" />Reopen SCAN Form</>
+                              : <><ScanLine className="w-4 h-4 mr-2" />End of Day SCAN Form</>
+                          }
+                          {!scanFormUrl && endOfDayData && endOfDayData.count > 0 && (
+                            <Badge variant="secondary" className="ml-auto text-xs">
+                              {endOfDayData.count}
+                            </Badge>
+                          )}
+                        </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           onClick={handleInitiateSplit}
