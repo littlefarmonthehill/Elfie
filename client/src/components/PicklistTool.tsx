@@ -27,6 +27,7 @@ type BinPicklistItem = {
   pulled: boolean;
   inventoryId: number | null;
   remarks: string | null;
+  comment: string | null;
   imageUrl: string | null;
 };
 
@@ -156,6 +157,10 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
         `${chanPrefix(item)}${rawOrder}`,
         item.inventoryId ? `Lot ${item.inventoryId}` : '',
       ].filter(Boolean).join(' · ');
+      const notesLine = [
+        item.remarks ? `<span class="note-remarks">&#x1F4CC; ${item.remarks}</span>` : '',
+        item.comment ? `<span class="note-comment">&#x1F4AC; ${item.comment}</span>` : '',
+      ].filter(Boolean).join(' &nbsp;');
       // resolvePartImageUrl may return a relative proxy URL (/api/images/proxy?url=...)
       // The print window is a blank tab so relative URLs resolve against about:blank.
       // Prefix with the app origin so Rebrickable images load correctly when printing.
@@ -166,7 +171,8 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
       const imgTag = imgSrc
         ? `<img class="thumb" src="${imgSrc}" alt="" onerror="this.style.display='none'" />`
         : `<div class="thumb-placeholder"></div>`;
-      return `<tr class="item-row"><td><div class="cut-wrap"><div class="cut-tick"></div></div><div class="item-body">${imgTag}<div class="item-text"><div class="item-header">${header}</div><div class="meta">${meta}</div></div></div></td></tr>`;
+      const notesRow = notesLine ? `<div class="notes">${notesLine}</div>` : '';
+      return `<tr class="item-row"><td><div class="cut-wrap"><div class="cut-tick"></div></div><div class="item-body">${imgTag}<div class="item-text"><div class="item-header">${header}</div><div class="meta">${meta}</div>${notesRow}</div></div></td></tr>`;
     }).join('');
 
     const html = `<!DOCTYPE html><html><head><title>Picklist — ${date}</title>
@@ -181,6 +187,9 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
   .cond { color: #333; }
   .desc { color: #555; }
   .meta { color: #555; font-size: 12px; margin-top: 2px; }
+  .notes { font-size: 11px; margin-top: 3px; line-height: 1.4; }
+  .note-remarks { color: #444; }
+  .note-comment { color: #0055aa; }
   .item-row { page-break-inside: avoid; break-inside: avoid; }
   .cut-wrap { padding: 22px 0; }
   .cut-tick { width: 22px; border-top: 1px solid #bbb; }
@@ -448,8 +457,11 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                               <span className="font-mono text-blue-400/70">Lot {item.inventoryId}</span>
                             )}
                           </div>
-                          {item.remarks && (
-                            <div className="text-gray-400 italic mt-0.5">{item.remarks}</div>
+                          {(item.remarks || item.comment) && (
+                            <div className="mt-0.5 space-y-0.5">
+                              {item.remarks && <div className="text-gray-400 italic">{item.remarks}</div>}
+                              {item.comment && <div className="text-blue-400/80 italic">{item.comment}</div>}
+                            </div>
                           )}
                         </div>
                       </div>
@@ -549,8 +561,11 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                                             <span className="font-mono text-blue-400/70">Lot {item.inventoryId}</span>
                                           )}
                                         </div>
-                                        {item.remarks && (
-                                          <div className="text-[10px] text-gray-400 italic mt-0.5">{item.remarks}</div>
+                                        {(item.remarks || item.comment) && (
+                                          <div className="mt-0.5 space-y-0.5">
+                                            {item.remarks && <div className="text-[10px] text-gray-400 italic">{item.remarks}</div>}
+                                            {item.comment && <div className="text-[10px] text-blue-400/80 italic">{item.comment}</div>}
+                                          </div>
                                         )}
                                       </div>
                                     </div>
