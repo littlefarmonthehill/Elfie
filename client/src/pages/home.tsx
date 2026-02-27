@@ -73,14 +73,14 @@ export default function Home() {
       (platform.discrepancies?.quantityDifferences || 0);
   }, 0) || 0;
 
-  const handleDashboardItemClick = async (type: 'order' | 'inventory', id: number | string) => {
+  const handleDashboardItemClick = async (type: 'order' | 'inventory', id: number | string, initialTab?: string) => {
     // Check if this is a BrickLink catalog item
     const isBrickLinkCatalog = String(id).startsWith('bricklink-');
     
     // Open modal immediately with loading state
     setDetailModal({
       open: true,
-      data: { type, data: { id, loading: true } as any }
+      data: { type, data: { id, loading: true } as any, initialTab }
     });
 
     // Handle BrickLink catalog items
@@ -144,7 +144,8 @@ export default function Home() {
           open: true,
           data: { 
             type: 'inventory', 
-            data: { ...catalogData, loadingPriceOMagic: false }
+            data: { ...catalogData, loadingPriceOMagic: false },
+            initialTab,
           }
         });
       }
@@ -206,7 +207,8 @@ export default function Home() {
             open: true,
             data: { 
               type: 'inventory', 
-              data: { ...inventoryData, loadingPriceOMagic: true }
+              data: { ...inventoryData, loadingPriceOMagic: true },
+              initialTab,
             }
           });
           
@@ -239,7 +241,8 @@ export default function Home() {
             open: true,
             data: { 
               type: 'inventory', 
-              data: finalData
+              data: finalData,
+              initialTab,
             }
           });
         } else {

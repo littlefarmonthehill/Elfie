@@ -99,11 +99,12 @@ interface InventoryDetailProps {
     priceOMagic?: PriceOMagicData | null;
   };
   onBrickLinkClick?: (url: string) => void;
+  initialTab?: string;
 }
 
 
-export default function InventoryDetail({ data, onBrickLinkClick }: InventoryDetailProps) {
-  const [activeTab, setActiveTab] = useState("overview");
+export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: InventoryDetailProps) {
+  const [activeTab, setActiveTab] = useState(initialTab ?? "overview");
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
   const [dateRange, setDateRange] = useState<'all' | '1year' | '2years' | '3months' | '6months'>('all');

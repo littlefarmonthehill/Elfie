@@ -62,7 +62,7 @@ interface RecentInventoryItem {
 }
 
 interface InventoryDashboardProps {
-  onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
+  onItemClick?: (type: 'order' | 'inventory', id: number | string, initialTab?: string) => void;
   activeDrawer: 'priceomatic' | 'warehouse' | 'platformsync' | null;
   onDrawerChange: (drawer: 'priceomatic' | 'warehouse' | 'platformsync' | null) => void;
 }
@@ -398,7 +398,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             </DrawerTitle>
           </DrawerHeader>
           <div className="overflow-y-auto px-4 pb-4 flex-1">
-            <PriceOMaticDashboard onItemClick={onItemClick} />
+            <PriceOMaticDashboard onItemClick={(type, id) => onItemClick?.(type, id, 'pricing')} />
           </div>
         </DrawerContent>
       </Drawer>

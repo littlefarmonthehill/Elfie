@@ -10,6 +10,7 @@ export type DetailType = 'inventory' | 'order' | 'sales' | 'marketing';
 export interface DetailData {
   type: DetailType;
   data: any;
+  initialTab?: string;
 }
 
 interface DetailModalProps {
@@ -26,7 +27,7 @@ export default function DetailModal({ open, onClose, detail, onOrderSelect, onBr
   const renderDetail = () => {
     switch (detail.type) {
       case 'inventory':
-        return <InventoryDetail data={detail.data} onBrickLinkClick={onBrickLinkClick} />;
+        return <InventoryDetail data={detail.data} onBrickLinkClick={onBrickLinkClick} initialTab={detail.initialTab} />;
       case 'order':
         return <OrderDetail data={detail.data} onOrderSelect={onOrderSelect} />;
       case 'sales':
