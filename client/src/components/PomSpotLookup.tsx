@@ -71,12 +71,12 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   // lotKey → suggestedPrice from on-demand pricing fetch
-  const [pricingCache, setPricingCache] = useState<Map<string, string>>(new Map());
+  const [pricingCache, setPricingCache] = useState<Map<string, { suggestedPrice?: string | null; soldMaxPrice?: string | null }>>(new Map());
   const [pricingLoading, setPricingLoading] = useState<Set<string>>(new Set());
 
   const fetchPricingMutation = useMutation({
     mutationFn: async (lots: Array<{ itemNo: string; itemType: string; colorId: number | null; newOrUsed: string; key: string }>) => {
-      const results: Array<{ key: string; suggestedPrice: string | null }> = [];
+      const results: Array<{ key: string; suggestedPrice: string | null; soldMaxPrice: string | null }> = [];
       await Promise.all(lots.map(async (lot) => {
         const data = await apiRequest("POST", "/api/priceomatic/fetch-pricing", {
           itemNo: lot.itemNo,
@@ -84,7 +84,7 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
           colorId: lot.colorId,
           newOrUsed: lot.newOrUsed,
         });
-        results.push({ key: lot.key, suggestedPrice: data.suggestedPrice ?? null });
+        results.push({ key: lot.key, suggestedPrice: data.suggestedPrice ?? null, soldMaxPrice: data.soldMaxPrice ?? null });
       }));
       return results;
     },
@@ -101,7 +101,9 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
     onSuccess: (results) => {
       setPricingCache(prev => {
         const next = new Map(prev);
-        results.forEach(r => { if (r.suggestedPrice) next.set(r.key, r.suggestedPrice); });
+        results.forEach(r => {
+          next.set(r.key, { suggestedPrice: r.suggestedPrice, soldMaxPrice: r.soldMaxPrice });
+        });
         return next;
       });
     },
@@ -454,7 +456,8 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
               const LotPriceCell = ({ lot }: { lot: InventoryLot | undefined }) => {
                 if (!lot) return <span className="text-[10px] text-gray-700 w-14 text-right flex-shrink-0">—</span>;
                 const lotKey = `${lot.colorId ?? "null"}_${lot.newOrUsed}`;
-                const fetchedSugg = pricingCache.get(lotKey) ?? null;
+                const fetchedEntry = pricingCache.get(lotKey) ?? null;
+                const fetchedSugg = fetchedEntry?.suggestedPrice ?? null;
                 return (
                   <div className="flex flex-col items-end w-14 flex-shrink-0">
                     <span className="text-[10px] font-mono text-gray-300 leading-tight">
@@ -494,9 +497,22 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
                   {Array.from(colorGroups.entries()).map(([colorKey, { newLot, usedLot }]) => {
                     const anyLot = newLot ?? usedLot!;
                     const totalQty = (newLot?.quantity ?? 0) + (usedLot?.quantity ?? 0);
-                    const peakStr = newLot?.marketPeakSoldPrice ?? usedLot?.marketPeakSoldPrice ?? null;
-                    const nScore = newLot?.opportunityScore ?? null;
-                    const uScore = usedLot?.opportunityScore ?? null;
+                    const cachedPeakN = pricingCache.get(`${anyLot.colorId ?? 'null'}_N`)?.soldMaxPrice;
+                    const cachedPeakU = pricingCache.get(`${anyLot.colorId ?? 'null'}_U`)?.soldMaxPrice;
+                    const freshPeakN = cachedPeakN ? parseFloat(cachedPeakN) : 0;
+                    const freshPeakU = cachedPeakU ? parseFloat(cachedPeakU) : 0;
+                    const freshPeak = (freshPeakN > 0 || freshPeakU > 0) ? Math.max(freshPeakN, freshPeakU) : null;
+                    const stalePeakStr = newLot?.marketPeakSoldPrice ?? usedLot?.marketPeakSoldPrice ?? null;
+                    const peakStr = freshPeak != null ? freshPeak.toFixed(4) : stalePeakStr;
+                    const peakIsFresh = freshPeak != null;
+                    const nPrice = newLot?.unitPrice ? parseFloat(newLot.unitPrice) : 0;
+                    const uPrice = usedLot?.unitPrice ? parseFloat(usedLot.unitPrice) : 0;
+                    const nScore = freshPeak != null && nPrice > 0
+                      ? Number((freshPeak / nPrice).toFixed(2))
+                      : newLot?.opportunityScore ?? null;
+                    const uScore = freshPeak != null && uPrice > 0
+                      ? Number((freshPeak / uPrice).toFixed(2))
+                      : usedLot?.opportunityScore ?? null;
 
                     return (
                       <div
@@ -518,7 +534,9 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
                               <span className="text-[10px] text-gray-300 truncate">{anyLot.colorName || '—'}</span>
                             </div>
                             {peakStr && (
-                              <span className="text-[9px] text-gray-400 pl-0.5">peak {formatCurrency(peakStr)}</span>
+                              <span className={`text-[9px] pl-0.5 ${peakIsFresh ? 'text-purple-400' : 'text-gray-400'}`}>
+                                peak {formatCurrency(peakStr)}
+                              </span>
                             )}
                           </div>
                           <LotPriceCell lot={newLot} />
@@ -579,8 +597,8 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
                       {/* N Cur + optional suggested */}
                       <div className="flex flex-col items-end w-14 flex-shrink-0">
                         <span className="text-[10px] font-mono text-gray-600 leading-tight">—</span>
-                        {pricingCache.get('newlisting_N') && (
-                          <span className="text-[9px] font-mono text-purple-400 leading-tight">{formatCurrency(pricingCache.get('newlisting_N')!)}</span>
+                        {pricingCache.get('newlisting_N')?.suggestedPrice && (
+                          <span className="text-[9px] font-mono text-purple-400 leading-tight">{formatCurrency(pricingCache.get('newlisting_N')!.suggestedPrice!)}</span>
                         )}
                       </div>
                       <span className="text-[10px] font-mono text-gray-700 text-right flex-shrink-0 w-[58px]">—</span>
