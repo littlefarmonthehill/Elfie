@@ -330,17 +330,8 @@ export default function PriceOMaticDashboard({ onItemClick, isSyncRunning }: Pri
                       )}
                     </div>
 
-                    {/* Row 2: Score · Qty · Color · Peak — no pricing, full width */}
+                    {/* Row 2: Qty · Color · Peak — full width, no score */}
                     <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
-                      {(() => {
-                        const maxScore = Math.max(group.newScore ?? 0, group.usedScore ?? 0);
-                        const hasScore = (group.newLot?.opportunityScore != null) || (group.usedLot?.opportunityScore != null);
-                        return (
-                          <span className={`text-[11px] font-mono font-bold flex-shrink-0 w-[52px] ${hasScore ? scoreColor(maxScore) : 'text-slate-600'}`}>
-                            {hasScore ? `${maxScore}×` : '—'}
-                          </span>
-                        );
-                      })()}
                       <span className="text-[10px] font-mono text-slate-400 flex-shrink-0">
                         ×{(group.newLot?.quantity ?? 0) + (group.usedLot?.quantity ?? 0)}
                       </span>
@@ -352,10 +343,19 @@ export default function PriceOMaticDashboard({ onItemClick, isSyncRunning }: Pri
                       )}
                     </div>
 
-                    {/* Row 3: N Cur | N Score | U Cur | U Score */}
+                    {/* Row 3: Score (left) | N Cur | N Score | U Cur | U Score */}
                     <div className="flex items-center gap-1 mt-0.5 min-w-0">
-                      {/* Left spacer aligns prices under name, not under score */}
-                      <div className="w-[52px] flex-shrink-0" />
+                      {/* Overall best score — left-aligned, matches header sort button */}
+                      {(() => {
+                        const maxScore = Math.max(group.newScore ?? 0, group.usedScore ?? 0);
+                        const hasScore = (group.newLot?.opportunityScore != null) || (group.usedLot?.opportunityScore != null);
+                        return (
+                          <span className={`text-[11px] font-mono font-bold flex-shrink-0 w-[52px] ${hasScore ? scoreColor(maxScore) : 'text-slate-600'}`}>
+                            {hasScore ? `${maxScore}×` : '—'}
+                          </span>
+                        );
+                      })()}
+                      <div className="flex-1 min-w-0" />
 
                       {/* New: current price + suggested if fetched */}
                       <div
