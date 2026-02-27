@@ -5232,7 +5232,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
   // Price-o-Matic sync endpoint
   app.post("/api/sync/priceomatic", isApproved, async (req, res) => {
     try {
-      const maxItems = req.body.maxItems || 1500;
+      const maxItems = req.body.maxItems ?? undefined;
       
       // Check if a sync is already in progress
       const [existingSync] = await db

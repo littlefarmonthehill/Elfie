@@ -87,7 +87,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
   const apiCeiling = 4500;
 
   const pomSyncMutation = useMutation({
-    mutationFn: async () => apiRequest('POST', '/api/sync/priceomatic', { maxItems: 1500 }),
+    mutationFn: async () => apiRequest('POST', '/api/sync/priceomatic', {}),
     onSuccess: () => {
       queryClient.refetchQueries({ queryKey: ['/api/sync/priceomatic/status'] });
       queryClient.refetchQueries({ queryKey: ['/api/priceomatic/insights'] });
