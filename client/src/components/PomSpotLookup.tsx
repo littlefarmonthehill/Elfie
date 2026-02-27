@@ -223,12 +223,16 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
           value={partNo}
           onChange={(e) => setPartNo(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleLookup()}
-          className="text-[16px] w-36 font-mono"
+          className="text-[16px] w-36 font-mono touch-manipulation"
           data-testid="input-spot-partno"
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="characters"
+          spellCheck={false}
         />
 
         <Select value={colorId} onValueChange={setColorId}>
-          <SelectTrigger className="w-36 text-sm" data-testid="select-spot-color">
+          <SelectTrigger className="w-36 text-[16px] touch-manipulation" data-testid="select-spot-color">
             <SelectValue placeholder="Any color" />
           </SelectTrigger>
           <SelectContent>
