@@ -17,7 +17,7 @@ const dashboards = [
 
 export default function DashboardNav({ active, onSelect }: DashboardNavProps) {
   return (
-    <nav className="h-10 md:h-14 lg:h-16 border-b border-gray-800 flex items-center gap-1 md:gap-4 lg:gap-5 px-2 md:px-8 lg:px-10 overflow-x-auto scrollbar-hide">
+    <nav className="h-14 md:h-16 lg:h-18 border-b border-gray-800 flex items-center gap-1 md:gap-4 lg:gap-5 px-2 md:px-8 lg:px-10 overflow-x-auto scrollbar-hide">
       {dashboards.map((dashboard) => {
         const isActive = active === dashboard.id;
         const bgColor = `bg-${dashboard.color}`;

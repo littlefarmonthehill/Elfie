@@ -6,7 +6,6 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {  
   Sparkles,
   TrendingUp,
@@ -15,7 +14,6 @@ import {
   RefreshCw,
   AlertCircle,
   ChevronDown,
-  Info,
   Square,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
@@ -202,28 +200,12 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
   return (
     <div className="space-y-4">
 
-      {/* Action buttons — right-aligned, no status text */}
-      <div className="flex justify-end">
-        <div className="flex items-center gap-1">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button size="icon" variant="ghost" data-testid="button-pom-info">
-                <Info className="w-4 h-4 text-gray-500" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent side="bottom" align="end" className="w-80 bg-gray-900 border-gray-700 p-3">
-              <h3 className="text-xs font-bold text-purple-400 mb-2">How It Works</h3>
-              <ul className="text-xs text-gray-300 space-y-1.5">
-                <li>• Fetches item details, avg listed price + <strong className="text-purple-300">85th-percentile sold price</strong> from BrickLink — 3 API calls per item.</li>
-                <li>• Applies your premium formula (Settings) to compute a suggested price, then applies cost floor and minimum price if configured</li>
-                <li>• Processes up to <strong className="text-white">{batchSize.toLocaleString()}</strong> stale items per run</li>
-                <li>• <strong className="text-red-300">{tooHighPct}%+ above suggested</strong> = Too High · <strong className="text-orange-300">{tooLowPct}%+ below</strong> = Too Low</li>
-                <li>• Stops at <strong className="text-white">{apiCeiling.toLocaleString()}</strong> API calls to preserve your daily quota</li>
-                <li>• Items with 0 stock are skipped. Formula changes apply instantly.</li>
-              </ul>
-              <p className="text-[10px] text-gray-500 pt-2 mt-2 border-t border-gray-700">Does not auto-reprice. You review each flag and decide what to change.</p>
-            </PopoverContent>
-          </Popover>
+      {/* Spot lookup + action buttons on the same row */}
+      <div className="flex items-center gap-2">
+        <div className="flex-1">
+          <PomSpotLookup formatCurrency={formatCurrency} />
+        </div>
+        <div className="flex items-center gap-1 flex-shrink-0">
           {isSyncRunning && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -261,9 +243,6 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
           </Tooltip>
         </div>
       </div>
-
-      {/* Spot Price Lookup */}
-      <PomSpotLookup formatCurrency={formatCurrency} />
 
       {/* Filter tiles — single line each, Warehouse drawer pattern */}
       <div className="flex gap-2">

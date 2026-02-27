@@ -1,6 +1,6 @@
 import MetricCard from "./MetricCard";
 import { useQuery } from "@tanstack/react-query";
-import { InfoIcon, AlertCircle, Package, TrendingUp, Clock, Sparkles, Warehouse, RefreshCw } from "lucide-react";
+import { InfoIcon, AlertCircle, Package, TrendingUp, Clock, Sparkles, Warehouse, RefreshCw, Info } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -12,6 +12,12 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Button } from "@/components/ui/button";
 import { formatDistanceToNow } from "date-fns";
 import PriceOMaticDashboard from "./PriceOMaticDashboard";
 import WarehouseManagement from "./WarehouseManagement";
@@ -292,9 +298,29 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
       <Drawer open={activeDrawer === 'priceomatic'} onOpenChange={(open) => !open && onDrawerChange(null)}>
         <DrawerContent className="h-[92dvh] flex flex-col">
           <DrawerHeader>
-            <DrawerTitle className="flex items-center gap-2 text-base md:text-lg">
-              <Sparkles className="w-5 h-5 text-purple-400" />
-              Price-o-Matic
+            <DrawerTitle className="flex items-center justify-between text-base md:text-lg">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-purple-400" />
+                Price-o-Matic
+              </div>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button size="icon" variant="ghost" data-testid="button-pom-info">
+                    <Info className="w-4 h-4 text-gray-500" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent side="bottom" align="end" className="w-80 bg-gray-900 border-gray-700 p-3">
+                  <h3 className="text-xs font-bold text-purple-400 mb-2">How It Works</h3>
+                  <ul className="text-xs text-gray-300 space-y-1.5">
+                    <li>• Fetches item details, avg listed price + <strong className="text-purple-300">85th-percentile sold price</strong> from BrickLink — 3 API calls per item.</li>
+                    <li>• Applies your premium formula (Settings) to compute a suggested price, then applies cost floor and minimum price if configured.</li>
+                    <li>• Items priced <strong className="text-red-300">too high</strong> are losing sales; <strong className="text-orange-300">too low</strong> are leaving margin on the table.</li>
+                    <li>• Stops automatically at the daily API call ceiling to preserve your quota.</li>
+                    <li>• Items with 0 stock are skipped. Formula changes apply instantly.</li>
+                  </ul>
+                  <p className="text-[10px] text-gray-500 pt-2 mt-2 border-t border-gray-700">Does not auto-reprice. You review each flag and decide what to change.</p>
+                </PopoverContent>
+              </Popover>
             </DrawerTitle>
           </DrawerHeader>
           <div className="overflow-y-auto px-4 pb-4 flex-1">
