@@ -1,6 +1,7 @@
 import MetricCard from "./MetricCard";
-import { useQuery } from "@tanstack/react-query";
-import { InfoIcon, AlertCircle, Package, TrendingUp, Clock, Sparkles, Warehouse, RefreshCw, Info } from "lucide-react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import { InfoIcon, AlertCircle, Package, TrendingUp, Clock, Sparkles, Warehouse, RefreshCw, Info, Square } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -18,6 +19,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import PriceOMaticDashboard from "./PriceOMaticDashboard";
 import WarehouseManagement from "./WarehouseManagement";
@@ -66,6 +68,39 @@ interface InventoryDashboardProps {
 }
 
 export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawerChange }: InventoryDashboardProps) {
+  const { toast } = useToast();
+
+  // POM sync state lifted here so buttons live in the header row
+  const { data: pomSyncStatus } = useQuery<{ success: boolean; data: { lastSyncStatus: string; callsLast24h?: number } }>({
+    queryKey: ['/api/sync/priceomatic/status'],
+    refetchInterval: activeDrawer === 'priceomatic' ? 10000 : false,
+  });
+  const pomStatus = pomSyncStatus?.data;
+  const isPomSyncRunning = pomStatus?.lastSyncStatus === 'in_progress';
+  const apiCeiling = 4500;
+
+  const pomSyncMutation = useMutation({
+    mutationFn: async () => apiRequest('POST', '/api/sync/priceomatic', { maxItems: 1500 }),
+    onSuccess: () => {
+      queryClient.refetchQueries({ queryKey: ['/api/sync/priceomatic/status'] });
+      queryClient.refetchQueries({ queryKey: ['/api/priceomatic/insights'] });
+      toast({ title: "Sync Started", description: "Price analysis running in background" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Sync Failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const pomStopMutation = useMutation({
+    mutationFn: async () => apiRequest('POST', '/api/sync/priceomatic/stop', {}),
+    onSuccess: () => {
+      queryClient.refetchQueries({ queryKey: ['/api/sync/priceomatic/status'] });
+      toast({ title: "Stop Signal Sent", description: "Sync will halt before the next item." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Stop Failed", description: error.message, variant: "destructive" });
+    },
+  });
 
   const { data: stats, isLoading } = useQuery<InventoryStats>({
     queryKey: ['/api/inventory/stats'],
@@ -298,29 +333,68 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
       <Drawer open={activeDrawer === 'priceomatic'} onOpenChange={(open) => !open && onDrawerChange(null)}>
         <DrawerContent className="h-[92dvh] flex flex-col">
           <DrawerHeader>
-            <DrawerTitle className="flex items-center justify-between text-base md:text-lg">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-purple-400" />
-                Price-o-Matic
+            <DrawerTitle className="flex items-center justify-between gap-2 text-base md:text-lg">
+              {/* Left: title + info inline */}
+              <div className="flex items-center gap-1.5">
+                <Sparkles className="w-5 h-5 text-purple-400 flex-shrink-0" />
+                <span>Price-o-Matic</span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button size="icon" variant="ghost" className="w-6 h-6" data-testid="button-pom-info">
+                      <Info className="w-3.5 h-3.5 text-gray-500" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent side="bottom" align="start" className="w-80 bg-gray-900 border-gray-700 p-3">
+                    <h3 className="text-xs font-bold text-purple-400 mb-2">How It Works</h3>
+                    <ul className="text-xs text-gray-300 space-y-1.5">
+                      <li>• Fetches item details, avg listed price + <strong className="text-purple-300">85th-percentile sold price</strong> from BrickLink — 3 API calls per item.</li>
+                      <li>• Applies your premium formula (Settings) to compute a suggested price, then applies cost floor and minimum price if configured.</li>
+                      <li>• Items priced <strong className="text-red-300">too high</strong> are losing sales; <strong className="text-orange-300">too low</strong> are leaving margin on the table.</li>
+                      <li>• Stops automatically at the daily API call ceiling to preserve your quota.</li>
+                      <li>• Items with 0 stock are skipped. Formula changes apply instantly.</li>
+                    </ul>
+                    <p className="text-[10px] text-gray-500 pt-2 mt-2 border-t border-gray-700">Does not auto-reprice. You review each flag and decide what to change.</p>
+                  </PopoverContent>
+                </Popover>
               </div>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button size="icon" variant="ghost" data-testid="button-pom-info">
-                    <Info className="w-4 h-4 text-gray-500" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent side="bottom" align="end" className="w-80 bg-gray-900 border-gray-700 p-3">
-                  <h3 className="text-xs font-bold text-purple-400 mb-2">How It Works</h3>
-                  <ul className="text-xs text-gray-300 space-y-1.5">
-                    <li>• Fetches item details, avg listed price + <strong className="text-purple-300">85th-percentile sold price</strong> from BrickLink — 3 API calls per item.</li>
-                    <li>• Applies your premium formula (Settings) to compute a suggested price, then applies cost floor and minimum price if configured.</li>
-                    <li>• Items priced <strong className="text-red-300">too high</strong> are losing sales; <strong className="text-orange-300">too low</strong> are leaving margin on the table.</li>
-                    <li>• Stops automatically at the daily API call ceiling to preserve your quota.</li>
-                    <li>• Items with 0 stock are skipped. Formula changes apply instantly.</li>
-                  </ul>
-                  <p className="text-[10px] text-gray-500 pt-2 mt-2 border-t border-gray-700">Does not auto-reprice. You review each flag and decide what to change.</p>
-                </PopoverContent>
-              </Popover>
+              {/* Right: stop (if running) + sync with badge */}
+              <div className="flex items-center gap-1">
+                {isPomSyncRunning && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button onClick={() => pomStopMutation.mutate()} disabled={pomStopMutation.isPending} size="icon" variant="destructive" data-testid="button-stop-sync">
+                        <Square className="w-3.5 h-3.5 fill-current" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs">
+                      {pomStopMutation.isPending ? 'Stopping...' : 'Stop Sync'}
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="relative">
+                      <Button onClick={() => pomSyncMutation.mutate()} disabled={isPomSyncRunning || pomSyncMutation.isPending} size="icon" variant="ghost" data-testid="button-sync">
+                        <RefreshCw className={`w-4 h-4 text-gray-500 ${pomSyncMutation.isPending ? 'animate-spin' : ''}`} />
+                      </Button>
+                      {pomStatus?.callsLast24h !== undefined && (
+                        <span className={`absolute -top-1 -right-1 text-[9px] font-mono font-bold px-1 py-0.5 rounded-full leading-none pointer-events-none ${
+                          pomStatus.callsLast24h >= apiCeiling * 0.9 ? 'bg-red-500/20 text-red-400' :
+                          pomStatus.callsLast24h >= apiCeiling * 0.6 ? 'bg-orange-500/20 text-orange-400' :
+                          'bg-gray-700 text-gray-400'
+                        }`}>
+                          {pomStatus.callsLast24h >= 1000
+                            ? `${(pomStatus.callsLast24h / 1000).toFixed(1)}k`
+                            : pomStatus.callsLast24h}
+                        </span>
+                      )}
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-56 text-xs">
+                    {isPomSyncRunning ? 'Syncing in progress...' : `Refresh Market Data — ${pomStatus?.callsLast24h?.toLocaleString() ?? 0}/${apiCeiling.toLocaleString()} API calls used today.`}
+                  </TooltipContent>
+                </Tooltip>
+              </div>
             </DrawerTitle>
           </DrawerHeader>
           <div className="overflow-y-auto px-4 pb-4 flex-1">

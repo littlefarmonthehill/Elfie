@@ -14,9 +14,8 @@ import {
   RefreshCw,
   AlertCircle,
   ChevronDown,
-  Square,
+
 } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { PomSpotLookup } from "@/components/PomSpotLookup";
 
@@ -96,12 +95,6 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
     },
   });
 
-  // Fetch sync status
-  const { data: syncStatus } = useQuery<{ success: boolean; data: SyncStatus }>({
-    queryKey: ['/api/sync/priceomatic/status'],
-    refetchInterval: 10000,
-  });
-
   // Fetch pricing insights — always refetch on mount so opening the panel shows current data
   const { data: insights, isLoading: insightsLoading } = useQuery<{ success: boolean; data: InsightsData }>({
     queryKey: ['/api/priceomatic/insights'],
@@ -114,59 +107,12 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
     queryKey: ['/api/settings'],
   });
 
-  // Sync mutation
-  const syncMutation = useMutation({
-    mutationFn: async () => {
-      return await apiRequest('POST', '/api/sync/priceomatic', { maxItems: 1500 });
-    },
-    onSuccess: () => {
-      queryClient.refetchQueries({ queryKey: ['/api/sync/priceomatic/status'] });
-      queryClient.refetchQueries({ queryKey: ['/api/priceomatic/insights'] });
-      
-      toast({
-        title: "Sync Started",
-        description: "Price analysis running in background",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Sync Failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
 
-  const stopMutation = useMutation({
-    mutationFn: async () => {
-      return await apiRequest('POST', '/api/sync/priceomatic/stop', {});
-    },
-    onSuccess: () => {
-      queryClient.refetchQueries({ queryKey: ['/api/sync/priceomatic/status'] });
-      toast({ title: "Stop Signal Sent", description: "Sync will halt before the next item." });
-    },
-    onError: (error: Error) => {
-      toast({ title: "Stop Failed", description: error.message, variant: "destructive" });
-    },
-  });
-
-  const handleSync = () => {
-    syncMutation.mutate();
-  };
-
-  const handleStop = () => {
-    stopMutation.mutate();
-  };
-
-  const status = syncStatus?.data;
   const insightsData = insights?.data;
-
-  const isSyncRunning = syncMutation.isPending || status?.lastSyncStatus === 'in_progress';
 
   // Pull real thresholds from settings, fall back to safe defaults
   const tooHighPct = settingsData?.pomTooHighThreshold ?? 20;
   const tooLowPct = settingsData?.pomTooLowThreshold ?? 20;
-  const apiCeiling = settingsData?.pomApiCallLimit ?? 4500;
   const batchSize = settingsData?.pomBatchSize ?? 1500;
 
   const formatCurrency = (value: string | number) => {
@@ -200,49 +146,8 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
   return (
     <div className="space-y-4">
 
-      {/* Spot lookup + action buttons on the same row */}
-      <div className="flex items-center gap-2">
-        <div className="flex-1">
-          <PomSpotLookup formatCurrency={formatCurrency} />
-        </div>
-        <div className="flex items-center gap-1 flex-shrink-0">
-          {isSyncRunning && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button onClick={handleStop} disabled={stopMutation.isPending} size="icon" variant="destructive" data-testid="button-stop-sync">
-                  <Square className="w-3.5 h-3.5 fill-current" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="left" className="text-xs">
-                {stopMutation.isPending ? 'Stopping...' : 'Stop Sync'}
-              </TooltipContent>
-            </Tooltip>
-          )}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="relative">
-                <Button onClick={handleSync} disabled={isSyncRunning} size="icon" variant="ghost" data-testid="button-sync">
-                  <RefreshCw className={`w-4 h-4 text-gray-500 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
-                </Button>
-                {status?.callsLast24h !== undefined && (
-                  <span className={`absolute -top-1 -right-1 text-[9px] font-mono font-bold px-1 py-0.5 rounded-full leading-none pointer-events-none ${
-                    status.callsLast24h >= apiCeiling * 0.9 ? 'bg-red-500/20 text-red-400' :
-                    status.callsLast24h >= apiCeiling * 0.6 ? 'bg-orange-500/20 text-orange-400' :
-                    'bg-gray-700 text-gray-400'
-                  }`}>
-                    {status.callsLast24h >= 1000
-                      ? `${(status.callsLast24h / 1000).toFixed(1)}k`
-                      : status.callsLast24h}
-                  </span>
-                )}
-              </div>
-            </TooltipTrigger>
-            <TooltipContent side="left" className="max-w-56 text-xs">
-              {isSyncRunning ? 'Syncing in progress...' : `Refresh Market Data — ${status?.callsLast24h?.toLocaleString() ?? 0}/${apiCeiling.toLocaleString()} API calls used today. Does not change your prices.`}
-            </TooltipContent>
-          </Tooltip>
-        </div>
-      </div>
+      {/* Spot Price Lookup */}
+      <PomSpotLookup formatCurrency={formatCurrency} />
 
       {/* Filter tiles — single line each, Warehouse drawer pattern */}
       <div className="flex gap-2">
@@ -362,8 +267,8 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
                 >
                   {/* Row 1: Part number + Item name */}
                   <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="font-mono text-[10px] text-gray-500 flex-shrink-0">{item.itemNo}</span>
-                    <p className="text-xs text-white truncate flex-1 min-w-0">{item.itemName || 'Unknown Item'}</p>
+                    <span className="font-mono text-[10px] text-white flex-shrink-0">{item.itemNo}</span>
+                    <p className="text-xs text-gray-400 truncate flex-1 min-w-0">{item.itemName || 'Unknown Item'}</p>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <button
@@ -432,10 +337,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
           <p className="text-xs text-gray-400 mb-3">
             Run your first sync to analyze pricing
           </p>
-          <Button onClick={handleSync} disabled={syncMutation.isPending} size="sm" className="gap-2">
-            <RefreshCw className="w-3 h-3" />
-            Start First Sync
-          </Button>
+          <p className="text-xs text-gray-500">Use the refresh button in the header to run your first sync.</p>
         </div>
       )}
     </div>
