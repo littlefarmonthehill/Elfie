@@ -476,6 +476,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           FROM orders o
           LEFT JOIN adj a ON a.order_id = o.id
           WHERE o.order_total IS NOT NULL AND o.order_total::numeric > 0
+            AND o.order_status NOT IN ('cancelled', 'Cancelled')
           ORDER BY net_total DESC
           LIMIT 5
         `),

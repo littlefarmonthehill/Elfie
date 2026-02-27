@@ -56,7 +56,7 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick }: M
   const getCustomerData = (): CustomerData[] => {
     const customerMap = new Map<string, CustomerData>();
 
-    orders.forEach(order => {
+    orders.filter(o => !['cancelled','Cancelled'].includes(o.orderStatus)).forEach(order => {
       const customer = order.customerUsername || 'Unknown';
       const revenue = parseOrderTotal(order.orderTotal);
       
@@ -85,7 +85,7 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick }: M
   // Helper to get most recent order ID for a customer
   const getCustomerOrderId = (customerUsername: string): string | null => {
     const customerOrders = orders
-      .filter(o => o.customerUsername === customerUsername)
+      .filter(o => o.customerUsername === customerUsername && !['cancelled','Cancelled'].includes(o.orderStatus))
       .sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime());
     return customerOrders.length > 0 ? customerOrders[0].id : null;
   };
