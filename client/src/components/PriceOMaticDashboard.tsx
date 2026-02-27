@@ -330,15 +330,15 @@ export default function PriceOMaticDashboard({ onItemClick, isSyncRunning }: Pri
                       )}
                     </div>
 
-                    {/* Row 2: Qty · Color · Peak — full width, no score */}
-                    <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
+                    {/* Row 2: Qty · Color · Peak — left-aligned group */}
+                    <div className="flex items-center gap-1.5 mt-0.5 min-w-0 overflow-hidden">
                       <span className="text-[10px] font-mono text-slate-400 flex-shrink-0">
                         ×{(group.newLot?.quantity ?? 0) + (group.usedLot?.quantity ?? 0)}
                       </span>
-                      <span className="text-[10px] text-slate-400 truncate min-w-0 flex-1">{group.colorName || '—'}</span>
+                      <span className="text-[10px] text-slate-400 truncate min-w-0" style={{ maxWidth: '7rem' }}>{group.colorName || '—'}</span>
                       {group.marketPeakSoldPrice != null && (
                         <span className="text-[9px] text-blue-400/70 flex-shrink-0 whitespace-nowrap">
-                          peak {formatCurrency(group.marketPeakSoldPrice)}
+                          · peak {formatCurrency(group.marketPeakSoldPrice)}
                         </span>
                       )}
                     </div>
