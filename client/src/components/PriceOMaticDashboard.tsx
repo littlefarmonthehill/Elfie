@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -11,9 +11,14 @@ import {
   ArrowUp,
   ArrowDown,
   DollarSign,
+  Orbit,
+  Rocket,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { PomSpotLookup } from "@/components/PomSpotLookup";
+
+const DEEP_SPACE_KEY = 'pom_deep_space_keys';
+const SWIPE_THRESHOLD = 72;
 
 interface SyncStatus {
   id: string;
@@ -77,6 +82,124 @@ interface PriceOMaticDashboardProps {
   isSyncRunning?: boolean;
 }
 
+function loadDeepSpace(): Set<string> {
+  try {
+    const raw = localStorage.getItem(DEEP_SPACE_KEY);
+    if (raw) return new Set(JSON.parse(raw));
+  } catch {}
+  return new Set();
+}
+
+function saveDeepSpace(keys: Set<string>) {
+  localStorage.setItem(DEEP_SPACE_KEY, JSON.stringify(Array.from(keys)));
+}
+
+function SwipeableTile({
+  group,
+  orbitFilter,
+  onSendToDeepSpace,
+  onBringToOrbit,
+  children,
+}: {
+  group: GroupedInsight;
+  orbitFilter: 'in_orbit' | 'deep_space';
+  onSendToDeepSpace: (key: string) => void;
+  onBringToOrbit: (key: string) => void;
+  children: React.ReactNode;
+}) {
+  const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
+  const tileRef = useRef<HTMLDivElement>(null);
+  const [swipeDelta, setSwipeDelta] = useState(0);
+  const [swiping, setSwiping] = useState(false);
+  const [launched, setLaunched] = useState(false);
+
+  const onTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+    setSwiping(false);
+    setSwipeDelta(0);
+  }, []);
+
+  const onTouchMove = useCallback((e: React.TouchEvent) => {
+    if (touchStartX.current === null || touchStartY.current === null) return;
+    const dx = e.touches[0].clientX - touchStartX.current;
+    const dy = e.touches[0].clientY - touchStartY.current;
+    if (!swiping && Math.abs(dy) > Math.abs(dx)) return;
+    if (dx > 0) {
+      setSwiping(true);
+      setSwipeDelta(Math.min(dx, 160));
+      e.preventDefault();
+    }
+  }, [swiping]);
+
+  const onTouchEnd = useCallback(() => {
+    if (swipeDelta >= SWIPE_THRESHOLD) {
+      setLaunched(true);
+      setTimeout(() => {
+        if (orbitFilter === 'in_orbit') {
+          onSendToDeepSpace(group.key);
+        } else {
+          onBringToOrbit(group.key);
+        }
+        setLaunched(false);
+        setSwipeDelta(0);
+        setSwiping(false);
+      }, 280);
+    } else {
+      setSwipeDelta(0);
+      setSwiping(false);
+    }
+    touchStartX.current = null;
+    touchStartY.current = null;
+  }, [swipeDelta, group.key, orbitFilter, onSendToDeepSpace, onBringToOrbit]);
+
+  const translateX = launched ? 320 : swipeDelta;
+  const opacity = launched ? 0 : 1 - (swipeDelta / 260);
+  const showLabel = swipeDelta >= SWIPE_THRESHOLD * 0.6;
+
+  return (
+    <div className="relative overflow-hidden rounded-lg">
+      {/* Swipe reveal background */}
+      <div
+        className="absolute inset-0 rounded-lg flex items-center px-4 gap-2"
+        style={{
+          background: orbitFilter === 'in_orbit'
+            ? 'linear-gradient(to right, rgba(99,102,241,0.25), rgba(59,130,246,0.1))'
+            : 'linear-gradient(to right, rgba(16,185,129,0.25), rgba(59,130,246,0.1))',
+        }}
+      >
+        {orbitFilter === 'in_orbit' ? (
+          <>
+            <Rocket className="w-4 h-4 text-indigo-400 flex-shrink-0" />
+            {showLabel && <span className="text-[10px] font-bold text-indigo-300 uppercase tracking-wider">Deep Space</span>}
+          </>
+        ) : (
+          <>
+            <Orbit className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+            {showLabel && <span className="text-[10px] font-bold text-emerald-300 uppercase tracking-wider">In Orbit</span>}
+          </>
+        )}
+      </div>
+
+      {/* Tile content */}
+      <div
+        ref={tileRef}
+        style={{
+          transform: `translateX(${translateX}px)`,
+          opacity,
+          transition: swiping ? 'none' : 'transform 0.28s ease, opacity 0.28s ease',
+        }}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
 export default function PriceOMaticDashboard({ onItemClick, isSyncRunning }: PriceOMaticDashboardProps) {
   const { toast } = useToast();
   const [itemsToShow, setItemsToShow] = useState(25);
@@ -84,6 +207,26 @@ export default function PriceOMaticDashboard({ onItemClick, isSyncRunning }: Pri
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc');
   const [pricingData, setPricingData] = useState<Map<string, { n: string | null; u: string | null }>>(new Map());
   const [pricingLoading, setPricingLoading] = useState<Set<string>>(new Set());
+  const [deepSpaceKeys, setDeepSpaceKeys] = useState<Set<string>>(loadDeepSpace);
+  const [orbitFilter, setOrbitFilter] = useState<'in_orbit' | 'deep_space'>('in_orbit');
+
+  const sendToDeepSpace = useCallback((key: string) => {
+    setDeepSpaceKeys(prev => {
+      const next = new Set(prev);
+      next.add(key);
+      saveDeepSpace(next);
+      return next;
+    });
+  }, []);
+
+  const bringToOrbit = useCallback((key: string) => {
+    setDeepSpaceKeys(prev => {
+      const next = new Set(prev);
+      next.delete(key);
+      saveDeepSpace(next);
+      return next;
+    });
+  }, []);
 
   const fetchPricingMutation = useMutation({
     mutationFn: async (group: GroupedInsight) => {
@@ -177,10 +320,9 @@ export default function PriceOMaticDashboard({ onItemClick, isSyncRunning }: Pri
     return 'text-gray-500';
   };
 
-  const getSelectedGroups = (): GroupedInsight[] => {
+  const getAllGroups = (): GroupedInsight[] => {
     if (!insightsData) return [];
 
-    // Merge all lots (all categories) into unified groups
     const allItems = [...insightsData.tooHigh, ...insightsData.tooLow, ...insightsData.wellPriced];
 
     const map = new Map<string, GroupedInsight>();
@@ -210,21 +352,21 @@ export default function PriceOMaticDashboard({ onItemClick, isSyncRunning }: Pri
       }
     }
 
-    const groups = Array.from(map.values());
-
-    // Sort by the highest score between N and U for each group
-    return groups.sort((a, b) => {
+    return Array.from(map.values()).sort((a, b) => {
       const aScore = Math.max(a.newScore, a.usedScore);
       const bScore = Math.max(b.newScore, b.usedScore);
       return sortDir === 'desc' ? bScore - aScore : aScore - bScore;
     });
   };
 
-  const selectedGroups = getSelectedGroups();
+  const allGroups = getAllGroups();
+  const inOrbitGroups = allGroups.filter(g => !deepSpaceKeys.has(g.key));
+  const deepSpaceGroups = allGroups.filter(g => deepSpaceKeys.has(g.key));
+  const selectedGroups = orbitFilter === 'in_orbit' ? inOrbitGroups : deepSpaceGroups;
 
   useEffect(() => {
     setItemsToShow(25);
-  }, [sortDir]);
+  }, [sortDir, orbitFilter]);
 
   const ScoreSortButton = () => (
     <button
@@ -249,9 +391,48 @@ export default function PriceOMaticDashboard({ onItemClick, isSyncRunning }: Pri
       {/* Item list */}
       {insightsData && (
         <div className="space-y-1.5">
+
+          {/* Orbit filter tabs */}
+          <div className="flex items-center gap-2 px-1 pb-1">
+            <button
+              onClick={() => setOrbitFilter('in_orbit')}
+              className={`flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded transition-colors ${
+                orbitFilter === 'in_orbit'
+                  ? 'bg-blue-500/25 text-blue-300 border border-blue-500/40'
+                  : 'text-gray-500 hover:text-gray-300'
+              }`}
+              data-testid="filter-in-orbit"
+            >
+              <Orbit className="w-3 h-3" />
+              In Orbit
+              <span className="text-[9px] opacity-70">({inOrbitGroups.length})</span>
+            </button>
+            <button
+              onClick={() => setOrbitFilter('deep_space')}
+              className={`flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded transition-colors ${
+                orbitFilter === 'deep_space'
+                  ? 'bg-indigo-500/25 text-indigo-300 border border-indigo-500/40'
+                  : 'text-gray-500 hover:text-gray-300'
+              }`}
+              data-testid="filter-deep-space"
+            >
+              <Rocket className="w-3 h-3" />
+              Deep Space
+              <span className="text-[9px] opacity-70">({deepSpaceGroups.length})</span>
+            </button>
+          </div>
+
           {selectedGroups.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
-              <p className="text-xs">No items found</p>
+              {orbitFilter === 'deep_space' ? (
+                <div className="space-y-1">
+                  <Rocket className="w-8 h-8 text-indigo-700 mx-auto" />
+                  <p className="text-xs text-gray-600">Nothing in deep space yet</p>
+                  <p className="text-[10px] text-gray-700">Swipe right on a tile to archive it here</p>
+                </div>
+              ) : (
+                <p className="text-xs">No items found</p>
+              )}
             </div>
           ) : (
             <>
@@ -269,142 +450,143 @@ export default function PriceOMaticDashboard({ onItemClick, isSyncRunning }: Pri
               {selectedGroups.slice(0, itemsToShow).map((group) => {
                 const primaryLot = group.newLot ?? group.usedLot;
                 return (
-                  <div
+                  <SwipeableTile
                     key={group.key}
-                    className="group relative bg-gradient-to-br from-blue-950/50 via-slate-800/70 to-blue-900/30 border border-blue-700/25 rounded-lg px-2 py-1.5 cursor-pointer shadow-[0_2px_8px_rgba(15,40,100,0.35),inset_0_1px_0_rgba(147,197,253,0.07)] hover:shadow-[0_4px_14px_rgba(15,40,100,0.5),inset_0_1px_0_rgba(147,197,253,0.12)] hover:border-blue-600/40 transition-shadow duration-150"
-                    data-testid={`item-group-${group.key}`}
-                    onClick={() => {
-                      if (primaryLot) onItemClick?.('inventory', primaryLot.inventoryId);
-                    }}
+                    group={group}
+                    orbitFilter={orbitFilter}
+                    onSendToDeepSpace={sendToDeepSpace}
+                    onBringToOrbit={bringToOrbit}
                   >
-                    {/* Row 1: Part number + Item name + buttons */}
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="font-mono text-[10px] text-blue-200/80 flex-shrink-0">{group.itemNo}</span>
-                      <p className="text-xs text-slate-300 truncate flex-1 min-w-0">{group.itemName || 'Unknown Item'}</p>
-                      {primaryLot && (
-                        <div className="invisible group-hover:visible flex items-center gap-0.5 flex-shrink-0">
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  fetchPricingMutation.mutate(group);
-                                }}
-                                disabled={pricingLoading.has(group.key)}
-                                className="text-gray-600 hover:text-purple-400 disabled:text-gray-700 transition-colors"
-                                data-testid={`button-price-group-${group.key}`}
-                              >
-                                <DollarSign className={`w-2.5 h-2.5 ${pricingLoading.has(group.key) ? 'animate-pulse text-purple-400' : ''}`} />
-                              </button>
-                            </TooltipTrigger>
-                            <TooltipContent side="left" className="text-xs">
-                              Get suggested price (2 API calls)
-                            </TooltipContent>
-                          </Tooltip>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const lots = [group.newLot, group.usedLot].filter(Boolean) as PricingInsight[];
-                                  lots.forEach(lot => refreshItemMutation.mutate({
-                                    inventoryId: lot.inventoryId,
-                                    itemNo: lot.itemNo,
-                                    itemType: lot.itemType,
-                                    colorId: lot.colorId,
-                                    newOrUsed: lot.newOrUsed,
-                                  }));
-                                }}
-                                disabled={[group.newLot, group.usedLot].some(l => l && refreshingItems.has(l.inventoryId))}
-                                className="text-gray-600 hover:text-gray-400 disabled:text-gray-700 transition-colors"
-                                data-testid={`button-refresh-group-${group.key}`}
-                              >
-                                <RefreshCw className={`w-2.5 h-2.5 ${[group.newLot, group.usedLot].some(l => l && refreshingItems.has(l.inventoryId)) ? 'animate-spin text-purple-400' : ''}`} />
-                              </button>
-                            </TooltipTrigger>
-                            <TooltipContent side="left" className="text-xs">
-                              Refresh score data (2 API calls per condition)
-                            </TooltipContent>
-                          </Tooltip>
-                        </div>
-                      )}
-                    </div>
+                    <div
+                      className="group relative bg-gradient-to-br from-blue-950/50 via-slate-800/70 to-blue-900/30 border border-blue-700/25 rounded-lg px-2 py-1.5 cursor-pointer shadow-[0_2px_8px_rgba(15,40,100,0.35),inset_0_1px_0_rgba(147,197,253,0.07)] hover:shadow-[0_4px_14px_rgba(15,40,100,0.5),inset_0_1px_0_rgba(147,197,253,0.12)] hover:border-blue-600/40 transition-shadow duration-150"
+                      data-testid={`item-group-${group.key}`}
+                      onClick={() => {
+                        if (primaryLot) onItemClick?.('inventory', primaryLot.inventoryId);
+                      }}
+                    >
+                      {/* Row 1: Part number + Item name + buttons */}
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="font-mono text-[10px] text-blue-200/80 flex-shrink-0">{group.itemNo}</span>
+                        <p className="text-xs text-slate-300 truncate flex-1 min-w-0">{group.itemName || 'Unknown Item'}</p>
+                        {primaryLot && (
+                          <div className="invisible group-hover:visible flex items-center gap-0.5 flex-shrink-0">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    fetchPricingMutation.mutate(group);
+                                  }}
+                                  disabled={pricingLoading.has(group.key)}
+                                  className="text-gray-600 hover:text-purple-400 disabled:text-gray-700 transition-colors"
+                                  data-testid={`button-price-group-${group.key}`}
+                                >
+                                  <DollarSign className={`w-2.5 h-2.5 ${pricingLoading.has(group.key) ? 'animate-pulse text-purple-400' : ''}`} />
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent side="left" className="text-xs">
+                                Get suggested price (2 API calls)
+                              </TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const lots = [group.newLot, group.usedLot].filter(Boolean) as PricingInsight[];
+                                    lots.forEach(lot => refreshItemMutation.mutate({
+                                      inventoryId: lot.inventoryId,
+                                      itemNo: lot.itemNo,
+                                      itemType: lot.itemType,
+                                      colorId: lot.colorId,
+                                      newOrUsed: lot.newOrUsed,
+                                    }));
+                                  }}
+                                  disabled={[group.newLot, group.usedLot].some(l => l && refreshingItems.has(l.inventoryId))}
+                                  className="text-gray-600 hover:text-gray-400 disabled:text-gray-700 transition-colors"
+                                  data-testid={`button-refresh-group-${group.key}`}
+                                >
+                                  <RefreshCw className={`w-2.5 h-2.5 ${[group.newLot, group.usedLot].some(l => l && refreshingItems.has(l.inventoryId)) ? 'animate-spin text-purple-400' : ''}`} />
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent side="left" className="text-xs">
+                                Refresh score data (2 API calls per condition)
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                        )}
+                      </div>
 
-                    {/* Row 2: Qty · Color · Peak — left-aligned group */}
-                    <div className="flex items-center gap-1.5 mt-0.5 min-w-0 overflow-hidden">
-                      <span className="text-[10px] font-mono text-slate-400 flex-shrink-0">
-                        ×{(group.newLot?.quantity ?? 0) + (group.usedLot?.quantity ?? 0)}
-                      </span>
-                      <span className="text-[10px] text-slate-400 truncate min-w-0" style={{ maxWidth: '7rem' }}>{group.colorName || '—'}</span>
-                      {group.marketPeakSoldPrice != null && (
-                        <span className="text-[9px] text-blue-400/70 flex-shrink-0 whitespace-nowrap">
-                          · peak {formatCurrency(group.marketPeakSoldPrice)}
+                      {/* Row 2: Qty · Color · Peak — left-aligned group */}
+                      <div className="flex items-center gap-1.5 mt-0.5 min-w-0 overflow-hidden">
+                        <span className="text-[10px] font-mono text-slate-400 flex-shrink-0">
+                          ×{(group.newLot?.quantity ?? 0) + (group.usedLot?.quantity ?? 0)}
                         </span>
-                      )}
-                    </div>
-
-                    {/* Row 3: Score (left) | N Cur | N Score | U Cur | U Score */}
-                    <div className="flex items-center gap-1 mt-0.5 min-w-0">
-                      {/* Overall best score — left-aligned, matches header sort button */}
-                      {(() => {
-                        const maxScore = Math.max(group.newScore ?? 0, group.usedScore ?? 0);
-                        const hasScore = (group.newLot?.opportunityScore != null) || (group.usedLot?.opportunityScore != null);
-                        return (
-                          <span className={`text-[11px] font-mono font-bold flex-shrink-0 w-[52px] ${hasScore ? scoreColor(maxScore) : 'text-slate-600'}`}>
-                            {hasScore ? `${maxScore}×` : '—'}
+                        <span className="text-[10px] text-slate-400 truncate min-w-0" style={{ maxWidth: '7rem' }}>{group.colorName || '—'}</span>
+                        {group.marketPeakSoldPrice != null && (
+                          <span className="text-[9px] text-blue-400/70 flex-shrink-0 whitespace-nowrap">
+                            · peak {formatCurrency(group.marketPeakSoldPrice)}
                           </span>
-                        );
-                      })()}
-                      <div className="flex-1 min-w-0" />
-
-                      {/* New: current price + suggested if fetched */}
-                      <div
-                        className="flex flex-col items-end w-14 flex-shrink-0 cursor-pointer"
-                        onClick={(e) => { if (group.newLot) { e.stopPropagation(); onItemClick?.('inventory', group.newLot.inventoryId); } }}
-                      >
-                        {group.newLot ? (
-                          <>
-                            <span className="text-[10px] font-mono text-slate-300 leading-tight">{formatCurrency(group.newLot.currentPrice)}</span>
-                            {pricingData.get(group.key)?.n && (
-                              <span className="text-[9px] font-mono text-purple-400 leading-tight">{formatCurrency(pricingData.get(group.key)!.n)}</span>
-                            )}
-                          </>
-                        ) : (
-                          <span className="text-[10px] text-slate-700">—</span>
                         )}
                       </div>
 
-                      {/* New score */}
-                      <span className={`text-[10px] font-mono font-bold text-right flex-shrink-0 w-[52px] ${group.newLot ? scoreColor(group.newLot.opportunityScore) : 'text-slate-700'}`}>
-                        {group.newLot?.opportunityScore != null ? `${group.newLot.opportunityScore}×` : '—'}
-                      </span>
+                      {/* Row 3: Score (left) | N Cur | N Score | U Cur | U Score */}
+                      <div className="flex items-center gap-1 mt-0.5 min-w-0">
+                        {(() => {
+                          const maxScore = Math.max(group.newScore ?? 0, group.usedScore ?? 0);
+                          const hasScore = (group.newLot?.opportunityScore != null) || (group.usedLot?.opportunityScore != null);
+                          return (
+                            <span className={`text-[11px] font-mono font-bold flex-shrink-0 w-[52px] ${hasScore ? scoreColor(maxScore) : 'text-slate-600'}`}>
+                              {hasScore ? `${maxScore}×` : '—'}
+                            </span>
+                          );
+                        })()}
+                        <div className="flex-1 min-w-0" />
 
-                      {/* Used: current price + suggested if fetched */}
-                      <div
-                        className="flex flex-col items-end w-14 flex-shrink-0 cursor-pointer"
-                        onClick={(e) => { if (group.usedLot) { e.stopPropagation(); onItemClick?.('inventory', group.usedLot.inventoryId); } }}
-                      >
-                        {group.usedLot ? (
-                          <>
-                            <span className="text-[10px] font-mono text-slate-300 leading-tight">{formatCurrency(group.usedLot.currentPrice)}</span>
-                            {pricingData.get(group.key)?.u && (
-                              <span className="text-[9px] font-mono text-purple-400 leading-tight">{formatCurrency(pricingData.get(group.key)!.u)}</span>
-                            )}
-                          </>
-                        ) : (
-                          <span className="text-[10px] text-slate-700">—</span>
-                        )}
+                        <div
+                          className="flex flex-col items-end w-14 flex-shrink-0 cursor-pointer"
+                          onClick={(e) => { if (group.newLot) { e.stopPropagation(); onItemClick?.('inventory', group.newLot.inventoryId); } }}
+                        >
+                          {group.newLot ? (
+                            <>
+                              <span className="text-[10px] font-mono text-slate-300 leading-tight">{formatCurrency(group.newLot.currentPrice)}</span>
+                              {pricingData.get(group.key)?.n && (
+                                <span className="text-[9px] font-mono text-purple-400 leading-tight">{formatCurrency(pricingData.get(group.key)!.n)}</span>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-[10px] text-slate-700">—</span>
+                          )}
+                        </div>
+
+                        <span className={`text-[10px] font-mono font-bold text-right flex-shrink-0 w-[52px] ${group.newLot ? scoreColor(group.newLot.opportunityScore) : 'text-slate-700'}`}>
+                          {group.newLot?.opportunityScore != null ? `${group.newLot.opportunityScore}×` : '—'}
+                        </span>
+
+                        <div
+                          className="flex flex-col items-end w-14 flex-shrink-0 cursor-pointer"
+                          onClick={(e) => { if (group.usedLot) { e.stopPropagation(); onItemClick?.('inventory', group.usedLot.inventoryId); } }}
+                        >
+                          {group.usedLot ? (
+                            <>
+                              <span className="text-[10px] font-mono text-slate-300 leading-tight">{formatCurrency(group.usedLot.currentPrice)}</span>
+                              {pricingData.get(group.key)?.u && (
+                                <span className="text-[9px] font-mono text-purple-400 leading-tight">{formatCurrency(pricingData.get(group.key)!.u)}</span>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-[10px] text-slate-700">—</span>
+                          )}
+                        </div>
+
+                        <span className={`text-[10px] font-mono font-bold text-right flex-shrink-0 w-[52px] ${group.usedLot ? scoreColor(group.usedLot.opportunityScore) : 'text-slate-700'}`}>
+                          {group.usedLot?.opportunityScore != null ? `${group.usedLot.opportunityScore}×` : '—'}
+                        </span>
+
+                        <span className="w-5 flex-shrink-0" />
                       </div>
-
-                      {/* Used score */}
-                      <span className={`text-[10px] font-mono font-bold text-right flex-shrink-0 w-[52px] ${group.usedLot ? scoreColor(group.usedLot.opportunityScore) : 'text-slate-700'}`}>
-                        {group.usedLot?.opportunityScore != null ? `${group.usedLot.opportunityScore}×` : '—'}
-                      </span>
-
-                      {/* Spacer to keep widths consistent with header */}
-                      <span className="w-5 flex-shrink-0" />
                     </div>
-                  </div>
+                  </SwipeableTile>
                 );
               })}
 
