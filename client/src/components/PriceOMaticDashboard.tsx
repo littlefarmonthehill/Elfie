@@ -6,9 +6,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {  
   Sparkles,
-  TrendingUp,
-  TrendingDown,
-  CheckCircle,
   RefreshCw,
   ChevronDown,
   ArrowUp,
@@ -81,10 +78,8 @@ interface PriceOMaticDashboardProps {
 
 export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboardProps) {
   const { toast } = useToast();
-  const [selectedCategory, setSelectedCategory] = useState<'too-high' | 'too-low' | 'good'>('too-high');
   const [itemsToShow, setItemsToShow] = useState(50);
   const [refreshingItems, setRefreshingItems] = useState<Set<number>>(new Set());
-  const [sortField, setSortField] = useState<'new' | 'used'>('new');
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc');
   const [pricingData, setPricingData] = useState<Map<string, { n: string | null; u: string | null }>>(new Map());
   const [pricingLoading, setPricingLoading] = useState<Set<string>>(new Set());
@@ -159,8 +154,6 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
   });
 
   const insightsData = insights?.data;
-  const tooHighPct = settingsData?.pomTooHighThreshold ?? 20;
-  const tooLowPct = settingsData?.pomTooLowThreshold ?? 20;
 
   const formatCurrency = (value: string | number | null | undefined) => {
     if (value == null) return '—';
@@ -185,7 +178,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
   const getSelectedGroups = (): GroupedInsight[] => {
     if (!insightsData) return [];
 
-    // Merge all lots so sibling conditions are visible in any filter view
+    // Merge all lots (all categories) into unified groups
     const allItems = [...insightsData.tooHigh, ...insightsData.tooLow, ...insightsData.wellPriced];
 
     const map = new Map<string, GroupedInsight>();
@@ -215,32 +208,12 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
       }
     }
 
-    let groups = Array.from(map.values());
+    const groups = Array.from(map.values());
 
-    // Filter: group qualifies if at least one lot matches the selected category
-    if (selectedCategory === 'too-high') {
-      groups = groups.filter(g =>
-        g.newLot?.category === 'too_high' || g.usedLot?.category === 'too_high'
-      );
-    } else if (selectedCategory === 'too-low') {
-      groups = groups.filter(g =>
-        g.newLot?.category === 'too_low' || g.usedLot?.category === 'too_low'
-      );
-    } else {
-      groups = groups.filter(g =>
-        (g.newLot == null || g.newLot.category === 'good') &&
-        (g.usedLot == null || g.usedLot.category === 'good')
-      );
-    }
-
-    // Sort by selected condition score; groups with no lot for that condition go last
+    // Sort by the highest score between N and U for each group
     return groups.sort((a, b) => {
-      const aHas = sortField === 'new' ? a.newLot != null : a.usedLot != null;
-      const bHas = sortField === 'new' ? b.newLot != null : b.usedLot != null;
-      if (!aHas && bHas) return 1;
-      if (aHas && !bHas) return -1;
-      const aScore = sortField === 'new' ? a.newScore : a.usedScore;
-      const bScore = sortField === 'new' ? b.newScore : b.usedScore;
+      const aScore = Math.max(a.newScore, a.usedScore);
+      const bScore = Math.max(b.newScore, b.usedScore);
       return sortDir === 'desc' ? bScore - aScore : aScore - bScore;
     });
   };
@@ -249,34 +222,21 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
 
   useEffect(() => {
     setItemsToShow(50);
-  }, [selectedCategory, sortField, sortDir]);
+  }, [sortDir]);
 
-  const ScoreSortButton = ({ field, prefix }: { field: 'new' | 'used'; prefix: string }) => {
-    const active = sortField === field;
-    const toggle = () => {
-      if (active) {
-        setSortDir(d => d === 'desc' ? 'asc' : 'desc');
-      } else {
-        setSortField(field);
-        setSortDir('desc');
+  const ScoreSortButton = () => (
+    <button
+      onClick={() => setSortDir(d => d === 'desc' ? 'asc' : 'desc')}
+      className="flex items-center gap-0.5 text-[9px] uppercase tracking-wider rounded px-1.5 py-0.5 bg-purple-500/20 text-purple-300 whitespace-nowrap"
+      data-testid="button-sort-score"
+    >
+      Score
+      {sortDir === 'desc'
+        ? <ArrowDown className="w-2.5 h-2.5 ml-0.5" />
+        : <ArrowUp className="w-2.5 h-2.5 ml-0.5" />
       }
-    };
-    return (
-      <button
-        onClick={toggle}
-        className={`flex items-center gap-0.5 text-[9px] uppercase tracking-wider rounded px-1.5 py-0.5 transition-colors whitespace-nowrap ${
-          active ? 'bg-purple-500/20 text-purple-300' : 'text-gray-400 hover:text-gray-200'
-        }`}
-        data-testid={`button-sort-${field}`}
-      >
-        {prefix} Score
-        {active ? (sortDir === 'desc'
-          ? <ArrowDown className="w-2.5 h-2.5 ml-0.5" />
-          : <ArrowUp className="w-2.5 h-2.5 ml-0.5" />
-        ) : <ArrowDown className="w-2.5 h-2.5 ml-0.5 opacity-30" />}
-      </button>
-    );
-  };
+    </button>
+  );
 
   return (
     <div className="space-y-4">
@@ -284,112 +244,22 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
       {/* Spot Price Lookup */}
       <PomSpotLookup formatCurrency={formatCurrency} />
 
-      {/* Filter tiles */}
-      <div className="flex gap-2">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={() => setSelectedCategory('too-high')}
-              data-testid="stat-too-high"
-              className={`flex-1 flex items-center justify-between gap-2 p-3 rounded-lg text-xs hover-elevate whitespace-nowrap cursor-pointer ${
-                selectedCategory === 'too-high'
-                  ? 'bg-red-500/20 border-2 border-red-500/50'
-                  : 'bg-gray-800/30 border-2 border-gray-700'
-              }`}
-            >
-              <div className="flex items-center gap-1.5">
-                <TrendingUp className={`w-3.5 h-3.5 flex-shrink-0 ${selectedCategory === 'too-high' ? 'text-red-400' : 'text-gray-500'}`} />
-                <span className={`text-xs font-semibold ${selectedCategory === 'too-high' ? 'text-red-300' : 'text-gray-400'}`}>Too High</span>
-              </div>
-              {insightsLoading ? (
-                <Skeleton className="h-5 w-6" />
-              ) : (
-                <span className={`text-base font-mono font-bold tabular-nums ${selectedCategory === 'too-high' ? 'text-red-400' : 'text-gray-300'}`}>
-                  {insightsData?.summary.tooHigh ?? 0}
-                </span>
-              )}
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" className="max-w-56 text-xs">
-            Items priced more than {tooHighPct}% above suggested — losing sales to cheaper competitors. Click to review.
-          </TooltipContent>
-        </Tooltip>
-
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={() => setSelectedCategory('too-low')}
-              data-testid="stat-too-low"
-              className={`flex-1 flex items-center justify-between gap-2 p-3 rounded-lg text-xs hover-elevate whitespace-nowrap cursor-pointer ${
-                selectedCategory === 'too-low'
-                  ? 'bg-orange-500/20 border-2 border-orange-500/50'
-                  : 'bg-gray-800/30 border-2 border-gray-700'
-              }`}
-            >
-              <div className="flex items-center gap-1.5">
-                <TrendingDown className={`w-3.5 h-3.5 flex-shrink-0 ${selectedCategory === 'too-low' ? 'text-orange-400' : 'text-gray-500'}`} />
-                <span className={`text-xs font-semibold ${selectedCategory === 'too-low' ? 'text-orange-300' : 'text-gray-400'}`}>Too Low</span>
-              </div>
-              {insightsLoading ? (
-                <Skeleton className="h-5 w-6" />
-              ) : (
-                <span className={`text-base font-mono font-bold tabular-nums ${selectedCategory === 'too-low' ? 'text-orange-400' : 'text-gray-300'}`}>
-                  {insightsData?.summary.tooLow ?? 0}
-                </span>
-              )}
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" className="max-w-56 text-xs">
-            Items priced more than {tooLowPct}% below suggested — leaving margin on the table. Click to review.
-          </TooltipContent>
-        </Tooltip>
-
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={() => setSelectedCategory('good')}
-              data-testid="stat-good"
-              className={`flex-1 flex items-center justify-between gap-2 p-3 rounded-lg text-xs hover-elevate whitespace-nowrap cursor-pointer ${
-                selectedCategory === 'good'
-                  ? 'bg-green-500/20 border-2 border-green-500/50'
-                  : 'bg-gray-800/30 border-2 border-gray-700'
-              }`}
-            >
-              <div className="flex items-center gap-1.5">
-                <CheckCircle className={`w-3.5 h-3.5 flex-shrink-0 ${selectedCategory === 'good' ? 'text-green-400' : 'text-gray-500'}`} />
-                <span className={`text-xs font-semibold ${selectedCategory === 'good' ? 'text-green-300' : 'text-gray-400'}`}>On Target</span>
-              </div>
-              {insightsLoading ? (
-                <Skeleton className="h-5 w-6" />
-              ) : (
-                <span className={`text-base font-mono font-bold tabular-nums ${selectedCategory === 'good' ? 'text-green-400' : 'text-gray-300'}`}>
-                  {insightsData?.summary.wellPriced ?? 0}
-                </span>
-              )}
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" className="max-w-56 text-xs">
-            Items within ±{Math.max(tooHighPct, tooLowPct)}% of suggested — optimal range, no action needed. Click to review.
-          </TooltipContent>
-        </Tooltip>
-      </div>
-
       {/* Item list */}
       {insightsData && (
         <div className="space-y-1.5">
           {selectedGroups.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
-              <p className="text-xs">No items in this category</p>
+              <p className="text-xs">No items found</p>
             </div>
           ) : (
             <>
-              {/* Column headers with sort controls */}
+              {/* Column headers with sort control */}
               <div className="flex items-center gap-1 px-2 pb-0.5">
                 <div className="flex-1 min-w-0" />
                 <span className="text-[9px] uppercase tracking-wider text-gray-400 w-14 text-right flex-shrink-0">N Cur</span>
-                <ScoreSortButton field="new" prefix="N" />
+                <span className="text-[9px] uppercase tracking-wider text-gray-400 rounded px-1.5 py-0.5 whitespace-nowrap flex-shrink-0">N Score</span>
                 <span className="text-[9px] uppercase tracking-wider text-gray-400 w-14 text-right flex-shrink-0">U Cur</span>
-                <ScoreSortButton field="used" prefix="U" />
+                <ScoreSortButton />
                 <span className="w-5 flex-shrink-0" />
               </div>
 
