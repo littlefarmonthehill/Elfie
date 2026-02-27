@@ -4414,25 +4414,31 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
         })
       );
 
-      // Compute market peak sold price: MAX(soldMaxPrice) across all (colorId, newOrUsed) combos fetched
-      const allSoldMaxPrices = Object.values(lotPriceData)
-        .map((pd: any) => pd.soldMaxPrice ? parseFloat(pd.soldMaxPrice) : 0)
-        .filter(v => v > 0);
-      const marketPeakSoldPrice = allSoldMaxPrices.length > 0 ? Math.max(...allSoldMaxPrices) : null;
+      // Compute per-color peak: MAX(soldMaxPrice) across N+U for the same colorId
+      const peakByColor = new Map<string, number>();
+      Object.entries(lotPriceData).forEach(([key, pd]: [string, any]) => {
+        const colorKey = key.substring(0, key.lastIndexOf('_')); // strip trailing _N or _U
+        const soldMax = pd.soldMaxPrice ? parseFloat(pd.soldMaxPrice) : 0;
+        if (soldMax > 0) {
+          peakByColor.set(colorKey, Math.max(peakByColor.get(colorKey) ?? 0, soldMax));
+        }
+      });
 
-      // Enrich each inventory lot with suggestedPrice + opportunityScore
+      // Enrich each inventory lot with suggestedPrice + per-color opportunityScore
       const inventoryLotsEnriched = inventoryLots.map(lot => {
-        const lotKey = `${lot.colorId ?? 'null'}_${lot.newOrUsed}`;
+        const colorKey = String(lot.colorId ?? 'null');
+        const lotKey = `${colorKey}_${lot.newOrUsed}`;
         const lotPd = lotPriceData[lotKey] as any;
+        const colorPeak = peakByColor.get(colorKey) ?? null;
         const currentPrice = lot.unitPrice ? parseFloat(lot.unitPrice) : 0;
-        const opportunityScore = (marketPeakSoldPrice && currentPrice > 0)
-          ? Number((marketPeakSoldPrice / currentPrice).toFixed(2))
+        const opportunityScore = (colorPeak && currentPrice > 0)
+          ? Number((colorPeak / currentPrice).toFixed(2))
           : null;
         return {
           ...lot,
           suggestedPrice: lotPd?.suggestedPrice ?? null,
           opportunityScore,
-          marketPeakSoldPrice: marketPeakSoldPrice ? marketPeakSoldPrice.toFixed(4) : null,
+          marketPeakSoldPrice: colorPeak ? colorPeak.toFixed(4) : null,
         };
       });
 
@@ -4447,7 +4453,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
         tooLow: settingsRow?.pomTooLowThreshold ?? 25,
       };
 
-      res.json({ priceData, inventoryLots: inventoryLotsEnriched, lotPriceData, thresholds, marketPeakSoldPrice, storedToCache: true });
+      res.json({ priceData, inventoryLots: inventoryLotsEnriched, lotPriceData, thresholds, storedToCache: true });
     } catch (error: any) {
       console.error("[POM Spot Lookup] Error:", error);
       res.status(500).json({
