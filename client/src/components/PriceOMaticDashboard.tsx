@@ -238,12 +238,25 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
           )}
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button onClick={handleSync} disabled={isSyncRunning} size="icon" variant="ghost" data-testid="button-sync">
-                <RefreshCw className={`w-4 h-4 text-gray-500 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
-              </Button>
+              <div className="relative">
+                <Button onClick={handleSync} disabled={isSyncRunning} size="icon" variant="ghost" data-testid="button-sync">
+                  <RefreshCw className={`w-4 h-4 text-gray-500 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
+                </Button>
+                {status?.callsLast24h !== undefined && (
+                  <span className={`absolute -top-1 -right-1 text-[9px] font-mono font-bold px-1 py-0.5 rounded-full leading-none pointer-events-none ${
+                    status.callsLast24h >= apiCeiling * 0.9 ? 'bg-red-500/20 text-red-400' :
+                    status.callsLast24h >= apiCeiling * 0.6 ? 'bg-orange-500/20 text-orange-400' :
+                    'bg-gray-700 text-gray-400'
+                  }`}>
+                    {status.callsLast24h >= 1000
+                      ? `${(status.callsLast24h / 1000).toFixed(1)}k`
+                      : status.callsLast24h}
+                  </span>
+                )}
+              </div>
             </TooltipTrigger>
             <TooltipContent side="left" className="max-w-56 text-xs">
-              {isSyncRunning ? 'Syncing in progress...' : 'Refresh Market Data — fetches BrickLink price data for stale items (3 API calls each). Does not change your prices.'}
+              {isSyncRunning ? 'Syncing in progress...' : `Refresh Market Data — ${status?.callsLast24h?.toLocaleString() ?? 0}/${apiCeiling.toLocaleString()} API calls used today. Does not change your prices.`}
             </TooltipContent>
           </Tooltip>
         </div>
