@@ -158,7 +158,6 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
         item.inventoryId ? `Lot ${item.inventoryId}` : '',
       ].filter(Boolean).join(' · ');
       const notesLine = [
-        item.remarks ? `<span class="note-remarks">&#x1F4CC; ${item.remarks}</span>` : '',
         item.comment ? `<span class="note-comment">&#x1F4AC; ${item.comment}</span>` : '',
       ].filter(Boolean).join(' &nbsp;');
       // resolvePartImageUrl may return a relative proxy URL (/api/images/proxy?url=...)
