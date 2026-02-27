@@ -435,86 +435,113 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
             </div>
           </div>
 
-          {/* Inventory lots — stacked price + score, matching filter results style */}
+          {/* Inventory lots — grouped by color, N/U side-by-side matching filter card style */}
           <div className="max-h-[280px] overflow-y-auto pr-0.5 space-y-1">
-            {lots.length > 0 ? (
-              <>
-                {/* Column header */}
-                <div className="flex items-center gap-1 px-1 pb-0.5">
-                  <span className="text-[9px] uppercase tracking-wider text-gray-600 flex-1 min-w-0">Qty · Color · Peak sold</span>
-                  <span className="text-[9px] uppercase tracking-wider text-gray-700 w-14 text-right flex-shrink-0">Cur / Sugg</span>
-                  <span className="text-[9px] uppercase tracking-wider text-gray-700 w-12 text-right flex-shrink-0">Score</span>
-                </div>
+            {lots.length > 0 ? (() => {
+              const scoreColor = (s: number | null) => {
+                if (s === null) return 'text-gray-600';
+                if (s >= 2.0) return 'text-emerald-400';
+                if (s >= 1.5) return 'text-orange-400';
+                if (s >= 1.0) return 'text-yellow-500';
+                return 'text-gray-500';
+              };
 
-                {lots.map((lot) => {
-                  const lotKey = `${lot.colorId ?? "null"}_${lot.newOrUsed}`;
-                  const lotPd = lotPriceData[lotKey];
-                  const suggestedPrice = lot.suggestedPrice ?? lotPd?.suggestedPrice ?? null;
-                  const score = lot.opportunityScore ?? null;
-                  const peakStr = lot.marketPeakSoldPrice;
-
-                  const scoreColor = (s: number | null) => {
-                    if (s === null) return 'text-gray-600';
-                    if (s >= 2.0) return 'text-emerald-400';
-                    if (s >= 1.5) return 'text-orange-400';
-                    if (s >= 1.0) return 'text-yellow-500';
-                    return 'text-gray-500';
-                  };
-
-                  return (
-                    <div
-                      key={lot.id}
-                      className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-gray-800/50 border border-gray-700/30"
-                    >
-                      {/* Left: qty · color swatch + name · condition · peak */}
-                      <div className="flex items-center gap-1 flex-1 min-w-0">
-                        <span className="text-[10px] font-mono text-gray-500 flex-shrink-0">×{lot.quantity}</span>
-                        {lot.colorRgb ? (
-                          <span
-                            className="w-2 h-2 rounded-full flex-shrink-0 border border-gray-600"
-                            style={{ backgroundColor: `#${lot.colorRgb}` }}
-                          />
-                        ) : (
-                          <span className="w-2 h-2 rounded-full flex-shrink-0 bg-gray-600" />
-                        )}
-                        <span className="text-[10px] text-gray-300 truncate">{lot.colorName || "N/A"}</span>
-                        <span className={`text-[9px] font-mono flex-shrink-0 px-1 rounded ${lot.newOrUsed === 'N' ? 'text-blue-400 bg-blue-500/10' : 'text-amber-400 bg-amber-500/10'}`}>
-                          {lot.newOrUsed === 'N' ? 'N' : 'U'}
-                        </span>
-                        {peakStr && (
-                          <span className="text-[9px] text-gray-600 flex-shrink-0 truncate">
-                            · peak {formatCurrency(peakStr)}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Stacked: current / suggested */}
-                      <div className="flex flex-col items-end w-14 flex-shrink-0">
-                        <span className="text-[10px] font-mono text-gray-300 leading-tight">
-                          {lot.unitPrice ? formatCurrency(lot.unitPrice) : "—"}
-                        </span>
-                        {suggestedPrice ? (
-                          <span className="text-[9px] font-mono text-purple-400 leading-tight">
-                            {formatCurrency(suggestedPrice)}
-                            {lot.floorApplied === 'cost' && <span className="text-emerald-500 ml-0.5">↑</span>}
-                            {lot.floorApplied === 'min' && <span className="text-blue-400 ml-0.5">↑</span>}
-                          </span>
-                        ) : lotPd === undefined ? (
-                          <RefreshCw className="w-2.5 h-2.5 text-gray-600 animate-spin mt-0.5" />
-                        ) : (
-                          <span className="text-[9px] text-gray-700">—</span>
-                        )}
-                      </div>
-
-                      {/* Score */}
-                      <span className={`text-[10px] font-mono font-bold w-12 text-right flex-shrink-0 ${scoreColor(score)}`}>
-                        {score != null ? `${score}×` : '—'}
+              const LotPriceCell = ({ lot }: { lot: InventoryLot | undefined }) => {
+                if (!lot) return <span className="text-[10px] text-gray-700 w-14 text-right flex-shrink-0">—</span>;
+                const lotKey = `${lot.colorId ?? "null"}_${lot.newOrUsed}`;
+                const lotPd = lotPriceData[lotKey];
+                const suggestedPrice = lot.suggestedPrice ?? lotPd?.suggestedPrice ?? null;
+                return (
+                  <div className="flex flex-col items-end w-14 flex-shrink-0">
+                    <span className="text-[10px] font-mono text-gray-300 leading-tight">
+                      {lot.unitPrice ? formatCurrency(lot.unitPrice) : "—"}
+                    </span>
+                    {suggestedPrice ? (
+                      <span className="text-[9px] font-mono text-purple-400 leading-tight">
+                        {formatCurrency(suggestedPrice)}
+                        {lot.floorApplied === 'cost' && <span className="text-emerald-500 ml-0.5">↑</span>}
+                        {lot.floorApplied === 'min' && <span className="text-blue-400 ml-0.5">↑</span>}
                       </span>
+                    ) : lotPd === undefined ? (
+                      <RefreshCw className="w-2.5 h-2.5 text-gray-600 animate-spin mt-0.5" />
+                    ) : (
+                      <span className="text-[9px] text-gray-700">—</span>
+                    )}
+                  </div>
+                );
+              };
+
+              // Group by colorId
+              const colorGroups = new Map<string, { newLot?: InventoryLot; usedLot?: InventoryLot }>();
+              lots.forEach(lot => {
+                const key = String(lot.colorId ?? 'null');
+                if (!colorGroups.has(key)) colorGroups.set(key, {});
+                const g = colorGroups.get(key)!;
+                if (lot.newOrUsed === 'N') g.newLot = lot;
+                else g.usedLot = lot;
+              });
+
+              return (
+                <>
+                  {/* Column header — matches filter results */}
+                  <div className="flex items-center gap-1 px-2 pb-0.5">
+                    <div className="flex-1 min-w-0" />
+                    <div className="flex flex-col items-end w-14 flex-shrink-0">
+                      <span className="text-[9px] uppercase tracking-wider text-gray-400 leading-none">N Cur</span>
+                      <span className="text-[9px] uppercase tracking-wider text-gray-400 leading-none">Sugg</span>
                     </div>
-                  );
-                })}
-              </>
-            ) : (
+                    <span className="text-[9px] uppercase tracking-wider text-gray-400 rounded px-1.5 py-0.5 whitespace-nowrap flex-shrink-0">N Score</span>
+                    <div className="flex flex-col items-end w-14 flex-shrink-0">
+                      <span className="text-[9px] uppercase tracking-wider text-gray-400 leading-none">U Cur</span>
+                      <span className="text-[9px] uppercase tracking-wider text-gray-400 leading-none">Sugg</span>
+                    </div>
+                    <span className="text-[9px] uppercase tracking-wider text-gray-400 rounded px-1.5 py-0.5 whitespace-nowrap flex-shrink-0">U Score</span>
+                  </div>
+
+                  {Array.from(colorGroups.entries()).map(([colorKey, { newLot, usedLot }]) => {
+                    const anyLot = newLot ?? usedLot!;
+                    const totalQty = (newLot?.quantity ?? 0) + (usedLot?.quantity ?? 0);
+                    const peakStr = newLot?.marketPeakSoldPrice ?? usedLot?.marketPeakSoldPrice ?? null;
+                    const nScore = newLot?.opportunityScore ?? null;
+                    const uScore = usedLot?.opportunityScore ?? null;
+
+                    return (
+                      <div
+                        key={colorKey}
+                        className="bg-gray-900/50 border border-gray-700 rounded-lg px-2 py-1.5"
+                      >
+                        {/* Left: qty · color · peak */}
+                        <div className="flex items-center gap-1 min-w-0">
+                          <span className="text-[10px] font-mono text-gray-500 flex-shrink-0">×{totalQty}</span>
+                          {anyLot.colorRgb ? (
+                            <span className="w-2 h-2 rounded-full flex-shrink-0 border border-gray-600" style={{ backgroundColor: `#${anyLot.colorRgb}` }} />
+                          ) : (
+                            <span className="w-2 h-2 rounded-full flex-shrink-0 bg-gray-600" />
+                          )}
+                          <span className="text-[10px] text-gray-500 truncate flex-1 min-w-0">{anyLot.colorName || '—'}</span>
+                          {peakStr && (
+                            <span className="text-[9px] text-gray-600 flex-shrink-0">· peak {formatCurrency(peakStr)}</span>
+                          )}
+                        </div>
+
+                        {/* Row 2: N price | N score | U price | U score */}
+                        <div className="flex items-center gap-1 mt-0.5 min-w-0">
+                          <div className="flex-1 min-w-0" />
+                          <LotPriceCell lot={newLot} />
+                          <span className={`text-[10px] font-mono font-bold text-right flex-shrink-0 w-[58px] ${scoreColor(nScore)}`}>
+                            {nScore != null ? `${nScore}×` : '—'}
+                          </span>
+                          <LotPriceCell lot={usedLot} />
+                          <span className={`text-[10px] font-mono font-bold text-right flex-shrink-0 w-[58px] ${scoreColor(uScore)}`}>
+                            {uScore != null ? `${uScore}×` : '—'}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </>
+              );
+            })() : (
               <div className="text-[11px] text-gray-600 flex items-center gap-1.5">
                 <Package className="w-3 h-3" />
                 Not currently in your inventory
