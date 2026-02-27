@@ -736,11 +736,11 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
       <Dialog open={open} onOpenChange={onClose}>
         <DialogContent
           className="sm:max-w-[800px] bg-gray-900 border-gray-700 p-0"
-          style={{ maxHeight: 'calc(90dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom))' }}
+          style={{ maxHeight: 'calc(96dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom))' }}
         >
           <div
             className="flex flex-col sm:flex-row h-full"
-            style={{ maxHeight: 'calc(90dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom))' }}
+            style={{ maxHeight: 'calc(96dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom))' }}
           >
             {/* Left Navigation */}
             <div className="sm:w-48 border-b sm:border-b-0 sm:border-r border-gray-700 bg-gray-800/50">
