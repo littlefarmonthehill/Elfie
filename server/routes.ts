@@ -5555,9 +5555,21 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
           myCost: blInventory.myCost,
           stockAvgPrice: priceGuideCache.stockAvgPrice,
           soldAvgPrice: priceGuideCache.soldAvgPrice,
+          soldMaxPrice: priceGuideCache.soldMaxPrice,
           stockTotalLots: priceGuideCache.stockTotalLots,
           quantity: blInventory.quantity,
           lastFetched: priceGuideCache.fetchedAt,
+          // Highest sold price across ALL conditions (N + U) for this itemNo/colorId
+          marketPeakSoldPrice: sql<string | null>`(
+            SELECT MAX(pgc2.sold_max_price)
+            FROM price_guide_cache pgc2
+            WHERE pgc2.item_no = ${blInventory.itemNo}
+              AND pgc2.item_type = ${blInventory.itemType}
+              AND (
+                pgc2.color_id = ${blInventory.colorId}
+                OR (pgc2.color_id IS NULL AND ${blInventory.colorId} IS NULL)
+              )
+          )`,
         })
         .from(blInventory)
         .innerJoin(
@@ -5586,6 +5598,12 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
         let category: 'too_high' | 'too_low' | 'good' = 'good';
         if (variance > tooHighPct) category = 'too_high';
         else if (variance < -tooLowPct) category = 'too_low';
+
+        // Opportunity score: highest sold price across ALL conditions / our current price
+        const marketPeak = item.marketPeakSoldPrice ? parseFloat(item.marketPeakSoldPrice) : null;
+        const opportunityScore = (marketPeak !== null && currentPrice > 0)
+          ? Number((marketPeak / currentPrice).toFixed(2))
+          : null;
         
         return {
           inventoryId: item.inventoryId,
@@ -5601,6 +5619,9 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
           marketPrice: marketPrice.toFixed(4),
           floorApplied,
           stockAvgPrice: item.stockAvgPrice,
+          soldMaxPrice: item.soldMaxPrice,
+          marketPeakSoldPrice: item.marketPeakSoldPrice,
+          opportunityScore,
           variance: Math.round(variance),
           quantity: item.quantity,
           lastFetched: item.lastFetched,
