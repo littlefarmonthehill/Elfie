@@ -471,17 +471,13 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
                   className="group bg-gray-900/50 border border-gray-700 rounded-lg p-1.5 hover-elevate active-elevate-2 cursor-pointer"
                   data-testid={`item-${item.inventoryId}`}
                 >
-                  <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <p className="text-xs text-white truncate">{item.itemName || 'Unknown Item'}</p>
-                        <span className="text-[10px] md:text-sm font-mono text-gray-400 flex-shrink-0">{item.itemNo}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        {item.colorName && (
-                          <span className="text-[10px] md:text-sm text-gray-400">{item.colorName}</span>
-                        )}
-                      </div>
+                      <p className="text-xs text-white leading-snug line-clamp-2">{item.itemName || 'Unknown Item'}</p>
+                      <p className="text-[10px] text-gray-500 mt-0.5 leading-none">
+                        <span className="font-mono">{item.itemNo}</span>
+                        {item.colorName && <span> · {item.colorName}</span>}
+                      </p>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <Tooltip>
