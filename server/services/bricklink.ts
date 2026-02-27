@@ -1211,6 +1211,10 @@ export async function syncPriceOMagicCache(maxItems?: number): Promise<{
         colorId: blInventory.colorId,
         newOrUsed: blInventory.newOrUsed,
         quantity: blInventory.quantity,
+        itemName: blInventory.itemName,
+        imageUrl: blInventory.imageUrl,
+        thumbnailUrl: blInventory.thumbnailUrl,
+        categoryId: blInventory.categoryId,
         categoryTier: blCategories.priorityTier,
         cacheId: priceGuideCache.id,
         lastFetched: priceGuideCache.fetchedAt,
@@ -1305,8 +1309,9 @@ export async function syncPriceOMagicCache(maxItems?: number): Promise<{
           }
         }
 
-        // Fetch price data — score-only sync (2 API calls: item details + sold price guide)
-        // Stock guide is skipped; existing pricing data preserved. Use on-demand pricing for suggested prices.
+        // Fetch price data — score-only sync (1 API call: sold price guide only)
+        // Item details are sourced from local blInventory (already synced). Stock guide
+        // is skipped; existing pricing data preserved. On-demand pricing computes suggested prices.
         await fetchPriceOMagicData(
           item.itemNo,
           item.itemType,
@@ -1314,12 +1319,18 @@ export async function syncPriceOMagicCache(maxItems?: number): Promise<{
           item.newOrUsed,
           pomConfig.basePremium,
           pomConfig,
-          true // skipStock
+          true, // skipStock
+          {
+            name: item.itemName,
+            imageUrl: item.imageUrl,
+            thumbnailUrl: item.thumbnailUrl,
+            categoryId: item.categoryId,
+          }
         );
 
         itemsUpdated++;
         pomSyncProgress.itemsProcessed = itemsUpdated;
-        apiCallsUsed += 2; // Track approximate API usage (item details + sold guide only)
+        apiCallsUsed += 1; // 1 API call per item: sold guide only (item details from local DB)
         
         // Log progress every 100 items
         if (itemsUpdated % 100 === 0) {
@@ -1364,7 +1375,8 @@ export async function fetchPriceOMagicData(
   newOrUsed: string = 'N',
   premiumPercentage: number = 15,
   config: PomFormulaConfig = POM_FORMULA_DEFAULTS,
-  skipStock: boolean = false
+  skipStock: boolean = false,
+  localItemData?: { name?: string | null; imageUrl?: string | null; thumbnailUrl?: string | null; categoryId?: number | null }
 ): Promise<any> {
   try {
     // Check if we have cached data less than 24 hours old
@@ -1407,9 +1419,13 @@ export async function fetchPriceOMagicData(
     const upperItemType = itemType.toUpperCase();
     const apiItemType = itemTypeMap[upperItemType] || upperItemType;
 
-    // Fetch item details
+    // Fetch item details — skip if local data provided (scheduled sync uses blInventory table)
     const itemDetailsEndpoint = `/items/${apiItemType}/${itemNo}`;
-    const { data: itemDetails } = await bricklinkCatalogRequest(itemDetailsEndpoint);
+    let itemDetails: any = null;
+    if (!localItemData) {
+      const { data } = await bricklinkCatalogRequest(itemDetailsEndpoint);
+      itemDetails = data;
+    }
 
     const stockPriceEndpoint = `/items/${apiItemType}/${itemNo}/price`;
 
@@ -1487,11 +1503,11 @@ export async function fetchPriceOMagicData(
       colorId: colorId || null,
       newOrUsed,
       
-      // Item details
-      itemName: itemDetails?.name || null,
-      imageUrl: itemDetails?.image_url || null,
-      thumbnailUrl: itemDetails?.thumbnail_url || null,
-      categoryId: itemDetails?.category_id || null,
+      // Item details — prefer local blInventory data when provided (saves 1 API call/item)
+      itemName: localItemData?.name || itemDetails?.name || null,
+      imageUrl: localItemData?.imageUrl || itemDetails?.image_url || null,
+      thumbnailUrl: localItemData?.thumbnailUrl || itemDetails?.thumbnail_url || null,
+      categoryId: localItemData?.categoryId || itemDetails?.category_id || null,
       weight: itemDetails?.weight ? itemDetails.weight.toString() : null,
       dimensionX: itemDetails?.dim_x ? itemDetails.dim_x.toString() : null,
       dimensionY: itemDetails?.dim_y ? itemDetails.dim_y.toString() : null,
