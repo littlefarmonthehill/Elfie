@@ -30,48 +30,27 @@ export function useServiceWorker() {
             }
           });
 
-          // Auto-reload when new service worker takes control
-          // BUT ONLY if the page is visible and no drawers/modals are open
+          // Auto-reload when new service worker takes control.
+          // We only reload on visibilitychange (user tabs away and comes back),
+          // never mid-session — this prevents disruptive reloads during active
+          // workflows like fulfillment or printing.
           let refreshing = false;
           navigator.serviceWorker.addEventListener('controllerchange', () => {
             if (!refreshing) {
-              // Helper to check if any drawers/modals are open
-              const isModalOpen = () => {
-                // Check for common modal/drawer indicators
-                const hasOpenDialog = document.querySelector('[role="dialog"][data-state="open"]');
-                const hasOpenSheet = document.querySelector('[data-state="open"]');
-                const hasAriaModal = document.querySelector('[aria-modal="true"]');
-                return !!(hasOpenDialog || hasOpenSheet || hasAriaModal);
+              console.log('🔄 Update available — will apply on next tab switch.');
+
+              const applyOnReturn = () => {
+                // Reload only when the user comes BACK to the tab, not when
+                // a drawer closes or any other mid-session DOM change fires.
+                if (document.visibilityState === 'visible') {
+                  refreshing = true;
+                  console.log('🔄 Applying update on tab return...');
+                  window.location.reload();
+                  document.removeEventListener('visibilitychange', applyOnReturn);
+                }
               };
 
-              // Don't reload if page is hidden (e.g., camera is open) or if modals are open
-              const shouldWait = document.hidden || document.visibilityState === 'hidden' || isModalOpen();
-              
-              if (shouldWait) {
-                console.log('🔄 Update available, but waiting for safe moment to reload...');
-                
-                // Wait for a safe moment to reload
-                const checkAndReload = () => {
-                  if (!document.hidden && document.visibilityState === 'visible' && !isModalOpen()) {
-                    console.log('🔄 Safe to reload now, applying update...');
-                    refreshing = true;
-                    window.location.reload();
-                    document.removeEventListener('visibilitychange', visibilityCheckHandler);
-                    clearInterval(modalCheckInterval);
-                  }
-                };
-                
-                const visibilityCheckHandler = () => checkAndReload();
-                document.addEventListener('visibilitychange', visibilityCheckHandler);
-                
-                // Also check periodically if modals have closed
-                const modalCheckInterval = setInterval(() => checkAndReload(), 2000);
-              } else {
-                // Page is visible and no modals open, safe to reload
-                refreshing = true;
-                console.log('🔄 Reloading to apply update...');
-                window.location.reload();
-              }
+              document.addEventListener('visibilitychange', applyOnReturn);
             }
           });
         })
