@@ -16,7 +16,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Search, Package, RefreshCw, AlertCircle, X, Camera, DollarSign } from "lucide-react";
+import { Search, Package, RefreshCw, AlertCircle, X, Camera, DollarSign, ExternalLink } from "lucide-react";
 
 interface Color {
   id: number;
@@ -402,21 +402,29 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
         <div className="mt-3 border-t border-gray-700/50 pt-3">
           {/* Results header with close button */}
           <div className="flex items-start justify-between gap-2 mb-2.5">
-            <div className="flex items-start gap-2.5">
+            <a
+              href={`https://www.bricklink.com/v2/catalog/catalogitem.page?P=${pd.itemNo}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-start gap-2.5 group/bllink min-w-0 flex-1"
+              onClick={(e) => e.stopPropagation()}
+              data-testid="link-bricklink-catalog"
+            >
               {pd.thumbnailUrl ? (
                 <img
                   src={pd.thumbnailUrl}
                   alt={pd.itemName || pd.itemNo}
-                  className="w-12 h-12 object-contain rounded bg-gray-800 flex-shrink-0"
+                  className="w-12 h-12 object-contain rounded bg-gray-800 flex-shrink-0 group-hover/bllink:ring-1 group-hover/bllink:ring-blue-500/40 transition-all"
                 />
               ) : (
-                <div className="w-12 h-12 rounded bg-gray-800 flex-shrink-0 flex items-center justify-center">
+                <div className="w-12 h-12 rounded bg-gray-800 flex-shrink-0 flex items-center justify-center group-hover/bllink:ring-1 group-hover/bllink:ring-blue-500/40 transition-all">
                   <Package className="w-5 h-5 text-gray-600" />
                 </div>
               )}
-              <div>
-                <div className="text-sm font-semibold text-white leading-tight">
-                  {pd.itemName || "—"}
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-white leading-tight flex items-center gap-1 group-hover/bllink:text-blue-300 transition-colors">
+                  <span className="truncate">{pd.itemName || "—"}</span>
+                  <ExternalLink className="w-3 h-3 text-gray-600 group-hover/bllink:text-blue-400 flex-shrink-0 transition-colors" />
                 </div>
                 <div className="text-[11px] text-gray-500 font-mono mt-0.5">
                   #{pd.itemNo}
@@ -431,7 +439,7 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
                   </div>
                 )}
               </div>
-            </div>
+            </a>
             <button
               onClick={handleClose}
               className="text-gray-500 hover:text-gray-300 transition-colors flex-shrink-0 mt-0.5"
