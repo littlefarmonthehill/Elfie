@@ -395,7 +395,7 @@ export default function FulfillmentTool() {
 
   const handlePrintPicklist = () => {
     const date = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    const items = allPicklistItems;
+    const items = allPicklistItems.filter(item => selectedOrders.has(item.orderId));
     const chanPrefix = (item: PicklistBinItem) => item.marketplace === 'BrickOwl' ? 'BO' : 'BL';
     const condLabel = (c: string | null) => c === 'N' ? 'New' : c === 'U' ? 'Used' : (c || '');
     const partKey = (item: PicklistBinItem) => item.partNumber || item.sku || '';
@@ -740,6 +740,7 @@ export default function FulfillmentTool() {
             <Button
               size="sm"
               variant="ghost"
+              disabled={selectedOrders.size === 0}
               onClick={handlePrintPicklist}
               className="text-gray-300 text-xs whitespace-nowrap shrink-0"
               data-testid="button-print-picklist"

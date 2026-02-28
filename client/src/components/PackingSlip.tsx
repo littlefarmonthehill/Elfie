@@ -232,7 +232,7 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
     .page {
       width: 100%;
       padding-top: 0.2in;
-      padding-bottom: 0.15in;
+      padding-bottom: 0.04in;
       page-break-after: always;
       break-after: page;
       position: relative;

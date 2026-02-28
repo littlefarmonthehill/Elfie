@@ -194,10 +194,10 @@ export default function InlineShippingCard({
     return () => clearTimeout(timer);
   }, [packageType, dimL, dimW, dimH]);
 
-  // Notify parent whenever ready state changes
+  // Notify parent whenever ready state changes — weight must be filled in
   useEffect(() => {
     const selectedRate = rates.find(r => r.id === selectedRateId);
-    if (shipmentId && selectedRateId && selectedRate) {
+    if (shipmentId && selectedRateId && selectedRate && weight !== "") {
       onReadyChange(orderId, { shipmentId, rateId: selectedRateId, weight, weightUnits, selectedRate });
     } else {
       onReadyChange(orderId, null);

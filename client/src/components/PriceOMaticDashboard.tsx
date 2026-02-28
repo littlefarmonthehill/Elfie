@@ -476,40 +476,42 @@ export default function PriceOMaticDashboard({ onItemClick, isSyncRunning }: Pri
       <PomSpotLookup formatCurrency={formatCurrency} />
 
       {/* Item list */}
-      {insightsData && (
-        <div className="space-y-1.5">
+      <div className="space-y-1.5">
 
-          {/* Orbit filter tabs */}
-          <div className="flex items-center gap-2 px-1 pb-1">
-            <button
-              onClick={() => setOrbitFilter('in_orbit')}
-              className={`flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded transition-colors ${
-                orbitFilter === 'in_orbit'
-                  ? 'bg-blue-500/25 text-blue-300 border border-blue-500/40'
-                  : 'text-gray-500 hover:text-gray-300'
-              }`}
-              data-testid="filter-in-orbit"
-            >
-              <Orbit className="w-3 h-3" />
-              In Orbit
-              <span className="text-[9px] opacity-70">({inOrbitGroups.length})</span>
-            </button>
-            <button
-              onClick={() => setOrbitFilter('deep_space')}
-              className={`flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded transition-colors ${
-                orbitFilter === 'deep_space'
-                  ? 'bg-indigo-500/25 text-indigo-300 border border-indigo-500/40'
-                  : 'text-gray-500 hover:text-gray-300'
-              }`}
-              data-testid="filter-deep-space"
-            >
-              <Rocket className="w-3 h-3" />
-              Deep Space
-              <span className="text-[9px] opacity-70">({deepSpaceGroups.length})</span>
-            </button>
-          </div>
+        {/* Orbit filter tabs — always visible so Deep Space is reachable even while insights load */}
+        <div className="flex items-center gap-2 px-1 pb-1">
+          <button
+            onClick={() => setOrbitFilter('in_orbit')}
+            className={`flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded transition-colors ${
+              orbitFilter === 'in_orbit'
+                ? 'bg-blue-500/25 text-blue-300 border border-blue-500/40'
+                : 'text-gray-500 hover:text-gray-300'
+            }`}
+            data-testid="filter-in-orbit"
+          >
+            <Orbit className="w-3 h-3" />
+            In Orbit
+            <span className="text-[9px] opacity-70">({inOrbitGroups.length})</span>
+          </button>
+          <button
+            onClick={() => setOrbitFilter('deep_space')}
+            className={`flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded transition-colors ${
+              orbitFilter === 'deep_space'
+                ? 'bg-indigo-500/25 text-indigo-300 border border-indigo-500/40'
+                : 'text-gray-500 hover:text-gray-300'
+            }`}
+            data-testid="filter-deep-space"
+          >
+            <Rocket className="w-3 h-3" />
+            Deep Space
+            <span className="text-[9px] opacity-70">({deepSpaceGroups.length})</span>
+          </button>
+        </div>
 
-          {selectedGroups.length === 0 ? (
+        {/* Deep Space: renders independently of insightsData so cross-device items always show */}
+        {/* In Orbit: gated on insightsData; shows "No Data Yet" when not loaded */}
+        {(orbitFilter === 'deep_space' || insightsData) ? (
+          selectedGroups.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
               {orbitFilter === 'deep_space' ? (
                 <div className="space-y-1">
@@ -690,20 +692,18 @@ export default function PriceOMaticDashboard({ onItemClick, isSyncRunning }: Pri
                 </Button>
               )}
             </>
-          )}
-        </div>
-      )}
-
-      {!insightsData && !insightsLoading && (
-        <div className="text-center py-12">
-          <Sparkles className="w-10 h-10 text-purple-400 mx-auto mb-3" />
-          <h3 className="text-sm font-bold text-white mb-1">No Data Yet</h3>
-          <p className="text-xs text-gray-400 mb-3">
-            Run your first sync to analyze pricing
-          </p>
-          <p className="text-xs text-gray-500">Use the refresh button in the header to run your first sync.</p>
-        </div>
-      )}
+          )
+        ) : !insightsLoading ? (
+          <div className="text-center py-12">
+            <Sparkles className="w-10 h-10 text-purple-400 mx-auto mb-3" />
+            <h3 className="text-sm font-bold text-white mb-1">No Data Yet</h3>
+            <p className="text-xs text-gray-400 mb-3">
+              Run your first sync to analyze pricing
+            </p>
+            <p className="text-xs text-gray-500">Use the refresh button in the header to run your first sync.</p>
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }
