@@ -189,7 +189,7 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
   .note-remarks { color: #444; }
   .note-comment { color: #0055aa; }
   .item-row { page-break-inside: avoid; break-inside: avoid; }
-  .cut-wrap { padding: 22px 0; }
+  .cut-wrap { padding: 8px 0; }
   .cut-tick { width: 22px; border-top: 1px solid #bbb; }
   .item-body { display: flex; align-items: flex-start; gap: 6px; }
   .thumb { max-height: 36px; max-width: 36px; width: auto; height: auto; object-fit: contain; flex-shrink: 0; }
@@ -243,85 +243,74 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
 
   const isEmpty = viewMode === 'by_part' ? flatItems.length === 0 : sortedAisles.length === 0;
 
+  const noOrdersSelected = filterOrderIds !== undefined && filterOrderIds.size === 0;
+
   return (
     <div className="space-y-4">
 
-      {/* ── Controls row: view toggle + status filter on one line ── */}
-      <div className="flex flex-wrap items-center gap-2">
-        {/* View toggle */}
-        <div className="flex rounded-md overflow-hidden border border-gray-700">
+      {/* ── Controls row — hidden when no orders selected ── */}
+      {!noOrdersSelected && (
+        <div className="flex flex-wrap items-center gap-2">
+          {/* View toggle */}
+          <div className="flex rounded-md overflow-hidden border border-gray-700">
+            <button
+              onClick={() => setViewMode('by_bin')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${
+                viewMode === 'by_bin'
+                  ? 'bg-purple-600 text-white'
+                  : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+              }`}
+              data-testid="button-view-by-bin"
+            >
+              <Layers className="w-3.5 h-3.5" />
+              By Shelf / Bin
+            </button>
+            <button
+              onClick={() => setViewMode('by_part')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors border-l border-gray-700 ${
+                viewMode === 'by_part'
+                  ? 'bg-purple-600 text-white'
+                  : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+              }`}
+              data-testid="button-view-by-part"
+            >
+              <List className="w-3.5 h-3.5" />
+              By Part Number
+            </button>
+          </div>
+
+          {/* Separator */}
+          <div className="w-px h-5 bg-gray-700 shrink-0" />
+
+          {/* Status filters */}
           <button
-            onClick={() => setViewMode('by_bin')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${
-              viewMode === 'by_bin'
-                ? 'bg-purple-600 text-white'
-                : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+            onClick={() => setFilter('all')}
+            className={`text-xs px-2.5 py-1.5 rounded font-medium transition-colors ${
+              filter === 'all'
+                ? 'bg-gray-600 text-white'
+                : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'
             }`}
-            data-testid="button-view-by-bin"
+            data-testid="button-filter-all"
           >
-            <Layers className="w-3.5 h-3.5" />
-            By Shelf / Bin
+            All
           </button>
           <button
-            onClick={() => setViewMode('by_part')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors border-l border-gray-700 ${
-              viewMode === 'by_part'
-                ? 'bg-purple-600 text-white'
-                : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+            onClick={() => setFilter('to_pull')}
+            className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded font-medium transition-colors ${
+              filter === 'to_pull'
+                ? 'bg-gray-600 text-white'
+                : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'
             }`}
-            data-testid="button-view-by-part"
+            data-testid="button-filter-to-pull"
           >
-            <List className="w-3.5 h-3.5" />
-            By Part Number
+            <Package className="h-3 w-3" />
+            To Pick
           </button>
         </div>
-
-        {/* Separator */}
-        <div className="w-px h-5 bg-gray-700 shrink-0" />
-
-        {/* Status filters */}
-        <button
-          onClick={() => setFilter('all')}
-          className={`text-xs px-2.5 py-1.5 rounded font-medium transition-colors ${
-            filter === 'all'
-              ? 'bg-gray-600 text-white'
-              : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'
-          }`}
-          data-testid="button-filter-all"
-        >
-          All
-        </button>
-        <button
-          onClick={() => setFilter('to_pull')}
-          className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded font-medium transition-colors ${
-            filter === 'to_pull'
-              ? 'bg-gray-600 text-white'
-              : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'
-          }`}
-          data-testid="button-filter-to-pull"
-        >
-          <Package className="h-3 w-3" />
-          To Pick
-        </button>
-
-        {/* Order filter indicator */}
-        {filterOrderIds && filterOrderIds.size > 0 && (
-          <span className="ml-auto text-xs font-medium px-2 py-1 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30">
-            {filterOrderIds.size} order{filterOrderIds.size !== 1 ? 's' : ''} selected
-          </span>
-        )}
-      </div>
-
-      {/* Column label */}
-      <div className="flex items-center gap-3 px-3 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
-        <span className="w-4 text-center shrink-0">Pull</span>
-        <span className="flex-1">
-          {viewMode === 'by_part' ? 'Part / Item' : 'Bin'}
-        </span>
-      </div>
+      )}
 
       {/* ── Empty state: no orders selected ── */}
-      {filterOrderIds && filterOrderIds.size === 0 && (
+      {noOrdersSelected && (
         <div className="text-center py-12 text-gray-500">
           <Package className="h-12 w-12 mx-auto mb-3 opacity-50" />
           <p>No orders selected</p>
@@ -330,7 +319,7 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
       )}
 
       {/* ── Empty state: orders selected but nothing to show ── */}
-      {!(filterOrderIds && filterOrderIds.size === 0) && isEmpty && (
+      {!noOrdersSelected && isEmpty && (
         <div className="text-center py-12 text-gray-500">
           <Package className="h-12 w-12 mx-auto mb-3 opacity-50" />
           <p>Nothing in picklist</p>
@@ -341,7 +330,7 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
       {/* ══════════════════════════════════════════
           VIEW: BY PART NUMBER — grouped by part, variants collapsible
           ══════════════════════════════════════════ */}
-      {viewMode === 'by_part' && !(filterOrderIds && filterOrderIds.size === 0) && !isEmpty && (() => {
+      {viewMode === 'by_part' && !noOrdersSelected && !isEmpty && (() => {
         // Group flatItems by partNumber (or sku fallback)
         const partGroups: Map<string, BinPicklistItem[]> = new Map();
         for (const item of flatItems) {
@@ -474,7 +463,7 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
       {/* ══════════════════════════════════════════
           VIEW: BY SHELF / BIN — aisle › shelf › bin grouping
           ══════════════════════════════════════════ */}
-      {viewMode === 'by_bin' && !isEmpty && (
+      {viewMode === 'by_bin' && !noOrdersSelected && !isEmpty && (
         <div className="space-y-3" data-testid="picklist-by-bin">
           {sortedAisles.map((aisle) => {
             const shelves = groupedBins[aisle];

@@ -699,6 +699,8 @@ export default function FulfillmentTool() {
             className={`flex items-center gap-1.5 px-4 py-2 text-sm font-semibold border-b-2 transition-colors ${
               activeTab === 'picklist'
                 ? 'border-orange-500 text-orange-400'
+                : selectedOrders.size === 0
+                ? 'border-transparent text-gray-600 cursor-default'
                 : 'border-transparent text-gray-400 hover:text-gray-200'
             }`}
             data-testid="tab-picklist"

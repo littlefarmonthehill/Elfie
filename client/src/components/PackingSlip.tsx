@@ -54,28 +54,29 @@ async function loadLogoDataUrl(): Promise<string> {
 }
 
 export async function printPackingSlips(orders: PackingSlipOrder[]) {
-  const logoDataUrl = await loadLogoDataUrl();
-  const content = generatePackingSlipHTML(orders, logoDataUrl);
-
-  // Open via a blob URL so the popup has its own URL rather than inheriting
-  // the admin page URL in the browser's print footer. Combined with
-  // @page { margin: 0 } this suppresses the footer in Chrome/Firefox entirely.
-  const blob = new Blob([content], { type: 'text/html' });
-  const blobUrl = URL.createObjectURL(blob);
-  const printWindow = window.open(blobUrl, '_blank', 'width=800,height=600');
+  // Open window immediately while still in the user-gesture context (before any await).
+  // Calling window.open after an await loses the gesture context and iOS Safari blocks it.
+  const printWindow = window.open('', '_blank', 'width=800,height=600');
   if (!printWindow) {
-    URL.revokeObjectURL(blobUrl);
     alert('Please allow popups to print packing slips');
     return;
   }
-  const cleanup = () => {
-    URL.revokeObjectURL(blobUrl);
+
+  try {
+    const logoDataUrl = await loadLogoDataUrl();
+    const content = generatePackingSlipHTML(orders, logoDataUrl);
+
+    printWindow.document.open();
+    printWindow.document.write(content);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.addEventListener('afterprint', () => printWindow.close());
+    // Small delay lets the document render before printing
+    setTimeout(() => printWindow.print(), 200);
+  } catch (e) {
     printWindow.close();
-  };
-  printWindow.addEventListener('afterprint', cleanup);
-  printWindow.onafterprint = cleanup;
-  // Wait for the blob page to fully load before printing
-  printWindow.addEventListener('load', () => setTimeout(() => printWindow.print(), 100));
+    throw e;
+  }
 }
 
 function channelLabel(order: PackingSlipOrder): string {
@@ -230,8 +231,8 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
 
     .page {
       width: 100%;
-      padding-top: 0.5in;
-      padding-bottom: 0.35in;
+      padding-top: 0.2in;
+      padding-bottom: 0.15in;
       page-break-after: always;
       break-after: page;
       position: relative;
