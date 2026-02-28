@@ -229,10 +229,13 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
     .mv { text-align: right; }
 
     .items { width: 100%; border-collapse: collapse; margin-top: 2px; }
+    /* display: table-header-group repeats the header on every printed page.
+       Dark text on no background ensures it's visible even when the browser
+       does not print background colors (the most common default setting). */
     .items thead { display: table-header-group; }
-    .items thead tr { background: #777; color: white; }
-    .th-desc { text-align: left; padding: 4px 6px; font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; }
-    .th-qty  { text-align: right; padding: 4px 6px; font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; width: 40px; }
+    .items thead tr { background: transparent; color: #000; }
+    .th-desc { text-align: left; padding: 4px 6px 3px; font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1.5px solid #555; }
+    .th-qty  { text-align: right; padding: 4px 6px 3px; font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; width: 40px; border-bottom: 1.5px solid #555; }
     .items tbody tr { break-inside: avoid-page; page-break-inside: avoid; }
     .items tbody tr td { padding: 5px 6px; border-bottom: 1px solid #e0e0e0; vertical-align: top; break-inside: avoid-page; page-break-inside: avoid; }
     .items tbody tr:last-child td { border-bottom: none; }
