@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -210,6 +210,8 @@ function FulfillmentChecklist({ pulledItems, selectedOrderIds, fulfilledItems, o
 export default function FulfillmentTool() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<'picklist' | 'fulfillment' | 'shipping'>('picklist');
+  const actionRowRef = useRef<HTMLDivElement>(null);
+  const shipBtnRef = useRef<HTMLButtonElement>(null);
   const [fulfilledItems, setFulfilledItems] = useState<Set<string>>(new Set());
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
   // Batch shipping state
@@ -695,7 +697,7 @@ export default function FulfillmentTool() {
         {/* ── Tab switcher: Picklist | Fulfillment | Shipping ── */}
         <div className="flex justify-center gap-1 border-b border-gray-700">
           <button
-            onClick={() => setActiveTab('picklist')}
+            onClick={() => { setActiveTab('picklist'); requestAnimationFrame(() => { if (actionRowRef.current) actionRowRef.current.scrollLeft = 0; }); }}
             className={`flex items-center gap-1.5 px-4 py-2 text-sm font-semibold border-b-2 transition-colors ${
               activeTab === 'picklist'
                 ? 'border-orange-500 text-orange-400'
@@ -709,7 +711,7 @@ export default function FulfillmentTool() {
             Picklist
           </button>
           <button
-            onClick={() => setActiveTab('fulfillment')}
+            onClick={() => { setActiveTab('fulfillment'); requestAnimationFrame(() => { if (actionRowRef.current) actionRowRef.current.scrollLeft = 0; }); }}
             className={`flex items-center gap-1.5 px-4 py-2 text-sm font-semibold border-b-2 transition-colors ${
               activeTab === 'fulfillment'
                 ? 'border-cyan-500 text-cyan-400'
@@ -721,7 +723,7 @@ export default function FulfillmentTool() {
             Fulfill
           </button>
           <button
-            onClick={() => setActiveTab('shipping')}
+            onClick={() => { setActiveTab('shipping'); requestAnimationFrame(() => { if (shipBtnRef.current && actionRowRef.current) { const btn = shipBtnRef.current; const container = actionRowRef.current; container.scrollLeft = btn.offsetLeft - 8; } }); }}
             className={`flex items-center gap-1.5 px-4 py-2 text-sm font-semibold border-b-2 transition-colors ${
               activeTab === 'shipping'
                 ? 'border-purple-500 text-purple-400'
@@ -736,7 +738,7 @@ export default function FulfillmentTool() {
 
         {/* ── Persistent action bar — single scrollable row ── */}
         {!isSplitMode && (
-          <div className="flex items-center gap-1 px-1 py-1.5 border-b border-gray-700/60 overflow-x-auto scrollbar-hide">
+          <div ref={actionRowRef} className="flex items-center gap-1 px-1 py-1.5 border-b border-gray-700/60 overflow-x-auto scrollbar-hide">
             <Button
               size="sm"
               variant="ghost"
@@ -783,6 +785,7 @@ export default function FulfillmentTool() {
               Split
             </Button>
             <Button
+              ref={shipBtnRef}
               size="sm"
               variant="ghost"
               disabled={shippableCount === 0 || isShippingAll}
