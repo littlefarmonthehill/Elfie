@@ -1,6 +1,6 @@
 import MetricCard from "./MetricCard";
 import { useQuery } from "@tanstack/react-query";
-import { TrendingDown, AlertCircle, TrendingUp, ShoppingCart, RefreshCw, Sparkles } from "lucide-react";
+import { TrendingDown, AlertCircle, TrendingUp, ShoppingCart, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import DashboardNotifications from "./DashboardNotifications";
 
@@ -161,21 +161,36 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment }: Gen
             {/* Price-o-Matic sync running — only shown when active */}
             {isPomRunning && (
               <div
-                className="flex items-center justify-between rounded px-2 py-2 bg-purple-950/40 border border-purple-500/20"
+                className="rounded px-2 py-2 bg-purple-950/40 border border-purple-500/20 space-y-1.5"
                 data-testid="action-pom-running"
               >
-                <div className="flex items-center gap-2">
-                  <RefreshCw className="w-3.5 h-3.5 md:w-4 md:h-4 text-purple-400 animate-spin flex-shrink-0" />
-                  <div>
-                    <span className="text-xs md:text-sm text-purple-300">Price-o-Matic syncing</span>
-                    {pomProgress && pomProgress.itemsTotal > 0 && (
-                      <span className="text-[10px] md:text-xs text-purple-500 ml-1.5 font-mono">
-                        {pomProgress.itemsProcessed.toLocaleString()} / {pomProgress.itemsTotal.toLocaleString()}
-                      </span>
-                    )}
+                {/* Header row */}
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <RefreshCw className="w-3.5 h-3.5 text-purple-400 animate-spin flex-shrink-0" />
+                    <span className="text-xs md:text-sm text-purple-300 font-medium">Price-o-Matic Syncing</span>
                   </div>
+                  {pomProgress && pomProgress.itemsTotal > 0 && (
+                    <span className="text-[10px] font-mono text-purple-400 flex-shrink-0">
+                      {Math.round((pomProgress.itemsProcessed / pomProgress.itemsTotal) * 100)}%
+                    </span>
+                  )}
                 </div>
-                <Sparkles className="w-3.5 h-3.5 text-purple-500 flex-shrink-0" />
+                {/* Progress bar */}
+                {pomProgress && pomProgress.itemsTotal > 0 && (
+                  <>
+                    <div className="h-1.5 w-full rounded-full bg-purple-950/80 overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-purple-500 transition-all duration-500"
+                        style={{ width: `${Math.min((pomProgress.itemsProcessed / pomProgress.itemsTotal) * 100, 100)}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between text-[10px] font-mono text-purple-600">
+                      <span>{pomProgress.itemsProcessed.toLocaleString()} lots priced</span>
+                      <span>{pomProgress.itemsTotal.toLocaleString()} total</span>
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>
