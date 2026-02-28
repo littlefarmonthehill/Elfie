@@ -5234,32 +5234,41 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
   // Price-o-Matic sync endpoint (manual trigger from POM screen)
   app.post("/api/sync/priceomatic", isApproved, async (req, res) => {
     try {
+      // Fast in-memory check — catches scheduler-started syncs immediately
+      if (getPomIsRunning()) {
+        return res.status(409).json({
+          success: false,
+          error: 'A sync is already in progress. Please wait for it to complete.',
+        });
+      }
+
       // Use pomBatchSize (manual sync setting) — never the scheduler's pomScheduleBatchSize
       const [pomSettings] = await db.select({
         pomBatchSize: appSettings.pomBatchSize,
       }).from(appSettings).limit(1);
       const maxItems = req.body.maxItems ?? pomSettings?.pomBatchSize ?? 1500;
       
-      // Check if a sync is already in progress
+      // DB-level check as secondary guard (survives server restarts)
       const [existingSync] = await db
         .select()
         .from(syncMetadata)
         .where(eq(syncMetadata.id, 'priceomatic_cache'))
         .limit(1);
       
-      // If sync is in progress and started less than 10 minutes ago, reject
       if (existingSync?.lastSyncStatus === 'in_progress' && existingSync.lastSyncTime) {
         const timeSinceSync = Date.now() - new Date(existingSync.lastSyncTime).getTime();
         const tenMinutesInMs = 10 * 60 * 1000;
-        
         if (timeSinceSync < tenMinutesInMs) {
           return res.status(409).json({
             success: false,
             error: 'A sync is already in progress. Please wait for it to complete.',
           });
         }
-        // If sync has been in progress for more than 10 minutes, consider it stale and allow new sync
+        // Stale (>10 min) — allow override
       }
+
+      // Claim the shared lock before going async
+      setPomIsRunning(true);
       
       // Update sync metadata to "in_progress"
       await db
@@ -5282,7 +5291,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
 
       // Start the sync in the background (don't await)
       syncPriceOMagicCache(maxItems).then(async (result) => {
-        // Update sync metadata with results
+        setPomIsRunning(false);
         await db
           .insert(syncMetadata)
           .values({
@@ -5304,9 +5313,8 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
             },
           });
       }).catch(async (error) => {
+        setPomIsRunning(false);
         console.error("Price-o-Matic background sync error:", error);
-        
-        // Update sync metadata to failed
         await db
           .insert(syncMetadata)
           .values({
