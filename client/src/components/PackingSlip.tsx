@@ -33,6 +33,11 @@ interface PackingSlipProps {
   orders: PackingSlipOrder[];
 }
 
+// Page 1 of each order fits fewer items because the full header (logo + address +
+// ship-to block) consumes roughly 1.8in of the 10.4in content area.
+// These limits are conservative so no chunk ever overflows its page div.
+const FIRST_PAGE_ITEMS = 9;
+const CONT_PAGE_ITEMS  = 22;
 
 async function loadLogoDataUrl(): Promise<string> {
   try {
@@ -80,10 +85,13 @@ function channelLabel(order: PackingSlipOrder): string {
 }
 
 function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string): string {
-  // Each order is one natural-flow div. Items are NOT chunked — the browser
-  // flows them across pages organically, which fills each page fully and avoids
-  // the large blank gap at the bottom that comes from manually-forced page breaks.
-  const orderDivs = orders.map((order, orderIdx) => {
+  // Each order is split into explicit page-sized chunks so we know "Page X of Y"
+  // at generation time and can pin the footer to the bottom of each page div.
+  // min-height: calc(100vh - 0.6in) fills the full content area so there is no
+  // large blank gap before the browser's own footer line.
+  const allPageDivs: string[] = [];
+
+  orders.forEach((order, orderIdx) => {
     const { shipTo } = order;
     const street1    = shipTo.street1 || (shipTo as any).address1 || '';
     const street2    = shipTo.street2 || (shipTo as any).address2 || '';
@@ -95,40 +103,45 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
     const showCountry = country && country !== 'US';
     const orderNum   = order.orderNumber;
 
-    const shipToHTML = [
-      shipTo.name    ? `<div>${shipTo.name}</div>`    : '',
-      shipTo.company ? `<div>${shipTo.company}</div>` : '',
-      street1        ? `<div>${street1}</div>`         : '',
-      street2        ? `<div>${street2}</div>`         : '',
-      cityLine       ? `<div>${cityLine}</div>`        : '',
-      showCountry    ? `<div>${country}</div>`         : '',
-      (!shipTo.name && !street1 && !cityLine)
-        ? '<div class="missing-addr">Address not available</div>' : '',
-    ].join('');
+    const chunks: typeof order.items[] = [];
+    if (order.items.length > 0) {
+      chunks.push(order.items.slice(0, FIRST_PAGE_ITEMS));
+      for (let i = FIRST_PAGE_ITEMS; i < order.items.length; i += CONT_PAGE_ITEMS) {
+        chunks.push(order.items.slice(i, i + CONT_PAGE_ITEMS));
+      }
+    } else {
+      chunks.push([]);
+    }
 
-    const rowsHTML = order.items.map((item: any) => {
-      const baseName    = cleanItemName(item.name, item.bricklinkPartNumber);
-      const colorPrefix = item.colorName ? `${item.colorName} ` : '';
-      const partLabel   = item.bricklinkPartNumber ? ` (${item.bricklinkPartNumber})` : '';
-      const fullName    = `LEGO ${colorPrefix}${baseName}${partLabel}`;
-      const metaParts   = [
-        item.colorName ? `Color: ${item.colorName}`     : '',
-        item.condition ? `Condition: ${item.condition}` : '',
-      ].filter(Boolean).join(', ');
-      return `
-        <tr>
-          <td class="item-desc">
-            <div class="item-name">${fullName}</div>
-            ${metaParts ? `<div class="item-meta">${metaParts}</div>` : ''}
-          </td>
-          <td class="item-qty">${item.quantity}</td>
-        </tr>
-      `;
-    }).join('');
+    const totalChunks = chunks.length;
 
-    return `
-      <div class="order${orderIdx === 0 ? ' first' : ''}">
+    chunks.forEach((chunk, chunkIdx) => {
+      const isLastPage   = orderIdx === orders.length - 1 && chunkIdx === chunks.length - 1;
+      const isContinuation = chunkIdx > 0;
+
+      // ── "Packing Slip" bar — first page of each order only ────────────────
+      const barHTML = !isContinuation ? `
         <div class="slip-label-bar"><span>Packing Slip</span></div>
+      ` : '';
+
+      // ── Footer: order number + "Page X of Y" ──────────────────────────────
+      const pageLabel = totalChunks > 1
+        ? `${orderNum} &nbsp;&middot;&nbsp; Page ${chunkIdx + 1} of ${totalChunks}`
+        : orderNum;
+
+      // ── Full header — first page of each order only ────────────────────────
+      const shipToHTML = [
+        shipTo.name    ? `<div>${shipTo.name}</div>`    : '',
+        shipTo.company ? `<div>${shipTo.company}</div>` : '',
+        street1        ? `<div>${street1}</div>`         : '',
+        street2        ? `<div>${street2}</div>`         : '',
+        cityLine       ? `<div>${cityLine}</div>`        : '',
+        showCountry    ? `<div>${country}</div>`         : '',
+        (!shipTo.name && !street1 && !cityLine)
+          ? '<div class="missing-addr">Address not available</div>' : '',
+      ].join('');
+
+      const fullHeaderHTML = !isContinuation ? `
         <div class="header">
           <div class="header-left">
             <div class="company-name">PlanetBrick.com</div>
@@ -153,18 +166,46 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
             </table>
           </div>
         </div>
-        <table class="items">
-          <thead>
-            <tr>
-              <th class="th-desc">Description</th>
-              <th class="th-qty">Qty</th>
-            </tr>
-          </thead>
-          <tbody>${rowsHTML}</tbody>
-        </table>
-        <div class="page-footer">${orderNum}</div>
-      </div>
-    `;
+      ` : '';
+
+      // ── Item rows ──────────────────────────────────────────────────────────
+      const rowsHTML = chunk.map((item: any) => {
+        const baseName    = cleanItemName(item.name, item.bricklinkPartNumber);
+        const colorPrefix = item.colorName ? `${item.colorName} ` : '';
+        const partLabel   = item.bricklinkPartNumber ? ` (${item.bricklinkPartNumber})` : '';
+        const fullName    = `LEGO ${colorPrefix}${baseName}${partLabel}`;
+        const metaParts   = [
+          item.colorName ? `Color: ${item.colorName}`     : '',
+          item.condition ? `Condition: ${item.condition}` : '',
+        ].filter(Boolean).join(', ');
+        return `
+          <tr>
+            <td class="item-desc">
+              <div class="item-name">${fullName}</div>
+              ${metaParts ? `<div class="item-meta">${metaParts}</div>` : ''}
+            </td>
+            <td class="item-qty">${item.quantity}</td>
+          </tr>
+        `;
+      }).join('');
+
+      allPageDivs.push(`
+        <div class="page${isLastPage ? ' last' : ''}">
+          ${barHTML}
+          ${fullHeaderHTML}
+          <table class="items">
+            <thead>
+              <tr>
+                <th class="th-desc">Description</th>
+                <th class="th-qty">Qty</th>
+              </tr>
+            </thead>
+            <tbody>${rowsHTML}</tbody>
+          </table>
+          <div class="page-footer">${pageLabel}</div>
+        </div>
+      `);
+    });
   });
 
   return `<!DOCTYPE html>
@@ -173,9 +214,10 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
   <meta charset="UTF-8">
   <title>Packing Slips</title>
   <style>
-    /* @page handles margins uniformly on every printed page.
-       Each order is one natural-flow div; the browser fills pages organically
-       so there is no large blank gap at the bottom from under-filled page divs. */
+    /* @page margin applied uniformly to every physical page.
+       Each .page div uses min-height to fill the full content area so the
+       browser-generated URL footer lands right at the edge with no large gap.
+       The order footer is pinned absolutely to the bottom-right of each page. */
     @page { size: letter portrait; margin: 0.3in; }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -185,12 +227,18 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
       font-size: 11px;
     }
 
-    /* Each order starts on a new page (except the first). */
-    .order { page-break-before: always; break-before: page; }
-    .order.first { page-break-before: auto; break-before: auto; }
-
-    /* Repeat the column header on every printed page within a table. */
-    .items thead { display: table-header-group; }
+    .page {
+      width: 100%;
+      min-height: calc(100vh - 0.6in);
+      page-break-after: always;
+      break-after: page;
+      position: relative;
+      padding-bottom: 18px;
+    }
+    .page.last {
+      page-break-after: auto;
+      break-after: auto;
+    }
 
     .slip-label-bar {
       background: #777;
@@ -207,10 +255,11 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
     }
 
     .page-footer {
-      text-align: right;
+      position: absolute;
+      bottom: 0;
+      right: 0;
       font-size: 9px;
       color: #666;
-      margin-top: 8px;
       letter-spacing: 0.3px;
     }
 
@@ -253,7 +302,7 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
   </style>
 </head>
 <body>
-  ${orderDivs.join('')}
+  ${allPageDivs.join('')}
 </body>
 </html>`;
 }
