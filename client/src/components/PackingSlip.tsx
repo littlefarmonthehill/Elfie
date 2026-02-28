@@ -229,10 +229,6 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
     .mv { text-align: right; }
 
     .items { width: 100%; border-collapse: collapse; margin-top: 2px; }
-    /* display: table-header-group repeats the header on every printed page.
-       Dark text on no background ensures it's visible even when the browser
-       does not print background colors (the most common default setting). */
-    .items thead { display: table-header-group; }
     .items thead tr { background: transparent; color: #000; }
     .th-desc { text-align: left; padding: 4px 6px 3px; font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1.5px solid #555; }
     .th-qty  { text-align: right; padding: 4px 6px 3px; font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; width: 40px; border-bottom: 1.5px solid #555; }
@@ -247,6 +243,50 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
 </head>
 <body>
   ${orderDivs.join('')}
+  <script>
+    // Inject a "DESCRIPTION / Qty" header row before the first item that lands
+    // on each continuation page.  CSS thead repetition (table-header-group) is
+    // unreliable when printing to PDF in Chrome/Safari, so we measure real row
+    // positions against the printable page height and insert <tr> nodes in the
+    // tbody at every page-break boundary before the print dialog opens.
+    window.addEventListener('load', function () {
+      // Calibrate: the items table spans the full 7.9in printable width
+      // (8.5in letter - 0.3in left margin - 0.3in right margin).
+      // Dividing its pixel width by 7.9 gives us screen px-per-inch, which we
+      // use to compute the 10.4in page-content height in the same px space.
+      var tables = document.querySelectorAll('.items');
+      tables.forEach(function (table) {
+        var IN      = table.offsetWidth / 7.9;   // px per inch (screen scale)
+        var PAGE_H  = 10.4 * IN;                  // content-area height per page
+
+        var thead  = table.querySelector('thead');
+        var theadH = thead ? thead.offsetHeight : 0;
+        var tbody  = table.querySelector('tbody');
+        if (!tbody) return;
+
+        // 'used' tracks how many px of the current page have been consumed.
+        // Page 1 starts after the full order header + the original thead row.
+        var tableTop = table.getBoundingClientRect().top + window.scrollY;
+        var used = tableTop + theadH;
+
+        Array.from(tbody.querySelectorAll('tr')).forEach(function (row) {
+          var h = row.offsetHeight;
+          if (used + h > PAGE_H) {
+            // This row would overflow — inject a header before it.
+            var hdr = document.createElement('tr');
+            hdr.innerHTML =
+              '<th class="th-desc">Description</th>' +
+              '<th class="th-qty">Qty</th>';
+            row.parentNode.insertBefore(hdr, row);
+            // Reset to top of new page, accounting for the header we just added.
+            used = hdr.offsetHeight + h;
+          } else {
+            used += h;
+          }
+        });
+      });
+    });
+  </script>
 </body>
 </html>`;
 }
