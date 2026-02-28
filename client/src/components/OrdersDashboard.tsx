@@ -25,14 +25,11 @@ interface Order {
 function OrderAmount({ order }: { order: Order }) {
   const gross = Number(order.orderTotal || 0);
   const net = Number(order.netTotal ?? order.orderTotal ?? 0);
-  // Don't show stale adjustments (from a previous cancellation/refund) on active pending orders
-  const isPending = ['awaiting_payment', 'awaiting_shipment'].includes(order.orderStatus);
-  const displayAmount = isPending ? gross : net;
-  const hasAdj = !isPending && Math.abs(gross - net) >= 0.01;
+  const hasAdj = Math.abs(gross - net) >= 0.01;
   return (
     <span className="flex flex-col items-end ml-2 flex-shrink-0">
       <span className="text-lego-green font-mono font-medium text-xs md:text-base lg:text-lg">
-        ${displayAmount.toFixed(2)}
+        ${net.toFixed(2)}
       </span>
       {hasAdj && (
         <span className="text-gray-500 font-mono text-[10px] md:text-xs line-through leading-none">

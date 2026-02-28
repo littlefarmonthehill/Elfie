@@ -440,7 +440,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const withAdjustments = sql`
         WITH adj AS (
           SELECT order_id,
-            COALESCE(SUM(ABS(amount::numeric)), 0) AS total_adj
+            COALESCE(SUM(ABS(amount::numeric)) FILTER (WHERE type != 'merchant_fee'), 0) AS total_adj
           FROM order_adjustments
           GROUP BY order_id
         )
