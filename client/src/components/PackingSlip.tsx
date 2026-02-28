@@ -226,13 +226,11 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
       color: black;
       font-family: Arial, sans-serif;
       font-size: 11px;
-      padding: 0 0.5in; /* horizontal margins only; vertical handled per .page */
+      padding: 0.3in;
     }
 
     .page {
       width: 100%;
-      padding-top: 0.2in;
-      padding-bottom: 0.04in;
       page-break-after: always;
       break-after: page;
       position: relative;

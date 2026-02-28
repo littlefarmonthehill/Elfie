@@ -244,11 +244,10 @@ export default function PriceOMaticDashboard({ onItemClick, isSyncRunning }: Pri
     refetchOnWindowFocus: true,
   });
 
-  // Mutation to persist deep space changes to the server (sends full item metadata)
-  const saveDeepSpaceMutation = useMutation({
-    mutationFn: async (items: StoredGroupInfo[]) =>
-      apiRequest('PUT', '/api/priceomatic/deep-space', { items }),
-  });
+  // Direct save to server — bypasses mutation to avoid stale closure issues
+  const saveDeepSpaceToServer = useCallback((items: StoredGroupInfo[]) => {
+    apiRequest('PUT', '/api/priceomatic/deep-space', { items }).catch(() => {});
+  }, []);
 
   // When server data arrives, merge with local state:
   // - If server has data, server wins (cross-device sync)
@@ -268,9 +267,9 @@ export default function PriceOMaticDashboard({ onItemClick, isSyncRunning }: Pri
       lsSaveDeepSpace(serverSet);
       lsSaveDeepSpaceItems(serverItemsMap);
     } else if (localKeys.length > 0) {
-      // DB is empty but local has keys — migrate local → server
+      // DB is empty but local has keys — migrate local → server via direct fetch
       const migratedItems = localKeys.map(k => localItems.get(k) ?? { key: k, itemNo: k.split('_')[0], itemName: null, colorId: null, colorName: null });
-      saveDeepSpaceMutation.mutate(migratedItems);
+      apiRequest('PUT', '/api/priceomatic/deep-space', { items: migratedItems }).catch(() => {});
     }
     // If both empty, leave state as-is
   }, [deepSpaceData]);
@@ -284,8 +283,8 @@ export default function PriceOMaticDashboard({ onItemClick, isSyncRunning }: Pri
     const updatedItems = lsLoadDeepSpaceItems(); updatedItems.set(group.key, stored);
     lsSaveDeepSpace(updatedKeys);
     lsSaveDeepSpaceItems(updatedItems);
-    saveDeepSpaceMutation.mutate(Array.from(updatedItems.values()));
-  }, []);
+    saveDeepSpaceToServer(Array.from(updatedItems.values()));
+  }, [saveDeepSpaceToServer]);
 
   const bringToOrbit = useCallback((key: string) => {
     setDeepSpaceKeys(prev => { const next = new Set(prev); next.delete(key); return next; });
@@ -295,8 +294,8 @@ export default function PriceOMaticDashboard({ onItemClick, isSyncRunning }: Pri
     const updatedItems = lsLoadDeepSpaceItems(); updatedItems.delete(key);
     lsSaveDeepSpace(updatedKeys);
     lsSaveDeepSpaceItems(updatedItems);
-    saveDeepSpaceMutation.mutate(Array.from(updatedItems.values()));
-  }, []);
+    saveDeepSpaceToServer(Array.from(updatedItems.values()));
+  }, [saveDeepSpaceToServer]);
 
   const fetchPricingMutation = useMutation({
     mutationFn: async (group: GroupedInsight) => {
