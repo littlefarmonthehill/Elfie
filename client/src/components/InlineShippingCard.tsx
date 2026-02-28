@@ -405,6 +405,11 @@ export default function InlineShippingCard({
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-1.5 shrink-0">
             <span className="text-sm font-bold text-white font-mono">{summary.orderNumber}</span>
+            {isReady && (
+              <span className="text-[9px] font-bold bg-green-500/20 text-green-400 border border-green-500/30 rounded px-1 py-0.5 uppercase tracking-wide">
+                Ready
+              </span>
+            )}
             {isTestMode && (
               <span className="text-[9px] font-bold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 rounded px-1 py-0.5 uppercase tracking-wide">
                 Test Rates
