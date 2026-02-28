@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, isApproved } from "./auth";
 import { syncBricklinkData, fetchPriceOMagicData, searchBricklinkCatalogItem, syncPriceOMagicCache, requestPomSyncStop, getPomFormulaConfig, calculateSuggestedPriceWithSupply, applyPomFloors } from "./services/bricklink";
+import { getPomIsRunning, setPomIsRunning } from "./services/pom-scheduler";
 import { syncShipStationOrders } from "./services/shipstation";
 import { syncBrickLinkToBrickOwl } from "./services/brickowl";
 import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBackup } from "./services/export";

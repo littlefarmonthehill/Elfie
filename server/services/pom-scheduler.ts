@@ -1,8 +1,18 @@
 import { db } from "../db";
-import { appSettings } from "@shared/schema";
+import { appSettings, syncMetadata } from "@shared/schema";
 import { syncPriceOMagicCache } from "./bricklink";
 
 let isRunning = false;
+
+/** Returns true if a POM sync (scheduled or manual) is currently in progress. */
+export function getPomIsRunning() {
+  return isRunning;
+}
+
+/** Set the running state — used by the manual sync route to claim the lock. */
+export function setPomIsRunning(value: boolean) {
+  isRunning = value;
+}
 
 /**
  * Start the standalone Price-o-Matic scheduler.
@@ -44,11 +54,51 @@ async function checkAndRunPomSync() {
 async function runScheduledPomSync(batchSize: number) {
   isRunning = true;
   console.log(`\n💰 Starting scheduled Price-o-Matic sync (batch: ${batchSize} items)...`);
+
+  // Write in_progress to DB so the manual route also sees it's running
+  await db.insert(syncMetadata).values({
+    id: 'priceomatic_cache',
+    lastSyncStatus: 'in_progress',
+    lastSyncTime: new Date(),
+    recordsAdded: 0,
+    recordsUpdated: 0,
+  }).onConflictDoUpdate({
+    target: syncMetadata.id,
+    set: { lastSyncStatus: 'in_progress', lastSyncTime: new Date(), updatedAt: new Date() },
+  });
+
   try {
     const result = await syncPriceOMagicCache(batchSize);
     console.log(`\n✨ Scheduled POM sync complete! ${result.itemsUpdated} items updated, ${result.apiCallsUsed} API calls used`);
+    await db.insert(syncMetadata).values({
+      id: 'priceomatic_cache',
+      lastSyncStatus: result.stopped && result.stopReason?.includes('limit') ? 'partial' : 'success',
+      lastSyncTime: new Date(),
+      recordsAdded: 0,
+      recordsUpdated: result.itemsUpdated,
+      errorMessage: result.stopReason || null,
+    }).onConflictDoUpdate({
+      target: syncMetadata.id,
+      set: {
+        lastSyncStatus: result.stopped && result.stopReason?.includes('limit') ? 'partial' : 'success',
+        updatedAt: new Date(),
+        recordsUpdated: result.itemsUpdated,
+        errorMessage: result.stopReason || null,
+      },
+    });
   } catch (error: any) {
     console.error('❌ Scheduled POM sync failed:', error.message);
+    await db.insert(syncMetadata).values({
+      id: 'priceomatic_cache',
+      lastSyncStatus: 'error',
+      lastSyncTime: new Date(),
+      recordsAdded: 0,
+      recordsUpdated: 0,
+      errorMessage: error.message,
+    }).onConflictDoUpdate({
+      target: syncMetadata.id,
+      set: { lastSyncStatus: 'error', updatedAt: new Date(), errorMessage: error.message },
+    });
   } finally {
     isRunning = false;
   }
