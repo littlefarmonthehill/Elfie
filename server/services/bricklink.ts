@@ -845,20 +845,27 @@ export async function syncBricklinkData(options?: {
       }
     }
 
-    // Step 5: Sync Rebrickable images for items without images (tracker: 86–97%)
-    console.log('🖼️  Step 5/7: Syncing Rebrickable images...');
-    syncProgressTracker.update('Syncing Rebrickable images…', 86);
+    // Step 5: Kick off Rebrickable image sync in the background (non-blocking).
+    // Images are cosmetic — the sync completes without waiting for API calls.
+    // Stage 1 (SQL copy of known URLs) runs inline; API fetches run fire-and-forget.
+    console.log('🖼️  Step 5/7: Scheduling Rebrickable image sync (background)...');
+    syncProgressTracker.update('Scheduling image sync…', 86);
     try {
       const [settings] = await db.select().from(appSettings).limit(1);
       if (settings?.rebrickableImageSyncEnabled) {
         const { syncRebrickableImages } = await import('./rebrickable-images');
-        const imageResult = await syncRebrickableImages();
-        console.log(`✓ Rebrickable images: ${imageResult.imagesFetched} fetched, ${imageResult.errors} errors`);
+        // Fire-and-forget — intentionally not awaited
+        syncRebrickableImages().then(r => {
+          console.log(`🖼️  Background image sync complete: ${r.imagesFetched} fetched, ${r.errors} errors`);
+        }).catch(e => {
+          console.error('🖼️  Background image sync error:', e);
+        });
+        console.log('🖼️  Image sync running in background');
       } else {
         console.log('⏭️ Rebrickable image sync disabled in settings');
       }
     } catch (error) {
-      console.error('✗ Rebrickable image sync failed (non-fatal):', error);
+      console.error('✗ Rebrickable image sync scheduling failed (non-fatal):', error);
     }
 
     // Step 6: Sync inventory to all sales platforms (tracker: 97–99%)
