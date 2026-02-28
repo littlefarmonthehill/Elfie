@@ -156,7 +156,6 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment }: Gen
           </div>
 
           <div className="space-y-1">
-            {/* Orders to Fulfill — only shown when > 0 */}
             {pendingCount > 0 && (
               <div
                 onClick={onOpenFulfillment}
@@ -173,50 +172,9 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment }: Gen
               </div>
             )}
 
-            {/* Price-o-Matic sync running — only shown when active */}
-            {isPomRunning && (
-              <div
-                className="rounded px-2 py-2 bg-purple-950/40 border border-purple-500/20 space-y-1.5"
-                data-testid="action-pom-running"
-              >
-                {/* Header row */}
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <RefreshCw className="w-3.5 h-3.5 text-purple-400 animate-spin flex-shrink-0" />
-                    <span className="text-xs md:text-sm text-purple-300 font-medium">Price-o-Matic Syncing</span>
-                  </div>
-                  {pomProgress && pomProgress.itemsTotal > 0 && (
-                    <span className="text-[10px] font-mono text-purple-400 flex-shrink-0">
-                      {Math.round((pomProgress.itemsProcessed / pomProgress.itemsTotal) * 100)}%
-                    </span>
-                  )}
-                </div>
-                {/* Progress bar */}
-                {pomProgress && pomProgress.itemsTotal > 0 && (
-                  <>
-                    <div className="h-1.5 w-full rounded-full bg-purple-950/80 overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-purple-500 transition-all duration-500"
-                        style={{ width: `${Math.min((pomProgress.itemsProcessed / pomProgress.itemsTotal) * 100, 100)}%` }}
-                      />
-                    </div>
-                    <div className="flex justify-between text-[10px] font-mono text-purple-600">
-                      <span>{pomProgress.itemsProcessed.toLocaleString()} lots priced</span>
-                      <span>{pomProgress.itemsTotal.toLocaleString()} total</span>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
-
-            {/* Inventory sync running — shown while syncing or briefly after complete */}
             {(isInvSyncing || isInvComplete) && (
               <div
-                className={`rounded px-2 py-2 space-y-1.5 border ${
-                  isInvComplete
-                    ? 'bg-green-950/40 border-green-500/20'
-                    : 'bg-blue-950/40 border-blue-500/20'
-                }`}
+                className={`rounded px-2 py-2 space-y-1.5 border ${isInvComplete ? 'bg-green-950/40 border-green-500/20' : 'bg-blue-950/40 border-blue-500/20'}`}
                 data-testid="action-inv-syncing"
               >
                 <div className="flex items-center justify-between gap-2">
@@ -240,6 +198,39 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment }: Gen
                   <p className={`text-[10px] font-mono truncate ${isInvComplete ? 'text-green-600' : 'text-blue-600'}`}>
                     {invSyncProgress.currentStep}
                   </p>
+                )}
+              </div>
+            )}
+
+            {isPomRunning && (
+              <div
+                className="rounded px-2 py-2 bg-purple-950/40 border border-purple-500/20 space-y-1.5"
+                data-testid="action-pom-running"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <RefreshCw className="w-3.5 h-3.5 text-purple-400 animate-spin flex-shrink-0" />
+                    <span className="text-xs md:text-sm text-purple-300 font-medium">Price-o-Matic Syncing</span>
+                  </div>
+                  {pomProgress && pomProgress.itemsTotal > 0 && (
+                    <span className="text-[10px] font-mono text-purple-400 flex-shrink-0">
+                      {Math.round((pomProgress.itemsProcessed / pomProgress.itemsTotal) * 100)}%
+                    </span>
+                  )}
+                </div>
+                {pomProgress && pomProgress.itemsTotal > 0 && (
+                  <>
+                    <div className="h-1.5 w-full rounded-full bg-purple-950/80 overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-purple-500 transition-all duration-500"
+                        style={{ width: `${Math.min((pomProgress.itemsProcessed / pomProgress.itemsTotal) * 100, 100)}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between text-[10px] font-mono text-purple-600">
+                      <span>{pomProgress.itemsProcessed.toLocaleString()} lots priced</span>
+                      <span>{pomProgress.itemsTotal.toLocaleString()} total</span>
+                    </div>
+                  </>
                 )}
               </div>
             )}
