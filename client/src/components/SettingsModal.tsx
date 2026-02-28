@@ -369,6 +369,9 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   const [inventorySyncEnabled, setInventorySyncEnabled] = useState(false);
   const [inventorySyncTime, setInventorySyncTime] = useState("02:00");
   const [priceOMaticEnabled, setPriceOMaticEnabled] = useState(false);
+  const [pomScheduleEnabled, setPomScheduleEnabled] = useState(false);
+  const [pomSyncTime, setPomSyncTime] = useState("14:00");
+  const [pomScheduleBatchSize, setPomScheduleBatchSize] = useState(1500);
   const [rebrickableImageSyncEnabled, setRebrickableImageSyncEnabled] = useState(true);
   const [ordersSyncEnabled, setOrdersSyncEnabled] = useState(false);
   const [ordersSyncFrequency, setOrdersSyncFrequency] = useState(15);
@@ -464,6 +467,9 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
       setInventorySyncEnabled(settings.inventorySyncEnabled || false);
       setInventorySyncTime(settings.inventorySyncTime || "02:00");
       setPriceOMaticEnabled(settings.priceOMaticEnabled || false);
+      setPomScheduleEnabled(settings.pomScheduleEnabled || false);
+      setPomSyncTime(settings.pomSyncTime || '14:00');
+      setPomScheduleBatchSize(settings.pomScheduleBatchSize ?? 1500);
       setRebrickableImageSyncEnabled(settings.rebrickableImageSyncEnabled !== false);
       setOrdersSyncEnabled(settings.ordersSyncEnabled || false);
       setOrdersSyncFrequency(settings.ordersSyncFrequency || 15);
@@ -1635,26 +1641,56 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
 
                     <Separator className="bg-gray-700" />
 
-                    {/* Price-o-Matic */}
+                    {/* Price-o-Matic Standalone Scheduler */}
                     <div className="space-y-3 my-4">
                       <div className="flex items-center justify-between">
                         <div>
-                          <Label className="text-xs font-medium text-gray-300">Price-o-Matic</Label>
-                          <p className="text-[10px] md:text-sm text-gray-500 mt-0.5">Runs after inventory sync, respecting API limits</p>
+                          <Label className="text-xs font-medium text-gray-300">Price-o-Matic Auto Sync</Label>
+                          <p className="text-[10px] md:text-sm text-gray-500 mt-0.5">Runs independently on its own schedule</p>
                         </div>
                         <Switch
-                          checked={priceOMaticEnabled}
+                          checked={pomScheduleEnabled}
                           onCheckedChange={(checked) => {
-                            setPriceOMaticEnabled(checked);
-                            updateSettingsMutation.mutate({ priceOMaticEnabled: checked });
+                            setPomScheduleEnabled(checked);
+                            updateSettingsMutation.mutate({ pomScheduleEnabled: checked });
                           }}
-                          data-testid="switch-price-o-matic"
+                          data-testid="switch-pom-schedule"
                         />
                       </div>
-                      
-                      {priceOMaticEnabled && (
-                        <div className="ml-4">
-                          <p className="text-[10px] md:text-sm text-gray-400">Will run automatically after inventory sync completes</p>
+
+                      {pomScheduleEnabled && (
+                        <div className="ml-4 space-y-3">
+                          <div className="flex items-center gap-4">
+                            <div className="space-y-1">
+                              <Label htmlFor="pom-sync-time" className="text-xs text-gray-400">Sync Time</Label>
+                              <Input
+                                id="pom-sync-time"
+                                type="time"
+                                value={pomSyncTime}
+                                onChange={(e) => setPomSyncTime(e.target.value)}
+                                onBlur={() => updateSettingsMutation.mutate({ pomSyncTime })}
+                                className="text-xs w-32"
+                                data-testid="input-pom-sync-time"
+                              />
+                              <p className="text-[10px] text-gray-500">Local timezone</p>
+                            </div>
+                            <div className="space-y-1">
+                              <Label htmlFor="pom-schedule-batch" className="text-xs text-gray-400">Lots per run</Label>
+                              <Input
+                                id="pom-schedule-batch"
+                                type="number"
+                                min={100}
+                                max={5000}
+                                step={100}
+                                value={pomScheduleBatchSize}
+                                onChange={(e) => setPomScheduleBatchSize(parseInt(e.target.value) || 100)}
+                                onBlur={() => updateSettingsMutation.mutate({ pomScheduleBatchSize })}
+                                className="text-xs w-28 text-right"
+                                data-testid="input-pom-schedule-batch"
+                              />
+                              <p className="text-[10px] text-gray-500">= {pomScheduleBatchSize} API calls</p>
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -2116,21 +2152,21 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                   <div className="px-4 divide-y divide-gray-700/30">
                     <div className="flex items-center justify-between py-3">
                       <div className="flex items-center gap-1.5">
-                        <Label className="text-sm text-gray-200">Batch Size</Label>
+                        <Label className="text-sm text-gray-200">Manual Sync Batch Size</Label>
                         <Popover>
                           <PopoverTrigger asChild>
                             <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
                               <Info className="w-3.5 h-3.5" />
                             </button>
                           </PopoverTrigger>
-                          <PopoverContent side="bottom" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
-                            Max items to process per run. Stale items across all tiers are eligible. T1 (minifigs, Bionicle) runs first within the stale pool.
+                          <PopoverContent side="bottom" className="w-60 text-xs bg-gray-900 border-gray-700 p-3">
+                            Max lots to process when you manually trigger a sync from the Price-o-Matic screen. For the scheduled auto-sync batch size, see Automation settings.
                           </PopoverContent>
                         </Popover>
                       </div>
                       <div className="flex items-center gap-2">
                         <Input type="number" min={100} max={5000} step={100} value={pomBatchSize} onChange={(e) => setPomBatchSize(parseInt(e.target.value) || 100)} onBlur={() => updateSettingsMutation.mutate({ pomBatchSize })} className="text-sm w-24 text-right" data-testid="input-pom-batch-size" />
-                        <span className="text-xs text-gray-400 w-16">items / run</span>
+                        <span className="text-xs text-gray-400 w-16">lots / run</span>
                       </div>
                     </div>
                     <div className="flex items-center justify-between py-3">

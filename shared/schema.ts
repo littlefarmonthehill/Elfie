@@ -396,6 +396,9 @@ export const appSettings = pgTable("app_settings", {
   pomHighSupplyEnabled: boolean("pom_high_supply_enabled").default(false).notNull(),
   pomHighSupplyThreshold: integer("pom_high_supply_threshold").default(5000).notNull(), // Global total-qty threshold
   pomHighSupplyPenalty: integer("pom_high_supply_penalty").default(5).notNull(),        // % discount for flooded market
+  pomScheduleEnabled: boolean("pom_schedule_enabled").default(false).notNull(), // Run POM on its own schedule (independent of inventory sync)
+  pomSyncTime: text("pom_sync_time").default('14:00'),                          // Standalone POM schedule time (HH:MM)
+  pomScheduleBatchSize: integer("pom_schedule_batch_size").default(1500).notNull(), // Items per scheduled auto-run
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
