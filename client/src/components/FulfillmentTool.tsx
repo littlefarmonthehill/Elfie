@@ -232,6 +232,7 @@ export default function FulfillmentTool() {
 
   const { data, isLoading } = useQuery<FulfillmentData>({
     queryKey: ['/api/fulfillment'],
+    staleTime: 0,
   });
 
   // Fetch settings to determine EasyPost key mode
