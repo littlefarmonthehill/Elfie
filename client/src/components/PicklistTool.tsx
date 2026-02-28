@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { Package, Loader2, List, Layers, Printer, Trash2 } from "lucide-react";
+import { Package, Loader2, List, Layers, Trash2 } from "lucide-react";
 import { resolvePartImageUrl } from "@/lib/part-image";
 
 type WarehouseLocation = {
@@ -286,17 +286,6 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
 
         {/* Spacer */}
         <div className="flex-1" />
-
-        {/* Print */}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handlePrint}
-          data-testid="button-print-picklist"
-        >
-          <Printer className="h-3.5 w-3.5 mr-1" />
-          Print
-        </Button>
 
         {/* Status filters */}
         <Button

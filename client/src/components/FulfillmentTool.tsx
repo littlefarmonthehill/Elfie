@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -13,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cleanItemName, PRIORITY_REGEX, toggleSetItem } from "@/lib/item-utils";
 import InlineShippingCard, { ShippingReadyState, PurchasedLabelResult, OrderItem } from "./InlineShippingCard";
 import PicklistTool from "./PicklistTool";
+import { resolvePartImageUrl } from "@/lib/part-image";
 
 type BatchResult = {
   orderId: string;
@@ -170,7 +170,7 @@ function FulfillmentChecklist({ pulledItems, selectedOrderIds, fulfilledItems, o
                     />
                     <div className={`flex-1 min-w-0 text-[10px] ${checked ? 'line-through text-gray-500' : ''}`}>
                       <div className="flex items-center gap-2 flex-wrap text-gray-400">
-                        <span className="tabular-nums">Qty {item.quantity}</span>
+                        <span className="tabular-nums">{item.quantity}×</span>
                         {item.inventoryQty != null && !checked && (() => {
                           const stock = item.inventoryQty!;
                           const needed = item.quantity;
@@ -383,6 +383,35 @@ export default function FulfillmentTool() {
         variant: "destructive",
       });
     }
+  };
+
+  const handlePrintPicklist = () => {
+    const date = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const items = allPicklistItems;
+    const chanPrefix = (item: PicklistBinItem) => item.marketplace === 'BrickOwl' ? 'BO' : 'BL';
+    const condLabel = (c: string | null) => c === 'N' ? 'New' : c === 'U' ? 'Used' : (c || '');
+    const partKey = (item: PicklistBinItem) => item.partNumber || item.sku || '';
+    const body = [...items].sort((a, b) => {
+      const pk = partKey(a).localeCompare(partKey(b), undefined, { numeric: true });
+      if (pk !== 0) return pk;
+      return (a.colorName || '').localeCompare(b.colorName || '');
+    }).map(item => {
+      const header = [
+        `<span class="part-no">${item.partNumber || item.sku}</span>`,
+        item.colorName ? `<span class="color">${item.colorName}</span>` : '',
+        item.condition ? `<span class="cond">${condLabel(item.condition)}</span>` : '',
+        item.itemName ? `<span class="desc">${item.itemName}</span>` : '',
+      ].filter(Boolean).join(' · ');
+      const rawOrder = (item.orderNumber || '').replace(/^(BL|BO)/i, '');
+      const meta = [`Qty ${item.quantity}`, `${chanPrefix(item)}${rawOrder}`, item.inventoryId ? `Lot ${item.inventoryId}` : ''].filter(Boolean).join(' · ');
+      const rawImgSrc = resolvePartImageUrl(item.imageUrl ?? null, item.partNumber ?? null);
+      const imgSrc = rawImgSrc?.startsWith('/') ? `${window.location.origin}${rawImgSrc}` : rawImgSrc;
+      const imgTag = imgSrc ? `<img class="thumb" src="${imgSrc}" alt="" onerror="this.style.display='none'" />` : `<div class="thumb-placeholder"></div>`;
+      return `<tr class="item-row"><td><div class="cut-wrap"><div class="cut-tick"></div></div><div class="item-body">${imgTag}<div class="item-text"><div class="item-header">${header}</div><div class="meta">${meta}</div></div></div></td></tr>`;
+    }).join('');
+    const html = `<!DOCTYPE html><html><head><title>Picklist — ${date}</title><style>body{font-family:monospace;font-size:14px;margin:2px;color:#000;}table{width:100%;border-collapse:collapse;}td{padding:0;vertical-align:top;}.part-no{font-weight:bold;}.color,.cond{color:#333;}.desc{color:#555;}.meta{color:#555;font-size:12px;margin-top:2px;}.item-row{page-break-inside:avoid;break-inside:avoid;}.cut-wrap{padding:22px 0;}.cut-tick{width:22px;border-top:1px solid #bbb;}.item-body{display:flex;align-items:flex-start;gap:6px;}.thumb{max-height:36px;max-width:36px;object-fit:contain;flex-shrink:0;}.thumb-placeholder{width:36px;flex-shrink:0;}.item-text{flex:1;}@media print{@page{margin:0.05in;}}</style></head><body><table>${body}</table></body></html>`;
+    const w = window.open('', '_blank');
+    if (w) { w.document.write(html); w.document.close(); w.addEventListener('afterprint', () => w.close()); w.print(); }
   };
 
   const handlePrintLotLabels = (orderIds: string[]) => {
@@ -694,48 +723,52 @@ export default function FulfillmentTool() {
           </button>
         </div>
 
-        {/* ── Persistent action bar ── */}
+        {/* ── Persistent action bar — single scrollable row ── */}
         {!isSplitMode && (
-          <div className="flex flex-wrap items-center gap-1.5 px-1 py-2 border-b border-gray-700/60">
+          <div className="flex items-center gap-1 px-1 py-1.5 border-b border-gray-700/60 overflow-x-auto">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handlePrintPicklist}
+              className="text-gray-300 text-xs whitespace-nowrap shrink-0"
+              data-testid="button-print-picklist"
+            >
+              <ClipboardList className="w-3.5 h-3.5 mr-1.5" />
+              Picklist
+            </Button>
+            <div className="w-px h-4 bg-gray-700 mx-0.5 shrink-0" />
             <Button
               size="sm"
               variant="ghost"
               disabled={selectedOrders.size === 0}
               onClick={() => handlePrintPackingSlips(Array.from(selectedOrders))}
-              className="text-gray-300 text-xs"
+              className="text-gray-300 text-xs whitespace-nowrap shrink-0"
               data-testid="button-print-packing-slips"
             >
               <Printer className="w-3.5 h-3.5 mr-1.5" />
               Packing Slips
-              {selectedOrders.size > 0 && (
-                <Badge variant="secondary" className="ml-1.5 text-[10px] px-1">{selectedOrders.size}</Badge>
-              )}
             </Button>
             <Button
               size="sm"
               variant="ghost"
               disabled={selectedOrders.size === 0}
               onClick={() => handlePrintLotLabels(Array.from(selectedOrders))}
-              className="text-gray-300 text-xs"
+              className="text-gray-300 text-xs whitespace-nowrap shrink-0"
               data-testid="button-print-lot-labels"
             >
               <Tag className="w-3.5 h-3.5 mr-1.5" />
               Lot Labels
-              {selectedOrders.size > 0 && (
-                <Badge variant="secondary" className="ml-1.5 text-[10px] px-1">{selectedOrders.size}</Badge>
-              )}
             </Button>
-            <div className="w-px h-4 bg-gray-700 mx-0.5" />
             <Button
               size="sm"
               variant="ghost"
               disabled={!selectedOrderId}
               onClick={handleInitiateSplit}
-              className="text-gray-300 text-xs"
+              className="text-gray-300 text-xs whitespace-nowrap shrink-0"
               data-testid="button-split-order"
             >
               <Scissors className="w-3.5 h-3.5 mr-1.5" />
-              Split Order
+              Split
             </Button>
             {readyToShip.size > 0 && (
               <Button
@@ -743,33 +776,30 @@ export default function FulfillmentTool() {
                 variant="ghost"
                 disabled={isShippingAll}
                 onClick={handleShipAll}
-                className="text-gray-300 text-xs"
+                className="text-gray-300 text-xs whitespace-nowrap shrink-0"
                 data-testid="button-ship-all"
               >
                 {isShippingAll
                   ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Shipping...</>
-                  : <><Package className="w-3.5 h-3.5 mr-1.5" />Ship All ({readyToShip.size})</>
+                  : <><Package className="w-3.5 h-3.5 mr-1.5" />Ship ({readyToShip.size})</>
                 }
               </Button>
             )}
-            <div className="w-px h-4 bg-gray-700 mx-0.5" />
+            <div className="w-px h-4 bg-gray-700 mx-0.5 shrink-0" />
             <Button
               size="sm"
               variant="ghost"
               disabled={scanFormMutation.isPending || (endOfDayData?.count === 0 && !scanFormUrl)}
               onClick={() => scanFormUrl ? window.open(scanFormUrl, '_blank') : scanFormMutation.mutate()}
-              className="text-gray-300 text-xs"
+              className="text-gray-300 text-xs whitespace-nowrap shrink-0"
               data-testid="button-end-of-day-scan"
             >
               {scanFormMutation.isPending
                 ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Generating...</>
                 : scanFormUrl
-                  ? <><ExternalLink className="w-3.5 h-3.5 mr-1.5" />Reopen EOD Form</>
-                  : <><ScanLine className="w-3.5 h-3.5 mr-1.5" />EOD Form</>
+                  ? <><ExternalLink className="w-3.5 h-3.5 mr-1.5" />Reopen EOD</>
+                  : <><ScanLine className="w-3.5 h-3.5 mr-1.5" />EOD Form{endOfDayData && endOfDayData.count > 0 && ` (${endOfDayData.count})`}</>
               }
-              {!scanFormUrl && endOfDayData && endOfDayData.count > 0 && (
-                <Badge variant="secondary" className="ml-1.5 text-[10px] px-1">{endOfDayData.count}</Badge>
-              )}
             </Button>
           </div>
         )}
