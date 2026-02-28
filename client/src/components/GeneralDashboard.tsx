@@ -98,6 +98,21 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment }: Gen
   const isPomRunning = pomStatus?.data?.liveProgress?.active === true;
   const pomProgress = pomStatus?.data?.liveProgress;
 
+  // Poll inventory sync progress to show running indicator in action items
+  const { data: invSyncProgress } = useQuery<{
+    status: 'idle' | 'syncing' | 'complete' | 'error';
+    currentStep: string;
+    progress: number;
+    details: { itemsAdded?: number; itemsUpdated?: number };
+  }>({
+    queryKey: ['/api/sync/bricklink/progress'],
+    refetchInterval: 3000,
+    staleTime: 0,
+  });
+
+  const isInvSyncing = invSyncProgress?.status === 'syncing';
+  const isInvComplete = invSyncProgress?.status === 'complete';
+
   // Get top pricing opportunities (items priced too low, sorted by variance)
   const pricingOpportunities = pricingInsights?.data?.tooLow
     ?.sort((a, b) => Math.abs(b.variance) - Math.abs(a.variance))
@@ -190,6 +205,41 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment }: Gen
                       <span>{pomProgress.itemsTotal.toLocaleString()} total</span>
                     </div>
                   </>
+                )}
+              </div>
+            )}
+
+            {/* Inventory sync running — shown while syncing or briefly after complete */}
+            {(isInvSyncing || isInvComplete) && (
+              <div
+                className={`rounded px-2 py-2 space-y-1.5 border ${
+                  isInvComplete
+                    ? 'bg-green-950/40 border-green-500/20'
+                    : 'bg-blue-950/40 border-blue-500/20'
+                }`}
+                data-testid="action-inv-syncing"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <RefreshCw className={`w-3.5 h-3.5 flex-shrink-0 ${isInvComplete ? 'text-green-400' : 'text-blue-400 animate-spin'}`} />
+                    <span className={`text-xs md:text-sm font-medium ${isInvComplete ? 'text-green-300' : 'text-blue-300'}`}>
+                      {isInvComplete ? 'Inventory Sync Complete' : 'Inventory Syncing'}
+                    </span>
+                  </div>
+                  <span className={`text-[10px] font-mono flex-shrink-0 ${isInvComplete ? 'text-green-400' : 'text-blue-400'}`}>
+                    {invSyncProgress?.progress ?? 0}%
+                  </span>
+                </div>
+                <div className={`h-1.5 w-full rounded-full overflow-hidden ${isInvComplete ? 'bg-green-950/80' : 'bg-blue-950/80'}`}>
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${isInvComplete ? 'bg-green-500' : 'bg-blue-500'}`}
+                    style={{ width: `${invSyncProgress?.progress ?? 0}%` }}
+                  />
+                </div>
+                {invSyncProgress?.currentStep && (
+                  <p className={`text-[10px] font-mono truncate ${isInvComplete ? 'text-green-600' : 'text-blue-600'}`}>
+                    {invSyncProgress.currentStep}
+                  </p>
                 )}
               </div>
             )}

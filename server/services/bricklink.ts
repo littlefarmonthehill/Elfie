@@ -478,10 +478,10 @@ function buildBricklinkImageUrl(itemType: string, colorId: number | null, itemNo
   }
 }
 
-export async function syncBricklinkInventory(): Promise<{ added: number; updated: number; apiCalls: number }> {
+export async function syncBricklinkInventory(callComplete = true): Promise<{ added: number; updated: number; apiCalls: number }> {
   try {
     const { syncProgressTracker } = await import('./sync-progress');
-    syncProgressTracker.start();
+    if (callComplete) syncProgressTracker.start();
     
     console.log('📥 Downloading all inventory data from BrickLink API...');
     syncProgressTracker.update('Downloading inventory from BrickLink...', 10);
@@ -700,7 +700,12 @@ export async function syncBricklinkInventory(): Promise<{ added: number; updated
     }
 
     console.log(`BrickLink inventory sync complete: ${added} added, ${updated} updated`);
-    syncProgressTracker.complete(added, updated);
+    if (callComplete) {
+      syncProgressTracker.complete(added, updated);
+    } else {
+      // Called from comprehensive sync — stay 'syncing', let the outer function complete
+      syncProgressTracker.update('BrickLink inventory synced, continuing…', 70, { itemsAdded: added, itemsUpdated: updated });
+    }
     return { added, updated, apiCalls };
   } catch (error) {
     console.error('Error syncing BrickLink inventory:', error);
@@ -789,20 +794,25 @@ export async function syncBricklinkData(options?: {
     throw new Error('Inventory sync already in progress');
   }
 
+  const { syncProgressTracker } = await import('./sync-progress');
+
   try {
     // Check rate limit before starting sync
     const rateLimit = await checkRateLimit();
     
     console.log('\n🔄 Starting comprehensive inventory sync...');
-    
-    // Step 1: Sync in order: categories, colors, inventory
-    console.log('📦 Step 1/5: Syncing BrickLink data...');
+    syncProgressTracker.start();
+
+    // Step 1: Sync in order: categories, colors, inventory (tracker: 0–70%)
+    console.log('📦 Step 1/7: Syncing BrickLink data...');
     const categoriesResult = await syncBricklinkCategories();
     const colorsResult = await syncBricklinkColors();
-    const inventoryResult = await syncBricklinkInventory();
+    // Pass callComplete=false so the tracker stays 'syncing' — we complete it at the very end
+    const inventoryResult = await syncBricklinkInventory(false);
     
-    // Step 2: Sync Rebrickable set-part relationships (doesn't use BrickLink API)
-    console.log('🧩 Step 2/5: Syncing Rebrickable set-part relationships...');
+    // Step 2: Sync Rebrickable set-part relationships (tracker: 70–80%)
+    console.log('🧩 Step 2/7: Syncing Rebrickable set-part relationships...');
+    syncProgressTracker.update('Syncing Rebrickable set-part data…', 72);
     let rebrickableResult = { setsAdded: 0, partsProcessed: 0 };
     try {
       rebrickableResult = await syncRebrickableSetParts();
@@ -811,8 +821,9 @@ export async function syncBricklinkData(options?: {
       console.error('✗ Rebrickable sync failed (non-fatal):', error);
     }
 
-    // Step 3: Schedule embedding generation in background
-    console.log('🧠 Step 3/5: Scheduling AI embeddings (background)...');
+    // Step 3: Schedule embedding generation in background (tracker: 80–83%)
+    console.log('🧠 Step 3/7: Scheduling AI embeddings (background)...');
+    syncProgressTracker.update('Scheduling AI embeddings…', 80);
     try {
       const { createEmbeddingJob } = await import('./embedding-worker');
       await createEmbeddingJob('inventory', 'bricklink_sync');
@@ -821,8 +832,9 @@ export async function syncBricklinkData(options?: {
       console.error('✗ Failed to schedule inventory embeddings (non-fatal):', error);
     }
 
-    // Step 4: Schedule set embeddings in background (if Rebrickable sync was successful)
-    console.log('🎯 Step 4/5: Scheduling set embeddings (background)...');
+    // Step 4: Schedule set embeddings in background (tracker: 83–86%)
+    console.log('🎯 Step 4/7: Scheduling set embeddings (background)...');
+    syncProgressTracker.update('Scheduling set embeddings…', 83);
     if (rebrickableResult.setsAdded > 0 || rebrickableResult.partsProcessed > 0) {
       try {
         const { createEmbeddingJob } = await import('./embedding-worker');
@@ -833,8 +845,9 @@ export async function syncBricklinkData(options?: {
       }
     }
 
-    // Step 5: Sync Rebrickable images for items without images
-    console.log('🖼️  Step 5/6: Syncing Rebrickable images...');
+    // Step 5: Sync Rebrickable images for items without images (tracker: 86–97%)
+    console.log('🖼️  Step 5/7: Syncing Rebrickable images...');
+    syncProgressTracker.update('Syncing Rebrickable images…', 86);
     try {
       const [settings] = await db.select().from(appSettings).limit(1);
       if (settings?.rebrickableImageSyncEnabled) {
@@ -848,10 +861,11 @@ export async function syncBricklinkData(options?: {
       console.error('✗ Rebrickable image sync failed (non-fatal):', error);
     }
 
-    // Step 6: Sync inventory to all sales platforms (currently BrickOwl)
+    // Step 6: Sync inventory to all sales platforms (tracker: 97–99%)
     // Only run if includePlatformSync is true (used by automated sync, not manual sync)
     if (includePlatformSync) {
       console.log('🌐 Step 6/7: Syncing inventory to sales platforms...');
+      syncProgressTracker.update('Syncing inventory to sales platforms…', 97);
       try {
         // Only sync if BrickOwl credentials are configured
         const [settings] = await db.select().from(appSettings).limit(1);
@@ -871,15 +885,18 @@ export async function syncBricklinkData(options?: {
 
     const totalApiCalls = categoriesResult.apiCalls + colorsResult.apiCalls + inventoryResult.apiCalls;
 
+    // Step 7: Automatically save XML backup for manual restore (tracker: 99%)
     console.log('\n✅ Comprehensive inventory sync complete!');
-
-    // Step 7: Automatically save XML backup for manual restore
+    syncProgressTracker.update('Saving XML backup…', 99);
     try {
       const backupFilename = await saveXMLBackup();
       console.log(`💾 XML backup saved: ${backupFilename}`);
     } catch (error) {
       console.error('✗ XML backup failed (non-fatal):', error);
     }
+
+    // All 7 steps done — mark complete (auto-resets to idle after 10s)
+    syncProgressTracker.complete(inventoryResult.added, inventoryResult.updated);
 
     return {
       categoriesAdded: categoriesResult.added,
@@ -893,6 +910,9 @@ export async function syncBricklinkData(options?: {
       rebrickableSets: rebrickableResult.setsAdded,
       rebrickableParts: rebrickableResult.partsProcessed,
     };
+  } catch (error) {
+    syncProgressTracker.error(error instanceof Error ? error.message : 'Comprehensive sync failed');
+    throw error;
   } finally {
     // Always release the lock, even if sync fails
     syncLock.releaseInventoryLock();
