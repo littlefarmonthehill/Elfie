@@ -1,6 +1,6 @@
 import MetricCard from "./MetricCard";
 import { useQuery } from "@tanstack/react-query";
-import { TrendingDown, AlertCircle, TrendingUp, ShoppingCart } from "lucide-react";
+import { TrendingDown, AlertCircle, TrendingUp, ShoppingCart, RefreshCw, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import DashboardNotifications from "./DashboardNotifications";
 
@@ -85,6 +85,19 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment }: Gen
     queryKey: ['/api/priceomatic/insights'],
   });
 
+  // Poll POM sync status to show running indicator in action items
+  const { data: pomStatus } = useQuery<{
+    success: boolean;
+    data: { liveProgress?: { active: boolean; itemsProcessed: number; itemsTotal: number } };
+  }>({
+    queryKey: ['/api/sync/priceomatic/status'],
+    refetchInterval: 5000,
+    staleTime: 0,
+  });
+
+  const isPomRunning = pomStatus?.data?.liveProgress?.active === true;
+  const pomProgress = pomStatus?.data?.liveProgress;
+
   // Get top pricing opportunities (items priced too low, sorted by variance)
   const pricingOpportunities = pricingInsights?.data?.tooLow
     ?.sort((a, b) => Math.abs(b.variance) - Math.abs(a.variance))
@@ -120,27 +133,53 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment }: Gen
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-4 lg:gap-6 mt-2 md:mt-4 lg:mt-6">
-        {/* Action Items - Orders to Fulfill */}
+        {/* Action Items */}
         <div className="bg-gray-900/50 border border-orange-500/20 rounded-lg p-2 md:p-4 lg:p-5" data-testid="section-action-items">
           <div className="flex items-center gap-1.5 md:gap-2 lg:gap-2.5 mb-2 md:mb-3 lg:mb-4">
             <AlertCircle className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-orange-400" />
             <h3 className="text-xs md:text-base lg:text-lg font-semibold text-orange-400 uppercase tracking-wide">Action Items</h3>
           </div>
-          <div
-            onClick={pendingCount > 0 ? onOpenFulfillment : undefined}
-            className={`flex items-center justify-between rounded px-2 py-2 ${pendingCount > 0 ? 'hover-elevate cursor-pointer' : ''}`}
-            data-testid="action-orders-to-fulfill"
-          >
-            <div className="flex items-center gap-2">
-              <ShoppingCart className={`w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 ${pendingCount > 0 ? 'text-orange-400' : 'text-gray-600'}`} />
-              <span className={`text-xs md:text-base lg:text-lg ${pendingCount > 0 ? 'text-gray-200' : 'text-gray-500 italic'}`}>
-                Orders to Fulfill
-              </span>
-            </div>
-            <span className={`font-mono font-bold text-xs md:text-base lg:text-lg ${pendingCount > 0 ? 'text-orange-400' : 'text-gray-600'}`}>
-              {pendingCount > 0 ? pendingCount : '—'}
-            </span>
+
+          <div className="space-y-1">
+            {/* Orders to Fulfill — only shown when > 0 */}
+            {pendingCount > 0 && (
+              <div
+                onClick={onOpenFulfillment}
+                className="flex items-center justify-between rounded px-2 py-2 hover-elevate cursor-pointer"
+                data-testid="action-orders-to-fulfill"
+              >
+                <div className="flex items-center gap-2">
+                  <ShoppingCart className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-orange-400" />
+                  <span className="text-xs md:text-base lg:text-lg text-gray-200">Orders to Fulfill</span>
+                </div>
+                <span className="font-mono font-bold text-xs md:text-base lg:text-lg text-orange-400">
+                  {pendingCount}
+                </span>
+              </div>
+            )}
+
+            {/* Price-o-Matic sync running — only shown when active */}
+            {isPomRunning && (
+              <div
+                className="flex items-center justify-between rounded px-2 py-2 bg-purple-950/40 border border-purple-500/20"
+                data-testid="action-pom-running"
+              >
+                <div className="flex items-center gap-2">
+                  <RefreshCw className="w-3.5 h-3.5 md:w-4 md:h-4 text-purple-400 animate-spin flex-shrink-0" />
+                  <div>
+                    <span className="text-xs md:text-sm text-purple-300">Price-o-Matic syncing</span>
+                    {pomProgress && pomProgress.itemsTotal > 0 && (
+                      <span className="text-[10px] md:text-xs text-purple-500 ml-1.5 font-mono">
+                        {pomProgress.itemsProcessed.toLocaleString()} / {pomProgress.itemsTotal.toLocaleString()}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <Sparkles className="w-3.5 h-3.5 text-purple-500 flex-shrink-0" />
+              </div>
+            )}
           </div>
+
           <DashboardNotifications />
         </div>
 

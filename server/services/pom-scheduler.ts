@@ -21,8 +21,12 @@ async function checkAndRunPomSync() {
     const [settings] = await db.select().from(appSettings).limit(1);
     if (!settings?.pomScheduleEnabled) return;
 
+    const tz = settings.timezone || 'America/Chicago';
     const now = new Date();
-    const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    // Compare in the user's configured timezone, not server UTC
+    const localTimeStr = now.toLocaleString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false });
+    const [hStr, mStr] = localTimeStr.replace(/\u202f/g, '').split(':');
+    const currentTime = `${hStr.padStart(2, '0')}:${mStr.padStart(2, '0')}`;
     const scheduledTime = settings.pomSyncTime || '14:00';
     if (currentTime !== scheduledTime) return;
 

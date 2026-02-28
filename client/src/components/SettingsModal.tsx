@@ -371,6 +371,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   const [priceOMaticEnabled, setPriceOMaticEnabled] = useState(false);
   const [pomScheduleEnabled, setPomScheduleEnabled] = useState(false);
   const [pomSyncTime, setPomSyncTime] = useState("14:00");
+  const [timezone, setTimezone] = useState("America/Chicago");
   const [pomScheduleBatchSize, setPomScheduleBatchSize] = useState(1500);
   const [rebrickableImageSyncEnabled, setRebrickableImageSyncEnabled] = useState(true);
   const [ordersSyncEnabled, setOrdersSyncEnabled] = useState(false);
@@ -469,6 +470,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
       setPriceOMaticEnabled(settings.priceOMaticEnabled || false);
       setPomScheduleEnabled(settings.pomScheduleEnabled || false);
       setPomSyncTime(settings.pomSyncTime || '14:00');
+      setTimezone(settings.timezone || 'America/Chicago');
       setPomScheduleBatchSize(settings.pomScheduleBatchSize ?? 1500);
       setRebrickableImageSyncEnabled(settings.rebrickableImageSyncEnabled !== false);
       setOrdersSyncEnabled(settings.ordersSyncEnabled || false);
@@ -862,20 +864,29 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                 
                 <div className="space-y-2">
                   <Label htmlFor="timezone" className="text-xs text-gray-400">Time Zone</Label>
-                  <Select defaultValue="america/chicago">
+                  <Select
+                    value={timezone}
+                    onValueChange={(tz) => {
+                      setTimezone(tz);
+                      updateSettingsMutation.mutate({ timezone: tz });
+                    }}
+                  >
                     <SelectTrigger className="text-xs" data-testid="select-timezone">
                       <SelectValue placeholder="Select timezone" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="america/new_york">Eastern Time (ET)</SelectItem>
-                      <SelectItem value="america/chicago">Central Time (CT)</SelectItem>
-                      <SelectItem value="america/denver">Mountain Time (MT)</SelectItem>
-                      <SelectItem value="america/los_angeles">Pacific Time (PT)</SelectItem>
-                      <SelectItem value="europe/london">London (GMT)</SelectItem>
-                      <SelectItem value="europe/paris">Paris (CET)</SelectItem>
-                      <SelectItem value="asia/tokyo">Tokyo (JST)</SelectItem>
+                      <SelectItem value="America/New_York">Eastern Time (ET)</SelectItem>
+                      <SelectItem value="America/Chicago">Central Time (CT)</SelectItem>
+                      <SelectItem value="America/Denver">Mountain Time (MT)</SelectItem>
+                      <SelectItem value="America/Los_Angeles">Pacific Time (PT)</SelectItem>
+                      <SelectItem value="America/Anchorage">Alaska Time (AKT)</SelectItem>
+                      <SelectItem value="Pacific/Honolulu">Hawaii Time (HT)</SelectItem>
+                      <SelectItem value="Europe/London">London (GMT)</SelectItem>
+                      <SelectItem value="Europe/Paris">Paris (CET)</SelectItem>
+                      <SelectItem value="Asia/Tokyo">Tokyo (JST)</SelectItem>
                     </SelectContent>
                   </Select>
+                  <p className="text-[10px] text-gray-500">Used by all schedulers (POM, Inventory Sync)</p>
                 </div>
               </div>
 

@@ -39,9 +39,12 @@ async function checkAndRunInventorySync() {
       return; // Sync is disabled
     }
     
-    // Check if current time matches scheduled time
+    // Check if current time matches scheduled time (in user's configured timezone)
     const now = new Date();
-    const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const tz = settings.timezone || 'America/Chicago';
+    const localTimeStr = now.toLocaleString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false });
+    const [hStr, mStr] = localTimeStr.replace(/\u202f/g, '').split(':');
+    const currentTime = `${hStr.padStart(2, '0')}:${mStr.padStart(2, '0')}`;
     const scheduledTime = settings.inventorySyncTime || '02:00';
     
     // Only run if current time matches scheduled time (within the current minute)
