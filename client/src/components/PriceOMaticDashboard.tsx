@@ -218,39 +218,55 @@ export default function PriceOMaticDashboard({ onItemClick, isSyncRunning }: Pri
     refetchOnMount: true,
   });
 
-  // When server data arrives, use it as the authoritative set and sync to localStorage
-  useEffect(() => {
-    if (deepSpaceData?.keys) {
-      const serverSet = new Set(deepSpaceData.keys);
-      setDeepSpaceKeys(serverSet);
-      lsSaveDeepSpace(serverSet);
-    }
-  }, [deepSpaceData]);
-
   // Mutation to persist deep space changes to the server
   const saveDeepSpaceMutation = useMutation({
     mutationFn: async (keys: string[]) =>
       apiRequest('PUT', '/api/priceomatic/deep-space', { keys }),
   });
 
+  // When server data arrives, merge with local state:
+  // - If server has data, server wins (cross-device sync)
+  // - If server is empty but local has data, push local data up to server (migration)
+  useEffect(() => {
+    if (!deepSpaceData) return;
+    const serverKeys = deepSpaceData.keys ?? [];
+    const localKeys = Array.from(lsLoadDeepSpace());
+    if (serverKeys.length > 0) {
+      // Server has data — use it as authoritative
+      const serverSet = new Set(serverKeys);
+      setDeepSpaceKeys(serverSet);
+      lsSaveDeepSpace(serverSet);
+    } else if (localKeys.length > 0) {
+      // DB is empty but local has keys — migrate local → server
+      saveDeepSpaceMutation.mutate(localKeys);
+    }
+    // If both empty, leave state as-is
+  }, [deepSpaceData]);
+
   const sendToDeepSpace = useCallback((key: string) => {
     setDeepSpaceKeys(prev => {
       const next = new Set(prev);
       next.add(key);
-      lsSaveDeepSpace(next);
-      saveDeepSpaceMutation.mutate(Array.from(next));
       return next;
     });
+    // Side effects outside the state updater
+    const updated = new Set(lsLoadDeepSpace());
+    updated.add(key);
+    lsSaveDeepSpace(updated);
+    saveDeepSpaceMutation.mutate(Array.from(updated));
   }, []);
 
   const bringToOrbit = useCallback((key: string) => {
     setDeepSpaceKeys(prev => {
       const next = new Set(prev);
       next.delete(key);
-      lsSaveDeepSpace(next);
-      saveDeepSpaceMutation.mutate(Array.from(next));
       return next;
     });
+    // Side effects outside the state updater
+    const updated = new Set(lsLoadDeepSpace());
+    updated.delete(key);
+    lsSaveDeepSpace(updated);
+    saveDeepSpaceMutation.mutate(Array.from(updated));
   }, []);
 
   const fetchPricingMutation = useMutation({
