@@ -5060,6 +5060,44 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
     res.json({ running: getChannelSyncIsRunning() });
   });
 
+  // Recent sync errors for dashboard action items
+  // Returns syncs that completed with error/failed status in the last 24 hours
+  app.get("/api/sync/recent-errors", isApproved, async (req, res) => {
+    try {
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const rows = await db
+        .select()
+        .from(syncMetadata)
+        .where(
+          and(
+            inArray(syncMetadata.lastSyncStatus, ['error', 'failed', 'partial']),
+            sql`${syncMetadata.lastSyncTime} >= ${since}`
+          )
+        );
+
+      const SYNC_LABELS: Record<string, string> = {
+        bricklink_inventory: 'Inventory Sync',
+        bricklink_orders:    'Order Sync (BrickLink)',
+        brickowl_orders:     'Order Sync (BrickOwl)',
+        priceomatic_cache:   'Price-o-Matic',
+        channel_sync:        'Channel Sync',
+      };
+
+      const errors = rows.map(r => ({
+        id: r.id,
+        label: SYNC_LABELS[r.id] ?? r.id,
+        status: r.lastSyncStatus,
+        message: r.errorMessage ?? 'Unknown error',
+        time: r.lastSyncTime?.toISOString() ?? null,
+      }));
+
+      res.json({ errors });
+    } catch (error) {
+      console.error('Error fetching recent sync errors:', error);
+      res.status(500).json({ errors: [] });
+    }
+  });
+
   // Get Order Sync Status for all platforms
   app.get("/api/order-sync/status", isApproved, async (req, res) => {
     try {

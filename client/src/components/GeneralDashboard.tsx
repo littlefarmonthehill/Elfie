@@ -1,6 +1,6 @@
 import MetricCard from "./MetricCard";
 import { useQuery } from "@tanstack/react-query";
-import { TrendingDown, AlertCircle, TrendingUp, ShoppingCart, RefreshCw } from "lucide-react";
+import { TrendingDown, AlertCircle, TrendingUp, ShoppingCart, RefreshCw, XCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import DashboardNotifications from "./DashboardNotifications";
 
@@ -128,6 +128,16 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment }: Gen
     staleTime: 0,
   });
   const isChannelSyncing = channelSyncRunning?.running === true;
+
+  // Poll recent sync errors (last 24 h) for action items
+  const { data: recentErrorsData } = useQuery<{
+    errors: Array<{ id: string; label: string; status: string; message: string; time: string | null }>;
+  }>({
+    queryKey: ['/api/sync/recent-errors'],
+    refetchInterval: 30000,
+    staleTime: 0,
+  });
+  const syncErrors = recentErrorsData?.errors ?? [];
 
   // Get top pricing opportunities (items priced too low, sorted by variance)
   const pricingOpportunities = pricingInsights?.data?.tooLow
@@ -276,6 +286,24 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment }: Gen
                 <p className="text-[10px] font-mono text-teal-600">Pushing inventory updates to BrickOwl…</p>
               </div>
             )}
+
+            {syncErrors.map(err => (
+              <div
+                key={err.id}
+                className={`rounded px-2 py-2 space-y-1 ${err.status === 'partial' ? 'bg-yellow-950/40 border border-yellow-500/20' : 'bg-red-950/40 border border-red-500/20'}`}
+                data-testid={`action-sync-error-${err.id}`}
+              >
+                <div className="flex items-center gap-2">
+                  <XCircle className={`w-3.5 h-3.5 flex-shrink-0 ${err.status === 'partial' ? 'text-yellow-400' : 'text-red-400'}`} />
+                  <span className={`text-xs md:text-sm font-medium ${err.status === 'partial' ? 'text-yellow-300' : 'text-red-300'}`}>
+                    {err.label} {err.status === 'partial' ? 'Partial' : 'Failed'}
+                  </span>
+                </div>
+                <p className={`text-[10px] font-mono truncate ${err.status === 'partial' ? 'text-yellow-600' : 'text-red-600'}`}>
+                  {err.message}
+                </p>
+              </div>
+            ))}
           </div>
 
           <DashboardNotifications />
