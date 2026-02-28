@@ -33,12 +33,6 @@ interface PackingSlipProps {
   orders: PackingSlipOrder[];
 }
 
-// Page 1 of each order fits fewer items because the full header (logo + address +
-// ship-to block) consumes roughly 1.8in of the 10.4in content area.
-// These limits are conservative so no chunk ever overflows its page div.
-const FIRST_PAGE_ITEMS = 9;
-const CONT_PAGE_ITEMS  = 22;
-
 async function loadLogoDataUrl(): Promise<string> {
   try {
     const response = await fetch(planetLogo);
@@ -54,24 +48,19 @@ async function loadLogoDataUrl(): Promise<string> {
 }
 
 export async function printPackingSlips(orders: PackingSlipOrder[]) {
-  // Open window immediately while still in the user-gesture context (before any await).
-  // Calling window.open after an await loses the gesture context and iOS Safari blocks it.
   const printWindow = window.open('', '_blank', 'width=800,height=600');
   if (!printWindow) {
     alert('Please allow popups to print packing slips');
     return;
   }
-
   try {
     const logoDataUrl = await loadLogoDataUrl();
     const content = generatePackingSlipHTML(orders, logoDataUrl);
-
     printWindow.document.open();
     printWindow.document.write(content);
     printWindow.document.close();
     printWindow.focus();
     printWindow.addEventListener('afterprint', () => printWindow.close());
-    // Small delay lets the document render before printing
     setTimeout(() => printWindow.print(), 200);
   } catch (e) {
     printWindow.close();
@@ -85,63 +74,56 @@ function channelLabel(order: PackingSlipOrder): string {
 }
 
 function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string): string {
-  // Each order is split into explicit page-sized chunks so we know "Page X of Y"
-  // at generation time and can pin the footer to the bottom of each page div.
-  // min-height: calc(100vh - 0.6in) fills the full content area so there is no
-  // large blank gap before the browser's own footer line.
-  const allPageDivs: string[] = [];
-
-  orders.forEach((order, orderIdx) => {
+  // Natural-flow layout: items are never chunked into fixed-size page divs.
+  // The browser fills each printed page organically — no large bottom gaps.
+  // Each order starts on its own page via break-before; items flow until the
+  // page is full and continue on the next page automatically.
+  const orderDivs = orders.map((order, orderIdx) => {
     const { shipTo } = order;
-    const street1    = shipTo.street1 || (shipTo as any).address1 || '';
-    const street2    = shipTo.street2 || (shipTo as any).address2 || '';
-    const city       = shipTo.city || '';
-    const state      = shipTo.state || '';
-    const postalCode = shipTo.postalCode || '';
-    const country    = shipTo.country || '';
-    const cityLine   = [city, state, postalCode].filter(Boolean).join(' ');
+    const street1     = shipTo.street1 || (shipTo as any).address1 || '';
+    const street2     = shipTo.street2 || (shipTo as any).address2 || '';
+    const city        = shipTo.city || '';
+    const state       = shipTo.state || '';
+    const postalCode  = shipTo.postalCode || '';
+    const country     = shipTo.country || '';
+    const cityLine    = [city, state, postalCode].filter(Boolean).join(' ');
     const showCountry = country && country !== 'US';
-    const orderNum   = order.orderNumber;
+    const orderNum    = order.orderNumber;
 
-    const chunks: typeof order.items[] = [];
-    if (order.items.length > 0) {
-      chunks.push(order.items.slice(0, FIRST_PAGE_ITEMS));
-      for (let i = FIRST_PAGE_ITEMS; i < order.items.length; i += CONT_PAGE_ITEMS) {
-        chunks.push(order.items.slice(i, i + CONT_PAGE_ITEMS));
-      }
-    } else {
-      chunks.push([]);
-    }
+    const shipToHTML = [
+      shipTo.name    ? `<div>${shipTo.name}</div>`    : '',
+      shipTo.company ? `<div>${shipTo.company}</div>` : '',
+      street1        ? `<div>${street1}</div>`         : '',
+      street2        ? `<div>${street2}</div>`         : '',
+      cityLine       ? `<div>${cityLine}</div>`        : '',
+      showCountry    ? `<div>${country}</div>`         : '',
+      (!shipTo.name && !street1 && !cityLine)
+        ? '<div class="missing-addr">Address not available</div>' : '',
+    ].join('');
 
-    const totalChunks = chunks.length;
+    const rowsHTML = order.items.map((item: any) => {
+      const baseName    = cleanItemName(item.name, item.bricklinkPartNumber);
+      const colorPrefix = item.colorName ? `${item.colorName} ` : '';
+      const partLabel   = item.bricklinkPartNumber ? ` (${item.bricklinkPartNumber})` : '';
+      const fullName    = `LEGO ${colorPrefix}${baseName}${partLabel}`;
+      const metaParts   = [
+        item.colorName ? `Color: ${item.colorName}`     : '',
+        item.condition ? `Condition: ${item.condition}` : '',
+      ].filter(Boolean).join(', ');
+      return `
+        <tr>
+          <td class="item-desc">
+            <div class="item-name">${fullName}</div>
+            ${metaParts ? `<div class="item-meta">${metaParts}</div>` : ''}
+          </td>
+          <td class="item-qty">${item.quantity}</td>
+        </tr>
+      `;
+    }).join('');
 
-    chunks.forEach((chunk, chunkIdx) => {
-      const isLastPage   = orderIdx === orders.length - 1 && chunkIdx === chunks.length - 1;
-      const isContinuation = chunkIdx > 0;
-
-      // ── "Packing Slip" bar — first page of each order only ────────────────
-      const barHTML = !isContinuation ? `
+    return `
+      <div class="order${orderIdx === 0 ? ' first' : ''}">
         <div class="slip-label-bar"><span>Packing Slip</span></div>
-      ` : '';
-
-      // ── Footer: order number + "Page X of Y" ──────────────────────────────
-      const pageLabel = totalChunks > 1
-        ? `${orderNum} &nbsp;&middot;&nbsp; Page ${chunkIdx + 1} of ${totalChunks}`
-        : orderNum;
-
-      // ── Full header — first page of each order only ────────────────────────
-      const shipToHTML = [
-        shipTo.name    ? `<div>${shipTo.name}</div>`    : '',
-        shipTo.company ? `<div>${shipTo.company}</div>` : '',
-        street1        ? `<div>${street1}</div>`         : '',
-        street2        ? `<div>${street2}</div>`         : '',
-        cityLine       ? `<div>${cityLine}</div>`        : '',
-        showCountry    ? `<div>${country}</div>`         : '',
-        (!shipTo.name && !street1 && !cityLine)
-          ? '<div class="missing-addr">Address not available</div>' : '',
-      ].join('');
-
-      const fullHeaderHTML = !isContinuation ? `
         <div class="header">
           <div class="header-left">
             <div class="company-name">PlanetBrick.com</div>
@@ -166,46 +148,18 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
             </table>
           </div>
         </div>
-      ` : '';
-
-      // ── Item rows ──────────────────────────────────────────────────────────
-      const rowsHTML = chunk.map((item: any) => {
-        const baseName    = cleanItemName(item.name, item.bricklinkPartNumber);
-        const colorPrefix = item.colorName ? `${item.colorName} ` : '';
-        const partLabel   = item.bricklinkPartNumber ? ` (${item.bricklinkPartNumber})` : '';
-        const fullName    = `LEGO ${colorPrefix}${baseName}${partLabel}`;
-        const metaParts   = [
-          item.colorName ? `Color: ${item.colorName}`     : '',
-          item.condition ? `Condition: ${item.condition}` : '',
-        ].filter(Boolean).join(', ');
-        return `
-          <tr>
-            <td class="item-desc">
-              <div class="item-name">${fullName}</div>
-              ${metaParts ? `<div class="item-meta">${metaParts}</div>` : ''}
-            </td>
-            <td class="item-qty">${item.quantity}</td>
-          </tr>
-        `;
-      }).join('');
-
-      allPageDivs.push(`
-        <div class="page${isLastPage ? ' last' : ''}">
-          ${barHTML}
-          ${fullHeaderHTML}
-          <table class="items">
-            <thead>
-              <tr>
-                <th class="th-desc">Description</th>
-                <th class="th-qty">Qty</th>
-              </tr>
-            </thead>
-            <tbody>${rowsHTML}</tbody>
-          </table>
-          <div class="page-footer">${pageLabel}</div>
-        </div>
-      `);
-    });
+        <table class="items">
+          <thead>
+            <tr>
+              <th class="th-desc">Description</th>
+              <th class="th-qty">Qty</th>
+            </tr>
+          </thead>
+          <tbody>${rowsHTML}</tbody>
+        </table>
+        <div class="page-footer">${orderNum}</div>
+      </div>
+    `;
   });
 
   return `<!DOCTYPE html>
@@ -214,10 +168,8 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
   <meta charset="UTF-8">
   <title>Packing Slips</title>
   <style>
-    /* @page margin applied uniformly to every physical page.
-       Each .page div uses min-height to fill the full content area so the
-       browser-generated URL footer lands right at the edge with no large gap.
-       The order footer is pinned absolutely to the bottom-right of each page. */
+    /* @page margin applied uniformly to every printed page — first, middle, last.
+       Natural flow means the browser fills pages organically with no bottom gaps. */
     @page { size: letter portrait; margin: 0.3in; }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -227,24 +179,13 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
       font-size: 11px;
     }
 
-    .page {
-      width: 100%;
-      min-height: 10.4in;
-      page-break-after: always;
-      break-after: page;
-      position: relative;
-      padding-bottom: 18px;
-    }
-    .page.last {
-      page-break-after: auto;
-      break-after: auto;
-    }
+    .order { page-break-before: always; break-before: page; }
+    .order.first { page-break-before: auto; break-before: auto; }
 
     .slip-label-bar {
       background: #777;
       color: white;
       display: flex;
-      justify-content: space-between;
       align-items: center;
       font-size: 9px;
       font-weight: bold;
@@ -255,11 +196,10 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
     }
 
     .page-footer {
-      position: absolute;
-      bottom: 0;
-      right: 0;
+      text-align: right;
       font-size: 9px;
       color: #666;
+      margin-top: 8px;
       letter-spacing: 0.3px;
     }
 
@@ -289,6 +229,7 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
     .mv { text-align: right; }
 
     .items { width: 100%; border-collapse: collapse; margin-top: 2px; }
+    .items thead { display: table-header-group; }
     .items thead tr { background: #777; color: white; }
     .th-desc { text-align: left; padding: 4px 6px; font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; }
     .th-qty  { text-align: right; padding: 4px 6px; font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; width: 40px; }
@@ -302,7 +243,7 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
   </style>
 </head>
 <body>
-  ${allPageDivs.join('')}
+  ${orderDivs.join('')}
 </body>
 </html>`;
 }
