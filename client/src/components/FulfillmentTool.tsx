@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Truck, Loader2, Printer, AlertTriangle, Tag, Scissors, Package, ExternalLink, CheckCircle2, Star, ClipboardList, PackageCheck, ScanLine } from "lucide-react";
+import { Truck, Loader2, Printer, AlertTriangle, Tag, Scissors, Package, ExternalLink, CheckCircle2, Star, ClipboardList, PackageCheck, ScanLine, ShieldCheck } from "lucide-react";
 import { printPackingSlips } from "./PackingSlip";
 import { useToast } from "@/hooks/use-toast";
 import { cleanItemName, PRIORITY_REGEX, toggleSetItem } from "@/lib/item-utils";
@@ -221,6 +221,9 @@ export default function FulfillmentTool() {
   // End of Day SCAN form state
   const [scanFormUrl, setScanFormUrl] = useState<string | null>(null);
 
+  // Ship confirmation dialog
+  const [showShipConfirmDialog, setShowShipConfirmDialog] = useState(false);
+
   // Split order state
   const [isSplitMode, setIsSplitMode] = useState(false);
   const [selectedItemsForSplit, setSelectedItemsForSplit] = useState<Set<string>>(new Set());
@@ -344,6 +347,10 @@ export default function FulfillmentTool() {
     return dateA - dateB;
   });
 
+  // Orders that are both selected AND fully ready to ship
+  const shippableOrderIds = [...selectedOrders].filter(id => readyToShip.has(id));
+  const shippableCount = shippableOrderIds.length;
+
   // Derived: single selected order (for ship/split actions that need exactly one)
   const selectedOrderId = selectedOrders.size === 1 ? [...selectedOrders][0] : null;
 
@@ -432,12 +439,13 @@ export default function FulfillmentTool() {
   };
 
   const handleShipAll = async () => {
-    if (readyToShip.size === 0) return;
+    if (shippableOrderIds.length === 0) return;
+    setShowShipConfirmDialog(false);
     setIsShippingAll(true);
     const results: BatchResult[] = [];
     const labelMap = new Map<string, PurchasedLabelResult>();
 
-    const orderIds = [...readyToShip.keys()];
+    const orderIds = shippableOrderIds;
     await Promise.allSettled(
       orderIds.map(async (orderId) => {
         const ready = readyToShip.get(orderId)!;
@@ -770,21 +778,19 @@ export default function FulfillmentTool() {
               <Scissors className="w-3.5 h-3.5 mr-1.5" />
               Split
             </Button>
-            {readyToShip.size > 0 && (
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={isShippingAll}
-                onClick={handleShipAll}
-                className="text-gray-300 text-xs whitespace-nowrap shrink-0"
-                data-testid="button-ship-all"
-              >
-                {isShippingAll
-                  ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Shipping...</>
-                  : <><Package className="w-3.5 h-3.5 mr-1.5" />Ship ({readyToShip.size})</>
-                }
-              </Button>
-            )}
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={shippableCount === 0 || isShippingAll}
+              onClick={() => setShowShipConfirmDialog(true)}
+              className="text-gray-300 text-xs whitespace-nowrap shrink-0"
+              data-testid="button-ship-all"
+            >
+              {isShippingAll
+                ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Shipping...</>
+                : <><Truck className="w-3.5 h-3.5 mr-1.5" />Ship{shippableCount > 0 ? ` (${shippableCount})` : ''}</>
+              }
+            </Button>
             <div className="w-px h-4 bg-gray-700 mx-0.5 shrink-0" />
             <Button
               size="sm"
@@ -932,6 +938,75 @@ export default function FulfillmentTool() {
         )}
 
       </div>
+
+      {/* Ship Confirmation Dialog */}
+      <Dialog open={showShipConfirmDialog} onOpenChange={setShowShipConfirmDialog}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Truck className="w-5 h-5 text-purple-400" />
+              Confirm Shipment
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Alert className="bg-purple-500/10 border-purple-500/30">
+              <ShieldCheck className="h-4 w-4 text-purple-400" />
+              <AlertDescription className="text-purple-200">
+                <p className="font-semibold mb-1">
+                  You are about to ship {shippableCount} order{shippableCount !== 1 ? 's' : ''}.
+                </p>
+                <p className="text-sm text-purple-300">
+                  Each order will be marked as shipped in PlanetBrick and the shipped status will be sent to the marketplace channel (BrickLink / BrickOwl).
+                </p>
+              </AlertDescription>
+            </Alert>
+
+            {/* List the orders being shipped */}
+            <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
+                Orders to ship
+              </p>
+              <div className="space-y-1 max-h-[180px] overflow-y-auto">
+                {shippableOrderIds.map(orderId => {
+                  const order = data?.orders.find(o => o.id === orderId);
+                  const ready = readyToShip.get(orderId);
+                  return (
+                    <div key={orderId} className="flex items-center justify-between gap-2 text-xs bg-gray-900/50 rounded px-2 py-1.5">
+                      <span className="font-mono font-semibold text-white">{order?.orderNumber ?? orderId}</span>
+                      {ready && (
+                        <span className="text-gray-400 tabular-nums">
+                          {ready.selectedRate.carrier} {ready.selectedRate.service} · ${ready.selectedRate.rate.toFixed(2)}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowShipConfirmDialog(false)}
+                data-testid="button-cancel-ship-confirm"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleShipAll}
+                disabled={isShippingAll}
+                className="bg-purple-600 hover:bg-purple-700"
+                data-testid="button-execute-ship"
+              >
+                {isShippingAll
+                  ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Shipping...</>
+                  : <><Truck className="w-4 h-4 mr-2" />Ship {shippableCount} Order{shippableCount !== 1 ? 's' : ''}</>
+                }
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Split Order Confirmation Dialog */}
       <Dialog open={showSplitConfirmDialog} onOpenChange={setShowSplitConfirmDialog}>
