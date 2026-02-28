@@ -43,9 +43,11 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   
-  // NEVER cache API requests - always go to network
+  // Don't intercept API requests at all — let the browser handle them natively.
+  // Intercepting via event.respondWith ties the request to the SW lifetime,
+  // which causes long-running requests (e.g. inventory sync) to fail on iOS
+  // with "FetchEvent.respondWith received an error: TypeError: Load failed".
   if (url.pathname.startsWith('/api/')) {
-    event.respondWith(fetch(event.request));
     return;
   }
   

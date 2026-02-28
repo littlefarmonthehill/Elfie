@@ -215,10 +215,10 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
   <meta charset="UTF-8">
   <title>Packing Slips</title>
   <style>
-    /* margin:0 eliminates the margin zone so Chrome/Firefox suppress their
-       built-in URL/date footer. Each .page div carries its own padding so
-       every virtual page gets identical 0.5in top and bottom spacing without
-       relying on position:fixed overlays that behave inconsistently. */
+    /* @page margin:0 removes the browser margin zone so headers/footers are
+       suppressed. Padding lives on each .page div so every printed page gets
+       identical 0.3in margins — body padding only applies to the document
+       start/end and would leave middle pages without top/bottom spacing. */
     @page { size: letter portrait; margin: 0; }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -226,11 +226,11 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
       color: black;
       font-family: Arial, sans-serif;
       font-size: 11px;
-      padding: 0.3in;
     }
 
     .page {
       width: 100%;
+      padding: 0.3in;
       page-break-after: always;
       break-after: page;
       position: relative;
