@@ -229,7 +229,7 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
 
     .page {
       width: 100%;
-      min-height: calc(100vh - 0.6in);
+      min-height: 10.4in;
       page-break-after: always;
       break-after: page;
       position: relative;
