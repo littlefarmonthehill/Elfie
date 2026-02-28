@@ -113,6 +113,22 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment }: Gen
   const isInvSyncing = invSyncProgress?.status === 'syncing';
   const isInvComplete = invSyncProgress?.status === 'complete';
 
+  // Poll order sync running state
+  const { data: orderSyncRunning } = useQuery<{ running: boolean }>({
+    queryKey: ['/api/order-sync/running'],
+    refetchInterval: 4000,
+    staleTime: 0,
+  });
+  const isOrderSyncing = orderSyncRunning?.running === true;
+
+  // Poll channel sync running state
+  const { data: channelSyncRunning } = useQuery<{ running: boolean }>({
+    queryKey: ['/api/channel-sync/running'],
+    refetchInterval: 4000,
+    staleTime: 0,
+  });
+  const isChannelSyncing = channelSyncRunning?.running === true;
+
   // Get top pricing opportunities (items priced too low, sorted by variance)
   const pricingOpportunities = pricingInsights?.data?.tooLow
     ?.sort((a, b) => Math.abs(b.variance) - Math.abs(a.variance))
@@ -232,6 +248,32 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment }: Gen
                     </div>
                   </>
                 )}
+              </div>
+            )}
+
+            {isOrderSyncing && (
+              <div
+                className="rounded px-2 py-2 bg-cyan-950/40 border border-cyan-500/20 space-y-1"
+                data-testid="action-order-sync-running"
+              >
+                <div className="flex items-center gap-2">
+                  <RefreshCw className="w-3.5 h-3.5 text-cyan-400 animate-spin flex-shrink-0" />
+                  <span className="text-xs md:text-sm text-cyan-300 font-medium">Order Sync Running</span>
+                </div>
+                <p className="text-[10px] font-mono text-cyan-600">Fetching orders from BrickLink &amp; BrickOwl…</p>
+              </div>
+            )}
+
+            {isChannelSyncing && (
+              <div
+                className="rounded px-2 py-2 bg-teal-950/40 border border-teal-500/20 space-y-1"
+                data-testid="action-channel-sync-running"
+              >
+                <div className="flex items-center gap-2">
+                  <RefreshCw className="w-3.5 h-3.5 text-teal-400 animate-spin flex-shrink-0" />
+                  <span className="text-xs md:text-sm text-teal-300 font-medium">Channel Sync Running</span>
+                </div>
+                <p className="text-[10px] font-mono text-teal-600">Pushing inventory updates to BrickOwl…</p>
               </div>
             )}
           </div>

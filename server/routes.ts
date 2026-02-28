@@ -5044,6 +5044,17 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
     }
   });
 
+  // Lightweight "is running" poll for dashboard action items
+  app.get("/api/order-sync/running", isApproved, async (req, res) => {
+    const { getOrderSyncIsRunning } = await import("./services/order-sync-core");
+    res.json({ running: getOrderSyncIsRunning() });
+  });
+
+  app.get("/api/channel-sync/running", isApproved, async (req, res) => {
+    const { getChannelSyncIsRunning } = await import("./services/channel-sync-scheduler");
+    res.json({ running: getChannelSyncIsRunning() });
+  });
+
   // Get Order Sync Status for all platforms
   app.get("/api/order-sync/status", isApproved, async (req, res) => {
     try {
