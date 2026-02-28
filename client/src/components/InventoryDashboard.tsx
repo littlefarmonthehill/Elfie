@@ -81,6 +81,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
   }>({
     queryKey: ['/api/sync/priceomatic/status'],
     refetchInterval: activeDrawer === 'priceomatic' ? 3000 : false,
+    staleTime: 0, // always refetch on interval — overrides global staleTime: Infinity
   });
   const pomStatus = pomSyncStatus?.data;
   const isPomSyncRunning = pomStatus?.lastSyncStatus === 'in_progress';
