@@ -1,7 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { startOrderSyncScheduler } from "./services/order-sync-scheduler";
 import { startInventorySyncScheduler } from "./services/inventory-sync-scheduler";
 import { startPomSyncScheduler } from "./services/pom-scheduler";
 import { startEmbeddingWorker } from "./services/embedding-worker";
@@ -136,11 +135,6 @@ app.use((req, res, next) => {
       host: "0.0.0.0",
     }, () => {
       log(`serving on port ${port}`);
-      
-      // Start automatic order sync scheduler
-      startOrderSyncScheduler().catch(error => {
-        console.error('Failed to start order sync scheduler:', error);
-      });
       
       // Start automatic inventory sync scheduler
       startInventorySyncScheduler();
