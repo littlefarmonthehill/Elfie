@@ -354,7 +354,7 @@ export default function InlineShippingCard({
       ? rate.service.toLowerCase().includes(summary.requestedService.toLowerCase()) ||
         summary.requestedService.toLowerCase().includes(rate.service.toLowerCase())
       : false;
-  const isReady = !!(shipmentId && selectedRateId && !isLoadingRates && !ratesError);
+  const isReady = !!(shipmentId && selectedRateId && !isLoadingRates && !ratesError && weight !== "");
 
   // ── Loading skeleton ──
   if (isLoadingSummary) {

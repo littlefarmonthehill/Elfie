@@ -18,7 +18,16 @@ import { useToast } from "@/hooks/use-toast";
 import { PomSpotLookup } from "@/components/PomSpotLookup";
 
 const DEEP_SPACE_LS_KEY = 'pom_deep_space_keys';
+const DEEP_SPACE_ITEMS_LS_KEY = 'pom_deep_space_items';
 const SWIPE_THRESHOLD = 72;
+
+interface StoredGroupInfo {
+  key: string;
+  itemNo: string;
+  itemName: string | null;
+  colorId: number | null;
+  colorName: string | null;
+}
 
 function lsLoadDeepSpace(): Set<string> {
   try {
@@ -30,6 +39,21 @@ function lsLoadDeepSpace(): Set<string> {
 
 function lsSaveDeepSpace(keys: Set<string>) {
   localStorage.setItem(DEEP_SPACE_LS_KEY, JSON.stringify(Array.from(keys)));
+}
+
+function lsLoadDeepSpaceItems(): Map<string, StoredGroupInfo> {
+  try {
+    const raw = localStorage.getItem(DEEP_SPACE_ITEMS_LS_KEY);
+    if (raw) {
+      const arr: StoredGroupInfo[] = JSON.parse(raw);
+      return new Map(arr.map(i => [i.key, i]));
+    }
+  } catch {}
+  return new Map();
+}
+
+function lsSaveDeepSpaceItems(items: Map<string, StoredGroupInfo>) {
+  localStorage.setItem(DEEP_SPACE_ITEMS_LS_KEY, JSON.stringify(Array.from(items.values())));
 }
 
 interface SyncStatus {
@@ -103,7 +127,7 @@ function SwipeableTile({
 }: {
   group: GroupedInsight;
   orbitFilter: 'in_orbit' | 'deep_space';
-  onSendToDeepSpace: (key: string) => void;
+  onSendToDeepSpace: (group: GroupedInsight) => void;
   onBringToOrbit: (key: string) => void;
   children: React.ReactNode;
 }) {
@@ -138,7 +162,7 @@ function SwipeableTile({
       setLaunched(true);
       setTimeout(() => {
         if (orbitFilter === 'in_orbit') {
-          onSendToDeepSpace(group.key);
+          onSendToDeepSpace(group);
         } else {
           onBringToOrbit(group.key);
         }
@@ -209,19 +233,21 @@ export default function PriceOMaticDashboard({ onItemClick, isSyncRunning }: Pri
   const [pricingLoading, setPricingLoading] = useState<Set<string>>(new Set());
   // Initialize from localStorage for instant render; API query overwrites on mount
   const [deepSpaceKeys, setDeepSpaceKeys] = useState<Set<string>>(lsLoadDeepSpace);
+  const [deepSpaceItems, setDeepSpaceItems] = useState<Map<string, StoredGroupInfo>>(lsLoadDeepSpaceItems);
   const [orbitFilter, setOrbitFilter] = useState<'in_orbit' | 'deep_space'>('in_orbit');
 
-  // Fetch deep space keys from the server (cross-device source of truth)
-  const { data: deepSpaceData } = useQuery<{ success: boolean; keys: string[] }>({
+  // Fetch deep space keys + item metadata from the server (cross-device source of truth)
+  const { data: deepSpaceData } = useQuery<{ success: boolean; keys: string[]; items?: StoredGroupInfo[] }>({
     queryKey: ['/api/priceomatic/deep-space'],
     staleTime: 0,
     refetchOnMount: true,
+    refetchOnWindowFocus: true,
   });
 
-  // Mutation to persist deep space changes to the server
+  // Mutation to persist deep space changes to the server (sends full item metadata)
   const saveDeepSpaceMutation = useMutation({
-    mutationFn: async (keys: string[]) =>
-      apiRequest('PUT', '/api/priceomatic/deep-space', { keys }),
+    mutationFn: async (items: StoredGroupInfo[]) =>
+      apiRequest('PUT', '/api/priceomatic/deep-space', { items }),
   });
 
   // When server data arrives, merge with local state:
@@ -230,43 +256,46 @@ export default function PriceOMaticDashboard({ onItemClick, isSyncRunning }: Pri
   useEffect(() => {
     if (!deepSpaceData) return;
     const serverKeys = deepSpaceData.keys ?? [];
+    const serverItems = deepSpaceData.items ?? [];
     const localKeys = Array.from(lsLoadDeepSpace());
+    const localItems = lsLoadDeepSpaceItems();
     if (serverKeys.length > 0) {
       // Server has data — use it as authoritative
       const serverSet = new Set(serverKeys);
+      const serverItemsMap = new Map(serverItems.map(i => [i.key, i]));
       setDeepSpaceKeys(serverSet);
+      setDeepSpaceItems(serverItemsMap);
       lsSaveDeepSpace(serverSet);
+      lsSaveDeepSpaceItems(serverItemsMap);
     } else if (localKeys.length > 0) {
       // DB is empty but local has keys — migrate local → server
-      saveDeepSpaceMutation.mutate(localKeys);
+      const migratedItems = localKeys.map(k => localItems.get(k) ?? { key: k, itemNo: k.split('_')[0], itemName: null, colorId: null, colorName: null });
+      saveDeepSpaceMutation.mutate(migratedItems);
     }
     // If both empty, leave state as-is
   }, [deepSpaceData]);
 
-  const sendToDeepSpace = useCallback((key: string) => {
-    setDeepSpaceKeys(prev => {
-      const next = new Set(prev);
-      next.add(key);
-      return next;
-    });
-    // Side effects outside the state updater
-    const updated = new Set(lsLoadDeepSpace());
-    updated.add(key);
-    lsSaveDeepSpace(updated);
-    saveDeepSpaceMutation.mutate(Array.from(updated));
+  const sendToDeepSpace = useCallback((group: GroupedInsight) => {
+    const stored: StoredGroupInfo = { key: group.key, itemNo: group.itemNo, itemName: group.itemName, colorId: group.colorId, colorName: group.colorName };
+    setDeepSpaceKeys(prev => { const next = new Set(prev); next.add(group.key); return next; });
+    setDeepSpaceItems(prev => { const next = new Map(prev); next.set(group.key, stored); return next; });
+    // Persist to localStorage and server
+    const updatedKeys = new Set(lsLoadDeepSpace()); updatedKeys.add(group.key);
+    const updatedItems = lsLoadDeepSpaceItems(); updatedItems.set(group.key, stored);
+    lsSaveDeepSpace(updatedKeys);
+    lsSaveDeepSpaceItems(updatedItems);
+    saveDeepSpaceMutation.mutate(Array.from(updatedItems.values()));
   }, []);
 
   const bringToOrbit = useCallback((key: string) => {
-    setDeepSpaceKeys(prev => {
-      const next = new Set(prev);
-      next.delete(key);
-      return next;
-    });
-    // Side effects outside the state updater
-    const updated = new Set(lsLoadDeepSpace());
-    updated.delete(key);
-    lsSaveDeepSpace(updated);
-    saveDeepSpaceMutation.mutate(Array.from(updated));
+    setDeepSpaceKeys(prev => { const next = new Set(prev); next.delete(key); return next; });
+    setDeepSpaceItems(prev => { const next = new Map(prev); next.delete(key); return next; });
+    // Persist to localStorage and server
+    const updatedKeys = new Set(lsLoadDeepSpace()); updatedKeys.delete(key);
+    const updatedItems = lsLoadDeepSpaceItems(); updatedItems.delete(key);
+    lsSaveDeepSpace(updatedKeys);
+    lsSaveDeepSpaceItems(updatedItems);
+    saveDeepSpaceMutation.mutate(Array.from(updatedItems.values()));
   }, []);
 
   const fetchPricingMutation = useMutation({
@@ -401,8 +430,25 @@ export default function PriceOMaticDashboard({ onItemClick, isSyncRunning }: Pri
   };
 
   const allGroups = getAllGroups();
+  const allGroupKeySet = new Set(allGroups.map(g => g.key));
   const inOrbitGroups = allGroups.filter(g => !deepSpaceKeys.has(g.key));
-  const deepSpaceGroups = allGroups.filter(g => deepSpaceKeys.has(g.key));
+  // Deep space: items from current POM analysis PLUS stored fallbacks for items not in current analysis
+  const deepSpaceFromAnalysis = allGroups.filter(g => deepSpaceKeys.has(g.key));
+  const deepSpaceFallbacks: GroupedInsight[] = Array.from(deepSpaceItems.values())
+    .filter(item => deepSpaceKeys.has(item.key) && !allGroupKeySet.has(item.key))
+    .map(item => ({
+      key: item.key,
+      itemNo: item.itemNo,
+      itemName: item.itemName,
+      colorId: item.colorId,
+      colorName: item.colorName,
+      marketPeakSoldPrice: null,
+      newLot: null,
+      usedLot: null,
+      newScore: 0,
+      usedScore: 0,
+    }));
+  const deepSpaceGroups = [...deepSpaceFromAnalysis, ...deepSpaceFallbacks];
   const selectedGroups = orbitFilter === 'in_orbit' ? inOrbitGroups : deepSpaceGroups;
 
   useEffect(() => {

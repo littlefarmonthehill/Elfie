@@ -5437,28 +5437,38 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
     }
   });
 
-  // Deep Space: get current keys
+  // Deep Space: get current keys + stored item metadata for cross-device rendering
   app.get("/api/priceomatic/deep-space", isApproved, async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     try {
       const [settings] = await db.select({ pomDeepSpaceKeys: appSettings.pomDeepSpaceKeys }).from(appSettings).limit(1);
       const raw = settings?.pomDeepSpaceKeys || '[]';
-      const keys: string[] = JSON.parse(raw);
-      res.json({ success: true, keys });
+      const parsed: unknown[] = JSON.parse(raw);
+      // Support both old format (string[]) and new format (StoredGroupInfo[])
+      type StoredGroupInfo = { key: string; itemNo: string; itemName: string | null; colorId: number | null; colorName: string | null };
+      const items: StoredGroupInfo[] = parsed.map((el: unknown) =>
+        typeof el === 'string'
+          ? { key: el, itemNo: el.split('_')[0], itemName: null, colorId: null, colorName: null }
+          : el as StoredGroupInfo
+      );
+      const keys = items.map(i => i.key);
+      res.json({ success: true, keys, items });
     } catch (error) {
       res.status(500).json({ success: false, error: "Failed to fetch deep space keys" });
     }
   });
 
-  // Deep Space: save full set of keys
+  // Deep Space: save full set of item metadata (key + display info)
   app.put("/api/priceomatic/deep-space", isApproved, async (req, res) => {
     try {
-      const { keys } = req.body as { keys: string[] };
-      if (!Array.isArray(keys)) return res.status(400).json({ success: false, error: "keys must be an array" });
-      const json = JSON.stringify(keys);
+      const { items } = req.body as { items?: { key: string; itemNo: string; itemName: string | null; colorId: number | null; colorName: string | null }[]; keys?: string[] };
+      // Accept either new format (items[]) or legacy format (keys[])
+      const toStore = items ?? (req.body.keys as string[] | undefined)?.map((k: string) => ({ key: k, itemNo: k.split('_')[0], itemName: null, colorId: null, colorName: null })) ?? [];
+      if (!Array.isArray(toStore)) return res.status(400).json({ success: false, error: "items must be an array" });
+      const json = JSON.stringify(toStore);
       await db.insert(appSettings).values({ id: 'default', pomDeepSpaceKeys: json })
         .onConflictDoUpdate({ target: appSettings.id, set: { pomDeepSpaceKeys: json, updatedAt: new Date() } });
-      res.json({ success: true, keys });
+      res.json({ success: true, keys: toStore.map((i: { key: string }) => i.key), items: toStore });
     } catch (error) {
       res.status(500).json({ success: false, error: "Failed to save deep space keys" });
     }
