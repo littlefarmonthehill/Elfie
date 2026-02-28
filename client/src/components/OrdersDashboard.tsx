@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { AlertCircle, ShoppingCart, Package, TrendingUp, Truck, RefreshCw, PackageCheck, X } from "lucide-react";
+import { AlertCircle, ShoppingCart, Package, TrendingUp, Truck, PackageCheck, X } from "lucide-react";
 import {
   Drawer,
   DrawerClose,
@@ -8,7 +8,6 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import FulfillmentTool from "./FulfillmentTool";
-import OrderPlatformSyncTool from "./OrderPlatformSyncTool";
 import ShippedOrdersTool from "./ShippedOrdersTool";
 
 interface Order {
@@ -42,8 +41,8 @@ function OrderAmount({ order }: { order: Order }) {
 
 interface OrdersDashboardProps {
   onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
-  activeDrawer: 'fulfillment' | 'platformsync' | 'shipped' | null;
-  onDrawerChange: (drawer: 'fulfillment' | 'platformsync' | 'shipped' | null) => void;
+  activeDrawer: 'fulfillment' | 'shipped' | null;
+  onDrawerChange: (drawer: 'fulfillment' | 'shipped' | null) => void;
 }
 
 export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerChange }: OrdersDashboardProps) {
@@ -173,25 +172,6 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
           </DrawerHeader>
           <div className="overflow-y-auto px-4 pb-4 flex-1">
             <FulfillmentTool />
-          </div>
-        </DrawerContent>
-      </Drawer>
-
-      {/* Platform Order Sync Drawer */}
-      <Drawer open={activeDrawer === 'platformsync'} onOpenChange={(open) => !open && onDrawerChange(null)}>
-        <DrawerContent className="h-[90vh]">
-          <DrawerHeader className="relative">
-            <DrawerTitle className="flex items-center gap-2 text-base md:text-lg">
-              <RefreshCw className="w-5 h-5 text-blue-400" />
-              Sync Orders
-            </DrawerTitle>
-            <DrawerClose className="absolute right-4 top-4" data-testid="button-close-platformsync">
-              <X className="h-4 w-4" />
-              <span className="sr-only">Close</span>
-            </DrawerClose>
-          </DrawerHeader>
-          <div className="overflow-y-auto px-4 pb-4 flex-1">
-            <OrderPlatformSyncTool />
           </div>
         </DrawerContent>
       </Drawer>

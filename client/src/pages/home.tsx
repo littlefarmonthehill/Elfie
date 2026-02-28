@@ -39,7 +39,7 @@ export default function Home() {
     }>;
   } | null>(null);
   const [activeInventoryDrawer, setActiveInventoryDrawer] = useState<'priceomatic' | 'warehouse' | 'platformsync' | null>(null);
-  const [activeOrdersDrawer, setActiveOrdersDrawer] = useState<'fulfillment' | 'platformsync' | 'shipped' | null>(null);
+  const [activeOrdersDrawer, setActiveOrdersDrawer] = useState<'fulfillment' | 'shipped' | null>(null);
   const [detailModal, setDetailModal] = useState<{ open: boolean; data: DetailData | null }>({
     open: false,
     data: null,
@@ -756,14 +756,6 @@ export default function Home() {
                 </button>
               </div>
             </div>
-            <button
-              onClick={() => setActiveOrdersDrawer('platformsync')}
-              className="flex items-center gap-1 md:gap-2 text-[10px] md:text-base lg:text-lg text-gray-400 hover:text-gray-300 transition-colors"
-              data-testid="button-platformsync"
-            >
-              <RefreshCw className="h-3.5 w-3.5 md:h-5 md:w-5 lg:h-6 lg:w-6" />
-              <span className="font-medium">Sync</span>
-            </button>
           </div>
         </div>
       )}

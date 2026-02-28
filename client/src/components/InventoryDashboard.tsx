@@ -293,18 +293,6 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
   });
   const configuredTimezone = appSettings?.timezone || 'America/Chicago';
 
-  const pomSyncMutation = useMutation({
-    mutationFn: async () => apiRequest('POST', '/api/sync/priceomatic', {}),
-    onSuccess: () => {
-      queryClient.refetchQueries({ queryKey: ['/api/sync/priceomatic/status'] });
-      queryClient.refetchQueries({ queryKey: ['/api/priceomatic/insights'] });
-      toast({ title: "Sync Started", description: "Price analysis running in background" });
-    },
-    onError: (error: Error) => {
-      toast({ title: "Sync Failed", description: error.message, variant: "destructive" });
-    },
-  });
-
   const pomStopMutation = useMutation({
     mutationFn: async () => apiRequest('POST', '/api/sync/priceomatic/stop', {}),
     onSuccess: () => {
@@ -612,17 +600,6 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                     />
                   </PopoverContent>
                 </Popover>
-                {/* Sync button */}
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button onClick={() => pomSyncMutation.mutate()} disabled={isPomSyncRunning || pomSyncMutation.isPending} size="icon" variant="ghost" data-testid="button-sync">
-                      <RefreshCw className={`w-4 h-4 text-gray-500 ${pomSyncMutation.isPending ? 'animate-spin' : ''}`} />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="text-xs">
-                    {isPomSyncRunning ? 'Syncing in progress...' : 'Run Price-o-Matic Sync'}
-                  </TooltipContent>
-                </Tooltip>
               </div>
             </DrawerTitle>
           </DrawerHeader>
