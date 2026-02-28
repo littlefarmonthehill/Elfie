@@ -5,7 +5,7 @@
  */
 
 import { db } from '../db';
-import { orders, orderDetails, orderSplits, orderSplitItems, shipments, appSettings } from '@shared/schema';
+import { orders, orderDetails, orderSplits, orderSplitItems, shipments, orderAdjustments, appSettings } from '@shared/schema';
 import { eq, and, inArray, desc } from 'drizzle-orm';
 import { getShippingVendor } from './easypost';
 import type { CreateShipmentRequest, BuyLabelRequest, Address, Parcel, CustomsInfo, TaxIdentifier } from './shipping-vendor';
@@ -408,6 +408,19 @@ export async function purchaseLabel(
     })
     .where(eq(orders.id, orderId))
     .returning();
+
+  // Record shipping cost as a business cost adjustment (type='shipping_cost')
+  // This feeds into cost analytics alongside merchant fees
+  if (label.cost && Number(label.cost) > 0) {
+    const carrier = [label.carrier, label.service].filter(Boolean).join(' ');
+    await db.insert(orderAdjustments).values({
+      orderId,
+      type: 'shipping_cost',
+      amount: (-Math.abs(Number(label.cost))).toFixed(2),
+      reason: `Shipping — ${carrier || 'EasyPost'}`,
+      notes: `Shipment ID: ${shipmentRecord.id}`,
+    });
+  }
 
   // Mark all items as fulfilled
   const itemsToFulfill = await db

@@ -98,13 +98,16 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
     staleTime: 30000,
   });
 
-  // Fetch adjustment summary (refunds + fees) for the selected date range
+  // Fetch adjustment summary (refunds + fees + shipping) for the selected date range
   const { data: adjustmentSummary } = useQuery<{
     totalRefunds: number;
     refundedOrderCount: number;
     totalFees: number;
     bricklinkFees: number;
     stripeFees: number;
+    totalShipping: number;
+    shippedOrderCount: number;
+    avgShippingPerOrder: number;
   }>({
     queryKey: ['/api/orders/adjustments/summary', dateRange],
     queryFn: async () => {
@@ -1161,8 +1164,8 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
               <div className="text-xs md:text-base lg:text-lg text-lego-green font-mono">${Math.round(totalRevenue).toLocaleString()}</div>
             </div>
           </div>
-          {adjustmentSummary && (adjustmentSummary.totalRefunds > 0 || adjustmentSummary.totalFees > 0) && (
-            <div className="mt-2 pt-2 border-t border-yellow-500/10 grid grid-cols-3 gap-2">
+          {adjustmentSummary && (adjustmentSummary.totalRefunds > 0 || adjustmentSummary.totalFees > 0 || adjustmentSummary.totalShipping > 0) && (
+            <div className="mt-2 pt-2 border-t border-yellow-500/10 grid grid-cols-4 gap-2">
               <div className="text-center">
                 <div className="text-[9px] md:text-xs text-gray-600">Refunds</div>
                 <div className="text-[10px] md:text-sm text-lego-red font-mono">
@@ -1179,6 +1182,15 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
                 </div>
                 {adjustmentSummary.totalFees > 0 && (
                   <div className="text-[8px] text-gray-600">COGS</div>
+                )}
+              </div>
+              <div className="text-center">
+                <div className="text-[9px] md:text-xs text-gray-600">Shipping</div>
+                <div className="text-[10px] md:text-sm text-amber-500/70 font-mono">
+                  {adjustmentSummary.totalShipping > 0 ? `-$${adjustmentSummary.totalShipping.toFixed(2)}` : '—'}
+                </div>
+                {adjustmentSummary.shippedOrderCount > 0 && (
+                  <div className="text-[8px] text-gray-600">avg ${adjustmentSummary.avgShippingPerOrder.toFixed(2)}/order</div>
                 )}
               </div>
               <div className="text-center">

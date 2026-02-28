@@ -1094,7 +1094,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           COUNT(DISTINCT CASE WHEN oa.type = 'refund' THEN oa.order_id END) AS refunded_order_count,
           COALESCE(SUM(CASE WHEN oa.type = 'merchant_fee' THEN ABS(oa.amount::numeric) ELSE 0 END), 0) AS total_fees,
           COALESCE(SUM(CASE WHEN oa.type = 'merchant_fee' AND oa.reason LIKE '%BrickLink%' THEN ABS(oa.amount::numeric) ELSE 0 END), 0) AS bricklink_fees,
-          COALESCE(SUM(CASE WHEN oa.type = 'merchant_fee' AND oa.reason LIKE '%Stripe%' THEN ABS(oa.amount::numeric) ELSE 0 END), 0) AS stripe_fees
+          COALESCE(SUM(CASE WHEN oa.type = 'merchant_fee' AND oa.reason LIKE '%Stripe%' THEN ABS(oa.amount::numeric) ELSE 0 END), 0) AS stripe_fees,
+          COALESCE(SUM(CASE WHEN oa.type = 'shipping_cost' THEN ABS(oa.amount::numeric) ELSE 0 END), 0) AS total_shipping,
+          COUNT(DISTINCT CASE WHEN oa.type = 'shipping_cost' THEN oa.order_id END) AS shipped_order_count
         FROM order_adjustments oa
         JOIN orders o ON o.id = oa.order_id
         WHERE o.order_date >= ${sinceDate}
@@ -1102,12 +1104,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       `);
 
       const row = result.rows[0] as any;
+      const totalShipping = Number(row.total_shipping);
+      const shippedOrderCount = Number(row.shipped_order_count);
       res.json({
         totalRefunds: Number(row.total_refunds),
         refundedOrderCount: Number(row.refunded_order_count),
         totalFees: Number(row.total_fees),
         bricklinkFees: Number(row.bricklink_fees),
         stripeFees: Number(row.stripe_fees),
+        totalShipping,
+        shippedOrderCount,
+        avgShippingPerOrder: shippedOrderCount > 0 ? totalShipping / shippedOrderCount : 0,
       });
     } catch (error: any) {
       res.status(500).json({ error: error.message });

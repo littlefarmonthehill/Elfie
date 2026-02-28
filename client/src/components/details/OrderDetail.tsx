@@ -166,13 +166,17 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
   const shipping = data.shipping ?? 0;
   const tax = data.tax ?? 0;
   const total = data.total ?? 0;
-  const refundAdjustments = (data.adjustments ?? []).filter(a => a.type !== 'merchant_fee');
+  const BUSINESS_COST_TYPES = ['merchant_fee', 'shipping_cost'];
+  const refundAdjustments = (data.adjustments ?? []).filter(a => !BUSINESS_COST_TYPES.includes(a.type));
   const feeAdjustments = (data.adjustments ?? []).filter(a => a.type === 'merchant_fee');
+  const shippingAdjustments = (data.adjustments ?? []).filter(a => a.type === 'shipping_cost');
   const adjustmentsTotal = refundAdjustments.reduce((sum, a) => sum + a.amount, 0);
   const totalFees = feeAdjustments.reduce((sum, a) => sum + Math.abs(a.amount), 0);
+  const totalShippingCost = shippingAdjustments.reduce((sum, a) => sum + Math.abs(a.amount), 0);
   const netTotal = total + adjustmentsTotal;
   const hasAdjustments = refundAdjustments.length > 0;
   const hasFees = feeAdjustments.length > 0;
+  const hasShippingCost = shippingAdjustments.length > 0;
 
   const allCustomerOrders = data.previousOrders ? [
     {
@@ -493,7 +497,7 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
       </div>
 
       {/* Business Costs — COGS, not part of the customer order */}
-      {hasFees && (
+      {(hasFees || hasShippingCost) && (
         <div className="bg-gray-900/60 border border-amber-500/20 rounded-lg p-2.5">
           <div className="flex items-center gap-1.5 mb-1.5">
             <CreditCard className="h-3 w-3 text-amber-500/70" />
@@ -507,9 +511,15 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
                 <span className="font-mono text-amber-500/80">-${Math.abs(fee.amount).toFixed(2)}</span>
               </div>
             ))}
+            {shippingAdjustments.map(sc => (
+              <div key={sc.id} className="flex justify-between items-center">
+                <span className="text-gray-500">{sc.reason || 'Shipping cost'}</span>
+                <span className="font-mono text-amber-500/80">-${Math.abs(sc.amount).toFixed(2)}</span>
+              </div>
+            ))}
             <div className="flex justify-between items-center pt-1 border-t border-amber-500/10 mt-1">
-              <span className="text-gray-500 font-medium">Total fees</span>
-              <span className="font-mono text-amber-500/80 font-bold">-${totalFees.toFixed(2)}</span>
+              <span className="text-gray-500 font-medium">Total costs</span>
+              <span className="font-mono text-amber-500/80 font-bold">-${(totalFees + totalShippingCost).toFixed(2)}</span>
             </div>
           </div>
         </div>
