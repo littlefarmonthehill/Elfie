@@ -243,8 +243,8 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
     .items thead tr { background: #777; color: white; }
     .th-desc { text-align: left; padding: 4px 6px; font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; }
     .th-qty  { text-align: right; padding: 4px 6px; font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; width: 40px; }
-    .items tbody tr { break-inside: avoid; page-break-inside: avoid; }
-    .items tbody tr td { padding: 5px 6px; border-bottom: 1px solid #e0e0e0; vertical-align: top; }
+    .items tbody tr { break-inside: avoid-page; page-break-inside: avoid; }
+    .items tbody tr td { padding: 5px 6px; border-bottom: 1px solid #e0e0e0; vertical-align: top; break-inside: avoid-page; page-break-inside: avoid; }
     .items tbody tr:last-child td { border-bottom: none; }
     .item-desc { text-align: left; }
     .item-qty  { text-align: right; font-weight: bold; white-space: nowrap; width: 40px; }
