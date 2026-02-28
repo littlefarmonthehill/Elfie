@@ -5230,10 +5230,14 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
     }
   });
 
-  // Price-o-Matic sync endpoint
+  // Price-o-Matic sync endpoint (manual trigger from POM screen)
   app.post("/api/sync/priceomatic", isApproved, async (req, res) => {
     try {
-      const maxItems = req.body.maxItems ?? undefined;
+      // Use pomBatchSize (manual sync setting) — never the scheduler's pomScheduleBatchSize
+      const [pomSettings] = await db.select({
+        pomBatchSize: appSettings.pomBatchSize,
+      }).from(appSettings).limit(1);
+      const maxItems = req.body.maxItems ?? pomSettings?.pomBatchSize ?? 1500;
       
       // Check if a sync is already in progress
       const [existingSync] = await db
