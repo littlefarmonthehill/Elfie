@@ -1,5 +1,9 @@
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import planetLogo from "@assets/PlanetBrick_dotcom_with_planet_and_robot_400_1760672362080.png";
 import { cleanItemName } from "@/lib/item-utils";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 type PackingSlipOrder = {
   orderNumber: string;
@@ -33,265 +37,178 @@ interface PackingSlipProps {
   orders: PackingSlipOrder[];
 }
 
-async function loadLogoDataUrl(): Promise<string> {
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const MARGIN   = 7.62;         // 0.3 in → mm
+const PAGE_W   = 215.9;        // letter width mm
+const PAGE_H   = 279.4;        // letter height mm
+const CONTENT_W = PAGE_W - 2 * MARGIN;  // 200.66 mm
+const LOGO_H   = 20;           // target logo height in mm
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function channelLabel(order: PackingSlipOrder): string {
+  return order.marketplace === 'BrickOwl' ? 'BrickOwl' : 'BrickLink';
+}
+
+async function loadLogoInfo(): Promise<{ dataUrl: string; w: number; h: number } | null> {
   try {
     const response = await fetch(planetLogo);
     const blob = await response.blob();
-    return await new Promise<string>((resolve) => {
+    const dataUrl = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
+      reader.onload  = () => resolve(reader.result as string);
+      reader.onerror = reject;
       reader.readAsDataURL(blob);
     });
+    const img = new Image();
+    await new Promise<void>((resolve) => { img.onload = () => resolve(); img.src = dataUrl; });
+    return { dataUrl, w: img.naturalWidth, h: img.naturalHeight };
   } catch {
-    return '';
+    return null;
   }
 }
+
+// ─── Main export ─────────────────────────────────────────────────────────────
 
 export async function printPackingSlips(orders: PackingSlipOrder[]) {
-  const printWindow = window.open('', '_blank', 'width=800,height=600');
-  if (!printWindow) {
-    alert('Please allow popups to print packing slips');
-    return;
-  }
-  try {
-    const logoDataUrl = await loadLogoDataUrl();
-    const content = generatePackingSlipHTML(orders, logoDataUrl);
-    printWindow.document.open();
-    printWindow.document.write(content);
-    printWindow.document.close();
-    printWindow.focus();
-    printWindow.addEventListener('afterprint', () => printWindow.close());
-    setTimeout(() => printWindow.print(), 200);
-  } catch (e) {
-    printWindow.close();
-    throw e;
-  }
-}
+  const doc  = new jsPDF({ unit: 'mm', format: 'letter', orientation: 'portrait' });
+  const logo = await loadLogoInfo();
+  const logoW = logo ? LOGO_H * (logo.w / logo.h) : 0;
 
-function channelLabel(order: PackingSlipOrder): string {
-  if (order.marketplace === 'BrickOwl') return 'BrickOwl';
-  return 'BrickLink';
-}
+  orders.forEach((order, orderIdx) => {
+    if (orderIdx > 0) doc.addPage();
 
-function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string): string {
-  // Natural-flow layout: items are never chunked into fixed-size page divs.
-  // The browser fills each printed page organically — no large bottom gaps.
-  // Each order starts on its own page via break-before; items flow until the
-  // page is full and continue on the next page automatically.
-  const orderDivs = orders.map((order, orderIdx) => {
+    let y = MARGIN;
+
+    // ── PACKING SLIP label bar ───────────────────────────────────────────────
+    const BAR_H = 5.5;
+    doc.setFillColor(119, 119, 119);
+    doc.rect(MARGIN, y, CONTENT_W, BAR_H, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'bold');
+    doc.text('PACKING SLIP', MARGIN + 2.5, y + BAR_H - 1.6);
+    y += BAR_H + 3;
+
+    // ── Company info (left) + logo (right) ──────────────────────────────────
+    const headerTopY = y;
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(15);
+    doc.setFont('helvetica', 'bold');
+    doc.text('PlanetBrick.com', MARGIN, y + 5);
+    doc.setFontSize(8.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(51, 51, 51);
+    doc.text('PO Box 202',          MARGIN, y + 10.5);
+    doc.text('Lanesboro, MN 55949', MARGIN, y + 15);
+
+    if (logo && logoW > 0) {
+      doc.addImage(logo.dataUrl, 'PNG', MARGIN + CONTENT_W - logoW, headerTopY, logoW, LOGO_H);
+    }
+
+    y += Math.max(LOGO_H, 18) + 2;
+
+    // ── Divider ─────────────────────────────────────────────────────────────
+    doc.setDrawColor(170, 170, 170);
+    doc.setLineWidth(0.2);
+    doc.line(MARGIN, y, MARGIN + CONTENT_W, y);
+    y += 4;
+
+    // ── Ship To (left) + Order meta (right) ─────────────────────────────────
+    const infoTopY = y;
     const { shipTo } = order;
-    const street1     = shipTo.street1 || (shipTo as any).address1 || '';
-    const street2     = shipTo.street2 || (shipTo as any).address2 || '';
-    const city        = shipTo.city || '';
-    const state       = shipTo.state || '';
-    const postalCode  = shipTo.postalCode || '';
-    const country     = shipTo.country || '';
-    const cityLine    = [city, state, postalCode].filter(Boolean).join(' ');
-    const showCountry = country && country !== 'US';
-    const orderNum    = order.orderNumber;
+    const street1  = shipTo.street1 || (shipTo as any).address1 || '';
+    const street2  = shipTo.street2 || (shipTo as any).address2 || '';
+    const cityLine = [shipTo.city, shipTo.state, shipTo.postalCode].filter(Boolean).join(' ');
+    const showCtry = shipTo.country && shipTo.country !== 'US';
 
-    const shipToHTML = [
-      shipTo.name    ? `<div>${shipTo.name}</div>`    : '',
-      shipTo.company ? `<div>${shipTo.company}</div>` : '',
-      street1        ? `<div>${street1}</div>`         : '',
-      street2        ? `<div>${street2}</div>`         : '',
-      cityLine       ? `<div>${cityLine}</div>`        : '',
-      showCountry    ? `<div>${country}</div>`         : '',
-      (!shipTo.name && !street1 && !cityLine)
-        ? '<div class="missing-addr">Address not available</div>' : '',
-    ].join('');
+    doc.setFontSize(8.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0, 0, 0);
+    doc.text('Ship To', MARGIN, y + 4);
 
-    const rowsHTML = order.items.map((item: any) => {
-      const baseName    = cleanItemName(item.name, item.bricklinkPartNumber);
-      const colorPrefix = item.colorName ? `${item.colorName} ` : '';
-      const partLabel   = item.bricklinkPartNumber ? ` (${item.bricklinkPartNumber})` : '';
-      const fullName    = `LEGO ${colorPrefix}${baseName}${partLabel}`;
-      const metaParts   = [
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    const addrLines = [
+      shipTo.name, shipTo.company, street1, street2, cityLine,
+      showCtry ? shipTo.country : undefined,
+    ].filter(Boolean) as string[];
+
+    let addrY = y + 8.5;
+    addrLines.forEach(line => { doc.text(line, MARGIN, addrY); addrY += 4.2; });
+
+    // Order meta — right-aligned
+    const metaX = MARGIN + CONTENT_W;
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(85, 85, 85);
+    doc.text(`${channelLabel(order)} Order #`, metaX - 38, infoTopY + 4, { align: 'right' });
+    doc.text('Date',                           metaX - 38, infoTopY + 9, { align: 'right' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(0, 0, 0);
+    doc.text(order.orderNumber, metaX, infoTopY + 4, { align: 'right' });
+    const dateStr = order.orderDate ? new Date(order.orderDate).toLocaleDateString() : '';
+    doc.text(dateStr, metaX, infoTopY + 9, { align: 'right' });
+
+    y = Math.max(addrY, infoTopY + 14) + 2;
+
+    // ── Items table ─────────────────────────────────────────────────────────
+    // autoTable repeats the head row on every printed page automatically.
+    const rows = order.items.map(item => {
+      const base  = cleanItemName(item.name, item.bricklinkPartNumber);
+      const color = item.colorName ? `${item.colorName} ` : '';
+      const part  = item.bricklinkPartNumber ? ` (${item.bricklinkPartNumber})` : '';
+      const name  = `LEGO ${color}${base}${part}`;
+      const meta  = [
         item.colorName ? `Color: ${item.colorName}`     : '',
         item.condition ? `Condition: ${item.condition}` : '',
       ].filter(Boolean).join(', ');
-      return `
-        <tr>
-          <td class="item-desc">
-            <div class="item-name">${fullName}</div>
-            ${metaParts ? `<div class="item-meta">${metaParts}</div>` : ''}
-          </td>
-          <td class="item-qty">${item.quantity}</td>
-        </tr>
-      `;
-    }).join('');
+      return [meta ? `${name}\n${meta}` : name, String(item.quantity)];
+    });
 
-    return `
-      <div class="order${orderIdx === 0 ? ' first' : ''}">
-        <div class="slip-label-bar"><span>Packing Slip</span></div>
-        <div class="header">
-          <div class="header-left">
-            <div class="company-name">PlanetBrick.com</div>
-            <div class="company-addr">PO Box 202</div>
-            <div class="company-addr">Lanesboro, MN 55949</div>
-          </div>
-          <div class="header-right">
-            ${logoDataUrl
-              ? `<img src="${logoDataUrl}" alt="PlanetBrick" class="logo" />`
-              : '<div class="logo-fallback">PLANETBRICK.COM</div>'}
-          </div>
-        </div>
-        <div class="info-row">
-          <div class="ship-to">
-            <span class="section-label">Ship To</span>
-            ${shipToHTML}
-          </div>
-          <div class="order-meta">
-            <table>
-              <tr><td class="ml">${channelLabel(order)} Order #</td><td class="mv">${orderNum}</td></tr>
-              <tr><td class="ml">Date</td><td class="mv">${order.orderDate ? new Date(order.orderDate).toLocaleDateString() : ''}</td></tr>
-            </table>
-          </div>
-        </div>
-        <table class="items">
-          <thead>
-            <tr>
-              <th class="th-desc">Description</th>
-              <th class="th-qty">Qty</th>
-            </tr>
-          </thead>
-          <tbody>${rowsHTML}</tbody>
-        </table>
-        <div class="page-footer">${orderNum}</div>
-      </div>
-    `;
+    autoTable(doc, {
+      startY: y,
+      margin: { left: MARGIN, right: MARGIN },
+      head: [['Description', 'Qty']],
+      body: rows,
+      styles: {
+        fontSize: 8.5,
+        cellPadding: { top: 2.5, right: 3, bottom: 2.5, left: 3 },
+        textColor:   [0, 0, 0],
+        lineColor:   [220, 220, 220],
+        lineWidth:   0.1,
+        overflow:    'linebreak',
+      },
+      headStyles: {
+        fillColor:   [255, 255, 255],
+        textColor:   [0, 0, 0],
+        fontStyle:   'bold',
+        fontSize:    8,
+        lineColor:   [85, 85, 85],
+        lineWidth:   { bottom: 0.4 },
+      },
+      columnStyles: {
+        0: { cellWidth: 'auto' },
+        1: { cellWidth: 14, halign: 'right', fontStyle: 'bold' },
+      },
+      alternateRowStyles: false,
+      // didDrawPage fires for every page this table occupies — add the footer
+      // order number on each one.
+      didDrawPage: () => {
+        doc.setFontSize(7.5);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(102, 102, 102);
+        doc.text(order.orderNumber, MARGIN + CONTENT_W, PAGE_H - MARGIN, { align: 'right' });
+      },
+    });
   });
 
-  return `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>Packing Slips</title>
-  <style>
-    /* @page margin applied uniformly to every printed page — first, middle, last.
-       Natural flow means the browser fills pages organically with no bottom gaps. */
-    @page { size: letter portrait; margin: 0.3in; }
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      background: white;
-      color: black;
-      font-family: Arial, sans-serif;
-      font-size: 11px;
-      /* Lock body to the exact printable content width (8.5in - 0.6in margins).
-         This forces screen layout to match print layout 1:1 at 96px/in so that
-         JS measurements taken on load accurately reflect where page breaks fall. */
-      width: 7.9in;
-    }
-
-    .order { page-break-before: always; break-before: page; }
-    .order.first { page-break-before: auto; break-before: auto; }
-
-    .slip-label-bar {
-      background: #777;
-      color: white;
-      display: flex;
-      align-items: center;
-      font-size: 9px;
-      font-weight: bold;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      padding: 3px 8px;
-      margin-bottom: 8px;
-    }
-
-    .page-footer {
-      text-align: right;
-      font-size: 9px;
-      color: #666;
-      margin-top: 8px;
-      letter-spacing: 0.3px;
-    }
-
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding-bottom: 6px;
-      border-bottom: 1px solid #aaa;
-      margin-bottom: 8px;
-    }
-    .header-left { flex: 1; }
-    .company-name { font-weight: bold; font-size: 18px; margin-bottom: 2px; }
-    .company-addr { font-size: 10px; color: #333; }
-    .header-right { text-align: right; }
-    .logo { height: 90px; width: auto; }
-    .logo-fallback { font-size: 22px; font-weight: 900; color: #1a3a8f; }
-
-    .info-row { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 10px; }
-    .ship-to { font-size: 11px; line-height: 1.5; flex: 1; }
-    .section-label { font-weight: bold; display: block; margin-bottom: 2px; }
-    .missing-addr { color: #999; font-style: italic; }
-    .order-meta { text-align: right; font-size: 11px; }
-    .order-meta table { border-collapse: collapse; }
-    .order-meta td { padding: 1px 0 1px 10px; white-space: nowrap; }
-    .ml { font-weight: bold; color: #555; text-align: right; }
-    .mv { text-align: right; }
-
-    .items { width: 100%; border-collapse: collapse; margin-top: 2px; }
-    .items thead tr { background: transparent; color: #000; }
-    .th-desc { text-align: left; padding: 4px 6px 3px; font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1.5px solid #555; }
-    .th-qty  { text-align: right; padding: 4px 6px 3px; font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; width: 40px; border-bottom: 1.5px solid #555; }
-    .items tbody tr { break-inside: avoid-page; page-break-inside: avoid; }
-    .items tbody tr td { padding: 5px 6px; border-bottom: 1px solid #e0e0e0; vertical-align: top; break-inside: avoid-page; page-break-inside: avoid; }
-    .items tbody tr:last-child td { border-bottom: none; }
-    .item-desc { text-align: left; }
-    .item-qty  { text-align: right; font-weight: bold; white-space: nowrap; width: 40px; }
-    .item-name { font-size: 11px; line-height: 1.4; }
-    .item-meta { font-size: 10px; color: #555; margin-top: 2px; }
-  </style>
-</head>
-<body>
-  ${orderDivs.join('')}
-  <script>
-    // Inject a "DESCRIPTION / Qty" header row before the first item that lands
-    // on each continuation page.  CSS thead repetition (table-header-group) is
-    // unreliable when printing to PDF in Chrome/Safari, so we measure real row
-    // positions against the printable page height and insert <tr> nodes in the
-    // tbody at every page-break boundary before the print dialog opens.
-    window.addEventListener('load', function () {
-      // body is set to exactly 7.9in wide, which at the browser's reference
-      // resolution of 96px/in = 758.4px.  This makes screen layout match
-      // print layout 1:1, so we can hardcode the page height constant:
-      //   10.4in content height × 96px/in = 998.4px
-      var tables = document.querySelectorAll('.items');
-      tables.forEach(function (table) {
-        var PAGE_H = 10.4 * 96;   // 998.4px — printable content height per page
-
-        var thead  = table.querySelector('thead');
-        var theadH = thead ? thead.offsetHeight : 0;
-        var tbody  = table.querySelector('tbody');
-        if (!tbody) return;
-
-        // 'used' tracks how many px of the current page have been consumed.
-        // Page 1 starts after the full order header + the original thead row.
-        var tableTop = table.getBoundingClientRect().top + window.scrollY;
-        var used = tableTop + theadH;
-
-        Array.from(tbody.querySelectorAll('tr')).forEach(function (row) {
-          var h = row.offsetHeight;
-          if (used + h > PAGE_H) {
-            // This row would overflow — inject a header before it.
-            var hdr = document.createElement('tr');
-            hdr.innerHTML =
-              '<th class="th-desc">Description</th>' +
-              '<th class="th-qty">Qty</th>';
-            row.parentNode.insertBefore(hdr, row);
-            // Reset to top of new page, accounting for the header we just added.
-            used = hdr.offsetHeight + h;
-          } else {
-            used += h;
-          }
-        });
-      });
-    });
-  </script>
-</body>
-</html>`;
+  // Trigger browser download — no popup, no print dialog quirks.
+  const filename = orders.length === 1
+    ? `packing-slip-${orders[0].orderNumber}.pdf`
+    : `packing-slips-${new Date().toISOString().slice(0, 10)}.pdf`;
+  doc.save(filename);
 }
 
 export default function PackingSlip({ orders }: PackingSlipProps) {
