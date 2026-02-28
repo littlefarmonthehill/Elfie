@@ -215,11 +215,10 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
   <meta charset="UTF-8">
   <title>Packing Slips</title>
   <style>
-    /* @page margin:0 removes the browser margin zone so headers/footers are
-       suppressed. Padding lives on each .page div so every printed page gets
-       identical 0.3in margins — body padding only applies to the document
-       start/end and would leave middle pages without top/bottom spacing. */
-    @page { size: letter portrait; margin: 0; }
+    /* Let @page carry all margins so every physical page — first, middle, last —
+       gets identical spacing. body/div padding only applies to the document
+       start/end in multi-page flows, so we rely solely on @page here. */
+    @page { size: letter portrait; margin: 0.3in; }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       background: white;
@@ -230,7 +229,6 @@ function generatePackingSlipHTML(orders: PackingSlipOrder[], logoDataUrl: string
 
     .page {
       width: 100%;
-      padding: 0.3in;
       page-break-after: always;
       break-after: page;
       position: relative;
