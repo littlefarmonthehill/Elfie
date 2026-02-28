@@ -693,7 +693,7 @@ export default function FulfillmentTool() {
           </div>
 
         {/* ── Tab switcher: Picklist | Fulfillment | Shipping ── */}
-        <div className="flex gap-1 border-b border-gray-700">
+        <div className="flex justify-center gap-1 border-b border-gray-700">
           <button
             onClick={() => setActiveTab('picklist')}
             className={`flex items-center gap-1.5 px-4 py-2 text-sm font-semibold border-b-2 transition-colors ${
@@ -716,7 +716,7 @@ export default function FulfillmentTool() {
             data-testid="tab-fulfillment"
           >
             <PackageCheck className="w-4 h-4" />
-            Fulfillment
+            Fulfill
           </button>
           <button
             onClick={() => setActiveTab('shipping')}
@@ -728,13 +728,13 @@ export default function FulfillmentTool() {
             data-testid="tab-shipping"
           >
             <Truck className="w-4 h-4" />
-            Shipping
+            Ship
           </button>
         </div>
 
         {/* ── Persistent action bar — single scrollable row ── */}
         {!isSplitMode && (
-          <div className="flex items-center gap-1 px-1 py-1.5 border-b border-gray-700/60 overflow-x-auto">
+          <div className="flex items-center gap-1 px-1 py-1.5 border-b border-gray-700/60 overflow-x-auto scrollbar-hide">
             <Button
               size="sm"
               variant="ghost"
@@ -813,7 +813,7 @@ export default function FulfillmentTool() {
 
         {/* ── Tab content ── */}
         {activeTab === 'picklist' ? (
-          <PicklistTool filterOrderIds={selectedOrders.size > 0 ? selectedOrders : undefined} />
+          <PicklistTool filterOrderIds={selectedOrders} />
         ) : activeTab === 'fulfillment' ? (
           <FulfillmentChecklist
             pulledItems={pulledItems}

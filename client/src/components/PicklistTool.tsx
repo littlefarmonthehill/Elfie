@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { Package, Loader2, List, Layers, Trash2 } from "lucide-react";
+import { Package, Loader2, List, Layers, ChevronDown, ChevronRight } from "lucide-react";
 import { resolvePartImageUrl } from "@/lib/part-image";
 
 type WarehouseLocation = {
@@ -78,6 +78,14 @@ function picklistMutationOptions<TVariables>(
 export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {}) {
   const [viewMode, setViewMode] = useState<ViewMode>('by_part');
   const [filter, setFilter] = useState<Filter>('all');
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+
+  const toggleGroup = (key: string) =>
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
 
   const { data: picklistData = [], isLoading } = useQuery<BinPicklist[]>({
     queryKey: ['/api/picklist', filter],
@@ -113,15 +121,6 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
       })),
     getFilter,
   ));
-
-  // ── Clear shipped orders from picklist ──
-  const clearMutation = useMutation({
-    mutationFn: () => apiRequest('DELETE', '/api/picklist/shipped'),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/picklist'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/picklist/stats'] });
-    },
-  });
 
   const partKey = (item: BinPicklistItem) => item.partNumber || item.sku || '';
 
@@ -247,7 +246,7 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
   return (
     <div className="space-y-4">
 
-      {/* ── Controls row: view toggle + filter ── */}
+      {/* ── Controls row: view toggle + status filter on one line ── */}
       <div className="flex flex-wrap items-center gap-2">
         {/* View toggle */}
         <div className="flex rounded-md overflow-hidden border border-gray-700">
@@ -277,49 +276,40 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
           </button>
         </div>
 
-        {/* Order filter indicator */}
-        {filterOrderIds && filterOrderIds.size > 0 && (
-          <span className="text-xs font-medium px-2 py-1 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30">
-            {filterOrderIds.size} order{filterOrderIds.size !== 1 ? 's' : ''} selected
-          </span>
-        )}
-
-        {/* Spacer */}
-        <div className="flex-1" />
+        {/* Separator */}
+        <div className="w-px h-5 bg-gray-700 shrink-0" />
 
         {/* Status filters */}
-        <Button
-          variant={filter === 'all' ? 'default' : 'outline'}
-          size="sm"
+        <button
           onClick={() => setFilter('all')}
+          className={`text-xs px-2.5 py-1.5 rounded font-medium transition-colors ${
+            filter === 'all'
+              ? 'bg-gray-600 text-white'
+              : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'
+          }`}
           data-testid="button-filter-all"
         >
           All
-        </Button>
-        <Button
-          variant={filter === 'to_pull' ? 'default' : 'outline'}
-          size="sm"
+        </button>
+        <button
           onClick={() => setFilter('to_pull')}
+          className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded font-medium transition-colors ${
+            filter === 'to_pull'
+              ? 'bg-gray-600 text-white'
+              : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'
+          }`}
           data-testid="button-filter-to-pull"
         >
-          <Package className="h-3.5 w-3.5 mr-1" />
-          To Pull
-        </Button>
+          <Package className="h-3 w-3" />
+          To Pick
+        </button>
 
-        {/* Clear shipped orders */}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => clearMutation.mutate()}
-          disabled={clearMutation.isPending}
-          data-testid="button-clear-picklist"
-          className="text-red-400 border-red-800/50 hover:text-red-300"
-        >
-          {clearMutation.isPending
-            ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
-            : <Trash2 className="h-3.5 w-3.5 mr-1" />}
-          Clear Shipped
-        </Button>
+        {/* Order filter indicator */}
+        {filterOrderIds && filterOrderIds.size > 0 && (
+          <span className="ml-auto text-xs font-medium px-2 py-1 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30">
+            {filterOrderIds.size} order{filterOrderIds.size !== 1 ? 's' : ''} selected
+          </span>
+        )}
       </div>
 
       {/* Column label */}
@@ -330,8 +320,17 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
         </span>
       </div>
 
-      {/* ── Empty state ── */}
-      {isEmpty && (
+      {/* ── Empty state: no orders selected ── */}
+      {filterOrderIds && filterOrderIds.size === 0 && (
+        <div className="text-center py-12 text-gray-500">
+          <Package className="h-12 w-12 mx-auto mb-3 opacity-50" />
+          <p>No orders selected</p>
+          <p className="text-sm mt-1">Select orders above to view their picklist items</p>
+        </div>
+      )}
+
+      {/* ── Empty state: orders selected but nothing to show ── */}
+      {!(filterOrderIds && filterOrderIds.size === 0) && isEmpty && (
         <div className="text-center py-12 text-gray-500">
           <Package className="h-12 w-12 mx-auto mb-3 opacity-50" />
           <p>Nothing in picklist</p>
@@ -340,9 +339,9 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
       )}
 
       {/* ══════════════════════════════════════════
-          VIEW: BY PART NUMBER — grouped by part, variants below
+          VIEW: BY PART NUMBER — grouped by part, variants collapsible
           ══════════════════════════════════════════ */}
-      {viewMode === 'by_part' && !isEmpty && (() => {
+      {viewMode === 'by_part' && !(filterOrderIds && filterOrderIds.size === 0) && !isEmpty && (() => {
         // Group flatItems by partNumber (or sku fallback)
         const partGroups: Map<string, BinPicklistItem[]> = new Map();
         for (const item of flatItems) {
@@ -357,13 +356,8 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
               const allPulled = variants.every(v => v.pulled);
               const somePulled = variants.some(v => v.pulled);
               const rep = variants[0];
-
-              const handleGroupPull = () => {
-                const target = !allPulled;
-                variants.forEach(v =>
-                  pullItemMutation.mutate({ itemId: v.picklistItemId, pulled: target })
-                );
-              };
+              const isExpanded = expandedGroups.has(key);
+              const totalQty = variants.reduce((sum, v) => sum + v.quantity, 0);
 
               return (
                 <div
@@ -377,21 +371,28 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                   }`}
                   data-testid={`part-group-${key}`}
                 >
-                  {/* Part group header */}
+                  {/* Part group header — click to expand/collapse */}
                   <div
-                    className={`flex items-center gap-3 px-3 py-2 ${
+                    className={`flex items-center gap-3 px-3 py-2 cursor-pointer select-none ${
                       allPulled
                         ? 'bg-blue-950/30'
                         : somePulled
                         ? 'bg-yellow-950/20'
                         : 'bg-gray-800/70'
                     }`}
+                    onClick={() => toggleGroup(key)}
                   >
                     {/* Group-level pull checkbox */}
                     <Checkbox
                       data-testid={`checkbox-pull-group-${key}`}
                       checked={allPulled ? true : somePulled ? 'indeterminate' : false}
-                      onCheckedChange={handleGroupPull}
+                      onCheckedChange={() => {
+                        const target = !allPulled;
+                        variants.forEach(v =>
+                          pullItemMutation.mutate({ itemId: v.picklistItemId, pulled: target })
+                        );
+                      }}
+                      onClick={e => e.stopPropagation()}
                       disabled={pullItemMutation.isPending}
                       className="shrink-0 touch-auto"
                     />
@@ -415,46 +416,54 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                       </div>
                     </div>
 
-                    {variants.length > 1 && (
-                      <span className="shrink-0 text-[10px] font-bold text-gray-400 tabular-nums">
-                        {variants.length} lots
-                      </span>
-                    )}
+                    {/* Summary: total qty + lot count */}
+                    <div className="shrink-0 flex items-center gap-2 text-[10px] text-gray-400 tabular-nums">
+                      <span>{totalQty}×</span>
+                      {variants.length > 1 && (
+                        <span className="font-bold">{variants.length} lots</span>
+                      )}
+                      {isExpanded
+                        ? <ChevronDown className="w-3.5 h-3.5 text-gray-500" />
+                        : <ChevronRight className="w-3.5 h-3.5 text-gray-500" />
+                      }
+                    </div>
                   </div>
 
-                  {/* Variant rows */}
-                  <div className="divide-y divide-gray-700/50">
-                    {variants.map((item) => (
-                      <div
-                        key={item.picklistItemId}
-                        className={`flex items-start gap-3 px-3 py-1.5 ${
-                          item.pulled ? 'bg-blue-950/20' : 'bg-gray-900/60'
-                        }`}
-                        data-testid={`part-item-${item.picklistItemId}`}
-                      >
-                        {/* Indent spacer aligning with group checkbox */}
-                        <div className="w-4 shrink-0" />
+                  {/* Variant rows — only visible when expanded */}
+                  {isExpanded && (
+                    <div className="divide-y divide-gray-700/50">
+                      {variants.map((item) => (
+                        <div
+                          key={item.picklistItemId}
+                          className={`flex items-start gap-3 px-3 py-1.5 ${
+                            item.pulled ? 'bg-blue-950/20' : 'bg-gray-900/60'
+                          }`}
+                          data-testid={`part-item-${item.picklistItemId}`}
+                        >
+                          {/* Indent spacer aligning with group checkbox */}
+                          <div className="w-4 shrink-0" />
 
-                        {/* Variant details */}
-                        <div className="flex-1 min-w-0 text-[10px]">
-                          <div className="flex items-center gap-2 flex-wrap text-gray-400">
-                            <span className="tabular-nums">Qty {item.quantity}</span>
-                            <span className="text-gray-600">·</span>
-                            <span className="font-mono">{item.marketplace === 'BrickOwl' ? 'BO' : 'BL'}{(item.orderNumber || '').replace(/^(BL|BO)/i, '')}</span>
-                            {item.inventoryId && (
-                              <span className="font-mono text-blue-400/70">Lot {item.inventoryId}</span>
+                          {/* Variant details */}
+                          <div className="flex-1 min-w-0 text-[10px]">
+                            <div className="flex items-center gap-2 flex-wrap text-gray-400">
+                              <span className="tabular-nums">Qty {item.quantity}</span>
+                              <span className="text-gray-600">·</span>
+                              <span className="font-mono">{item.marketplace === 'BrickOwl' ? 'BO' : 'BL'}{(item.orderNumber || '').replace(/^(BL|BO)/i, '')}</span>
+                              {item.inventoryId && (
+                                <span className="font-mono text-blue-400/70">Lot {item.inventoryId}</span>
+                              )}
+                            </div>
+                            {(item.remarks || item.comment) && (
+                              <div className="mt-0.5 space-y-0.5">
+                                {item.remarks && <div className="text-gray-400 italic">{item.remarks}</div>}
+                                {item.comment && <div className="text-blue-400/80 italic">{item.comment}</div>}
+                              </div>
                             )}
                           </div>
-                          {(item.remarks || item.comment) && (
-                            <div className="mt-0.5 space-y-0.5">
-                              {item.remarks && <div className="text-gray-400 italic">{item.remarks}</div>}
-                              {item.comment && <div className="text-blue-400/80 italic">{item.comment}</div>}
-                            </div>
-                          )}
                         </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })}
