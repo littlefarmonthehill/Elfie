@@ -5437,6 +5437,32 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
     }
   });
 
+  // Deep Space: get current keys
+  app.get("/api/priceomatic/deep-space", isApproved, async (req, res) => {
+    try {
+      const [settings] = await db.select({ pomDeepSpaceKeys: appSettings.pomDeepSpaceKeys }).from(appSettings).limit(1);
+      const raw = settings?.pomDeepSpaceKeys || '[]';
+      const keys: string[] = JSON.parse(raw);
+      res.json({ success: true, keys });
+    } catch (error) {
+      res.status(500).json({ success: false, error: "Failed to fetch deep space keys" });
+    }
+  });
+
+  // Deep Space: save full set of keys
+  app.put("/api/priceomatic/deep-space", isApproved, async (req, res) => {
+    try {
+      const { keys } = req.body as { keys: string[] };
+      if (!Array.isArray(keys)) return res.status(400).json({ success: false, error: "keys must be an array" });
+      const json = JSON.stringify(keys);
+      await db.insert(appSettings).values({ id: 'default', pomDeepSpaceKeys: json })
+        .onConflictDoUpdate({ target: appSettings.id, set: { pomDeepSpaceKeys: json, updatedAt: new Date() } });
+      res.json({ success: true, keys });
+    } catch (error) {
+      res.status(500).json({ success: false, error: "Failed to save deep space keys" });
+    }
+  });
+
   // Get categories with their priority tiers — only categories that exist in our inventory
   app.get("/api/priceomatic/category-tiers", isApproved, async (req, res) => {
     try {

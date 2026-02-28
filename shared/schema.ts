@@ -400,6 +400,7 @@ export const appSettings = pgTable("app_settings", {
   pomSyncTime: text("pom_sync_time").default('14:00'),                          // Standalone POM schedule time (HH:MM)
   pomScheduleBatchSize: integer("pom_schedule_batch_size").default(1500).notNull(), // Items per scheduled auto-run
   timezone: text("timezone").default('America/Chicago'),                        // User's local timezone for all schedulers
+  pomDeepSpaceKeys: text("pom_deep_space_keys").default('[]'),                  // JSON array of item keys excluded from POM orbit view
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

@@ -17,8 +17,20 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { PomSpotLookup } from "@/components/PomSpotLookup";
 
-const DEEP_SPACE_KEY = 'pom_deep_space_keys';
+const DEEP_SPACE_LS_KEY = 'pom_deep_space_keys';
 const SWIPE_THRESHOLD = 72;
+
+function lsLoadDeepSpace(): Set<string> {
+  try {
+    const raw = localStorage.getItem(DEEP_SPACE_LS_KEY);
+    if (raw) return new Set(JSON.parse(raw));
+  } catch {}
+  return new Set();
+}
+
+function lsSaveDeepSpace(keys: Set<string>) {
+  localStorage.setItem(DEEP_SPACE_LS_KEY, JSON.stringify(Array.from(keys)));
+}
 
 interface SyncStatus {
   id: string;
@@ -80,18 +92,6 @@ interface GroupedInsight {
 interface PriceOMaticDashboardProps {
   onItemClick?: (type: 'inventory' | 'order', id: number) => void;
   isSyncRunning?: boolean;
-}
-
-function loadDeepSpace(): Set<string> {
-  try {
-    const raw = localStorage.getItem(DEEP_SPACE_KEY);
-    if (raw) return new Set(JSON.parse(raw));
-  } catch {}
-  return new Set();
-}
-
-function saveDeepSpace(keys: Set<string>) {
-  localStorage.setItem(DEEP_SPACE_KEY, JSON.stringify(Array.from(keys)));
 }
 
 function SwipeableTile({
@@ -207,14 +207,38 @@ export default function PriceOMaticDashboard({ onItemClick, isSyncRunning }: Pri
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc');
   const [pricingData, setPricingData] = useState<Map<string, { n: string | null; u: string | null }>>(new Map());
   const [pricingLoading, setPricingLoading] = useState<Set<string>>(new Set());
-  const [deepSpaceKeys, setDeepSpaceKeys] = useState<Set<string>>(loadDeepSpace);
+  // Initialize from localStorage for instant render; API query overwrites on mount
+  const [deepSpaceKeys, setDeepSpaceKeys] = useState<Set<string>>(lsLoadDeepSpace);
   const [orbitFilter, setOrbitFilter] = useState<'in_orbit' | 'deep_space'>('in_orbit');
+
+  // Fetch deep space keys from the server (cross-device source of truth)
+  const { data: deepSpaceData } = useQuery<{ success: boolean; keys: string[] }>({
+    queryKey: ['/api/priceomatic/deep-space'],
+    staleTime: 0,
+    refetchOnMount: true,
+  });
+
+  // When server data arrives, use it as the authoritative set and sync to localStorage
+  useEffect(() => {
+    if (deepSpaceData?.keys) {
+      const serverSet = new Set(deepSpaceData.keys);
+      setDeepSpaceKeys(serverSet);
+      lsSaveDeepSpace(serverSet);
+    }
+  }, [deepSpaceData]);
+
+  // Mutation to persist deep space changes to the server
+  const saveDeepSpaceMutation = useMutation({
+    mutationFn: async (keys: string[]) =>
+      apiRequest('PUT', '/api/priceomatic/deep-space', { keys }),
+  });
 
   const sendToDeepSpace = useCallback((key: string) => {
     setDeepSpaceKeys(prev => {
       const next = new Set(prev);
       next.add(key);
-      saveDeepSpace(next);
+      lsSaveDeepSpace(next);
+      saveDeepSpaceMutation.mutate(Array.from(next));
       return next;
     });
   }, []);
@@ -223,7 +247,8 @@ export default function PriceOMaticDashboard({ onItemClick, isSyncRunning }: Pri
     setDeepSpaceKeys(prev => {
       const next = new Set(prev);
       next.delete(key);
-      saveDeepSpace(next);
+      lsSaveDeepSpace(next);
+      saveDeepSpaceMutation.mutate(Array.from(next));
       return next;
     });
   }, []);
