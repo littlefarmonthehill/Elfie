@@ -19,9 +19,10 @@ export interface PlatformSyncResult {
   paypal:    { success: boolean; skipped: boolean; refunds: number; fees: number; error: string | null };
 }
 
-// ── Running state (exposed for dashboard status polling) ──────────────────────
-let orderSyncRunning = false;
-export function getOrderSyncIsRunning() { return orderSyncRunning; }
+/** True while an order sync is in progress (delegates to global lock). */
+export function getOrderSyncIsRunning() {
+  return syncLock.getActive().includes('Order Sync');
+}
 
 /**
  * Single shared function that runs order sync for one or all platforms,
@@ -41,7 +42,11 @@ export async function runPlatformOrderSync(
     paypal:    { success: false, skipped: false, refunds: 0, fees: 0, error: null },
   };
 
-  orderSyncRunning = true;
+  if (!syncLock.acquire('Order Sync')) {
+    const blocker = syncLock.getActive().join(', ');
+    throw new Error(`Order sync blocked: ${blocker} is already running`);
+  }
+
   try {
   const [settings] = await db.select().from(appSettings).limit(1);
   const newOrderIds: string[] = [];
@@ -174,6 +179,6 @@ export async function runPlatformOrderSync(
 
   return result;
   } finally {
-    orderSyncRunning = false;
+    syncLock.release('Order Sync');
   }
 }

@@ -1,17 +1,24 @@
 import { db } from "../db";
 import { appSettings, syncMetadata } from "@shared/schema";
 import { syncPriceOMagicCache } from "./bricklink";
-
-let isRunning = false;
+import { syncLock } from "./sync-lock";
 
 /** Returns true if a POM sync (scheduled or manual) is currently in progress. */
 export function getPomIsRunning() {
-  return isRunning;
+  return syncLock.getActive().includes('Price-o-Matic');
 }
 
-/** Set the running state — used by the manual sync route to claim the lock. */
-export function setPomIsRunning(value: boolean) {
-  isRunning = value;
+/**
+ * Claim / release the global lock on behalf of the manual sync route.
+ * Returns false if another sync is already running (manual route should 409).
+ */
+export function setPomIsRunning(value: boolean): boolean {
+  if (value) {
+    return syncLock.acquire('Price-o-Matic');
+  } else {
+    syncLock.release('Price-o-Matic');
+    return true;
+  }
 }
 
 /**
@@ -40,7 +47,7 @@ async function checkAndRunPomSync() {
     const scheduledTime = settings.pomSyncTime || '14:00';
     if (currentTime !== scheduledTime) return;
 
-    if (isRunning) {
+    if (getPomIsRunning()) {
       console.log('⏭️ POM sync already in progress, skipping this cycle');
       return;
     }
@@ -52,7 +59,10 @@ async function checkAndRunPomSync() {
 }
 
 async function runScheduledPomSync(batchSize: number) {
-  isRunning = true;
+  if (!syncLock.acquire('Price-o-Matic')) {
+    console.log('⏭️ Scheduled POM sync skipped — another sync is running');
+    return;
+  }
   console.log(`\n💰 Starting scheduled Price-o-Matic sync (batch: ${batchSize} items)...`);
 
   // Write in_progress to DB so the manual route also sees it's running
@@ -100,6 +110,6 @@ async function runScheduledPomSync(batchSize: number) {
       set: { lastSyncStatus: 'error', updatedAt: new Date(), errorMessage: error.message },
     });
   } finally {
-    isRunning = false;
+    syncLock.release('Price-o-Matic');
   }
 }

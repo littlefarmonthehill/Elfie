@@ -1,15 +1,10 @@
 import { db } from "../db";
 import { appSettings, syncMetadata } from "@shared/schema";
 import { syncBrickLinkToBrickOwl } from "./brickowl";
-
-let isRunning = false;
+import { syncLock } from "./sync-lock";
 
 export function getChannelSyncIsRunning() {
-  return isRunning;
-}
-
-export function setChannelSyncIsRunning(value: boolean) {
-  isRunning = value;
+  return syncLock.getActive().includes('Channel Sync');
 }
 
 /**
@@ -49,7 +44,7 @@ async function checkAndRunChannelSync() {
     const scheduledTime = settings.channelSyncTime || '03:00';
     if (currentTime !== scheduledTime) return;
 
-    if (isRunning) {
+    if (getChannelSyncIsRunning()) {
       console.log('⏭️ Channel sync already in progress, skipping this cycle');
       return;
     }
@@ -61,7 +56,10 @@ async function checkAndRunChannelSync() {
 }
 
 async function runScheduledChannelSync() {
-  isRunning = true;
+  if (!syncLock.acquire('Channel Sync')) {
+    console.log('⏭️ Scheduled channel sync skipped — another sync is running');
+    return;
+  }
   console.log('\n🌐 Starting scheduled channel sync (Local DB → BrickOwl)...');
 
   await db.insert(syncMetadata).values({
@@ -111,6 +109,6 @@ async function runScheduledChannelSync() {
       set: { lastSyncStatus: 'error', updatedAt: new Date(), errorMessage: error.message },
     });
   } finally {
-    isRunning = false;
+    syncLock.release('Channel Sync');
   }
 }

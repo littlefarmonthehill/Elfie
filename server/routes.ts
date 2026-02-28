@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated, isApproved } from "./auth";
 import { syncBricklinkData, fetchPriceOMagicData, searchBricklinkCatalogItem, syncPriceOMagicCache, requestPomSyncStop, getPomFormulaConfig, calculateSuggestedPriceWithSupply, applyPomFloors } from "./services/bricklink";
 import { getPomIsRunning, setPomIsRunning } from "./services/pom-scheduler";
+import { syncLock } from "./services/sync-lock";
 import { syncShipStationOrders } from "./services/shipstation";
 import { syncBrickLinkToBrickOwl } from "./services/brickowl";
 import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBackup } from "./services/export";
@@ -4840,11 +4841,12 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
         success: true,
         data: result,
       });
-    } catch (error) {
+    } catch (error: any) {
+      const isConflict = error?.message?.toLowerCase().includes('blocked') || error?.message?.toLowerCase().includes('already in progress') || error?.message?.toLowerCase().includes('already running');
       console.error("BrickLink sync error:", error);
-      res.status(500).json({
+      res.status(isConflict ? 409 : 500).json({
         success: false,
-        error: "Failed to sync BrickLink inventory",
+        error: isConflict ? error.message : "Failed to sync BrickLink inventory",
       });
     }
   });
@@ -5010,7 +5012,8 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       res.json({ success: true, data: result });
     } catch (error: any) {
       console.error("BrickLink order sync error:", error);
-      res.status(500).json({ success: false, error: error.message || "Failed to sync BrickLink orders" });
+      const isConflict = error?.message?.toLowerCase().includes('blocked');
+      res.status(isConflict ? 409 : 500).json({ success: false, error: error.message || "Failed to sync BrickLink orders" });
     }
   });
 
@@ -5023,7 +5026,8 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       res.json({ success: true, data: result });
     } catch (error: any) {
       console.error("BrickOwl order sync error:", error);
-      res.status(500).json({ success: false, error: error.message || "Failed to sync BrickOwl orders" });
+      const isConflict = error?.message?.toLowerCase().includes('blocked');
+      res.status(isConflict ? 409 : 500).json({ success: false, error: error.message || "Failed to sync BrickOwl orders" });
     }
   });
 
@@ -5039,8 +5043,9 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       console.log(`✨ Sync All complete`);
       res.json({ success: anySuccess, allSkipped, results: result });
     } catch (error: any) {
+      const isConflict = error?.message?.toLowerCase().includes('blocked');
       console.error("❌ Multi-platform order sync error:", error);
-      res.status(500).json({ success: false, error: error.message || "Failed to sync platform orders" });
+      res.status(isConflict ? 409 : 500).json({ success: false, error: error.message || "Failed to sync platform orders" });
     }
   });
 
@@ -5245,11 +5250,12 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
   // Price-o-Matic sync endpoint (manual trigger from POM screen)
   app.post("/api/sync/priceomatic", isApproved, async (req, res) => {
     try {
-      // Fast in-memory check — catches scheduler-started syncs immediately
-      if (getPomIsRunning()) {
+      // Fast in-memory check — blocks if ANY sync is already running
+      if (syncLock.isRunning()) {
+        const blocker = syncLock.getActive().join(', ');
         return res.status(409).json({
           success: false,
-          error: 'A sync is already in progress. Please wait for it to complete.',
+          error: `Cannot start Price-o-Matic: ${blocker} is already running. Please wait for it to complete.`,
         });
       }
 
@@ -5278,8 +5284,14 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
         // Stale (>10 min) — allow override
       }
 
-      // Claim the shared lock before going async
-      setPomIsRunning(true);
+      // Claim the global lock (race-condition guard — another sync may have started since the check above)
+      if (!setPomIsRunning(true)) {
+        const blocker = syncLock.getActive().join(', ');
+        return res.status(409).json({
+          success: false,
+          error: `Cannot start Price-o-Matic: ${blocker} is already running.`,
+        });
+      }
       
       // Update sync metadata to "in_progress"
       await db
