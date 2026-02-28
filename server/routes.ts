@@ -5067,6 +5067,22 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
     res.json({ running: getChannelSyncIsRunning() });
   });
 
+  // Manual channel sync trigger
+  app.post("/api/sync/channel", isApproved, async (req, res) => {
+    try {
+      if (syncLock.isRunning()) {
+        const blocker = syncLock.getActive().join(', ');
+        return res.status(409).json({ success: false, error: `Cannot start Channel Sync: ${blocker} is already running.` });
+      }
+      const { runChannelSync } = await import("./services/channel-sync-scheduler");
+      await runChannelSync();
+      res.json({ success: true });
+    } catch (error: any) {
+      const isConflict = error?.message?.toLowerCase().includes('blocked') || error?.message?.toLowerCase().includes('already running');
+      res.status(isConflict ? 409 : 500).json({ success: false, error: error.message || "Failed to run channel sync" });
+    }
+  });
+
   // Recent sync errors for dashboard action items
   // Returns syncs that completed with error/failed status in the last 24 hours
   app.get("/api/sync/recent-errors", isApproved, async (req, res) => {

@@ -55,6 +55,10 @@ async function checkAndRunChannelSync() {
   }
 }
 
+export async function runChannelSync() {
+  return runScheduledChannelSync();
+}
+
 async function runScheduledChannelSync() {
   if (!syncLock.acquire('Channel Sync')) {
     console.log('⏭️ Scheduled channel sync skipped — another sync is running');

@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { AppSettings, User } from "@shared/schema";
 import { APP_VERSION, APP_NAME } from "@shared/version";
-import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Zap, Info, Layers } from "lucide-react";
+import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Zap, Info, Layers, Play, Loader2 } from "lucide-react";
 import { PomCategoryTiers } from "@/components/PomCategoryTiers";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -732,6 +732,35 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
 
   const { isAdmin } = useAuth();
   const [activeSection, setActiveSection] = useState<'general' | 'platforms' | 'ai' | 'automation' | 'priceomatic' | 'data' | 'users'>('general');
+
+  // Manual sync state for Automation tab
+  const [syncingInventory, setSyncingInventory] = useState(false);
+  const [syncingOrders, setSyncingOrders] = useState(false);
+  const [syncingPom, setSyncingPom] = useState(false);
+  const [syncingChannel, setSyncingChannel] = useState(false);
+
+  async function runManualSync(
+    endpoint: string,
+    setLoading: (v: boolean) => void,
+    label: string,
+    body?: object,
+  ) {
+    setLoading(true);
+    try {
+      const result = await apiRequest('POST', endpoint, body);
+      toast({ title: `${label} complete`, description: 'Sync finished successfully.' });
+    } catch (err: any) {
+      const msg: string = err?.message || String(err);
+      const isBlocked = msg.toLowerCase().includes('already running') || msg.toLowerCase().includes('blocked');
+      toast({
+        title: isBlocked ? `${label} blocked` : `${label} failed`,
+        description: msg,
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  }
 
   const navigationItems = [
     { id: 'general' as const, label: 'General', icon: Settings },
@@ -1596,19 +1625,31 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
 
                     {/* Inventory Sync */}
                     <div className="space-y-3 mb-4">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between gap-2">
                         <div>
                           <Label className="text-xs font-medium text-gray-300">Inventory Sync (Daily)</Label>
                           <p className="text-[10px] md:text-sm text-gray-500 mt-0.5">Sync inventory, colors, categories + embeddings</p>
                         </div>
-                        <Switch
-                          checked={inventorySyncEnabled}
-                          onCheckedChange={(checked) => {
-                            setInventorySyncEnabled(checked);
-                            updateSettingsMutation.mutate({ inventorySyncEnabled: checked });
-                          }}
-                          data-testid="switch-inventory-sync"
-                        />
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            disabled={syncingInventory}
+                            onClick={() => runManualSync('/api/sync/bricklink/inventory', setSyncingInventory, 'Inventory Sync')}
+                            title="Run inventory sync now"
+                            data-testid="button-run-inventory-sync"
+                          >
+                            {syncingInventory ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                          </Button>
+                          <Switch
+                            checked={inventorySyncEnabled}
+                            onCheckedChange={(checked) => {
+                              setInventorySyncEnabled(checked);
+                              updateSettingsMutation.mutate({ inventorySyncEnabled: checked });
+                            }}
+                            data-testid="switch-inventory-sync"
+                          />
+                        </div>
                       </div>
                       
                       {inventorySyncEnabled && (
@@ -1658,19 +1699,31 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
 
                     {/* Price-o-Matic Standalone Scheduler */}
                     <div className="space-y-3 my-4">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between gap-2">
                         <div>
                           <Label className="text-xs font-medium text-gray-300">Price-o-Matic Auto Sync</Label>
                           <p className="text-[10px] md:text-sm text-gray-500 mt-0.5">Runs independently on its own schedule</p>
                         </div>
-                        <Switch
-                          checked={pomScheduleEnabled}
-                          onCheckedChange={(checked) => {
-                            setPomScheduleEnabled(checked);
-                            updateSettingsMutation.mutate({ pomScheduleEnabled: checked });
-                          }}
-                          data-testid="switch-pom-schedule"
-                        />
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            disabled={syncingPom}
+                            onClick={() => runManualSync('/api/sync/priceomatic', setSyncingPom, 'Price-o-Matic')}
+                            title="Run Price-o-Matic sync now"
+                            data-testid="button-run-pom-sync"
+                          >
+                            {syncingPom ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                          </Button>
+                          <Switch
+                            checked={pomScheduleEnabled}
+                            onCheckedChange={(checked) => {
+                              setPomScheduleEnabled(checked);
+                              updateSettingsMutation.mutate({ pomScheduleEnabled: checked });
+                            }}
+                            data-testid="switch-pom-schedule"
+                          />
+                        </div>
                       </div>
 
                       {pomScheduleEnabled && (
@@ -1714,19 +1767,31 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
 
                     {/* Channel Sync (Local DB → BrickOwl / other platforms) */}
                     <div className="space-y-3 my-4">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between gap-2">
                         <div>
                           <Label className="text-xs font-medium text-gray-300">Channel Sync (Daily)</Label>
                           <p className="text-[10px] md:text-sm text-gray-500 mt-0.5">Push Local DB → BrickOwl after inbound + order syncs settle</p>
                         </div>
-                        <Switch
-                          checked={channelSyncEnabled}
-                          onCheckedChange={(checked) => {
-                            setChannelSyncEnabled(checked);
-                            updateSettingsMutation.mutate({ channelSyncEnabled: checked });
-                          }}
-                          data-testid="switch-channel-sync"
-                        />
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            disabled={syncingChannel}
+                            onClick={() => runManualSync('/api/sync/channel', setSyncingChannel, 'Channel Sync')}
+                            title="Run channel sync now"
+                            data-testid="button-run-channel-sync"
+                          >
+                            {syncingChannel ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                          </Button>
+                          <Switch
+                            checked={channelSyncEnabled}
+                            onCheckedChange={(checked) => {
+                              setChannelSyncEnabled(checked);
+                              updateSettingsMutation.mutate({ channelSyncEnabled: checked });
+                            }}
+                            data-testid="switch-channel-sync"
+                          />
+                        </div>
                       </div>
 
                       {channelSyncEnabled && (
@@ -1750,19 +1815,31 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
 
                     {/* Orders Sync */}
                     <div className="space-y-3 mt-4">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between gap-2">
                         <div>
                           <Label className="text-xs font-medium text-gray-300">Orders Sync</Label>
                           <p className="text-[10px] md:text-sm text-gray-500 mt-0.5">Sync orders, details, embeddings + refunds/fees periodically</p>
                         </div>
-                        <Switch
-                          checked={ordersSyncEnabled}
-                          onCheckedChange={(checked) => {
-                            setOrdersSyncEnabled(checked);
-                            updateSettingsMutation.mutate({ ordersSyncEnabled: checked });
-                          }}
-                          data-testid="switch-orders-sync"
-                        />
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            disabled={syncingOrders}
+                            onClick={() => runManualSync('/api/sync/all-platforms/orders', setSyncingOrders, 'Orders Sync', { limit: 50, fullSync: false })}
+                            title="Run orders sync now"
+                            data-testid="button-run-orders-sync"
+                          >
+                            {syncingOrders ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                          </Button>
+                          <Switch
+                            checked={ordersSyncEnabled}
+                            onCheckedChange={(checked) => {
+                              setOrdersSyncEnabled(checked);
+                              updateSettingsMutation.mutate({ ordersSyncEnabled: checked });
+                            }}
+                            data-testid="switch-orders-sync"
+                          />
+                        </div>
                       </div>
                       
                       {ordersSyncEnabled && (
