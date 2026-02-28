@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -7,9 +8,10 @@ import {
   DropdownMenu, 
   DropdownMenuContent, 
   DropdownMenuItem, 
+  DropdownMenuSeparator,
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
-import { Search, Package, Loader2, Printer, Tag, FileText, ChevronDown } from "lucide-react";
+import { Search, Package, Loader2, Printer, Tag, FileText, ChevronDown, RotateCcw } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -37,6 +39,21 @@ export default function ShippedOrdersTool() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showPackingSlipDialog, setShowPackingSlipDialog] = useState(false);
   const [packingSlipData, setPackingSlipData] = useState<any[]>([]);
+
+  const returnToQueueMutation = useMutation({
+    mutationFn: async (orderId: string) =>
+      apiRequest('POST', `/api/orders/${encodeURIComponent(orderId)}/status`, { status: 'awaiting_shipment' }),
+    onSuccess: (_data, orderId) => {
+      toast({ title: "Order returned to fulfillment queue" });
+      queryClient.invalidateQueries({ queryKey: ['/api/orders/shipped'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/fulfillment'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/fulfillment/stats'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/orders/dashboard'] });
+    },
+    onError: (err: any) => {
+      toast({ title: "Failed to return order", description: err.message, variant: "destructive" });
+    },
+  });
 
   const { data: shippedOrders, isLoading } = useQuery<ShippedOrder[]>({
     queryKey: ['/api/orders/shipped', searchQuery],
@@ -233,6 +250,16 @@ export default function ShippedOrdersTool() {
                         >
                           <Tag className="w-4 h-4 mr-2" />
                           Print Lot Labels
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => returnToQueueMutation.mutate(order.id)}
+                          disabled={returnToQueueMutation.isPending}
+                          data-testid={`menu-return-to-queue-${order.orderNumber}`}
+                          className="text-amber-400 focus:text-amber-300"
+                        >
+                          <RotateCcw className="w-4 h-4 mr-2" />
+                          Return to Fulfillment Queue
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>

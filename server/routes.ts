@@ -5439,6 +5439,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
 
   // Deep Space: get current keys
   app.get("/api/priceomatic/deep-space", isApproved, async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
     try {
       const [settings] = await db.select({ pomDeepSpaceKeys: appSettings.pomDeepSpaceKeys }).from(appSettings).limit(1);
       const raw = settings?.pomDeepSpaceKeys || '[]';
@@ -6659,6 +6660,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
 
   // Get fulfillment data - orders awaiting fulfillment with items grouped by bin
   app.get("/api/fulfillment", isApproved, async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
     try {
       // Fetch orders that need fulfillment
       const fulfillmentOrders = await db
