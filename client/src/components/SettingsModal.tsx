@@ -1671,32 +1671,6 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
 
                     <Separator className="bg-gray-700" />
 
-                    {/* Rebrickable Image Sync */}
-                    <div className="space-y-3 my-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <Label className="text-xs font-medium text-gray-300">Rebrickable Image Sync</Label>
-                          <p className="text-[10px] md:text-sm text-gray-500 mt-0.5">Fetch part images during inventory sync</p>
-                        </div>
-                        <Switch
-                          checked={rebrickableImageSyncEnabled}
-                          onCheckedChange={(checked) => {
-                            setRebrickableImageSyncEnabled(checked);
-                            updateSettingsMutation.mutate({ rebrickableImageSyncEnabled: checked });
-                          }}
-                          data-testid="switch-rebrickable-sync"
-                        />
-                      </div>
-                      
-                      {rebrickableImageSyncEnabled && (
-                        <div className="ml-4">
-                          <p className="text-[10px] md:text-sm text-gray-400">Uses LDraw renders from Rebrickable API (100 images per sync)</p>
-                        </div>
-                      )}
-                    </div>
-
-                    <Separator className="bg-gray-700" />
-
                     {/* Price-o-Matic Standalone Scheduler */}
                     <div className="space-y-3 my-4">
                       <div className="flex items-center justify-between gap-2">
