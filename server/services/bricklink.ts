@@ -783,10 +783,7 @@ async function syncBricklinkInventoryByStatus(): Promise<{ added: number; update
   }
 }
 
-export async function syncBricklinkData(options?: { 
-  includePlatformSync?: boolean 
-}): Promise<BricklinkSyncResult> {
-  const { includePlatformSync = false } = options || {};
+export async function syncBricklinkData(): Promise<BricklinkSyncResult> {
   
   // Acquire inventory sync lock to prevent order sync conflicts
   const lockAcquired = await syncLock.acquireInventoryLock();
@@ -868,27 +865,10 @@ export async function syncBricklinkData(options?: {
       console.error('✗ Rebrickable image sync scheduling failed (non-fatal):', error);
     }
 
-    // Step 6: Sync inventory to all sales platforms (tracker: 97–99%)
-    // Only run if includePlatformSync is true (used by automated sync, not manual sync)
-    if (includePlatformSync) {
-      console.log('🌐 Step 6/7: Syncing inventory to sales platforms...');
-      syncProgressTracker.update('Syncing inventory to sales platforms…', 97);
-      try {
-        // Only sync if BrickOwl credentials are configured
-        const [settings] = await db.select().from(appSettings).limit(1);
-        if (settings?.brickowlApiKey) {
-          console.log('Syncing to BrickOwl...');
-          const syncResult = await syncBrickLinkToBrickOwl(100); // Limit to 100 items per sync
-          console.log(`✓ BrickOwl sync: ${syncResult.lotsCreated} created, ${syncResult.lotsUpdated} updated, ${syncResult.lotsSkipped} skipped`);
-        } else {
-          console.log('⏭️ BrickOwl credentials not configured, skipping platform sync');
-        }
-      } catch (error) {
-        console.error('✗ Platform sync failed (non-fatal):', error);
-      }
-    } else {
-      console.log('⏭️ Step 6/7: Platform sync skipped (use automated sync or manual platform sync)');
-    }
+    // Step 6: Channel sync is now a separate scheduled job (Channel Sync scheduler).
+    // BL Inbound Sync only pulls from BrickLink → Local DB.
+    // To push Local DB → BrickOwl, run the Channel Sync or use Platform Sync manually.
+    console.log('⏭️ Step 6/7: Channel sync runs separately (see Channel Sync scheduler)');
 
     const totalApiCalls = categoriesResult.apiCalls + colorsResult.apiCalls + inventoryResult.apiCalls;
 

@@ -3,6 +3,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { startInventorySyncScheduler } from "./services/inventory-sync-scheduler";
 import { startPomSyncScheduler } from "./services/pom-scheduler";
+import { startChannelSyncScheduler } from "./services/channel-sync-scheduler";
 import { startEmbeddingWorker } from "./services/embedding-worker";
 import { startForumSyncScheduler } from "./services/bl-forum-scheduler";
 import { pool } from "./db";
@@ -141,6 +142,9 @@ app.use((req, res, next) => {
 
       // Start standalone Price-o-Matic sync scheduler (independent of inventory sync)
       startPomSyncScheduler();
+
+      // Start Channel Sync scheduler (Local DB → BrickOwl / other channels)
+      startChannelSyncScheduler();
       
       // Start BrickLink forum sync scheduler
       startForumSyncScheduler().catch(error => {

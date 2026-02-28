@@ -72,11 +72,11 @@ async function checkAndRunInventorySync() {
  */
 async function runAutomatedInventorySync() {
   isRunning = true;
-  console.log('\n🔄 Starting automated inventory sync (includes all platforms)...');
+  console.log('\n🔄 Starting automated inventory sync (BrickLink → Local DB)...');
   
   try {
     // Run comprehensive sync with platform sync enabled
-    const result = await syncBricklinkData({ includePlatformSync: true });
+    const result = await syncBricklinkData();
     
     console.log(`\n✨ Automated inventory sync complete!`);
     console.log(`  📦 Categories: ${result.categoriesAdded} added, ${result.categoriesUpdated} updated`);

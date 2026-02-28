@@ -399,6 +399,9 @@ export const appSettings = pgTable("app_settings", {
   pomScheduleEnabled: boolean("pom_schedule_enabled").default(false).notNull(), // Run POM on its own schedule (independent of inventory sync)
   pomSyncTime: text("pom_sync_time").default('14:00'),                          // Standalone POM schedule time (HH:MM)
   pomScheduleBatchSize: integer("pom_schedule_batch_size").default(1500).notNull(), // Items per scheduled auto-run
+  // Channel Sync (Local DB → BrickOwl / other platforms)
+  channelSyncEnabled: boolean("channel_sync_enabled").default(false).notNull(), // Push local inventory to all sales channels on a schedule
+  channelSyncTime: text("channel_sync_time").default('03:00'),                  // Time of day (HH:MM) — run AFTER inbound + order syncs settle
   timezone: text("timezone").default('America/Chicago'),                        // User's local timezone for all schedulers
   pomDeepSpaceKeys: text("pom_deep_space_keys").default('[]'),                  // JSON array of item keys excluded from POM orbit view
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

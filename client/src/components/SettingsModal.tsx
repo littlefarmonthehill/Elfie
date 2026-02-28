@@ -374,6 +374,8 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   const [timezone, setTimezone] = useState("America/Chicago");
   const [pomScheduleBatchSize, setPomScheduleBatchSize] = useState(1500);
   const [rebrickableImageSyncEnabled, setRebrickableImageSyncEnabled] = useState(true);
+  const [channelSyncEnabled, setChannelSyncEnabled] = useState(false);
+  const [channelSyncTime, setChannelSyncTime] = useState("03:00");
   const [ordersSyncEnabled, setOrdersSyncEnabled] = useState(false);
   const [ordersSyncFrequency, setOrdersSyncFrequency] = useState(15);
 
@@ -473,6 +475,8 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
       setTimezone(settings.timezone || 'America/Chicago');
       setPomScheduleBatchSize(settings.pomScheduleBatchSize ?? 1500);
       setRebrickableImageSyncEnabled(settings.rebrickableImageSyncEnabled !== false);
+      setChannelSyncEnabled(settings.channelSyncEnabled || false);
+      setChannelSyncTime(settings.channelSyncTime || '03:00');
       setOrdersSyncEnabled(settings.ordersSyncEnabled || false);
       setOrdersSyncFrequency(settings.ordersSyncFrequency || 15);
 
@@ -1702,6 +1706,42 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                               <p className="text-[10px] text-gray-500">= {pomScheduleBatchSize} API calls</p>
                             </div>
                           </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <Separator className="bg-gray-700" />
+
+                    {/* Channel Sync (Local DB → BrickOwl / other platforms) */}
+                    <div className="space-y-3 my-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <Label className="text-xs font-medium text-gray-300">Channel Sync (Daily)</Label>
+                          <p className="text-[10px] md:text-sm text-gray-500 mt-0.5">Push Local DB → BrickOwl after inbound + order syncs settle</p>
+                        </div>
+                        <Switch
+                          checked={channelSyncEnabled}
+                          onCheckedChange={(checked) => {
+                            setChannelSyncEnabled(checked);
+                            updateSettingsMutation.mutate({ channelSyncEnabled: checked });
+                          }}
+                          data-testid="switch-channel-sync"
+                        />
+                      </div>
+
+                      {channelSyncEnabled && (
+                        <div className="ml-4 space-y-2">
+                          <Label htmlFor="channel-sync-time" className="text-xs text-gray-400">Sync Time</Label>
+                          <Input
+                            id="channel-sync-time"
+                            type="time"
+                            value={channelSyncTime}
+                            onChange={(e) => setChannelSyncTime(e.target.value)}
+                            onBlur={() => updateSettingsMutation.mutate({ channelSyncTime })}
+                            className="text-xs w-32"
+                            data-testid="input-channel-sync-time"
+                          />
+                          <p className="text-[10px] md:text-sm text-gray-500">Run at least 1 hour after Inventory Sync</p>
                         </div>
                       )}
                     </div>
