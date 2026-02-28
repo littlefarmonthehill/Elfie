@@ -196,7 +196,7 @@ function ApiCallSchedule({ buckets, callsLast24h, ceiling }: ApiCallScheduleProp
           <div className="text-[9px] text-gray-500 uppercase tracking-wide mb-1.5">
             Capacity Recovery Schedule
           </div>
-          <div className="space-y-px max-h-56 overflow-y-auto pr-0.5">
+          <div className="space-y-px pr-0.5">
             {/* Show current available as first row for context */}
             <div className="relative rounded px-2 py-1 bg-gray-800/60">
               <div className="relative flex items-center justify-between gap-2">
@@ -592,7 +592,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                       )}
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent side="bottom" align="end" className="w-96 p-3">
+                  <PopoverContent side="bottom" align="end" className="w-96 p-3 max-h-[80vh] overflow-y-auto">
                     <ApiCallSchedule
                       buckets={pomStatus?.hourlyBuckets ?? []}
                       callsLast24h={pomStatus?.callsLast24h ?? 0}
