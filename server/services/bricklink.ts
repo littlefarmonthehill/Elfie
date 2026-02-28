@@ -23,13 +23,20 @@ export interface BricklinkSyncResult {
   rebrickableParts?: number;
 }
 
+export interface RateLimitHourBucket {
+  hourStart: string;   // ISO timestamp — start of this 1-hour slot
+  rollsOffAt: string;  // ISO timestamp — when these calls leave the 24h window
+  calls: number;
+}
+
 export interface RateLimitStatus {
   allowed: boolean;
   callsLast24h: number;
   warning?: string;
   blocked?: boolean;
-  oldestCallTime?: Date | null;  // oldest call in the 24h window (rolls off first)
-  newestCallTime?: Date | null;  // newest call in the 24h window
+  oldestCallTime?: Date | null;
+  newestCallTime?: Date | null;
+  hourlyBuckets?: RateLimitHourBucket[]; // 24 hourly slots, oldest first
 }
 
 // Clean token values - remove any non-alphanumeric characters that may have been added
@@ -52,6 +59,30 @@ export async function checkRateLimit(): Promise<RateLimitStatus> {
   const oldestCallTime = recentCalls[0]?.oldest ?? null;
   const newestCallTime = recentCalls[0]?.newest ?? null;
 
+  // Build 24 hourly buckets (oldest first) — use epoch seconds to avoid timezone string issues
+  const hourlyRows = await db
+    .select({
+      hourEpoch: sql<string>`EXTRACT(EPOCH FROM date_trunc('hour', ${blApiCalls.timestamp}))::bigint`,
+      calls: sql<number>`count(*)`,
+    })
+    .from(blApiCalls)
+    .where(gte(blApiCalls.timestamp, twentyFourHoursAgo))
+    .groupBy(sql`date_trunc('hour', ${blApiCalls.timestamp})`)
+    .orderBy(sql`date_trunc('hour', ${blApiCalls.timestamp})`);
+
+  // Map keyed by epoch-ms for reliable hour matching
+  const hourlyMap = new Map(hourlyRows.map(r => [Number(r.hourEpoch) * 1000, Number(r.calls)]));
+  const hourlyBuckets: RateLimitHourBucket[] = [];
+  for (let i = 23; i >= 0; i--) {
+    const slotStartMs = Math.floor(Date.now() / 3600000) * 3600000 - i * 3600000;
+    const slotStart = new Date(slotStartMs);
+    hourlyBuckets.push({
+      hourStart: slotStart.toISOString(),
+      rollsOffAt: new Date(slotStartMs + 24 * 60 * 60 * 1000).toISOString(),
+      calls: hourlyMap.get(slotStartMs) ?? 0,
+    });
+  }
+
   // Block at 4500 calls to preserve quota for Price-o-Matic
   if (callsLast24h >= 4500) {
     return {
@@ -60,6 +91,7 @@ export async function checkRateLimit(): Promise<RateLimitStatus> {
       blocked: true,
       oldestCallTime,
       newestCallTime,
+      hourlyBuckets,
       warning: `API limit reached: ${callsLast24h}/5000 calls in 24 hours. Please wait before syncing again.`,
     };
   }
@@ -71,6 +103,7 @@ export async function checkRateLimit(): Promise<RateLimitStatus> {
       callsLast24h,
       oldestCallTime,
       newestCallTime,
+      hourlyBuckets,
       warning: `API usage warning: ${callsLast24h}/5000 calls in 24 hours. Approaching rate limit.`,
     };
   }
@@ -80,6 +113,7 @@ export async function checkRateLimit(): Promise<RateLimitStatus> {
     callsLast24h,
     oldestCallTime,
     newestCallTime,
+    hourlyBuckets,
   };
 }
 

@@ -1,7 +1,8 @@
+import { useState } from "react";
 import MetricCard from "./MetricCard";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { InfoIcon, AlertCircle, Package, TrendingUp, Clock, Sparkles, Warehouse, RefreshCw, Info, Square } from "lucide-react";
+import { InfoIcon, AlertCircle, Package, TrendingUp, Clock, Sparkles, Warehouse, RefreshCw, Info, Square, BarChart2 } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -61,6 +62,124 @@ interface RecentInventoryItem {
   updatedAt: string;
 }
 
+// ── API Call Schedule Chart ────────────────────────────────────────────────
+interface ApiCallScheduleProps {
+  buckets: { hourStart: string; rollsOffAt: string; calls: number }[];
+  callsLast24h: number;
+  ceiling: number;
+}
+
+function ApiCallSchedule({ buckets, callsLast24h, ceiling }: ApiCallScheduleProps) {
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+  const maxCalls = Math.max(...buckets.map(b => b.calls), 1);
+  const pct = Math.min(callsLast24h / ceiling, 1);
+
+  const barColor = (calls: number) => {
+    if (calls === 0) return 'bg-gray-700';
+    if (calls < ceiling * 0.1) return 'bg-blue-500/70';
+    if (calls < ceiling * 0.3) return 'bg-orange-500/70';
+    return 'bg-red-500/70';
+  };
+
+  const fmt = (iso: string) =>
+    new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  // Non-empty buckets sorted by rolloff time (upcoming events)
+  const rolloffEvents = [...buckets]
+    .filter(b => b.calls > 0)
+    .sort((a, b) => new Date(a.rollsOffAt).getTime() - new Date(b.rollsOffAt).getTime());
+
+  const progressColor = pct >= 0.9 ? 'bg-red-500' : pct >= 0.6 ? 'bg-orange-500' : 'bg-blue-500';
+  const hovered = hoveredIdx !== null ? buckets[hoveredIdx] : null;
+
+  return (
+    <div className="space-y-3">
+      {/* Header */}
+      <div className="flex items-baseline justify-between">
+        <span className="text-xs font-semibold text-gray-200">API Quota — Rolling 24h</span>
+        <span className={`text-xs font-mono font-bold ${pct >= 0.9 ? 'text-red-400' : pct >= 0.6 ? 'text-orange-400' : 'text-gray-400'}`}>
+          {callsLast24h.toLocaleString()} / {ceiling.toLocaleString()}
+        </span>
+      </div>
+
+      {/* Quota bar */}
+      <div className="h-1.5 w-full rounded-full bg-gray-700">
+        <div className={`h-full rounded-full transition-all ${progressColor}`} style={{ width: `${pct * 100}%` }} />
+      </div>
+
+      {/* 24-hour bar chart */}
+      <div className="flex items-end gap-px h-12" onMouseLeave={() => setHoveredIdx(null)}>
+        {buckets.map((b, i) => {
+          const height = b.calls === 0 ? 2 : Math.max(4, Math.round((b.calls / maxCalls) * 48));
+          const isNow = i === buckets.length - 1;
+          return (
+            <div
+              key={b.hourStart}
+              className="flex-1 flex flex-col justify-end items-center cursor-default"
+              onMouseEnter={() => setHoveredIdx(i)}
+            >
+              {isNow && <div className="w-px h-full bg-gray-500/50 absolute" />}
+              <div
+                className={`w-full rounded-sm transition-opacity ${barColor(b.calls)} ${hoveredIdx === i ? 'opacity-100 ring-1 ring-white/30' : 'opacity-80'}`}
+                style={{ height: `${height}px` }}
+              />
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Time axis labels */}
+      <div className="flex justify-between text-[9px] text-gray-500 font-mono -mt-1">
+        {[0, 6, 12, 18, 23].map(i => (
+          <span key={i}>{buckets[i] ? fmt(buckets[i].hourStart) : ''}</span>
+        ))}
+      </div>
+
+      {/* Hovered bar detail */}
+      <div className="min-h-[2rem]">
+        {hovered ? (
+          <div className="text-[11px] text-gray-300 bg-gray-800/60 rounded-md px-2 py-1.5 space-y-0.5">
+            <div className="flex justify-between">
+              <span className="text-gray-400">{fmt(hovered.hourStart)} – {fmt(new Date(new Date(hovered.hourStart).getTime() + 3600000).toISOString())}</span>
+              <span className="font-mono font-semibold">{hovered.calls.toLocaleString()} calls</span>
+            </div>
+            {hovered.calls > 0 && (
+              <div className="text-gray-500">
+                Rolls off at <span className="text-gray-300">{fmt(hovered.rollsOffAt)}</span>
+                {new Date(hovered.rollsOffAt) > new Date(Date.now() + 12 * 3600000) ? ' tomorrow' : ''}
+              </div>
+            )}
+          </div>
+        ) : (
+          <p className="text-[10px] text-gray-600 italic">Hover a bar for details</p>
+        )}
+      </div>
+
+      {/* Upcoming rolloff events */}
+      {rolloffEvents.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wide">Quota Recovery</p>
+          <div className="space-y-0.5 max-h-24 overflow-y-auto">
+            {rolloffEvents.map(b => {
+              const rolloff = new Date(b.rollsOffAt);
+              const isTomorrow = rolloff > new Date(Date.now() + 12 * 3600000);
+              return (
+                <div key={b.hourStart} className="flex justify-between text-[11px]">
+                  <span className="text-gray-400">
+                    {fmt(b.rollsOffAt)}{isTomorrow ? ' tomorrow' : ''}
+                  </span>
+                  <span className="font-mono text-green-400/80">+{b.calls.toLocaleString()}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 interface InventoryDashboardProps {
   onItemClick?: (type: 'order' | 'inventory', id: number | string, initialTab?: string) => void;
   activeDrawer: 'priceomatic' | 'warehouse' | 'platformsync' | null;
@@ -78,6 +197,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
       callsLast24h?: number;
       oldestCallTime?: string | null;
       newestCallTime?: string | null;
+      hourlyBuckets?: { hourStart: string; rollsOffAt: string; calls: number }[];
       liveProgress?: { active: boolean; itemsProcessed: number; itemsTotal: number; apiCallsAtStart: number };
     };
   }>({
@@ -381,12 +501,11 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                     </TooltipContent>
                   </Tooltip>
                 )}
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="relative">
-                      <Button onClick={() => pomSyncMutation.mutate()} disabled={isPomSyncRunning || pomSyncMutation.isPending} size="icon" variant="ghost" data-testid="button-sync">
-                        <RefreshCw className={`w-4 h-4 text-gray-500 ${pomSyncMutation.isPending ? 'animate-spin' : ''}`} />
-                      </Button>
+                {/* API schedule popover */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button size="icon" variant="ghost" data-testid="button-api-schedule" className="relative">
+                      <BarChart2 className="w-4 h-4 text-gray-500" />
                       {pomStatus?.callsLast24h !== undefined && (
                         <span className={`absolute -top-1 -right-1 text-[9px] font-mono font-bold px-1 py-0.5 rounded-full leading-none pointer-events-none ${
                           pomStatus.callsLast24h >= apiCeiling * 0.9 ? 'bg-red-500/20 text-red-400' :
@@ -398,21 +517,25 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                             : pomStatus.callsLast24h}
                         </span>
                       )}
-                    </div>
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent side="bottom" align="end" className="w-80 p-3 space-y-2">
+                    <ApiCallSchedule
+                      buckets={pomStatus?.hourlyBuckets ?? []}
+                      callsLast24h={pomStatus?.callsLast24h ?? 0}
+                      ceiling={apiCeiling}
+                    />
+                  </PopoverContent>
+                </Popover>
+                {/* Sync button */}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button onClick={() => pomSyncMutation.mutate()} disabled={isPomSyncRunning || pomSyncMutation.isPending} size="icon" variant="ghost" data-testid="button-sync">
+                      <RefreshCw className={`w-4 h-4 text-gray-500 ${pomSyncMutation.isPending ? 'animate-spin' : ''}`} />
+                    </Button>
                   </TooltipTrigger>
-                  <TooltipContent side="bottom" className="max-w-64 text-xs space-y-1">
-                    {isPomSyncRunning ? (
-                      <p>Syncing in progress...</p>
-                    ) : (
-                      <>
-                        <p>{(pomStatus?.callsLast24h ?? 0).toLocaleString()} / {apiCeiling.toLocaleString()} API calls used (rolling 24h)</p>
-                        {pomStatus?.oldestCallTime && (
-                          <p className="text-gray-400">
-                            Oldest call resets at {new Date(new Date(pomStatus.oldestCallTime).getTime() + 24 * 60 * 60 * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </p>
-                        )}
-                      </>
-                    )}
+                  <TooltipContent side="bottom" className="text-xs">
+                    {isPomSyncRunning ? 'Syncing in progress...' : 'Run Price-o-Matic Sync'}
                   </TooltipContent>
                 </Tooltip>
               </div>

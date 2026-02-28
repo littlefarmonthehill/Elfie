@@ -5369,6 +5369,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
           callsLast24h: rateLimit.callsLast24h,
           oldestCallTime: rateLimit.oldestCallTime ?? null,
           newestCallTime: rateLimit.newestCallTime ?? null,
+          hourlyBuckets: rateLimit.hourlyBuckets ?? [],
           liveProgress,
         },
       });
