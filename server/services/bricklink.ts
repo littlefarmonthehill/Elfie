@@ -28,6 +28,8 @@ export interface RateLimitStatus {
   callsLast24h: number;
   warning?: string;
   blocked?: boolean;
+  oldestCallTime?: Date | null;  // oldest call in the 24h window (rolls off first)
+  newestCallTime?: Date | null;  // newest call in the 24h window
 }
 
 // Clean token values - remove any non-alphanumeric characters that may have been added
@@ -38,18 +40,26 @@ export async function checkRateLimit(): Promise<RateLimitStatus> {
   const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
   
   const recentCalls = await db
-    .select({ count: sql<number>`count(*)` })
+    .select({
+      count: sql<number>`count(*)`,
+      oldest: sql<Date | null>`min(${blApiCalls.timestamp})`,
+      newest: sql<Date | null>`max(${blApiCalls.timestamp})`,
+    })
     .from(blApiCalls)
     .where(gte(blApiCalls.timestamp, twentyFourHoursAgo));
   
   const callsLast24h = Number(recentCalls[0]?.count) || 0;
-  
+  const oldestCallTime = recentCalls[0]?.oldest ?? null;
+  const newestCallTime = recentCalls[0]?.newest ?? null;
+
   // Block at 4500 calls to preserve quota for Price-o-Matic
   if (callsLast24h >= 4500) {
     return {
       allowed: false,
       callsLast24h,
       blocked: true,
+      oldestCallTime,
+      newestCallTime,
       warning: `API limit reached: ${callsLast24h}/5000 calls in 24 hours. Please wait before syncing again.`,
     };
   }
@@ -59,6 +69,8 @@ export async function checkRateLimit(): Promise<RateLimitStatus> {
     return {
       allowed: true,
       callsLast24h,
+      oldestCallTime,
+      newestCallTime,
       warning: `API usage warning: ${callsLast24h}/5000 calls in 24 hours. Approaching rate limit.`,
     };
   }
@@ -66,6 +78,8 @@ export async function checkRateLimit(): Promise<RateLimitStatus> {
   return {
     allowed: true,
     callsLast24h,
+    oldestCallTime,
+    newestCallTime,
   };
 }
 

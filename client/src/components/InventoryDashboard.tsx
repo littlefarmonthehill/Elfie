@@ -76,6 +76,8 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
     data: {
       lastSyncStatus: string;
       callsLast24h?: number;
+      oldestCallTime?: string | null;
+      newestCallTime?: string | null;
       liveProgress?: { active: boolean; itemsProcessed: number; itemsTotal: number; apiCallsAtStart: number };
     };
   }>({
@@ -398,8 +400,19 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                       )}
                     </div>
                   </TooltipTrigger>
-                  <TooltipContent side="bottom" className="max-w-56 text-xs">
-                    {isPomSyncRunning ? 'Syncing in progress...' : `Refresh Market Data — ${pomStatus?.callsLast24h?.toLocaleString() ?? 0}/${apiCeiling.toLocaleString()} API calls used today.`}
+                  <TooltipContent side="bottom" className="max-w-64 text-xs space-y-1">
+                    {isPomSyncRunning ? (
+                      <p>Syncing in progress...</p>
+                    ) : (
+                      <>
+                        <p>{(pomStatus?.callsLast24h ?? 0).toLocaleString()} / {apiCeiling.toLocaleString()} API calls used (rolling 24h)</p>
+                        {pomStatus?.oldestCallTime && (
+                          <p className="text-gray-400">
+                            Oldest call resets at {new Date(new Date(pomStatus.oldestCallTime).getTime() + 24 * 60 * 60 * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        )}
+                      </>
+                    )}
                   </TooltipContent>
                 </Tooltip>
               </div>

@@ -5367,6 +5367,8 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
             recordsUpdated: 0,
           }),
           callsLast24h: rateLimit.callsLast24h,
+          oldestCallTime: rateLimit.oldestCallTime ?? null,
+          newestCallTime: rateLimit.newestCallTime ?? null,
           liveProgress,
         },
       });
