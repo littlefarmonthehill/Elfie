@@ -71,108 +71,181 @@ interface ApiCallScheduleProps {
 
 function ApiCallSchedule({ buckets, callsLast24h, ceiling }: ApiCallScheduleProps) {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
-  const maxCalls = Math.max(...buckets.map(b => b.calls), 1);
+
+  const availableNow = Math.max(0, ceiling - callsLast24h);
   const pct = Math.min(callsLast24h / ceiling, 1);
+  const maxCalls = Math.max(...buckets.map(b => b.calls), 1);
+
+  // Sort non-empty buckets by rolloff time to build the cumulative schedule
+  const rolloffEvents = [...buckets]
+    .filter(b => b.calls > 0)
+    .sort((a, b) => new Date(a.rollsOffAt).getTime() - new Date(b.rollsOffAt).getTime());
+
+  let cumFreed = 0;
+  const schedule = rolloffEvents.map((b, idx) => {
+    cumFreed += b.calls;
+    const availableAfter = Math.min(ceiling, availableNow + cumFreed);
+    const prevAvail = idx === 0 ? availableNow : Math.min(ceiling, availableNow + (cumFreed - b.calls));
+    return { ...b, freed: b.calls, availableAfter, isFirstFull: availableAfter >= ceiling && prevAvail < ceiling };
+  });
+
+  const fullRestoreRow = schedule.find(s => s.isFirstFull);
+
+  // Human-readable time: if today show time only, if tomorrow say "tomorrow", else show date
+  const fmtTime = (iso: string) => {
+    const d = new Date(iso);
+    const now = new Date();
+    const todayStr = now.toDateString();
+    const tomorrowStr = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toDateString();
+    const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (d.toDateString() === todayStr) return time;
+    if (d.toDateString() === tomorrowStr) return `${time} tomorrow`;
+    return `${time} ${d.toLocaleDateString([], { month: 'short', day: 'numeric' })}`;
+  };
+
+  const fmtAxisTime = (iso: string) =>
+    new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  const progressColor = pct >= 0.9 ? 'bg-red-500' : pct >= 0.6 ? 'bg-orange-500' : 'bg-blue-500';
 
   const barColor = (calls: number) => {
-    if (calls === 0) return 'bg-gray-700';
+    if (calls === 0) return 'bg-gray-700/50';
     if (calls < ceiling * 0.1) return 'bg-blue-500/70';
     if (calls < ceiling * 0.3) return 'bg-orange-500/70';
     return 'bg-red-500/70';
   };
 
-  const fmt = (iso: string) =>
-    new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const availColor = (avail: number) => {
+    const r = avail / ceiling;
+    if (r >= 0.9) return 'text-emerald-400';
+    if (r >= 0.5) return 'text-blue-400';
+    if (r >= 0.25) return 'text-orange-400';
+    return 'text-gray-400';
+  };
 
-  // Non-empty buckets sorted by rolloff time (upcoming events)
-  const rolloffEvents = [...buckets]
-    .filter(b => b.calls > 0)
-    .sort((a, b) => new Date(a.rollsOffAt).getTime() - new Date(b.rollsOffAt).getTime());
-
-  const progressColor = pct >= 0.9 ? 'bg-red-500' : pct >= 0.6 ? 'bg-orange-500' : 'bg-blue-500';
   const hovered = hoveredIdx !== null ? buckets[hoveredIdx] : null;
 
   return (
     <div className="space-y-3">
-      {/* Header */}
-      <div className="flex items-baseline justify-between">
-        <span className="text-xs font-semibold text-gray-200">API Quota — Rolling 24h</span>
-        <span className={`text-xs font-mono font-bold ${pct >= 0.9 ? 'text-red-400' : pct >= 0.6 ? 'text-orange-400' : 'text-gray-400'}`}>
-          {callsLast24h.toLocaleString()} / {ceiling.toLocaleString()}
-        </span>
+
+      {/* Header: free now + when full quota returns */}
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-xs font-semibold text-gray-200">API Quota — Rolling 24h</div>
+          <div className="text-[11px] mt-0.5">
+            <span className={pct >= 0.9 ? 'text-red-400' : pct >= 0.6 ? 'text-orange-400' : 'text-emerald-400'}>
+              {availableNow.toLocaleString()} free now
+            </span>
+            <span className="text-gray-600"> · {callsLast24h.toLocaleString()}/{ceiling.toLocaleString()} used</span>
+          </div>
+        </div>
+        {fullRestoreRow ? (
+          <div className="text-right flex-shrink-0">
+            <div className="text-[9px] text-gray-500 uppercase tracking-wide">Full quota at</div>
+            <div className="text-[11px] font-semibold text-emerald-400 leading-tight">{fmtTime(fullRestoreRow.rollsOffAt)}</div>
+          </div>
+        ) : availableNow >= ceiling ? (
+          <span className="text-[11px] text-emerald-400 font-semibold flex-shrink-0">Full quota</span>
+        ) : null}
       </div>
 
-      {/* Quota bar */}
+      {/* Quota usage bar */}
       <div className="h-1.5 w-full rounded-full bg-gray-700">
         <div className={`h-full rounded-full transition-all ${progressColor}`} style={{ width: `${pct * 100}%` }} />
       </div>
 
-      {/* 24-hour bar chart */}
-      <div className="flex items-end gap-px h-12" onMouseLeave={() => setHoveredIdx(null)}>
-        {buckets.map((b, i) => {
-          const height = b.calls === 0 ? 2 : Math.max(4, Math.round((b.calls / maxCalls) * 48));
-          const isNow = i === buckets.length - 1;
-          return (
-            <div
-              key={b.hourStart}
-              className="flex-1 flex flex-col justify-end items-center cursor-default"
-              onMouseEnter={() => setHoveredIdx(i)}
-            >
-              {isNow && <div className="w-px h-full bg-gray-500/50 absolute" />}
+      {/* 24-hour history chart */}
+      <div>
+        <div className="text-[9px] text-gray-600 uppercase tracking-wide mb-1">Call History (last 24h)</div>
+        <div className="flex items-end gap-px h-10" onMouseLeave={() => setHoveredIdx(null)}>
+          {buckets.map((b, i) => {
+            const height = b.calls === 0 ? 2 : Math.max(3, Math.round((b.calls / maxCalls) * 40));
+            return (
               <div
-                className={`w-full rounded-sm transition-opacity ${barColor(b.calls)} ${hoveredIdx === i ? 'opacity-100 ring-1 ring-white/30' : 'opacity-80'}`}
-                style={{ height: `${height}px` }}
-              />
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Time axis labels */}
-      <div className="flex justify-between text-[9px] text-gray-500 font-mono -mt-1">
-        {[0, 6, 12, 18, 23].map(i => (
-          <span key={i}>{buckets[i] ? fmt(buckets[i].hourStart) : ''}</span>
-        ))}
-      </div>
-
-      {/* Hovered bar detail */}
-      <div className="min-h-[2rem]">
-        {hovered ? (
-          <div className="text-[11px] text-gray-300 bg-gray-800/60 rounded-md px-2 py-1.5 space-y-0.5">
-            <div className="flex justify-between">
-              <span className="text-gray-400">{fmt(hovered.hourStart)} – {fmt(new Date(new Date(hovered.hourStart).getTime() + 3600000).toISOString())}</span>
-              <span className="font-mono font-semibold">{hovered.calls.toLocaleString()} calls</span>
-            </div>
-            {hovered.calls > 0 && (
-              <div className="text-gray-500">
-                Rolls off at <span className="text-gray-300">{fmt(hovered.rollsOffAt)}</span>
-                {new Date(hovered.rollsOffAt) > new Date(Date.now() + 12 * 3600000) ? ' tomorrow' : ''}
+                key={b.hourStart}
+                className="flex-1 flex flex-col justify-end cursor-default"
+                onMouseEnter={() => setHoveredIdx(i)}
+              >
+                <div
+                  className={`w-full rounded-sm ${barColor(b.calls)} ${hoveredIdx === i ? 'opacity-100 ring-1 ring-white/20' : 'opacity-75'}`}
+                  style={{ height: `${height}px` }}
+                />
               </div>
-            )}
+            );
+          })}
+        </div>
+        <div className="flex justify-between text-[9px] text-gray-600 font-mono mt-0.5">
+          {[0, 6, 12, 18, 23].map(i => (
+            <span key={i}>{buckets[i] ? fmtAxisTime(buckets[i].hourStart) : ''}</span>
+          ))}
+        </div>
+        {hovered && hovered.calls > 0 && (
+          <div className="text-[10px] text-gray-400 mt-1 font-mono leading-tight">
+            {fmtAxisTime(hovered.hourStart)}: <span className="text-gray-200">{hovered.calls.toLocaleString()} calls</span>
+            {' '}· frees at <span className="text-gray-200">{fmtTime(hovered.rollsOffAt)}</span>
           </div>
-        ) : (
-          <p className="text-[10px] text-gray-600 italic">Hover a bar for details</p>
+        )}
+        {hovered && hovered.calls === 0 && (
+          <div className="text-[10px] text-gray-600 mt-1">No calls this hour</div>
         )}
       </div>
 
-      {/* Upcoming rolloff events */}
-      {rolloffEvents.length > 0 && (
-        <div className="space-y-1">
-          <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wide">Quota Recovery</p>
-          <div className="space-y-0.5 max-h-24 overflow-y-auto">
-            {rolloffEvents.map(b => {
-              const rolloff = new Date(b.rollsOffAt);
-              const isTomorrow = rolloff > new Date(Date.now() + 12 * 3600000);
+      {/* Cumulative capacity recovery schedule */}
+      {schedule.length > 0 && (
+        <div>
+          <div className="text-[9px] text-gray-500 uppercase tracking-wide mb-1.5">
+            Capacity Recovery Schedule
+          </div>
+          <div className="space-y-px max-h-56 overflow-y-auto pr-0.5">
+            {/* Show current available as first row for context */}
+            <div className="relative rounded px-2 py-1 bg-gray-800/60">
+              <div className="relative flex items-center justify-between gap-2">
+                <span className="text-[11px] text-gray-500">Now</span>
+                <span className={`text-[11px] font-mono font-semibold ${availColor(availableNow)}`}>
+                  {availableNow.toLocaleString()} free
+                </span>
+              </div>
+            </div>
+            {schedule.map((s) => {
+              const availRatio = s.availableAfter / ceiling;
               return (
-                <div key={b.hourStart} className="flex justify-between text-[11px]">
-                  <span className="text-gray-400">
-                    {fmt(b.rollsOffAt)}{isTomorrow ? ' tomorrow' : ''}
-                  </span>
-                  <span className="font-mono text-green-400/80">+{b.calls.toLocaleString()}</span>
+                <div
+                  key={s.hourStart}
+                  className={`relative rounded overflow-hidden px-2 py-1 ${s.isFirstFull ? 'ring-1 ring-emerald-500/50' : ''}`}
+                  style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}
+                >
+                  {/* Filled background bar shows relative capacity */}
+                  <div
+                    className="absolute left-0 top-0 bottom-0 rounded-sm pointer-events-none"
+                    style={{
+                      width: `${Math.min(availRatio * 100, 100)}%`,
+                      backgroundColor: availRatio >= 0.9 ? 'rgba(16,185,129,0.12)' : availRatio >= 0.5 ? 'rgba(59,130,246,0.12)' : 'rgba(249,115,22,0.10)',
+                    }}
+                  />
+                  <div className="relative flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="text-[11px] text-gray-300">{fmtTime(s.rollsOffAt)}</span>
+                      {s.isFirstFull && (
+                        <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-wide">Full</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <span className="text-[10px] text-gray-600 font-mono">+{s.freed.toLocaleString()}</span>
+                      <span className={`text-[11px] font-mono font-semibold w-16 text-right ${availColor(s.availableAfter)}`}>
+                        {s.availableAfter.toLocaleString()} free
+                      </span>
+                    </div>
+                  </div>
                 </div>
               );
             })}
           </div>
+        </div>
+      )}
+
+      {schedule.length === 0 && availableNow >= ceiling && (
+        <div className="text-[11px] text-emerald-400 text-center py-1">
+          Full quota available — ready to run anytime.
         </div>
       )}
     </div>
@@ -519,7 +592,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                       )}
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent side="bottom" align="end" className="w-80 p-3 space-y-2">
+                  <PopoverContent side="bottom" align="end" className="w-96 p-3">
                     <ApiCallSchedule
                       buckets={pomStatus?.hourlyBuckets ?? []}
                       callsLast24h={pomStatus?.callsLast24h ?? 0}
