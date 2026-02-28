@@ -67,9 +67,10 @@ interface ApiCallScheduleProps {
   buckets: { hourStart: string; rollsOffAt: string; calls: number }[];
   callsLast24h: number;
   ceiling: number;
+  timezone?: string;
 }
 
-function ApiCallSchedule({ buckets, callsLast24h, ceiling }: ApiCallScheduleProps) {
+function ApiCallSchedule({ buckets, callsLast24h, ceiling, timezone = 'America/Chicago' }: ApiCallScheduleProps) {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
 
   const availableNow = Math.max(0, ceiling - callsLast24h);
@@ -91,20 +92,24 @@ function ApiCallSchedule({ buckets, callsLast24h, ceiling }: ApiCallScheduleProp
 
   const fullRestoreRow = schedule.find(s => s.isFirstFull);
 
-  // Human-readable time: if today show time only, if tomorrow say "tomorrow", else show date
+  // Human-readable time in the configured timezone
   const fmtTime = (iso: string) => {
     const d = new Date(iso);
-    const now = new Date();
-    const todayStr = now.toDateString();
-    const tomorrowStr = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toDateString();
-    const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    if (d.toDateString() === todayStr) return time;
-    if (d.toDateString() === tomorrowStr) return `${time} tomorrow`;
-    return `${time} ${d.toLocaleDateString([], { month: 'short', day: 'numeric' })}`;
+    const tz = timezone;
+    const opts: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit', timeZone: tz };
+    const time = d.toLocaleTimeString([], opts);
+    // Compute today/tomorrow in the user's timezone
+    const nowStr = new Date().toLocaleDateString('en-US', { timeZone: tz });
+    const tomorrowDate = new Date(Date.now() + 86400000);
+    const tomorrowStr = tomorrowDate.toLocaleDateString('en-US', { timeZone: tz });
+    const dStr = d.toLocaleDateString('en-US', { timeZone: tz });
+    if (dStr === nowStr) return time;
+    if (dStr === tomorrowStr) return `${time} tomorrow`;
+    return `${time} ${d.toLocaleDateString([], { month: 'short', day: 'numeric', timeZone: tz })}`;
   };
 
   const fmtAxisTime = (iso: string) =>
-    new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: timezone });
 
   const progressColor = pct >= 0.9 ? 'bg-red-500' : pct >= 0.6 ? 'bg-orange-500' : 'bg-blue-500';
 
@@ -281,6 +286,12 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
   const pomStatus = pomSyncStatus?.data;
   const isPomSyncRunning = pomStatus?.lastSyncStatus === 'in_progress';
   const apiCeiling = 4500;
+
+  const { data: appSettings } = useQuery<{ timezone?: string }>({
+    queryKey: ['/api/settings'],
+    staleTime: 60000,
+  });
+  const configuredTimezone = appSettings?.timezone || 'America/Chicago';
 
   const pomSyncMutation = useMutation({
     mutationFn: async () => apiRequest('POST', '/api/sync/priceomatic', {}),
@@ -597,6 +608,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                       buckets={pomStatus?.hourlyBuckets ?? []}
                       callsLast24h={pomStatus?.callsLast24h ?? 0}
                       ceiling={apiCeiling}
+                      timezone={configuredTimezone}
                     />
                   </PopoverContent>
                 </Popover>
