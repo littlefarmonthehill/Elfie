@@ -126,6 +126,29 @@ app.use((req, res, next) => {
       console.error('[DB] Warm-up query failed (continuing anyway):', warmupErr);
     }
 
+    // Clear any stale in_progress sync records left over from a previous run
+    // that was killed mid-sync (deployment, OOM, crash, etc.).
+    try {
+      const { db: dbInstance } = await import('./db');
+      const { syncMetadata: syncMeta } = await import('@shared/schema');
+      const { sql: drizzleSql } = await import('drizzle-orm');
+      const staleIds = ['bricklink_inventory', 'priceomatic_cache', 'channel_sync', 'bricklink_orders', 'brickowl_orders'];
+      for (const id of staleIds) {
+        await dbInstance.update(syncMeta)
+          .set({
+            lastSyncStatus: 'error',
+            errorMessage: 'Sync interrupted by server restart.',
+            updatedAt: new Date(),
+          })
+          .where(
+            drizzleSql`${syncMeta.id} = ${id} AND ${syncMeta.lastSyncStatus} = 'in_progress'`
+          );
+      }
+      console.log('[Startup] Cleared any stale in_progress sync records');
+    } catch (staleErr: any) {
+      console.error('[Startup] Could not clear stale sync records (non-fatal):', staleErr.message);
+    }
+
     // ALWAYS serve the app on the port specified in the environment variable PORT
     // Other ports are firewalled. Default to 5000 if not specified.
     // this serves both the API and the client.

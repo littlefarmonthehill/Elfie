@@ -5511,13 +5511,28 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
         .limit(1);
 
       const { checkRateLimit, getPomSyncProgress } = await import("./services/bricklink");
+      const { getPomIsRunning } = await import("./services/pom-scheduler");
       const rateLimit = await checkRateLimit();
       const liveProgress = getPomSyncProgress();
+
+      // If the DB shows in_progress but no sync is actually running in memory,
+      // the process was killed mid-run. Auto-correct the stale record.
+      let resolvedStatus = status;
+      if (status?.lastSyncStatus === 'in_progress' && !getPomIsRunning()) {
+        const staleFix = {
+          lastSyncStatus: 'error' as const,
+          errorMessage: 'Sync interrupted — server was restarted or sync was killed mid-run.',
+          updatedAt: new Date(),
+        };
+        await db.update(syncMetadata).set(staleFix).where(eq(syncMetadata.id, 'priceomatic_cache'));
+        resolvedStatus = { ...status, ...staleFix };
+        console.log('[POM] Cleared stale in_progress status from previous run');
+      }
 
       res.json({
         success: true,
         data: {
-          ...(status || {
+          ...(resolvedStatus || {
             id: 'priceomatic_cache',
             lastSyncStatus: 'never',
             lastSyncTime: null,
