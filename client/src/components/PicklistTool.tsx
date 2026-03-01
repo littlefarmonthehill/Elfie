@@ -105,7 +105,11 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
   const pullBinMutation = useMutation(picklistMutationOptions(
     ({ binId, pulled }: { binId: number; pulled: boolean }) =>
       apiRequest('PUT', `/api/picklist/bin/${binId}/pull`, { pulled }),
-    (old, { binId, pulled }) => old.map((b: any) => b.binId === binId ? { ...b, pulled } : b),
+    (old, { binId, pulled }) => old.map((b: any) =>
+      b.binId === binId
+        ? { ...b, pulled, items: b.items.map((it: any) => ({ ...it, pulled })) }
+        : b
+    ),
     getFilter,
   ));
 
@@ -114,12 +118,16 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
     ({ itemId, pulled }: { itemId: string; pulled: boolean }) =>
       apiRequest('PUT', `/api/picklist/item/${itemId}/pull`, { pulled }),
     (old, { itemId, pulled }) =>
-      old.map((bin: any) => ({
-        ...bin,
-        items: bin.items.map((it: any) =>
+      old.map((bin: any) => {
+        const updatedItems = bin.items.map((it: any) =>
           it.picklistItemId === itemId ? { ...it, pulled } : it
-        ),
-      })),
+        );
+        return {
+          ...bin,
+          items: updatedItems,
+          pulled: updatedItems.every((it: any) => it.pulled),
+        };
+      }),
     getFilter,
   ));
 
@@ -421,8 +429,16 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                           }`}
                           data-testid={`part-item-${item.picklistItemId}`}
                         >
-                          {/* Indent spacer aligning with group checkbox */}
-                          <div className="w-4 shrink-0" />
+                          {/* Per-item checkbox */}
+                          <Checkbox
+                            data-testid={`checkbox-pull-item-${item.picklistItemId}`}
+                            checked={item.pulled}
+                            onCheckedChange={(checked) =>
+                              pullItemMutation.mutate({ itemId: item.picklistItemId, pulled: checked === true })
+                            }
+                            disabled={pullItemMutation.isPending}
+                            className="shrink-0 touch-auto mt-0.5"
+                          />
 
                           {/* Variant details */}
                           <div className="flex-1 min-w-0 text-[10px]">
@@ -525,6 +541,15 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                                       className="flex items-start gap-2 bg-gray-900/60 border border-gray-700/50 rounded px-2.5 py-1.5"
                                       data-testid={`picklist-item-${item.picklistItemId}`}
                                     >
+                                      <Checkbox
+                                        data-testid={`checkbox-pull-bin-item-${item.picklistItemId}`}
+                                        checked={item.pulled}
+                                        onCheckedChange={(checked) =>
+                                          pullItemMutation.mutate({ itemId: item.picklistItemId, pulled: checked === true })
+                                        }
+                                        disabled={pullItemMutation.isPending}
+                                        className="shrink-0 touch-auto mt-0.5"
+                                      />
                                       <div className="flex-1 min-w-0">
                                         {/* Line 1: part# + part name */}
                                         <div className="flex items-center gap-2 flex-wrap">
