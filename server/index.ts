@@ -4,6 +4,7 @@ import { setupVite, serveStatic, log } from "./vite";
 import { startInventorySyncScheduler } from "./services/inventory-sync-scheduler";
 import { startPomSyncScheduler } from "./services/pom-scheduler";
 import { startChannelSyncScheduler } from "./services/channel-sync-scheduler";
+import { startOrderSyncScheduler } from "./services/order-sync-scheduler";
 import { startEmbeddingWorker } from "./services/embedding-worker";
 import { startForumSyncScheduler } from "./services/bl-forum-scheduler";
 import { pool } from "./db";
@@ -189,6 +190,11 @@ app.use((req, res, next) => {
 
       // Start Channel Sync scheduler (Local DB → BrickOwl / other channels)
       startChannelSyncScheduler();
+
+      // Start Order Sync scheduler (BrickLink + BrickOwl orders on a frequency interval)
+      startOrderSyncScheduler().catch(error => {
+        console.error('Failed to start order sync scheduler:', error);
+      });
       
       // Start BrickLink forum sync scheduler
       startForumSyncScheduler().catch(error => {

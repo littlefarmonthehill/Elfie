@@ -568,6 +568,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   const [channelSyncTime, setChannelSyncTime] = useState("03:00");
   const [ordersSyncEnabled, setOrdersSyncEnabled] = useState(false);
   const [ordersSyncFrequency, setOrdersSyncFrequency] = useState(15);
+  const [ordersSyncFrequencyStr, setOrdersSyncFrequencyStr] = useState("15");
 
   // Price-o-Matic Formula Settings
   const [pomBasePremium, setPomBasePremium] = useState(10);
@@ -696,6 +697,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
       setChannelSyncTime(settings.channelSyncTime || '03:00');
       setOrdersSyncEnabled(settings.ordersSyncEnabled || false);
       setOrdersSyncFrequency(settings.ordersSyncFrequency || 15);
+      setOrdersSyncFrequencyStr(String(settings.ordersSyncFrequency || 15));
 
       // Price-o-Matic formula settings
       setPomBasePremium(settings.pomBasePremium ?? 10);
@@ -2172,9 +2174,15 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                             type="number"
                             min="5"
                             max="120"
-                            value={ordersSyncFrequency}
-                            onChange={(e) => setOrdersSyncFrequency(parseInt(e.target.value) || 15)}
-                            onBlur={() => updateSettingsMutation.mutate({ ordersSyncFrequency })}
+                            value={ordersSyncFrequencyStr}
+                            onChange={(e) => setOrdersSyncFrequencyStr(e.target.value)}
+                            onBlur={() => {
+                              const parsed = parseInt(ordersSyncFrequencyStr);
+                              const clamped = isNaN(parsed) ? 15 : Math.max(5, Math.min(120, parsed));
+                              setOrdersSyncFrequency(clamped);
+                              setOrdersSyncFrequencyStr(String(clamped));
+                              updateSettingsMutation.mutate({ ordersSyncFrequency: clamped });
+                            }}
                             className="text-xs w-24"
                             data-testid="input-orders-frequency"
                           />
