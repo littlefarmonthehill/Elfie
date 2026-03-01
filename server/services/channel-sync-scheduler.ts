@@ -28,7 +28,17 @@ export async function startChannelSyncScheduler() {
 
 async function checkAndRunChannelSync() {
   try {
-    const [settings] = await db.select().from(appSettings).limit(1);
+    let settingsRow;
+    try {
+      [settingsRow] = await db.select().from(appSettings).limit(1);
+    } catch (connErr: any) {
+      if (connErr.message?.includes('Connection terminated') || connErr.code === 'ECONNRESET') {
+        console.log('[Channel] DB connection blip, retrying in 3s...');
+        await new Promise(r => setTimeout(r, 3000));
+        [settingsRow] = await db.select().from(appSettings).limit(1);
+      } else throw connErr;
+    }
+    const settings = settingsRow;
     if (!settings?.channelSyncEnabled) return;
 
     const tz = settings.timezone || 'America/Chicago';

@@ -12,21 +12,21 @@ if (!process.env.DATABASE_URL) {
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   max: 10,
-  idleTimeoutMillis: 300000,
-  connectionTimeoutMillis: 10000,
+  idleTimeoutMillis: 120000,   // 2 min — recycle idle connections before Neon kills them
+  connectionTimeoutMillis: 15000,
 });
 
 pool.on('error', (err) => {
   console.error('[DB] Idle client error (handled):', err.message);
 });
 
-// Keepalive: run a lightweight query every 4 minutes to prevent Neon
-// serverless from suspending its compute during idle periods. This avoids
-// the 1-2s reconnect delay that can destabilize the server.
+// Keepalive: run a lightweight query every 90 s to prevent Neon serverless
+// from suspending compute during idle periods, avoiding the cold-start delay
+// that would otherwise cause "Connection terminated" errors in schedulers.
 setInterval(() => {
   pool.query('SELECT 1').catch((err: Error) => {
-    console.error('[DB] Keepalive query failed (will retry):', err.message);
+    console.error('[DB] Keepalive query failed (will retry next cycle):', err.message);
   });
-}, 4 * 60 * 1000);
+}, 90 * 1000);
 
 export const db = drizzle(pool, { schema });

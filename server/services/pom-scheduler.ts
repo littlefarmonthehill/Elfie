@@ -35,7 +35,17 @@ export async function startPomSyncScheduler() {
 
 async function checkAndRunPomSync() {
   try {
-    const [settings] = await db.select().from(appSettings).limit(1);
+    let settingsRow;
+    try {
+      [settingsRow] = await db.select().from(appSettings).limit(1);
+    } catch (connErr: any) {
+      if (connErr.message?.includes('Connection terminated') || connErr.code === 'ECONNRESET') {
+        console.log('[POM] DB connection blip, retrying in 3s...');
+        await new Promise(r => setTimeout(r, 3000));
+        [settingsRow] = await db.select().from(appSettings).limit(1);
+      } else throw connErr;
+    }
+    const settings = settingsRow;
     if (!settings?.pomScheduleEnabled) return;
 
     const tz = settings.timezone || 'America/Chicago';

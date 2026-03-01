@@ -15,7 +15,17 @@ export async function startInventorySyncScheduler() {
 
 async function checkAndRunInventorySync() {
   try {
-    const [settings] = await db.select().from(appSettings).limit(1);
+    let settingsRow;
+    try {
+      [settingsRow] = await db.select().from(appSettings).limit(1);
+    } catch (connErr: any) {
+      if (connErr.message?.includes('Connection terminated') || connErr.code === 'ECONNRESET') {
+        console.log('[Inventory] DB connection blip, retrying in 3s...');
+        await new Promise(r => setTimeout(r, 3000));
+        [settingsRow] = await db.select().from(appSettings).limit(1);
+      } else throw connErr;
+    }
+    const settings = settingsRow;
     if (!settings?.inventorySyncEnabled) return;
 
     const tz = settings.timezone || 'America/Chicago';
@@ -40,10 +50,9 @@ async function checkAndRunInventorySync() {
 }
 
 async function runAutomatedInventorySync() {
-  if (!syncLock.acquire('Inventory Sync')) {
-    console.log('⏭️ Scheduled inventory sync skipped — another sync is running');
-    return;
-  }
+  // syncBricklinkData() handles its own lock acquisition and release internally.
+  // Do NOT acquire the lock here — doing so causes a double-lock that immediately
+  // throws "Inventory sync already in progress" when syncBricklinkData tries to acquire it.
 
   console.log('\n🔄 Starting automated inventory sync (BrickLink → Local DB)...');
 
@@ -99,8 +108,7 @@ async function runAutomatedInventorySync() {
       target: syncMetadata.id,
       set: { lastSyncStatus: 'error', updatedAt: new Date(), errorMessage: error.message },
     });
-  } finally {
-    syncLock.release('Inventory Sync');
+    // Lock is released inside syncBricklinkData's finally block — no release needed here.
   }
 }
 
