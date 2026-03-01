@@ -5051,6 +5051,56 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
 
   // Recent sync errors for dashboard action items
   // Returns syncs that completed with error/failed status in the last 24 hours
+  app.get("/api/sync/statuses", isApproved, async (req, res) => {
+    try {
+      const ids = ['bricklink_inventory', 'priceomatic_cache', 'channel_sync', 'bricklink_orders', 'brickowl_orders'];
+      const rows = await db.select().from(syncMetadata).where(inArray(syncMetadata.id, ids));
+      const byId = Object.fromEntries(rows.map(r => [r.id, r]));
+      const pick = (id: string) => {
+        const r = byId[id];
+        if (!r) return null;
+        return {
+          lastSyncTime: r.lastSyncTime?.toISOString() ?? null,
+          lastSyncStatus: r.lastSyncStatus,
+          recordsAdded: r.recordsAdded ?? 0,
+          recordsUpdated: r.recordsUpdated ?? 0,
+          errorMessage: r.errorMessage ?? null,
+        };
+      };
+      // Merge BL + BO orders: pick whichever ran more recently
+      const blOrders = byId['bricklink_orders'];
+      const boOrders = byId['brickowl_orders'];
+      let ordersMeta = null;
+      if (blOrders || boOrders) {
+        const latest = (!blOrders?.lastSyncTime) ? boOrders :
+                       (!boOrders?.lastSyncTime) ? blOrders :
+                       (new Date(blOrders.lastSyncTime) > new Date(boOrders.lastSyncTime) ? blOrders : boOrders);
+        if (latest) {
+          const blAdded = blOrders?.recordsAdded ?? 0;
+          const boAdded = boOrders?.recordsAdded ?? 0;
+          const blUpdated = blOrders?.recordsUpdated ?? 0;
+          const boUpdated = boOrders?.recordsUpdated ?? 0;
+          ordersMeta = {
+            lastSyncTime: latest.lastSyncTime?.toISOString() ?? null,
+            lastSyncStatus: latest.lastSyncStatus,
+            recordsAdded: blAdded + boAdded,
+            recordsUpdated: blUpdated + boUpdated,
+            errorMessage: latest.errorMessage ?? null,
+          };
+        }
+      }
+      res.json({
+        inventory: pick('bricklink_inventory'),
+        priceomatic: pick('priceomatic_cache'),
+        channel: pick('channel_sync'),
+        orders: ordersMeta,
+      });
+    } catch (error) {
+      console.error('Error fetching sync statuses:', error);
+      res.status(500).json({ inventory: null, priceomatic: null, channel: null, orders: null });
+    }
+  });
+
   app.get("/api/sync/recent-errors", isApproved, async (req, res) => {
     try {
       const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
