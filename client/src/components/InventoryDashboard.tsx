@@ -1,8 +1,8 @@
 import { useState } from "react";
 import MetricCard from "./MetricCard";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient, apiRequest } from "@/lib/queryClient";
-import { InfoIcon, AlertCircle, Package, TrendingUp, Clock, Sparkles, Warehouse, RefreshCw, Info, Square } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
+import { InfoIcon, AlertCircle, Package, TrendingUp, Clock, Sparkles, Warehouse, RefreshCw, Info } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -72,42 +72,11 @@ interface InventoryDashboardProps {
 export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawerChange }: InventoryDashboardProps) {
   const { toast } = useToast();
 
-  // POM sync state lifted here so buttons live in the header row
-  const { data: pomSyncStatus } = useQuery<{
-    success: boolean;
-    data: {
-      lastSyncStatus: string;
-      callsLast24h?: number;
-      oldestCallTime?: string | null;
-      newestCallTime?: string | null;
-      hourlyBuckets?: { hourStart: string; rollsOffAt: string; calls: number }[];
-      liveProgress?: { active: boolean; itemsProcessed: number; itemsTotal: number; apiCallsAtStart: number };
-    };
-  }>({
-    queryKey: ['/api/sync/priceomatic/status'],
-    refetchInterval: activeDrawer === 'priceomatic' ? 3000 : false,
-    staleTime: 0, // always refetch on interval — overrides global staleTime: Infinity
-  });
-  const pomStatus = pomSyncStatus?.data;
-  const isPomSyncRunning = pomStatus?.lastSyncStatus === 'in_progress';
-  const apiCeiling = 4500;
-
   const { data: appSettings } = useQuery<{ timezone?: string }>({
     queryKey: ['/api/settings'],
     staleTime: 60000,
   });
   const configuredTimezone = appSettings?.timezone || 'America/Chicago';
-
-  const pomStopMutation = useMutation({
-    mutationFn: async () => apiRequest('POST', '/api/sync/priceomatic/stop', {}),
-    onSuccess: () => {
-      queryClient.refetchQueries({ queryKey: ['/api/sync/priceomatic/status'] });
-      toast({ title: "Stop Signal Sent", description: "Sync will halt before the next item." });
-    },
-    onError: (error: Error) => {
-      toast({ title: "Stop Failed", description: error.message, variant: "destructive" });
-    },
-  });
 
   const { data: stats, isLoading } = useQuery<InventoryStats>({
     queryKey: ['/api/inventory/stats'],
@@ -364,77 +333,11 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                   </PopoverContent>
                 </Popover>
               </div>
-              {/* Right: stop (if running) + sync with badge */}
-              <div className="flex items-center gap-1">
-                {isPomSyncRunning && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button onClick={() => pomStopMutation.mutate()} disabled={pomStopMutation.isPending} size="icon" variant="destructive" data-testid="button-stop-sync">
-                        <Square className="w-3.5 h-3.5 fill-current" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" className="text-xs">
-                      {pomStopMutation.isPending ? 'Stopping...' : 'Stop Sync'}
-                    </TooltipContent>
-                  </Tooltip>
-                )}
-              </div>
             </DrawerTitle>
           </DrawerHeader>
 
-          {/* Live sync progress — shown only when a sync is running */}
-          {isPomSyncRunning && (() => {
-            const lp = pomStatus?.liveProgress;
-            const itemsProcessed = lp?.itemsProcessed ?? 0;
-            const itemsTotal = lp?.itemsTotal ?? 0;
-            const callsNow = pomStatus?.callsLast24h ?? 0;
-            const callsAtStart = lp?.apiCallsAtStart ?? callsNow;
-            const callsThisRun = Math.max(0, callsNow - callsAtStart);
-            const itemPct = itemsTotal > 0 ? Math.min(100, (itemsProcessed / itemsTotal) * 100) : 0;
-            const callPct = Math.min(100, (callsNow / apiCeiling) * 100);
-            return (
-              <div className="px-4 pb-3 space-y-2 border-b border-gray-700/50" data-testid="pom-sync-progress">
-                {/* Items progress */}
-                <div className="space-y-1">
-                  <div className="flex justify-between items-center">
-                    <span className="text-[11px] text-gray-400">Items synced</span>
-                    <span className="text-[11px] font-mono text-purple-300">
-                      {itemsProcessed.toLocaleString()}{itemsTotal > 0 ? ` / ${itemsTotal.toLocaleString()}` : ''}
-                    </span>
-                  </div>
-                  <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-purple-500 rounded-full transition-all duration-500"
-                      style={{ width: `${itemPct}%` }}
-                    />
-                  </div>
-                </div>
-                {/* API calls progress */}
-                <div className="space-y-1">
-                  <div className="flex justify-between items-center">
-                    <span className="text-[11px] text-gray-400">API calls today</span>
-                    <span className={`text-[11px] font-mono ${
-                      callPct >= 90 ? 'text-red-400' : callPct >= 60 ? 'text-orange-400' : 'text-gray-300'
-                    }`}>
-                      {callsNow.toLocaleString()} / {apiCeiling.toLocaleString()}
-                      {callsThisRun > 0 && <span className="text-gray-500 ml-1">(+{callsThisRun.toLocaleString()} this run)</span>}
-                    </span>
-                  </div>
-                  <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all duration-500 ${
-                        callPct >= 90 ? 'bg-red-500' : callPct >= 60 ? 'bg-orange-400' : 'bg-green-500'
-                      }`}
-                      style={{ width: `${callPct}%` }}
-                    />
-                  </div>
-                </div>
-              </div>
-            );
-          })()}
-
           <div className="overflow-y-auto px-4 pb-4 flex-1">
-            <PriceOMaticDashboard onItemClick={(type, id) => onItemClick?.(type, id, 'pricing')} isSyncRunning={isPomSyncRunning} />
+            <PriceOMaticDashboard onItemClick={(type, id) => onItemClick?.(type, id, 'pricing')} />
           </div>
         </DrawerContent>
       </Drawer>

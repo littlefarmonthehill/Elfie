@@ -115,7 +115,6 @@ interface GroupedInsight {
 
 interface PriceOMaticDashboardProps {
   onItemClick?: (type: 'inventory' | 'order', id: number) => void;
-  isSyncRunning?: boolean;
 }
 
 function SwipeableTile({
@@ -224,7 +223,7 @@ function SwipeableTile({
   );
 }
 
-export default function PriceOMaticDashboard({ onItemClick, isSyncRunning }: PriceOMaticDashboardProps) {
+export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboardProps) {
   const { toast } = useToast();
   const [itemsToShow, setItemsToShow] = useState(25);
   const [refreshingItems, setRefreshingItems] = useState<Set<number>>(new Set());
@@ -360,7 +359,7 @@ export default function PriceOMaticDashboard({ onItemClick, isSyncRunning }: Pri
     queryKey: ['/api/priceomatic/insights'],
     refetchOnMount: 'always',
     staleTime: 0,
-    refetchInterval: isSyncRunning ? 5000 : false,
+    refetchInterval: false,
   });
 
   const { data: settingsData } = useQuery<any>({
