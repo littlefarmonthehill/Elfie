@@ -2209,7 +2209,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                               </PopoverTrigger>
                               <PopoverContent side="bottom" className="w-72 text-xs bg-gray-900 border-gray-700 p-3 space-y-1.5">
                                 <p className="font-semibold text-gray-200">Orders Sync</p>
-                                <p className="text-gray-400">Pulls new and updated orders from BrickLink and BrickOwl into the local database. Also syncs order line items, generates AI embeddings for semantic search, and matches Stripe refunds and merchant fees to orders.</p>
+                                <p className="text-gray-400">Pulls new and updated orders from BrickLink and BrickOwl into the local database. Also syncs order line items, generates AI embeddings for semantic search, and matches Stripe and PayPal refunds and merchant fees to orders.</p>
                                 <p className="text-gray-400">After each order is processed, sold quantities are deducted from local inventory — keeping all channel inventory counts in sync automatically.</p>
                                 <p className="text-gray-500">Runs on a short interval (e.g. every 15–30 min) to keep order data fresh throughout the day.</p>
                               </PopoverContent>

@@ -251,8 +251,22 @@ export async function syncPayPalTransactions(sinceDays = 90): Promise<PayPalSync
     const refundAmount = parseAmount(info.transaction_amount.value);
     const txnDate = new Date(info.transaction_initiation_date);
 
+    // Strategy 0: match by invoice_id or custom_field → order number (most reliable for BrickLink)
+    // BrickLink sets the order number as the PayPal invoice ID on payment, and refunds inherit it.
+    let match: typeof dbOrders[0] | undefined;
+    const invoiceRef = info.invoice_id || info.custom_field || '';
+    if (invoiceRef) {
+      // Normalize: strip 'BL-' prefix, leading zeros, etc. for loose matching
+      const normalizeOrderNum = (s: string) => s.replace(/^(BL[-.]?|BO[-.]?)/i, '').replace(/^0+/, '').trim();
+      const normInvoice = normalizeOrderNum(invoiceRef);
+      match = dbOrders.find(order => {
+        const normOrder = normalizeOrderNum(order.orderNumber || '');
+        return normOrder.length > 0 && normOrder === normInvoice;
+      });
+    }
+
     // Strategy 1: exact match on order total (full refund) — most reliable
-    let match = dbOrders.find(order => {
+    if (!match) match = dbOrders.find(order => {
       if (!order.orderTotal) return false;
       const orderTotal = Number(order.orderTotal);
       const orderDate = new Date(order.orderDate);

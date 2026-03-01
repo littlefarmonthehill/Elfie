@@ -1171,27 +1171,18 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
                 <div className="text-[10px] md:text-sm text-lego-red font-mono">
                   {adjustmentSummary.totalRefunds > 0 ? `-$${adjustmentSummary.totalRefunds.toFixed(2)}` : '—'}
                 </div>
-                {adjustmentSummary.refundedOrderCount > 0 && (
-                  <div className="text-[8px] text-gray-600">{adjustmentSummary.refundedOrderCount} orders</div>
-                )}
               </div>
               <div className="text-center">
                 <div className="text-[9px] md:text-xs text-gray-600">Merchant Fees</div>
                 <div className="text-[10px] md:text-sm text-amber-500/70 font-mono">
                   {adjustmentSummary.totalFees > 0 ? `-$${adjustmentSummary.totalFees.toFixed(2)}` : '—'}
                 </div>
-                {adjustmentSummary.totalFees > 0 && (
-                  <div className="text-[8px] text-gray-600">COGS</div>
-                )}
               </div>
               <div className="text-center">
                 <div className="text-[9px] md:text-xs text-gray-600">Shipping</div>
                 <div className="text-[10px] md:text-sm text-amber-500/70 font-mono">
                   {adjustmentSummary.totalShipping > 0 ? `-$${adjustmentSummary.totalShipping.toFixed(2)}` : '—'}
                 </div>
-                {adjustmentSummary.shippedOrderCount > 0 && (
-                  <div className="text-[8px] text-gray-600">avg ${adjustmentSummary.avgShippingPerOrder.toFixed(2)}/order</div>
-                )}
               </div>
               <div className="text-center">
                 <div className="text-[9px] md:text-xs text-gray-600">Net Revenue</div>
