@@ -1315,28 +1315,40 @@ export async function syncPriceOMagicCache(maxItems?: number): Promise<{
       tier3: tier3Days * 86400000,
       tier4: tier4Days * 86400000,
     };
+    // Helper: compute effective tier for an item after quantity promote/demote overrides
+    const getEffectiveTier = (item: { categoryTier: string | null; quantity: number | null }) => {
+      const baseTier = item.categoryTier || 'tier2';
+      const qty = item.quantity ?? 0;
+      if (qty <= qtyPromote) {
+        const tierNum = parseInt(baseTier.replace('tier', '')) || 2;
+        return `tier${Math.max(1, tierNum - 1)}`;
+      } else if (qty >= qtyDemote) {
+        const tierNum = parseInt(baseTier.replace('tier', '')) || 2;
+        return `tier${Math.min(4, tierNum + 1)}`;
+      }
+      return baseTier;
+    };
+
     const now = Date.now();
     const filteredItems = inventoryItems.filter((item) => {
       if (!item.lastFetched) return true; // Never fetched — always include
-      const baseTier = item.categoryTier || 'tier2';
-      const qty = item.quantity ?? 0;
-      let effectiveTier = baseTier;
-      if (qty <= qtyPromote) {
-        const tierNum = parseInt(baseTier.replace('tier', '')) || 2;
-        effectiveTier = `tier${Math.max(1, tierNum - 1)}`;
-      } else if (qty >= qtyDemote) {
-        const tierNum = parseInt(baseTier.replace('tier', '')) || 2;
-        effectiveTier = `tier${Math.min(4, tierNum + 1)}`;
-      }
+      const effectiveTier = getEffectiveTier(item);
       const refreshMs = tierRefreshMs[effectiveTier] ?? tierRefreshMs.tier2;
       return now - new Date(item.lastFetched).getTime() >= refreshMs;
     });
 
-    // Apply batch size limit AFTER stale filtering so T1 freshness never blocks T2–T4 stale items
-    const itemsToProcess = filteredItems.slice(0, effectiveMaxItems);
+    // Strict tier sequencing: complete all categories in tier1 before touching tier2,
+    // tier2 before tier3, tier3 before tier4, then loop back to tier1.
+    // Find the lowest-numbered tier that still has stale items and restrict this batch to it.
+    const TIER_ORDER = ['tier1', 'tier2', 'tier3', 'tier4'];
+    const activeTier = TIER_ORDER.find(t => filteredItems.some(item => getEffectiveTier(item) === t)) ?? 'tier4';
+    const tierBatch = filteredItems.filter(item => getEffectiveTier(item) === activeTier);
+
+    // Apply batch size limit after stale + tier filtering
+    const itemsToProcess = tierBatch.slice(0, effectiveMaxItems);
     pomSyncProgress.itemsTotal = itemsToProcess.length;
 
-    console.log(`[Price-o-Matic Sync] Found ${inventoryItems.length} candidates, ${filteredItems.length} stale (${filteredItems.length - itemsToProcess.length} deferred to next run), processing ${itemsToProcess.length}`);
+    console.log(`[Price-o-Matic Sync] Found ${inventoryItems.length} candidates, ${filteredItems.length} stale | active tier: ${activeTier} (${tierBatch.length} items, ${tierBatch.length - itemsToProcess.length} deferred), processing ${itemsToProcess.length}`);
 
     // Process each item in tier-priority order
     // Market dynamics (demand + supply) are computed inside fetchPriceOMagicData from BL API data.
