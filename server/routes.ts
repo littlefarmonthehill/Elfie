@@ -5103,6 +5103,30 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
     try {
       const ids = ['bricklink_inventory', 'priceomatic_cache', 'channel_sync', 'bricklink_orders', 'brickowl_orders'];
       const rows = await db.select().from(syncMetadata).where(inArray(syncMetadata.id, ids));
+
+      // Cross-check in_progress records against live in-memory state.
+      // If the DB says in_progress but nothing is actually running, auto-correct.
+      const { getPomIsRunning } = await import("./services/pom-scheduler");
+      const { getChannelSyncIsRunning } = await import("./services/channel-sync-scheduler");
+      const { getOrderSyncIsRunning } = await import("./services/order-sync-core");
+      const isActuallyRunning: Record<string, boolean> = {
+        bricklink_inventory: syncLock.isInventorySyncRunning(),
+        priceomatic_cache:   getPomIsRunning(),
+        channel_sync:        getChannelSyncIsRunning(),
+        bricklink_orders:    getOrderSyncIsRunning(),
+        brickowl_orders:     getOrderSyncIsRunning(),
+      };
+      for (const row of rows) {
+        if (row.lastSyncStatus === 'in_progress' && !isActuallyRunning[row.id]) {
+          await db.update(syncMetadata)
+            .set({ lastSyncStatus: 'error', errorMessage: 'Sync interrupted by server restart.', updatedAt: new Date() })
+            .where(eq(syncMetadata.id, row.id));
+          row.lastSyncStatus = 'error';
+          row.errorMessage = 'Sync interrupted by server restart.';
+          console.log(`[Statuses] Cleared stale in_progress for ${row.id}`);
+        }
+      }
+
       const byId = Object.fromEntries(rows.map(r => [r.id, r]));
       const pick = (id: string) => {
         const r = byId[id];

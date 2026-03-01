@@ -37,9 +37,30 @@ process.on('unhandledRejection', (reason: any) => {
   console.error('[CRASH] Unhandled Rejection reason:', reason);
 });
 process.on('SIGTERM', () => {
-  console.log('[SIGNAL] Received SIGTERM — shutting down gracefully');
-  _allowExit = true;
-  _originalExit(0);
+  console.log('[SIGNAL] Received SIGTERM — flushing stale sync records before exit...');
+  // Best-effort: clear any in_progress sync records so the next startup
+  // doesn't have to wait for the first status poll to self-correct.
+  const cleanup = async () => {
+    try {
+      const { db: dbInst } = await import('./db');
+      const { syncMetadata: syncMeta } = await import('@shared/schema');
+      const { sql: drizzleSql } = await import('drizzle-orm');
+      const staleIds = ['bricklink_inventory', 'priceomatic_cache', 'channel_sync', 'bricklink_orders', 'brickowl_orders'];
+      for (const id of staleIds) {
+        await dbInst.update(syncMeta)
+          .set({ lastSyncStatus: 'error', errorMessage: 'Sync interrupted by server shutdown.', updatedAt: new Date() })
+          .where(drizzleSql`${syncMeta.id} = ${id} AND ${syncMeta.lastSyncStatus} = 'in_progress'`);
+      }
+      console.log('[SIGTERM] Stale sync records cleared');
+    } catch (e: any) {
+      console.error('[SIGTERM] Could not clear stale sync records:', e.message);
+    }
+    _allowExit = true;
+    _originalExit(0);
+  };
+  // Give cleanup up to 5s; force-exit either way
+  const timer = setTimeout(() => { _allowExit = true; _originalExit(0); }, 5000);
+  cleanup().finally(() => clearTimeout(timer));
 });
 process.on('SIGINT', () => {
   console.log('[SIGNAL] Received SIGINT');
