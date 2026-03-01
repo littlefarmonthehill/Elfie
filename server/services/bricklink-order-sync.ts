@@ -346,8 +346,8 @@ async function processBrickLinkOrder(
         itemsTotalWeightGrams += parseFloat(item.weight) * item.quantity;
       }
 
-      // Save per-piece weight to bl_inventory so future lookups don't need a catalog API call.
-      // Write when current value is NULL or '0' (zero was the default seed value, not real data).
+      // Save BrickLink's per-piece catalog weight to bl_catalog_weight (not my_weight, which is user's field).
+      // item.weight from the order items API is the official catalog weight in grams.
       if (item.inventory_id) {
         try {
           const unitWeightGrams = item.weight ? parseFloat(item.weight) : null;
@@ -355,12 +355,12 @@ async function processBrickLinkOrder(
             const wg = unitWeightGrams;
             await db.update(blInventory)
               .set({
-                myWeight: sql`CASE WHEN ${blInventory.myWeight} IS NULL OR ${blInventory.myWeight} = 0 THEN ${wg} ELSE ${blInventory.myWeight} END`,
+                blCatalogWeight: sql`CASE WHEN ${blInventory.blCatalogWeight} IS NULL OR ${blInventory.blCatalogWeight} = 0 THEN ${wg} ELSE ${blInventory.blCatalogWeight} END`,
               })
               .where(eq(blInventory.id, item.inventory_id));
           }
         } catch (invErr: any) {
-          console.warn(`⚠️ Could not backfill inventory weight for lot ${item.inventory_id}: ${invErr.message}`);
+          console.warn(`⚠️ Could not save catalog weight for lot ${item.inventory_id}: ${invErr.message}`);
         }
       }
 

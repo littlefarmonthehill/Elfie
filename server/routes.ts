@@ -942,27 +942,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Backfill order weights from bl_inventory.my_weight × order_details.quantity
+  // Backfill order weights from bl_inventory.bl_catalog_weight × order_details.quantity
   // Runs once per deployment; safe to re-run (only touches orders with weight IS NULL)
   app.post("/api/orders/backfill-weights", isApproved, async (req, res) => {
     try {
-      // Single SQL: compute grams → oz from inventory weights, update orders where weight is null
+      // Single SQL: compute grams → oz from catalog weights, update orders where weight is null
       const result = await db.execute(sql`
         WITH computed AS (
           SELECT
             od.order_id,
-            SUM(CAST(bi.my_weight AS DECIMAL) * od.quantity) AS total_grams
+            SUM(
+              CASE
+                WHEN od.weight IS NOT NULL AND CAST(od.weight AS DECIMAL) > 0
+                  THEN CAST(od.weight AS DECIMAL) * od.quantity
+                WHEN bi.bl_catalog_weight IS NOT NULL AND bi.bl_catalog_weight > 0
+                  THEN bi.bl_catalog_weight * od.quantity
+                ELSE 0
+              END
+            ) AS total_grams
           FROM order_details od
           JOIN bl_inventory bi ON bi.id = od.bricklink_inventory_id
           JOIN orders o ON o.id = od.order_id
           WHERE o.weight IS NULL
-            AND bi.my_weight IS NOT NULL
           GROUP BY od.order_id
-          HAVING SUM(CAST(bi.my_weight AS DECIMAL) * od.quantity) > 0
+          HAVING SUM(
+            CASE
+              WHEN od.weight IS NOT NULL AND CAST(od.weight AS DECIMAL) > 0
+                THEN CAST(od.weight AS DECIMAL) * od.quantity
+              WHEN bi.bl_catalog_weight IS NOT NULL AND bi.bl_catalog_weight > 0
+                THEN bi.bl_catalog_weight * od.quantity
+              ELSE 0
+            END
+          ) > 0
         )
         UPDATE orders
         SET
-          weight = ROUND(computed.total_grams * 0.035274, 2)::text,
+          weight = ROUND(computed.total_grams * 0.035274, 2),
           weight_units = 'oz'
         FROM computed
         WHERE orders.id = computed.order_id
@@ -6937,9 +6952,10 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
       if (!order) return res.status(404).json({ error: "Order not found" });
 
-      // Calculate weight estimate from line items:
-      // 1st preference: order_details.weight (unit weight captured from BrickLink order items API, grams)
-      // 2nd preference: bl_inventory.my_weight (may be 0 for older lots)
+      // Calculate weight estimate from line items (grams × quantity, then converted to oz):
+      // 1st preference: order_details.weight (per-piece weight from BrickLink order items API)
+      // 2nd preference: bl_inventory.bl_catalog_weight (official BrickLink catalog weight per piece)
+      // my_weight is the user's own field — not used for shipping estimates
       const weightRows = await db
         .select({
           totalWeightGrams: sql<string>`
@@ -6948,8 +6964,8 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
                 CASE
                   WHEN ${orderDetails.weight} IS NOT NULL AND CAST(${orderDetails.weight} AS DECIMAL) > 0
                     THEN CAST(${orderDetails.weight} AS DECIMAL) * ${orderDetails.quantity}
-                  WHEN ${blInventory.myWeight} IS NOT NULL AND CAST(${blInventory.myWeight} AS DECIMAL) > 0
-                    THEN CAST(${blInventory.myWeight} AS DECIMAL) * ${orderDetails.quantity}
+                  WHEN ${blInventory.blCatalogWeight} IS NOT NULL AND ${blInventory.blCatalogWeight} > 0
+                    THEN ${blInventory.blCatalogWeight} * ${orderDetails.quantity}
                   ELSE 0
                 END
               ), 0

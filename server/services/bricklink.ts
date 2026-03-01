@@ -1609,32 +1609,28 @@ export async function fetchPriceOMagicData(
 
     console.log(`[Price-o-Matic] Cached data for ${itemType}/${itemNo}${colorId ? `/${colorId}` : ''}`);
     
-    // Update inventory weight if we have weight data and inventory weight is null
+    // Store the official BrickLink catalog weight in bl_catalog_weight (not my_weight, which is user's own field)
     if (itemDetails?.weight) {
       try {
         const inventoryQuery = colorId 
           ? and(
               eq(blInventory.itemNo, itemNo),
               eq(blInventory.itemType, itemType),
-              eq(blInventory.colorId, colorId),
-              sql`${blInventory.myWeight} IS NULL`
+              eq(blInventory.colorId, colorId)
             )
           : and(
               eq(blInventory.itemNo, itemNo),
-              eq(blInventory.itemType, itemType),
-              sql`${blInventory.myWeight} IS NULL`
+              eq(blInventory.itemType, itemType)
             );
 
-        const updatedCount = await db
+        await db
           .update(blInventory)
-          .set({ myWeight: itemDetails.weight.toString() })
+          .set({ blCatalogWeight: itemDetails.weight.toString() })
           .where(inventoryQuery);
 
-        if (updatedCount) {
-          console.log(`[Price-o-Matic] Updated weight for ${itemType}/${itemNo}${colorId ? `/${colorId}` : ''} to ${itemDetails.weight}g`);
-        }
+        console.log(`[Price-o-Matic] Stored catalog weight for ${itemType}/${itemNo}${colorId ? `/${colorId}` : ''}: ${itemDetails.weight}g`);
       } catch (error) {
-        console.error('[Price-o-Matic] Error updating inventory weight:', error);
+        console.error('[Price-o-Matic] Error storing catalog weight:', error);
         // Don't throw - this is a nice-to-have feature
       }
     }
