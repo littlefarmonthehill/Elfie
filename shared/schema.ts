@@ -187,6 +187,7 @@ export const orders = pgTable("orders", {
   localOnly: boolean("local_only").default(false).notNull(), // True for split orders that don't sync to platforms
   parentOrderId: varchar("parent_order_id"), // Reference to parent order if this is a split
   inventoryDeducted: boolean("inventory_deducted").default(false).notNull(), // True once inventory has been reduced for this order
+  paypalOrderId: text("paypal_order_id"), // PayPal Order ID — set from T0006 referenceId (type ODR) or webhook; used for exact webhook matching
   syncedAt: timestamp("synced_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

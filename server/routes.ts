@@ -1281,6 +1281,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ── PayPal Webhooks (unauthenticated — verified by PayPal signature) ─────────
+  // Register your endpoint URL in the PayPal Developer Dashboard:
+  //   https://developer.paypal.com/developer/applications → your app → Webhooks
+  // Events to subscribe: PAYMENT.CAPTURE.REFUNDED, PAYMENT.CAPTURE.REVERSED
+  // Set PAYPAL_WEBHOOK_ID env var to the webhook ID assigned by PayPal.
+  app.post("/api/webhooks/paypal", async (req: any, res) => {
+    try {
+      const { verifyWebhookSignature, handleCaptureRefunded } = await import('./services/paypal-webhook');
+
+      const headers = {
+        transmissionId:  req.headers['paypal-transmission-id']  as string,
+        transmissionTime: req.headers['paypal-transmission-time'] as string,
+        certUrl:         req.headers['paypal-cert-url']          as string,
+        authAlgo:        req.headers['paypal-auth-algo']         as string,
+        transmissionSig: req.headers['paypal-transmission-sig']  as string,
+      };
+
+      const rawBody = req.rawBody?.toString() ?? JSON.stringify(req.body);
+      const verified = await verifyWebhookSignature(headers, rawBody);
+      if (!verified) {
+        console.warn('PayPal webhook: signature verification failed — rejected');
+        return res.status(401).json({ error: 'Webhook signature invalid' });
+      }
+
+      const event = req.body;
+      const eventType: string = event?.event_type ?? '';
+      console.log(`🅿️ PayPal webhook received: ${eventType} (id=${event?.id})`);
+
+      if (eventType === 'PAYMENT.CAPTURE.REFUNDED' || eventType === 'PAYMENT.CAPTURE.REVERSED') {
+        const result = await handleCaptureRefunded(event);
+        return res.json({ received: true, ...result });
+      }
+
+      // Acknowledge all other events without processing
+      res.json({ received: true, processed: false, reason: 'Event type not handled' });
+    } catch (err: any) {
+      console.error('PayPal webhook error:', err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   app.get("/api/stripe/refunds", isApproved, async (req, res) => {
     try {
       const { fetchStripeRefunds } = await import('./services/stripe-refunds');

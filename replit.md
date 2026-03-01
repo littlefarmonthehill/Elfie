@@ -72,6 +72,7 @@ The frontend uses React 18+, TypeScript, Vite, Shadcn/ui, and Tailwind CSS, feat
 -   **Rebrickable CSV:** Set-part relationship data.
 -   **EasyPost API:** Multi-carrier shipping label generation, rate shopping, and tracking.
 -   **Stripe API:** Restricted key (`rk_live_`) used to pull refund data. Refunds are automatically matched to orders by exact amount + date and stored as `order_adjustments` records. Runs as step 5 of the order sync scheduler. Currently has `Refunds: read` permission; needs `Balance: read` added to also pull merchant processing fees. Secret stored as `STRIPE_SECRET_KEY`.
+-   **PayPal Webhooks:** `POST /api/webhooks/paypal` receives `PAYMENT.CAPTURE.REFUNDED` and `PAYMENT.CAPTURE.REVERSED` events. Signature verified via `POST /v1/notifications/verify-webhook-signature`. `PAYPAL_WEBHOOK_ID` env var must be set to the webhook ID from the PayPal Developer Dashboard. Orders are matched first by `paypal_order_id` (stored on the order when T0006 fee sync detects reference type "ODR"), then by refund amount + date proximity. The `orders.paypal_order_id` column is populated automatically over time as sales are fee-synced.
 -   **OpenAI API:** Powers E.L.F.I.E. (GPT-4o-mini for completions, `text-embedding-3-small` for embeddings).
 -   **Brickognize API:** LEGO part image recognition.
 -   **Neon:** Serverless PostgreSQL database with `pgvector` extension.
