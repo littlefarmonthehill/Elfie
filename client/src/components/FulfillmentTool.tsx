@@ -623,7 +623,7 @@ export default function FulfillmentTool() {
         {/* Orders tiles */}
         <div>
           <h3 className="text-sm lg:text-lg font-bold text-gray-300 mb-3">Orders</h3>
-          <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-2 lg:gap-3">
+          <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-5 pt-3 px-2">
               {sortedOrders.map((order) => {
                 const isSelected = selectedOrders.has(order.id);
                 const lotCount = data?.items.filter(i => i.orderId === order.id).length ?? 0;
