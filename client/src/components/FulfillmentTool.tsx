@@ -254,7 +254,8 @@ export default function FulfillmentTool() {
         setScanFormUrl(data.formUrl);
         window.open(data.formUrl, '_blank');
         queryClient.invalidateQueries({ queryKey: ['/api/shipments/end-of-day'] });
-        toast({ title: "EOD Form Ready", description: `Generated for ${data.shipmentCount} shipment${data.shipmentCount !== 1 ? 's' : ''}` });
+        const skipped = data.skippedCount > 0 ? ` — ${data.skippedCount} skipped (not found in EasyPost)` : '';
+        toast({ title: "EOD Form Ready", description: `Generated for ${data.shipmentCount} shipment${data.shipmentCount !== 1 ? 's' : ''}${skipped}` });
       }
     },
     onError: (err: any) => {

@@ -6809,35 +6809,72 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       }
 
       const auth = Buffer.from(`${apiKey}:`).toString('base64');
-      const epRes = await fetch('https://api.easypost.com/v2/scan_forms', {
-        method: 'POST',
-        headers: { 'Authorization': `Basic ${auth}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shipments: vendorIds.map(id => ({ id })) }),
-      });
 
-      if (!epRes.ok) {
+      // Submit to EasyPost, with one automatic retry if any shipment IDs are reported
+      // as not found (e.g. voided or already manifested on EasyPost's side).
+      let activeVendorIds = [...vendorIds];
+      let scanForm: any = null;
+      let skippedIds: string[] = [];
+
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const epRes = await fetch('https://api.easypost.com/v2/scan_forms', {
+          method: 'POST',
+          headers: { 'Authorization': `Basic ${auth}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ shipments: activeVendorIds.map(id => ({ id })) }),
+        });
+
+        if (epRes.ok) {
+          scanForm = await epRes.json();
+          break;
+        }
+
         const err = await epRes.json().catch(() => ({}));
-        return res.status(400).json({ error: err.error?.message || 'EasyPost SCAN form creation failed' });
+        const errMsg: string = err.error?.message || '';
+
+        // EasyPost reports invalid IDs in the message — extract and retry once without them
+        // Example: "1 of the specified shipments were not found: shp_abc123, shp_def456"
+        const notFoundMatch = errMsg.match(/not found:\s*(shp_[a-f0-9]+(?:[,\s]+shp_[a-f0-9]+)*)/i);
+        if (notFoundMatch && attempt === 0) {
+          const badIds = notFoundMatch[1].split(/[,\s]+/).map((s: string) => s.trim()).filter(Boolean);
+          console.warn(`[EOD] EasyPost reported ${badIds.length} invalid shipment ID(s), retrying without: ${badIds.join(', ')}`);
+          skippedIds = [...skippedIds, ...badIds];
+          activeVendorIds = activeVendorIds.filter(id => !badIds.includes(id));
+          if (activeVendorIds.length === 0) {
+            return res.status(400).json({ error: 'All shipments were rejected by EasyPost as not found. They may have been voided.' });
+          }
+          continue;
+        }
+
+        return res.status(400).json({ error: errMsg || 'EasyPost SCAN form creation failed' });
       }
 
-      const scanForm = await epRes.json();
+      if (!scanForm) {
+        return res.status(400).json({ error: 'EasyPost SCAN form creation failed after retry' });
+      }
+
       const formUrl: string = scanForm.form_url;
       const epScanFormId: string = scanForm.id;
 
-      // Persist the EOD form record
+      // Persist the EOD form record (count reflects only the IDs EasyPost accepted)
       const [eodFormRecord] = await db.insert(eodForms).values({
         formUrl,
         scanFormId: epScanFormId,
-        shipmentCount: vendorIds.length,
+        shipmentCount: activeVendorIds.length,
       }).returning();
 
-      // Tag every included shipment with this EOD form
-      const shipmentIds = eligibleShipments.map(s => s.id);
+      // Tag only the shipments whose IDs were actually accepted
+      const acceptedShipments = eligibleShipments.filter(s => s.vendorShipmentId && activeVendorIds.includes(s.vendorShipmentId));
+      const shipmentIds = acceptedShipments.map(s => s.id);
       await db.update(shipments)
         .set({ eodFormId: eodFormRecord.id })
         .where(inArray(shipments.id, shipmentIds));
 
-      res.json({ formUrl, scanFormId: epScanFormId, eodFormId: eodFormRecord.id, shipmentCount: vendorIds.length });
+      const warning = skippedIds.length > 0
+        ? ` (${skippedIds.length} shipment(s) skipped — not found in EasyPost)`
+        : '';
+      console.log(`[EOD] SCAN form created: ${activeVendorIds.length} shipments${warning}`);
+
+      res.json({ formUrl, scanFormId: epScanFormId, eodFormId: eodFormRecord.id, shipmentCount: activeVendorIds.length, skippedCount: skippedIds.length });
     } catch (error: any) {
       console.error("Error creating SCAN form:", error);
       res.status(500).json({ error: error.message || "Failed to create SCAN form" });
