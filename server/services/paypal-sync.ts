@@ -345,6 +345,20 @@ export async function syncPayPalRefunds(sinceDays = 90, forceResync = false): Pr
       }
     }
 
+    // Strategy 2b: match via stored PayPal identifiers on the order.
+    // T1106/T1107 paypal_reference_id may be the PayPal capture_id (= T0006 txn_id,
+    // stored as paypalCaptureId) or the PayPal order_id (stored as paypalOrderId).
+    // This is an exact hit and works once fee sync has populated those columns.
+    if (!match && info.paypal_reference_id) {
+      match = dbOrders.find(o =>
+        o.paypalCaptureId === info.paypal_reference_id ||
+        o.paypalOrderId === info.paypal_reference_id
+      );
+      if (match) {
+        console.log(`  ${txnId} (${eventCode}): $${refundAmount} → matched via paypalCaptureId/OrderId → order ${match.orderNumber}`);
+      }
+    }
+
     // Strategy 3: follow paypal_reference_id back to the original sale (T0006).
     // PayPal sends a T0113 for the tax portion of a refund (e.g. $0.61) while the
     // full order payment was $8.88. The T0113 carries a paypal_reference_id pointing
@@ -398,6 +412,32 @@ export async function syncPayPalRefunds(sinceDays = 90, forceResync = false): Pr
           console.log(`  ${txnId} (T0113): $${refundAmount} (tax leg) → date-proximity T0006 $${saleAmount} (${sale.transaction_info.transaction_id}) → order ${match.orderNumber}`);
           break;
         }
+      }
+    }
+
+    // Strategy 5: Fuzzy amount match for post-refund credit codes (T1106/T1107/T1108).
+    // BrickLink refunds subtotal + shipping but NOT tax (T0113 handles tax separately).
+    // So T1106/T1107 amount = orderTotal - tax. Match if the gap is plausibly just tax
+    // (≤ 12% of the order, covering all US state tax rates) and the date is right.
+    if (!match && ['T1106', 'T1107', 'T1108'].includes(eventCode)) {
+      const candidates = dbOrders.filter(order => {
+        if (!order.orderTotal) return false;
+        const orderTotal = Number(order.orderTotal);
+        const orderDate = new Date(order.orderDate);
+        if (refundAmount > orderTotal + 0.01) return false;              // refund can't exceed order
+        const gap = orderTotal - refundAmount;
+        if (gap < 0 || gap / orderTotal > 0.12) return false;           // gap > 12% = not just tax
+        if (txnDate < orderDate) return false;
+        const daysDiff = (txnDate.getTime() - orderDate.getTime()) / (1000 * 60 * 60 * 24);
+        return daysDiff <= 60;
+      });
+      // Pick the closest amount match among candidates
+      if (candidates.length > 0) {
+        match = candidates.reduce((best, o) =>
+          Math.abs(Number(o.orderTotal) - refundAmount) < Math.abs(Number(best.orderTotal) - refundAmount)
+            ? o : best
+        );
+        console.log(`  ${txnId} (${eventCode}): $${refundAmount} → fuzzy tax-tolerant match → order ${match.orderNumber} (total $${match.orderTotal})`);
       }
     }
 
