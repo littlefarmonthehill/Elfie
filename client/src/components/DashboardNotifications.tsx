@@ -40,12 +40,12 @@ const GROUPS: DashboardGroup[] = [
   {
     key: "product",
     label: "Product",
-    syncTypes: ["inventory_sync", "brickowl_lot", "quantity_health"],
+    syncTypes: ["inventory_sync", "brickowl_lot", "quantity_health", "channel_sync", "priceomatic_sync"],
   },
   {
     key: "dashboard",
     label: "Dashboard",
-    syncTypes: ["embedding_sync", "api_health"],
+    syncTypes: ["embedding_sync", "api_health", "forum_sync"],
   },
 ];
 

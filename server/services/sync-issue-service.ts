@@ -1,7 +1,6 @@
 import { db } from "../db";
-import { syncIssues } from "@shared/schema";
+import { syncIssues, orders } from "@shared/schema";
 import { and, eq, lt, ne } from "drizzle-orm";
-import { orders } from "@shared/schema";
 import { sql } from "drizzle-orm";
 
 export interface SyncIssueInput {
@@ -55,6 +54,28 @@ export async function recordSyncIssue(input: SyncIssueInput): Promise<void> {
     console.log(`📋 Sync issue recorded: [${input.severity}] ${input.issueType} on ${input.platform}`);
   } catch (err) {
     console.error("Failed to record sync issue:", err);
+  }
+}
+
+/**
+ * Auto-resolve any open scheduler issues (blocked/failed) for a sync type
+ * when that sync subsequently completes successfully.
+ * Safe to call fire-and-forget — never throws.
+ */
+export async function resolveSchedulerIssues(syncType: string): Promise<void> {
+  try {
+    await db
+      .update(syncIssues)
+      .set({ status: 'resolved', resolvedAt: new Date(), resolvedBy: 'system' })
+      .where(
+        and(
+          eq(syncIssues.syncType, syncType),
+          eq(syncIssues.platform, 'scheduler'),
+          eq(syncIssues.status, 'open'),
+        )
+      );
+  } catch (err) {
+    console.error(`Failed to resolve scheduler issues for ${syncType}:`, err);
   }
 }
 

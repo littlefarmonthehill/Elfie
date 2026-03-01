@@ -2,8 +2,10 @@ import { db } from "../db";
 import { appSettings, syncMetadata } from "@shared/schema";
 import { syncBricklinkData } from "./bricklink";
 import { syncLock } from "./sync-lock";
+import { recordSyncIssue, resolveSchedulerIssues } from "./sync-issue-service";
 
 const SYNC_ID = 'bricklink_inventory';
+const SYNC_TYPE = 'inventory_sync';
 
 export async function startInventorySyncScheduler() {
   console.log('📦 Inventory sync scheduler initialized');
@@ -40,6 +42,14 @@ async function checkAndRunInventorySync() {
     if (syncLock.isRunning()) {
       const blocker = syncLock.getActive().join(', ');
       console.log(`⏭️ Inventory sync skipped — already running: ${blocker}`);
+      recordSyncIssue({
+        syncType: SYNC_TYPE,
+        platform: 'scheduler',
+        issueType: 'scheduler_blocked',
+        issueDescription: `Scheduled inventory sync (${scheduledTime}) was blocked by: ${blocker}. The daily window was missed — sync will not run again until tomorrow.`,
+        severity: 'high',
+        metadata: { blockedBy: blocker, scheduledTime, timestamp: new Date().toISOString() },
+      });
       return;
     }
 
@@ -94,6 +104,8 @@ async function runAutomatedInventorySync() {
         errorMessage: null,
       },
     });
+
+    resolveSchedulerIssues(SYNC_TYPE);
   } catch (error: any) {
     console.error('❌ Automated inventory sync failed:', error.message);
 
@@ -107,6 +119,15 @@ async function runAutomatedInventorySync() {
     }).onConflictDoUpdate({
       target: syncMetadata.id,
       set: { lastSyncStatus: 'error', updatedAt: new Date(), errorMessage: error.message },
+    });
+
+    recordSyncIssue({
+      syncType: SYNC_TYPE,
+      platform: 'scheduler',
+      issueType: 'sync_failed',
+      issueDescription: `Automated inventory sync failed: ${error.message}`,
+      severity: 'critical',
+      metadata: { error: error.message, timestamp: new Date().toISOString() },
     });
     // Lock is released inside syncBricklinkData's finally block — no release needed here.
   }

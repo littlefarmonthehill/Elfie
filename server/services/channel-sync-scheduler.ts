@@ -2,6 +2,9 @@ import { db } from "../db";
 import { appSettings, syncMetadata } from "@shared/schema";
 import { syncBrickLinkToBrickOwl } from "./brickowl";
 import { syncLock } from "./sync-lock";
+import { recordSyncIssue, resolveSchedulerIssues } from "./sync-issue-service";
+
+const SYNC_TYPE = 'channel_sync';
 
 export function getChannelSyncIsRunning() {
   return syncLock.getActive().includes('Channel Sync');
@@ -15,8 +18,7 @@ export function getChannelSyncIsRunning() {
  *   2. Order Sync       — Orders   → Local DB → all channels (manual / on-demand)
  *   3. Channel Sync     — Local DB → BrickOwl / other channels (this job)
  *
- * Schedule it AFTER the inbound sync has settled so it pushes the correct,
- * order-adjusted quantities — not stale pre-order values.
+ * Gold-standard pattern: same as pom-scheduler.
  */
 export async function startChannelSyncScheduler() {
   console.log('🌐 Channel sync scheduler initialized');
@@ -54,8 +56,25 @@ async function checkAndRunChannelSync() {
     const scheduledTime = settings.channelSyncTime || '03:00';
     if (currentTime !== scheduledTime) return;
 
+    // If channel sync itself is already running, silently skip (duplicate tick guard).
     if (getChannelSyncIsRunning()) {
       console.log('⏭️ Channel sync already in progress, skipping this cycle');
+      return;
+    }
+
+    // If a different sync is holding the lock, this is a reportable issue — we'll
+    // miss the daily window.
+    if (syncLock.isRunning()) {
+      const blocker = syncLock.getActive().join(', ');
+      console.log(`⏭️ Channel sync blocked by running sync: ${blocker}`);
+      recordSyncIssue({
+        syncType: SYNC_TYPE,
+        platform: 'scheduler',
+        issueType: 'scheduler_blocked',
+        issueDescription: `Scheduled channel sync (${scheduledTime}) was blocked by: ${blocker}. The daily window was missed — sync will not run again until tomorrow.`,
+        severity: 'high',
+        metadata: { blockedBy: blocker, scheduledTime, timestamp: new Date().toISOString() },
+      });
       return;
     }
 
@@ -109,8 +128,11 @@ async function runScheduledChannelSync() {
         errorMessage: result.errors > 0 ? `${result.errors} lots failed` : null,
       },
     });
+
+    resolveSchedulerIssues(SYNC_TYPE);
   } catch (error: any) {
     console.error('❌ Scheduled channel sync failed:', error.message);
+
     await db.insert(syncMetadata).values({
       id: 'channel_sync',
       lastSyncStatus: 'error',
@@ -121,6 +143,15 @@ async function runScheduledChannelSync() {
     }).onConflictDoUpdate({
       target: syncMetadata.id,
       set: { lastSyncStatus: 'error', updatedAt: new Date(), errorMessage: error.message },
+    });
+
+    recordSyncIssue({
+      syncType: SYNC_TYPE,
+      platform: 'scheduler',
+      issueType: 'sync_failed',
+      issueDescription: `Scheduled channel sync failed: ${error.message}`,
+      severity: 'high',
+      metadata: { error: error.message, timestamp: new Date().toISOString() },
     });
   } finally {
     syncLock.release('Channel Sync');

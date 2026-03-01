@@ -3,8 +3,10 @@ import { appSettings, syncMetadata } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { syncLock } from "./sync-lock";
 import { runPlatformOrderSync } from "./order-sync-core";
+import { recordSyncIssue, resolveSchedulerIssues } from "./sync-issue-service";
 
 const SYNC_ID = 'bricklink_orders';
+const SYNC_TYPE = 'order_sync';
 
 /**
  * Start the automatic order sync scheduler.
@@ -12,7 +14,7 @@ const SYNC_ID = 'bricklink_orders';
  * Checks every 60s; skips the cycle if the frequency window hasn't elapsed
  * or if another sync holds the lock.
  *
- * Pattern: same as channel-sync-scheduler and pom-scheduler.
+ * Gold-standard pattern: same as channel-sync-scheduler and pom-scheduler.
  * runPlatformOrderSync() manages its own lock — do NOT pre-acquire here.
  */
 export async function startOrderSyncScheduler() {
@@ -50,7 +52,16 @@ async function checkAndRunSync() {
     if (Date.now() - lastRun < frequencyMs) return;
 
     if (syncLock.isRunning()) {
-      console.log(`⏭️ Order sync skipped — another sync is holding the lock`);
+      const blocker = syncLock.getActive().join(', ');
+      console.log(`⏭️ Order sync skipped — another sync is holding the lock: ${blocker}`);
+      recordSyncIssue({
+        syncType: SYNC_TYPE,
+        platform: 'scheduler',
+        issueType: 'scheduler_blocked',
+        issueDescription: `Scheduled order sync was blocked by: ${blocker}. The sync will retry on the next interval.`,
+        severity: 'medium',
+        metadata: { blockedBy: blocker, timestamp: new Date().toISOString() },
+      });
       return;
     }
 
@@ -108,8 +119,11 @@ async function runScheduledOrderSync() {
         errorMessage: null,
       },
     });
+
+    resolveSchedulerIssues(SYNC_TYPE);
   } catch (error: any) {
     console.error('❌ Scheduled order sync failed:', error.message);
+
     await db.insert(syncMetadata).values({
       id: SYNC_ID,
       lastSyncStatus: 'error',
@@ -120,6 +134,15 @@ async function runScheduledOrderSync() {
     }).onConflictDoUpdate({
       target: syncMetadata.id,
       set: { lastSyncStatus: 'error', updatedAt: new Date(), errorMessage: error.message },
+    });
+
+    recordSyncIssue({
+      syncType: SYNC_TYPE,
+      platform: 'scheduler',
+      issueType: 'sync_failed',
+      issueDescription: `Scheduled order sync failed: ${error.message}`,
+      severity: 'high',
+      metadata: { error: error.message, timestamp: new Date().toISOString() },
     });
     // Lock is released inside runPlatformOrderSync's finally block — no release needed here.
   }

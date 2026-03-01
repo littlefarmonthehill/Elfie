@@ -1,104 +1,152 @@
 /**
  * BrickLink Forum Sync Scheduler
- * Automatically syncs forum posts at configured intervals
+ * Automatically syncs forum posts at configured intervals.
+ *
+ * Gold-standard pattern: uses syncMetadata for timing (survives restarts),
+ * records sync issues on failure, resolves them on success.
  */
 
 import { db } from '../db';
-import { appSettings } from '@shared/schema';
+import { appSettings, syncMetadata } from '@shared/schema';
+import { eq } from 'drizzle-orm';
 import { syncBrickLinkForum } from './bl-forum-scraper';
+import { recordSyncIssue, resolveSchedulerIssues } from './sync-issue-service';
+
+const SYNC_ID = 'forum_sync';
+const SYNC_TYPE = 'forum_sync';
 
 let isRunning = false;
 
-/**
- * Start the automatic forum sync scheduler
- */
 export async function startForumSyncScheduler() {
   console.log('🕒 Forum sync scheduler initialized');
-  
-  // Initial check and sync
+
   await checkAndRunSync();
-  
-  // Check every 5 minutes if we should run a sync
+
   setInterval(async () => {
     await checkAndRunSync();
-  }, 5 * 60 * 1000); // Check every 5 minutes
+  }, 5 * 60 * 1000);
 }
 
-/**
- * Check settings and run sync if enabled and due
- */
 async function checkAndRunSync() {
   try {
-    // Get current settings
-    const [settings] = await db
+    const [settings] = await db.select().from(appSettings).limit(1);
+
+    if (!settings?.forumSyncEnabled) return;
+
+    const frequencyMs = (settings.forumSyncFrequency ?? 60) * 60 * 1000;
+
+    const [meta] = await db
       .select()
-      .from(appSettings)
+      .from(syncMetadata)
+      .where(eq(syncMetadata.id, SYNC_ID))
       .limit(1);
-    
-    if (!settings) {
-      return; // No settings configured yet
-    }
-    
-    // Check if forum sync is enabled
-    if (!settings.forumSyncEnabled) {
-      return; // Sync is disabled
-    }
-    
-    // Check if we should run based on frequency (in minutes)
-    const frequencyMs = settings.forumSyncFrequency * 60 * 1000;
-    const now = Date.now();
-    
-    // Get last sync time from global state
-    const lastSyncKey = 'last_forum_sync_check';
-    const lastSyncTime = (global as any)[lastSyncKey] || 0;
-    
-    if (now - lastSyncTime < frequencyMs) {
-      return; // Not time yet
-    }
-    
-    // Prevent concurrent syncs
+
+    const lastRun = meta?.lastSyncTime ? new Date(meta.lastSyncTime).getTime() : 0;
+    if (Date.now() - lastRun < frequencyMs) return;
+
     if (isRunning) {
       console.log('⏭️ Forum sync already in progress, skipping this cycle');
       return;
     }
-    
-    // Update last sync time
-    (global as any)[lastSyncKey] = now;
-    
-    // Run the sync
+
     await runForumSync();
-    
   } catch (error) {
     console.error('❌ Error in forum sync scheduler:', error);
   }
 }
 
-/**
- * Execute the actual forum sync
- */
 async function runForumSync() {
   isRunning = true;
-  
+
+  await db.insert(syncMetadata).values({
+    id: SYNC_ID,
+    lastSyncStatus: 'in_progress',
+    lastSyncTime: new Date(),
+    recordsAdded: 0,
+    recordsUpdated: 0,
+  }).onConflictDoUpdate({
+    target: syncMetadata.id,
+    set: { lastSyncStatus: 'in_progress', lastSyncTime: new Date(), updatedAt: new Date() },
+  });
+
   try {
     console.log('📡 Running scheduled BrickLink forum sync...');
-    
+
     const result = await syncBrickLinkForum();
-    
+
     if (result.success) {
       console.log(`✅ Forum sync completed: ${result.postsSaved} new posts, ${result.embeddingsGenerated} embeddings, ${result.postsPurged} purged`);
+
+      await db.insert(syncMetadata).values({
+        id: SYNC_ID,
+        lastSyncStatus: 'success',
+        lastSyncTime: new Date(),
+        recordsAdded: result.postsSaved ?? 0,
+        recordsUpdated: 0,
+        errorMessage: null,
+      }).onConflictDoUpdate({
+        target: syncMetadata.id,
+        set: {
+          lastSyncStatus: 'success',
+          updatedAt: new Date(),
+          recordsAdded: result.postsSaved ?? 0,
+          errorMessage: null,
+        },
+      });
+
+      resolveSchedulerIssues(SYNC_TYPE);
     } else {
       console.error(`❌ Forum sync failed: ${result.error}`);
+
+      await db.insert(syncMetadata).values({
+        id: SYNC_ID,
+        lastSyncStatus: 'error',
+        lastSyncTime: new Date(),
+        recordsAdded: 0,
+        recordsUpdated: 0,
+        errorMessage: result.error ?? 'Unknown error',
+      }).onConflictDoUpdate({
+        target: syncMetadata.id,
+        set: { lastSyncStatus: 'error', updatedAt: new Date(), errorMessage: result.error ?? 'Unknown error' },
+      });
+
+      recordSyncIssue({
+        syncType: SYNC_TYPE,
+        platform: 'scheduler',
+        issueType: 'sync_failed',
+        issueDescription: `BrickLink forum sync failed: ${result.error}`,
+        severity: 'low',
+        metadata: { error: result.error, timestamp: new Date().toISOString() },
+      });
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Error during forum sync:', error);
+
+    await db.insert(syncMetadata).values({
+      id: SYNC_ID,
+      lastSyncStatus: 'error',
+      lastSyncTime: new Date(),
+      recordsAdded: 0,
+      recordsUpdated: 0,
+      errorMessage: error.message,
+    }).onConflictDoUpdate({
+      target: syncMetadata.id,
+      set: { lastSyncStatus: 'error', updatedAt: new Date(), errorMessage: error.message },
+    });
+
+    recordSyncIssue({
+      syncType: SYNC_TYPE,
+      platform: 'scheduler',
+      issueType: 'sync_failed',
+      issueDescription: `BrickLink forum sync threw an exception: ${error.message}`,
+      severity: 'low',
+      metadata: { error: error.message, timestamp: new Date().toISOString() },
+    });
   } finally {
     isRunning = false;
   }
 }
 
-/**
- * Manually trigger a forum sync (for API endpoints)
- */
 export async function triggerManualForumSync() {
   if (isRunning) {
     return {
@@ -106,6 +154,6 @@ export async function triggerManualForumSync() {
       error: 'Forum sync already in progress',
     };
   }
-  
+
   return await syncBrickLinkForum();
 }

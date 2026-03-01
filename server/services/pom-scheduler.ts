@@ -2,6 +2,9 @@ import { db } from "../db";
 import { appSettings, syncMetadata } from "@shared/schema";
 import { syncPriceOMagicCache } from "./bricklink";
 import { syncLock } from "./sync-lock";
+import { recordSyncIssue, resolveSchedulerIssues } from "./sync-issue-service";
+
+const SYNC_TYPE = 'priceomatic_sync';
 
 /** Returns true if a POM sync (scheduled or manual) is currently in progress. */
 export function getPomIsRunning() {
@@ -24,6 +27,8 @@ export function setPomIsRunning(value: boolean): boolean {
 /**
  * Start the standalone Price-o-Matic scheduler.
  * Completely independent from inventory sync — runs at its own scheduled time.
+ *
+ * Gold-standard pattern: same as channel-sync-scheduler.
  */
 export async function startPomSyncScheduler() {
   console.log('💰 Price-o-Matic sync scheduler initialized');
@@ -50,15 +55,31 @@ async function checkAndRunPomSync() {
 
     const tz = settings.timezone || 'America/Chicago';
     const now = new Date();
-    // Compare in the user's configured timezone, not server UTC
     const localTimeStr = now.toLocaleString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false });
     const [hStr, mStr] = localTimeStr.replace(/\u202f/g, '').split(':');
     const currentTime = `${hStr.padStart(2, '0')}:${mStr.padStart(2, '0')}`;
     const scheduledTime = settings.pomSyncTime || '14:00';
     if (currentTime !== scheduledTime) return;
 
+    // If POM itself is already running, silently skip (duplicate tick guard).
     if (getPomIsRunning()) {
       console.log('⏭️ POM sync already in progress, skipping this cycle');
+      return;
+    }
+
+    // If a different sync is holding the lock, this is a reportable issue — we'll
+    // miss the daily window.
+    if (syncLock.isRunning()) {
+      const blocker = syncLock.getActive().join(', ');
+      console.log(`⏭️ POM sync blocked by running sync: ${blocker}`);
+      recordSyncIssue({
+        syncType: SYNC_TYPE,
+        platform: 'scheduler',
+        issueType: 'scheduler_blocked',
+        issueDescription: `Scheduled Price-o-Matic sync (${scheduledTime}) was blocked by: ${blocker}. The daily window was missed — pricing cache will not refresh until tomorrow.`,
+        severity: 'medium',
+        metadata: { blockedBy: blocker, scheduledTime, timestamp: new Date().toISOString() },
+      });
       return;
     }
 
@@ -75,7 +96,6 @@ async function runScheduledPomSync(batchSize: number) {
   }
   console.log(`\n💰 Starting scheduled Price-o-Matic sync (batch: ${batchSize} items)...`);
 
-  // Write in_progress to DB so the manual route also sees it's running
   await db.insert(syncMetadata).values({
     id: 'priceomatic_cache',
     lastSyncStatus: 'in_progress',
@@ -90,6 +110,7 @@ async function runScheduledPomSync(batchSize: number) {
   try {
     const result = await syncPriceOMagicCache(batchSize);
     console.log(`\n✨ Scheduled POM sync complete! ${result.itemsUpdated} items updated, ${result.apiCallsUsed} API calls used`);
+
     await db.insert(syncMetadata).values({
       id: 'priceomatic_cache',
       lastSyncStatus: result.stopped && result.stopReason?.includes('limit') ? 'partial' : 'success',
@@ -106,8 +127,11 @@ async function runScheduledPomSync(batchSize: number) {
         errorMessage: result.stopReason || null,
       },
     });
+
+    resolveSchedulerIssues(SYNC_TYPE);
   } catch (error: any) {
     console.error('❌ Scheduled POM sync failed:', error.message);
+
     await db.insert(syncMetadata).values({
       id: 'priceomatic_cache',
       lastSyncStatus: 'error',
@@ -118,6 +142,15 @@ async function runScheduledPomSync(batchSize: number) {
     }).onConflictDoUpdate({
       target: syncMetadata.id,
       set: { lastSyncStatus: 'error', updatedAt: new Date(), errorMessage: error.message },
+    });
+
+    recordSyncIssue({
+      syncType: SYNC_TYPE,
+      platform: 'scheduler',
+      issueType: 'sync_failed',
+      issueDescription: `Scheduled Price-o-Matic sync failed: ${error.message}`,
+      severity: 'medium',
+      metadata: { error: error.message, timestamp: new Date().toISOString() },
     });
   } finally {
     syncLock.release('Price-o-Matic');
