@@ -449,6 +449,8 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   const [pomHighSupplyThreshold, setPomHighSupplyThreshold] = useState(10000); // BL stock qty = "full supply"
   const [pomHighSupplyPenalty, setPomHighSupplyPenalty] = useState(40);  // supply weight 0–100
 
+  const [activeSection, setActiveSection] = useState<'general' | 'platforms' | 'ai' | 'automation' | 'priceomatic' | 'data' | 'users'>('general');
+
   const { data: settings } = useQuery<AppSettings>({
     queryKey: ['/api/settings'],
     enabled: open,
@@ -801,7 +803,6 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   };
 
   const { isAdmin } = useAuth();
-  const [activeSection, setActiveSection] = useState<'general' | 'platforms' | 'ai' | 'automation' | 'priceomatic' | 'data' | 'users'>('general');
 
   // Manual sync state for Automation tab
   const [syncingInventory, setSyncingInventory] = useState(false);
