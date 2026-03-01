@@ -189,7 +189,9 @@ export async function fetchAllPayPalTransactions(sinceDays: number): Promise<Pay
 /**
  * PayPal transaction event codes that indicate a refund/reversal.
  *
- * T1106 - Seller-initiated refund (completion of billing agreement cancellation)
+ * T0113 - Reversal of an Express Checkout (T0006) payment — the most common
+ *          code when a seller refunds a buyer who paid via Express Checkout
+ * T1106 - Seller-initiated refund / billing agreement cancellation credit
  * T1107 - Payment refund sent by merchant
  * T1108 - Reversal / fee reversal
  * T2104 - Dispute resolution (reversal cancellation) — net credit to merchant
@@ -198,7 +200,7 @@ export async function fetchAllPayPalTransactions(sinceDays: number): Promise<Pay
  * We accept any status (S=Success, P=Pending, V=Reversal, etc.) so partial
  * or pending refunds still get matched.
  */
-const REFUND_EVENT_CODES = new Set(['T1106', 'T1107', 'T1108', 'T2104', 'T2105']);
+const REFUND_EVENT_CODES = new Set(['T0113', 'T1106', 'T1107', 'T1108', 'T2104', 'T2105']);
 
 /**
  * Sale event codes — T0000-T0020 series.

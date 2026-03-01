@@ -177,8 +177,12 @@ function GroupSheet({
 
   return (
     <Sheet open={open} onOpenChange={v => !v && onClose()}>
-      <SheetContent side="right" className="w-full sm:max-w-lg flex flex-col gap-0 p-0">
-        <SheetHeader className="flex flex-row items-center justify-between px-4 py-3 border-b gap-2 flex-wrap">
+      <SheetContent
+        side="right"
+        className="w-full sm:max-w-lg flex flex-col gap-0 p-0"
+        style={{ paddingTop: 'env(safe-area-inset-top)' }}
+      >
+        <SheetHeader className="flex flex-row items-center justify-between px-4 py-3 border-b gap-2 flex-wrap flex-shrink-0">
           <SheetTitle className="text-sm font-semibold">
             {group.label} — {issues.length} {issues.length === 1 ? "issue" : "issues"}
           </SheetTitle>
@@ -197,7 +201,10 @@ function GroupSheet({
             </Button>
           </div>
         </SheetHeader>
-        <div className="flex-1 overflow-y-auto px-4">
+        <div
+          className="flex-1 overflow-y-auto px-4"
+          style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+        >
           {issues.length === 0 ? (
             <p className="text-sm text-muted-foreground py-6 text-center">No open issues</p>
           ) : (
