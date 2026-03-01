@@ -390,8 +390,8 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   const [pomScarcityBonus3, setPomScarcityBonus3] = useState(3);
   const [pomTooHighThreshold, setPomTooHighThreshold] = useState(20);
   const [pomTooLowThreshold, setPomTooLowThreshold] = useState(20);
-  const [pomPricingOpen, setPomPricingOpen] = useState(true);
-  const [pomScoringOpen, setPomScoringOpen] = useState(true);
+  const [pomPricingOpen, setPomPricingOpen] = useState(false);
+  const [pomScoringOpen, setPomScoringOpen] = useState(false);
   const [pomBatchSize, setPomBatchSize] = useState(1500);
   const [pomApiCallLimit, setPomApiCallLimit] = useState(4500);
   const [pomCostFloorPct, setPomCostFloorPct] = useState(0);
