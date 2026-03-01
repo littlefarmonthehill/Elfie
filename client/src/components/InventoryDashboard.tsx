@@ -576,19 +576,8 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 {/* API schedule popover */}
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button size="icon" variant="ghost" data-testid="button-api-schedule" className="relative">
+                    <Button size="icon" variant="ghost" data-testid="button-api-schedule">
                       <BarChart2 className="w-4 h-4 text-gray-500" />
-                      {pomStatus?.callsLast24h !== undefined && (
-                        <span className={`absolute -top-1 -right-1 text-[9px] font-mono font-bold px-1 py-0.5 rounded-full leading-none pointer-events-none ${
-                          pomStatus.callsLast24h >= apiCeiling * 0.9 ? 'bg-red-500/20 text-red-400' :
-                          pomStatus.callsLast24h >= apiCeiling * 0.6 ? 'bg-orange-500/20 text-orange-400' :
-                          'bg-gray-700 text-gray-400'
-                        }`}>
-                          {pomStatus.callsLast24h >= 1000
-                            ? `${(pomStatus.callsLast24h / 1000).toFixed(1)}k`
-                            : pomStatus.callsLast24h}
-                        </span>
-                      )}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent side="bottom" align="end" className="w-96 p-3 max-h-[80vh] overflow-y-auto">
