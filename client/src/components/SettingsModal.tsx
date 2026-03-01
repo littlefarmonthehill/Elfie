@@ -29,29 +29,11 @@ interface SettingsModalProps {
 function UserManagementSection() {
   const { toast } = useToast();
   const { isAdmin } = useAuth();
-  
-  // Early return if not admin (defense in depth)
-  if (!isAdmin) {
-    return null;
-  }
-  
+
   const { data: users, isLoading, isError } = useQuery<User[]>({
     queryKey: ['/api/admin/users'],
-    enabled: isAdmin, // Only fetch if user is admin
+    enabled: isAdmin,
   });
-
-  // Show error state if query fails
-  if (isError) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center space-y-2">
-          <AlertTriangle className="h-8 w-8 text-red-400 mx-auto" />
-          <p className="text-sm text-red-400">Access Denied</p>
-          <p className="text-xs text-gray-400">You don't have permission to manage users.</p>
-        </div>
-      </div>
-    );
-  }
 
   const updateUserApprovalMutation = useMutation({
     mutationFn: async ({ userId, isApproved }: { userId: string; isApproved: boolean }) => {
@@ -92,6 +74,22 @@ function UserManagementSection() {
       });
     },
   });
+
+  if (!isAdmin) {
+    return null;
+  }
+
+  if (isError) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center space-y-2">
+          <AlertTriangle className="h-8 w-8 text-red-400 mx-auto" />
+          <p className="text-sm text-red-400">Access Denied</p>
+          <p className="text-xs text-gray-400">You don't have permission to manage users.</p>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
