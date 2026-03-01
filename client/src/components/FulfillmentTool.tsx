@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Truck, Loader2, Printer, AlertTriangle, Tag, Scissors, Package, ExternalLink, CheckCircle2, Star, ClipboardList, PackageCheck, ScanLine, ShieldCheck } from "lucide-react";
+import { Truck, Loader2, Printer, AlertTriangle, Tag, Scissors, Package, ExternalLink, CheckCircle2, Star, ClipboardList, PackageCheck, ScanLine, ShieldCheck, Trash2 } from "lucide-react";
 import { printPackingSlips } from "./PackingSlip";
 import { useToast } from "@/hooks/use-toast";
 import { cleanItemName, PRIORITY_REGEX, toggleSetItem } from "@/lib/item-utils";
@@ -260,6 +260,17 @@ export default function FulfillmentTool() {
     },
     onError: (err: any) => {
       toast({ title: "EOD Form Failed", description: err.message || "Could not generate End of Day form", variant: "destructive" });
+    },
+  });
+
+  const clearEodBacklogMutation = useMutation({
+    mutationFn: async () => apiRequest('POST', '/api/shipments/clear-eod-backlog', {}),
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/shipments/end-of-day'] });
+      toast({ title: "EOD Backlog Cleared", description: `${data.cleared} shipment${data.cleared !== 1 ? 's' : ''} marked as already manifested` });
+    },
+    onError: (err: any) => {
+      toast({ title: "Clear Failed", description: err.message || "Could not clear EOD backlog", variant: "destructive" });
     },
   });
 
@@ -789,6 +800,26 @@ export default function FulfillmentTool() {
                   : <><ScanLine className="w-3.5 h-3.5 mr-1.5" />EOD Form{endOfDayData && endOfDayData.count > 0 && ` (${endOfDayData.count})`}</>
               }
             </Button>
+            {!scanFormUrl && endOfDayData && endOfDayData.count > 0 && (
+              <Button
+                size="icon"
+                variant="ghost"
+                disabled={clearEodBacklogMutation.isPending}
+                onClick={() => {
+                  if (confirm(`Mark all ${endOfDayData.count} queued shipment${endOfDayData.count !== 1 ? 's' : ''} as already manifested? Use this to clear test/stale data.`)) {
+                    clearEodBacklogMutation.mutate();
+                  }
+                }}
+                className="text-gray-500 hover:text-red-400 shrink-0"
+                title="Clear EOD backlog (mark all as manifested)"
+                data-testid="button-clear-eod-backlog"
+              >
+                {clearEodBacklogMutation.isPending
+                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  : <Trash2 className="w-3.5 h-3.5" />
+                }
+              </Button>
+            )}
           </div>
         )}
 

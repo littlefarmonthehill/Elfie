@@ -6898,6 +6898,27 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
     }
   });
 
+  // Mark all purchased EasyPost shipments as 'manifested' — clears the EOD backlog
+  app.post("/api/shipments/clear-eod-backlog", isApproved, async (req, res) => {
+    try {
+      const result = await db.update(shipments)
+        .set({ status: 'manifested' })
+        .where(
+          and(
+            eq(shipments.vendorCode, 'easypost'),
+            eq(shipments.status, 'purchased'),
+            isNull(shipments.eodFormId)
+          )
+        )
+        .returning({ id: shipments.id });
+      console.log(`[EOD] Cleared backlog: ${result.length} shipment(s) marked as manifested`);
+      res.json({ cleared: result.length });
+    } catch (error: any) {
+      console.error("Error clearing EOD backlog:", error);
+      res.status(500).json({ error: error.message || "Failed to clear EOD backlog" });
+    }
+  });
+
   // Get EOD form info for a specific order (for reprinting from ShippedOrders)
   app.get("/api/orders/:orderId/eod-form", isApproved, async (req, res) => {
     try {
