@@ -1,5 +1,5 @@
 import { sql, relations } from "drizzle-orm";
-import { pgTable, text, varchar, integer, decimal, timestamp, boolean, index, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, decimal, timestamp, boolean, index, jsonb, serial } from "drizzle-orm/pg-core";
 import { vector } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -296,6 +296,7 @@ export const shipments = pgTable("shipments", {
   voidedAt: timestamp("voided_at"),
   deliveredAt: timestamp("delivered_at"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  eodFormId: integer("eod_form_id"), // FK to eodForms.id — set after SCAN form creation
 });
 
 export const insertShipmentSchema = createInsertSchema(shipments).omit({
@@ -306,6 +307,17 @@ export const insertShipmentSchema = createInsertSchema(shipments).omit({
 
 export type InsertShipment = z.infer<typeof insertShipmentSchema>;
 export type Shipment = typeof shipments.$inferSelect;
+
+// EOD (End-of-Day) SCAN form records — tracks EasyPost SCAN forms and which shipments are included
+export const eodForms = pgTable("eod_forms", {
+  id: serial("id").primaryKey(),
+  formUrl: text("form_url").notNull(),
+  scanFormId: text("scan_form_id"), // EasyPost scan form object ID
+  shipmentCount: integer("shipment_count").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type EodForm = typeof eodForms.$inferSelect;
 
 // Relations
 export const blInventoryRelations = relations(blInventory, ({ one }) => ({

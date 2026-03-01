@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
-import { Search, Package, Loader2, Printer, Tag, FileText, ChevronDown, RotateCcw } from "lucide-react";
+import { Search, Package, Loader2, Printer, Tag, FileText, ChevronDown, RotateCcw, ScanLine, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -39,6 +39,7 @@ export default function ShippedOrdersTool() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showPackingSlipDialog, setShowPackingSlipDialog] = useState(false);
   const [packingSlipData, setPackingSlipData] = useState<any[]>([]);
+  const [eodPending, setEodPending] = useState<string | null>(null); // orderId being fetched
 
   const returnToQueueMutation = useMutation({
     mutationFn: async (orderId: string) =>
@@ -110,6 +111,26 @@ export default function ShippedOrdersTool() {
       title: "Lot Labels",
       description: "Lot label printing will be implemented soon. This feature is coming in a future update.",
     });
+  };
+
+  const handlePrintEodForm = async (orderId: string) => {
+    setEodPending(orderId);
+    try {
+      const response = await fetch(`/api/orders/${encodeURIComponent(orderId)}/eod-form`);
+      if (response.status === 404) {
+        toast({ title: "No EOD Form", description: "This order has not been added to an EOD/SCAN form yet.", variant: "destructive" });
+        return;
+      }
+      if (!response.ok) throw new Error('Failed to fetch EOD form');
+      const data = await response.json();
+      if (data?.formUrl) {
+        window.open(data.formUrl, '_blank');
+      }
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "Could not retrieve EOD form", variant: "destructive" });
+    } finally {
+      setEodPending(null);
+    }
   };
 
   if (isLoading) {
@@ -250,6 +271,17 @@ export default function ShippedOrdersTool() {
                         >
                           <Tag className="w-4 h-4 mr-2" />
                           Print Lot Labels
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handlePrintEodForm(order.id)}
+                          disabled={eodPending === order.id}
+                          data-testid={`menu-print-eod-form-${order.orderNumber}`}
+                        >
+                          {eodPending === order.id
+                            ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            : <ScanLine className="w-4 h-4 mr-2" />
+                          }
+                          Print EOD Form
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem

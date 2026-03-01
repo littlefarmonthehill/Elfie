@@ -241,10 +241,9 @@ export default function FulfillmentTool() {
     queryKey: ['/api/settings'],
   });
 
-  // Today's EasyPost shipments (for End of Day panel)
+  // EOD-eligible EasyPost shipments (purchased, not yet on any SCAN form)
   const { data: endOfDayData } = useQuery<{ count: number; shipments: any[] }>({
     queryKey: ['/api/shipments/end-of-day'],
-    enabled: activeTab === 'shipping',
     staleTime: 30000,
   });
 
@@ -254,11 +253,12 @@ export default function FulfillmentTool() {
       if (data?.formUrl) {
         setScanFormUrl(data.formUrl);
         window.open(data.formUrl, '_blank');
-        toast({ title: "SCAN Form Ready", description: `Generated for ${data.shipmentCount} shipment${data.shipmentCount !== 1 ? 's' : ''}` });
+        queryClient.invalidateQueries({ queryKey: ['/api/shipments/end-of-day'] });
+        toast({ title: "EOD Form Ready", description: `Generated for ${data.shipmentCount} shipment${data.shipmentCount !== 1 ? 's' : ''}` });
       }
     },
     onError: (err: any) => {
-      toast({ title: "SCAN Form Failed", description: err.message || "Could not generate End of Day form", variant: "destructive" });
+      toast({ title: "EOD Form Failed", description: err.message || "Could not generate End of Day form", variant: "destructive" });
     },
   });
 
@@ -681,12 +681,10 @@ export default function FulfillmentTool() {
         {/* ── Tab switcher: Fulfillment | Shipping ── */}
         <div className="flex justify-center gap-1 border-b border-gray-700">
           <button
-            onClick={() => { setActiveTab('picklist'); requestAnimationFrame(() => { if (actionRowRef.current) actionRowRef.current.scrollLeft = 0; }); }}
+            onClick={() => setActiveTab('picklist')}
             className={`flex items-center gap-1.5 px-5 py-2.5 text-base font-semibold border-b-2 transition-colors ${
               activeTab === 'picklist'
                 ? 'border-orange-500 text-orange-400'
-                : selectedOrders.size === 0
-                ? 'border-transparent text-gray-600 cursor-default'
                 : 'border-transparent text-gray-400 hover:text-gray-200'
             }`}
             data-testid="tab-picklist"
@@ -695,7 +693,7 @@ export default function FulfillmentTool() {
             Fulfillment
           </button>
           <button
-            onClick={() => { setActiveTab('shipping'); requestAnimationFrame(() => { if (shipBtnRef.current && actionRowRef.current) { const btn = shipBtnRef.current; const container = actionRowRef.current; container.scrollLeft = btn.offsetLeft - 8; } }); }}
+            onClick={() => setActiveTab('shipping')}
             className={`flex items-center gap-1.5 px-5 py-2.5 text-base font-semibold border-b-2 transition-colors ${
               activeTab === 'shipping'
                 ? 'border-purple-500 text-purple-400'
@@ -708,9 +706,9 @@ export default function FulfillmentTool() {
           </button>
         </div>
 
-        {/* ── Persistent action bar — single scrollable row ── */}
-        {!isSplitMode && (
-          <div ref={actionRowRef} className="flex items-center gap-1 px-1 py-1.5 border-b border-gray-700/60 overflow-x-auto scrollbar-hide">
+        {/* ── Tab-specific action bar ── */}
+        {!isSplitMode && activeTab === 'picklist' && (
+          <div className="flex items-center gap-1 px-1 py-1.5 border-b border-gray-700/60 overflow-x-auto scrollbar-hide">
             <Button
               size="sm"
               variant="ghost"
@@ -745,6 +743,10 @@ export default function FulfillmentTool() {
               <Tag className="w-3.5 h-3.5 mr-1.5" />
               Lot Labels
             </Button>
+          </div>
+        )}
+        {!isSplitMode && activeTab === 'shipping' && (
+          <div ref={actionRowRef} className="flex items-center gap-1 px-1 py-1.5 border-b border-gray-700/60 overflow-x-auto scrollbar-hide">
             <Button
               size="sm"
               variant="ghost"

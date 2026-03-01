@@ -10,8 +10,8 @@ import { syncBrickLinkToBrickOwl } from "./services/brickowl";
 import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBackup } from "./services/export";
 import { getProcessedPartImage, processImageFromUrl } from "./services/image-proxy";
 import { db } from "./db";
-import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema } from "@shared/schema";
-import { eq, desc, sql, inArray, like, or, and, isNotNull } from "drizzle-orm";
+import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema } from "@shared/schema";
+import { eq, desc, sql, inArray, like, or, and, isNotNull, isNull } from "drizzle-orm";
 import { z } from "zod";
 import multer from "multer";
 import FormData from "form-data";
@@ -6726,43 +6726,40 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
   });
 
 
-  // End of Day SCAN Form — generate a USPS SCAN form for today's EasyPost shipments
+  // End of Day SCAN Form — return all purchased EasyPost shipments not yet added to a SCAN form
   app.get("/api/shipments/end-of-day", isApproved, async (req, res) => {
     try {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const todaysShipments = await db.select().from(shipments)
+      const eligibleShipments = await db.select().from(shipments)
         .where(
           and(
             eq(shipments.vendorCode, 'easypost'),
             eq(shipments.status, 'purchased'),
-            sql`${shipments.purchasedAt} >= ${today.toISOString()}`
+            isNull(shipments.eodFormId)
           )
         );
-      const vendorIds = todaysShipments.map(s => s.vendorShipmentId).filter(Boolean);
-      res.json({ count: vendorIds.length, shipments: todaysShipments.map(s => ({ id: s.id, orderId: s.orderId, trackingNumber: s.trackingNumber, carrier: s.carrier, service: s.service, purchasedAt: s.purchasedAt })) });
+      const vendorIds = eligibleShipments.map(s => s.vendorShipmentId).filter(Boolean);
+      res.json({ count: vendorIds.length, shipments: eligibleShipments.map(s => ({ id: s.id, orderId: s.orderId, trackingNumber: s.trackingNumber, carrier: s.carrier, service: s.service, purchasedAt: s.purchasedAt })) });
     } catch (error) {
-      console.error("Error fetching today's shipments:", error);
-      res.status(500).json({ error: "Failed to fetch today's shipments" });
+      console.error("Error fetching EOD-eligible shipments:", error);
+      res.status(500).json({ error: "Failed to fetch EOD-eligible shipments" });
     }
   });
 
   app.post("/api/shipments/scan-form", isApproved, async (req, res) => {
     try {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const todaysShipments = await db.select().from(shipments)
+      // Eligible: purchased EasyPost shipments not yet assigned to any EOD form
+      const eligibleShipments = await db.select().from(shipments)
         .where(
           and(
             eq(shipments.vendorCode, 'easypost'),
             eq(shipments.status, 'purchased'),
-            sql`${shipments.purchasedAt} >= ${today.toISOString()}`
+            isNull(shipments.eodFormId)
           )
         );
 
-      const vendorIds = todaysShipments.map(s => s.vendorShipmentId).filter(Boolean);
+      const vendorIds = eligibleShipments.map(s => s.vendorShipmentId).filter(Boolean);
       if (vendorIds.length === 0) {
-        return res.status(400).json({ error: 'No EasyPost shipments purchased today' });
+        return res.status(400).json({ error: 'No eligible EasyPost shipments for an EOD form' });
       }
 
       const settingsRows = await db.select().from(appSettings).limit(1);
@@ -6785,10 +6782,57 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       }
 
       const scanForm = await epRes.json();
-      res.json({ formUrl: scanForm.form_url, scanFormId: scanForm.id, shipmentCount: vendorIds.length });
+      const formUrl: string = scanForm.form_url;
+      const epScanFormId: string = scanForm.id;
+
+      // Persist the EOD form record
+      const [eodFormRecord] = await db.insert(eodForms).values({
+        formUrl,
+        scanFormId: epScanFormId,
+        shipmentCount: vendorIds.length,
+      }).returning();
+
+      // Tag every included shipment with this EOD form
+      const shipmentIds = eligibleShipments.map(s => s.id);
+      await db.update(shipments)
+        .set({ eodFormId: eodFormRecord.id })
+        .where(inArray(shipments.id, shipmentIds));
+
+      res.json({ formUrl, scanFormId: epScanFormId, eodFormId: eodFormRecord.id, shipmentCount: vendorIds.length });
     } catch (error: any) {
       console.error("Error creating SCAN form:", error);
       res.status(500).json({ error: error.message || "Failed to create SCAN form" });
+    }
+  });
+
+  // Get EOD form info for a specific order (for reprinting from ShippedOrders)
+  app.get("/api/orders/:orderId/eod-form", isApproved, async (req, res) => {
+    try {
+      const { orderId } = req.params;
+      const shipmentRow = await db.select().from(shipments)
+        .where(
+          and(
+            eq(shipments.orderId, orderId),
+            isNotNull(shipments.eodFormId),
+          )
+        )
+        .limit(1);
+
+      if (!shipmentRow.length || !shipmentRow[0].eodFormId) {
+        return res.status(404).json({ error: 'No EOD form found for this order' });
+      }
+
+      const eodFormRow = await db.select().from(eodForms)
+        .where(eq(eodForms.id, shipmentRow[0].eodFormId))
+        .limit(1);
+
+      if (!eodFormRow.length) {
+        return res.status(404).json({ error: 'EOD form record not found' });
+      }
+
+      res.json({ formUrl: eodFormRow[0].formUrl, eodFormId: eodFormRow[0].id, shipmentCount: eodFormRow[0].shipmentCount, createdAt: eodFormRow[0].createdAt });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to fetch EOD form" });
     }
   });
 
