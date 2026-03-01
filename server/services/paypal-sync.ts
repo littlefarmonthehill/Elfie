@@ -73,12 +73,29 @@ export interface PayPalSyncResult {
   unmatched: number;
   errors: string[];
   matches: Array<{ transactionId: string; orderId: string; orderNumber: string; amount: number; type: 'refund' | 'fee' }>;
-  unmatchedTransactions: Array<{ transactionId: string; amount: number; date: string; type: string }>;
+  unmatchedTransactions: Array<{ transactionId: string; amount: number; date: string; type: string; eventCode: string }>;
+}
+
+interface RefundSyncResult {
+  refundsChecked: number;
+  matched: number;
+  alreadySynced: number;
+  unmatched: number;
+  errors: string[];
+  matches: Array<{ transactionId: string; orderId: string; orderNumber: string; amount: number }>;
+  unmatchedTransactions: Array<{ transactionId: string; amount: number; date: string; eventCode: string }>;
+}
+
+interface FeeSyncResult {
+  transactionsChecked: number;
+  matched: number;
+  alreadySynced: number;
+  unmatched: number;
+  errors: string[];
 }
 
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
-// Clear cached token so next call fetches fresh credentials (call after permission changes)
 export function clearPayPalTokenCache() {
   cachedToken = null;
 }
@@ -98,7 +115,6 @@ async function getAccessToken(): Promise<string> {
       'Authorization': `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
       'Content-Type': 'application/x-www-form-urlencoded',
     },
-    // Explicitly request the Transaction Search scope
     body: 'grant_type=client_credentials&scope=https%3A%2F%2Furi.paypal.com%2Fservices%2Freporting%2Fsearch%2Fread',
   });
 
@@ -119,7 +135,6 @@ async function fetchTransactions(startDate: Date, endDate: Date): Promise<PayPal
   let page = 1;
   let totalPages = 1;
 
-  // PayPal Transaction Search max window is 31 days - caller must split if needed
   const start = startDate.toISOString().replace(/\.\d{3}Z$/, '-0000');
   const end = endDate.toISOString().replace(/\.\d{3}Z$/, '-0000');
 
@@ -150,61 +165,71 @@ async function fetchTransactions(startDate: Date, endDate: Date): Promise<PayPal
 }
 
 /**
- * Fetch all transactions for the past `sinceDays` days.
- * PayPal's API has a 31-day window limit, so we split into chunks.
- * Exported for diagnostic use.
+ * Fetch all PayPal transactions for the past `sinceDays` days.
+ * PayPal's API has a 31-day window limit, so we split into 31-day chunks.
  */
 export async function fetchAllPayPalTransactions(sinceDays: number): Promise<PayPalTransaction[]> {
   const endDate = new Date();
   const startDate = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000);
 
   const allTransactions: PayPalTransaction[] = [];
-  const chunkMs = 31 * 24 * 60 * 60 * 1000; // 31 days in ms
+  const chunkMs = 31 * 24 * 60 * 60 * 1000;
 
   let chunkStart = new Date(startDate);
   while (chunkStart < endDate) {
     const chunkEnd = new Date(Math.min(chunkStart.getTime() + chunkMs, endDate.getTime()));
     const chunk = await fetchTransactions(chunkStart, chunkEnd);
     allTransactions.push(...chunk);
-    chunkStart = new Date(chunkEnd.getTime() + 1000); // +1 second to avoid overlap
+    chunkStart = new Date(chunkEnd.getTime() + 1000);
   }
 
   return allTransactions;
 }
 
 /**
- * Parse a PayPal amount string to a positive float (absolute value)
+ * PayPal transaction event codes that indicate a refund/reversal.
+ *
+ * T1106 - Seller-initiated refund (completion of billing agreement cancellation)
+ * T1107 - Payment refund sent by merchant
+ * T1108 - Reversal / fee reversal
+ * T2104 - Dispute resolution (reversal cancellation) — net credit to merchant
+ * T2105 - Dispute settlement / chargeback refund
+ *
+ * We accept any status (S=Success, P=Pending, V=Reversal, etc.) so partial
+ * or pending refunds still get matched.
  */
+const REFUND_EVENT_CODES = new Set(['T1106', 'T1107', 'T1108', 'T2104', 'T2105']);
+
+/**
+ * Sale event codes — T0000-T0020 series.
+ */
+const SALE_EVENT_CODES = new Set([
+  'T0001','T0002','T0003','T0004','T0005','T0006','T0007','T0008','T0009','T0010',
+  'T0011','T0012','T0013','T0014','T0015','T0016','T0017','T0018','T0019','T0020',
+]);
+
 function parseAmount(value: string): number {
   return Math.abs(parseFloat(value));
 }
 
 /**
- * Map PayPal transaction event codes to human-readable types
- * T0006 = Express Checkout payment
- * T1107 = Payment refund
- * T1201 = Chargeback
- * T1202 = Chargeback reversal
+ * Normalize an order/invoice reference for loose comparison.
+ * Strips platform prefixes (BL-, BO-) and leading zeros.
  */
-function classifyTransaction(eventCode: string): 'sale' | 'refund' | 'chargeback' | 'other' {
-  if (['T0001', 'T0002', 'T0003', 'T0004', 'T0005', 'T0006', 'T0007', 'T0008', 'T0009', 'T0010',
-       'T0011', 'T0012', 'T0013', 'T0014', 'T0015', 'T0016', 'T0017', 'T0018', 'T0019', 'T0020'].includes(eventCode)) {
-    return 'sale';
-  }
-  if (['T1106', 'T1107', 'T1108', 'T2104', 'T2105'].includes(eventCode)) {
-    return 'refund';
-  }
-  if (['T1201', 'T1202'].includes(eventCode)) {
-    return 'chargeback';
-  }
-  return 'other';
+function normalizeOrderRef(s: string): string {
+  return s.replace(/^(BL[-.]?|BO[-.]?)/i, '').replace(/^0+/, '').trim();
 }
 
-export async function syncPayPalTransactions(sinceDays = 90, forceResync = false): Promise<PayPalSyncResult> {
-  const result: PayPalSyncResult = {
-    transactionsChecked: 0,
-    refundsMatched: 0,
-    feesMatched: 0,
+// ─── Refunds ─────────────────────────────────────────────────────────────────
+
+/**
+ * Sync PayPal refund transactions to order_adjustments.
+ * Mirrors the Stripe pattern exactly: fetch → deduplicate → match → insert.
+ */
+export async function syncPayPalRefunds(sinceDays = 90, forceResync = false): Promise<RefundSyncResult> {
+  const result: RefundSyncResult = {
+    refundsChecked: 0,
+    matched: 0,
     alreadySynced: 0,
     unmatched: 0,
     errors: [],
@@ -212,25 +237,37 @@ export async function syncPayPalTransactions(sinceDays = 90, forceResync = false
     unmatchedTransactions: [],
   };
 
-  // Force resync: delete all existing PayPal refund adjustments so they get re-matched from scratch
   if (forceResync) {
-    await db.delete(orderAdjustments)
-      .where(and(
-        eq(orderAdjustments.paymentMethod, 'paypal'),
-        eq(orderAdjustments.type, 'refund')
-      ));
-    console.log(`🗑️ PayPal force-resync: cleared existing PayPal refund adjustments`);
+    await db.delete(orderAdjustments).where(and(
+      eq(orderAdjustments.paymentMethod, 'paypal'),
+      eq(orderAdjustments.type, 'refund'),
+    ));
+    console.log('🗑️ PayPal force-resync: cleared existing PayPal refund adjustments');
   }
 
   const allTransactions = await fetchAllPayPalTransactions(sinceDays);
-  result.transactionsChecked = allTransactions.length;
+  console.log(`🅿️ PayPal: fetched ${allTransactions.length} total transactions (last ${sinceDays} days)`);
 
-  if (allTransactions.length === 0) return result;
+  // Log breakdown of event codes for diagnostics
+  const codeCounts: Record<string, number> = {};
+  for (const t of allTransactions) {
+    const code = t.transaction_info.transaction_event_code;
+    codeCounts[code] = (codeCounts[code] || 0) + 1;
+  }
+  console.log('🅿️ PayPal event code breakdown:', Object.entries(codeCounts).sort().map(([k,v]) => `${k}:${v}`).join(', '));
+
+  // Filter to refund-type transactions (any status — PayPal pending refunds still matter)
+  const refundTxns = allTransactions.filter(t =>
+    REFUND_EVENT_CODES.has(t.transaction_info.transaction_event_code)
+  );
+  result.refundsChecked = refundTxns.length;
+  console.log(`🅿️ PayPal: ${refundTxns.length} refund-type transactions found [codes: ${refundTxns.map(t => t.transaction_info.transaction_event_code).join(', ') || 'none'}]`);
+
+  if (refundTxns.length === 0) return result;
 
   const sinceDate = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000);
   const dbOrders = await db.select().from(orders).where(gte(orders.orderDate, sinceDate));
 
-  // Get already-synced PayPal transaction IDs
   const existingAdjustments = await db
     .select({ externalTransactionId: orderAdjustments.externalTransactionId })
     .from(orderAdjustments)
@@ -240,20 +277,7 @@ export async function syncPayPalTransactions(sinceDays = 90, forceResync = false
     existingAdjustments.map(a => a.externalTransactionId).filter(Boolean) as string[]
   );
 
-  // Process refunds: T1106=partial/seller-initiated refund, T1107=full refund, T1108=reversal, T2104/T2105=dispute
-  const refunds = allTransactions.filter(t => {
-    const code = t.transaction_info.transaction_event_code;
-    return classifyTransaction(code) === 'refund' && t.transaction_info.transaction_status === 'S';
-  });
-
-  // Log event codes of all potential refunds for diagnostics
-  const refundEventCodes = refunds.map(t => t.transaction_info.transaction_event_code);
-  const skippedCodes = allTransactions
-    .filter(t => !['S'].includes(t.transaction_info.transaction_status) || classifyTransaction(t.transaction_info.transaction_event_code) === 'other')
-    .map(t => `${t.transaction_info.transaction_event_code}(${t.transaction_info.transaction_status})`);
-  console.log(`🅿️ PayPal: found ${refunds.length} refund transactions to evaluate [codes: ${refundEventCodes.join(', ') || 'none'}]`);
-
-  for (const txn of refunds) {
+  for (const txn of refundTxns) {
     const info = txn.transaction_info;
     const txnId = info.transaction_id;
 
@@ -264,55 +288,50 @@ export async function syncPayPalTransactions(sinceDays = 90, forceResync = false
 
     const refundAmount = parseAmount(info.transaction_amount.value);
     const txnDate = new Date(info.transaction_initiation_date);
+    const eventCode = info.transaction_event_code;
 
-    // Strategy 0: match by invoice_id or custom_field → order number (most reliable for BrickLink)
-    // BrickLink sets the order number as the PayPal invoice ID on payment, and refunds inherit it.
+    // ── Matching (same logic as Stripe, with invoice_id fast-path first) ──
+
     let match: typeof dbOrders[0] | undefined;
+
+    // Fast path: BrickLink sets invoice_id = order number on the payment;
+    // refund transactions often inherit the same invoice_id.
     const invoiceRef = info.invoice_id || info.custom_field || '';
     if (invoiceRef) {
-      // Normalize: strip 'BL-' prefix, leading zeros, etc. for loose matching
-      const normalizeOrderNum = (s: string) => s.replace(/^(BL[-.]?|BO[-.]?)/i, '').replace(/^0+/, '').trim();
-      const normInvoice = normalizeOrderNum(invoiceRef);
-      match = dbOrders.find(order => {
-        const normOrder = normalizeOrderNum(order.orderNumber || '');
+      const normInvoice = normalizeOrderRef(invoiceRef);
+      match = dbOrders.find(o => {
+        const normOrder = normalizeOrderRef(o.orderNumber || '');
         return normOrder.length > 0 && normOrder === normInvoice;
       });
+      if (match) {
+        console.log(`  ${txnId} (${eventCode}): $${refundAmount} → matched via invoice_id "${invoiceRef}" → order ${match.orderNumber}`);
+      }
     }
 
-    // Strategy 1: exact match on order total (full refund) — most reliable
-    if (!match) match = dbOrders.find(order => {
-      if (!order.orderTotal) return false;
-      const orderTotal = Number(order.orderTotal);
-      const orderDate = new Date(order.orderDate);
-      if (Math.abs(orderTotal - refundAmount) > 0.01) return false;
-      if (txnDate < orderDate) return false;
-      const daysDiff = (txnDate.getTime() - orderDate.getTime()) / (1000 * 60 * 60 * 24);
-      return daysDiff <= 180;
-    });
-
-    // Strategy 2: partial refund — amount < order total, within 30 days of order
-    if (!match && refundAmount >= 1.00) {
+    // Standard path: exact amount + date proximity (mirrors Stripe)
+    if (!match) {
       match = dbOrders.find(order => {
         if (!order.orderTotal) return false;
         const orderTotal = Number(order.orderTotal);
         const orderDate = new Date(order.orderDate);
-        if (refundAmount >= orderTotal) return false; // already tried exact match
+        if (Math.abs(orderTotal - refundAmount) > 0.01) return false;
         if (txnDate < orderDate) return false;
         const daysDiff = (txnDate.getTime() - orderDate.getTime()) / (1000 * 60 * 60 * 24);
-        return daysDiff <= 30; // tighter window for partial refunds
+        return daysDiff <= 60;
       });
+      if (match) {
+        console.log(`  ${txnId} (${eventCode}): $${refundAmount} → matched via amount+date → order ${match.orderNumber}`);
+      }
     }
 
-    console.log(`  Refund ${txnId}: $${refundAmount} on ${txnDate.toISOString().split('T')[0]} → ${match ? `matched order ${match.orderNumber}` : 'no match'}`);
-
-
     if (!match) {
+      console.log(`  ${txnId} (${eventCode}): $${refundAmount} on ${txnDate.toISOString().split('T')[0]} → no match (invoice="${invoiceRef || 'none'}")`);
       result.unmatched++;
       result.unmatchedTransactions.push({
         transactionId: txnId,
         amount: refundAmount,
         date: txnDate.toISOString().split('T')[0],
-        type: 'refund',
+        eventCode,
       });
       continue;
     }
@@ -325,56 +344,88 @@ export async function syncPayPalTransactions(sinceDays = 90, forceResync = false
         paymentMethod: 'paypal',
         externalTransactionId: txnId,
         reason: 'PayPal refund',
-        notes: `PayPal refund ${txnId} processed on ${txnDate.toISOString().split('T')[0]}`,
+        notes: `PayPal ${eventCode} refund ${txnId} on ${txnDate.toISOString().split('T')[0]}`,
       });
 
-      result.refundsMatched++;
+      result.matched++;
       result.matches.push({
         transactionId: txnId,
         orderId: match.id,
         orderNumber: match.orderNumber || match.id,
         amount: refundAmount,
-        type: 'refund',
       });
     } catch (err: any) {
       result.errors.push(`Failed to save refund ${txnId}: ${err.message}`);
     }
   }
 
-  // Process fees from completed sales
-  const sales = allTransactions.filter(t => {
-    const code = t.transaction_info.transaction_event_code;
-    return classifyTransaction(code) === 'sale' && t.transaction_info.transaction_status === 'S';
-  });
+  return result;
+}
 
-  for (const txn of sales) {
+// ─── Fees ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Sync PayPal transaction fees (from completed sales) to order_adjustments.
+ * Mirrors the Stripe fee sync pattern exactly.
+ */
+export async function syncPayPalFees(sinceDays = 90): Promise<FeeSyncResult> {
+  const result: FeeSyncResult = {
+    transactionsChecked: 0,
+    matched: 0,
+    alreadySynced: 0,
+    unmatched: 0,
+    errors: [],
+  };
+
+  const allTransactions = await fetchAllPayPalTransactions(sinceDays);
+
+  const saleTxns = allTransactions.filter(t =>
+    SALE_EVENT_CODES.has(t.transaction_info.transaction_event_code) &&
+    t.transaction_info.transaction_status === 'S' &&
+    t.transaction_info.fee_amount
+  );
+  result.transactionsChecked = saleTxns.length;
+
+  if (saleTxns.length === 0) return result;
+
+  const sinceDate = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000);
+  const dbOrders = await db.select().from(orders).where(gte(orders.orderDate, sinceDate));
+
+  const existingFees = await db
+    .select({ externalTransactionId: orderAdjustments.externalTransactionId })
+    .from(orderAdjustments)
+    .where(and(
+      eq(orderAdjustments.paymentMethod, 'paypal'),
+      eq(orderAdjustments.type, 'merchant_fee'),
+    ));
+
+  const syncedFeeIds = new Set(
+    existingFees.map(f => f.externalTransactionId).filter(Boolean) as string[]
+  );
+
+  for (const txn of saleTxns) {
     const info = txn.transaction_info;
     const txnId = info.transaction_id;
     const feeId = `${txnId}_fee`;
 
-    if (!info.fee_amount) continue;
-    if (syncedIds.has(feeId)) {
+    if (syncedFeeIds.has(feeId)) {
       result.alreadySynced++;
       continue;
     }
 
-    const saleAmount = parseAmount(info.transaction_amount.value);
-    const feeAmount = parseAmount(info.fee_amount.value);
+    const feeAmount = parseAmount(info.fee_amount!.value);
     if (feeAmount === 0) continue;
 
+    const saleAmount = parseAmount(info.transaction_amount.value);
     const txnDate = new Date(info.transaction_initiation_date);
 
     const match = dbOrders.find(order => {
       if (!order.orderTotal) return false;
       const orderTotal = Number(order.orderTotal);
       const orderDate = new Date(order.orderDate);
-
       if (Math.abs(orderTotal - saleAmount) > 0.01) return false;
-
       const daysDiff = (txnDate.getTime() - orderDate.getTime()) / (1000 * 60 * 60 * 24);
-      if (daysDiff < -7 || daysDiff > 14) return false;
-
-      return true;
+      return daysDiff >= -7 && daysDiff <= 14;
     });
 
     if (!match) {
@@ -393,18 +444,43 @@ export async function syncPayPalTransactions(sinceDays = 90, forceResync = false
         notes: `$${feeAmount.toFixed(2)} PayPal fee on $${saleAmount.toFixed(2)} sale (txn ${txnId})`,
       });
 
-      result.feesMatched++;
-      result.matches.push({
-        transactionId: feeId,
-        orderId: match.id,
-        orderNumber: match.orderNumber || match.id,
-        amount: feeAmount,
-        type: 'fee',
-      });
+      result.matched++;
     } catch (err: any) {
       result.errors.push(`Failed to save fee for txn ${txnId}: ${err.message}`);
     }
   }
 
   return result;
+}
+
+// ─── Combined wrapper (backwards compatible) ──────────────────────────────────
+
+/**
+ * Run both PayPal refund sync and fee sync.
+ * This is the function called from the API route.
+ */
+export async function syncPayPalTransactions(sinceDays = 90, forceResync = false): Promise<PayPalSyncResult> {
+  const [refundResult, feeResult] = await Promise.all([
+    syncPayPalRefunds(sinceDays, forceResync),
+    syncPayPalFees(sinceDays),
+  ]);
+
+  return {
+    transactionsChecked: refundResult.refundsChecked + feeResult.transactionsChecked,
+    refundsMatched: refundResult.matched,
+    feesMatched: feeResult.matched,
+    alreadySynced: refundResult.alreadySynced + feeResult.alreadySynced,
+    unmatched: refundResult.unmatched + feeResult.unmatched,
+    errors: [...refundResult.errors, ...feeResult.errors],
+    matches: [
+      ...refundResult.matches.map(m => ({ ...m, type: 'refund' as const })),
+    ],
+    unmatchedTransactions: refundResult.unmatchedTransactions.map(t => ({
+      transactionId: t.transactionId,
+      amount: t.amount,
+      date: t.date,
+      type: 'refund',
+      eventCode: t.eventCode,
+    })),
+  };
 }
