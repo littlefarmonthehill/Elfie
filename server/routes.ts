@@ -6831,16 +6831,33 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
         const err = await epRes.json().catch(() => ({}));
         const errMsg: string = err.error?.message || '';
 
-        // EasyPost reports invalid IDs in the message — extract and retry once without them
-        // Example: "1 of the specified shipments were not found: shp_abc123, shp_def456"
-        const notFoundMatch = errMsg.match(/not found:\s*(shp_[a-f0-9]+(?:[,\s]+shp_[a-f0-9]+)*)/i);
-        if (notFoundMatch && attempt === 0) {
-          const badIds = notFoundMatch[1].split(/[,\s]+/).map((s: string) => s.trim()).filter(Boolean);
-          console.warn(`[EOD] EasyPost reported ${badIds.length} invalid shipment ID(s), retrying without: ${badIds.join(', ')}`);
+        // EasyPost reports unusable IDs in the error message — extract and retry once without them.
+        // Handles two known patterns:
+        //   "N of the specified shipments were not found: shp_abc, shp_def"
+        //   "N of the specified shipments have already been manifested: shp_abc, shp_def"
+        const badIdsMatch = errMsg.match(/(?:not found|already been manifested):\s*(shp_[a-f0-9]+(?:[,\s]+shp_[a-f0-9]+)*)/i);
+        const alreadyManifested = /already been manifested/i.test(errMsg);
+        if (badIdsMatch && attempt === 0) {
+          const badIds = badIdsMatch[1].split(/[,\s]+/).map((s: string) => s.trim()).filter(Boolean);
+          console.warn(`[EOD] EasyPost rejected ${badIds.length} shipment ID(s) (${alreadyManifested ? 'already manifested' : 'not found'}), retrying without them`);
           skippedIds = [...skippedIds, ...badIds];
           activeVendorIds = activeVendorIds.filter(id => !badIds.includes(id));
+
+          // Mark "already manifested" shipments in our DB so they stop appearing as eligible
+          if (alreadyManifested && badIds.length > 0) {
+            const alreadyManifShipments = eligibleShipments.filter(s => s.vendorShipmentId && badIds.includes(s.vendorShipmentId));
+            if (alreadyManifShipments.length > 0) {
+              await db.update(shipments)
+                .set({ status: 'manifested' })
+                .where(inArray(shipments.id, alreadyManifShipments.map(s => s.id)));
+              console.log(`[EOD] Marked ${alreadyManifShipments.length} shipment(s) as 'manifested' in DB`);
+            }
+          }
+
           if (activeVendorIds.length === 0) {
-            return res.status(400).json({ error: 'All shipments were rejected by EasyPost as not found. They may have been voided.' });
+            return res.status(400).json({ error: alreadyManifested
+              ? 'All shipments have already been manifested in EasyPost. Nothing new to add to an EOD form.'
+              : 'All shipments were rejected by EasyPost as not found. They may have been voided.' });
           }
           continue;
         }
