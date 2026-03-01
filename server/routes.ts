@@ -942,6 +942,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Backfill order weights from bl_inventory.my_weight × order_details.quantity
+  // Runs once per deployment; safe to re-run (only touches orders with weight IS NULL)
+  app.post("/api/orders/backfill-weights", isApproved, async (req, res) => {
+    try {
+      // Single SQL: compute grams → oz from inventory weights, update orders where weight is null
+      const result = await db.execute(sql`
+        WITH computed AS (
+          SELECT
+            od.order_id,
+            SUM(CAST(bi.my_weight AS DECIMAL) * od.quantity) AS total_grams
+          FROM order_details od
+          JOIN bl_inventory bi ON bi.id = od.bricklink_inventory_id
+          JOIN orders o ON o.id = od.order_id
+          WHERE o.weight IS NULL
+            AND bi.my_weight IS NOT NULL
+          GROUP BY od.order_id
+          HAVING SUM(CAST(bi.my_weight AS DECIMAL) * od.quantity) > 0
+        )
+        UPDATE orders
+        SET
+          weight = ROUND(computed.total_grams * 0.035274, 2)::text,
+          weight_units = 'oz'
+        FROM computed
+        WHERE orders.id = computed.order_id
+      `);
+      const rowCount = (result as any).rowCount ?? 0;
+      res.json({ updated: rowCount, message: `Weight backfilled for ${rowCount} orders` });
+    } catch (error: any) {
+      console.error("Error backfilling order weights:", error);
+      res.status(500).json({ error: error.message || "Backfill failed" });
+    }
+  });
+
   // Update order address and weight fields (pre-shipment edits)
   app.patch("/api/orders/:id", isApproved, async (req, res) => {
     try {
@@ -6904,10 +6937,24 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
       if (!order) return res.status(404).json({ error: "Order not found" });
 
-      // Calculate weight from inventory: SUM(bl_inventory.my_weight * quantity) for all line items
+      // Calculate weight estimate from line items:
+      // 1st preference: order_details.weight (unit weight captured from BrickLink order items API, grams)
+      // 2nd preference: bl_inventory.my_weight (may be 0 for older lots)
       const weightRows = await db
         .select({
-          totalWeightGrams: sql<string>`COALESCE(SUM(CAST(${blInventory.myWeight} AS DECIMAL) * ${orderDetails.quantity}), 0)`,
+          totalWeightGrams: sql<string>`
+            COALESCE(
+              SUM(
+                CASE
+                  WHEN ${orderDetails.weight} IS NOT NULL AND CAST(${orderDetails.weight} AS DECIMAL) > 0
+                    THEN CAST(${orderDetails.weight} AS DECIMAL) * ${orderDetails.quantity}
+                  WHEN ${blInventory.myWeight} IS NOT NULL AND CAST(${blInventory.myWeight} AS DECIMAL) > 0
+                    THEN CAST(${blInventory.myWeight} AS DECIMAL) * ${orderDetails.quantity}
+                  ELSE 0
+                END
+              ), 0
+            )
+          `,
         })
         .from(orderDetails)
         .leftJoin(blInventory, eq(orderDetails.bricklinkInventoryId, blInventory.id))

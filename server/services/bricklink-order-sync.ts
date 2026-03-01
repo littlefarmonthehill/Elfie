@@ -220,9 +220,10 @@ async function processBrickLinkOrder(
   const cost = orderDetail?.cost || blOrder.cost || {};
   const shipping = orderDetail?.shipping || blOrder.shipping || {};
   
-  // Capture total order weight from BrickLink (grams → oz)
-  const blTotalWeightGrams = orderDetail?.weight ? parseFloat(orderDetail.weight) : null;
-  const blTotalWeightOz = blTotalWeightGrams ? Math.round(blTotalWeightGrams * 0.035274 * 100) / 100 : null;
+  // BrickLink does not expose a top-level order weight field.
+  // We will compute it from order items (item.weight * quantity) after the items loop.
+  // Keep a placeholder so the orderData structure is consistent.
+  const blTotalWeightOz: number | null = null;
 
   // Prepare order data
   const orderData = {
@@ -320,6 +321,9 @@ async function processBrickLinkOrder(
   
   console.log(`📦 Order ${orderId}: Fetched ${blOrderItems.length} items`);
   
+  // Accumulate total order weight in grams from line items (item.weight × quantity)
+  let itemsTotalWeightGrams = 0;
+
   // Process order items
   for (const item of blOrderItems) {
     try {
@@ -337,6 +341,11 @@ async function processBrickLinkOrder(
         )
         .limit(1);
       
+      // Accumulate total order weight (item.weight is grams per unit)
+      if (item.weight && item.quantity) {
+        itemsTotalWeightGrams += parseFloat(item.weight) * item.quantity;
+      }
+
       // Always try to backfill inventory weight/image from order item data (COALESCE = no-op if already set)
       if (item.inventory_id) {
         try {
@@ -389,6 +398,19 @@ async function processBrickLinkOrder(
     } catch (error: any) {
       console.error(`✗ Error processing order item for order ${orderId}:`, error);
       result.errors.push(`Order ${orderId} item error: ${error.message}`);
+    }
+  }
+
+  // After items are processed, write the computed total weight to the order record
+  // if no weight is already saved (avoids overwriting manual edits)
+  if (itemsTotalWeightGrams > 0) {
+    const computedWeightOz = Math.round(itemsTotalWeightGrams * 0.035274 * 100) / 100;
+    const currentOrder = await db.select({ weight: orders.weight }).from(orders).where(eq(orders.id, orderId)).limit(1);
+    if (currentOrder[0] && currentOrder[0].weight == null) {
+      await db.update(orders)
+        .set({ weight: computedWeightOz.toString(), weightUnits: 'oz' })
+        .where(eq(orders.id, orderId));
+      console.log(`⚖️ Order ${orderId}: weight set to ${computedWeightOz} oz (${itemsTotalWeightGrams.toFixed(1)} g from ${blOrderItems.length} line items)`);
     }
   }
 
