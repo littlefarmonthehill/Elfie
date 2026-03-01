@@ -26,6 +26,7 @@ type BinPicklistItem = {
   condition: string | null;
   pulled: boolean;
   inventoryId: number | null;
+  inventoryQty: number | null;
   remarks: string | null;
   comment: string | null;
   imageUrl: string | null;
@@ -387,21 +388,12 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                     />
 
                     <div className="flex-1 min-w-0">
-                      {/* Line 1: part# + color + condition */}
+                      {/* Line 1: part# + part name */}
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-mono text-xs text-purple-300 shrink-0">{rep.partNumber || rep.sku}</span>
-                        {rep.colorName && (
-                          <span className="text-[11px] text-yellow-400">{rep.colorName}</span>
-                        )}
-                        {rep.condition && (
-                          <span className={`text-[11px] ${rep.condition === 'N' ? 'text-green-400' : 'text-orange-400'}`}>
-                            {rep.condition === 'N' ? 'New' : rep.condition === 'U' ? 'Used' : rep.condition}
-                          </span>
-                        )}
-                      </div>
-                      {/* Line 2: description (wrapping) */}
-                      <div className={`text-xs font-medium leading-snug ${allPulled ? 'text-gray-400 line-through' : 'text-white'}`}>
-                        {rep.itemName}
+                        <span className={`text-xs font-medium leading-snug ${allPulled ? 'text-gray-400 line-through' : 'text-white'}`}>
+                          {rep.itemName}
+                        </span>
                       </div>
                     </div>
 
@@ -436,11 +428,19 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                           <div className="flex-1 min-w-0 text-[10px]">
                             <div className="flex items-center gap-2 flex-wrap text-gray-400">
                               <span className="tabular-nums">Qty {item.quantity}</span>
-                              <span className="text-gray-600">·</span>
-                              <span className="font-mono">{item.marketplace === 'BrickOwl' ? 'BO' : 'BL'}{(item.orderNumber || '').replace(/^(BL|BO)/i, '')}</span>
-                              {item.inventoryId && (
-                                <span className="font-mono text-blue-400/70">Lot {item.inventoryId}</span>
+                              {item.colorName && (
+                                <span className="text-yellow-400">{item.colorName}</span>
                               )}
+                              {item.condition && (
+                                <span className={item.condition === 'N' ? 'text-green-400' : 'text-orange-400'}>
+                                  {item.condition === 'N' ? 'New' : item.condition === 'U' ? 'Used' : item.condition}
+                                </span>
+                              )}
+                              {item.inventoryQty != null && (
+                                <span className="text-gray-500">Stock: {item.inventoryQty}</span>
+                              )}
+                              <span className="text-gray-600">·</span>
+                              <span className="font-mono">{item.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}{(item.orderNumber || '').replace(/^(BL\.|BO\.)/i, '')}</span>
                             </div>
                             {(item.remarks || item.comment) && (
                               <div className="mt-0.5 space-y-0.5">
@@ -526,26 +526,27 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                                       data-testid={`picklist-item-${item.picklistItemId}`}
                                     >
                                       <div className="flex-1 min-w-0">
-                                        {/* Line 1: part# + color + condition */}
+                                        {/* Line 1: part# + part name */}
                                         <div className="flex items-center gap-2 flex-wrap">
                                           <span className="font-mono text-[10px] text-purple-400 shrink-0">{item.partNumber || item.sku}</span>
+                                          <span className="text-xs text-white leading-snug">{item.itemName}</span>
+                                        </div>
+                                        {/* Line 2: qty · color · condition · stock · order */}
+                                        <div className="flex items-center gap-2 text-[10px] text-gray-500 mt-0.5 flex-wrap">
+                                          <span className="tabular-nums">Qty {item.quantity}</span>
                                           {item.colorName && (
-                                            <span className="text-[10px] text-yellow-500">{item.colorName}</span>
+                                            <span className="text-yellow-500">{item.colorName}</span>
                                           )}
                                           {item.condition && (
-                                            <span className={`text-[10px] ${item.condition === 'N' ? 'text-green-500' : 'text-orange-400'}`}>
+                                            <span className={item.condition === 'N' ? 'text-green-500' : 'text-orange-400'}>
                                               {item.condition === 'N' ? 'New' : item.condition === 'U' ? 'Used' : item.condition}
                                             </span>
                                           )}
-                                        </div>
-                                        {/* Line 2: description (wrapping) */}
-                                        <div className="text-xs text-white leading-snug">{item.itemName}</div>
-                                        {/* Line 3: qty · order · lot */}
-                                        <div className="flex items-center gap-2 text-[10px] text-gray-500 mt-0.5 flex-wrap">
-                                          <span className="tabular-nums">Qty {item.quantity} · {item.marketplace === 'BrickOwl' ? 'BO' : 'BL'}{(item.orderNumber || '').replace(/^(BL|BO)/i, '')}</span>
-                                          {item.inventoryId && (
-                                            <span className="font-mono text-blue-400/70">Lot {item.inventoryId}</span>
+                                          {item.inventoryQty != null && (
+                                            <span>Stock: {item.inventoryQty}</span>
                                           )}
+                                          <span className="text-gray-600">·</span>
+                                          <span className="font-mono">{item.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}{(item.orderNumber || '').replace(/^(BL\.|BO\.)/i, '')}</span>
                                         </div>
                                         {(item.remarks || item.comment) && (
                                           <div className="mt-0.5 space-y-0.5">

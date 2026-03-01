@@ -209,10 +209,9 @@ function FulfillmentChecklist({ pulledItems, selectedOrderIds, fulfilledItems, o
 
 export default function FulfillmentTool() {
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<'picklist' | 'fulfillment' | 'shipping'>('picklist');
+  const [activeTab, setActiveTab] = useState<'picklist' | 'shipping'>('picklist');
   const actionRowRef = useRef<HTMLDivElement>(null);
   const shipBtnRef = useRef<HTMLButtonElement>(null);
-  const [fulfilledItems, setFulfilledItems] = useState<Set<string>>(new Set());
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
   // Batch shipping state
   const [readyToShip, setReadyToShip] = useState<Map<string, ShippingReadyState>>(new Map());
@@ -276,15 +275,6 @@ export default function FulfillmentTool() {
   });
   const allPicklistItems: PicklistBinItem[] = picklistBins.flatMap(b => b.items);
   const pulledItems: PicklistBinItem[] = allPicklistItems.filter(item => item.pulled);
-
-  const toggleFulfilled = (itemId: string) =>
-    setFulfilledItems(prev => toggleSetItem(prev, itemId));
-
-  // Is every pulled item for a given order marked fulfilled?
-  const isOrderFulfillComplete = (orderId: string) => {
-    const orderPulled = pulledItems.filter(i => i.orderId === orderId);
-    return orderPulled.length > 0 && orderPulled.every(i => fulfilledItems.has(i.picklistItemId));
-  };
 
   const fulfillMutation = useMutation({
     mutationFn: async ({ itemId, fulfilled }: { itemId: string; fulfilled: boolean }) => {
@@ -645,7 +635,6 @@ export default function FulfillmentTool() {
                 const fullName: string = (order.shipTo as any)?.name || order.customerUsername || '';
                 const lastName = fullName.trim().split(' ').pop() || '';
                 const isPickComplete = !!picklistOrderStatus[order.id];
-                const isFulfillComplete = isOrderFulfillComplete(order.id);
                 return (
                   <div
                     key={order.id}
@@ -667,13 +656,8 @@ export default function FulfillmentTool() {
                         <CheckCircle2 className="w-3 h-3 lg:w-3.5 lg:h-3.5 text-white fill-green-500" />
                       </div>
                     )}
-                    {isFulfillComplete && (
-                      <div className="absolute -top-2 left-4 lg:left-5 w-5 h-5 lg:w-6 lg:h-6 bg-cyan-500 rounded-full flex items-center justify-center shadow-md z-10">
-                        <CheckCircle2 className="w-3 h-3 lg:w-3.5 lg:h-3.5 text-white fill-cyan-500" />
-                      </div>
-                    )}
                     <p className={`text-[9px] lg:text-xs font-mono font-semibold leading-tight ${isSelected ? 'text-purple-300' : 'text-white'}`}>
-                      {order.orderNumber}
+                      {order.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}{(order.orderNumber || '').replace(/^(BL\.|BO\.)/i, '')}
                     </p>
                     {(lastName || order.marketplace) && (
                       <p className="text-[10px] lg:text-sm text-gray-300 truncate mt-0.5">
@@ -694,11 +678,11 @@ export default function FulfillmentTool() {
             </div>
           </div>
 
-        {/* ── Tab switcher: Picklist | Fulfillment | Shipping ── */}
+        {/* ── Tab switcher: Fulfillment | Shipping ── */}
         <div className="flex justify-center gap-1 border-b border-gray-700">
           <button
             onClick={() => { setActiveTab('picklist'); requestAnimationFrame(() => { if (actionRowRef.current) actionRowRef.current.scrollLeft = 0; }); }}
-            className={`flex items-center gap-1.5 px-4 py-2 text-sm font-semibold border-b-2 transition-colors ${
+            className={`flex items-center gap-1.5 px-5 py-2.5 text-base font-semibold border-b-2 transition-colors ${
               activeTab === 'picklist'
                 ? 'border-orange-500 text-orange-400'
                 : selectedOrders.size === 0
@@ -708,23 +692,11 @@ export default function FulfillmentTool() {
             data-testid="tab-picklist"
           >
             <ClipboardList className="w-4 h-4" />
-            Picklist
-          </button>
-          <button
-            onClick={() => { setActiveTab('fulfillment'); requestAnimationFrame(() => { if (actionRowRef.current) actionRowRef.current.scrollLeft = 0; }); }}
-            className={`flex items-center gap-1.5 px-4 py-2 text-sm font-semibold border-b-2 transition-colors ${
-              activeTab === 'fulfillment'
-                ? 'border-cyan-500 text-cyan-400'
-                : 'border-transparent text-gray-400 hover:text-gray-200'
-            }`}
-            data-testid="tab-fulfillment"
-          >
-            <PackageCheck className="w-4 h-4" />
-            Fulfill
+            Fulfillment
           </button>
           <button
             onClick={() => { setActiveTab('shipping'); requestAnimationFrame(() => { if (shipBtnRef.current && actionRowRef.current) { const btn = shipBtnRef.current; const container = actionRowRef.current; container.scrollLeft = btn.offsetLeft - 8; } }); }}
-            className={`flex items-center gap-1.5 px-4 py-2 text-sm font-semibold border-b-2 transition-colors ${
+            className={`flex items-center gap-1.5 px-5 py-2.5 text-base font-semibold border-b-2 transition-colors ${
               activeTab === 'shipping'
                 ? 'border-purple-500 text-purple-400'
                 : 'border-transparent text-gray-400 hover:text-gray-200'
@@ -732,7 +704,7 @@ export default function FulfillmentTool() {
             data-testid="tab-shipping"
           >
             <Truck className="w-4 h-4" />
-            Ship
+            Shipping
           </button>
         </div>
 
@@ -820,13 +792,6 @@ export default function FulfillmentTool() {
         {/* ── Tab content ── */}
         {activeTab === 'picklist' ? (
           <PicklistTool filterOrderIds={selectedOrders} />
-        ) : activeTab === 'fulfillment' ? (
-          <FulfillmentChecklist
-            pulledItems={pulledItems}
-            selectedOrderIds={selectedOrders.size > 0 ? selectedOrders : undefined}
-            fulfilledItems={fulfilledItems}
-            onToggle={toggleFulfilled}
-          />
         ) : (
           <div className="space-y-4">
 
