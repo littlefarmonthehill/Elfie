@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { AppSettings, User } from "@shared/schema";
 import { APP_VERSION, APP_NAME } from "@shared/version";
-import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Zap, Info, Layers, Play, Loader2, ChevronDown, ChevronRight } from "lucide-react";
+import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Zap, Info, Layers, Play, Loader2, ChevronDown, ChevronRight, BarChart2 } from "lucide-react";
 import { PomCategoryTiers } from "@/components/PomCategoryTiers";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,150 @@ import { useAuth } from "@/hooks/useAuth";
 interface SettingsModalProps {
   open: boolean;
   onClose: () => void;
+}
+
+// ── API Call Schedule Chart ────────────────────────────────────────────────
+function ApiCallSchedule({ buckets, callsLast24h, ceiling, timezone = 'America/Chicago' }: {
+  buckets: { hourStart: string; rollsOffAt: string; calls: number }[];
+  callsLast24h: number;
+  ceiling: number;
+  timezone?: string;
+}) {
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+  const availableNow = Math.max(0, ceiling - callsLast24h);
+  const pct = Math.min(callsLast24h / ceiling, 1);
+  const maxCalls = Math.max(...buckets.map(b => b.calls), 1);
+
+  const rolloffEvents = [...buckets]
+    .filter(b => b.calls > 0)
+    .sort((a, b) => new Date(a.rollsOffAt).getTime() - new Date(b.rollsOffAt).getTime());
+
+  let cumFreed = 0;
+  const schedule = rolloffEvents.map((b, idx) => {
+    cumFreed += b.calls;
+    const availableAfter = Math.min(ceiling, availableNow + cumFreed);
+    const prevAvail = idx === 0 ? availableNow : Math.min(ceiling, availableNow + (cumFreed - b.calls));
+    return { ...b, freed: b.calls, availableAfter, isFirstFull: availableAfter >= ceiling && prevAvail < ceiling };
+  });
+  const fullRestoreRow = schedule.find(s => s.isFirstFull);
+
+  const fmtTime = (iso: string) => {
+    const d = new Date(iso);
+    const opts: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit', timeZone: timezone };
+    const time = d.toLocaleTimeString([], opts);
+    const nowStr = new Date().toLocaleDateString('en-US', { timeZone: timezone });
+    const tomorrowStr = new Date(Date.now() + 86400000).toLocaleDateString('en-US', { timeZone: timezone });
+    const dStr = d.toLocaleDateString('en-US', { timeZone: timezone });
+    if (dStr === nowStr) return time;
+    if (dStr === tomorrowStr) return `${time} tomorrow`;
+    return `${time} ${d.toLocaleDateString([], { month: 'short', day: 'numeric', timeZone: timezone })}`;
+  };
+  const fmtAxisTime = (iso: string) =>
+    new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: timezone });
+
+  const progressColor = pct >= 0.9 ? 'bg-red-500' : pct >= 0.6 ? 'bg-orange-500' : 'bg-blue-500';
+  const barColor = (calls: number) => {
+    if (calls === 0) return 'bg-gray-700/50';
+    if (calls < ceiling * 0.1) return 'bg-blue-500/70';
+    if (calls < ceiling * 0.3) return 'bg-orange-500/70';
+    return 'bg-red-500/70';
+  };
+  const availColor = (avail: number) => {
+    const r = avail / ceiling;
+    if (r >= 0.9) return 'text-emerald-400';
+    if (r >= 0.5) return 'text-blue-400';
+    if (r >= 0.25) return 'text-orange-400';
+    return 'text-gray-400';
+  };
+  const hovered = hoveredIdx !== null ? buckets[hoveredIdx] : null;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-xs font-semibold text-gray-200">API Quota — Rolling 24h</div>
+          <div className="text-[11px] mt-0.5">
+            <span className={pct >= 0.9 ? 'text-red-400' : pct >= 0.6 ? 'text-orange-400' : 'text-emerald-400'}>
+              {availableNow.toLocaleString()} free now
+            </span>
+            <span className="text-gray-600"> · {callsLast24h.toLocaleString()}/{ceiling.toLocaleString()} used</span>
+          </div>
+        </div>
+        {fullRestoreRow ? (
+          <div className="text-right flex-shrink-0">
+            <div className="text-[9px] text-gray-500 uppercase tracking-wide">Full quota at</div>
+            <div className="text-[11px] font-semibold text-emerald-400 leading-tight">{fmtTime(fullRestoreRow.rollsOffAt)}</div>
+          </div>
+        ) : availableNow >= ceiling ? (
+          <span className="text-[11px] text-emerald-400 font-semibold flex-shrink-0">Full quota</span>
+        ) : null}
+      </div>
+      <div className="h-1.5 w-full rounded-full bg-gray-700">
+        <div className={`h-full rounded-full transition-all ${progressColor}`} style={{ width: `${pct * 100}%` }} />
+      </div>
+      <div>
+        <div className="text-[9px] text-gray-600 uppercase tracking-wide mb-1">Call History (last 24h)</div>
+        <div className="flex items-end gap-px h-10" onMouseLeave={() => setHoveredIdx(null)}>
+          {buckets.map((b, i) => {
+            const height = b.calls === 0 ? 2 : Math.max(3, Math.round((b.calls / maxCalls) * 40));
+            return (
+              <div key={b.hourStart} className="flex-1 flex flex-col justify-end cursor-default" onMouseEnter={() => setHoveredIdx(i)}>
+                <div className={`w-full rounded-sm ${barColor(b.calls)} ${hoveredIdx === i ? 'opacity-100 ring-1 ring-white/20' : 'opacity-75'}`} style={{ height: `${height}px` }} />
+              </div>
+            );
+          })}
+        </div>
+        <div className="flex justify-between text-[9px] text-gray-600 font-mono mt-0.5">
+          {[0, 6, 12, 18, 23].map(i => (
+            <span key={i}>{buckets[i] ? fmtAxisTime(buckets[i].hourStart) : ''}</span>
+          ))}
+        </div>
+        {hovered && hovered.calls > 0 && (
+          <div className="text-[10px] text-gray-400 mt-1 font-mono leading-tight">
+            {fmtAxisTime(hovered.hourStart)}: <span className="text-gray-200">{hovered.calls.toLocaleString()} calls</span>
+            {' '}· frees at <span className="text-gray-200">{fmtTime(hovered.rollsOffAt)}</span>
+          </div>
+        )}
+        {hovered && hovered.calls === 0 && (
+          <div className="text-[10px] text-gray-600 mt-1">No calls this hour</div>
+        )}
+      </div>
+      {schedule.length > 0 && (
+        <div>
+          <div className="text-[9px] text-gray-500 uppercase tracking-wide mb-1.5">Capacity Recovery Schedule</div>
+          <div className="space-y-px pr-0.5">
+            <div className="relative rounded px-2 py-1 bg-gray-800/60">
+              <div className="relative flex items-center justify-between gap-2">
+                <span className="text-[11px] text-gray-500">Now</span>
+                <span className={`text-[11px] font-mono font-semibold ${availColor(availableNow)}`}>{availableNow.toLocaleString()} free</span>
+              </div>
+            </div>
+            {schedule.map((s) => {
+              const availRatio = s.availableAfter / ceiling;
+              return (
+                <div key={s.hourStart} className={`relative rounded overflow-hidden px-2 py-1 ${s.isFirstFull ? 'ring-1 ring-emerald-500/50' : ''}`} style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}>
+                  <div className="absolute left-0 top-0 bottom-0 rounded-sm pointer-events-none" style={{ width: `${Math.min(availRatio * 100, 100)}%`, backgroundColor: availRatio >= 0.9 ? 'rgba(16,185,129,0.12)' : availRatio >= 0.5 ? 'rgba(59,130,246,0.12)' : 'rgba(249,115,22,0.10)' }} />
+                  <div className="relative flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="text-[11px] text-gray-300">{fmtTime(s.rollsOffAt)}</span>
+                      {s.isFirstFull && <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-wide">Full</span>}
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <span className="text-[10px] text-gray-600 font-mono">+{s.freed.toLocaleString()}</span>
+                      <span className={`text-[11px] font-mono font-semibold w-16 text-right ${availColor(s.availableAfter)}`}>{s.availableAfter.toLocaleString()} free</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      {schedule.length === 0 && availableNow >= ceiling && (
+        <div className="text-[11px] text-emerald-400 text-center py-1">Full quota available — ready to run anytime.</div>
+      )}
+    </div>
+  );
 }
 
 // User Management Section Component (Admin Only)
@@ -461,6 +605,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
     callsLast24h: number;
     warning?: string;
     blocked?: boolean;
+    hourlyBuckets?: { hourStart: string; rollsOffAt: string; calls: number }[];
   }>({
     queryKey: ['/api/bricklink/rate-limit'],
     refetchInterval: 30000,
@@ -1694,17 +1839,30 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                     <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
                       <h3 className="text-sm font-medium text-gray-300">Automation & Scheduling</h3>
                       {rateLimit && (
-                        <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-xs font-medium ${
-                          rateLimit.blocked
-                            ? 'bg-red-500/10 border-red-500/30 text-red-400'
-                            : rateLimit.warning
-                            ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400'
-                            : 'bg-blue-500/10 border-blue-500/30 text-blue-300'
-                        }`}>
-                          <span>BrickLink API:</span>
-                          <span className="font-mono font-semibold">{rateLimit.callsLast24h.toLocaleString()}</span>
-                          <span className="text-gray-400">/ 5,000</span>
-                        </div>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-xs font-medium transition-colors hover:opacity-80 ${
+                              rateLimit.blocked
+                                ? 'bg-red-500/10 border-red-500/30 text-red-400'
+                                : rateLimit.warning
+                                ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400'
+                                : 'bg-blue-500/10 border-blue-500/30 text-blue-300'
+                            }`}>
+                              <BarChart2 className="w-3 h-3" />
+                              <span>BrickLink API:</span>
+                              <span className="font-mono font-semibold">{rateLimit.callsLast24h.toLocaleString()}</span>
+                              <span className="text-gray-400">/ 5,000</span>
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent side="bottom" align="end" className="w-96 p-3 max-h-[80vh] overflow-y-auto bg-gray-900 border-gray-700">
+                            <ApiCallSchedule
+                              buckets={rateLimit.hourlyBuckets ?? []}
+                              callsLast24h={rateLimit.callsLast24h}
+                              ceiling={5000}
+                              timezone={timezone}
+                            />
+                          </PopoverContent>
+                        </Popover>
                       )}
                     </div>
                     <p className="text-xs text-gray-400 mb-4">Configure automated syncing and updates</p>
