@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { AppSettings, User } from "@shared/schema";
 import { APP_VERSION, APP_NAME } from "@shared/version";
-import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Zap, Info, Layers, Play, Loader2 } from "lucide-react";
+import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Zap, Info, Layers, Play, Loader2, ChevronDown, ChevronRight } from "lucide-react";
 import { PomCategoryTiers } from "@/components/PomCategoryTiers";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -390,6 +390,8 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   const [pomScarcityBonus3, setPomScarcityBonus3] = useState(3);
   const [pomTooHighThreshold, setPomTooHighThreshold] = useState(20);
   const [pomTooLowThreshold, setPomTooLowThreshold] = useState(20);
+  const [pomPricingOpen, setPomPricingOpen] = useState(true);
+  const [pomScoringOpen, setPomScoringOpen] = useState(true);
   const [pomBatchSize, setPomBatchSize] = useState(1500);
   const [pomApiCallLimit, setPomApiCallLimit] = useState(4500);
   const [pomCostFloorPct, setPomCostFloorPct] = useState(0);
@@ -1893,6 +1895,19 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
             {activeSection === 'priceomatic' && (
               <div className="space-y-4 min-h-[400px]">
 
+                {/* Pricing collapsible */}
+                <div>
+                  <button
+                    onClick={() => setPomPricingOpen(!pomPricingOpen)}
+                    className="w-full flex items-center justify-between gap-2 py-2 mb-3 border-b border-gray-600/60 hover:border-gray-500/60 transition-colors group"
+                    data-testid="button-pom-pricing-toggle"
+                  >
+                    <span className="text-sm font-semibold text-gray-200 uppercase tracking-wider">Pricing</span>
+                    {pomPricingOpen ? <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" /> : <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" />}
+                  </button>
+                  {pomPricingOpen && (
+                    <div className="space-y-4">
+
                 {/* Base Premium */}
                 <div className="rounded-md border border-gray-700/60 overflow-hidden">
                   <div className="bg-gray-800/50 px-4 py-2.5 flex items-center gap-1.5 border-b border-gray-700/40">
@@ -2279,23 +2294,29 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                   </div>
                 </div>
 
-                {/* Category Tier Assignments */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Layers className="h-4 w-4 text-gray-400" />
-                    <h3 className="text-sm font-medium text-gray-300">Category Tier Assignments</h3>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
-                          <Info className="w-3.5 h-3.5" />
-                        </button>
-                      </PopoverTrigger>
-                      <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
-                        Assign categories to refresh tiers. T1 = daily, T2 = 3 days, T3 = weekly, T4 = monthly. Each row shows a freshness indicator and price guide coverage %.
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                  <PomCategoryTiers />
+                    </div>
+                  )}
+                </div>
+
+                {/* Scoring collapsible */}
+                <div>
+                  <button
+                    onClick={() => setPomScoringOpen(!pomScoringOpen)}
+                    className="w-full flex items-center justify-between gap-2 py-2 mb-3 border-b border-gray-600/60 hover:border-gray-500/60 transition-colors group"
+                    data-testid="button-pom-scoring-toggle"
+                  >
+                    <span className="text-sm font-semibold text-gray-200 uppercase tracking-wider">Scoring</span>
+                    {pomScoringOpen ? <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" /> : <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" />}
+                  </button>
+                  {pomScoringOpen && (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Layers className="h-4 w-4 text-gray-400" />
+                        <p className="text-xs text-gray-400">Assign categories to refresh tiers. T1 = daily, T2 = 3 days, T3 = weekly, T4 = monthly.</p>
+                      </div>
+                      <PomCategoryTiers />
+                    </div>
+                  )}
                 </div>
 
                 {/* Clear Cache */}
