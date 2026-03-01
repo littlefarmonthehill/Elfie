@@ -1235,10 +1235,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // PayPal Transaction Sync
   app.post("/api/paypal/sync", isApproved, async (req, res) => {
     try {
-      const { sinceDays = 90 } = req.body;
+      const { sinceDays = 90, force = false } = req.body;
       const { syncPayPalTransactions } = await import('./services/paypal-sync');
-      const result = await syncPayPalTransactions(sinceDays);
-      console.log(`✅ PayPal sync: ${result.refundsMatched} refunds, ${result.feesMatched} fees matched`);
+      const result = await syncPayPalTransactions(sinceDays, force);
+      console.log(`✅ PayPal sync: ${result.refundsMatched} refunds, ${result.feesMatched} fees matched${force ? ' (forced re-sync)' : ''}`);
       res.json(result);
     } catch (error: any) {
       console.error("Error syncing PayPal data:", error);

@@ -463,7 +463,9 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
                         </Badge>
                       )}
                     </span>
-                    <span className="font-mono text-lego-red flex-shrink-0">${adj.amount.toFixed(2)}</span>
+                    <span className="font-mono text-lego-red flex-shrink-0">
+                      {adj.amount < 0 ? `-$${Math.abs(adj.amount).toFixed(2)}` : `$${adj.amount.toFixed(2)}`}
+                    </span>
                   </div>
                 ))}
               </div>

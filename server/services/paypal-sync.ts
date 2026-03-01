@@ -200,7 +200,7 @@ function classifyTransaction(eventCode: string): 'sale' | 'refund' | 'chargeback
   return 'other';
 }
 
-export async function syncPayPalTransactions(sinceDays = 90): Promise<PayPalSyncResult> {
+export async function syncPayPalTransactions(sinceDays = 90, forceResync = false): Promise<PayPalSyncResult> {
   const result: PayPalSyncResult = {
     transactionsChecked: 0,
     refundsMatched: 0,
@@ -211,6 +211,16 @@ export async function syncPayPalTransactions(sinceDays = 90): Promise<PayPalSync
     matches: [],
     unmatchedTransactions: [],
   };
+
+  // Force resync: delete all existing PayPal refund adjustments so they get re-matched from scratch
+  if (forceResync) {
+    await db.delete(orderAdjustments)
+      .where(and(
+        eq(orderAdjustments.paymentMethod, 'paypal'),
+        eq(orderAdjustments.type, 'refund')
+      ));
+    console.log(`🗑️ PayPal force-resync: cleared existing PayPal refund adjustments`);
+  }
 
   const allTransactions = await fetchAllPayPalTransactions(sinceDays);
   result.transactionsChecked = allTransactions.length;
