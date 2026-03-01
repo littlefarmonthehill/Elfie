@@ -163,6 +163,20 @@ export async function runPlatformOrderSync(
       result.paypal.error = err.message;
       console.error("❌ PayPal sync failed (non-fatal):", err.message);
     }
+
+    // Capture poll: query /v2/payments/captures/{id} for orders with stored capture IDs.
+    // Catches refunds that webhooks may have missed (delivery failures, downtime, etc.).
+    try {
+      console.log("🅿️ Polling PayPal captures for refunds...");
+      const { syncPayPalRefundsByCapture } = await import("./paypal-webhook");
+      const capRes = await syncPayPalRefundsByCapture();
+      if (capRes.refundsFound > 0) {
+        result.paypal.refunds += capRes.refundsFound;
+        console.log(`✅ PayPal capture poll: ${capRes.refundsFound} new refund(s) found`);
+      }
+    } catch (err: any) {
+      console.error("❌ PayPal capture poll failed (non-fatal):", err.message);
+    }
   } else {
     result.paypal.skipped = true;
   }

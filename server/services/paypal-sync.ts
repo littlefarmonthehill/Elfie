@@ -521,14 +521,17 @@ export async function syncPayPalFees(sinceDays = 90): Promise<FeeSyncResult> {
         notes: `$${feeAmount.toFixed(2)} PayPal fee on $${saleAmount.toFixed(2)} sale (txn ${txnId})`,
       });
 
-      // If the T0006 carries a PayPal Order ID (reference type "ODR"), store it on the order
-      // so incoming PAYMENT.CAPTURE.REFUNDED webhooks can find the order exactly.
-      if (info.paypal_reference_id && info.paypal_reference_id_type === 'ODR' && !match.paypalOrderId) {
-        await db
-          .update(orders)
-          .set({ paypalOrderId: info.paypal_reference_id })
-          .where(eq(orders.id, match.id));
-        console.log(`  Stored paypal_order_id ${info.paypal_reference_id} on order ${match.orderNumber}`);
+      // Store PayPal identifiers on the order for exact webhook matching.
+      // T0006 transaction_id IS the PayPal capture_id (same ID, different API surface).
+      // T0006 paypal_reference_id with type "ODR" is the PayPal Order ID.
+      const updates: Record<string, string> = {};
+      if (!match.paypalCaptureId) updates.paypalCaptureId = txnId;
+      if (!match.paypalOrderId && info.paypal_reference_id && info.paypal_reference_id_type === 'ODR') {
+        updates.paypalOrderId = info.paypal_reference_id;
+      }
+      if (Object.keys(updates).length > 0) {
+        await db.update(orders).set(updates).where(eq(orders.id, match.id));
+        console.log(`  Stored on order ${match.orderNumber}:`, updates);
       }
 
       result.matched++;

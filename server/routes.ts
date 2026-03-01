@@ -1232,6 +1232,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // PayPal Capture Poll — queries /v2/payments/captures/{capture_id} for each order
+  // that has a stored capture_id and checks for refunds not yet in order_adjustments.
+  app.post("/api/paypal/poll-captures", isApproved, async (req, res) => {
+    try {
+      const { syncPayPalRefundsByCapture } = await import('./services/paypal-webhook');
+      const result = await syncPayPalRefundsByCapture();
+      res.json(result);
+    } catch (error: any) {
+      console.error("PayPal capture poll error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // PayPal Transaction Sync
   app.post("/api/paypal/sync", isApproved, async (req, res) => {
     try {
