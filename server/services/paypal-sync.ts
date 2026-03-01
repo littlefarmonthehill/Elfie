@@ -191,7 +191,7 @@ function classifyTransaction(eventCode: string): 'sale' | 'refund' | 'chargeback
        'T0011', 'T0012', 'T0013', 'T0014', 'T0015', 'T0016', 'T0017', 'T0018', 'T0019', 'T0020'].includes(eventCode)) {
     return 'sale';
   }
-  if (['T1107', 'T1108', 'T2105'].includes(eventCode)) {
+  if (['T1106', 'T1107', 'T1108', 'T2104', 'T2105'].includes(eventCode)) {
     return 'refund';
   }
   if (['T1201', 'T1202'].includes(eventCode)) {
@@ -240,14 +240,18 @@ export async function syncPayPalTransactions(sinceDays = 90, forceResync = false
     existingAdjustments.map(a => a.externalTransactionId).filter(Boolean) as string[]
   );
 
-  // Process refunds: T1107=full refund, T1108=reversal, T2105=dispute refund
-  // T0113 (tax reversal) and T1106 (partial) are handled separately below
+  // Process refunds: T1106=partial/seller-initiated refund, T1107=full refund, T1108=reversal, T2104/T2105=dispute
   const refunds = allTransactions.filter(t => {
     const code = t.transaction_info.transaction_event_code;
     return classifyTransaction(code) === 'refund' && t.transaction_info.transaction_status === 'S';
   });
 
-  console.log(`🅿️ PayPal: found ${refunds.length} refund transactions to evaluate`);
+  // Log event codes of all potential refunds for diagnostics
+  const refundEventCodes = refunds.map(t => t.transaction_info.transaction_event_code);
+  const skippedCodes = allTransactions
+    .filter(t => !['S'].includes(t.transaction_info.transaction_status) || classifyTransaction(t.transaction_info.transaction_event_code) === 'other')
+    .map(t => `${t.transaction_info.transaction_event_code}(${t.transaction_info.transaction_status})`);
+  console.log(`🅿️ PayPal: found ${refunds.length} refund transactions to evaluate [codes: ${refundEventCodes.join(', ') || 'none'}]`);
 
   for (const txn of refunds) {
     const info = txn.transaction_info;
