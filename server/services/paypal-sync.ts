@@ -364,9 +364,9 @@ export async function syncPayPalRefunds(sinceDays = 90, forceResync = false): Pr
           return daysDiff <= 60;
         });
         if (match) {
-          // Record the FULL order amount as the refund (the T0113 is just the tax slice)
-          refundAmount = origAmount;
-          console.log(`  ${txnId} (${eventCode}): $${parseAmount(info.transaction_amount.value)} (partial/tax) → linked via T0006 ref $${origAmount} → order ${match.orderNumber} — recording full refund $${refundAmount}`);
+          // Keep refundAmount as the actual T0113 amount (the tax leg of the refund).
+          // The item portion is handled through BrickLink's internal system, not PayPal.
+          console.log(`  ${txnId} (${eventCode}): $${refundAmount} (tax leg) → linked via T0006 ref $${origAmount} → order ${match.orderNumber}`);
         }
       }
     }
@@ -392,9 +392,10 @@ export async function syncPayPalRefunds(sinceDays = 90, forceResync = false): Pr
           return orderDiff >= -1 && orderDiff <= 60;
         });
         if (candidate) {
-          refundAmount = saleAmount;
           match = candidate;
-          console.log(`  ${txnId} (T0113): $${parseAmount(info.transaction_amount.value)} (tax leg) → date-proximity T0006 $${saleAmount} (${sale.transaction_info.transaction_id}) → order ${match.orderNumber} — recording full refund $${refundAmount}`);
+          // Keep refundAmount as the actual T0113 amount (tax leg only).
+          // The item amount is handled through BrickLink's internal system; shipping is not refunded.
+          console.log(`  ${txnId} (T0113): $${refundAmount} (tax leg) → date-proximity T0006 $${saleAmount} (${sale.transaction_info.transaction_id}) → order ${match.orderNumber}`);
           break;
         }
       }
