@@ -408,6 +408,17 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
     enabled: open,
   });
 
+  const { data: rateLimit } = useQuery<{
+    allowed: boolean;
+    callsLast24h: number;
+    warning?: string;
+    blocked?: boolean;
+  }>({
+    queryKey: ['/api/bricklink/rate-limit'],
+    refetchInterval: 30000,
+    enabled: open && activeSection === 'automation',
+  });
+
   const { data: backupsData, isLoading: backupsLoading } = useQuery<{
     success: boolean;
     backups: Array<{ filename: string; timestamp: string; size: number }>;
@@ -1622,7 +1633,22 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
               <div className="space-y-4 min-h-[400px]">
                 <div className="space-y-4">
                   <div>
-                    <h3 className="text-sm font-medium text-gray-300 mb-3">Automation & Scheduling</h3>
+                    <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+                      <h3 className="text-sm font-medium text-gray-300">Automation & Scheduling</h3>
+                      {rateLimit && (
+                        <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-xs font-medium ${
+                          rateLimit.blocked
+                            ? 'bg-red-500/10 border-red-500/30 text-red-400'
+                            : rateLimit.warning
+                            ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400'
+                            : 'bg-blue-500/10 border-blue-500/30 text-blue-300'
+                        }`}>
+                          <span>BrickLink API:</span>
+                          <span className="font-mono font-semibold">{rateLimit.callsLast24h.toLocaleString()}</span>
+                          <span className="text-gray-400">/ 5,000</span>
+                        </div>
+                      )}
+                    </div>
                     <p className="text-xs text-gray-400 mb-4">Configure automated syncing and updates</p>
 
                     {/* Inventory Sync */}

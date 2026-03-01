@@ -71,16 +71,6 @@ export default function PlatformSyncTool() {
     queryKey: ['/api/platform-sync/status'],
   });
 
-  // Fetch BrickLink rate limit status
-  const { data: rateLimit } = useQuery<{
-    allowed: boolean;
-    callsLast24h: number;
-    warning?: string;
-    blocked?: boolean;
-  }>({
-    queryKey: ['/api/bricklink/rate-limit'],
-    refetchInterval: 30000, // Refresh every 30 seconds
-  });
 
   // Sync mutation
   const syncMutation = useMutation({
@@ -177,29 +167,6 @@ export default function PlatformSyncTool() {
             </Badge>
           </div>
           
-          {/* Rate Limit Status */}
-          {rateLimit && (
-            <div className={`mb-2 p-2 rounded-lg border ${
-              rateLimit.blocked 
-                ? 'bg-red-500/10 border-red-500/30' 
-                : rateLimit.warning 
-                ? 'bg-yellow-500/10 border-yellow-500/30' 
-                : 'bg-blue-500/10 border-blue-500/30'
-            }`}>
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-[10px] md:text-sm font-semibold text-gray-300">
-                  API Usage: {rateLimit.callsLast24h.toLocaleString()}/5,000 (24h)
-                </span>
-              </div>
-              {rateLimit.warning && (
-                <p className={`text-[10px] md:text-sm ${
-                  rateLimit.blocked ? 'text-red-400' : 'text-yellow-400'
-                }`}>
-                  {rateLimit.warning}
-                </p>
-              )}
-            </div>
-          )}
           
           <div className="grid grid-cols-2 gap-2">
             <div className="bg-gray-900/50 rounded-lg p-2 border border-gray-700">
