@@ -424,12 +424,12 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                       {variants.map((item) => (
                         <div
                           key={item.picklistItemId}
-                          className={`flex items-start gap-3 px-3 py-1.5 ${
+                          className={`flex items-start gap-3 pl-7 pr-3 py-1.5 ${
                             item.pulled ? 'bg-blue-950/20' : 'bg-gray-900/60'
                           }`}
                           data-testid={`part-item-${item.picklistItemId}`}
                         >
-                          {/* Per-item checkbox */}
+                          {/* Per-item checkbox — indented under parent */}
                           <Checkbox
                             data-testid={`checkbox-pull-item-${item.picklistItemId}`}
                             checked={item.pulled}

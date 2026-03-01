@@ -708,7 +708,7 @@ export default function FulfillmentTool() {
 
         {/* ── Tab-specific action bar ── */}
         {!isSplitMode && activeTab === 'picklist' && (
-          <div className="flex items-center gap-1 px-1 py-1.5 border-b border-gray-700/60 overflow-x-auto scrollbar-hide">
+          <div className="flex items-center justify-center gap-1 px-1 py-1.5 border-b border-gray-700/60 overflow-x-auto scrollbar-hide">
             <Button
               size="sm"
               variant="ghost"
@@ -746,7 +746,7 @@ export default function FulfillmentTool() {
           </div>
         )}
         {!isSplitMode && activeTab === 'shipping' && (
-          <div ref={actionRowRef} className="flex items-center gap-1 px-1 py-1.5 border-b border-gray-700/60 overflow-x-auto scrollbar-hide">
+          <div ref={actionRowRef} className="flex items-center justify-center gap-1 px-1 py-1.5 border-b border-gray-700/60 overflow-x-auto scrollbar-hide">
             <Button
               size="sm"
               variant="ghost"
