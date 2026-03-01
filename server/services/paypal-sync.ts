@@ -258,6 +258,17 @@ export async function syncPayPalRefunds(sinceDays = 90, forceResync = false): Pr
   }
   console.log('🅿️ PayPal event code breakdown:', Object.entries(codeCounts).sort().map(([k,v]) => `${k}:${v}`).join(', '));
 
+  // Build a lookup map: original payment transaction_id → transaction record.
+  // Used to resolve T0113 tax-reversal transactions back to the full order amount.
+  // PayPal splits a full-order refund into the tax portion (T0113) + the remainder
+  // (sometimes T1107 or not yet visible). T0113.paypal_reference_id → T0006.transaction_id.
+  const saleByTxnId = new Map<string, PayPalTransaction>();
+  for (const t of allTransactions) {
+    if (SALE_EVENT_CODES.has(t.transaction_info.transaction_event_code)) {
+      saleByTxnId.set(t.transaction_info.transaction_id, t);
+    }
+  }
+
   // Filter to refund-type transactions (any status — PayPal pending refunds still matter)
   const refundTxns = allTransactions.filter(t =>
     REFUND_EVENT_CODES.has(t.transaction_info.transaction_event_code)
@@ -288,16 +299,17 @@ export async function syncPayPalRefunds(sinceDays = 90, forceResync = false): Pr
       continue;
     }
 
-    const refundAmount = parseAmount(info.transaction_amount.value);
+    // refundAmount may be overridden below if we resolve back to the original payment
+    let refundAmount = parseAmount(info.transaction_amount.value);
     const txnDate = new Date(info.transaction_initiation_date);
     const eventCode = info.transaction_event_code;
 
-    // ── Matching (same logic as Stripe, with invoice_id fast-path first) ──
+    // ── Matching ───────────────────────────────────────────────────────────
 
     let match: typeof dbOrders[0] | undefined;
 
-    // Fast path: BrickLink sets invoice_id = order number on the payment;
-    // refund transactions often inherit the same invoice_id.
+    // Strategy 1: invoice_id fast path — BrickLink sets invoice_id = order number
+    // on the payment; refund transactions often inherit the same invoice_id.
     const invoiceRef = info.invoice_id || info.custom_field || '';
     if (invoiceRef) {
       const normInvoice = normalizeOrderRef(invoiceRef);
@@ -310,7 +322,7 @@ export async function syncPayPalRefunds(sinceDays = 90, forceResync = false): Pr
       }
     }
 
-    // Standard path: exact amount + date proximity (mirrors Stripe)
+    // Strategy 2: exact amount + date proximity (mirrors Stripe)
     if (!match) {
       match = dbOrders.find(order => {
         if (!order.orderTotal) return false;
@@ -326,8 +338,34 @@ export async function syncPayPalRefunds(sinceDays = 90, forceResync = false): Pr
       }
     }
 
+    // Strategy 3: follow paypal_reference_id back to the original sale (T0006).
+    // PayPal sends a T0113 for the tax portion of a refund (e.g. $0.61) while the
+    // full order payment was $8.88. The T0113 carries a paypal_reference_id pointing
+    // to the T0006. We look up that T0006, use its FULL amount to find the order,
+    // and then record the refund for the full order total — not just the tax slice.
+    if (!match && info.paypal_reference_id) {
+      const origPayment = saleByTxnId.get(info.paypal_reference_id);
+      if (origPayment) {
+        const origAmount = parseAmount(origPayment.transaction_info.transaction_amount.value);
+        match = dbOrders.find(order => {
+          if (!order.orderTotal) return false;
+          const orderTotal = Number(order.orderTotal);
+          const orderDate = new Date(order.orderDate);
+          if (Math.abs(orderTotal - origAmount) > 0.01) return false;
+          if (txnDate < orderDate) return false;
+          const daysDiff = (txnDate.getTime() - orderDate.getTime()) / (1000 * 60 * 60 * 24);
+          return daysDiff <= 60;
+        });
+        if (match) {
+          // Record the FULL order amount as the refund (the T0113 is just the tax slice)
+          refundAmount = origAmount;
+          console.log(`  ${txnId} (${eventCode}): $${parseAmount(info.transaction_amount.value)} (partial/tax) → linked via T0006 ref $${origAmount} → order ${match.orderNumber} — recording full refund $${refundAmount}`);
+        }
+      }
+    }
+
     if (!match) {
-      console.log(`  ${txnId} (${eventCode}): $${refundAmount} on ${txnDate.toISOString().split('T')[0]} → no match (invoice="${invoiceRef || 'none'}")`);
+      console.log(`  ${txnId} (${eventCode}): $${refundAmount} on ${txnDate.toISOString().split('T')[0]} → no match (invoice="${invoiceRef || 'none'}", ref="${info.paypal_reference_id || 'none'}")`);
       result.unmatched++;
       result.unmatchedTransactions.push({
         transactionId: txnId,
