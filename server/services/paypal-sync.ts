@@ -200,7 +200,9 @@ export async function fetchAllPayPalTransactions(sinceDays: number): Promise<Pay
  * We accept any status (S=Success, P=Pending, V=Reversal, etc.) so partial
  * or pending refunds still get matched.
  */
-const REFUND_EVENT_CODES = new Set(['T0113', 'T1106', 'T1107', 'T1108', 'T2104', 'T2105']);
+// T0113 is a "Partner fee" (platform fee charged by PayPal to BrickLink) — NOT a refund.
+// Actual customer refunds use T1106/T1107/T1108/T2104/T2105.
+const REFUND_EVENT_CODES = new Set(['T1106', 'T1107', 'T1108', 'T2104', 'T2105']);
 
 /**
  * Sale event codes — T0000-T0020 series.
@@ -263,11 +265,14 @@ export async function syncPayPalRefunds(sinceDays = 90, forceResync = false): Pr
   // PayPal splits a full-order refund into the tax portion (T0113) + the remainder
   // (sometimes T1107 or not yet visible). T0113.paypal_reference_id → T0006.transaction_id.
   const saleByTxnId = new Map<string, PayPalTransaction>();
+  const allSales: PayPalTransaction[] = [];
   for (const t of allTransactions) {
     if (SALE_EVENT_CODES.has(t.transaction_info.transaction_event_code)) {
       saleByTxnId.set(t.transaction_info.transaction_id, t);
+      allSales.push(t);
     }
   }
+  console.log(`🅿️ PayPal: ${allSales.length} sale transactions mapped [ids: ${allSales.map(t => `${t.transaction_info.transaction_event_code}:${t.transaction_info.transaction_id}($${t.transaction_info.transaction_amount.value})`).join(', ')}]`);
 
   // Filter to refund-type transactions (any status — PayPal pending refunds still matter)
   const refundTxns = allTransactions.filter(t =>
