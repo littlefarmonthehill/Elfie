@@ -200,9 +200,11 @@ export async function fetchAllPayPalTransactions(sinceDays: number): Promise<Pay
  * We accept any status (S=Success, P=Pending, V=Reversal, etc.) so partial
  * or pending refunds still get matched.
  */
-// T0113 is a "Partner fee" (platform fee charged by PayPal to BrickLink) — NOT a refund.
-// Actual customer refunds use T1106/T1107/T1108/T2104/T2105.
-const REFUND_EVENT_CODES = new Set(['T1106', 'T1107', 'T1108', 'T2104', 'T2105']);
+// T0113 appears in marketplace seller accounts (BrickLink, eBay, etc.) when a refund is
+// issued — PayPal returns the sales-tax portion separately from the main refund amount.
+// Despite PayPal's T-code table labelling T0113 "Partner fee", in practice it signals the
+// tax-reversal leg of a full order refund for marketplace transactions.
+const REFUND_EVENT_CODES = new Set(['T0113', 'T1106', 'T1107', 'T1108', 'T2104', 'T2105']);
 
 /**
  * Sale event codes — T0000-T0020 series.
@@ -365,6 +367,35 @@ export async function syncPayPalRefunds(sinceDays = 90, forceResync = false): Pr
           // Record the FULL order amount as the refund (the T0113 is just the tax slice)
           refundAmount = origAmount;
           console.log(`  ${txnId} (${eventCode}): $${parseAmount(info.transaction_amount.value)} (partial/tax) → linked via T0006 ref $${origAmount} → order ${match.orderNumber} — recording full refund $${refundAmount}`);
+        }
+      }
+    }
+
+    // Strategy 4: T0113 date-proximity fallback.
+    // PayPal's paypal_reference_id on T0113 sometimes points to an internal PayPal payment/order
+    // ID rather than the seller-visible T0006 transaction_id, causing Strategy 3 to miss.
+    // Fallback: find the T0006 sale that occurred within 60 days before this T0113 and whose
+    // amount matches a DB order. For BrickLink orders this is reliable because T0113 appears on
+    // the same day as the refund, which is after the original T0006 sale.
+    if (!match && eventCode === 'T0113' && allSales.length > 0) {
+      for (const sale of allSales) {
+        const saleDate = new Date(sale.transaction_info.transaction_initiation_date);
+        const daysBetween = (txnDate.getTime() - saleDate.getTime()) / (1000 * 60 * 60 * 24);
+        if (daysBetween < -1 || daysBetween > 60) continue; // T0113 must come after the sale
+        const saleAmount = parseAmount(sale.transaction_info.transaction_amount.value);
+        const candidate = dbOrders.find(order => {
+          if (!order.orderTotal) return false;
+          const orderTotal = Number(order.orderTotal);
+          if (Math.abs(orderTotal - saleAmount) > 0.01) return false;
+          const orderDate = new Date(order.orderDate);
+          const orderDiff = (txnDate.getTime() - orderDate.getTime()) / (1000 * 60 * 60 * 24);
+          return orderDiff >= -1 && orderDiff <= 60;
+        });
+        if (candidate) {
+          refundAmount = saleAmount;
+          match = candidate;
+          console.log(`  ${txnId} (T0113): $${parseAmount(info.transaction_amount.value)} (tax leg) → date-proximity T0006 $${saleAmount} (${sale.transaction_info.transaction_id}) → order ${match.orderNumber} — recording full refund $${refundAmount}`);
+          break;
         }
       }
     }
