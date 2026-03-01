@@ -624,6 +624,27 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
     enabled: open && activeSection === 'automation',
   });
 
+  type PlatformStats = { totalLots: number; totalParts: number; lastSyncedAt: string | null };
+  type PlatformSyncData = {
+    source: { name: string; stats: PlatformStats };
+    targets: {
+      name: string;
+      enabled: boolean;
+      stats: PlatformStats;
+      discrepancies: { missingLots: number; missingParts: number; priceDifferences: number; quantityDifferences: number; remarksDifferences: number; descriptionDifferences: number };
+    }[];
+  };
+  const { data: platformSyncData, isLoading: platformSyncLoading } = useQuery<PlatformSyncData>({
+    queryKey: ['/api/platform-sync/status'],
+    refetchInterval: 60000,
+    enabled: open && activeSection === 'automation',
+  });
+  const brickOwlTarget = platformSyncData?.targets?.find(t => t.name === 'BrickOwl');
+  const channelSyncMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/platform-sync/sync', { platform: 'BrickOwl', limit: 10 }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['/api/platform-sync/status'] }); },
+  });
+
   const { data: backupsData, isLoading: backupsLoading } = useQuery<{
     success: boolean;
     backups: Array<{ filename: string; timestamp: string; size: number }>;
@@ -1413,84 +1434,56 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                     </AccordionTrigger>
                     <AccordionContent>
                       <div className="space-y-3 pt-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="bricklink-key" className="text-xs text-gray-400">Consumer Key</Label>
-                      <Input
-                        id="bricklink-key"
-                        placeholder="Enter BrickLink Consumer Key"
-                        className="text-xs"
-                        value={bricklinkConsumerKey}
-                        onChange={(e) => setBricklinkConsumerKey(e.target.value)}
-                        onBlur={() => {
-                          updateSettingsMutation.mutate({
-                            bricklinkConsumerKey: bricklinkConsumerKey || null,
-                            bricklinkConsumerSecret: bricklinkConsumerSecret || null,
-                            bricklinkTokenValue: bricklinkTokenValue || null,
-                            bricklinkTokenSecret: bricklinkTokenSecret || null,
-                          });
-                        }}
-                        data-testid="input-bricklink-key"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="bricklink-secret" className="text-xs text-gray-400">Consumer Secret</Label>
-                      <Input
-                        id="bricklink-secret"
-                        type="password"
-                        placeholder="Enter BrickLink Consumer Secret"
-                        className="text-xs"
-                        value={bricklinkConsumerSecret}
-                        onChange={(e) => setBricklinkConsumerSecret(e.target.value)}
-                        onBlur={() => {
-                          updateSettingsMutation.mutate({
-                            bricklinkConsumerKey: bricklinkConsumerKey || null,
-                            bricklinkConsumerSecret: bricklinkConsumerSecret || null,
-                            bricklinkTokenValue: bricklinkTokenValue || null,
-                            bricklinkTokenSecret: bricklinkTokenSecret || null,
-                          });
-                        }}
-                        data-testid="input-bricklink-secret"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="bricklink-token" className="text-xs text-gray-400">Token Value</Label>
-                      <Input
-                        id="bricklink-token"
-                        placeholder="Enter BrickLink Token Value"
-                        className="text-xs"
-                        value={bricklinkTokenValue}
-                        onChange={(e) => setBricklinkTokenValue(e.target.value)}
-                        onBlur={() => {
-                          updateSettingsMutation.mutate({
-                            bricklinkConsumerKey: bricklinkConsumerKey || null,
-                            bricklinkConsumerSecret: bricklinkConsumerSecret || null,
-                            bricklinkTokenValue: bricklinkTokenValue || null,
-                            bricklinkTokenSecret: bricklinkTokenSecret || null,
-                          });
-                        }}
-                        data-testid="input-bricklink-token"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="bricklink-token-secret" className="text-xs text-gray-400">Token Secret</Label>
-                      <Input
-                        id="bricklink-token-secret"
-                        type="password"
-                        placeholder="Enter BrickLink Token Secret"
-                        className="text-xs"
-                        value={bricklinkTokenSecret}
-                        onChange={(e) => setBricklinkTokenSecret(e.target.value)}
-                        onBlur={() => {
-                          updateSettingsMutation.mutate({
-                            bricklinkConsumerKey: bricklinkConsumerKey || null,
-                            bricklinkConsumerSecret: bricklinkConsumerSecret || null,
-                            bricklinkTokenValue: bricklinkTokenValue || null,
-                            bricklinkTokenSecret: bricklinkTokenSecret || null,
-                          });
-                        }}
-                        data-testid="input-bricklink-token-secret"
-                      />
-                    </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="bricklink-key" className="text-xs text-gray-400">Consumer Key</Label>
+                          <Input
+                            id="bricklink-key"
+                            placeholder="Enter BrickLink Consumer Key"
+                            className="text-xs"
+                            value={bricklinkConsumerKey}
+                            onChange={(e) => setBricklinkConsumerKey(e.target.value)}
+                            onBlur={() => updateSettingsMutation.mutate({ bricklinkConsumerKey: bricklinkConsumerKey || null, bricklinkConsumerSecret: bricklinkConsumerSecret || null, bricklinkTokenValue: bricklinkTokenValue || null, bricklinkTokenSecret: bricklinkTokenSecret || null })}
+                            data-testid="input-bricklink-key"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="bricklink-secret" className="text-xs text-gray-400">Consumer Secret</Label>
+                          <Input
+                            id="bricklink-secret"
+                            type="password"
+                            placeholder="Enter BrickLink Consumer Secret"
+                            className="text-xs"
+                            value={bricklinkConsumerSecret}
+                            onChange={(e) => setBricklinkConsumerSecret(e.target.value)}
+                            onBlur={() => updateSettingsMutation.mutate({ bricklinkConsumerKey: bricklinkConsumerKey || null, bricklinkConsumerSecret: bricklinkConsumerSecret || null, bricklinkTokenValue: bricklinkTokenValue || null, bricklinkTokenSecret: bricklinkTokenSecret || null })}
+                            data-testid="input-bricklink-secret"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="bricklink-token" className="text-xs text-gray-400">Token Value</Label>
+                          <Input
+                            id="bricklink-token"
+                            placeholder="Enter BrickLink Token Value"
+                            className="text-xs"
+                            value={bricklinkTokenValue}
+                            onChange={(e) => setBricklinkTokenValue(e.target.value)}
+                            onBlur={() => updateSettingsMutation.mutate({ bricklinkConsumerKey: bricklinkConsumerKey || null, bricklinkConsumerSecret: bricklinkConsumerSecret || null, bricklinkTokenValue: bricklinkTokenValue || null, bricklinkTokenSecret: bricklinkTokenSecret || null })}
+                            data-testid="input-bricklink-token"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="bricklink-token-secret" className="text-xs text-gray-400">Token Secret</Label>
+                          <Input
+                            id="bricklink-token-secret"
+                            type="password"
+                            placeholder="Enter BrickLink Token Secret"
+                            className="text-xs"
+                            value={bricklinkTokenSecret}
+                            onChange={(e) => setBricklinkTokenSecret(e.target.value)}
+                            onBlur={() => updateSettingsMutation.mutate({ bricklinkConsumerKey: bricklinkConsumerKey || null, bricklinkConsumerSecret: bricklinkConsumerSecret || null, bricklinkTokenValue: bricklinkTokenValue || null, bricklinkTokenSecret: bricklinkTokenSecret || null })}
+                            data-testid="input-bricklink-token-secret"
+                          />
+                        </div>
                       </div>
                     </AccordionContent>
                   </AccordionItem>
@@ -1501,23 +1494,19 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                     </AccordionTrigger>
                     <AccordionContent>
                       <div className="space-y-3 pt-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="brickowl-key" className="text-xs text-gray-400">API Key</Label>
-                      <Input
-                        id="brickowl-key"
-                        type="password"
-                        placeholder="Enter BrickOwl API Key"
-                        className="text-xs"
-                        value={brickowlApiKey}
-                        onChange={(e) => setBrickowlApiKey(e.target.value)}
-                        onBlur={() => {
-                          updateSettingsMutation.mutate({
-                            brickowlApiKey: brickowlApiKey || null,
-                          });
-                        }}
-                        data-testid="input-brickowl-key"
-                      />
-                    </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="brickowl-key" className="text-xs text-gray-400">API Key</Label>
+                          <Input
+                            id="brickowl-key"
+                            type="password"
+                            placeholder="Enter BrickOwl API Key"
+                            className="text-xs"
+                            value={brickowlApiKey}
+                            onChange={(e) => setBrickowlApiKey(e.target.value)}
+                            onBlur={() => updateSettingsMutation.mutate({ brickowlApiKey: brickowlApiKey || null })}
+                            data-testid="input-brickowl-key"
+                          />
+                        </div>
                       </div>
                     </AccordionContent>
                   </AccordionItem>
@@ -1928,6 +1917,32 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                           <p className="text-[10px] md:text-sm text-gray-500">Time in your local timezone</p>
                         </div>
                       )}
+
+                      {/* BrickLink Store Info */}
+                      <div className="mt-3 bg-gray-800/60 border border-purple-500/20 rounded-lg p-3 space-y-2">
+                        <p className="text-xs font-semibold text-purple-300">BrickLink Store</p>
+                        {platformSyncLoading ? (
+                          <div className="flex gap-4">
+                            <span className="inline-block bg-gray-700 h-3 w-20 rounded animate-pulse" />
+                            <span className="inline-block bg-gray-700 h-3 w-20 rounded animate-pulse" />
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-3 gap-2">
+                            <div>
+                              <p className="text-[10px] text-gray-500">Lots</p>
+                              <p className="text-xs font-bold text-white font-mono">{platformSyncData?.source.stats.totalLots?.toLocaleString() ?? '—'}</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-gray-500">Parts</p>
+                              <p className="text-xs font-bold text-white font-mono">{platformSyncData?.source.stats.totalParts?.toLocaleString() ?? '—'}</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-gray-500">Last Synced</p>
+                              <p className="text-[10px] text-gray-400">{platformSyncData?.source.stats.lastSyncedAt ? new Date(platformSyncData.source.stats.lastSyncedAt).toLocaleString() : 'Never'}</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     <Separator className="bg-gray-700" />
@@ -2117,6 +2132,65 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                           <p className="text-[10px] md:text-sm text-gray-500">Run at least 1 hour after Inventory Sync</p>
                         </div>
                       )}
+
+                      {/* BrickOwl Store Info */}
+                      <div className="mt-3 bg-gray-800/60 border border-blue-500/20 rounded-lg p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-semibold text-blue-300">BrickOwl Store</p>
+                          {brickOwlTarget?.enabled && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={channelSyncMutation.isPending}
+                              onClick={() => channelSyncMutation.mutate()}
+                              className="text-xs h-6 px-2 text-blue-400"
+                              data-testid="button-channel-sync-bo"
+                            >
+                              {channelSyncMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3 mr-1" />}
+                              Sync
+                            </Button>
+                          )}
+                        </div>
+                        {platformSyncLoading ? (
+                          <div className="flex gap-4">
+                            <span className="inline-block bg-gray-700 h-3 w-20 rounded animate-pulse" />
+                            <span className="inline-block bg-gray-700 h-3 w-20 rounded animate-pulse" />
+                          </div>
+                        ) : !brickOwlTarget?.enabled ? (
+                          <p className="text-[10px] text-gray-500">Not configured — add BrickOwl API key in Platform Connections</p>
+                        ) : (
+                          <div className="space-y-2">
+                            <div className="grid grid-cols-3 gap-2">
+                              <div>
+                                <p className="text-[10px] text-gray-500">Lots</p>
+                                <p className="text-xs font-bold text-white font-mono">{brickOwlTarget.stats.totalLots?.toLocaleString() ?? '—'}</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] text-gray-500">Parts</p>
+                                <p className="text-xs font-bold text-white font-mono">{brickOwlTarget.stats.totalParts?.toLocaleString() ?? '—'}</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] text-gray-500">Last Synced</p>
+                                <p className="text-[10px] text-gray-400">{brickOwlTarget.stats.lastSyncedAt ? new Date(brickOwlTarget.stats.lastSyncedAt).toLocaleString() : 'Never'}</p>
+                              </div>
+                            </div>
+                            {(brickOwlTarget.discrepancies.missingLots > 0 || brickOwlTarget.discrepancies.priceDifferences > 0 || brickOwlTarget.discrepancies.quantityDifferences > 0) && (
+                              <div className="bg-orange-500/10 border border-orange-500/20 rounded p-2">
+                                <div className="flex items-center gap-1 mb-1">
+                                  <AlertTriangle className="w-3 h-3 text-orange-400" />
+                                  <p className="text-[10px] font-semibold text-orange-400">Discrepancies</p>
+                                </div>
+                                <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-gray-300">
+                                  {brickOwlTarget.discrepancies.missingLots > 0 && <span><span className="text-orange-400 font-bold">{brickOwlTarget.discrepancies.missingLots}</span> missing lots</span>}
+                                  {brickOwlTarget.discrepancies.priceDifferences > 0 && <span><span className="text-orange-400 font-bold">{brickOwlTarget.discrepancies.priceDifferences}</span> price diffs</span>}
+                                  {brickOwlTarget.discrepancies.quantityDifferences > 0 && <span><span className="text-orange-400 font-bold">{brickOwlTarget.discrepancies.quantityDifferences}</span> qty diffs</span>}
+                                  {brickOwlTarget.discrepancies.remarksDifferences > 0 && <span><span className="text-orange-400 font-bold">{brickOwlTarget.discrepancies.remarksDifferences}</span> remarks diffs</span>}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     <Separator className="bg-gray-700" />

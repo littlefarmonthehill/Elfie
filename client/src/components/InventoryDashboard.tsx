@@ -357,17 +357,21 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
         </DrawerContent>
       </Drawer>
 
-      {/* Platform Sync Drawer */}
+      {/* List O Matic Drawer */}
       <Drawer open={activeDrawer === 'platformsync'} onOpenChange={(open) => !open && onDrawerChange(null)}>
         <DrawerContent className="h-[90vh]">
           <DrawerHeader>
             <DrawerTitle className="flex items-center gap-2 text-base md:text-lg">
               <RefreshCw className="w-5 h-5 text-purple-400" />
-              Sync Inventory
+              List O Matic
             </DrawerTitle>
           </DrawerHeader>
-          <div className="overflow-y-auto px-4 pb-4 flex-1">
-            <PlatformSyncTool />
+          <div className="overflow-y-auto px-4 pb-4 flex-1 flex items-center justify-center">
+            <div className="text-center text-gray-500">
+              <RefreshCw className="w-10 h-10 mx-auto mb-3 opacity-30" />
+              <p className="text-sm font-medium">List O Matic</p>
+              <p className="text-xs mt-1">Coming soon</p>
+            </div>
           </div>
         </DrawerContent>
       </Drawer>
