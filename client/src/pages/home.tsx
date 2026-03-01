@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Package, ClipboardList, RefreshCw, ExternalLink, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 import { useAdminScaling } from "@/hooks/useAdminScaling";
 import Header from "@/components/Header";
 import DashboardNav, { DashboardType } from "@/components/DashboardNav";
@@ -20,6 +21,7 @@ import { ElfieCharacter } from "@/components/ElfieCharacter";
 
 export default function Home() {
   useAdminScaling();
+  const { toast } = useToast();
   const [activeDashboard, setActiveDashboard] = useState<DashboardType>('dashboard');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [salesPeriod, setSalesPeriod] = useState<'mtd' | 'ytd' | '1y' | '5y'>('ytd');
@@ -64,6 +66,51 @@ export default function Home() {
     enabled: activeDashboard === 'inventory',
     refetchInterval: 30000, // Refresh every 30 seconds
   });
+
+  // Global sync status watcher — polls continuously so ALL devices see completions
+  const { data: globalSyncStatuses } = useQuery<{
+    inventory: { lastSyncStatus: string; lastSyncTime: string | null; recordsAdded: number; recordsUpdated: number; errorMessage: string | null } | null;
+    priceomatic: { lastSyncStatus: string; lastSyncTime: string | null; recordsAdded: number; recordsUpdated: number; errorMessage: string | null } | null;
+    channel: { lastSyncStatus: string; lastSyncTime: string | null; recordsAdded: number; recordsUpdated: number; errorMessage: string | null } | null;
+    orders: { lastSyncStatus: string; lastSyncTime: string | null; recordsAdded: number; recordsUpdated: number; errorMessage: string | null } | null;
+  }>({
+    queryKey: ['/api/sync/statuses'],
+    refetchInterval: 15000,
+  });
+
+  const prevSyncStatuses = useRef<typeof globalSyncStatuses>(undefined);
+
+  useEffect(() => {
+    const prev = prevSyncStatuses.current;
+    const curr = globalSyncStatuses;
+    if (!prev || !curr) {
+      prevSyncStatuses.current = curr;
+      return;
+    }
+
+    const checks: { key: keyof typeof curr; label: string }[] = [
+      { key: 'inventory', label: 'Inventory Sync' },
+      { key: 'priceomatic', label: 'Price-o-Matic' },
+      { key: 'channel', label: 'Channel Sync' },
+      { key: 'orders', label: 'Orders Sync' },
+    ];
+
+    for (const { key, label } of checks) {
+      const p = prev[key];
+      const c = curr[key];
+      if (!p || !c) continue;
+      if (p.lastSyncStatus === 'in_progress' && c.lastSyncStatus === 'success') {
+        const counts = (c.recordsAdded || c.recordsUpdated)
+          ? ` · ${c.recordsAdded} added, ${c.recordsUpdated} updated`
+          : '';
+        toast({ title: `${label} complete`, description: `Finished successfully${counts}.` });
+      } else if (p.lastSyncStatus === 'in_progress' && (c.lastSyncStatus === 'failed' || c.lastSyncStatus === 'error')) {
+        toast({ title: `${label} failed`, description: c.errorMessage || 'Sync encountered an error.', variant: 'destructive' });
+      }
+    }
+
+    prevSyncStatuses.current = curr;
+  }, [globalSyncStatuses]);
 
   // Calculate total discrepancies across all platforms
   const totalDiscrepancies = syncStatus?.targets?.reduce((total: number, platform: any) => {
