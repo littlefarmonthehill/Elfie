@@ -1,5 +1,6 @@
 import { db } from "../db";
 import { appSettings, syncMetadata } from "@shared/schema";
+import { eq } from "drizzle-orm";
 import { syncBricklinkData } from "./bricklink";
 import { syncLock } from "./sync-lock";
 import { recordSyncIssue, resolveSchedulerIssues } from "./sync-issue-service";
@@ -34,19 +35,29 @@ async function checkAndRunInventorySync() {
     const now = new Date();
     const localTimeStr = now.toLocaleString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false });
     const [hStr, mStr] = localTimeStr.replace(/\u202f/g, '').split(':');
-    const currentTime = `${hStr.padStart(2, '0')}:${mStr.padStart(2, '0')}`;
+    const currentTotalMinutes = parseInt(hStr) * 60 + parseInt(mStr);
     const scheduledTime = settings.inventorySyncTime || '02:00';
+    const [schedH, schedM] = scheduledTime.split(':');
+    const scheduledTotalMinutes = parseInt(schedH) * 60 + parseInt(schedM);
 
-    if (currentTime !== scheduledTime) return;
+    // Too early in the day — not yet reached the scheduled time.
+    if (currentTotalMinutes < scheduledTotalMinutes) return;
+
+    // Already ran successfully within the last 20 hours — skip until tomorrow's window.
+    // NOTE: lastSyncTime is only written when runAutomatedInventorySync() is called,
+    // NOT when blocked. So a blocked sync keeps retrying every minute until the lock clears.
+    const [meta] = await db.select().from(syncMetadata).where(eq(syncMetadata.id, SYNC_ID)).limit(1);
+    const lastRun = meta?.lastSyncTime ? new Date(meta.lastSyncTime).getTime() : 0;
+    if (Date.now() - lastRun < 20 * 60 * 60 * 1000) return;
 
     if (syncLock.isRunning()) {
       const blocker = syncLock.getActive().join(', ');
-      console.log(`⏭️ Inventory sync skipped — already running: ${blocker}`);
+      console.log(`⏭️ Inventory sync skipped — blocked by: ${blocker} — will retry next minute`);
       recordSyncIssue({
         syncType: SYNC_TYPE,
         platform: 'scheduler',
         issueType: 'scheduler_blocked',
-        issueDescription: `Scheduled inventory sync (${scheduledTime}) was blocked by: ${blocker}. The daily window was missed — sync will not run again until tomorrow.`,
+        issueDescription: `Scheduled inventory sync (${scheduledTime}) is blocked by: ${blocker}. Retrying every minute until the lock clears.`,
         severity: 'high',
         metadata: { blockedBy: blocker, scheduledTime, timestamp: new Date().toISOString() },
       });

@@ -1,5 +1,6 @@
 import { db } from "../db";
 import { appSettings, syncMetadata } from "@shared/schema";
+import { eq } from "drizzle-orm";
 import { syncPriceOMagicCache } from "./bricklink";
 import { syncLock } from "./sync-lock";
 import { recordSyncIssue, resolveSchedulerIssues } from "./sync-issue-service";
@@ -26,9 +27,9 @@ export function setPomIsRunning(value: boolean): boolean {
 
 /**
  * Start the standalone Price-o-Matic scheduler.
- * Completely independent from inventory sync — runs at its own scheduled time.
  *
- * Gold-standard pattern: same as channel-sync-scheduler.
+ * Gold-standard pattern: uses "scheduled time has passed + not run in 20h" instead
+ * of exact minute match, so a blocked sync keeps retrying every minute until it runs.
  */
 export async function startPomSyncScheduler() {
   console.log('💰 Price-o-Matic sync scheduler initialized');
@@ -57,9 +58,20 @@ async function checkAndRunPomSync() {
     const now = new Date();
     const localTimeStr = now.toLocaleString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false });
     const [hStr, mStr] = localTimeStr.replace(/\u202f/g, '').split(':');
-    const currentTime = `${hStr.padStart(2, '0')}:${mStr.padStart(2, '0')}`;
+    const currentTotalMinutes = parseInt(hStr) * 60 + parseInt(mStr);
     const scheduledTime = settings.pomSyncTime || '14:00';
-    if (currentTime !== scheduledTime) return;
+    const [schedH, schedM] = scheduledTime.split(':');
+    const scheduledTotalMinutes = parseInt(schedH) * 60 + parseInt(schedM);
+
+    // Too early in the day.
+    if (currentTotalMinutes < scheduledTotalMinutes) return;
+
+    // Already ran within the last 20 hours — skip until tomorrow's window.
+    // When blocked, runScheduledPomSync() is never called so lastSyncTime is not
+    // updated, meaning the scheduler keeps retrying every minute until the lock clears.
+    const [meta] = await db.select().from(syncMetadata).where(eq(syncMetadata.id, 'priceomatic_cache')).limit(1);
+    const lastRun = meta?.lastSyncTime ? new Date(meta.lastSyncTime).getTime() : 0;
+    if (Date.now() - lastRun < 20 * 60 * 60 * 1000) return;
 
     // If POM itself is already running, silently skip (duplicate tick guard).
     if (getPomIsRunning()) {
@@ -67,16 +79,15 @@ async function checkAndRunPomSync() {
       return;
     }
 
-    // If a different sync is holding the lock, this is a reportable issue — we'll
-    // miss the daily window.
+    // If a different sync is holding the lock, record the issue and retry next minute.
     if (syncLock.isRunning()) {
       const blocker = syncLock.getActive().join(', ');
-      console.log(`⏭️ POM sync blocked by running sync: ${blocker}`);
+      console.log(`⏭️ POM sync blocked by: ${blocker} — will retry next minute`);
       recordSyncIssue({
         syncType: SYNC_TYPE,
         platform: 'scheduler',
         issueType: 'scheduler_blocked',
-        issueDescription: `Scheduled Price-o-Matic sync (${scheduledTime}) was blocked by: ${blocker}. The daily window was missed — pricing cache will not refresh until tomorrow.`,
+        issueDescription: `Scheduled Price-o-Matic sync (${scheduledTime}) is blocked by: ${blocker}. Retrying every minute until the lock clears.`,
         severity: 'medium',
         metadata: { blockedBy: blocker, scheduledTime, timestamp: new Date().toISOString() },
       });

@@ -1,5 +1,6 @@
 import { db } from "../db";
 import { appSettings, syncMetadata } from "@shared/schema";
+import { eq } from "drizzle-orm";
 import { syncBrickLinkToBrickOwl } from "./brickowl";
 import { syncLock } from "./sync-lock";
 import { recordSyncIssue, resolveSchedulerIssues } from "./sync-issue-service";
@@ -13,12 +14,9 @@ export function getChannelSyncIsRunning() {
 /**
  * Start the Channel Sync scheduler.
  *
- * Channel Sync is the third leg of the hub-and-spoke model:
- *   1. BL Inbound Sync  — BrickLink → Local DB   (nightly, pulls SOT changes)
- *   2. Order Sync       — Orders   → Local DB → all channels (manual / on-demand)
- *   3. Channel Sync     — Local DB → BrickOwl / other channels (this job)
- *
  * Gold-standard pattern: same as pom-scheduler.
+ * Uses "scheduled time has passed + not run in 20h" instead of exact minute match,
+ * so a blocked sync keeps retrying every minute until the lock clears.
  */
 export async function startChannelSyncScheduler() {
   console.log('🌐 Channel sync scheduler initialized');
@@ -52,9 +50,20 @@ async function checkAndRunChannelSync() {
       hour12: false,
     });
     const [hStr, mStr] = localTimeStr.replace(/\u202f/g, '').split(':');
-    const currentTime = `${hStr.padStart(2, '0')}:${mStr.padStart(2, '0')}`;
+    const currentTotalMinutes = parseInt(hStr) * 60 + parseInt(mStr);
     const scheduledTime = settings.channelSyncTime || '03:00';
-    if (currentTime !== scheduledTime) return;
+    const [schedH, schedM] = scheduledTime.split(':');
+    const scheduledTotalMinutes = parseInt(schedH) * 60 + parseInt(schedM);
+
+    // Too early in the day.
+    if (currentTotalMinutes < scheduledTotalMinutes) return;
+
+    // Already ran within the last 20 hours — skip until tomorrow's window.
+    // When blocked, runScheduledChannelSync() is never called so lastSyncTime is not
+    // updated, meaning the scheduler keeps retrying every minute until the lock clears.
+    const [meta] = await db.select().from(syncMetadata).where(eq(syncMetadata.id, 'channel_sync')).limit(1);
+    const lastRun = meta?.lastSyncTime ? new Date(meta.lastSyncTime).getTime() : 0;
+    if (Date.now() - lastRun < 20 * 60 * 60 * 1000) return;
 
     // If channel sync itself is already running, silently skip (duplicate tick guard).
     if (getChannelSyncIsRunning()) {
@@ -62,16 +71,15 @@ async function checkAndRunChannelSync() {
       return;
     }
 
-    // If a different sync is holding the lock, this is a reportable issue — we'll
-    // miss the daily window.
+    // If a different sync is holding the lock, record the issue and retry next minute.
     if (syncLock.isRunning()) {
       const blocker = syncLock.getActive().join(', ');
-      console.log(`⏭️ Channel sync blocked by running sync: ${blocker}`);
+      console.log(`⏭️ Channel sync blocked by: ${blocker} — will retry next minute`);
       recordSyncIssue({
         syncType: SYNC_TYPE,
         platform: 'scheduler',
         issueType: 'scheduler_blocked',
-        issueDescription: `Scheduled channel sync (${scheduledTime}) was blocked by: ${blocker}. The daily window was missed — sync will not run again until tomorrow.`,
+        issueDescription: `Scheduled channel sync (${scheduledTime}) is blocked by: ${blocker}. Retrying every minute until the lock clears.`,
         severity: 'high',
         metadata: { blockedBy: blocker, scheduledTime, timestamp: new Date().toISOString() },
       });
