@@ -1714,7 +1714,21 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                     <div className="space-y-3 mb-4">
                       <div className="flex items-center justify-between gap-2">
                         <div>
-                          <Label className="text-xs font-medium text-gray-300">Inventory Sync (Daily)</Label>
+                          <div className="flex items-center gap-1.5">
+                            <Label className="text-xs font-medium text-gray-300">Inventory Sync (Daily)</Label>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                  <Info className="w-3 h-3" />
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent side="bottom" className="w-72 text-xs bg-gray-900 border-gray-700 p-3 space-y-1.5">
+                                <p className="font-semibold text-gray-200">Inventory Sync</p>
+                                <p className="text-gray-400">Pulls your full BrickLink inventory into the local database. Also syncs BrickLink categories, colors, and Rebrickable part images. Triggers re-embedding of any changed inventory items for AI search.</p>
+                                <p className="text-gray-500">Runs once daily. Safe to trigger manually at any time.</p>
+                              </PopoverContent>
+                            </Popover>
+                          </div>
                           <p className="text-[10px] md:text-sm text-gray-500 mt-0.5">Sync inventory, colors, categories + embeddings</p>
                           <SyncStatusLine entry={syncStatuses?.inventory ?? null} />
                         </div>
@@ -1763,7 +1777,21 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                     <div className="space-y-3 my-4">
                       <div className="flex items-center justify-between gap-2">
                         <div>
-                          <Label className="text-xs font-medium text-gray-300">Price-o-Matic Auto Sync</Label>
+                          <div className="flex items-center gap-1.5">
+                            <Label className="text-xs font-medium text-gray-300">Price-o-Matic Auto Sync</Label>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                  <Info className="w-3 h-3" />
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent side="bottom" className="w-72 text-xs bg-gray-900 border-gray-700 p-3 space-y-1.5">
+                                <p className="font-semibold text-gray-200">Price-o-Matic Auto Sync</p>
+                                <p className="text-gray-400">Fetches avg listed price, avg sold price, and lot count from BrickLink for each inventory item, then computes a suggested price using your formula. Items are processed in priority order by category tier (T1 → T4).</p>
+                                <p className="text-gray-500">Runs on its own independent schedule. Uses 3 BrickLink API calls per lot. Stops automatically at your daily API ceiling.</p>
+                              </PopoverContent>
+                            </Popover>
+                          </div>
                           <p className="text-[10px] md:text-sm text-gray-500 mt-0.5">Runs independently on its own schedule</p>
                           <SyncStatusLine entry={syncStatuses?.priceomatic ?? null} />
                         </div>
@@ -1875,7 +1903,21 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                     <div className="space-y-3 my-4">
                       <div className="flex items-center justify-between gap-2">
                         <div>
-                          <Label className="text-xs font-medium text-gray-300">Channel Sync (Daily)</Label>
+                          <div className="flex items-center gap-1.5">
+                            <Label className="text-xs font-medium text-gray-300">Channel Sync (Daily)</Label>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                  <Info className="w-3 h-3" />
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent side="bottom" className="w-72 text-xs bg-gray-900 border-gray-700 p-3 space-y-1.5">
+                                <p className="font-semibold text-gray-200">Channel Sync</p>
+                                <p className="text-gray-400">Pushes your local database inventory outward to BrickOwl and any other sales channels. Compares local quantities and prices against each platform and updates only what has changed.</p>
+                                <p className="text-gray-500">Should run after Inventory Sync has completed. Schedule it at least 1 hour later to ensure inbound data has settled.</p>
+                              </PopoverContent>
+                            </Popover>
+                          </div>
                           <p className="text-[10px] md:text-sm text-gray-500 mt-0.5">Push Local DB → BrickOwl after inbound + order syncs settle</p>
                           <SyncStatusLine entry={syncStatuses?.channel ?? null} />
                         </div>
@@ -1924,7 +1966,21 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                     <div className="space-y-3 mt-4">
                       <div className="flex items-center justify-between gap-2">
                         <div>
-                          <Label className="text-xs font-medium text-gray-300">Orders Sync</Label>
+                          <div className="flex items-center gap-1.5">
+                            <Label className="text-xs font-medium text-gray-300">Orders Sync</Label>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                  <Info className="w-3 h-3" />
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent side="bottom" className="w-72 text-xs bg-gray-900 border-gray-700 p-3 space-y-1.5">
+                                <p className="font-semibold text-gray-200">Orders Sync</p>
+                                <p className="text-gray-400">Pulls new and updated orders from BrickLink and BrickOwl into the local database. Also syncs order line items, generates AI embeddings for semantic search, and matches Stripe refunds and merchant fees to orders.</p>
+                                <p className="text-gray-500">Runs on a short interval (e.g. every 15–30 min) to keep order data fresh throughout the day.</p>
+                              </PopoverContent>
+                            </Popover>
+                          </div>
                           <p className="text-[10px] md:text-sm text-gray-500 mt-0.5">Sync orders, details, embeddings + refunds/fees periodically</p>
                           <SyncStatusLine entry={syncStatuses?.orders ?? null} />
                         </div>
