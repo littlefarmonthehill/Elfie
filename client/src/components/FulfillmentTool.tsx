@@ -333,20 +333,8 @@ export default function FulfillmentTool() {
     );
   }
 
-  if (!data || data.orders.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center text-gray-400">
-          <Truck className="w-12 h-12 mx-auto mb-3 opacity-50" />
-          <p className="text-sm">No orders awaiting fulfillment</p>
-          <p className="text-xs mt-1">Orders will appear here when they need to be fulfilled</p>
-        </div>
-      </div>
-    );
-  }
-
   // Sort orders by date (oldest first)
-  const sortedOrders = [...data.orders].sort((a, b) => {
+  const sortedOrders = [...(data?.orders || [])].sort((a, b) => {
     const dateA = a.orderDate ? new Date(a.orderDate).getTime() : 0;
     const dateB = b.orderDate ? new Date(b.orderDate).getTime() : 0;
     return dateA - dateB;
@@ -635,6 +623,14 @@ export default function FulfillmentTool() {
         {/* Orders tiles */}
         <div>
           <h3 className="text-sm lg:text-lg font-bold text-gray-300 mb-3">Orders</h3>
+          {sortedOrders.length === 0 ? (
+            <div className="flex items-center justify-center h-40">
+              <div className="text-center text-gray-500">
+                <Truck className="w-10 h-10 mx-auto mb-2 opacity-40" />
+                <p className="text-sm">No orders awaiting fulfillment</p>
+              </div>
+            </div>
+          ) : (
           <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-5 pt-3 px-2">
               {sortedOrders.map((order) => {
                 const isSelected = selectedOrders.has(order.id);
@@ -688,6 +684,7 @@ export default function FulfillmentTool() {
                 );
               })}
             </div>
+          )}
           </div>
 
         {/* ── Tab switcher: Fulfillment | Shipping ── */}
