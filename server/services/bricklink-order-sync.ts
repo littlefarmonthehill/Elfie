@@ -2,8 +2,68 @@ import { db } from "../db";
 import { orders, orderDetails, syncMetadata, blInventory } from "@shared/schema";
 import { eq, and, sql, isNull } from "drizzle-orm";
 import { getBrickLinkOrders, getBrickLinkOrderDetail, getBrickLinkOrderItems, mapBrickLinkStatusSync, mapBrickLinkCondition } from "./bricklink-orders";
+import { bricklinkRequest } from "./bricklink";
 import { mapPlatformStatus } from "../config/order-status-mapping";
 import { adjustInventoryForOrder } from "./inventory-adjustment";
+
+/**
+ * Fetch a single BrickLink inventory lot by ID and upsert it into the local db.
+ * Called when an order item references a lot that doesn't exist locally yet —
+ * e.g. a part listed during the day before the nightly inventory sync runs.
+ */
+async function fetchAndCacheMissingLot(inventoryId: number): Promise<boolean> {
+  try {
+    const { data } = await bricklinkRequest(`/inventories/${inventoryId}`);
+    if (!data) return false;
+
+    const lotData = {
+      id: data.inventory_id as number,
+      itemNo: (data.item?.no as string) || '',
+      itemName: (data.item?.name as string) || null,
+      itemType: (data.item?.type as string) || 'PART',
+      colorId: data.color_id ?? null,
+      colorName: (data.color_name as string) ?? null,
+      quantity: (data.quantity as number) ?? 0,
+      newOrUsed: (data.new_or_used as string) || 'U',
+      completeness: (data.completeness as string) ?? null,
+      unitPrice: data.unit_price ? String(data.unit_price) : null,
+      myCost: data.my_cost ? String(data.my_cost) : null,
+      bindId: data.bind_id ? Number(data.bind_id) : null,
+      description: (data.description as string) || null,
+      remarks: (data.remarks as string) || null,
+      bulk: data.bulk ? Number(data.bulk) : 1,
+      isRetain: Boolean(data.is_retain ?? false),
+      isStockRoom: Boolean(data.is_stock_room ?? false),
+      stockRoomId: (data.stock_room_id as string) ?? null,
+      categoryId: data.item?.category_id ? Number(data.item.category_id) : null,
+      dateCreated: data.date_created ? new Date(data.date_created as string) : null,
+      saleRate: data.sale_rate ? Number(data.sale_rate) : null,
+      tierPrice1: data.tier_price1 ? String(data.tier_price1) : null,
+      tierPrice2: data.tier_price2 ? String(data.tier_price2) : null,
+      tierPrice3: data.tier_price3 ? String(data.tier_price3) : null,
+      tierQuantity1: data.tier_quantity1 ? Number(data.tier_quantity1) : null,
+      tierQuantity2: data.tier_quantity2 ? Number(data.tier_quantity2) : null,
+      tierQuantity3: data.tier_quantity3 ? Number(data.tier_quantity3) : null,
+    };
+
+    await db.insert(blInventory).values(lotData)
+      .onConflictDoUpdate({
+        target: blInventory.id,
+        set: {
+          quantity: lotData.quantity,
+          unitPrice: lotData.unitPrice,
+          updatedAt: sql`now()`,
+          syncedAt: sql`now()`,
+        }
+      });
+
+    console.log(`✅ Cached missing lot ${inventoryId} (${lotData.itemNo}) from BrickLink`);
+    return true;
+  } catch (err: any) {
+    console.warn(`⚠️ Could not fetch missing lot ${inventoryId} from BrickLink: ${err.message}`);
+    return false;
+  }
+}
 
 export interface BrickLinkOrderSyncResult {
   ordersAdded: number;
@@ -361,6 +421,23 @@ async function processBrickLinkOrder(
           }
         } catch (invErr: any) {
           console.warn(`⚠️ Could not save catalog weight for lot ${item.inventory_id}: ${invErr.message}`);
+        }
+      }
+
+      // ── Missing inventory check ──────────────────────────────────────────────
+      // If this lot doesn't exist in the local db (e.g. it was newly listed during
+      // the day before the nightly inventory sync ran), fetch it from BrickLink now
+      // so that inventory adjustment can deduct stock correctly.
+      if (item.inventory_id) {
+        const [existingLot] = await db
+          .select({ id: blInventory.id })
+          .from(blInventory)
+          .where(eq(blInventory.id, item.inventory_id))
+          .limit(1);
+
+        if (!existingLot) {
+          console.log(`🔍 Lot ${item.inventory_id} (${item.item?.no}) not in local DB — fetching from BrickLink...`);
+          await fetchAndCacheMissingLot(item.inventory_id);
         }
       }
 
