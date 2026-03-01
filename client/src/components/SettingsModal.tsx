@@ -249,6 +249,54 @@ function getDeviceInfo() {
   return { deviceType, browserType, isPWA, isIOS: isIOS || isIPad };
 }
 
+type SyncStatusEntry = {
+  lastSyncTime: string | null;
+  lastSyncStatus: string;
+  recordsAdded: number;
+  recordsUpdated: number;
+  errorMessage: string | null;
+} | null;
+
+function formatRelativeTime(iso: string | null): string {
+  if (!iso) return 'Never';
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+function SyncStatusLine({ entry }: { entry: SyncStatusEntry }) {
+  if (!entry) return <p className="text-[10px] text-gray-600 mt-1">No sync history</p>;
+  const isOk = entry.lastSyncStatus === 'success';
+  const isErr = entry.lastSyncStatus === 'failed' || entry.lastSyncStatus === 'error';
+  const isRunning = entry.lastSyncStatus === 'in_progress';
+  const timeStr = formatRelativeTime(entry.lastSyncTime);
+  const counts = (entry.recordsAdded || entry.recordsUpdated)
+    ? `${entry.recordsAdded} added · ${entry.recordsUpdated} updated`
+    : null;
+  return (
+    <div className="mt-1 space-y-0.5">
+      <div className="flex items-center gap-1.5 flex-wrap">
+        {isRunning && <Loader2 className="w-3 h-3 text-blue-400 animate-spin shrink-0" />}
+        {isOk && <CheckCircle2 className="w-3 h-3 text-green-500 shrink-0" />}
+        {isErr && <AlertTriangle className="w-3 h-3 text-red-400 shrink-0" />}
+        {!isRunning && !isOk && !isErr && <Clock className="w-3 h-3 text-gray-500 shrink-0" />}
+        <span className={`text-[10px] font-medium ${isOk ? 'text-green-500' : isErr ? 'text-red-400' : isRunning ? 'text-blue-400' : 'text-gray-500'}`}>
+          {isRunning ? 'Running…' : isOk ? 'Success' : isErr ? 'Failed' : entry.lastSyncStatus}
+        </span>
+        <span className="text-[10px] text-gray-500">{timeStr}</span>
+        {counts && <span className="text-[10px] text-gray-600">· {counts}</span>}
+      </div>
+      {isErr && entry.errorMessage && (
+        <p className="text-[10px] text-red-400/80 truncate max-w-xs">{entry.errorMessage}</p>
+      )}
+    </div>
+  );
+}
+
 export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   const { toast } = useToast();
   const [clearDataDialog, setClearDataDialog] = useState<'inventory' | 'orders' | null>(null);
@@ -419,14 +467,6 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
     enabled: open && activeSection === 'automation',
   });
 
-  type SyncStatusEntry = {
-    lastSyncTime: string | null;
-    lastSyncStatus: string;
-    recordsAdded: number;
-    recordsUpdated: number;
-    errorMessage: string | null;
-  } | null;
-
   const { data: syncStatuses } = useQuery<{
     inventory: SyncStatusEntry;
     priceomatic: SyncStatusEntry;
@@ -437,46 +477,6 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
     refetchInterval: 30000,
     enabled: open && activeSection === 'automation',
   });
-
-  const formatRelativeTime = (iso: string | null): string => {
-    if (!iso) return 'Never';
-    const diff = Date.now() - new Date(iso).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 1) return 'Just now';
-    if (mins < 60) return `${mins}m ago`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs}h ago`;
-    return `${Math.floor(hrs / 24)}d ago`;
-  };
-
-  const SyncStatusLine = ({ entry }: { entry: SyncStatusEntry }) => {
-    if (!entry) return <p className="text-[10px] text-gray-600 mt-1">No sync history</p>;
-    const isOk = entry.lastSyncStatus === 'success';
-    const isErr = entry.lastSyncStatus === 'failed' || entry.lastSyncStatus === 'error';
-    const isRunning = entry.lastSyncStatus === 'in_progress';
-    const timeStr = formatRelativeTime(entry.lastSyncTime);
-    const counts = (entry.recordsAdded || entry.recordsUpdated)
-      ? `${entry.recordsAdded} added · ${entry.recordsUpdated} updated`
-      : null;
-    return (
-      <div className="mt-1 space-y-0.5">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {isRunning && <Loader2 className="w-3 h-3 text-blue-400 animate-spin shrink-0" />}
-          {isOk && <CheckCircle2 className="w-3 h-3 text-green-500 shrink-0" />}
-          {isErr && <AlertTriangle className="w-3 h-3 text-red-400 shrink-0" />}
-          {!isRunning && !isOk && !isErr && <Clock className="w-3 h-3 text-gray-500 shrink-0" />}
-          <span className={`text-[10px] font-medium ${isOk ? 'text-green-500' : isErr ? 'text-red-400' : isRunning ? 'text-blue-400' : 'text-gray-500'}`}>
-            {isRunning ? 'Running…' : isOk ? 'Success' : isErr ? 'Failed' : entry.lastSyncStatus}
-          </span>
-          <span className="text-[10px] text-gray-500">{timeStr}</span>
-          {counts && <span className="text-[10px] text-gray-600">· {counts}</span>}
-        </div>
-        {isErr && entry.errorMessage && (
-          <p className="text-[10px] text-red-400/80 ml-4.5 truncate max-w-xs">{entry.errorMessage}</p>
-        )}
-      </div>
-    );
-  };
 
   const { data: backupsData, isLoading: backupsLoading } = useQuery<{
     success: boolean;
