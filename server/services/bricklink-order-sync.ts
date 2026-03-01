@@ -346,23 +346,21 @@ async function processBrickLinkOrder(
         itemsTotalWeightGrams += parseFloat(item.weight) * item.quantity;
       }
 
-      // Always try to backfill inventory weight/image from order item data (COALESCE = no-op if already set)
+      // Save per-piece weight to bl_inventory so future lookups don't need a catalog API call.
+      // Write when current value is NULL or '0' (zero was the default seed value, not real data).
       if (item.inventory_id) {
         try {
-          // item.weight from BrickLink is the unit weight per piece in grams (not the line total)
           const unitWeightGrams = item.weight ? parseFloat(item.weight) : null;
-          const itemNo = item.item?.no;
-          const colorId = item.color_id;
-          const itemType = item.item?.type;
-          if (unitWeightGrams) {
+          if (unitWeightGrams && unitWeightGrams > 0) {
+            const wg = unitWeightGrams;
             await db.update(blInventory)
               .set({
-                myWeight: sql`COALESCE(${blInventory.myWeight}, ${unitWeightGrams.toFixed(4)})`,
+                myWeight: sql`CASE WHEN ${blInventory.myWeight} IS NULL OR ${blInventory.myWeight} = 0 THEN ${wg} ELSE ${blInventory.myWeight} END`,
               })
               .where(eq(blInventory.id, item.inventory_id));
           }
         } catch (invErr: any) {
-          console.warn(`⚠️ Could not backfill inventory for lot ${item.inventory_id}: ${invErr.message}`);
+          console.warn(`⚠️ Could not backfill inventory weight for lot ${item.inventory_id}: ${invErr.message}`);
         }
       }
 
