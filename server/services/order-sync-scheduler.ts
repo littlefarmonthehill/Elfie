@@ -1,12 +1,19 @@
 import { db } from "../db";
-import { appSettings } from "@shared/schema";
+import { appSettings, syncMetadata } from "@shared/schema";
+import { eq } from "drizzle-orm";
 import { syncLock } from "./sync-lock";
 import { runPlatformOrderSync } from "./order-sync-core";
+
+const SYNC_ID = 'bricklink_orders';
 
 /**
  * Start the automatic order sync scheduler.
  * Reads ordersSyncEnabled / ordersSyncFrequency from app_settings.
- * Checks every 60s; skips the cycle if any other sync holds the lock.
+ * Checks every 60s; skips the cycle if the frequency window hasn't elapsed
+ * or if another sync holds the lock.
+ *
+ * Pattern: same as channel-sync-scheduler and pom-scheduler.
+ * runPlatformOrderSync() manages its own lock — do NOT pre-acquire here.
  */
 export async function startOrderSyncScheduler() {
   console.log('🕒 Order sync scheduler initialized');
@@ -17,43 +24,60 @@ export async function startOrderSyncScheduler() {
 }
 
 async function checkAndRunSync() {
-  let settings: any;
   try {
-    [settings] = await db.select().from(appSettings).limit(1);
-  } catch (err: any) {
-    if (err?.code === 'ETIMEDOUT' || err?.message?.includes('timeout')) {
-      try {
+    let settings: any;
+    try {
+      [settings] = await db.select().from(appSettings).limit(1);
+    } catch (connErr: any) {
+      if (connErr.message?.includes('Connection terminated') || connErr.code === 'ECONNRESET') {
+        console.log('[Order Sync] DB connection blip, retrying in 3s...');
+        await new Promise(r => setTimeout(r, 3000));
         [settings] = await db.select().from(appSettings).limit(1);
-      } catch (retryErr) {
-        console.error('❌ Order sync scheduler: DB retry failed', retryErr);
-        return;
-      }
-    } else {
-      console.error('❌ Order sync scheduler: DB error', err);
+      } else throw connErr;
+    }
+
+    if (!settings?.ordersSyncEnabled) return;
+
+    const frequencyMs = (settings.ordersSyncFrequency ?? 15) * 60 * 1000;
+
+    const [meta] = await db
+      .select()
+      .from(syncMetadata)
+      .where(eq(syncMetadata.id, SYNC_ID))
+      .limit(1);
+
+    const lastRun = meta?.lastSyncTime ? new Date(meta.lastSyncTime).getTime() : 0;
+    if (Date.now() - lastRun < frequencyMs) return;
+
+    if (syncLock.isRunning()) {
+      console.log(`⏭️ Order sync skipped — another sync is holding the lock`);
       return;
     }
+
+    await runScheduledOrderSync();
+  } catch (error) {
+    console.error('❌ Error in order sync scheduler:', error);
   }
+}
 
-  if (!settings?.ordersSyncEnabled) return;
+async function runScheduledOrderSync() {
+  console.log('\n🔄 Starting scheduled order sync for all platforms...');
 
-  const frequencyMs = settings.ordersSyncFrequency * 60 * 1000;
-  const now = Date.now();
-  const lastSyncKey = 'last_order_sync_check';
-  const lastSyncTime = (global as any)[lastSyncKey] || 0;
-  if (now - lastSyncTime < frequencyMs) return;
-
-  // Try to acquire the global sync lock — if anything else is running, skip
-  // this cycle; the scheduler will retry next minute.
-  const acquired = syncLock.acquire('Order Sync');
-  if (!acquired) {
-    console.log('⏭️ Order sync skipped — another sync is holding the lock');
-    return;
-  }
-
-  (global as any)[lastSyncKey] = now;
+  await db.insert(syncMetadata).values({
+    id: SYNC_ID,
+    lastSyncStatus: 'in_progress',
+    lastSyncTime: new Date(),
+    recordsAdded: 0,
+    recordsUpdated: 0,
+  }).onConflictDoUpdate({
+    target: syncMetadata.id,
+    set: { lastSyncStatus: 'in_progress', lastSyncTime: new Date(), updatedAt: new Date() },
+  });
 
   try {
-    console.log('\n🔄 Starting scheduled order sync for all platforms...');
+    // runPlatformOrderSync() handles its own lock acquisition and release internally.
+    // Do NOT acquire the lock here — doing so causes a double-lock that immediately
+    // throws "Order sync blocked: Order Sync is already running".
     const result = await runPlatformOrderSync("all", {
       fullSync: false,
       withEmbeddings: true,
@@ -62,14 +86,42 @@ async function checkAndRunSync() {
 
     const totalAdded = result.bricklink.ordersAdded + result.brickowl.ordersAdded;
     console.log(
-      `\n✨ Scheduled sync complete — ${totalAdded} new orders | ` +
+      `\n✨ Scheduled order sync complete — ${totalAdded} new orders | ` +
       `Stripe: ${result.stripe.refunds}r ${result.stripe.fees}f | ` +
       `PayPal: ${result.paypal.refunds}r ${result.paypal.fees}f`
     );
-  } catch (error) {
-    console.error('❌ Error in order sync scheduler:', error);
-  } finally {
-    syncLock.release('Order Sync');
+
+    await db.insert(syncMetadata).values({
+      id: SYNC_ID,
+      lastSyncStatus: 'success',
+      lastSyncTime: new Date(),
+      recordsAdded: totalAdded,
+      recordsUpdated: 0,
+      errorMessage: null,
+    }).onConflictDoUpdate({
+      target: syncMetadata.id,
+      set: {
+        lastSyncStatus: 'success',
+        updatedAt: new Date(),
+        recordsAdded: totalAdded,
+        recordsUpdated: 0,
+        errorMessage: null,
+      },
+    });
+  } catch (error: any) {
+    console.error('❌ Scheduled order sync failed:', error.message);
+    await db.insert(syncMetadata).values({
+      id: SYNC_ID,
+      lastSyncStatus: 'error',
+      lastSyncTime: new Date(),
+      recordsAdded: 0,
+      recordsUpdated: 0,
+      errorMessage: error.message,
+    }).onConflictDoUpdate({
+      target: syncMetadata.id,
+      set: { lastSyncStatus: 'error', updatedAt: new Date(), errorMessage: error.message },
+    });
+    // Lock is released inside runPlatformOrderSync's finally block — no release needed here.
   }
 }
 
