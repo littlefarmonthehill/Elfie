@@ -1609,8 +1609,8 @@ export async function fetchPriceOMagicData(
 
     console.log(`[Price-o-Matic] Cached data for ${itemType}/${itemNo}${colorId ? `/${colorId}` : ''}`);
     
-    // Store the official BrickLink catalog weight in bl_catalog_weight (not my_weight, which is user's own field)
-    if (itemDetails?.weight) {
+    // Store the official BrickLink catalog weight and dimensions in bl_inventory (not my_weight, which is user's own field)
+    if (itemDetails?.weight || itemDetails?.dim_x || itemDetails?.dim_y || itemDetails?.dim_z) {
       try {
         const inventoryQuery = colorId 
           ? and(
@@ -1623,14 +1623,20 @@ export async function fetchPriceOMagicData(
               eq(blInventory.itemType, itemType)
             );
 
-        await db
+        const catalogUpdates: Record<string, any> = {};
+        if (itemDetails.weight) catalogUpdates.blCatalogWeight = itemDetails.weight.toString();
+        if (itemDetails.dim_x) catalogUpdates.blDimensionX = itemDetails.dim_x.toString();
+        if (itemDetails.dim_y) catalogUpdates.blDimensionY = itemDetails.dim_y.toString();
+        if (itemDetails.dim_z) catalogUpdates.blDimensionZ = itemDetails.dim_z.toString();
+
+        if (Object.keys(catalogUpdates).length > 0) await db
           .update(blInventory)
-          .set({ blCatalogWeight: itemDetails.weight.toString() })
+          .set(catalogUpdates)
           .where(inventoryQuery);
 
-        console.log(`[Price-o-Matic] Stored catalog weight for ${itemType}/${itemNo}${colorId ? `/${colorId}` : ''}: ${itemDetails.weight}g`);
+        console.log(`[Price-o-Matic] Stored catalog data for ${itemType}/${itemNo}${colorId ? `/${colorId}` : ''}: ${itemDetails.weight}g, dims: ${itemDetails.dim_x}×${itemDetails.dim_y}×${itemDetails.dim_z}mm`);
       } catch (error) {
-        console.error('[Price-o-Matic] Error storing catalog weight:', error);
+        console.error('[Price-o-Matic] Error storing catalog data:', error);
         // Don't throw - this is a nice-to-have feature
       }
     }

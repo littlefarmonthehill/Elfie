@@ -105,6 +105,9 @@ export const blInventory = pgTable("bl_inventory", {
   tierQuantity3: integer("tier_quantity_3"),
   myWeight: decimal("my_weight", { precision: 10, scale: 4 }),
   blCatalogWeight: decimal("bl_catalog_weight", { precision: 10, scale: 4 }),
+  blDimensionX: decimal("bl_dimension_x", { precision: 10, scale: 2 }),
+  blDimensionY: decimal("bl_dimension_y", { precision: 10, scale: 2 }),
+  blDimensionZ: decimal("bl_dimension_z", { precision: 10, scale: 2 }),
   // Rebrickable image URLs (LDraw renders)
   imageUrl: text("image_url"),
   thumbnailUrl: text("thumbnail_url"),
