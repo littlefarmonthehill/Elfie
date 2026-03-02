@@ -850,14 +850,20 @@ export async function syncBricklinkData(): Promise<BricklinkSyncResult> {
     try {
       const [settings] = await db.select().from(appSettings).limit(1);
       if (settings?.rebrickableImageSyncEnabled) {
-        const { syncRebrickableImages } = await import('./rebrickable-images');
+        const { syncRebrickableImages, syncPartIdMappings } = await import('./rebrickable-images');
         // Fire-and-forget — intentionally not awaited
         syncRebrickableImages().then(r => {
           console.log(`🖼️  Background image sync complete: ${r.imagesFetched} fetched, ${r.errors} errors`);
         }).catch(e => {
           console.error('🖼️  Background image sync error:', e);
         });
-        console.log('🖼️  Image sync running in background');
+        // Run part ID mapping sync in parallel — 50 unmapped parts per inventory sync run
+        syncPartIdMappings(50).then(r => {
+          if (r.processed > 0) console.log(`[Part Mappings] Inventory sync pass: ${r.saved}/${r.processed} parts mapped`);
+        }).catch(e => {
+          console.error('[Part Mappings] Sync error (non-fatal):', e);
+        });
+        console.log('🖼️  Image sync + part ID mapping running in background');
       } else {
         console.log('⏭️ Rebrickable image sync disabled in settings');
       }

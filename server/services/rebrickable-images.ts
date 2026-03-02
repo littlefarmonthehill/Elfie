@@ -1,6 +1,7 @@
 import { db } from "../db";
-import { blInventory } from "@shared/schema";
+import { blInventory, partIdMappings } from "@shared/schema";
 import { sql, inArray } from "drizzle-orm";
+import axios from "axios";
 import https from "https";
 
 export interface RebrickableImageSyncResult {
@@ -322,4 +323,81 @@ export async function bulkSyncRebrickableImages(maxBatches = 500): Promise<BulkI
   }
 
   return { totalBatches, totalImagesProcessed, totalImagesFetched, totalErrors, completed: !hasMore };
+}
+
+// ── Part ID mapping sync ───────────────────────────────────────────────────────
+// Runs alongside the inventory sync to pre-populate part_id_mappings with
+// LEGO ↔ BrickLink ↔ Rebrickable cross-references for all inventory parts.
+// Processes up to `batchSize` unmapped BL part numbers per call so it
+// self-throttles: the first run is slow, subsequent runs only touch new items.
+export async function syncPartIdMappings(batchSize = 50): Promise<{ processed: number; saved: number }> {
+  if (!REBRICKABLE_API_KEY) return { processed: 0, saved: 0 };
+
+  // Find distinct BL part numbers in inventory that are NOT yet in the mapping table
+  const unmapped = await db.execute(sql`
+    SELECT DISTINCT item_no AS "itemNo"
+    FROM   bl_inventory
+    WHERE  item_type = 'PART'
+      AND  item_no IS NOT NULL
+      AND  item_no NOT IN (
+        SELECT bl_id FROM part_id_mappings WHERE bl_id IS NOT NULL
+      )
+    LIMIT ${batchSize}
+  `) as any;
+
+  const rows: Array<{ itemNo: string }> = unmapped.rows ?? unmapped;
+  if (rows.length === 0) {
+    console.log('[Part Mappings] All inventory parts already mapped.');
+    return { processed: 0, saved: 0 };
+  }
+
+  console.log(`[Part Mappings] Processing ${rows.length} unmapped BL part number(s)...`);
+  let saved = 0;
+
+  for (const { itemNo } of rows) {
+    try {
+      const res = await axios.get(
+        `https://rebrickable.com/api/v3/lego/parts/${encodeURIComponent(itemNo)}/`,
+        { params: { key: REBRICKABLE_API_KEY }, timeout: 10000 }
+      );
+      const rbPartNum: string | null = res.data?.part_num ?? null;
+      const blIds: string[] = res.data?.external_ids?.BrickLink?.ext_ids ?? [];
+      const legoIds: Array<string | number> = res.data?.external_ids?.LEGO?.ext_ids ?? [];
+      const legoId: string | null = legoIds.length > 0 ? String(legoIds[0]) : null;
+
+      // Use the inventory BL number as the canonical bl_id regardless of what
+      // Rebrickable lists — it already matched our catalog.
+      await db.insert(partIdMappings).values({
+        blId: itemNo,
+        legoId: legoId ?? undefined,
+        rebrickableId: rbPartNum ?? undefined,
+      }).onConflictDoNothing();
+
+      // Also save any alternate BL IDs from the external_ids list
+      for (const altBlId of blIds) {
+        if (altBlId.toUpperCase() === itemNo.toUpperCase()) continue;
+        await db.insert(partIdMappings).values({
+          blId: altBlId,
+          legoId: legoId ?? undefined,
+          rebrickableId: rbPartNum ?? undefined,
+        }).onConflictDoNothing();
+      }
+
+      saved++;
+      console.log(`[Part Mappings] ✓ ${itemNo} → LEGO:${legoId ?? '–'} RB:${rbPartNum ?? '–'}`);
+    } catch (err: any) {
+      if (err?.response?.status !== 404) {
+        console.warn(`[Part Mappings] Rebrickable lookup failed for ${itemNo}:`, err.message);
+      } else {
+        // 404 = Rebrickable doesn't know this part; insert a placeholder so we don't retry it
+        await db.insert(partIdMappings).values({ blId: itemNo }).onConflictDoNothing();
+      }
+    }
+
+    // Be respectful of Rebrickable's rate limit
+    await new Promise(r => setTimeout(r, 1200));
+  }
+
+  console.log(`[Part Mappings] Done: ${saved}/${rows.length} saved.`);
+  return { processed: rows.length, saved };
 }
