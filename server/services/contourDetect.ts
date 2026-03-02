@@ -205,10 +205,12 @@ export async function detectPieceBoundingBoxes(imageBuffer: Buffer): Promise<Det
   //   - Adjacent minifig horiz gap:     ~3% of image width
   //   - Minifig parts share X ranges (gapX ≈ 0); adjacent figs have gapX ~3%
   //
-  // maxGapX=2 is tight enough to reject adjacent figs (gapX~3%) while
-  // accepting parts of the same fig (gapX=0). maxGapY=4 bridges the small
-  // vertical gaps between head/torso/legs.
-  const merged = mergeProximate(pass1, 2.0, 4.0);
+  // maxGapX=1.5: rejects adjacent figs (gapX ~3%) but accepts intra-fig (gapX ~0%)
+  // maxGapY=2.0: bridges head/torso/leg gaps (<1%) with margin
+  // maxAreaRatio=1.5: breaks cascade chains — merging spatially distant boxes
+  //   creates lots of empty space (ratio >> 1); well-aligned minifig parts
+  //   stack tightly (ratio ~1.05–1.15).
+  const merged = mergeProximate(pass1, 1.5, 2.0, 1.5);
 
   console.log(`[ContourDetect] After merge: ${pass1.length} → ${merged.length} boxes`);
   return merged;
@@ -271,7 +273,7 @@ function boxEdgeGap(a: DetectedBox, b: DetectedBox): { gapX: number; gapY: numbe
   return { gapX, gapY };
 }
 
-function mergeProximate(boxes: DetectedBox[], maxGapX: number, maxGapY: number): DetectedBox[] {
+function mergeProximate(boxes: DetectedBox[], maxGapX: number, maxGapY: number, maxAreaRatio: number): DetectedBox[] {
   let result = [...boxes];
   let changed = true;
   while (changed) {
@@ -284,11 +286,19 @@ function mergeProximate(boxes: DetectedBox[], maxGapX: number, maxGapY: number):
       for (let j = i + 1; j < result.length; j++) {
         if (used.has(j)) continue;
         const { gapX, gapY } = boxEdgeGap(cur, result[j]);
-        if (gapX <= maxGapX && gapY <= maxGapY) {
-          cur = mergePair(cur, result[j]);
-          used.add(j);
-          changed = true;
-        }
+        if (gapX > maxGapX || gapY > maxGapY) continue;
+        // Area ratio guard: merged bounding box vs sum of individual areas.
+        // Tightly-stacked minifig parts → ratio ~1.05–1.15 (almost no wasted space).
+        // Spatially distant blobs → ratio >> 1.5 (large empty region in merged box).
+        const r = result[j];
+        const mergedW = Math.max(cur.x + cur.w, r.x + r.w) - Math.min(cur.x, r.x);
+        const mergedH = Math.max(cur.y + cur.h, r.y + r.h) - Math.min(cur.y, r.y);
+        const mergedArea = mergedW * mergedH;
+        const sumArea = (cur.w * cur.h) + (r.w * r.h);
+        if (sumArea > 0 && mergedArea / sumArea > maxAreaRatio) continue;
+        cur = mergePair(cur, result[j]);
+        used.add(j);
+        changed = true;
       }
       next.push(cur);
     }
