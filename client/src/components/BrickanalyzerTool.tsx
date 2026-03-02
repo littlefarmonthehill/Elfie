@@ -503,6 +503,16 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                     {/* ── Expanded: best match + all color/condition rows ── */}
                     {isExpanded && (
                       <div className="border-t border-purple-500/10 px-2 py-1.5 space-y-1">
+                        {/* Column headers */}
+                        <div className="flex items-center gap-1 px-2 pb-0.5">
+                          <div className="flex-1 min-w-0">
+                            <span className="text-[9px] uppercase tracking-wider text-gray-500">Color</span>
+                          </div>
+                          <span className="text-[9px] uppercase tracking-wider text-gray-500 w-14 text-right flex-shrink-0">N Cur</span>
+                          <span className="text-[9px] uppercase tracking-wider text-gray-500 w-[58px] text-right flex-shrink-0">N Score</span>
+                          <span className="text-[9px] uppercase tracking-wider text-gray-500 w-14 text-right flex-shrink-0">U Cur</span>
+                          <span className="text-[9px] uppercase tracking-wider text-gray-500 w-[58px] text-right flex-shrink-0">U Score</span>
+                        </div>
                         {/* Best Match banner */}
                         <div className="rounded-lg border border-purple-500/40 bg-purple-900/25 px-2 py-1.5">
                           <div className="flex items-center gap-1 mb-1">
@@ -546,12 +556,12 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                         {/* All colors — from inventory lots, excluding the best match color */}
                         {otherLots.length > 0 ? (
                         <div className="space-y-0">
-                          <div className="flex items-center gap-1 px-1 pb-0.5 pt-0.5">
+                          <div className="flex items-center gap-1 px-1 pb-0.5 pt-1.5">
                             <div className="flex-1 min-w-0">
-                              <span className="text-[9px] uppercase tracking-wider text-gray-600">Other colors in stock</span>
+                              <span className="text-[9px] uppercase tracking-wider text-gray-500">Other colors in stock</span>
                             </div>
-                            <span className="text-[9px] uppercase tracking-wider text-gray-400 w-14 text-right flex-shrink-0">N Price</span>
-                            <span className="text-[9px] uppercase tracking-wider text-gray-400 w-14 text-right flex-shrink-0">U Price</span>
+                            <span className="text-[9px] uppercase tracking-wider text-gray-500 w-14 text-right flex-shrink-0">N Cur</span>
+                            <span className="text-[9px] uppercase tracking-wider text-gray-500 w-14 text-right flex-shrink-0">U Cur</span>
                           </div>
                           {otherLots.map((lot, li) => {
                             const lotInStock = (lot.qtyNew + lot.qtyUsed) > 0;
