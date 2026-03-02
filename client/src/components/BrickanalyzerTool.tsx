@@ -3,7 +3,6 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { Camera, X, CheckCircle, Loader2, ExternalLink, Trash2, ScanSearch } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 
@@ -49,7 +48,6 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
   const [uiState, setUiState] = useState<UIState>("idle");
   const [scanId, setScanId] = useState<number | null>(null);
   const [leftPage, setLeftPage] = useState(false);
-  const [selectedPiece, setSelectedPiece] = useState<ScanResult | null>(null);
 
   useImperativeHandle(ref, () => ({
     triggerCamera: () => {
@@ -288,117 +286,117 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
             </div>
           </div>
 
-          {/* Results table */}
+          {/* Results tiles */}
           {results.length === 0 ? (
             <div className="text-center py-8 text-gray-500 text-sm">
               No pieces could be identified. Try a clearer photo with better lighting.
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-lg border border-gray-700">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b border-gray-700 bg-gray-800/60">
-                    <th className="text-left px-2 py-2 text-gray-400 font-medium w-8"></th>
-                    <th className="text-left px-2 py-2 text-gray-400 font-medium">Part</th>
-                    <th className="text-right px-2 py-2 text-gray-400 font-medium">POM Price</th>
-                    <th className="text-right px-2 py-2 text-gray-400 font-medium">Our Price</th>
-                    <th className="text-right px-2 py-2 text-gray-400 font-medium">Mkt High</th>
-                    <th className="text-right px-2 py-2 text-gray-400 font-medium">Qty</th>
-                    <th className="text-center px-2 py-2 text-gray-400 font-medium">AI</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {results.map((piece, i) => (
-                    <tr
-                      key={i}
-                      className="border-b border-gray-800 last:border-0 hover-elevate cursor-pointer"
-                      data-testid={`row-brickanalyzer-${i}`}
-                      onClick={() => setSelectedPiece(piece)}
+            <div className="space-y-2">
+              {results.map((piece, i) => (
+                <div
+                  key={i}
+                  className="rounded-lg border border-gray-700/60 bg-gradient-to-br from-gray-800/60 via-gray-900/80 to-gray-950/60 overflow-hidden"
+                  data-testid={`tile-brickanalyzer-${i}`}
+                >
+                  {/* ── Title row ─────────────────────────────────── */}
+                  <div className="flex items-start justify-between gap-2 px-3 pt-2.5 pb-1">
+                    <p className="text-sm font-semibold text-white leading-tight flex-1">
+                      {piece.partName || "Unknown Part"}
+                    </p>
+                    {piece.partNo && (
+                      <a
+                        href={`https://www.bricklink.com/v2/catalog/catalogitem.page?P=${piece.partNo}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-lego-blue hover:text-blue-300 flex-shrink-0 mt-0.5"
+                        data-testid={`link-bricklink-${i}`}
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                  </div>
+
+                  {/* ── Sub-header: part no · color · qty ─────────── */}
+                  <div className="flex items-center gap-2 px-3 pb-2 flex-wrap">
+                    {piece.partNo && (
+                      <span className="font-mono text-xs text-gray-400">{piece.partNo}</span>
+                    )}
+                    {piece.colorName && (
+                      <>
+                        <span className="text-gray-600 text-xs">·</span>
+                        <span className="text-xs text-gray-400">{piece.colorName}</span>
+                      </>
+                    )}
+                    {piece.ourQty > 0 && (
+                      <>
+                        <span className="text-gray-600 text-xs">·</span>
+                        <span className="text-xs text-green-400 font-medium">Qty {piece.ourQty} in stock</span>
+                      </>
+                    )}
+                    <Badge
+                      variant="outline"
+                      className={`text-[10px] ml-auto capitalize ${confidenceColor(piece.confidence)} border-current`}
                     >
-                      {/* Thumbnail */}
-                      <td className="px-2 py-1.5">
-                        {piece.thumbnailUrl ? (
-                          <img
-                            src={`/api/images/proxy?url=${encodeURIComponent(piece.thumbnailUrl)}`}
-                            alt={piece.partName}
-                            className="w-8 h-8 object-contain rounded bg-gray-800"
-                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                          />
-                        ) : piece.partNo ? (
-                          <img
-                            src={`https://img.bricklink.com/ItemImage/PN/${piece.colorId ?? 0}/${piece.partNo}.png`}
-                            alt={piece.partName}
-                            className="w-8 h-8 object-contain rounded bg-gray-800"
-                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                          />
-                        ) : (
-                          <div className="w-8 h-8 rounded bg-gray-800" />
-                        )}
-                      </td>
-                      {/* Part info */}
-                      <td className="px-2 py-1.5">
-                        <div className="flex flex-col gap-0.5">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            {piece.partNo ? (
-                              <a
-                                href={`https://www.bricklink.com/v2/catalog/catalogitem.page?P=${piece.partNo}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="font-mono text-lego-blue hover:underline flex items-center gap-0.5"
-                                data-testid={`link-bricklink-${i}`}
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                {piece.partNo}
-                                <ExternalLink className="w-2.5 h-2.5" />
-                              </a>
-                            ) : (
-                              <span className="text-gray-500 italic">unknown</span>
-                            )}
-                            {piece.colorName && (
-                              <span className="text-gray-500">{piece.colorName}</span>
-                            )}
-                          </div>
-                          <span className="text-gray-300 leading-tight">{piece.partName}</span>
-                          {piece.note && (
-                            <span className="text-gray-600 italic">{piece.note}</span>
-                          )}
-                        </div>
-                      </td>
-                      {/* POM suggested price */}
-                      <td className="px-2 py-1.5 text-right">
+                      {piece.confidence}
+                    </Badge>
+                  </div>
+
+                  {/* ── Body: image + prices ───────────────────────── */}
+                  <div className="flex gap-3 px-3 pb-3 border-t border-gray-700/40 pt-2.5">
+                    {/* Image */}
+                    <div className="flex-shrink-0 w-20 h-20 rounded-md bg-gray-800/80 flex items-center justify-center overflow-hidden">
+                      {piece.thumbnailUrl ? (
+                        <img
+                          src={`/api/images/proxy?url=${encodeURIComponent(piece.thumbnailUrl)}`}
+                          alt={piece.partName}
+                          className="w-full h-full object-contain p-1"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = `https://img.bricklink.com/ItemImage/PN/${piece.colorId ?? 0}/${piece.partNo}.png`;
+                          }}
+                        />
+                      ) : piece.partNo ? (
+                        <img
+                          src={`https://img.bricklink.com/ItemImage/PN/${piece.colorId ?? 0}/${piece.partNo}.png`}
+                          alt={piece.partName}
+                          className="w-full h-full object-contain p-1"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                        />
+                      ) : (
+                        <Camera className="w-6 h-6 text-gray-700" />
+                      )}
+                    </div>
+
+                    {/* Prices */}
+                    <div className="flex-1 grid grid-cols-3 gap-x-2 gap-y-1 content-center">
+                      <div className="flex flex-col">
+                        <span className="text-[10px] text-gray-500 uppercase tracking-wider">POM</span>
                         {piece.pomPrice !== null
-                          ? <span className="text-lego-yellow font-mono font-semibold">${piece.pomPrice.toFixed(2)}</span>
-                          : <span className="text-gray-600">—</span>
+                          ? <span className="text-sm font-mono font-semibold text-lego-yellow">${piece.pomPrice.toFixed(2)}</span>
+                          : <span className="text-sm text-gray-600">—</span>
                         }
-                      </td>
-                      {/* Our listed price */}
-                      <td className="px-2 py-1.5 text-right">
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[10px] text-gray-500 uppercase tracking-wider">Listed</span>
                         {piece.ourPrice !== null
-                          ? <span className="text-green-400 font-mono">${piece.ourPrice.toFixed(2)}</span>
-                          : <span className="text-gray-600">—</span>
+                          ? <span className="text-sm font-mono text-green-400">${piece.ourPrice.toFixed(2)}</span>
+                          : <span className="text-sm text-gray-600">—</span>
                         }
-                      </td>
-                      {/* Market avg */}
-                      <td className="px-2 py-1.5 text-right">
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[10px] text-gray-500 uppercase tracking-wider">Mkt Hi</span>
                         {piece.marketAvgPrice !== null
-                          ? <span className="text-gray-400 font-mono">${piece.marketAvgPrice.toFixed(2)}</span>
-                          : <span className="text-gray-600">—</span>
+                          ? <span className="text-sm font-mono text-gray-300">${piece.marketAvgPrice.toFixed(2)}</span>
+                          : <span className="text-sm text-gray-600">—</span>
                         }
-                      </td>
-                      {/* Qty in stock */}
-                      <td className="px-2 py-1.5 text-right font-mono text-gray-400">
-                        {piece.ourQty > 0 ? piece.ourQty : <span className="text-gray-600">—</span>}
-                      </td>
-                      {/* AI confidence */}
-                      <td className="px-2 py-1.5 text-center">
-                        <span className={`capitalize font-medium ${confidenceColor(piece.confidence)}`}>
-                          {piece.confidence.charAt(0).toUpperCase()}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      </div>
+                      {piece.note && (
+                        <p className="col-span-3 text-[10px] text-gray-600 italic mt-1">{piece.note}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 
@@ -426,109 +424,6 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
         </div>
       )}
 
-      {/* Part detail popup */}
-      <Dialog open={!!selectedPiece} onOpenChange={(open) => { if (!open) setSelectedPiece(null); }}>
-        <DialogContent className="bg-gray-900 border border-gray-700 text-white max-w-sm" data-testid="dialog-part-detail">
-          {selectedPiece && (
-            <>
-              <DialogHeader>
-                <DialogTitle className="text-base font-semibold text-gray-100 pr-6">
-                  {selectedPiece.partName || "Unknown Part"}
-                </DialogTitle>
-              </DialogHeader>
-
-              <div className="flex flex-col gap-4">
-                {/* Image */}
-                <div className="flex justify-center bg-gray-800 rounded-lg p-4">
-                  {selectedPiece.thumbnailUrl ? (
-                    <img
-                      src={`/api/images/proxy?url=${encodeURIComponent(selectedPiece.thumbnailUrl)}`}
-                      alt={selectedPiece.partName}
-                      className="w-40 h-40 object-contain"
-                      onError={(e) => { (e.target as HTMLImageElement).src = `https://img.bricklink.com/ItemImage/PN/${selectedPiece.colorId ?? 0}/${selectedPiece.partNo}.png`; }}
-                    />
-                  ) : selectedPiece.partNo ? (
-                    <img
-                      src={`https://img.bricklink.com/ItemImage/PN/${selectedPiece.colorId ?? 0}/${selectedPiece.partNo}.png`}
-                      alt={selectedPiece.partName}
-                      className="w-40 h-40 object-contain"
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                    />
-                  ) : (
-                    <div className="w-40 h-40 flex items-center justify-center text-gray-600 text-sm">No image</div>
-                  )}
-                </div>
-
-                {/* Details */}
-                <div className="space-y-2 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-400">Part No.</span>
-                    <span className="font-mono text-gray-200">{selectedPiece.partNo || "—"}</span>
-                  </div>
-                  {selectedPiece.colorName && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-400">Color</span>
-                      <span className="text-gray-200">{selectedPiece.colorName}</span>
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-400">AI Confidence</span>
-                    <Badge variant="outline" className={`text-xs capitalize ${confidenceColor(selectedPiece.confidence)} border-current`}>
-                      {selectedPiece.confidence}
-                    </Badge>
-                  </div>
-                </div>
-
-                {/* Prices */}
-                <div className="border border-gray-700 rounded-lg divide-y divide-gray-700 text-sm">
-                  <div className="flex items-center justify-between px-3 py-2">
-                    <span className="text-gray-400">POM Price</span>
-                    {selectedPiece.pomPrice !== null
-                      ? <span className="text-lego-yellow font-mono font-semibold">${selectedPiece.pomPrice.toFixed(2)}</span>
-                      : <span className="text-gray-600">—</span>
-                    }
-                  </div>
-                  <div className="flex items-center justify-between px-3 py-2">
-                    <span className="text-gray-400">Our Price</span>
-                    {selectedPiece.ourPrice !== null
-                      ? <span className="text-green-400 font-mono">${selectedPiece.ourPrice.toFixed(2)}</span>
-                      : <span className="text-gray-600">—</span>
-                    }
-                  </div>
-                  <div className="flex items-center justify-between px-3 py-2">
-                    <span className="text-gray-400">Mkt High</span>
-                    {selectedPiece.marketAvgPrice !== null
-                      ? <span className="text-gray-300 font-mono">${selectedPiece.marketAvgPrice.toFixed(2)}</span>
-                      : <span className="text-gray-600">—</span>
-                    }
-                  </div>
-                  {selectedPiece.ourQty > 0 && (
-                    <div className="flex items-center justify-between px-3 py-2">
-                      <span className="text-gray-400">In Stock</span>
-                      <span className="font-mono text-gray-300">{selectedPiece.ourQty}</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* BrickLink button */}
-                {selectedPiece.partNo && (
-                  <a
-                    href={`https://www.bricklink.com/v2/catalog/catalogitem.page?P=${selectedPiece.partNo}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    data-testid="button-open-bricklink-catalog"
-                  >
-                    <Button className="w-full" data-testid="button-bricklink-catalog">
-                      <ExternalLink className="w-4 h-4 mr-2" />
-                      Open BrickLink Catalog
-                    </Button>
-                  </a>
-                )}
-              </div>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 });
