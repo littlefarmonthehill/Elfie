@@ -281,8 +281,7 @@ export default function ListomaticPriority() {
             return (
               <div
                 key={cat.id}
-                onClick={() => setScoreDetailCat(cat)}
-                className={`relative rounded-lg border ${tileCfg.tileBorder} ${tileCfg.tileBg} px-3 py-2 ${tileCfg.tileShadow} transition-all duration-150 cursor-pointer`}
+                className={`relative rounded-lg border ${tileCfg.tileBorder} ${tileCfg.tileBg} px-3 py-2 ${tileCfg.tileShadow} transition-all duration-150`}
                 data-testid={`tile-priority-${cat.id}`}
               >
                 {/* Row 1: Name + flag button + score badge */}
@@ -291,9 +290,9 @@ export default function ListomaticPriority() {
                     {cat.name}
                   </p>
 
-                  {/* Flag toggle — stopPropagation so tile click doesn't also fire */}
+                  {/* Flag toggle */}
                   <button
-                    onClick={e => { e.stopPropagation(); flagMutation.mutate(cat.id); }}
+                    onClick={() => flagMutation.mutate(cat.id)}
                     className={`shrink-0 transition-colors p-1 rounded ${cat.flagged ? 'text-orange-400' : 'text-gray-600 hover:text-orange-400'}`}
                     title={cat.flagged
                       ? (inListing ? 'Flagged — ×2 active. Tap to remove.' : 'Flagged — ×2 will apply when in Listing. Tap to remove.')
@@ -303,10 +302,14 @@ export default function ListomaticPriority() {
                     <Flag className={`w-3.5 h-3.5 ${cat.flagged ? 'fill-current' : ''}`} />
                   </button>
 
-                  {/* Score badge — visual only, tile click opens Dialog */}
-                  <span className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded border tabular-nums ${scoreBadgeBg(cat.score)}`}>
+                  {/* Score badge — tap to open breakdown dialog */}
+                  <button
+                    onClick={() => setScoreDetailCat(cat)}
+                    className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded border tabular-nums ${scoreBadgeBg(cat.score)}`}
+                    data-testid={`score-badge-${cat.id}`}
+                  >
                     {cat.score}
-                  </span>
+                  </button>
                 </div>
 
                 {/* Row 2: Phase badge (own uncontrolled Popover) + stats */}
@@ -314,7 +317,6 @@ export default function ListomaticPriority() {
                   <Popover>
                     <PopoverTrigger asChild>
                       <button
-                        onClick={e => e.stopPropagation()}
                         className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border transition-colors ${
                           phaseCfg
                             ? `${phaseCfg.bgColor} ${phaseCfg.borderColor} ${phaseCfg.textColor}`
@@ -382,7 +384,7 @@ export default function ListomaticPriority() {
       )}
 
       <p className="text-[10px] text-gray-600">
-        {sorted.length} categories · Tap tile for score details.
+        {sorted.length} categories · Tap score number for breakdown. Tap phase badge to reassign.
       </p>
 
       {/* Score breakdown Dialog — rendered outside tile map, works reliably on mobile */}
