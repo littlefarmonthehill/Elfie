@@ -369,7 +369,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             </DrawerTitle>
           </DrawerHeader>
           <div className="overflow-y-auto px-4 pb-4 flex-1">
-            <ListomaticPriority onOpenSettings={onOpenSettings} />
+            <ListomaticPriority />
           </div>
         </DrawerContent>
       </Drawer>

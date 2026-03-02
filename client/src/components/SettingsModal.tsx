@@ -3,9 +3,8 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { AppSettings, User } from "@shared/schema";
 import { APP_VERSION, APP_NAME } from "@shared/version";
-import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Zap, Info, Layers, Play, Loader2, ChevronDown, ChevronRight, BarChart2, ListChecks } from "lucide-react";
+import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Zap, Info, Layers, Play, Loader2, ChevronDown, ChevronRight, BarChart2 } from "lucide-react";
 import { PomCategoryTiers } from "@/components/PomCategoryTiers";
-import { ListomaticPhases } from "@/components/ListomaticPhases";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,7 +23,7 @@ import { useAuth } from "@/hooks/useAuth";
 interface SettingsModalProps {
   open: boolean;
   onClose: () => void;
-  initialSection?: 'general' | 'platforms' | 'ai' | 'automation' | 'priceomatic' | 'listomatc' | 'data' | 'users';
+  initialSection?: 'general' | 'platforms' | 'ai' | 'automation' | 'priceomatic' | 'data' | 'users';
 }
 
 // ── API Call Schedule Chart ────────────────────────────────────────────────
@@ -596,7 +595,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const [pomHighSupplyThreshold, setPomHighSupplyThreshold] = useState(10000); // BL stock qty = "full supply"
   const [pomHighSupplyPenalty, setPomHighSupplyPenalty] = useState(40);  // supply weight 0–100
 
-  const [activeSection, setActiveSection] = useState<'general' | 'platforms' | 'ai' | 'automation' | 'priceomatic' | 'listomatc' | 'data' | 'users'>(initialSection ?? 'general');
+  const [activeSection, setActiveSection] = useState<'general' | 'platforms' | 'ai' | 'automation' | 'priceomatic' | 'data' | 'users'>(initialSection ?? 'general');
 
   const { data: settings } = useQuery<AppSettings>({
     queryKey: ['/api/settings'],
@@ -1009,7 +1008,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     { id: 'ai' as const, label: 'AI & Intelligence', icon: Sparkles },
     { id: 'automation' as const, label: 'Automation', icon: Clock },
     { id: 'priceomatic' as const, label: 'Price-o-Matic', icon: Zap },
-    { id: 'listomatc' as const, label: 'List-o-Matic', icon: ListChecks },
     { id: 'data' as const, label: 'Backup & Clear', icon: Database },
     ...(isAdmin ? [{ id: 'users' as const, label: 'User Management', icon: Users }] : []),
   ];
@@ -2761,31 +2759,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   </p>
                 </div>
 
-              </div>
-            )}
-
-            {/* List-o-Matic */}
-            {activeSection === 'listomatc' && (
-              <div className="space-y-4 min-h-[400px]">
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-100 flex items-center gap-2">
-                    <ListChecks className="w-4 h-4 text-green-400" />
-                    List-o-Matic — Sorting Phases
-                  </h3>
-                  <p className="text-xs text-gray-400 mt-1">
-                    Assign your inventory categories to sorting phases so you always know where each category sits in your listing workflow. Drag a category pill from one phase to another to reassign it, or click an unassigned pill to pick a phase from the menu.
-                  </p>
-                </div>
-
-                <div className="rounded-lg border border-gray-700/50 bg-gray-800/20 p-3 text-[10px] text-gray-400 space-y-1">
-                  <p className="font-medium text-gray-300 mb-1">Sorting pipeline</p>
-                  <p><span className="text-amber-300 font-medium">Phase 1 — Category:</span> Broad grouping (Misc, Weapons, Accessories, Minifigs)</p>
-                  <p><span className="text-blue-300 font-medium">Phase 2 — Subcategory:</span> Cluster within the category</p>
-                  <p><span className="text-purple-300 font-medium">Phase 3 — Final Sort:</span> Parts → Shape Sort &nbsp;|&nbsp; Minifigs → Hue → Final Color Sort</p>
-                  <p><span className="text-green-300 font-medium">Phase 4 — Listing:</span> Parts → Variation Sort → Final Color Sort &nbsp;|&nbsp; Minifigs → Deco Group → Torso Deco → Variation of Torso → Final MF / Torso Sort</p>
-                </div>
-
-                <ListomaticPhases />
               </div>
             )}
 
