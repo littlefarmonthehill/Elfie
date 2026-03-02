@@ -474,14 +474,9 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                           />
                         </div>
 
-                        {/* Part no · N colors · qty · confidence */}
+                        {/* Part no · qty · confidence */}
                         <div className="flex items-center gap-1.5 flex-wrap">
                           {grp.partNo && <span className="font-mono text-[10px] text-gray-300">{grp.partNo}</span>}
-                          <span className="text-[10px] text-gray-400">
-                            {grp.entries.length === 1
-                              ? grp.entries[0].colorName || "1 color"
-                              : `${grp.entries.length} colors`}
-                          </span>
                           {stockLabel && (
                             <span className="text-[10px] text-green-400 font-medium">· {stockLabel}</span>
                           )}
@@ -535,19 +530,18 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                           </div>
                         </div>
 
-                        {/* All colors sublist — only shown when multiple entries */}
-                        {grp.entries.length > 1 && (
-                          <>
-                            <div className="flex items-center gap-1 px-1 pb-0.5 pt-0.5">
-                              <div className="flex-1 min-w-0">
-                                <span className="text-[9px] uppercase tracking-wider text-gray-600">All colors</span>
-                              </div>
-                              <span className="text-[9px] uppercase tracking-wider text-gray-400 w-14 text-right flex-shrink-0">N Cur</span>
-                              <span className="text-[9px] uppercase tracking-wider text-gray-400 w-[58px] text-right flex-shrink-0">N Score</span>
-                              <span className="text-[9px] uppercase tracking-wider text-gray-400 w-14 text-right flex-shrink-0">U Cur</span>
-                              <span className="text-[9px] uppercase tracking-wider text-gray-400 w-[58px] text-right flex-shrink-0">U Score</span>
+                        {/* All colors sublist */}
+                        <>
+                          <div className="flex items-center gap-1 px-1 pb-0.5 pt-0.5">
+                            <div className="flex-1 min-w-0">
+                              <span className="text-[9px] uppercase tracking-wider text-gray-600">All colors</span>
                             </div>
-                            {grp.entries.map((piece, ei) => {
+                            <span className="text-[9px] uppercase tracking-wider text-gray-400 w-14 text-right flex-shrink-0">N Cur</span>
+                            <span className="text-[9px] uppercase tracking-wider text-gray-400 w-[58px] text-right flex-shrink-0">N Score</span>
+                            <span className="text-[9px] uppercase tracking-wider text-gray-400 w-14 text-right flex-shrink-0">U Cur</span>
+                            <span className="text-[9px] uppercase tracking-wider text-gray-400 w-[58px] text-right flex-shrink-0">U Score</span>
+                          </div>
+                          {grp.entries.map((piece, ei) => {
                               const peak = Math.max(piece.marketSoldMaxNew ?? 0, piece.marketSoldMaxUsed ?? 0) || null;
                               const peakVal = peak && peak > 0 ? peak : null;
                               const nScore = peakVal && piece.ourPriceNew && piece.ourPriceNew > 0
@@ -597,7 +591,6 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                               );
                             })}
                           </>
-                        )}
                       </div>
                     )}
                   </div>
