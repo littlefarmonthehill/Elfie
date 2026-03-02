@@ -3521,7 +3521,9 @@ Return ONLY a valid JSON array, no other text. If no pieces found return [].`
               inventoryId = newMatch.id;
               thumbnailUrl = newMatch.thumbnailUrl || newMatch.imageUrl || null;
               if (!piece.partName && newMatch.itemName) piece.partName = newMatch.itemName;
-              if (!colorId && newMatch.colorId) colorId = newMatch.colorId;
+              // Always prefer inventory's authoritative BrickLink color over GPT-4o's guess
+              if (newMatch.colorName) piece.colorName = newMatch.colorName;
+              if (newMatch.colorId) { colorId = newMatch.colorId; colorRgb = null; } // reset rgb so we re-fetch below
             }
             if (usedMatch) {
               ourPriceUsed = usedMatch.unitPrice ? Number(usedMatch.unitPrice) : null;
@@ -3529,7 +3531,18 @@ Return ONLY a valid JSON array, no other text. If no pieces found return [].`
               if (!inventoryId) inventoryId = usedMatch.id;
               if (!thumbnailUrl) thumbnailUrl = usedMatch.thumbnailUrl || usedMatch.imageUrl || null;
               if (!piece.partName && usedMatch.itemName) piece.partName = usedMatch.itemName;
-              if (!colorId && usedMatch.colorId) colorId = usedMatch.colorId;
+              // If newMatch didn't give us a color, use usedMatch
+              if (!piece.colorName && usedMatch.colorName) piece.colorName = usedMatch.colorName;
+              if (!colorId && usedMatch.colorId) { colorId = usedMatch.colorId; colorRgb = null; }
+            }
+
+            // Re-fetch colorRgb if colorId was updated from inventory but rgb is not yet known
+            if (colorId && colorRgb === null) {
+              const rgbRows = await db.select({ rgb: blColors.rgb })
+                .from(blColors)
+                .where(eq(blColors.id, colorId))
+                .limit(1);
+              if (rgbRows.length > 0) colorRgb = rgbRows[0].rgb ?? null;
             }
           }
 
