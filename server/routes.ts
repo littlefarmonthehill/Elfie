@@ -3269,26 +3269,28 @@ Return ONLY a valid JSON array, no other text. If you cannot identify any pieces
 
       // For each identified part: inventory lookup + POM price + image
       const enriched = await Promise.all(identified.map(async (piece: any) => {
-        let ourPrice: number | null = null;
-        let ourQty = 0;
-        let condition: string | null = null;
+        let ourPriceNew: number | null = null;
+        let ourQtyNew = 0;
+        let ourPriceUsed: number | null = null;
+        let ourQtyUsed = 0;
         let inventoryId: number | null = null;
         let thumbnailUrl: string | null = null;
-        let pomPrice: number | null = null;
-        let marketAvgPrice: number | null = null;
+        let marketSoldMaxNew: number | null = null;
+        let marketSoldMaxUsed: number | null = null;
         let colorId: number | null = null;
+        let colorRgb: string | null = null;
 
         if (piece.partNo) {
           // 1. Resolve colorId from color name in bl_colors
           if (piece.colorName) {
-            const colorRows = await db.select({ id: blColors.id })
+            const colorRows = await db.select({ id: blColors.id, rgb: blColors.rgb })
               .from(blColors)
               .where(sql`lower(${blColors.name}) = lower(${piece.colorName})`)
               .limit(1);
-            if (colorRows.length > 0) colorId = colorRows[0].id;
+            if (colorRows.length > 0) { colorId = colorRows[0].id; colorRgb = colorRows[0].rgb ?? null; }
           }
 
-          // 2. Look up our inventory listing (qty > 0 = currently listed)
+          // 2. Look up our inventory listings — both new and used for the matched color
           const invRows = await db.select({
             id: blInventory.id,
             unitPrice: blInventory.unitPrice,
@@ -3305,89 +3307,96 @@ Return ONLY a valid JSON array, no other text. If you cannot identify any pieces
             eq(blInventory.itemNo, piece.partNo),
             sql`${blInventory.quantity} > 0`
           ))
-          .limit(10);
+          .limit(20);
 
           if (invRows.length > 0) {
-            const colorMatch = invRows.find(r =>
-              colorId ? r.colorId === colorId :
-              (r.colorName?.toLowerCase().includes(piece.colorName?.toLowerCase() || '') ||
-               piece.colorName?.toLowerCase().includes(r.colorName?.toLowerCase() || ''))
-            ) || invRows[0];
-            ourPrice = colorMatch.unitPrice ? Number(colorMatch.unitPrice) : null;
-            ourQty = colorMatch.quantity || 0;
-            inventoryId = colorMatch.id;
-            condition = colorMatch.newOrUsed || null;
-            thumbnailUrl = colorMatch.thumbnailUrl || colorMatch.imageUrl || null;
-            if (!piece.partName && colorMatch.itemName) piece.partName = colorMatch.itemName;
-            if (!colorId && colorMatch.colorId) colorId = colorMatch.colorId;
+            const matchColor = (r: any) => colorId
+              ? r.colorId === colorId
+              : (r.colorName?.toLowerCase().includes(piece.colorName?.toLowerCase() || '') ||
+                 piece.colorName?.toLowerCase().includes(r.colorName?.toLowerCase() || ''));
+
+            const newMatch = invRows.filter(r => r.newOrUsed === 'N').find(matchColor)
+              || invRows.find(r => r.newOrUsed === 'N');
+            const usedMatch = invRows.filter(r => r.newOrUsed === 'U').find(matchColor)
+              || invRows.find(r => r.newOrUsed === 'U');
+
+            if (newMatch) {
+              ourPriceNew = newMatch.unitPrice ? Number(newMatch.unitPrice) : null;
+              ourQtyNew = newMatch.quantity || 0;
+              inventoryId = newMatch.id;
+              thumbnailUrl = newMatch.thumbnailUrl || newMatch.imageUrl || null;
+              if (!piece.partName && newMatch.itemName) piece.partName = newMatch.itemName;
+              if (!colorId && newMatch.colorId) colorId = newMatch.colorId;
+            }
+            if (usedMatch) {
+              ourPriceUsed = usedMatch.unitPrice ? Number(usedMatch.unitPrice) : null;
+              ourQtyUsed = usedMatch.quantity || 0;
+              if (!inventoryId) inventoryId = usedMatch.id;
+              if (!thumbnailUrl) thumbnailUrl = usedMatch.thumbnailUrl || usedMatch.imageUrl || null;
+              if (!piece.partName && usedMatch.itemName) piece.partName = usedMatch.itemName;
+              if (!colorId && usedMatch.colorId) colorId = usedMatch.colorId;
+            }
           }
 
-          // 3. POM price guide: check cache (with color, then any color), fetch if still missing
+          // 3. Price guide cache — query separately for new and used
           try {
             const pgCols = {
-              suggestedPrice: priceGuideCache.suggestedPrice,
               soldMaxPrice: priceGuideCache.soldMaxPrice,
-              soldAvgPrice: priceGuideCache.soldAvgPrice,
-              stockMaxPrice: priceGuideCache.stockMaxPrice,
               thumbnailUrl: priceGuideCache.thumbnailUrl,
               imageUrl: priceGuideCache.imageUrl,
               itemName: priceGuideCache.itemName,
             };
 
-            // 3a. Try exact color match first (or NULL-color match if colorId resolved)
-            let pgRows = await db.select(pgCols)
-              .from(priceGuideCache)
-              .where(and(
-                sql`upper(${priceGuideCache.itemNo}) = upper(${piece.partNo})`,
-                eq(priceGuideCache.itemType, 'PART'),
-                colorId ? eq(priceGuideCache.colorId, colorId) : sql`${priceGuideCache.colorId} IS NULL`,
-                eq(priceGuideCache.newOrUsed, 'N')
-              ))
-              .limit(1);
-
-            // 3b. Fallback: any color for this part (catches unresolved color names)
-            if (pgRows.length === 0) {
-              pgRows = await db.select(pgCols)
+            const getPgRows = async (cond: 'N' | 'U') => {
+              let rows = await db.select(pgCols)
                 .from(priceGuideCache)
                 .where(and(
                   sql`upper(${priceGuideCache.itemNo}) = upper(${piece.partNo})`,
                   eq(priceGuideCache.itemType, 'PART'),
-                  eq(priceGuideCache.newOrUsed, 'N')
+                  colorId ? eq(priceGuideCache.colorId, colorId) : sql`${priceGuideCache.colorId} IS NULL`,
+                  eq(priceGuideCache.newOrUsed, cond)
                 ))
                 .limit(1);
-            }
+              if (rows.length === 0) {
+                rows = await db.select(pgCols)
+                  .from(priceGuideCache)
+                  .where(and(
+                    sql`upper(${priceGuideCache.itemNo}) = upper(${piece.partNo})`,
+                    eq(priceGuideCache.itemType, 'PART'),
+                    eq(priceGuideCache.newOrUsed, cond)
+                  ))
+                  .limit(1);
+              }
+              return rows;
+            };
 
-            if (pgRows.length > 0) {
-              pomPrice = pgRows[0].suggestedPrice ? Number(pgRows[0].suggestedPrice) : null;
-              marketAvgPrice = pgRows[0].soldMaxPrice ? Number(pgRows[0].soldMaxPrice)
-                : pgRows[0].soldAvgPrice ? Number(pgRows[0].soldAvgPrice)
-                : pgRows[0].stockMaxPrice ? Number(pgRows[0].stockMaxPrice)
-                : null;
-              if (!thumbnailUrl) thumbnailUrl = pgRows[0].thumbnailUrl || pgRows[0].imageUrl || null;
-              if (!piece.partName && pgRows[0].itemName) piece.partName = pgRows[0].itemName;
+            const pgRowsNew = await getPgRows('N');
+            if (pgRowsNew.length > 0) {
+              marketSoldMaxNew = pgRowsNew[0].soldMaxPrice ? Number(pgRowsNew[0].soldMaxPrice) : null;
+              if (!thumbnailUrl) thumbnailUrl = pgRowsNew[0].thumbnailUrl || pgRowsNew[0].imageUrl || null;
+              if (!piece.partName && pgRowsNew[0].itemName) piece.partName = pgRowsNew[0].itemName;
             } else {
-              // 3c. Not in cache at all — fetch live from BrickLink POM
-              console.log(`[Brickanalyzer] Fetching live POM for ${piece.partNo} color ${colorId ?? 'any'}`);
+              console.log(`[Brickanalyzer] Fetching live POM (new) for ${piece.partNo} color ${colorId ?? 'any'}`);
               const pgData = await fetchPriceOMagicData(
                 piece.partNo, 'PART', colorId ?? undefined, 'N', premiumPct, pomConfig
               );
               if (pgData) {
-                pomPrice = pgData.suggestedPrice ? Number(pgData.suggestedPrice) : null;
-                marketAvgPrice = pgData.soldMaxPrice ? Number(pgData.soldMaxPrice)
-                  : pgData.soldAvgPrice ? Number(pgData.soldAvgPrice)
-                  : pgData.stockMaxPrice ? Number(pgData.stockMaxPrice)
-                  : null;
+                marketSoldMaxNew = pgData.soldMaxPrice ? Number(pgData.soldMaxPrice) : null;
                 if (!thumbnailUrl) thumbnailUrl = pgData.thumbnailUrl || pgData.imageUrl || null;
                 if (!piece.partName && pgData.itemName) piece.partName = pgData.itemName;
               }
+            }
+
+            const pgRowsUsed = await getPgRows('U');
+            if (pgRowsUsed.length > 0) {
+              marketSoldMaxUsed = pgRowsUsed[0].soldMaxPrice ? Number(pgRowsUsed[0].soldMaxPrice) : null;
             }
           } catch (pgErr: any) {
             console.warn(`[Brickanalyzer] POM lookup failed for ${piece.partNo}:`, pgErr.message);
           }
         }
 
-        // Best price for sorting: POM suggested > our listed > market avg
-        const bestPrice = pomPrice ?? ourPrice ?? marketAvgPrice;
+        const bestPrice = ourPriceNew ?? ourPriceUsed ?? marketSoldMaxNew ?? marketSoldMaxUsed;
 
         return {
           partNo: piece.partNo || '',
@@ -3396,12 +3405,14 @@ Return ONLY a valid JSON array, no other text. If you cannot identify any pieces
           colorId,
           confidence: piece.confidence || 'low',
           note: piece.note || '',
-          ourPrice,
-          ourQty,
-          condition,
+          ourPriceNew,
+          ourQtyNew,
+          ourPriceUsed,
+          ourQtyUsed,
           inventoryId,
-          pomPrice,
-          marketAvgPrice,
+          marketSoldMaxNew,
+          marketSoldMaxUsed,
+          colorRgb,
           thumbnailUrl,
           bestPrice,
         };
@@ -3410,8 +3421,8 @@ Return ONLY a valid JSON array, no other text. If you cannot identify any pieces
       // Sort by best price descending
       enriched.sort((a, b) => (b.bestPrice ?? 0) - (a.bestPrice ?? 0));
 
-      const totalValue = enriched.reduce((sum, p) => sum + (p.pomPrice ?? p.ourPrice ?? p.marketAvgPrice ?? 0), 0);
-      const identifiedWithPrice = enriched.filter(p => p.pomPrice !== null || p.ourPrice !== null || p.marketAvgPrice !== null).length;
+      const totalValue = enriched.reduce((sum, p) => sum + (p.ourPriceNew ?? p.ourPriceUsed ?? p.marketSoldMaxNew ?? 0), 0);
+      const identifiedWithPrice = enriched.filter(p => p.ourPriceNew !== null || p.ourPriceUsed !== null || p.marketSoldMaxNew !== null).length;
 
       await db.update(brickanalyzerScans).set({
         status: 'complete',

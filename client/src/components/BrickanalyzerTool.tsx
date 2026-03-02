@@ -17,14 +17,16 @@ interface ScanResult {
   partName: string;
   colorName: string;
   colorId: number | null;
+  colorRgb: string | null;
   confidence: "high" | "medium" | "low";
   note: string;
-  ourPrice: number | null;
-  ourQty: number;
-  condition: string | null;
+  ourPriceNew: number | null;
+  ourQtyNew: number;
+  ourPriceUsed: number | null;
+  ourQtyUsed: number;
   inventoryId: number | null;
-  pomPrice: number | null;
-  marketAvgPrice: number | null;
+  marketSoldMaxNew: number | null;
+  marketSoldMaxUsed: number | null;
   thumbnailUrl: string | null;
   bestPrice: number | null;
 }
@@ -172,9 +174,9 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
 
   const activeScan = scan ?? latestScan ?? null;
   const results: ScanResult[] = (uiState === "complete" && activeScan?.results) ? (activeScan.results as ScanResult[]) : [];
-  const totalValue = results.reduce((s, p) => s + (p.ourPrice ?? p.marketAvgPrice ?? 0), 0);
-  const inStockCount = results.filter(p => p.ourPrice !== null).length;
-  const withPriceCount = results.filter(p => p.ourPrice !== null || p.marketAvgPrice !== null).length;
+  const totalValue = results.reduce((s, p) => s + (p.ourPriceNew ?? p.ourPriceUsed ?? p.marketSoldMaxNew ?? 0), 0);
+  const inStockCount = results.filter(p => p.ourQtyNew > 0 || p.ourQtyUsed > 0).length;
+  const withPriceCount = results.filter(p => p.ourPriceNew !== null || p.ourPriceUsed !== null || p.marketSoldMaxNew !== null).length;
 
   // Group results by partNo — preserves sort order of first occurrence
   const groupedResults = useMemo(() => {
@@ -324,13 +326,13 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
               {groupedResults.map((grp, gi) => {
                 const key = grp.partNo || `__unknown_${gi}`;
                 const isExpanded = expandedParts.has(key);
-                const totalQty = grp.entries.reduce((s, e) => s + e.ourQty, 0);
-                const conditionLabel = (() => {
-                  const hasNew = grp.entries.some(e => e.ourQty > 0 && e.condition === 'N');
-                  const hasUsed = grp.entries.some(e => e.ourQty > 0 && e.condition === 'U');
-                  if (hasNew && hasUsed) return "New & Used";
-                  if (hasNew) return "New";
-                  if (hasUsed) return "Used";
+                const totalQtyNew = grp.entries.reduce((s, e) => s + e.ourQtyNew, 0);
+                const totalQtyUsed = grp.entries.reduce((s, e) => s + e.ourQtyUsed, 0);
+                const totalQty = totalQtyNew + totalQtyUsed;
+                const stockLabel = (() => {
+                  if (totalQtyNew > 0 && totalQtyUsed > 0) return `${totalQtyNew} new · ${totalQtyUsed} used in stock`;
+                  if (totalQtyNew > 0) return `${totalQtyNew} new in stock`;
+                  if (totalQtyUsed > 0) return `${totalQtyUsed} used in stock`;
                   return null;
                 })();
                 const repImg = grp.thumbnailUrl;
@@ -339,7 +341,7 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                 return (
                   <div
                     key={key}
-                    className="rounded-lg border border-gray-700/60 bg-gradient-to-br from-gray-800/60 via-gray-900/80 to-gray-950/60 overflow-hidden"
+                    className="rounded-lg border border-purple-500/15 bg-gradient-to-br from-purple-500/5 to-transparent overflow-hidden shadow-[0_0_12px_rgba(168,85,247,0.08)]"
                     data-testid={`tile-brickanalyzer-${gi}`}
                   >
                     {/* ── Collapsed header (always visible) ─────────── */}
@@ -403,10 +405,8 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                               ? grp.entries[0].colorName || "1 color"
                               : `${grp.entries.length} colors`}
                           </span>
-                          {totalQty > 0 && (
-                            <span className="text-[10px] text-green-400 font-medium">
-                              · {totalQty} in stock{conditionLabel ? ` (${conditionLabel})` : ""}
-                            </span>
+                          {stockLabel && (
+                            <span className="text-[10px] text-green-400 font-medium">· {stockLabel}</span>
                           )}
                         </div>
                       </div>
@@ -414,50 +414,75 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
 
                     {/* ── Expanded: all color/condition rows ──────────── */}
                     {isExpanded && (
-                      <div className="border-t border-gray-700/50">
-                        {grp.entries.map((piece, ei) => (
-                          <div
-                            key={ei}
-                            className="flex items-center gap-2 px-3 py-1.5 border-b border-gray-800/60 last:border-0"
-                            data-testid={`entry-${gi}-${ei}`}
-                          >
-                            {/* Color swatch */}
-                            <div className="w-1 self-stretch rounded-full bg-gray-600/50 flex-shrink-0" />
-
-                            {/* Color name + condition + qty */}
-                            <div className="w-32 flex-shrink-0">
-                              <p className="text-[11px] text-gray-300 truncate">{piece.colorName || "Unknown"}</p>
-                              {piece.ourQty > 0 && (
-                                <p className="text-[10px] text-green-400">
-                                  {piece.ourQty} in stock{piece.condition ? ` · ${piece.condition === 'N' ? 'New' : 'Used'}` : ""}
-                                </p>
-                              )}
-                            </div>
-
-                            {/* Prices */}
-                            <div className="flex-1 flex items-center gap-3">
-                              <div className="flex items-baseline gap-1">
-                                <span className="text-[9px] text-gray-400 uppercase">Listed</span>
-                                {piece.ourPrice !== null
-                                  ? <span className="text-[11px] font-mono text-green-400">${piece.ourPrice.toFixed(2)}</span>
-                                  : <span className="text-[11px] text-gray-500">—</span>
-                                }
+                      <div className="border-t border-purple-500/10 px-2 py-1.5 space-y-1">
+                        {/* Column header */}
+                        <div className="flex items-center gap-1 px-1 pb-0.5">
+                          <div className="flex-1 min-w-0" />
+                          <span className="text-[9px] uppercase tracking-wider text-gray-400 w-14 text-right flex-shrink-0">N Cur</span>
+                          <span className="text-[9px] uppercase tracking-wider text-gray-400 w-[58px] text-right flex-shrink-0">N Score</span>
+                          <span className="text-[9px] uppercase tracking-wider text-gray-400 w-14 text-right flex-shrink-0">U Cur</span>
+                          <span className="text-[9px] uppercase tracking-wider text-gray-400 w-[58px] text-right flex-shrink-0">U Score</span>
+                        </div>
+                        {grp.entries.map((piece, ei) => {
+                          const peak = Math.max(piece.marketSoldMaxNew ?? 0, piece.marketSoldMaxUsed ?? 0) || null;
+                          const peakVal = peak && peak > 0 ? peak : null;
+                          const nScore = peakVal && piece.ourPriceNew && piece.ourPriceNew > 0
+                            ? Number((peakVal / piece.ourPriceNew).toFixed(2)) : null;
+                          const uScore = peakVal && piece.ourPriceUsed && piece.ourPriceUsed > 0
+                            ? Number((peakVal / piece.ourPriceUsed).toFixed(2)) : null;
+                          const scoreColor = (s: number | null) => {
+                            if (s === null) return 'text-gray-600';
+                            if (s >= 2.0) return 'text-emerald-400';
+                            if (s >= 1.5) return 'text-orange-400';
+                            if (s >= 1.0) return 'text-yellow-500';
+                            return 'text-gray-500';
+                          };
+                          const totalQty = piece.ourQtyNew + piece.ourQtyUsed;
+                          const inStock = totalQty > 0;
+                          return (
+                            <div
+                              key={ei}
+                              className="bg-gray-900/50 border border-gray-700/60 rounded-lg px-2 py-1.5"
+                              data-testid={`entry-${gi}-${ei}`}
+                            >
+                              <div className="flex items-center gap-1 min-w-0">
+                                {/* Left: in-stock dot + qty + color dot + name + peak */}
+                                <div className="flex flex-col flex-1 min-w-0">
+                                  <div className="flex items-center gap-1 min-w-0">
+                                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${inStock ? 'bg-emerald-500' : 'bg-gray-600'}`} />
+                                    {inStock && <span className="text-[10px] font-mono text-gray-300 flex-shrink-0">×{totalQty}</span>}
+                                    {piece.colorRgb ? (
+                                      <span className="w-2 h-2 rounded-full flex-shrink-0 border border-gray-600" style={{ backgroundColor: `#${piece.colorRgb}` }} />
+                                    ) : (
+                                      <span className="w-2 h-2 rounded-full flex-shrink-0 bg-gray-600" />
+                                    )}
+                                    <span className="text-[10px] text-gray-300 truncate">{piece.colorName || '—'}</span>
+                                    <span className={`text-[9px] capitalize ml-auto flex-shrink-0 ${confidenceColor(piece.confidence)}`}>{piece.confidence}</span>
+                                  </div>
+                                  {peakVal && (
+                                    <span className="text-[9px] pl-0.5 text-purple-400">peak ${peakVal.toFixed(2)}</span>
+                                  )}
+                                </div>
+                                {/* N Cur */}
+                                <span className="text-[10px] font-mono text-gray-300 w-14 text-right flex-shrink-0">
+                                  {piece.ourPriceNew != null ? `$${piece.ourPriceNew.toFixed(2)}` : '—'}
+                                </span>
+                                {/* N Score */}
+                                <span className={`text-[10px] font-mono font-bold w-[58px] text-right flex-shrink-0 ${scoreColor(nScore)}`}>
+                                  {nScore != null ? `${nScore}×` : '—'}
+                                </span>
+                                {/* U Cur */}
+                                <span className="text-[10px] font-mono text-gray-300 w-14 text-right flex-shrink-0">
+                                  {piece.ourPriceUsed != null ? `$${piece.ourPriceUsed.toFixed(2)}` : '—'}
+                                </span>
+                                {/* U Score */}
+                                <span className={`text-[10px] font-mono font-bold w-[58px] text-right flex-shrink-0 ${scoreColor(uScore)}`}>
+                                  {uScore != null ? `${uScore}×` : '—'}
+                                </span>
                               </div>
-                              <div className="flex items-baseline gap-1">
-                                <span className="text-[9px] text-gray-400 uppercase">Sold Hi</span>
-                                {piece.marketAvgPrice !== null
-                                  ? <span className="text-[11px] font-mono text-gray-200">${piece.marketAvgPrice.toFixed(2)}</span>
-                                  : <span className="text-[11px] text-gray-500">—</span>
-                                }
-                              </div>
                             </div>
-
-                            {/* Confidence */}
-                            <span className={`text-[9px] capitalize flex-shrink-0 ${confidenceColor(piece.confidence)}`}>
-                              {piece.confidence}
-                            </span>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>
