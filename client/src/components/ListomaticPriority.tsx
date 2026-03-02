@@ -15,7 +15,7 @@ interface PriorityCategory {
   currentQty: number;
   totalSold: number;
   soldOutLots: number;
-  grandTotalSoldOut: number;
+  totalLots: number;
   basePhaseScore: number;
   sellThroughPct: number;
   soldOutSharePct: number;
@@ -498,7 +498,7 @@ export default function ListomaticPriority() {
                     <span className="text-gray-400 font-mono text-xs">{c.soldOutSharePct}% × 30% = <span className="text-gray-200">{(c.soldOutSharePct * 0.30).toFixed(1)} pts</span></span>
                   </div>
                   <p className="text-xs text-gray-500 font-mono">
-                    {c.soldOutLots.toLocaleString()} this category ÷ {c.grandTotalSoldOut.toLocaleString()} global sold-out lots
+                    {c.soldOutLots.toLocaleString()} sold out ÷ {c.totalLots.toLocaleString()} total lots in category
                   </p>
                 </div>
 

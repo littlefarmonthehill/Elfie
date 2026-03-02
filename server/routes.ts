@@ -5880,15 +5880,16 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
           c.name,
           c.sorting_phase,
           c.flagged,
-          COALESCE(inv.current_qty, 0)::integer   AS current_qty,
-          COALESCE(inv.sold_out_lots, 0)::integer AS sold_out_lots,
-          COALESCE(sold.total_sold, 0)::integer   AS total_sold,
-          tot.grand_total::integer                AS grand_total_sold_out
+          COALESCE(inv.current_qty, 0)::integer    AS current_qty,
+          COALESCE(inv.sold_out_lots, 0)::integer  AS sold_out_lots,
+          COALESCE(inv.total_lots, 0)::integer     AS total_lots,
+          COALESCE(sold.total_sold, 0)::integer    AS total_sold
         FROM ${blCategories} c
         LEFT JOIN (
           SELECT category_id,
                  SUM(quantity)                                     AS current_qty,
-                 COUNT(*) FILTER (WHERE quantity = 0)              AS sold_out_lots
+                 COUNT(*) FILTER (WHERE quantity = 0)              AS sold_out_lots,
+                 COUNT(*)                                          AS total_lots
           FROM ${blInventory}
           GROUP BY category_id
         ) inv ON c.id = inv.category_id
@@ -5900,26 +5901,23 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
           WHERE o.order_status NOT IN ('cancelled', 'Cancelled')
           GROUP BY i.category_id
         ) sold ON c.id = sold.category_id
-        CROSS JOIN (
-          SELECT COUNT(*) FILTER (WHERE quantity = 0) AS grand_total
-          FROM ${blInventory}
-        ) tot
         WHERE COALESCE(inv.current_qty, 0) + COALESCE(inv.sold_out_lots, 0) + COALESCE(sold.total_sold, 0) > 0
       `);
 
       const scored = (rows.rows as any[]).map(r => {
-        const currentQty        = Number(r.current_qty);
-        const totalSold         = Number(r.total_sold);
-        const soldOutLots       = Number(r.sold_out_lots);
-        const grandTotalSoldOut = Number(r.grand_total_sold_out);
+        const currentQty    = Number(r.current_qty);
+        const totalSold     = Number(r.total_sold);
+        const soldOutLots   = Number(r.sold_out_lots);
+        const totalLots     = Number(r.total_lots);
 
-        const sellThroughPct   = (currentQty + totalSold) > 0
+        const sellThroughPct = (currentQty + totalSold) > 0
           ? (totalSold / (currentQty + totalSold)) * 100 : 0;
 
-        const soldOutSharePct  = grandTotalSoldOut > 0
-          ? (soldOutLots / grandTotalSoldOut) * 100 : 0;
+        // % of this category's lots that are sold out
+        const soldOutSharePct = totalLots > 0
+          ? (soldOutLots / totalLots) * 100 : 0;
 
-        const basePhaseScore   = phaseScores[r.sorting_phase] ?? 0;
+        const basePhaseScore = phaseScores[r.sorting_phase] ?? 0;
         const effectivePhaseScore = (r.sorting_phase === 'listing' && r.flagged)
           ? basePhaseScore * 2 : basePhaseScore;
 
@@ -5933,8 +5931,8 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
           currentQty,
           totalSold,
           soldOutLots,
-          grandTotalSoldOut,
-          basePhaseScore: phaseScores[r.sorting_phase] ?? 0,
+          totalLots,
+          basePhaseScore,
           sellThroughPct: Math.round(sellThroughPct * 10) / 10,
           soldOutSharePct: Math.round(soldOutSharePct * 10) / 10,
           effectivePhaseScore,
