@@ -3319,23 +3319,38 @@ Return ONLY a valid JSON array, no other text. If you cannot identify any pieces
             if (!colorId && colorMatch.colorId) colorId = colorMatch.colorId;
           }
 
-          // 3. POM price guide: check cache, fetch if missing
+          // 3. POM price guide: check cache (with color, then any color), fetch if still missing
           try {
-            const pgRows = await db.select({
+            const pgCols = {
               suggestedPrice: priceGuideCache.suggestedPrice,
               stockMaxPrice: priceGuideCache.stockMaxPrice,
               thumbnailUrl: priceGuideCache.thumbnailUrl,
               imageUrl: priceGuideCache.imageUrl,
               itemName: priceGuideCache.itemName,
-            })
-            .from(priceGuideCache)
-            .where(and(
-              sql`upper(${priceGuideCache.itemNo}) = upper(${piece.partNo})`,
-              eq(priceGuideCache.itemType, 'PART'),
-              colorId ? eq(priceGuideCache.colorId, colorId) : sql`${priceGuideCache.colorId} IS NULL`,
-              eq(priceGuideCache.newOrUsed, 'N')
-            ))
-            .limit(1);
+            };
+
+            // 3a. Try exact color match first (or NULL-color match if colorId resolved)
+            let pgRows = await db.select(pgCols)
+              .from(priceGuideCache)
+              .where(and(
+                sql`upper(${priceGuideCache.itemNo}) = upper(${piece.partNo})`,
+                eq(priceGuideCache.itemType, 'PART'),
+                colorId ? eq(priceGuideCache.colorId, colorId) : sql`${priceGuideCache.colorId} IS NULL`,
+                eq(priceGuideCache.newOrUsed, 'N')
+              ))
+              .limit(1);
+
+            // 3b. Fallback: any color for this part (catches unresolved color names)
+            if (pgRows.length === 0) {
+              pgRows = await db.select(pgCols)
+                .from(priceGuideCache)
+                .where(and(
+                  sql`upper(${priceGuideCache.itemNo}) = upper(${piece.partNo})`,
+                  eq(priceGuideCache.itemType, 'PART'),
+                  eq(priceGuideCache.newOrUsed, 'N')
+                ))
+                .limit(1);
+            }
 
             if (pgRows.length > 0) {
               pomPrice = pgRows[0].suggestedPrice ? Number(pgRows[0].suggestedPrice) : null;
@@ -3343,7 +3358,8 @@ Return ONLY a valid JSON array, no other text. If you cannot identify any pieces
               if (!thumbnailUrl) thumbnailUrl = pgRows[0].thumbnailUrl || pgRows[0].imageUrl || null;
               if (!piece.partName && pgRows[0].itemName) piece.partName = pgRows[0].itemName;
             } else {
-              // Not in cache — fetch from BrickLink POM process and cache it
+              // 3c. Not in cache at all — fetch live from BrickLink POM
+              console.log(`[Brickanalyzer] Fetching live POM for ${piece.partNo} color ${colorId ?? 'any'}`);
               const pgData = await fetchPriceOMagicData(
                 piece.partNo, 'PART', colorId ?? undefined, 'N', premiumPct, pomConfig
               );

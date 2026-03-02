@@ -299,58 +299,15 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                   className="rounded-lg border border-gray-700/60 bg-gradient-to-br from-gray-800/60 via-gray-900/80 to-gray-950/60 overflow-hidden"
                   data-testid={`tile-brickanalyzer-${i}`}
                 >
-                  {/* ── Title row ─────────────────────────────────── */}
-                  <div className="flex items-start justify-between gap-2 px-3 pt-2.5 pb-1">
-                    <p className="text-sm font-semibold text-white leading-tight flex-1">
-                      {piece.partName || "Unknown Part"}
-                    </p>
-                    {piece.partNo && (
-                      <a
-                        href={`https://www.bricklink.com/v2/catalog/catalogitem.page?P=${piece.partNo}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-lego-blue hover:text-blue-300 flex-shrink-0 mt-0.5"
-                        data-testid={`link-bricklink-${i}`}
-                      >
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </a>
-                    )}
-                  </div>
-
-                  {/* ── Sub-header: part no · color · qty ─────────── */}
-                  <div className="flex items-center gap-2 px-3 pb-2 flex-wrap">
-                    {piece.partNo && (
-                      <span className="font-mono text-xs text-gray-400">{piece.partNo}</span>
-                    )}
-                    {piece.colorName && (
-                      <>
-                        <span className="text-gray-600 text-xs">·</span>
-                        <span className="text-xs text-gray-400">{piece.colorName}</span>
-                      </>
-                    )}
-                    {piece.ourQty > 0 && (
-                      <>
-                        <span className="text-gray-600 text-xs">·</span>
-                        <span className="text-xs text-green-400 font-medium">Qty {piece.ourQty} in stock</span>
-                      </>
-                    )}
-                    <Badge
-                      variant="outline"
-                      className={`text-[10px] ml-auto capitalize ${confidenceColor(piece.confidence)} border-current`}
-                    >
-                      {piece.confidence}
-                    </Badge>
-                  </div>
-
-                  {/* ── Body: image + prices ───────────────────────── */}
-                  <div className="flex gap-3 px-3 pb-3 border-t border-gray-700/40 pt-2.5">
+                  {/* ── Main body: image + info ───────────────────── */}
+                  <div className="flex gap-2.5 px-2.5 py-2">
                     {/* Image */}
-                    <div className="flex-shrink-0 w-20 h-20 rounded-md bg-gray-800/80 flex items-center justify-center overflow-hidden">
+                    <div className="flex-shrink-0 w-14 h-14 rounded bg-gray-800/80 flex items-center justify-center overflow-hidden">
                       {piece.thumbnailUrl ? (
                         <img
                           src={`/api/images/proxy?url=${encodeURIComponent(piece.thumbnailUrl)}`}
                           alt={piece.partName}
-                          className="w-full h-full object-contain p-1"
+                          className="w-full h-full object-contain p-0.5"
                           onError={(e) => {
                             (e.target as HTMLImageElement).src = `https://img.bricklink.com/ItemImage/PN/${piece.colorId ?? 0}/${piece.partNo}.png`;
                           }}
@@ -359,39 +316,80 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                         <img
                           src={`https://img.bricklink.com/ItemImage/PN/${piece.colorId ?? 0}/${piece.partNo}.png`}
                           alt={piece.partName}
-                          className="w-full h-full object-contain p-1"
+                          className="w-full h-full object-contain p-0.5"
                           onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                         />
                       ) : (
-                        <Camera className="w-6 h-6 text-gray-700" />
+                        <Camera className="w-5 h-5 text-gray-700" />
                       )}
                     </div>
 
-                    {/* Prices */}
-                    <div className="flex-1 grid grid-cols-3 gap-x-2 gap-y-1 content-center">
-                      <div className="flex flex-col">
-                        <span className="text-[10px] text-gray-500 uppercase tracking-wider">POM</span>
-                        {piece.pomPrice !== null
-                          ? <span className="text-sm font-mono font-semibold text-lego-yellow">${piece.pomPrice.toFixed(2)}</span>
-                          : <span className="text-sm text-gray-600">—</span>
-                        }
+                    {/* Right side */}
+                    <div className="flex-1 min-w-0 flex flex-col gap-1">
+                      {/* Title + BL link */}
+                      <div className="flex items-start justify-between gap-1">
+                        <p className="text-xs font-semibold text-white leading-tight flex-1 truncate">
+                          {piece.partName || "Unknown Part"}
+                        </p>
+                        {piece.partNo && (
+                          <a
+                            href={`https://www.bricklink.com/v2/catalog/catalogitem.page?P=${piece.partNo}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-lego-blue hover:text-blue-300 flex-shrink-0"
+                            data-testid={`link-bricklink-${i}`}
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        )}
                       </div>
-                      <div className="flex flex-col">
-                        <span className="text-[10px] text-gray-500 uppercase tracking-wider">Listed</span>
-                        {piece.ourPrice !== null
-                          ? <span className="text-sm font-mono text-green-400">${piece.ourPrice.toFixed(2)}</span>
-                          : <span className="text-sm text-gray-600">—</span>
-                        }
+
+                      {/* Part no · color · qty */}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {piece.partNo && (
+                          <span className="font-mono text-[10px] text-gray-500">{piece.partNo}</span>
+                        )}
+                        {piece.colorName && (
+                          <span className="text-[10px] text-gray-500">{piece.colorName}</span>
+                        )}
+                        {piece.ourQty > 0 && (
+                          <span className="text-[10px] text-green-400 font-medium">· {piece.ourQty} in stock</span>
+                        )}
+                        <Badge
+                          variant="outline"
+                          className={`text-[9px] ml-auto capitalize ${confidenceColor(piece.confidence)} border-current`}
+                        >
+                          {piece.confidence}
+                        </Badge>
                       </div>
-                      <div className="flex flex-col">
-                        <span className="text-[10px] text-gray-500 uppercase tracking-wider">Mkt Hi</span>
-                        {piece.marketAvgPrice !== null
-                          ? <span className="text-sm font-mono text-gray-300">${piece.marketAvgPrice.toFixed(2)}</span>
-                          : <span className="text-sm text-gray-600">—</span>
-                        }
+
+                      {/* Prices: single row */}
+                      <div className="flex items-center gap-3 mt-0.5">
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-[9px] text-gray-500 uppercase tracking-wider">POM</span>
+                          {piece.pomPrice !== null
+                            ? <span className="text-xs font-mono font-semibold text-lego-yellow">${piece.pomPrice.toFixed(2)}</span>
+                            : <span className="text-xs text-gray-600">—</span>
+                          }
+                        </div>
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-[9px] text-gray-500 uppercase tracking-wider">Listed</span>
+                          {piece.ourPrice !== null
+                            ? <span className="text-xs font-mono text-green-400">${piece.ourPrice.toFixed(2)}</span>
+                            : <span className="text-xs text-gray-600">—</span>
+                          }
+                        </div>
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-[9px] text-gray-500 uppercase tracking-wider">Mkt Hi</span>
+                          {piece.marketAvgPrice !== null
+                            ? <span className="text-xs font-mono text-gray-300">${piece.marketAvgPrice.toFixed(2)}</span>
+                            : <span className="text-xs text-gray-600">—</span>
+                          }
+                        </div>
                       </div>
+
                       {piece.note && (
-                        <p className="col-span-3 text-[10px] text-gray-600 italic mt-1">{piece.note}</p>
+                        <p className="text-[9px] text-gray-600 italic">{piece.note}</p>
                       )}
                     </div>
                   </div>
