@@ -865,11 +865,11 @@ export async function syncBricklinkData(): Promise<BricklinkSyncResult> {
     }
 
     // Step 5b: Part ID mapping sync — always runs as part of inventory sync.
-    // Processes 50 unmapped BL part numbers per run; builds up part_id_mappings
-    // incrementally so Brick Spotter scans get instant cache hits.
+    // Processes all unmapped BL part numbers; rate-limited by 1.2s delay per call.
+    // First run covers the full inventory; subsequent runs only touch new items.
     try {
       const { syncPartIdMappings } = await import('./rebrickable-images');
-      syncPartIdMappings(50).then(r => {
+      syncPartIdMappings().then(r => {
         if (r.processed > 0) console.log(`[Part Mappings] Nightly pass: ${r.saved}/${r.processed} parts mapped`);
       }).catch(e => {
         console.error('[Part Mappings] Sync error (non-fatal):', e);

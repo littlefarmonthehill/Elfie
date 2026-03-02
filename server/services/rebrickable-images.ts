@@ -330,10 +330,10 @@ export async function bulkSyncRebrickableImages(maxBatches = 500): Promise<BulkI
 // LEGO ↔ BrickLink ↔ Rebrickable cross-references for all inventory parts.
 // Processes up to `batchSize` unmapped BL part numbers per call so it
 // self-throttles: the first run is slow, subsequent runs only touch new items.
-export async function syncPartIdMappings(batchSize = 50): Promise<{ processed: number; saved: number }> {
+export async function syncPartIdMappings(): Promise<{ processed: number; saved: number }> {
   if (!REBRICKABLE_API_KEY) return { processed: 0, saved: 0 };
 
-  // Find distinct BL part numbers in inventory that are NOT yet in the mapping table
+  // Find all distinct BL part numbers in inventory that are NOT yet in the mapping table
   const unmapped = await db.execute(sql`
     SELECT DISTINCT item_no AS "itemNo"
     FROM   bl_inventory
@@ -342,7 +342,6 @@ export async function syncPartIdMappings(batchSize = 50): Promise<{ processed: n
       AND  item_no NOT IN (
         SELECT bl_id FROM part_id_mappings WHERE bl_id IS NOT NULL
       )
-    LIMIT ${batchSize}
   `) as any;
 
   const rows: Array<{ itemNo: string }> = unmapped.rows ?? unmapped;
