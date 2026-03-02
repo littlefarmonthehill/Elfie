@@ -23,6 +23,16 @@ interface PriorityCategory {
   score: number;
 }
 
+interface SampleItem {
+  id: number;
+  itemNo: string;
+  itemName: string | null;
+  colorName: string | null;
+  quantity: number;
+  unitPrice: string | null;
+  thumbnailUrl: string | null;
+}
+
 interface PriorityResponse {
   categories: PriorityCategory[];
   phaseScores: Record<string, number>;
@@ -77,6 +87,12 @@ export default function ListomaticPriority() {
   const [editingPhase, setEditingPhase] = useState<PhaseKey | null>(null);
   const [editValue, setEditValue] = useState('');
   const [scoreDetailCat, setScoreDetailCat] = useState<PriorityCategory | null>(null);
+  const [sampleCat, setSampleCat] = useState<{ id: number; name: string } | null>(null);
+
+  const { data: sampleData, isLoading: sampleLoading } = useQuery<{ items: SampleItem[] }>({
+    queryKey: ['/api/listomatc/category', sampleCat?.id, 'sample'],
+    enabled: !!sampleCat,
+  });
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { data, isLoading, error } = useQuery<PriorityResponse>({
@@ -286,9 +302,13 @@ export default function ListomaticPriority() {
               >
                 {/* Row 1: Name + flag button + score badge */}
                 <div className="flex items-center gap-1.5 min-w-0 mb-1.5">
-                  <p className={`text-xs font-medium truncate flex-1 min-w-0 ${cat.flagged ? 'text-orange-200' : 'text-gray-200'}`}>
+                  <button
+                    onClick={() => setSampleCat({ id: cat.id, name: cat.name })}
+                    className={`text-xs font-medium truncate flex-1 min-w-0 text-left hover:underline ${cat.flagged ? 'text-orange-200' : 'text-gray-200'}`}
+                    data-testid={`name-btn-${cat.id}`}
+                  >
                     {cat.name}
-                  </p>
+                  </button>
 
                   {/* Flag toggle */}
                   <button
@@ -386,6 +406,53 @@ export default function ListomaticPriority() {
       <p className="text-[10px] text-gray-600">
         {sorted.length} categories · Tap score number for breakdown. Tap phase badge to reassign.
       </p>
+
+      {/* Category sample Dialog — shows top 5 parts by quantity */}
+      <Dialog open={!!sampleCat} onOpenChange={open => { if (!open) setSampleCat(null); }}>
+        <DialogContent className="bg-gray-900 border-gray-700 text-gray-200 max-w-sm z-[9999]">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-semibold text-gray-200 pr-6 truncate">
+              {sampleCat?.name} — Sample Parts
+            </DialogTitle>
+          </DialogHeader>
+          {sampleLoading && (
+            <div className="py-6 text-center text-gray-500 text-xs">Loading…</div>
+          )}
+          {!sampleLoading && sampleData?.items.length === 0 && (
+            <div className="py-6 text-center text-gray-500 text-xs italic">No parts found.</div>
+          )}
+          {!sampleLoading && sampleData && sampleData.items.length > 0 && (
+            <div className="space-y-2">
+              {sampleData.items.map(item => (
+                <div key={item.id} className="flex items-center gap-3 py-1.5 border-b border-gray-800 last:border-0">
+                  {item.thumbnailUrl ? (
+                    <img
+                      src={item.thumbnailUrl}
+                      alt={item.itemNo}
+                      className="w-10 h-10 object-contain shrink-0 rounded bg-gray-800"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 shrink-0 rounded bg-gray-800 flex items-center justify-center text-gray-600 text-[9px] font-mono">
+                      {item.itemNo}
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-gray-200 truncate">{item.itemName ?? '—'}</p>
+                    <p className="text-[10px] text-gray-500 font-mono">
+                      #{item.itemNo}{item.colorName ? ` · ${item.colorName}` : ''}
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="text-xs font-semibold text-gray-300 tabular-nums">{item.quantity.toLocaleString()}</p>
+                    <p className="text-[10px] text-gray-600">pcs</p>
+                  </div>
+                </div>
+              ))}
+              <p className="text-[10px] text-gray-600 pt-1">Top 5 lots by quantity in stock.</p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Score breakdown Dialog — rendered outside tile map, works reliably on mobile */}
       <Dialog open={!!scoreDetailCat} onOpenChange={open => { if (!open) setScoreDetailCat(null); }}>

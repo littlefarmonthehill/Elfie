@@ -5950,6 +5950,34 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
     }
   });
 
+  // Sample parts for a category (up to 5, ordered by qty desc)
+  app.get("/api/listomatc/category/:id/sample", isApproved, async (req, res) => {
+    try {
+      const categoryId = parseInt(req.params.id);
+      if (isNaN(categoryId)) return res.status(400).json({ error: "Invalid category id" });
+
+      const rows = await db
+        .select({
+          id: blInventory.id,
+          itemNo: blInventory.itemNo,
+          itemName: blInventory.itemName,
+          colorName: blInventory.colorName,
+          quantity: blInventory.quantity,
+          unitPrice: blInventory.unitPrice,
+          thumbnailUrl: blInventory.thumbnailUrl,
+        })
+        .from(blInventory)
+        .where(eq(blInventory.categoryId, categoryId))
+        .orderBy(desc(blInventory.quantity))
+        .limit(5);
+
+      res.json({ items: rows });
+    } catch (error) {
+      console.error("Error fetching category sample:", error);
+      res.status(500).json({ error: "Failed to fetch sample" });
+    }
+  });
+
   // Toggle flag on a category (doubles phase score in listing phase)
   app.patch("/api/listomatc/categories/:id/flag", isApproved, async (req, res) => {
     try {
