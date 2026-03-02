@@ -1,9 +1,10 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { X, GripVertical, Layers, SplitSquareHorizontal, Tag, FolderOpen } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { createPortal } from "react-dom";
 
 interface PhaseCategory {
   id: number;
@@ -71,14 +72,44 @@ const PHASE_CONFIG: Record<PhaseKey, {
   },
 };
 
-const DRAG_KEY = "listomatc-cat-id";
+// ── Drag state ────────────────────────────────────────────────────────────────
+
+interface DragState {
+  categoryId: number;
+  categoryName: string;
+  x: number;
+  y: number;
+}
+
+// Zone registry: each drop zone registers a ref + its phase value
+// We use data attributes on the DOM elements to detect which zone the pointer is over
+const ZONE_ATTR = "data-lom-zone";
+
+function getZoneFromPoint(x: number, y: number): string | null {
+  // Temporarily hide the ghost so elementFromPoint finds the zone underneath
+  const ghost = document.getElementById("lom-drag-ghost");
+  const prevDisplay = ghost?.style.display ?? "";
+  if (ghost) ghost.style.display = "none";
+
+  let zone: string | null = null;
+  const el = document.elementFromPoint(x, y);
+  if (el) {
+    const zoneEl = (el as HTMLElement).closest(`[${ZONE_ATTR}]`);
+    if (zoneEl) zone = zoneEl.getAttribute(ZONE_ATTR);
+  }
+
+  if (ghost) ghost.style.display = prevDisplay;
+  return zone;
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
 
 export function ListomaticPhases() {
   const { toast } = useToast();
-  // dragOverPhase = the phase the cursor is currently over, null if none
-  const [dragOverPhase, setDragOverPhase] = useState<string | null>(null);
-  // dragging = true while any pill is being dragged
-  const [dragging, setDragging] = useState(false);
+  const [drag, setDrag] = useState<DragState | null>(null);
+  const [dragOverZone, setDragOverZone] = useState<string | null>(null);
+  const dragRef = useRef<DragState | null>(null);
+  const dragOverRef = useRef<string | null>(null);
 
   const { data, isLoading } = useQuery<{ success: boolean; categories: PhaseCategory[] }>({
     queryKey: ['/api/listomatc/category-phases'],
@@ -99,45 +130,74 @@ export function ListomaticPhases() {
   const unassigned = categories.filter(c => !c.sortingPhase);
   const byPhase = (phase: PhaseKey) => categories.filter(c => c.sortingPhase === phase);
 
-  // --- Drag handlers passed to each zone ---
+  // Global pointer move/up handlers during a drag
+  const handlePointerMove = useCallback((e: PointerEvent) => {
+    if (!dragRef.current) return;
+    const x = e.clientX;
+    const y = e.clientY;
+    setDrag(prev => prev ? { ...prev, x, y } : prev);
+    dragRef.current = { ...dragRef.current, x, y };
 
-  function onZoneDragEnter(e: React.DragEvent, zone: string) {
-    e.preventDefault();
-    setDragOverPhase(zone);
-  }
-
-  function onZoneDragLeave(e: React.DragEvent, zone: string) {
-    // Only counts as leaving if the cursor truly exits the container,
-    // not just moving between child elements within it.
-    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-      setDragOverPhase(prev => (prev === zone ? null : prev));
+    const zone = getZoneFromPoint(x, y);
+    if (zone !== dragOverRef.current) {
+      dragOverRef.current = zone;
+      setDragOverZone(zone);
     }
-  }
+  }, []);
 
-  function onZoneDragOver(e: React.DragEvent) {
+  const handlePointerUp = useCallback((e: PointerEvent) => {
+    if (!dragRef.current) return;
+    const { categoryId } = dragRef.current;
+    const zone = getZoneFromPoint(e.clientX, e.clientY);
+
+    const cat = (data?.categories ?? []).find(c => c.id === categoryId);
+    const targetPhase = zone === 'unassigned' ? null : (PHASES.includes(zone as PhaseKey) ? zone as PhaseKey : null);
+
+    if (zone && cat) {
+      const currentPhase = cat.sortingPhase ?? 'unassigned';
+      const targetZone = zone;
+      if (currentPhase !== targetZone) {
+        moveMutation.mutate({ categoryId, phase: targetPhase });
+      }
+    }
+
+    dragRef.current = null;
+    dragOverRef.current = null;
+    setDrag(null);
+    setDragOverZone(null);
+    document.body.style.userSelect = "";
+    document.body.style.touchAction = "";
+  }, [data, moveMutation]);
+
+  useEffect(() => {
+    if (drag) {
+      window.addEventListener("pointermove", handlePointerMove, { passive: true });
+      window.addEventListener("pointerup", handlePointerUp);
+      window.addEventListener("pointercancel", handlePointerUp);
+      return () => {
+        window.removeEventListener("pointermove", handlePointerMove);
+        window.removeEventListener("pointerup", handlePointerUp);
+        window.removeEventListener("pointercancel", handlePointerUp);
+      };
+    }
+  }, [drag, handlePointerMove, handlePointerUp]);
+
+  function startDrag(e: React.PointerEvent, cat: PhaseCategory) {
     e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-  }
-
-  function onZoneDrop(e: React.DragEvent, targetPhase: string | null) {
-    e.preventDefault();
-    setDragOverPhase(null);
-    setDragging(false);
-    const raw = e.dataTransfer.getData(DRAG_KEY);
-    if (!raw) return;
-    const categoryId = Number(raw);
-    const cat = categories.find(c => c.id === categoryId);
-    if (!cat) return;
-    if (cat.sortingPhase === targetPhase) return;
-    moveMutation.mutate({ categoryId, phase: targetPhase });
-  }
-
-  function removeFromPhase(categoryId: number) {
-    moveMutation.mutate({ categoryId, phase: null });
+    e.currentTarget.releasePointerCapture(e.pointerId);
+    document.body.style.userSelect = "none";
+    document.body.style.touchAction = "none";
+    const state: DragState = { categoryId: cat.id, categoryName: cat.name, x: e.clientX, y: e.clientY };
+    dragRef.current = state;
+    setDrag(state);
   }
 
   function assignPhase(categoryId: number, phase: PhaseKey) {
     moveMutation.mutate({ categoryId, phase });
+  }
+
+  function removeFromPhase(categoryId: number) {
+    moveMutation.mutate({ categoryId, phase: null });
   }
 
   if (isLoading) {
@@ -148,60 +208,64 @@ export function ListomaticPhases() {
     );
   }
 
-  const zoneProps = (zone: string, targetPhase: string | null) => ({
-    onDragEnter: (e: React.DragEvent) => onZoneDragEnter(e, zone),
-    onDragLeave: (e: React.DragEvent) => onZoneDragLeave(e, zone),
-    onDragOver: onZoneDragOver,
-    onDrop: (e: React.DragEvent) => onZoneDrop(e, targetPhase),
-  });
+  const isDragging = drag !== null;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" style={{ touchAction: isDragging ? "none" : undefined }}>
 
       {/* Unassigned zone */}
-      <DropZone
-        label="Not Assigned"
-        count={unassigned.length}
-        isOver={dragging && dragOverPhase === 'unassigned'}
-        isEmpty={unassigned.length === 0}
-        emptyText={categories.length === 0 ? "No inventory categories found." : "All categories assigned."}
-        headerClass="border-gray-700/40"
-        containerClass={`border rounded-lg transition-all duration-150 ${
-          dragging && dragOverPhase === 'unassigned'
-            ? 'border-gray-400/70 bg-gray-700/30 ring-1 ring-gray-400/30'
+      <div
+        {...{ [ZONE_ATTR]: "unassigned" }}
+        className={`rounded-lg border transition-all duration-100 ${
+          isDragging && dragOverZone === 'unassigned'
+            ? 'border-gray-400/70 bg-gray-700/40 ring-1 ring-gray-400/30'
             : 'border-gray-700/50 bg-gray-800/30'
         }`}
-        dotClass="bg-gray-500"
-        labelClass="text-gray-400"
-        {...zoneProps('unassigned', null)}
         data-testid="phase-unassigned"
       >
-        {unassigned.map(cat => (
-          <UnassignedPill
-            key={cat.id}
-            cat={cat}
-            onAssign={assignPhase}
-            onDragStart={() => setDragging(true)}
-            onDragEnd={() => { setDragging(false); setDragOverPhase(null); }}
-          />
-        ))}
-      </DropZone>
+        <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-700/40">
+          <span className="w-2 h-2 rounded-full bg-gray-500" />
+          <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Not Assigned</span>
+          <Badge variant="outline" className="ml-auto text-[10px] text-gray-500 border-gray-600">
+            {unassigned.length}
+          </Badge>
+        </div>
+        <div className="p-3 min-h-[52px]">
+          {unassigned.length === 0 ? (
+            <p className={`text-[11px] italic ${isDragging && dragOverZone === 'unassigned' ? 'text-gray-300' : 'text-gray-600'}`}>
+              {isDragging && dragOverZone === 'unassigned' ? "Release to unassign" : (categories.length === 0 ? "No inventory categories found." : "All categories assigned.")}
+            </p>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {unassigned.map(cat => (
+                <UnassignedPill
+                  key={cat.id}
+                  cat={cat}
+                  isDragging={isDragging}
+                  isBeingDragged={drag?.categoryId === cat.id}
+                  onPointerDown={(e) => startDrag(e, cat)}
+                  onAssign={assignPhase}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Phase zones */}
       {PHASES.map(phase => {
         const cfg = PHASE_CONFIG[phase];
         const Icon = cfg.icon;
         const phaseCats = byPhase(phase);
-        const isOver = dragging && dragOverPhase === phase;
+        const isOver = isDragging && dragOverZone === phase;
 
         return (
           <div
             key={phase}
-            className={`rounded-lg border transition-all duration-150 ${cfg.bg} ${isOver ? 'ring-2 ring-inset ring-white/20' : ''}`}
-            {...zoneProps(phase, phase)}
+            {...{ [ZONE_ATTR]: phase }}
+            className={`rounded-lg border transition-all duration-100 ${cfg.bg} ${isOver ? 'ring-2 ring-inset ring-white/25' : ''}`}
             data-testid={`phase-${phase}`}
           >
-            {/* Header */}
             <div className="flex items-start gap-2 px-3 py-2.5 border-b border-white/10">
               <Icon className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${cfg.color}`} />
               <div className="flex-1 min-w-0">
@@ -220,7 +284,6 @@ export function ListomaticPhases() {
               </Badge>
             </div>
 
-            {/* Pills */}
             <div className="p-3 min-h-[56px]">
               {phaseCats.length === 0 ? (
                 <p className={`text-[11px] italic ${isOver ? cfg.color + ' opacity-80' : 'text-gray-600'}`}>
@@ -233,9 +296,10 @@ export function ListomaticPhases() {
                       key={cat.id}
                       cat={cat}
                       cfg={cfg}
+                      isDragging={isDragging}
+                      isBeingDragged={drag?.categoryId === cat.id}
+                      onPointerDown={(e) => startDrag(e, cat)}
                       onRemove={() => removeFromPhase(cat.id)}
-                      onDragStart={() => setDragging(true)}
-                      onDragEnd={() => { setDragging(false); setDragOverPhase(null); }}
                     />
                   ))}
                   {isOver && (
@@ -249,70 +313,25 @@ export function ListomaticPhases() {
           </div>
         );
       })}
-    </div>
-  );
-}
 
-// ── Drop zone wrapper ─────────────────────────────────────────────────────────
-
-function DropZone({
-  children,
-  label,
-  count,
-  isOver,
-  isEmpty,
-  emptyText,
-  containerClass,
-  headerClass,
-  dotClass,
-  labelClass,
-  onDragEnter,
-  onDragLeave,
-  onDragOver,
-  onDrop,
-  ...rest
-}: {
-  children: React.ReactNode;
-  label: string;
-  count: number;
-  isOver: boolean;
-  isEmpty: boolean;
-  emptyText: string;
-  containerClass: string;
-  headerClass: string;
-  dotClass: string;
-  labelClass: string;
-  onDragEnter: (e: React.DragEvent) => void;
-  onDragLeave: (e: React.DragEvent) => void;
-  onDragOver: (e: React.DragEvent) => void;
-  onDrop: (e: React.DragEvent) => void;
-  [key: string]: unknown;
-}) {
-  return (
-    <div
-      className={containerClass}
-      onDragEnter={onDragEnter}
-      onDragLeave={onDragLeave}
-      onDragOver={onDragOver}
-      onDrop={onDrop}
-      {...rest}
-    >
-      <div className={`flex items-center gap-2 px-3 py-2 border-b ${headerClass}`}>
-        <span className={`w-2 h-2 rounded-full ${dotClass}`} />
-        <span className={`text-xs font-semibold uppercase tracking-wider ${labelClass}`}>{label}</span>
-        <Badge variant="outline" className="ml-auto text-[10px] text-gray-500 border-gray-600">
-          {count}
-        </Badge>
-      </div>
-      <div className="p-3 min-h-[48px]">
-        {isEmpty ? (
-          <p className={`text-[11px] italic ${isOver ? 'text-gray-300 opacity-70' : 'text-gray-600'}`}>
-            {isOver ? "Release to unassign" : emptyText}
-          </p>
-        ) : (
-          <div className="flex flex-wrap gap-1.5">{children}</div>
-        )}
-      </div>
+      {/* Floating ghost that follows the pointer */}
+      {drag && createPortal(
+        <div
+          id="lom-drag-ghost"
+          style={{
+            position: "fixed",
+            left: drag.x + 12,
+            top: drag.y - 12,
+            pointerEvents: "none",
+            zIndex: 9999,
+          }}
+          className="flex items-center gap-1 px-2 py-1 rounded text-[11px] bg-gray-700 text-gray-100 border border-gray-500 shadow-xl opacity-90 select-none"
+        >
+          <GripVertical className="w-2.5 h-2.5 text-gray-400 shrink-0" />
+          {drag.categoryName}
+        </div>,
+        document.body
+      )}
     </div>
   );
 }
@@ -321,19 +340,20 @@ function DropZone({
 
 function UnassignedPill({
   cat,
+  isDragging,
+  isBeingDragged,
+  onPointerDown,
   onAssign,
-  onDragStart,
-  onDragEnd,
 }: {
   cat: PhaseCategory;
+  isDragging: boolean;
+  isBeingDragged: boolean;
+  onPointerDown: (e: React.PointerEvent) => void;
   onAssign: (id: number, phase: PhaseKey) => void;
-  onDragStart: () => void;
-  onDragEnd: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     if (!open) return;
     function handler(e: MouseEvent) {
@@ -343,27 +363,33 @@ function UnassignedPill({
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
+  // Close dropdown if dragging starts
+  useEffect(() => { if (isDragging) setOpen(false); }, [isDragging]);
+
   return (
     <div className="relative" ref={ref}>
       <div
-        draggable
-        onDragStart={(e) => {
-          e.dataTransfer.setData(DRAG_KEY, String(cat.id));
-          e.dataTransfer.effectAllowed = "move";
-          onDragStart();
+        onPointerDown={(e) => {
+          // Only start drag from the grip handle; clicking elsewhere opens menu
+          const target = e.target as HTMLElement;
+          if (target.closest("[data-grip]")) {
+            onPointerDown(e);
+          } else if (!isDragging) {
+            setOpen(v => !v);
+          }
         }}
-        onDragEnd={onDragEnd}
-        className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] bg-gray-700/60 text-gray-300 border border-gray-600/50 cursor-grab active:cursor-grabbing select-none"
+        className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] bg-gray-700/60 text-gray-300 border border-gray-600/50 select-none cursor-pointer transition-opacity ${isBeingDragged ? 'opacity-30' : ''}`}
         data-testid={`pill-unassigned-${cat.id}`}
-        onClick={() => setOpen(v => !v)}
-        title="Click to assign phase, or drag to a phase"
+        title="Drag to assign, or tap to pick a phase"
       >
-        <GripVertical className="w-2.5 h-2.5 text-gray-500 shrink-0" />
+        <span data-grip className="touch-none cursor-grab">
+          <GripVertical className="w-3 h-3 text-gray-400 shrink-0" />
+        </span>
         {cat.name}
       </div>
 
       {open && (
-        <div className="absolute top-full left-0 z-[200] mt-1 bg-gray-800 border border-gray-600 rounded-md shadow-xl overflow-hidden min-w-[170px]">
+        <div className="absolute top-full left-0 z-[200] mt-1 bg-gray-800 border border-gray-600 rounded-md shadow-xl overflow-hidden min-w-[180px]">
           <div className="px-2.5 py-1.5 text-[10px] text-gray-500 border-b border-gray-700 font-medium uppercase tracking-wider">
             Assign to phase
           </div>
@@ -372,7 +398,7 @@ function UnassignedPill({
             return (
               <button
                 key={p}
-                className={`w-full text-left px-2.5 py-1.5 text-[11px] flex items-center gap-2 hover:bg-gray-700 transition-colors ${cfg.color}`}
+                className={`w-full text-left px-2.5 py-2 text-[11px] flex items-center gap-2 hover:bg-gray-700 transition-colors ${cfg.color}`}
                 onClick={() => { onAssign(cat.id, p); setOpen(false); }}
                 data-testid={`assign-${cat.id}-${p}`}
               >
@@ -390,32 +416,34 @@ function UnassignedPill({
 function AssignedPill({
   cat,
   cfg,
+  isDragging,
+  isBeingDragged,
+  onPointerDown,
   onRemove,
-  onDragStart,
-  onDragEnd,
 }: {
   cat: PhaseCategory;
   cfg: typeof PHASE_CONFIG[PhaseKey];
+  isDragging: boolean;
+  isBeingDragged: boolean;
+  onPointerDown: (e: React.PointerEvent) => void;
   onRemove: () => void;
-  onDragStart: () => void;
-  onDragEnd: () => void;
 }) {
   return (
     <div
-      draggable
-      onDragStart={(e) => {
-        e.dataTransfer.setData(DRAG_KEY, String(cat.id));
-        e.dataTransfer.effectAllowed = "move";
-        onDragStart();
-      }}
-      onDragEnd={onDragEnd}
-      className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] border cursor-grab active:cursor-grabbing select-none group ${cfg.badgeBg}`}
+      className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] border select-none group transition-opacity ${cfg.badgeBg} ${isBeingDragged ? 'opacity-30' : ''}`}
       data-testid={`pill-${cat.sortingPhase}-${cat.id}`}
     >
-      <GripVertical className="w-2.5 h-2.5 opacity-40 group-hover:opacity-70 shrink-0" />
+      <span
+        data-grip
+        onPointerDown={onPointerDown}
+        className="touch-none cursor-grab active:cursor-grabbing"
+        title="Drag to move"
+      >
+        <GripVertical className="w-3 h-3 opacity-50 group-hover:opacity-80 shrink-0" />
+      </span>
       {cat.name}
       <button
-        onMouseDown={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => { e.stopPropagation(); onRemove(); }}
         className="ml-0.5 opacity-40 hover:opacity-90 transition-opacity"
         data-testid={`remove-${cat.id}`}
