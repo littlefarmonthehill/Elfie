@@ -3390,6 +3390,16 @@ Return ONLY a valid JSON array, no other text. If you cannot identify any pieces
             const pgRowsUsed = await getPgRows('U');
             if (pgRowsUsed.length > 0) {
               marketSoldMaxUsed = pgRowsUsed[0].soldMaxPrice ? Number(pgRowsUsed[0].soldMaxPrice) : null;
+            } else {
+              console.log(`[Brickanalyzer] Fetching live POM (used) for ${piece.partNo} color ${colorId ?? 'any'}`);
+              const pgDataUsed = await fetchPriceOMagicData(
+                piece.partNo, 'PART', colorId ?? undefined, 'U', premiumPct, pomConfig
+              );
+              if (pgDataUsed) {
+                marketSoldMaxUsed = pgDataUsed.soldMaxPrice ? Number(pgDataUsed.soldMaxPrice) : null;
+                if (!thumbnailUrl) thumbnailUrl = pgDataUsed.thumbnailUrl || pgDataUsed.imageUrl || null;
+                if (!piece.partName && pgDataUsed.itemName) piece.partName = pgDataUsed.itemName;
+              }
             }
           } catch (pgErr: any) {
             console.warn(`[Brickanalyzer] POM lookup failed for ${piece.partNo}:`, pgErr.message);
