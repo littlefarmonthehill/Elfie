@@ -3407,6 +3407,70 @@ Return ONLY a valid JSON array, no other text. If no pieces found return [].`
         }
       }));
 
+      // ── Step 2b: Resolve LEGO part numbers → BrickLink part numbers via Rebrickable ──
+      // Brickognize returns official LEGO part numbers which sometimes differ from BrickLink
+      // numbers (especially for decorated/printed parts). Rebrickable has the mapping.
+      {
+        const REBRICKABLE_API_KEY = process.env.REBRICKABLE_API_KEY;
+        if (REBRICKABLE_API_KEY) {
+          // Get all unique part numbers from identified pieces (PART type only)
+          const uniquePartNos = [...new Set(identified.filter(p => p.partNo && p.itemType !== 'MINIFIG').map(p => p.partNo as string))];
+          if (uniquePartNos.length > 0) {
+            // Batch-check which part numbers are already known in our blInventory
+            const upperList = uniquePartNos.map(p => p.toUpperCase());
+            const knownRows = await db.select({ itemNo: blInventory.itemNo })
+              .from(blInventory)
+              .where(sql`upper(${blInventory.itemNo}) IN (${sql.join(upperList.map(p => sql`${p}`), sql`, `)})`);
+            const knownSet = new Set(knownRows.map(r => r.itemNo?.toUpperCase()));
+
+            // For unknown part numbers, try Rebrickable to get BL mapping
+            const unknownPartNos = uniquePartNos.filter(p => !knownSet.has(p.toUpperCase()));
+            if (unknownPartNos.length > 0) {
+              console.log(`[Brickanalyzer] Resolving ${unknownPartNos.length} unknown LEGO part(s) via Rebrickable: ${unknownPartNos.join(', ')}`);
+              const rbResolutionMap = new Map<string, string>(); // LEGO partNo → BL partNo
+
+              await Promise.all(unknownPartNos.map(async (legoPartNo) => {
+                try {
+                  const rbRes = await axios.get(
+                    `https://rebrickable.com/api/v3/lego/parts/${encodeURIComponent(legoPartNo)}/`,
+                    { params: { key: REBRICKABLE_API_KEY }, timeout: 8000 }
+                  );
+                  const blIds: string[] = rbRes.data?.external_ids?.BrickLink?.ext_ids ?? [];
+                  if (blIds.length > 0) {
+                    console.log(`[Brickanalyzer] Rebrickable mapped ${legoPartNo} → BL: ${blIds.join(', ')}`);
+                    // Prefer the first BL ID — verify it exists in our inventory
+                    for (const blId of blIds) {
+                      const blCheck = await db.select({ itemNo: blInventory.itemNo }).from(blInventory)
+                        .where(sql`upper(${blInventory.itemNo}) = upper(${blId})`).limit(1);
+                      if (blCheck.length > 0) { rbResolutionMap.set(legoPartNo.toUpperCase(), blCheck[0].itemNo!); break; }
+                    }
+                    // If none found in our inventory, still store the first BL ID so POM can try
+                    if (!rbResolutionMap.has(legoPartNo.toUpperCase())) {
+                      rbResolutionMap.set(legoPartNo.toUpperCase(), blIds[0]);
+                    }
+                  }
+                } catch (err: any) {
+                  if (err?.response?.status !== 404) {
+                    console.warn(`[Brickanalyzer] Rebrickable lookup failed for ${legoPartNo}:`, err.message);
+                  }
+                }
+              }));
+
+              // Apply resolutions to identified pieces
+              for (const piece of identified) {
+                if (piece.partNo && piece.itemType !== 'MINIFIG') {
+                  const resolved = rbResolutionMap.get(piece.partNo.toUpperCase());
+                  if (resolved && resolved.toUpperCase() !== piece.partNo.toUpperCase()) {
+                    console.log(`[Brickanalyzer] Part number corrected: ${piece.partNo} → ${resolved}`);
+                    piece.partNo = resolved;
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
       // Load POM config once
       const pomConfig = await getPomFormulaConfig();
       const pomSettings = await db.select().from(appSettings).limit(1);
