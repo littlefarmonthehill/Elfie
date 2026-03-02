@@ -73,8 +73,6 @@ export default function ListomaticPriority() {
   const [localPhaseScores, setLocalPhaseScores] = useState<Record<string, number> | null>(null);
   const [editingPhase, setEditingPhase] = useState<PhaseKey | null>(null);
   const [editValue, setEditValue] = useState('');
-  const [openPhaseId, setOpenPhaseId] = useState<number | null>(null);
-  const [openScoreId, setOpenScoreId] = useState<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { data, isLoading, error } = useQuery<PriorityResponse>({
@@ -272,146 +270,141 @@ export default function ListomaticPriority() {
           {sorted.map(cat => {
             const phaseCfg = cat.sortingPhase ? PHASE_CONFIG[cat.sortingPhase as PhaseKey] : null;
             const tileCfg  = phaseCfg
-              ? { tileBorder: phaseCfg.tileBorder, tileBg: phaseCfg.tileBg, tileShadow: phaseCfg.tileShadow, tileHover: phaseCfg.tileHover }
+              ? { tileBorder: phaseCfg.tileBorder, tileBg: phaseCfg.tileBg, tileShadow: phaseCfg.tileShadow }
               : UNASSIGNED_TILE;
             const inListing = cat.sortingPhase === 'listing';
 
             return (
-              <div
-                key={cat.id}
-                className={`relative rounded-lg border ${tileCfg.tileBorder} ${tileCfg.tileBg} px-3 py-2 ${tileCfg.tileShadow} transition-all duration-150 ${cat.flagged ? 'ring-1 ring-orange-500/60' : ''}`}
-                data-testid={`tile-priority-${cat.id}`}
-              >
-                {/* Row 1: Name + flag button + score badge */}
-                <div className="flex items-center gap-1.5 min-w-0 mb-1.5">
-                  <p className={`text-xs font-medium truncate flex-1 min-w-0 ${cat.flagged ? 'text-orange-200' : 'text-gray-200'}`}>
-                    {cat.name}
-                  </p>
-
-                  {/* Flag toggle — always visible */}
-                  <button
-                    onClick={() => flagMutation.mutate(cat.id)}
-                    className={`shrink-0 transition-colors p-0.5 rounded ${
-                      cat.flagged
-                        ? 'text-orange-400'
-                        : 'text-gray-700 hover:text-orange-400'
-                    }`}
-                    title={
-                      cat.flagged
-                        ? (inListing ? 'Flagged — ×2 active. Tap to remove.' : 'Flagged — ×2 will apply when moved to Listing. Tap to remove.')
-                        : 'Flag to double effort score when in Listing phase'
-                    }
-                    data-testid={`flag-btn-${cat.id}`}
+              /* Whole tile = score breakdown trigger */
+              <Popover key={cat.id}>
+                <PopoverTrigger asChild>
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    className={`relative rounded-lg border ${tileCfg.tileBorder} ${tileCfg.tileBg} px-3 py-2 ${tileCfg.tileShadow} transition-all duration-150 cursor-pointer select-none ${cat.flagged ? 'ring-1 ring-orange-500/60' : ''}`}
+                    data-testid={`tile-priority-${cat.id}`}
                   >
-                    <Flag className={`w-3 h-3 ${cat.flagged ? 'fill-current' : ''}`} />
-                  </button>
+                    {/* Row 1: Name + flag button + score badge */}
+                    <div className="flex items-center gap-1.5 min-w-0 mb-1.5">
+                      <p className={`text-xs font-medium truncate flex-1 min-w-0 ${cat.flagged ? 'text-orange-200' : 'text-gray-200'}`}>
+                        {cat.name}
+                      </p>
 
-                  {/* Score badge — tap for breakdown */}
-                  <Popover
-                    open={openScoreId === cat.id}
-                    onOpenChange={open => setOpenScoreId(open ? cat.id : null)}
-                  >
-                    <PopoverTrigger asChild>
+                      {/* Flag toggle — stopPropagation so tile popover doesn't open */}
                       <button
-                        className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded border tabular-nums cursor-pointer ${scoreBadgeBg(cat.score)}`}
-                        data-testid={`score-badge-${cat.id}`}
+                        onClick={e => { e.stopPropagation(); flagMutation.mutate(cat.id); }}
+                        className={`shrink-0 transition-colors p-1 rounded ${cat.flagged ? 'text-orange-400' : 'text-gray-600 hover:text-orange-400'}`}
+                        title={cat.flagged
+                          ? (inListing ? 'Flagged — ×2 active. Tap to remove.' : 'Flagged — ×2 will apply when in Listing. Tap to remove.')
+                          : 'Flag to double effort score when in Listing phase'}
+                        data-testid={`flag-btn-${cat.id}`}
                       >
+                        <Flag className={`w-3.5 h-3.5 ${cat.flagged ? 'fill-current' : ''}`} />
+                      </button>
+
+                      {/* Score badge — decorative, tile click opens breakdown */}
+                      <span className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded border tabular-nums ${scoreBadgeBg(cat.score)}`}>
                         {cat.score}
-                      </button>
-                    </PopoverTrigger>
-                    <PopoverContent side="left" align="start" className="w-60 bg-gray-900 border-gray-700 p-3 z-[300]">
-                      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2 truncate">{cat.name}</p>
-                      <div className="space-y-1 text-[10px] font-mono">
-                        <div className="flex justify-between gap-2">
-                          <span className="text-amber-300">Sell-Through</span>
-                          <span className="text-gray-400">{cat.sellThroughPct}% × 30%</span>
-                          <span className="text-gray-200 w-8 text-right">{(cat.sellThroughPct * 0.30).toFixed(1)}</span>
-                        </div>
-                        <div className="flex justify-between gap-2">
-                          <span className="text-blue-300">Sold-Out</span>
-                          <span className="text-gray-400">{cat.soldOutSharePct}% × 30%</span>
-                          <span className="text-gray-200 w-8 text-right">{(cat.soldOutSharePct * 0.30).toFixed(1)}</span>
-                        </div>
-                        <div className="flex justify-between gap-2">
-                          <span className="text-purple-300">Effort{cat.flagged && inListing ? ' ×2' : ''}</span>
-                          <span className="text-gray-400">{cat.effectivePhaseScore} × 40%</span>
-                          <span className="text-gray-200 w-8 text-right">{(cat.effectivePhaseScore * 0.40).toFixed(1)}</span>
-                        </div>
-                        <div className="border-t border-gray-700 pt-1 flex justify-between font-semibold">
-                          <span className="text-gray-300">Total</span>
-                          <span className={scoreColor(cat.score)}>{cat.score}</span>
-                        </div>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                </div>
+                      </span>
+                    </div>
 
-                {/* Row 2: Phase badge (tappable) + stats */}
-                <div className="flex items-center gap-2 text-[10px] flex-wrap">
-                  {/* Phase badge — tap to reassign */}
-                  <Popover
-                    open={openPhaseId === cat.id}
-                    onOpenChange={open => setOpenPhaseId(open ? cat.id : null)}
-                  >
-                    <PopoverTrigger asChild>
-                      <button
-                        className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border transition-colors ${
-                          phaseCfg
-                            ? `${phaseCfg.bgColor} ${phaseCfg.borderColor} ${phaseCfg.textColor}`
-                            : 'bg-gray-800/40 border-gray-700/40 text-gray-500 italic'
-                        }`}
-                        data-testid={`phase-badge-${cat.id}`}
-                      >
-                        {phaseCfg ? phaseCfg.label : 'Unassigned'}
-                      </button>
-                    </PopoverTrigger>
-                    <PopoverContent side="bottom" align="start" className="w-52 bg-gray-900 border-gray-700 p-2.5 z-[300] space-y-1.5">
-                      <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-2">Move to phase</p>
-                      <button
-                        onClick={() => { phaseMutation.mutate({ categoryId: cat.id, phase: null }); setOpenPhaseId(null); }}
-                        className={`w-full text-left text-[10px] px-2 py-1.5 rounded border transition-colors ${
-                          !cat.sortingPhase
-                            ? 'border-gray-500 bg-gray-700/60 text-gray-300'
-                            : 'border-gray-700/40 text-gray-500 hover:border-gray-600 hover:text-gray-300'
-                        }`}
-                        data-testid={`phase-btn-null-${cat.id}`}
-                      >
-                        Not Assigned
-                      </button>
-                      {PHASES.map(phase => {
-                        const cfg = PHASE_CONFIG[phase];
-                        const isActive = cat.sortingPhase === phase;
-                        return (
+                    {/* Row 2: Phase badge (own popover) + stats */}
+                    <div className="flex items-center gap-2 text-[10px] flex-wrap">
+                      {/* Phase badge — stopPropagation, own Popover */}
+                      <Popover>
+                        <PopoverTrigger asChild>
                           <button
-                            key={phase}
-                            onClick={() => { phaseMutation.mutate({ categoryId: cat.id, phase }); setOpenPhaseId(null); }}
-                            className={`w-full text-left text-[10px] px-2 py-1.5 rounded border transition-colors ${
-                              isActive
-                                ? `${cfg.borderColor} ${cfg.bgColor} ${cfg.textColor} font-semibold`
-                                : `border-gray-700/40 text-gray-500 hover:${cfg.borderColor} hover:${cfg.textColor}`
+                            onClick={e => e.stopPropagation()}
+                            className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border transition-colors ${
+                              phaseCfg
+                                ? `${phaseCfg.bgColor} ${phaseCfg.borderColor} ${phaseCfg.textColor}`
+                                : 'bg-gray-800/40 border-gray-700/40 text-gray-500 italic'
                             }`}
-                            data-testid={`phase-btn-${phase}-${cat.id}`}
+                            data-testid={`phase-badge-${cat.id}`}
                           >
-                            {cfg.label}
+                            {phaseCfg ? phaseCfg.label : 'Unassigned'}
                           </button>
-                        );
-                      })}
-                    </PopoverContent>
-                  </Popover>
+                        </PopoverTrigger>
+                        <PopoverContent side="bottom" align="start" className="w-52 bg-gray-900 border-gray-700 p-2.5 z-[400] space-y-1.5">
+                          <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-2">Move to phase</p>
+                          <button
+                            onClick={() => phaseMutation.mutate({ categoryId: cat.id, phase: null })}
+                            className={`w-full text-left text-[10px] px-2 py-1.5 rounded border transition-colors ${
+                              !cat.sortingPhase
+                                ? 'border-gray-500 bg-gray-700/60 text-gray-300'
+                                : 'border-gray-700/40 text-gray-500 hover:border-gray-600 hover:text-gray-300'
+                            }`}
+                            data-testid={`phase-btn-null-${cat.id}`}
+                          >
+                            Not Assigned
+                          </button>
+                          {PHASES.map(phase => {
+                            const cfg = PHASE_CONFIG[phase];
+                            const isActive = cat.sortingPhase === phase;
+                            return (
+                              <button
+                                key={phase}
+                                onClick={() => phaseMutation.mutate({ categoryId: cat.id, phase })}
+                                className={`w-full text-left text-[10px] px-2 py-1.5 rounded border transition-colors ${
+                                  isActive
+                                    ? `${cfg.borderColor} ${cfg.bgColor} ${cfg.textColor} font-semibold`
+                                    : `border-gray-700/40 text-gray-500 hover:text-gray-200`
+                                }`}
+                                data-testid={`phase-btn-${phase}-${cat.id}`}
+                              >
+                                {cfg.label}
+                              </button>
+                            );
+                          })}
+                        </PopoverContent>
+                      </Popover>
 
-                  {cat.sellThroughPct > 0 && (
-                    <span className="text-gray-500">Sell-Through {cat.sellThroughPct}%</span>
+                      {cat.sellThroughPct > 0 && (
+                        <span className="text-gray-500">Sell-Through {cat.sellThroughPct}%</span>
+                      )}
+                      {cat.soldOutLots > 0 && (
+                        <span className="text-gray-500">Sold-Out {cat.soldOutSharePct}%</span>
+                      )}
+                      {cat.effectivePhaseScore > 0 && (
+                        <span className={cat.flagged && inListing ? 'text-orange-400 font-semibold' : 'text-gray-500'}>
+                          Effort {cat.effectivePhaseScore}{cat.flagged && inListing ? ' ×2' : ''}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </PopoverTrigger>
+
+                {/* Score breakdown popover */}
+                <PopoverContent side="bottom" align="start" className="w-64 bg-gray-900 border-gray-700 p-3 z-[300]">
+                  <p className="text-[11px] font-semibold text-gray-300 truncate mb-3">{cat.name} — Score Breakdown</p>
+                  <div className="space-y-1.5 text-[11px] font-mono">
+                    <div className="flex justify-between gap-2">
+                      <span className="text-amber-300">Sell-Through</span>
+                      <span className="text-gray-400">{cat.sellThroughPct}% × 30%</span>
+                      <span className="text-gray-200 w-8 text-right">{(cat.sellThroughPct * 0.30).toFixed(1)}</span>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <span className="text-blue-300">Sold-Out</span>
+                      <span className="text-gray-400">{cat.soldOutSharePct}% × 30%</span>
+                      <span className="text-gray-200 w-8 text-right">{(cat.soldOutSharePct * 0.30).toFixed(1)}</span>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <span className="text-purple-300">Effort{cat.flagged && inListing ? ' ×2' : ''}</span>
+                      <span className="text-gray-400">{cat.effectivePhaseScore} × 40%</span>
+                      <span className="text-gray-200 w-8 text-right">{(cat.effectivePhaseScore * 0.40).toFixed(1)}</span>
+                    </div>
+                    <div className="border-t border-gray-700 pt-1.5 flex justify-between font-semibold">
+                      <span className="text-gray-300">Total</span>
+                      <span className={scoreColor(cat.score)}>{cat.score}</span>
+                    </div>
+                  </div>
+                  {cat.flagged && !inListing && (
+                    <p className="text-[10px] text-orange-400/70 mt-2 pt-2 border-t border-gray-700">
+                      Flagged — ×2 effort activates when moved to Listing phase.
+                    </p>
                   )}
-                  {cat.soldOutLots > 0 && (
-                    <span className="text-gray-500">Sold-Out {cat.soldOutSharePct}%</span>
-                  )}
-                  {cat.effectivePhaseScore > 0 && (
-                    <span className={cat.flagged && inListing ? 'text-orange-400 font-semibold' : 'text-gray-500'}>
-                      Effort {cat.effectivePhaseScore}{cat.flagged && inListing ? ' ×2' : ''}
-                    </span>
-                  )}
-                </div>
-              </div>
+                </PopoverContent>
+              </Popover>
             );
           })}
 
