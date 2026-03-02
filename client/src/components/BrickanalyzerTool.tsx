@@ -28,6 +28,7 @@ interface InventoryLot {
 interface ScanResult {
   partNo: string;
   partName: string;
+  itemType?: 'PART' | 'MINIFIG';
   colorName: string;
   colorId: number | null;
   colorRgb: string | null;
@@ -194,15 +195,16 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
 
   // Group results by partNo — preserves sort order of first occurrence
   const groupedResults = useMemo(() => {
-    const map = new Map<string, { partNo: string; partName: string; thumbnailUrl: string | null; entries: ScanResult[] }>();
+    const map = new Map<string, { partNo: string; partName: string; itemType: 'PART' | 'MINIFIG'; thumbnailUrl: string | null; entries: ScanResult[] }>();
     for (const r of results) {
       const key = r.partNo || `__unknown_${r.partName}`;
       if (!map.has(key)) {
-        map.set(key, { partNo: r.partNo, partName: r.partName, thumbnailUrl: r.thumbnailUrl, entries: [] });
+        map.set(key, { partNo: r.partNo, partName: r.partName, itemType: r.itemType || 'PART', thumbnailUrl: r.thumbnailUrl, entries: [] });
       }
       const grp = map.get(key)!;
       grp.entries.push(r);
       if (!grp.thumbnailUrl && r.thumbnailUrl) grp.thumbnailUrl = r.thumbnailUrl;
+      if (r.itemType === 'MINIFIG') grp.itemType = 'MINIFIG'; // propagate if any entry is a minifig
     }
     return Array.from(map.values());
   }, [results]);
@@ -472,9 +474,12 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                           <p className="text-xs font-semibold text-white leading-tight flex-1 truncate">
                             {grp.partName || "Unknown Part"}
                           </p>
+                          {grp.itemType === 'MINIFIG' && (
+                            <span className="text-[9px] font-semibold uppercase tracking-wider text-amber-400 bg-amber-900/40 border border-amber-500/30 rounded px-1 py-0.5 flex-shrink-0">Fig</span>
+                          )}
                           {grp.partNo && (
                             <a
-                              href={`https://www.bricklink.com/v2/catalog/catalogitem.page?P=${grp.partNo}`}
+                              href={`https://www.bricklink.com/v2/catalog/catalogitem.page?${grp.itemType === 'MINIFIG' ? 'M' : 'P'}=${grp.partNo}`}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-lego-blue hover:text-blue-300 flex-shrink-0"
@@ -508,7 +513,7 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                         {/* Column headers */}
                         <div className="flex items-center gap-1 px-2 pb-0.5">
                           <div className="flex-1 min-w-0">
-                            <span className="text-[9px] uppercase tracking-wider text-gray-500">Color</span>
+                            <span className="text-[9px] uppercase tracking-wider text-gray-500">{grp.itemType === 'MINIFIG' ? 'Minifigure' : 'Color'}</span>
                           </div>
                           <span className="text-[9px] uppercase tracking-wider text-gray-500 w-14 text-right flex-shrink-0">N Cur</span>
                           <span className="text-[9px] uppercase tracking-wider text-gray-500 w-[58px] text-right flex-shrink-0">N Score</span>
@@ -529,12 +534,14 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                               <div className="flex items-center gap-1 min-w-0">
                                 {beInStock && <Check className="w-3 h-3 text-emerald-400 flex-shrink-0" />}
                                 {beInStock && <span className="text-[10px] font-mono text-gray-200 flex-shrink-0">×{bestEntry.ourQtyNew + bestEntry.ourQtyUsed}</span>}
-                                {bestEntry.colorRgb ? (
+                                {grp.itemType !== 'MINIFIG' && (bestEntry.colorRgb ? (
                                   <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 border border-gray-500" style={{ backgroundColor: `#${bestEntry.colorRgb}` }} />
                                 ) : (
                                   <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-gray-600" />
-                                )}
-                                <span className="text-[10px] text-white font-medium truncate">{bestEntry.colorName || '—'}</span>
+                                ))}
+                                <span className="text-[10px] text-white font-medium truncate">
+                                  {grp.itemType === 'MINIFIG' ? (bestEntry.partName || grp.partName) : (bestEntry.colorName || '—')}
+                                </span>
                               </div>
                               {bePeak && (
                                 <span className="text-[9px] pl-0.5 text-purple-400">peak ${bePeak.toFixed(2)}</span>
