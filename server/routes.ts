@@ -3441,7 +3441,9 @@ Coordinate rules:
           if (!figsTop && !partsTop) {
             console.log(`[Brickanalyzer] Piece ${idx} (${piece.roughName || 'unknown'}): both endpoints returned empty — not in Brickognize DB`);
           }
-          const useFig = figsTop && figsTop.score >= 0.35;
+          // Prefer figs over parts when figs endpoint returns anything — Brickognize
+          // is the quality gate, no extra score threshold needed here
+          const useFig = !!figsTop;
           const topItem = useFig ? figsTop : partsTop;
           const itemType = useFig ? 'MINIFIG' : 'PART';
 
@@ -3456,10 +3458,10 @@ Coordinate rules:
               confidence,
               note: piece.note || '',
             };
-            // When a crop contains a minifig AND a co-located part (e.g. a flag next to a fig),
-            // Brickognize returns both. Report both if the secondary result is also confident (≥0.70).
-            if (useFig && partsTop && partsTop.score >= 0.70 && partsTop.id !== topItem.id) {
-              const secConf = partsTop.score >= 0.7 ? 'high' : 'medium';
+            // When a crop contains a minifig AND a co-located part, report both —
+            // let Brickognize decide quality, no score gate here
+            if (useFig && partsTop && partsTop.id !== topItem.id) {
+              const secConf = partsTop.score >= 0.7 ? 'high' : partsTop.score >= 0.4 ? 'medium' : 'low';
               console.log(`[Brickanalyzer] Piece ${idx} also PART: ${partsTop.id} "${partsTop.name}" score=${partsTop.score.toFixed(2)}`);
               return [primary, {
                 partNo: partsTop.id || '',
