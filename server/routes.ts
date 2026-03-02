@@ -3225,6 +3225,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
 
       const { default: OpenAI } = await import('openai');
       const { default: sharp } = await import('sharp');
+      const { detectPieceBoundingBoxes } = await import('./services/contourDetect.js');
       const openai = new OpenAI({ apiKey });
 
       // Get image dimensions for coordinate conversion
@@ -3232,21 +3233,76 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       const imgWidth = imgMeta.width || 1000;
       const imgHeight = imgMeta.height || 1000;
 
-      const base64Image = imageBuffer.toString('base64');
-      const dataUrl = `data:${mimeType};base64,${base64Image}`;
+      // ── Step 1: Contour detection (free, local, fast) ──────────────────────
+      // Uses adaptive threshold + connected-components on raw pixels via sharp.
+      // Falls back to GPT-4o bounding boxes only if contour detection finds nothing.
+      console.log('[Brickanalyzer] Step 1: Contour detection...');
+      let gptPieces: any[] = [];
 
-      // ── Step 1: GPT-4o — locate every piece + identify color ──────────────
-      // GPT-4o's job is ONLY bounding boxes + colors. Brickognize handles part IDs.
-      console.log('[Brickanalyzer] Step 1: GPT-4o locating pieces...');
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o",
-        max_tokens: 2000,
-        messages: [{
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: `You are a LEGO expert. Analyze this image and locate every individual LEGO piece visible on the background.
+      const contourBoxes = await detectPieceBoundingBoxes(imageBuffer);
+      console.log(`[Brickanalyzer] Contour detection found ${contourBoxes.length} regions`);
+
+      if (contourBoxes.length > 0) {
+        // Contour detection succeeded — use its boxes, ask GPT-4o ONLY for colors
+        gptPieces = contourBoxes.map(b => ({ ...b, colorName: '', roughName: '', confidence: 'medium', note: '' }));
+
+        // Ask GPT-4o just for colors (much cheaper/faster — one call for all pieces)
+        try {
+          const base64Image = imageBuffer.toString('base64');
+          const dataUrl = `data:${mimeType};base64,${base64Image}`;
+          const colorCompletion = await openai.chat.completions.create({
+            model: "gpt-4o",
+            max_tokens: 800,
+            messages: [{
+              role: "user",
+              content: [
+                {
+                  type: "text",
+                  text: `I have detected ${gptPieces.length} LEGO piece(s) in this image using contour detection. For each piece (numbered 0 to ${gptPieces.length - 1}), tell me the BrickLink color name and a very short rough part name as a fallback.
+
+Return ONLY a JSON array with exactly ${gptPieces.length} objects (one per piece, in the same order they appear left-to-right, top-to-bottom), each with:
+- "colorName": BrickLink color name (e.g. "Red", "Dark Bluish Gray", "White")
+- "roughName": short part type guess (e.g. "Brick 2x4", "Plate 1x2", "Slope") or "" if unsure
+- "note": any caveat or ""
+
+Return ONLY a valid JSON array, no other text.`
+                },
+                { type: "image_url", image_url: { url: dataUrl, detail: "high" } }
+              ]
+            }]
+          });
+          const colorRaw = colorCompletion.choices[0]?.message?.content?.trim() || '[]';
+          try {
+            const cleaned = colorRaw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '');
+            const colorData = JSON.parse(cleaned);
+            if (Array.isArray(colorData)) {
+              colorData.forEach((c: any, i: number) => {
+                if (gptPieces[i]) {
+                  gptPieces[i].colorName = c.colorName || '';
+                  gptPieces[i].roughName = c.roughName || '';
+                  gptPieces[i].note = c.note || '';
+                }
+              });
+            }
+          } catch { /* colors remain empty — Brickognize name will be used */ }
+        } catch (colorErr: any) {
+          console.warn('[Brickanalyzer] Color lookup failed (non-fatal):', colorErr.message);
+        }
+
+      } else {
+        // Contour detection found nothing — fall back to GPT-4o for full bounding box detection
+        console.log('[Brickanalyzer] Contour detection found nothing, falling back to GPT-4o...');
+        const base64Image = imageBuffer.toString('base64');
+        const dataUrl = `data:${mimeType};base64,${base64Image}`;
+        const completion = await openai.chat.completions.create({
+          model: "gpt-4o",
+          max_tokens: 2000,
+          messages: [{
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: `You are a LEGO expert. Analyze this image and locate every individual LEGO piece visible on the background.
 
 For each piece return a JSON array where each object has:
 - "x": left edge of the piece as a percentage of image width (0-100)
@@ -3254,27 +3310,25 @@ For each piece return a JSON array where each object has:
 - "w": width of the piece bounding box as a percentage of image width (0-100)
 - "h": height of the piece bounding box as a percentage of image height (0-100)
 - "colorName": BrickLink color name (e.g. "Red", "Dark Bluish Gray", "Trans-Clear", "White")
-- "roughName": a short descriptive name for this piece type (e.g. "Brick 2x4", "Ghost Shroud", "Slope 45 2x2") — used as a fallback only
-- "confidence": "high", "medium", or "low" — how confident you are in the color identification
+- "roughName": a short descriptive name for this piece type (e.g. "Brick 2x4", "Ghost Shroud") — used as a fallback only
+- "confidence": "high", "medium", or "low"
 - "note": any caveat or empty string
 
-Draw bounding boxes that tightly contain exactly one piece each. Do not overlap boxes for the same piece.
 Return ONLY a valid JSON array, no other text. If no pieces found return [].`
-            },
-            { type: "image_url", image_url: { url: dataUrl, detail: "high" } }
-          ]
-        }]
-      });
+              },
+              { type: "image_url", image_url: { url: dataUrl, detail: "high" } }
+            ]
+          }]
+        });
+        const raw = completion.choices[0]?.message?.content?.trim() || '[]';
+        try {
+          const cleaned = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '');
+          gptPieces = JSON.parse(cleaned);
+          if (!Array.isArray(gptPieces)) gptPieces = [];
+        } catch { gptPieces = []; }
+      }
 
-      const raw = completion.choices[0]?.message?.content?.trim() || '[]';
-      let gptPieces: any[] = [];
-      try {
-        const cleaned = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '');
-        gptPieces = JSON.parse(cleaned);
-        if (!Array.isArray(gptPieces)) gptPieces = [];
-      } catch { gptPieces = []; }
-
-      console.log(`[Brickanalyzer] GPT-4o found ${gptPieces.length} pieces`);
+      console.log(`[Brickanalyzer] ${gptPieces.length} piece regions ready for Brickognize`);
 
       // ── Step 2: Crop each piece + send to Brickognize in parallel ─────────
       console.log('[Brickanalyzer] Step 2: Cropping and sending to Brickognize...');
