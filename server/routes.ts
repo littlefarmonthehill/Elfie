@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, isApproved } from "./auth";
-import { syncBricklinkData, fetchPriceOMagicData, searchBricklinkCatalogItem, syncPriceOMagicCache, requestPomSyncStop, getPomFormulaConfig, calculateSuggestedPriceWithSupply, applyPomFloors } from "./services/bricklink";
+import { syncBricklinkData, fetchPriceOMagicData, searchBricklinkCatalogItem, syncPriceOMagicCache, requestPomSyncStop, getPomFormulaConfig, calculateSuggestedPriceWithSupply, applyPomFloors, bricklinkCatalogRequest } from "./services/bricklink";
 import { getPomIsRunning, setPomIsRunning } from "./services/pom-scheduler";
 import { syncLock } from "./services/sync-lock";
 import { syncShipStationOrders } from "./services/shipstation";
@@ -3528,28 +3528,33 @@ Return ONLY a valid JSON array, no other text. If no pieces found return [].`
               : (r.colorName?.toLowerCase().includes(piece.colorName?.toLowerCase() || '') ||
                  piece.colorName?.toLowerCase().includes(r.colorName?.toLowerCase() || ''));
 
-            const newMatch = activeInvRows.filter(r => r.newOrUsed === 'N').find(matchColor)
-              || activeInvRows.find(r => r.newOrUsed === 'N');
-            const usedMatch = activeInvRows.filter(r => r.newOrUsed === 'U').find(matchColor)
-              || activeInvRows.find(r => r.newOrUsed === 'U');
+            // Strict color match first; fallback only used for part name / thumbnail — never for color override
+            const colorMatchNew = activeInvRows.filter(r => r.newOrUsed === 'N').find(matchColor);
+            const colorMatchUsed = activeInvRows.filter(r => r.newOrUsed === 'U').find(matchColor);
+            const anyNew = activeInvRows.find(r => r.newOrUsed === 'N');
+            const anyUsed = activeInvRows.find(r => r.newOrUsed === 'U');
+            const newMatch = colorMatchNew; // pricing only when color matches
+            const usedMatch = colorMatchUsed;
+            const nameSrc = colorMatchNew || colorMatchUsed || anyNew || anyUsed; // for name/thumb only
 
+            if (nameSrc) {
+              if (!piece.partName && nameSrc.itemName) piece.partName = nameSrc.itemName;
+              if (!thumbnailUrl) thumbnailUrl = nameSrc.thumbnailUrl || nameSrc.imageUrl || null;
+            }
             if (newMatch) {
               ourPriceNew = newMatch.unitPrice ? Number(newMatch.unitPrice) : null;
               ourQtyNew = newMatch.quantity || 0;
               inventoryId = newMatch.id;
-              thumbnailUrl = newMatch.thumbnailUrl || newMatch.imageUrl || null;
-              if (!piece.partName && newMatch.itemName) piece.partName = newMatch.itemName;
-              // Always prefer inventory's authoritative BrickLink color over GPT-4o's guess
+              if (!thumbnailUrl) thumbnailUrl = newMatch.thumbnailUrl || newMatch.imageUrl || null;
+              // Only override color from inventory when we have a true color match
               if (newMatch.colorName) piece.colorName = newMatch.colorName;
-              if (newMatch.colorId) { colorId = newMatch.colorId; colorRgb = null; } // reset rgb so we re-fetch below
+              if (newMatch.colorId) { colorId = newMatch.colorId; colorRgb = null; }
             }
             if (usedMatch) {
               ourPriceUsed = usedMatch.unitPrice ? Number(usedMatch.unitPrice) : null;
               ourQtyUsed = usedMatch.quantity || 0;
               if (!inventoryId) inventoryId = usedMatch.id;
               if (!thumbnailUrl) thumbnailUrl = usedMatch.thumbnailUrl || usedMatch.imageUrl || null;
-              if (!piece.partName && usedMatch.itemName) piece.partName = usedMatch.itemName;
-              // If newMatch didn't give us a color, use usedMatch
               if (!piece.colorName && usedMatch.colorName) piece.colorName = usedMatch.colorName;
               if (!colorId && usedMatch.colorId) { colorId = usedMatch.colorId; colorRgb = null; }
             }
@@ -3640,6 +3645,7 @@ Return ONLY a valid JSON array, no other text. If no pieces found return [].`
         if (piece.partNo) {
           try {
             const { data: blColors_data } = await bricklinkCatalogRequest(`/items/PART/${piece.partNo}/colors`);
+            console.log(`[Brickanalyzer] BL colors for ${piece.partNo}: ${JSON.stringify(blColors_data)?.slice(0, 200)}`);
             const catalogColors: { color_id: number; color_name: string }[] = Array.isArray(blColors_data) ? blColors_data : [];
             if (catalogColors.length > 0) {
               // Build an inventory lookup map from activeInvRows for O(1) access

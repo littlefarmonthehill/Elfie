@@ -909,7 +909,7 @@ export async function syncBricklinkData(): Promise<BricklinkSyncResult> {
 // ====== PRICE-O-MAGIC FUNCTIONS ======
 
 // Make a BrickLink Catalog API request (different base URL)
-async function bricklinkCatalogRequest(endpoint: string, queryParams?: Record<string, string>): Promise<{ data: any; apiCalls: number }> {
+export async function bricklinkCatalogRequest(endpoint: string, queryParams?: Record<string, string>): Promise<{ data: any; apiCalls: number }> {
   const [settings] = await db.select().from(appSettings).limit(1);
   
   console.log('[Price-o-Matic Debug] Settings loaded:', {
