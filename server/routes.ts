@@ -3533,29 +3533,6 @@ Coordinate rules:
             if (colorRows.length > 0) { colorId = colorRows[0].id; colorRgb = colorRows[0].rgb ?? null; }
           }
 
-          // 2a. Validate partNo against price guide cache — catches AI hallucinations
-          //     If the cached item name for this partNo doesn't match the AI name, clear it
-          if (piece.partNo && piece.partName) {
-            const pgValidate = await db.select({ itemName: priceGuideCache.itemName })
-              .from(priceGuideCache)
-              .where(and(
-                sql`upper(${priceGuideCache.itemNo}) = upper(${piece.partNo})`,
-                eq(priceGuideCache.itemType, blItemType)
-              ))
-              .limit(1);
-            if (pgValidate.length > 0 && pgValidate[0].itemName) {
-              const wordsAI = piece.partName.toLowerCase().replace(/[^a-z0-9 ]/g, '').split(/\s+/).filter((w: string) => w.length > 2);
-              const wordsPG = pgValidate[0].itemName.toLowerCase().replace(/[^a-z0-9 ]/g, '').split(/\s+/).filter((w: string) => w.length > 2);
-              const shared = wordsAI.filter((w: string) => wordsPG.includes(w)).length;
-              const similarity = wordsAI.length > 0 && wordsPG.length > 0
-                ? shared / Math.min(wordsAI.length, wordsPG.length) : 1;
-              if (similarity < 0.4) {
-                console.log(`[Brickanalyzer] partNo validation failed: AI="${piece.partName}" cache="${pgValidate[0].itemName}" (${piece.partNo}) — clearing partNo`);
-                piece.partNo = '';
-              }
-            }
-          }
-
           // 2. Look up our inventory listings — both new and used for the matched color
           const invRows = await db.select({
             id: blInventory.id,
