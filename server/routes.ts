@@ -10,7 +10,7 @@ import { syncBrickLinkToBrickOwl } from "./services/brickowl";
 import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBackup } from "./services/export";
 import { getProcessedPartImage, processImageFromUrl } from "./services/image-proxy";
 import { db } from "./db";
-import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans } from "@shared/schema";
+import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache } from "@shared/schema";
 import { eq, desc, sql, inArray, like, or, and, isNotNull, isNull } from "drizzle-orm";
 import { z } from "zod";
 import multer from "multer";
@@ -3262,57 +3262,128 @@ Return ONLY a valid JSON array, no other text. If you cannot identify any pieces
         identified = [];
       }
 
-      // For each identified part, look up pricing in bl_inventory
+      // Load POM config once
+      const pomConfig = await getPomFormulaConfig();
+      const pomSettings = await db.select().from(appSettings).limit(1);
+      const premiumPct = pomSettings[0]?.pomBasePremium ?? 15;
+
+      // For each identified part: inventory lookup + POM price + image
       const enriched = await Promise.all(identified.map(async (piece: any) => {
         let ourPrice: number | null = null;
         let ourQty = 0;
         let inventoryId: number | null = null;
+        let thumbnailUrl: string | null = null;
+        let pomPrice: number | null = null;
+        let marketAvgPrice: number | null = null;
+        let colorId: number | null = null;
 
         if (piece.partNo) {
-          const rows = await db.select({
+          // 1. Resolve colorId from color name in bl_colors
+          if (piece.colorName) {
+            const colorRows = await db.select({ id: blColors.id })
+              .from(blColors)
+              .where(sql`lower(${blColors.name}) = lower(${piece.colorName})`)
+              .limit(1);
+            if (colorRows.length > 0) colorId = colorRows[0].id;
+          }
+
+          // 2. Look up our inventory listing (qty > 0 = currently listed)
+          const invRows = await db.select({
             id: blInventory.id,
             unitPrice: blInventory.unitPrice,
             quantity: blInventory.quantity,
             colorName: blInventory.colorName,
+            colorId: blInventory.colorId,
             itemName: blInventory.itemName,
+            thumbnailUrl: blInventory.thumbnailUrl,
+            imageUrl: blInventory.imageUrl,
           })
           .from(blInventory)
           .where(and(
             eq(blInventory.itemNo, piece.partNo),
             sql`${blInventory.quantity} > 0`
           ))
-          .limit(5);
+          .limit(10);
 
-          if (rows.length > 0) {
-            // Prefer matching color, fall back to any available
-            const colorMatch = rows.find(r =>
-              r.colorName?.toLowerCase().includes(piece.colorName?.toLowerCase() || '') ||
-              piece.colorName?.toLowerCase().includes(r.colorName?.toLowerCase() || '')
-            ) || rows[0];
+          if (invRows.length > 0) {
+            const colorMatch = invRows.find(r =>
+              colorId ? r.colorId === colorId :
+              (r.colorName?.toLowerCase().includes(piece.colorName?.toLowerCase() || '') ||
+               piece.colorName?.toLowerCase().includes(r.colorName?.toLowerCase() || ''))
+            ) || invRows[0];
             ourPrice = colorMatch.unitPrice ? Number(colorMatch.unitPrice) : null;
             ourQty = colorMatch.quantity || 0;
             inventoryId = colorMatch.id;
+            thumbnailUrl = colorMatch.thumbnailUrl || colorMatch.imageUrl || null;
             if (!piece.partName && colorMatch.itemName) piece.partName = colorMatch.itemName;
+            if (!colorId && colorMatch.colorId) colorId = colorMatch.colorId;
+          }
+
+          // 3. POM price guide: check cache, fetch if missing
+          try {
+            const pgRows = await db.select({
+              suggestedPrice: priceGuideCache.suggestedPrice,
+              stockAvgPrice: priceGuideCache.stockAvgPrice,
+              thumbnailUrl: priceGuideCache.thumbnailUrl,
+              imageUrl: priceGuideCache.imageUrl,
+              itemName: priceGuideCache.itemName,
+            })
+            .from(priceGuideCache)
+            .where(and(
+              sql`upper(${priceGuideCache.itemNo}) = upper(${piece.partNo})`,
+              eq(priceGuideCache.itemType, 'PART'),
+              colorId ? eq(priceGuideCache.colorId, colorId) : sql`${priceGuideCache.colorId} IS NULL`,
+              eq(priceGuideCache.newOrUsed, 'N')
+            ))
+            .limit(1);
+
+            if (pgRows.length > 0) {
+              pomPrice = pgRows[0].suggestedPrice ? Number(pgRows[0].suggestedPrice) : null;
+              marketAvgPrice = pgRows[0].stockAvgPrice ? Number(pgRows[0].stockAvgPrice) : null;
+              if (!thumbnailUrl) thumbnailUrl = pgRows[0].thumbnailUrl || pgRows[0].imageUrl || null;
+              if (!piece.partName && pgRows[0].itemName) piece.partName = pgRows[0].itemName;
+            } else {
+              // Not in cache — fetch from BrickLink POM process and cache it
+              const pgData = await fetchPriceOMagicData(
+                piece.partNo, 'PART', colorId ?? undefined, 'N', premiumPct, pomConfig
+              );
+              if (pgData) {
+                pomPrice = pgData.suggestedPrice ? Number(pgData.suggestedPrice) : null;
+                marketAvgPrice = pgData.stockAvgPrice ? Number(pgData.stockAvgPrice) : null;
+                if (!thumbnailUrl) thumbnailUrl = pgData.thumbnailUrl || pgData.imageUrl || null;
+                if (!piece.partName && pgData.itemName) piece.partName = pgData.itemName;
+              }
+            }
+          } catch (pgErr: any) {
+            console.warn(`[Brickanalyzer] POM lookup failed for ${piece.partNo}:`, pgErr.message);
           }
         }
+
+        // Best price for sorting: POM suggested > our listed > market avg
+        const bestPrice = pomPrice ?? ourPrice ?? marketAvgPrice;
 
         return {
           partNo: piece.partNo || '',
           partName: piece.partName || 'Unknown Part',
           colorName: piece.colorName || '',
+          colorId,
           confidence: piece.confidence || 'low',
           note: piece.note || '',
           ourPrice,
           ourQty,
           inventoryId,
+          pomPrice,
+          marketAvgPrice,
+          thumbnailUrl,
+          bestPrice,
         };
       }));
 
-      // Sort by our price descending
-      enriched.sort((a, b) => (b.ourPrice ?? 0) - (a.ourPrice ?? 0));
+      // Sort by best price descending
+      enriched.sort((a, b) => (b.bestPrice ?? 0) - (a.bestPrice ?? 0));
 
-      const totalValue = enriched.reduce((sum, p) => sum + (p.ourPrice ?? 0), 0);
-      const identifiedWithPrice = enriched.filter(p => p.ourPrice !== null).length;
+      const totalValue = enriched.reduce((sum, p) => sum + (p.pomPrice ?? p.ourPrice ?? p.marketAvgPrice ?? 0), 0);
+      const identifiedWithPrice = enriched.filter(p => p.pomPrice !== null || p.ourPrice !== null || p.marketAvgPrice !== null).length;
 
       await db.update(brickanalyzerScans).set({
         status: 'complete',

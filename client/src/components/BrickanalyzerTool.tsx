@@ -9,11 +9,16 @@ interface ScanResult {
   partNo: string;
   partName: string;
   colorName: string;
+  colorId: number | null;
   confidence: "high" | "medium" | "low";
   note: string;
   ourPrice: number | null;
   ourQty: number;
   inventoryId: number | null;
+  pomPrice: number | null;
+  marketAvgPrice: number | null;
+  thumbnailUrl: string | null;
+  bestPrice: number | null;
 }
 
 interface BrickanalyzerScan {
@@ -133,8 +138,9 @@ export default function BrickanalyzerTool() {
 
   const activeScan = scan ?? latestScan ?? null;
   const results: ScanResult[] = (uiState === "complete" && activeScan?.results) ? (activeScan.results as ScanResult[]) : [];
-  const totalValue = results.reduce((s, p) => s + (p.ourPrice ?? 0), 0);
+  const totalValue = results.reduce((s, p) => s + (p.pomPrice ?? p.ourPrice ?? p.marketAvgPrice ?? 0), 0);
   const inStockCount = results.filter(p => p.ourPrice !== null).length;
+  const withPriceCount = results.filter(p => p.pomPrice !== null || p.ourPrice !== null || p.marketAvgPrice !== null).length;
 
   function confidenceColor(c: string) {
     if (c === "high") return "text-green-400";
@@ -297,8 +303,9 @@ export default function BrickanalyzerTool() {
             <div className="flex gap-3 text-xs font-mono text-gray-400 flex-wrap">
               <span>{results.length} piece{results.length !== 1 ? "s" : ""} found</span>
               <span>{inStockCount} in your store</span>
+              <span>{withPriceCount} priced</span>
               {totalValue > 0 && (
-                <span className="text-lego-yellow font-semibold">${totalValue.toFixed(2)} total value</span>
+                <span className="text-lego-yellow font-semibold">${totalValue.toFixed(2)} est. value</span>
               )}
             </div>
           </div>
@@ -321,11 +328,13 @@ export default function BrickanalyzerTool() {
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-gray-700 bg-gray-800/60">
-                    <th className="text-left px-3 py-2 text-gray-400 font-medium">Part</th>
-                    <th className="text-left px-3 py-2 text-gray-400 font-medium">Color</th>
-                    <th className="text-right px-3 py-2 text-gray-400 font-medium">Our Price</th>
-                    <th className="text-right px-3 py-2 text-gray-400 font-medium">Qty</th>
-                    <th className="text-center px-3 py-2 text-gray-400 font-medium">Confidence</th>
+                    <th className="text-left px-2 py-2 text-gray-400 font-medium w-8"></th>
+                    <th className="text-left px-2 py-2 text-gray-400 font-medium">Part</th>
+                    <th className="text-right px-2 py-2 text-gray-400 font-medium">POM Price</th>
+                    <th className="text-right px-2 py-2 text-gray-400 font-medium">Our Price</th>
+                    <th className="text-right px-2 py-2 text-gray-400 font-medium">Mkt Avg</th>
+                    <th className="text-right px-2 py-2 text-gray-400 font-medium">Qty</th>
+                    <th className="text-center px-2 py-2 text-gray-400 font-medium">AI</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -335,10 +344,31 @@ export default function BrickanalyzerTool() {
                       className="border-b border-gray-800 last:border-0 hover-elevate"
                       data-testid={`row-brickanalyzer-${i}`}
                     >
-                      <td className="px-3 py-2">
+                      {/* Thumbnail */}
+                      <td className="px-2 py-1.5">
+                        {piece.thumbnailUrl ? (
+                          <img
+                            src={`/api/images/proxy?url=${encodeURIComponent(piece.thumbnailUrl)}`}
+                            alt={piece.partName}
+                            className="w-8 h-8 object-contain rounded bg-gray-800"
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                          />
+                        ) : piece.partNo ? (
+                          <img
+                            src={`https://img.bricklink.com/ItemImage/PN/${piece.colorId ?? 0}/${piece.partNo}.png`}
+                            alt={piece.partName}
+                            className="w-8 h-8 object-contain rounded bg-gray-800"
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                          />
+                        ) : (
+                          <div className="w-8 h-8 rounded bg-gray-800" />
+                        )}
+                      </td>
+                      {/* Part info */}
+                      <td className="px-2 py-1.5">
                         <div className="flex flex-col gap-0.5">
-                          <div className="flex items-center gap-1.5">
-                            {piece.partNo && (
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {piece.partNo ? (
                               <a
                                 href={`https://www.bricklink.com/v2/catalog/catalogitem.page?P=${piece.partNo}`}
                                 target="_blank"
@@ -349,28 +379,48 @@ export default function BrickanalyzerTool() {
                                 {piece.partNo}
                                 <ExternalLink className="w-2.5 h-2.5" />
                               </a>
+                            ) : (
+                              <span className="text-gray-500 italic">unknown</span>
                             )}
-                            {!piece.partNo && <span className="text-gray-500 italic">unknown</span>}
+                            {piece.colorName && (
+                              <span className="text-gray-500">{piece.colorName}</span>
+                            )}
                           </div>
-                          <span className="text-gray-300">{piece.partName}</span>
+                          <span className="text-gray-300 leading-tight">{piece.partName}</span>
                           {piece.note && (
                             <span className="text-gray-600 italic">{piece.note}</span>
                           )}
                         </div>
                       </td>
-                      <td className="px-3 py-2 text-gray-300">{piece.colorName || "—"}</td>
-                      <td className="px-3 py-2 text-right">
-                        {piece.ourPrice !== null
-                          ? <span className="text-lego-yellow font-mono font-semibold">${piece.ourPrice.toFixed(2)}</span>
+                      {/* POM suggested price */}
+                      <td className="px-2 py-1.5 text-right">
+                        {piece.pomPrice !== null
+                          ? <span className="text-lego-yellow font-mono font-semibold">${piece.pomPrice.toFixed(2)}</span>
                           : <span className="text-gray-600">—</span>
                         }
                       </td>
-                      <td className="px-3 py-2 text-right font-mono text-gray-400">
+                      {/* Our listed price */}
+                      <td className="px-2 py-1.5 text-right">
+                        {piece.ourPrice !== null
+                          ? <span className="text-green-400 font-mono">${piece.ourPrice.toFixed(2)}</span>
+                          : <span className="text-gray-600">—</span>
+                        }
+                      </td>
+                      {/* Market avg */}
+                      <td className="px-2 py-1.5 text-right">
+                        {piece.marketAvgPrice !== null
+                          ? <span className="text-gray-400 font-mono">${piece.marketAvgPrice.toFixed(2)}</span>
+                          : <span className="text-gray-600">—</span>
+                        }
+                      </td>
+                      {/* Qty in stock */}
+                      <td className="px-2 py-1.5 text-right font-mono text-gray-400">
                         {piece.ourQty > 0 ? piece.ourQty : <span className="text-gray-600">—</span>}
                       </td>
-                      <td className="px-3 py-2 text-center">
+                      {/* AI confidence */}
+                      <td className="px-2 py-1.5 text-center">
                         <span className={`capitalize font-medium ${confidenceColor(piece.confidence)}`}>
-                          {piece.confidence}
+                          {piece.confidence.charAt(0).toUpperCase()}
                         </span>
                       </td>
                     </tr>
