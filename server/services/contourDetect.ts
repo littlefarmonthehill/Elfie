@@ -8,20 +8,17 @@ export interface DetectedBox {
 }
 
 /**
- * Detects individual LEGO piece bounding boxes from a photo using classical
- * image processing (no external API):
- *   1. Downsample → grayscale → blur → adaptive threshold
- *   2. Two-pass connected-components labeling
- *   3. Filter by area, merge overlapping blobs
- *   4. Return bounding boxes as percentages of original image dimensions
+ * Finds individual LEGO piece bounding boxes using connected-component labeling.
+ * Simple pipeline: threshold → components → size filter → return boxes.
+ * No merging, no proximity detection, no subdivision — just the raw regions.
  */
 export async function detectPieceBoundingBoxes(imageBuffer: Buffer): Promise<DetectedBox[]> {
-  const WORK_WIDTH = 640;
+  const WORK_WIDTH = 800;
 
   const { data, info } = await sharp(imageBuffer)
     .resize(WORK_WIDTH, undefined, { fit: 'inside', withoutEnlargement: true })
     .grayscale()
-    .blur(2.5)
+    .blur(1.5)
     .raw()
     .toBuffer({ resolveWithObject: true });
 
@@ -41,24 +38,28 @@ export async function detectPieceBoundingBoxes(imageBuffer: Buffer): Promise<Det
     return count > 0 ? sum / count : 128;
   };
 
+  // Sample more corners + edges to get a robust background estimate
   const bgBrightness = (
-    sampleRegion(15, 15, 12) +
-    sampleRegion(W - 15, 15, 12) +
-    sampleRegion(15, H - 15, 12) +
-    sampleRegion(W - 15, H - 15, 12)
-  ) / 4;
+    sampleRegion(20, 20, 15) +
+    sampleRegion(W - 20, 20, 15) +
+    sampleRegion(20, H - 20, 15) +
+    sampleRegion(W - 20, H - 20, 15) +
+    sampleRegion(W >> 1, 10, 15) +
+    sampleRegion(W >> 1, H - 10, 15)
+  ) / 6;
 
-  // ── Build binary mask: 1 = piece pixel, 0 = background ─────────────────
-  const MARGIN = 45;
+  // ── Build binary mask ───────────────────────────────────────────────────
+  // Pieces are anything that contrasts with the background by > MARGIN
+  const MARGIN = 40;
   const mask = new Uint8Array(W * H);
 
-  if (bgBrightness > 155) {
+  if (bgBrightness > 140) {
     // Light background — pieces are darker
-    const thresh = Math.max(60, bgBrightness - MARGIN);
+    const thresh = bgBrightness - MARGIN;
     for (let i = 0; i < W * H; i++) mask[i] = pixels[i] < thresh ? 1 : 0;
-  } else if (bgBrightness < 90) {
+  } else if (bgBrightness < 100) {
     // Dark background — pieces are lighter
-    const thresh = Math.min(200, bgBrightness + MARGIN);
+    const thresh = bgBrightness + MARGIN;
     for (let i = 0; i < W * H; i++) mask[i] = pixels[i] > thresh ? 1 : 0;
   } else {
     // Mixed — use distance from background color
@@ -79,30 +80,18 @@ export async function detectPieceBoundingBoxes(imageBuffer: Buffer): Promise<Det
   const union = (a: number, b: number) => { parent[find(a)] = find(b); };
 
   let nextLabel = 1;
-
-  // First pass: assign provisional labels with union-find
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       const idx = y * W + x;
       if (mask[idx] === 0) { labels[idx] = 0; continue; }
-
       const L = x > 0 ? labels[idx - 1] : 0;
       const U = y > 0 ? labels[idx - W] : 0;
-
-      if (L === 0 && U === 0) {
-        labels[idx] = nextLabel++;
-      } else if (L !== 0 && U === 0) {
-        labels[idx] = L;
-      } else if (L === 0 && U !== 0) {
-        labels[idx] = U;
-      } else {
-        labels[idx] = L;
-        if (L !== U) union(L, U);
-      }
+      if (L === 0 && U === 0) { labels[idx] = nextLabel++; }
+      else if (L !== 0 && U === 0) { labels[idx] = L; }
+      else if (L === 0 && U !== 0) { labels[idx] = U; }
+      else { labels[idx] = L; if (L !== U) union(L, U); }
     }
   }
-
-  // Second pass: resolve all labels to root
   for (let i = 0; i < W * H; i++) {
     if (labels[i] > 0) labels[i] = find(labels[i]);
   }
@@ -110,7 +99,6 @@ export async function detectPieceBoundingBoxes(imageBuffer: Buffer): Promise<Det
   // ── Compute bounding boxes per component ───────────────────────────────
   type Bbox = { x0: number; y0: number; x1: number; y1: number; count: number };
   const bboxMap = new Map<number, Bbox>();
-
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       const lbl = labels[y * W + x];
@@ -129,251 +117,33 @@ export async function detectPieceBoundingBoxes(imageBuffer: Buffer): Promise<Det
     }
   }
 
-  // ── Filter by size and convert to % coordinates ────────────────────────
-  const totalPx = W * H;
-  const MIN_FILL  = totalPx * 0.0003; // 0.03% — shields fragment into thin color-band components at work res; allow small blobs through so proximity merge can reassemble them
-  const MAX_AREA  = totalPx * 0.80;   // 80%  — ignore if it's the whole image
-  const MIN_BOX   = 2;                // minimum 2% dimension in either direction
+  // ── Filter by size ──────────────────────────────────────────────────────
+  // MIN_FILL: enough pixels to be a real piece (not a speck)
+  // MAX_BOX_FRACTION: not the entire image background
+  const MIN_FILL = W * H * 0.001;   // 0.1% of pixels
+  const MAX_BOX  = W * H * 0.70;    // box covering >70% of image = background noise
+  const MIN_DIM  = 3;               // at least 3% in each direction
 
-  const raw: DetectedBox[] = [];
-  let filteredDust = 0, filteredGiant = 0, filteredTiny = 0;
-
-  const maskFill = Array.from(mask).filter(v => v === 1).length;
-  console.log(`[ContourDetect] Image ${W}×${H}, bgBrightness=${bgBrightness.toFixed(1)}, maskFill=${((maskFill/totalPx)*100).toFixed(1)}%, components=${bboxMap.size}`);
-
-  // Giant blobs that span >80% of image area are likely many touching pieces.
-  // Grid-subdivide them so Brickognize can still process individual regions.
-  const giantBlobs: { x0: number; y0: number; x1: number; y1: number }[] = [];
-
+  const boxes: DetectedBox[] = [];
   for (const [, b] of bboxMap) {
-    if (b.count < MIN_FILL) { filteredDust++; continue; }
+    if (b.count < MIN_FILL) continue;
     const boxArea = (b.x1 - b.x0) * (b.y1 - b.y0);
-    if (boxArea > MAX_AREA) {
-      filteredGiant++;
-      giantBlobs.push(b);
-      continue;
-    }
-
-    const xPct = (b.x0 / W) * 100;
-    const yPct = (b.y0 / H) * 100;
+    if (boxArea > MAX_BOX) continue;
     const wPct = ((b.x1 - b.x0) / W) * 100;
     const hPct = ((b.y1 - b.y0) / H) * 100;
-
-    if (wPct < MIN_BOX || hPct < MIN_BOX) { filteredTiny++; continue; }
-
-    raw.push({ x: xPct, y: yPct, w: wPct, h: hPct });
-  }
-
-  // Rescue giant blobs: estimate piece count and grid-subdivide
-  if (raw.length === 0 && giantBlobs.length > 0) {
-    console.log(`[ContourDetect] Rescuing ${giantBlobs.length} giant blob(s) via grid subdivision`);
-    for (const b of giantBlobs) {
-      const blobW = b.x1 - b.x0;
-      const blobH = b.y1 - b.y0;
-      // Estimate ~80px per piece at work resolution
-      const cols = Math.max(1, Math.round(blobW / 80));
-      const rows = Math.max(1, Math.round(blobH / 80));
-      const cellW = blobW / cols;
-      const cellH = blobH / rows;
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          const cx0 = b.x0 + c * cellW;
-          const cy0 = b.y0 + r * cellH;
-          raw.push({
-            x: (cx0 / W) * 100,
-            y: (cy0 / H) * 100,
-            w: (cellW / W) * 100,
-            h: (cellH / H) * 100,
-          });
-        }
-      }
-    }
-    console.log(`[ContourDetect] Grid subdivision produced ${raw.length} candidate cells`);
-  }
-
-  console.log(`[ContourDetect] Filtered: dust=${filteredDust} giant=${filteredGiant} tiny=${filteredTiny} → ${raw.length} candidates before merge`);
-
-  // ── Pass 1: Merge overlapping blobs (IoU > 15%) ─────────────────────────
-  const pass1 = mergeOverlapping(raw, 0.15);
-
-  // ── Pass 2: Proximity merge ──────────────────────────────────────────────
-  // Joins blobs that are vertically stacked (head/torso/legs of same minifig)
-  // without accidentally joining horizontally adjacent minifigs.
-  //
-  // Key geometry at ~640px work res with 6 figs/row:
-  //   - Head↔torso vertical gap:       0–1% (essentially touching)
-  //   - Adjacent minifig horiz gap:     ~3% of image width
-  //   - Minifig parts share X ranges (gapX ≈ 0); adjacent figs have gapX ~3%
-  //
-  // maxGapX=1.5: rejects adjacent figs (gapX ~3%) but accepts intra-fig (gapX ~0%)
-  // maxGapY=2.0: bridges head/torso/leg gaps (<1%) with margin
-  // maxAreaRatio=1.5: breaks cascade chains — merging spatially distant boxes
-  //   creates lots of empty space (ratio >> 1); well-aligned minifig parts
-  //   stack tightly (ratio ~1.05–1.15).
-  const merged = mergeProximate(pass1, 1.5, 2.0, 1.5);
-
-  console.log(`[ContourDetect] After merge: ${pass1.length} → ${merged.length} boxes`);
-
-  // ── Pass 3: Subdivide wide blobs (rows of touching pieces) ───────────────
-  // When minifigs stand shoulder-to-shoulder they form one wide connected blob.
-  // Contour can never find the boundary between touching same-color surfaces.
-  // Strategy: estimate how many pieces fit in the blob's width and split evenly.
-  //
-  // Only split if Math.round(blobW / expectedW) >= 2, i.e. blob is ≥ 1.5×
-  // the expected piece width — avoids splitting a single slightly-wide piece.
-  //
-  // Each resulting segment is accepted only if it contains ≥ SEG_MIN_DENSITY
-  // foreground pixels (skips empty background slices at image edges).
-  const FIG_EXPECTED_W  = 12;   // % — minimum expected minifig width at work resolution
-  const PART_EXPECTED_W =  8;   // % — typical small part width
-  const TALL_THRESH     = 20;   // % — blobs this tall are likely minifigs
-  const SEG_MIN_DENSITY = 0.08; // min foreground fraction to accept a segment
-  const MAX_BOXES       = 24;   // cap total Brickognize calls per scan
-
-  const segmented: DetectedBox[] = [];
-  for (const box of merged) {
-    // For minifig rows, scale expected width with blob height (aspect ratio ≈ 2.2:1 H/W).
-    // This prevents over-slicing when figs are photographed at medium/far distance —
-    // e.g. a 30%-tall fig row gives expectedW=13.5% instead of 12%, yielding N=5
-    // for 5 figs spanning 70% rather than the incorrect N=6 (which creates a stray
-    // half-fig crop that Brickognize cannot identify).
-    const expectedW = box.h >= TALL_THRESH
-      ? Math.max(FIG_EXPECTED_W, box.h * 0.45)
-      : PART_EXPECTED_W;
-    const N = Math.round(box.w / expectedW);
-    if (N <= 1) { segmented.push(box); continue; }
-
-    const segW = box.w / N;
-    const py0  = Math.max(0, Math.round((box.y / 100) * H));
-    const py1  = Math.min(H, Math.round(((box.y + box.h) / 100) * H));
-    let keptAny = false;
-
-    for (let i = 0; i < N; i++) {
-      const sx  = box.x + i * segW;
-      const px0 = Math.max(0, Math.round((sx / 100) * W));
-      const px1 = Math.min(W, Math.round(((sx + segW) / 100) * W));
-      let fg = 0, tot = 0;
-      for (let y = py0; y < py1; y++)
-        for (let x = px0; x < px1; x++) { tot++; if (mask[y * W + x]) fg++; }
-      if (tot > 0 && fg / tot >= SEG_MIN_DENSITY) {
-        segmented.push({ x: sx, y: box.y, w: segW, h: box.h });
-        keptAny = true;
-      }
-    }
-    if (!keptAny) segmented.push(box); // fallback: keep original unsplit
-  }
-
-  // Remove any overlaps that subdivision may have introduced
-  const postSub = mergeOverlapping(segmented, 0.3);
-
-  // Cap: rank by foreground density, keep the MAX_BOXES densest regions
-  let finalBoxes = postSub;
-  if (postSub.length > MAX_BOXES) {
-    const scored = postSub.map(box => {
-      const px0 = Math.max(0, Math.round((box.x / 100) * W));
-      const py0 = Math.max(0, Math.round((box.y / 100) * H));
-      const px1 = Math.min(W, Math.round(((box.x + box.w) / 100) * W));
-      const py1 = Math.min(H, Math.round(((box.y + box.h) / 100) * H));
-      let fg = 0, tot = 0;
-      for (let y = py0; y < py1; y++)
-        for (let x = px0; x < px1; x++) { tot++; if (mask[y * W + x]) fg++; }
-      return { box, density: tot > 0 ? fg / tot : 0 };
+    if (wPct < MIN_DIM || hPct < MIN_DIM) continue;
+    boxes.push({
+      x: (b.x0 / W) * 100,
+      y: (b.y0 / H) * 100,
+      w: wPct,
+      h: hPct,
     });
-    scored.sort((a, b) => b.density - a.density);
-    finalBoxes = scored.slice(0, MAX_BOXES).map(s => s.box);
   }
 
-  console.log(`[ContourDetect] After subdivide: ${segmented.length} → ${finalBoxes.length} boxes`);
-  return finalBoxes;
-}
+  // ── Sort by area descending, cap at 30 ─────────────────────────────────
+  boxes.sort((a, b) => (b.w * b.h) - (a.w * a.h));
+  const result = boxes.slice(0, 30);
 
-function iou(a: DetectedBox, b: DetectedBox): number {
-  const ax2 = a.x + a.w, ay2 = a.y + a.h;
-  const bx2 = b.x + b.w, by2 = b.y + b.h;
-  const ix = Math.max(0, Math.min(ax2, bx2) - Math.max(a.x, b.x));
-  const iy = Math.max(0, Math.min(ay2, by2) - Math.max(a.y, b.y));
-  const inter = ix * iy;
-  const unionArea = a.w * a.h + b.w * b.h - inter;
-  return unionArea > 0 ? inter / unionArea : 0;
-}
-
-function mergePair(a: DetectedBox, b: DetectedBox): DetectedBox {
-  const x = Math.min(a.x, b.x);
-  const y = Math.min(a.y, b.y);
-  return { x, y, w: Math.max(a.x + a.w, b.x + b.w) - x, h: Math.max(a.y + a.h, b.y + b.h) - y };
-}
-
-function mergeOverlapping(boxes: DetectedBox[], threshold: number): DetectedBox[] {
-  let result = [...boxes];
-  let changed = true;
-  while (changed) {
-    changed = false;
-    const next: DetectedBox[] = [];
-    const used = new Set<number>();
-    for (let i = 0; i < result.length; i++) {
-      if (used.has(i)) continue;
-      let cur = result[i];
-      for (let j = i + 1; j < result.length; j++) {
-        if (used.has(j)) continue;
-        if (iou(cur, result[j]) > threshold) {
-          cur = mergePair(cur, result[j]);
-          used.add(j);
-          changed = true;
-        }
-      }
-      next.push(cur);
-    }
-    result = next;
-  }
-  return result;
-}
-
-/**
- * Proximity merge: join two boxes if their nearest edges (in both X and Y)
- * are within `maxGap` percentage points.
- *
- * Why: assembled minifig head/torso/legs are separate color blobs with
- * essentially 0 px gap between them, while adjacent minifigs are 5–15% apart.
- * A 3% threshold bridges intra-figure fragments without joining distinct figs.
- */
-function boxEdgeGap(a: DetectedBox, b: DetectedBox): { gapX: number; gapY: number } {
-  const ax2 = a.x + a.w, ay2 = a.y + a.h;
-  const bx2 = b.x + b.w, by2 = b.y + b.h;
-  const gapX = Math.max(0, Math.max(a.x, b.x) - Math.min(ax2, bx2));
-  const gapY = Math.max(0, Math.max(a.y, b.y) - Math.min(ay2, by2));
-  return { gapX, gapY };
-}
-
-function mergeProximate(boxes: DetectedBox[], maxGapX: number, maxGapY: number, maxAreaRatio: number): DetectedBox[] {
-  let result = [...boxes];
-  let changed = true;
-  while (changed) {
-    changed = false;
-    const next: DetectedBox[] = [];
-    const used = new Set<number>();
-    for (let i = 0; i < result.length; i++) {
-      if (used.has(i)) continue;
-      let cur = result[i];
-      for (let j = i + 1; j < result.length; j++) {
-        if (used.has(j)) continue;
-        const { gapX, gapY } = boxEdgeGap(cur, result[j]);
-        if (gapX > maxGapX || gapY > maxGapY) continue;
-        // Area ratio guard: merged bounding box vs sum of individual areas.
-        // Tightly-stacked minifig parts → ratio ~1.05–1.15 (almost no wasted space).
-        // Spatially distant blobs → ratio >> 1.5 (large empty region in merged box).
-        const r = result[j];
-        const mergedW = Math.max(cur.x + cur.w, r.x + r.w) - Math.min(cur.x, r.x);
-        const mergedH = Math.max(cur.y + cur.h, r.y + r.h) - Math.min(cur.y, r.y);
-        const mergedArea = mergedW * mergedH;
-        const sumArea = (cur.w * cur.h) + (r.w * r.h);
-        if (sumArea > 0 && mergedArea / sumArea > maxAreaRatio) continue;
-        cur = mergePair(cur, result[j]);
-        used.add(j);
-        changed = true;
-      }
-      next.push(cur);
-    }
-    result = next;
-  }
+  console.log(`[ContourDetect] ${W}×${H} bg=${bgBrightness.toFixed(0)} → ${bboxMap.size} components → ${boxes.length} sized → ${result.length} returned`);
   return result;
 }
