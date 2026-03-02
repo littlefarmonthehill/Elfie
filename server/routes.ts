@@ -5815,6 +5815,46 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
     }
   });
 
+  // ── List-o-Matic: category sorting phase endpoints ──────────────────────────
+
+  // Get all inventory categories with their sorting phase assignments
+  app.get("/api/listomatc/category-phases", isApproved, async (req, res) => {
+    try {
+      const categories = await db
+        .selectDistinct({
+          id: blCategories.id,
+          name: blCategories.name,
+          sortingPhase: blCategories.sortingPhase,
+        })
+        .from(blCategories)
+        .innerJoin(blInventory, eq(blInventory.categoryId, blCategories.id))
+        .orderBy(blCategories.name);
+      res.json({ success: true, categories });
+    } catch (error) {
+      console.error("Error fetching category phases:", error);
+      res.status(500).json({ error: "Failed to fetch category phases" });
+    }
+  });
+
+  // Update a category's sorting phase
+  app.patch("/api/listomatc/category-phase", isApproved, async (req, res) => {
+    try {
+      const { categoryId, phase } = req.body as { categoryId: number; phase: string | null };
+      const validPhases = ['category', 'subcategory', 'finalsort', 'listing', null];
+      if (!categoryId || !validPhases.includes(phase)) {
+        return res.status(400).json({ error: "Invalid categoryId or phase" });
+      }
+      await db
+        .update(blCategories)
+        .set({ sortingPhase: phase, updatedAt: new Date() })
+        .where(eq(blCategories.id, categoryId));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error updating category phase:", error);
+      res.status(500).json({ error: "Failed to update category phase" });
+    }
+  });
+
   // Get Price-o-Matic insights (pricing discrepancies)
   // Per-category Price-o-Matic freshness stats
   app.get("/api/priceomatic/freshness", isApproved, async (req, res) => {
