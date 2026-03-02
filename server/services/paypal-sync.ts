@@ -1,6 +1,6 @@
 import { db } from '../db';
 import { orders, orderAdjustments } from '@shared/schema';
-import { eq, and, gte } from 'drizzle-orm';
+import { eq, and, gte, sql } from 'drizzle-orm';
 
 const PAYPAL_API_BASE = 'https://api-m.paypal.com';
 
@@ -297,6 +297,36 @@ export async function syncPayPalRefunds(sinceDays = 90, forceResync = false): Pr
     existingAdjustments.map(a => a.externalTransactionId).filter(Boolean) as string[]
   );
 
+  // ── Upgrade stale T0113 adjustments ───────────────────────────────────────
+  // Older syncs recorded only the tax amount (e.g. -$0.61) for T0113 transactions.
+  // T0113 signals a full BrickLink marketplace refund — upgrade any under-recorded
+  // T0113 adjustments to the full order total.
+  try {
+    const staleT0113 = await db.execute(sql`
+      SELECT oa.id, oa.amount, oa."orderId", o."orderTotal"
+      FROM order_adjustments oa
+      JOIN orders o ON o.id = oa."orderId"
+      WHERE oa."paymentMethod" = 'paypal'
+        AND oa.notes LIKE '%T0113%'
+        AND ABS(oa.amount::numeric) < o."orderTotal"::numeric - 0.01
+        AND NOT EXISTS (
+          SELECT 1 FROM order_adjustments oa2
+          WHERE oa2."orderId" = oa."orderId"
+            AND oa2."paymentMethod" = 'paypal'
+            AND oa2.type = 'refund'
+            AND oa2.notes NOT LIKE '%T0113%'
+        )
+    `);
+    const rows = staleT0113.rows as Array<{ id: number; amount: string; orderId: string; orderTotal: string }>;
+    for (const row of rows) {
+      const fullAmount = (-Number(row.orderTotal)).toFixed(2);
+      await db.update(orderAdjustments).set({ amount: fullAmount }).where(eq(orderAdjustments.id, row.id));
+      console.log(`🅿️ Upgraded stale T0113 adjustment on order ${row.orderId}: ${row.amount} → ${fullAmount}`);
+    }
+  } catch (err: any) {
+    console.warn('⚠️  Stale T0113 upgrade failed (non-fatal):', err.message);
+  }
+
   for (const txn of refundTxns) {
     const info = txn.transaction_info;
     const txnId = info.transaction_id;
@@ -378,9 +408,11 @@ export async function syncPayPalRefunds(sinceDays = 90, forceResync = false): Pr
           return daysDiff <= 60;
         });
         if (match) {
-          // Keep refundAmount as the actual T0113 amount (the tax leg of the refund).
-          // The item portion is handled through BrickLink's internal system, not PayPal.
-          console.log(`  ${txnId} (${eventCode}): $${refundAmount} (tax leg) → linked via T0006 ref $${origAmount} → order ${match.orderNumber}`);
+          // T0113 = the full order was refunded by BrickLink marketplace.
+          // BrickLink only surfaces the tax leg in the seller's Transaction Search,
+          // but the financial impact is the full order total. Override to full amount.
+          refundAmount = Number(match.orderTotal);
+          console.log(`  ${txnId} (${eventCode}): tax leg → linked via T0006 ref $${origAmount} → order ${match.orderNumber} — recording full order total $${refundAmount}`);
         }
       }
     }
@@ -407,9 +439,9 @@ export async function syncPayPalRefunds(sinceDays = 90, forceResync = false): Pr
         });
         if (candidate) {
           match = candidate;
-          // Keep refundAmount as the actual T0113 amount (tax leg only).
-          // The item amount is handled through BrickLink's internal system; shipping is not refunded.
-          console.log(`  ${txnId} (T0113): $${refundAmount} (tax leg) → date-proximity T0006 $${saleAmount} (${sale.transaction_info.transaction_id}) → order ${match.orderNumber}`);
+          // T0113 = full order refunded by BrickLink. Record full order total, not just the tax leg.
+          refundAmount = Number(match.orderTotal);
+          console.log(`  ${txnId} (T0113): tax leg → date-proximity T0006 $${saleAmount} → order ${match.orderNumber} — recording full order total $${refundAmount}`);
           break;
         }
       }
