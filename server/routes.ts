@@ -3321,11 +3321,16 @@ Return ONLY a valid JSON array, no other text. If no pieces found return [].`
           }]
         });
         const raw = completion.choices[0]?.message?.content?.trim() || '[]';
+        console.log('[Brickanalyzer] GPT-4o fallback raw response:', raw.substring(0, 500));
         try {
           const cleaned = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '');
           gptPieces = JSON.parse(cleaned);
-          if (!Array.isArray(gptPieces)) gptPieces = [];
-        } catch { gptPieces = []; }
+          if (!Array.isArray(gptPieces)) { console.warn('[Brickanalyzer] GPT-4o returned non-array:', typeof gptPieces); gptPieces = []; }
+          console.log(`[Brickanalyzer] GPT-4o parsed ${gptPieces.length} pieces`);
+        } catch (parseErr: any) {
+          console.warn('[Brickanalyzer] GPT-4o JSON parse failed:', parseErr.message, '| raw:', raw.substring(0, 200));
+          gptPieces = [];
+        }
       }
 
       console.log(`[Brickanalyzer] ${gptPieces.length} piece regions ready for Brickognize`);

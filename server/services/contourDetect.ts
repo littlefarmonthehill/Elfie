@@ -136,24 +136,67 @@ export async function detectPieceBoundingBoxes(imageBuffer: Buffer): Promise<Det
   const MIN_BOX   = 2;                // minimum 2% dimension in either direction
 
   const raw: DetectedBox[] = [];
+  let filteredDust = 0, filteredGiant = 0, filteredTiny = 0;
+
+  const maskFill = Array.from(mask).filter(v => v === 1).length;
+  console.log(`[ContourDetect] Image ${W}×${H}, bgBrightness=${bgBrightness.toFixed(1)}, maskFill=${((maskFill/totalPx)*100).toFixed(1)}%, components=${bboxMap.size}`);
+
+  // Giant blobs that span >80% of image area are likely many touching pieces.
+  // Grid-subdivide them so Brickognize can still process individual regions.
+  const giantBlobs: { x0: number; y0: number; x1: number; y1: number }[] = [];
 
   for (const [, b] of bboxMap) {
-    if (b.count < MIN_FILL) continue;
+    if (b.count < MIN_FILL) { filteredDust++; continue; }
     const boxArea = (b.x1 - b.x0) * (b.y1 - b.y0);
-    if (boxArea > MAX_AREA) continue;
+    if (boxArea > MAX_AREA) {
+      filteredGiant++;
+      giantBlobs.push(b);
+      continue;
+    }
 
     const xPct = (b.x0 / W) * 100;
     const yPct = (b.y0 / H) * 100;
     const wPct = ((b.x1 - b.x0) / W) * 100;
     const hPct = ((b.y1 - b.y0) / H) * 100;
 
-    if (wPct < MIN_BOX || hPct < MIN_BOX) continue;
+    if (wPct < MIN_BOX || hPct < MIN_BOX) { filteredTiny++; continue; }
 
     raw.push({ x: xPct, y: yPct, w: wPct, h: hPct });
   }
 
+  // Rescue giant blobs: estimate piece count and grid-subdivide
+  if (raw.length === 0 && giantBlobs.length > 0) {
+    console.log(`[ContourDetect] Rescuing ${giantBlobs.length} giant blob(s) via grid subdivision`);
+    for (const b of giantBlobs) {
+      const blobW = b.x1 - b.x0;
+      const blobH = b.y1 - b.y0;
+      // Estimate ~80px per piece at work resolution
+      const cols = Math.max(1, Math.round(blobW / 80));
+      const rows = Math.max(1, Math.round(blobH / 80));
+      const cellW = blobW / cols;
+      const cellH = blobH / rows;
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const cx0 = b.x0 + c * cellW;
+          const cy0 = b.y0 + r * cellH;
+          raw.push({
+            x: (cx0 / W) * 100,
+            y: (cy0 / H) * 100,
+            w: (cellW / W) * 100,
+            h: (cellH / H) * 100,
+          });
+        }
+      }
+    }
+    console.log(`[ContourDetect] Grid subdivision produced ${raw.length} candidate cells`);
+  }
+
+  console.log(`[ContourDetect] Filtered: dust=${filteredDust} giant=${filteredGiant} tiny=${filteredTiny} → ${raw.length} candidates before merge`);
+
   // ── Merge overlapping / touching boxes (same piece split into blobs) ────
-  return mergeOverlapping(raw, 0.15);
+  const merged = mergeOverlapping(raw, 0.15);
+  console.log(`[ContourDetect] After merge: ${merged.length} boxes`);
+  return merged;
 }
 
 function iou(a: DetectedBox, b: DetectedBox): number {
