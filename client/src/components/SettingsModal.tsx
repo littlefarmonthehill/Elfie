@@ -977,7 +977,6 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   const [syncingOrders, setSyncingOrders] = useState(false);
   const [syncingPom, setSyncingPom] = useState(false);
   const [syncingChannel, setSyncingChannel] = useState(false);
-  const [syncingPayPalResync, setSyncingPayPalResync] = useState(false);
 
   async function runManualSync(
     endpoint: string,
@@ -2267,27 +2266,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
 
                     </div>
 
-                    {/* PayPal Refund Re-sync Utility */}
-                    <div className="border border-gray-700/50 rounded-lg p-3 mt-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="text-xs font-medium text-gray-300">Force Re-sync PayPal Refunds</p>
-                          <p className="text-[10px] text-gray-500 mt-0.5">Clears existing PayPal refund matches and re-runs matching with improved order number detection. Use if a refund was matched to the wrong order.</p>
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          disabled={syncingPayPalResync}
-                          onClick={() => runManualSync('/api/paypal/sync', setSyncingPayPalResync, 'PayPal Refund Re-sync', { sinceDays: 90, force: true })}
-                          title="Clear PayPal refund adjustments and re-match using order number"
-                          data-testid="button-paypal-force-resync"
-                          className="shrink-0"
-                        >
-                          {syncingPayPalResync ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RefreshCw className="h-3 w-3 mr-1" />}
-                          Re-sync
-                        </Button>
-                      </div>
-                    </div>
+
 
                     <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3 mt-4">
                       <p className="text-xs text-purple-300">
