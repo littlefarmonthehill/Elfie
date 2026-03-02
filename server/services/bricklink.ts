@@ -850,25 +850,32 @@ export async function syncBricklinkData(): Promise<BricklinkSyncResult> {
     try {
       const [settings] = await db.select().from(appSettings).limit(1);
       if (settings?.rebrickableImageSyncEnabled) {
-        const { syncRebrickableImages, syncPartIdMappings } = await import('./rebrickable-images');
-        // Fire-and-forget — intentionally not awaited
+        const { syncRebrickableImages } = await import('./rebrickable-images');
         syncRebrickableImages().then(r => {
           console.log(`🖼️  Background image sync complete: ${r.imagesFetched} fetched, ${r.errors} errors`);
         }).catch(e => {
           console.error('🖼️  Background image sync error:', e);
         });
-        // Run part ID mapping sync in parallel — 50 unmapped parts per inventory sync run
-        syncPartIdMappings(50).then(r => {
-          if (r.processed > 0) console.log(`[Part Mappings] Inventory sync pass: ${r.saved}/${r.processed} parts mapped`);
-        }).catch(e => {
-          console.error('[Part Mappings] Sync error (non-fatal):', e);
-        });
-        console.log('🖼️  Image sync + part ID mapping running in background');
+        console.log('🖼️  Image sync running in background');
       } else {
         console.log('⏭️ Rebrickable image sync disabled in settings');
       }
     } catch (error) {
       console.error('✗ Rebrickable image sync scheduling failed (non-fatal):', error);
+    }
+
+    // Step 5b: Part ID mapping sync — always runs as part of inventory sync.
+    // Processes 50 unmapped BL part numbers per run; builds up part_id_mappings
+    // incrementally so Brick Spotter scans get instant cache hits.
+    try {
+      const { syncPartIdMappings } = await import('./rebrickable-images');
+      syncPartIdMappings(50).then(r => {
+        if (r.processed > 0) console.log(`[Part Mappings] Nightly pass: ${r.saved}/${r.processed} parts mapped`);
+      }).catch(e => {
+        console.error('[Part Mappings] Sync error (non-fatal):', e);
+      });
+    } catch (error) {
+      console.error('[Part Mappings] Scheduling error (non-fatal):', error);
     }
 
     // Step 6: Channel sync is now a separate scheduled job (Channel Sync scheduler).
