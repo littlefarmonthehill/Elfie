@@ -558,7 +558,7 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                         <div className="space-y-0">
                           <div className="flex items-center gap-1 px-1 pb-0.5 pt-1.5">
                             <div className="flex-1 min-w-0">
-                              <span className="text-[9px] uppercase tracking-wider text-gray-500">Other colors in stock</span>
+                              <span className="text-[9px] uppercase tracking-wider text-gray-500">All known color variants</span>
                             </div>
                             <span className="text-[9px] uppercase tracking-wider text-gray-500 w-14 text-right flex-shrink-0">N Cur</span>
                             <span className="text-[9px] uppercase tracking-wider text-gray-500 w-14 text-right flex-shrink-0">U Cur</span>

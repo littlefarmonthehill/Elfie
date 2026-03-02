@@ -3418,6 +3418,7 @@ Return ONLY a valid JSON array, no other text. If no pieces found return [].`
         let marketSoldMaxUsed: number | null = null;
         let colorId: number | null = null;
         let colorRgb: string | null = null;
+        let activeInvRows: any[] = [];
 
         if (piece.partNo) {
           // 1. Resolve colorId from color name in bl_colors
@@ -3481,7 +3482,7 @@ Return ONLY a valid JSON array, no other text. If no pieces found return [].`
             return shared / Math.min(wordsA.length, wordsB.length) >= 0.4;
           };
 
-          let activeInvRows = invRows;
+          activeInvRows = invRows;
 
           // If we got inventory rows but the names don't match the AI's name,
           // the AI gave a wrong part number — try a name-based search instead
@@ -3633,26 +3634,37 @@ Return ONLY a valid JSON array, no other text. If no pieces found return [].`
 
         const bestPrice = ourPriceNew ?? ourPriceUsed ?? marketSoldMaxNew ?? marketSoldMaxUsed;
 
-        // Build inventory lots grouped by colorId — powers the "All colors" list in the UI
-        const colorGroupMap = new Map<number | string, {
-          colorId: number | null; colorName: string | null; colorRgb: string | null;
-          qtyNew: number; priceNew: number | null; qtyUsed: number; priceUsed: number | null;
-        }>();
-        for (const row of activeInvRows) {
-          const key = row.colorId ?? `name_${row.colorName}`;
-          if (!colorGroupMap.has(key)) {
-            colorGroupMap.set(key, { colorId: row.colorId ?? null, colorName: row.colorName ?? null, colorRgb: null, qtyNew: 0, priceNew: null, qtyUsed: 0, priceUsed: null });
+        // Build color variants from BrickLink catalog — shows every known color for this part
+        // Cross-referenced with our inventory for pricing
+        let inventoryLots: { colorId: number | null; colorName: string | null; colorRgb: string | null; qtyNew: number; priceNew: number | null; qtyUsed: number; priceUsed: number | null }[] = [];
+        if (piece.partNo) {
+          try {
+            const { data: blColors_data } = await bricklinkCatalogRequest(`/items/PART/${piece.partNo}/colors`);
+            const catalogColors: { color_id: number; color_name: string }[] = Array.isArray(blColors_data) ? blColors_data : [];
+            if (catalogColors.length > 0) {
+              // Build an inventory lookup map from activeInvRows for O(1) access
+              const invByColorId = new Map<number, { qtyNew: number; priceNew: number | null; qtyUsed: number; priceUsed: number | null }>();
+              for (const row of activeInvRows) {
+                const cid = row.colorId;
+                if (cid == null) continue;
+                if (!invByColorId.has(cid)) invByColorId.set(cid, { qtyNew: 0, priceNew: null, qtyUsed: 0, priceUsed: null });
+                const inv = invByColorId.get(cid)!;
+                if (row.newOrUsed === 'N') { inv.qtyNew += row.quantity || 0; if (inv.priceNew === null && row.unitPrice) inv.priceNew = Number(row.unitPrice); }
+                else if (row.newOrUsed === 'U') { inv.qtyUsed += row.quantity || 0; if (inv.priceUsed === null && row.unitPrice) inv.priceUsed = Number(row.unitPrice); }
+              }
+              // Fetch RGB for all catalog color IDs in one query
+              const catalogColorIds = catalogColors.map(c => c.color_id);
+              const rgbRows = await db.select({ id: blColors.id, rgb: blColors.rgb }).from(blColors).where(inArray(blColors.id, catalogColorIds));
+              const rgbMap = new Map(rgbRows.map(r => [r.id, r.rgb ?? null]));
+              inventoryLots = catalogColors.map(c => {
+                const inv = invByColorId.get(c.color_id) ?? { qtyNew: 0, priceNew: null, qtyUsed: 0, priceUsed: null };
+                return { colorId: c.color_id, colorName: c.color_name, colorRgb: rgbMap.get(c.color_id) ?? null, ...inv };
+              });
+            }
+          } catch (blErr: any) {
+            console.warn(`[Brickanalyzer] BL color variants failed for ${piece.partNo}:`, blErr.message);
           }
-          const cg = colorGroupMap.get(key)!;
-          if (row.newOrUsed === 'N') { cg.qtyNew += row.quantity || 0; if (cg.priceNew === null && row.unitPrice) cg.priceNew = Number(row.unitPrice); }
-          else if (row.newOrUsed === 'U') { cg.qtyUsed += row.quantity || 0; if (cg.priceUsed === null && row.unitPrice) cg.priceUsed = Number(row.unitPrice); }
         }
-        const uniqueColorIds = [...colorGroupMap.values()].map(v => v.colorId).filter((id): id is number => id != null);
-        if (uniqueColorIds.length > 0) {
-          const rgbRows = await db.select({ id: blColors.id, rgb: blColors.rgb }).from(blColors).where(inArray(blColors.id, uniqueColorIds));
-          for (const r of rgbRows) { const cg = colorGroupMap.get(r.id); if (cg) cg.colorRgb = r.rgb ?? null; }
-        }
-        const inventoryLots = [...colorGroupMap.values()];
 
         return {
           partNo: piece.partNo || '',
