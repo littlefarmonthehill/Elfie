@@ -3372,28 +3372,34 @@ Return ONLY a valid JSON array, no other text. If no pieces found return [].`
             .jpeg({ quality: 90 })
             .toBuffer();
 
-          // Send the individual crop to Brickognize
-          const bqFormData = new FormData();
-          bqFormData.append('query_image', cropBuffer, { filename: `piece_${idx}.jpg`, contentType: 'image/jpeg' });
-          const bqRes = await axios.post('https://api.brickognize.com/predict/parts/', bqFormData, {
-            headers: bqFormData.getHeaders(),
-            timeout: 20000,
-          });
+          // Send crop to BOTH /predict/parts/ and /predict/figs/ in parallel, use higher score
+          const makeBqForm = () => { const f = new FormData(); f.append('query_image', cropBuffer, { filename: `piece_${idx}.jpg`, contentType: 'image/jpeg' }); return f; };
+          const bqParts = makeBqForm(); const bqFigs = makeBqForm();
+          const [partsRes, figsRes] = await Promise.allSettled([
+            axios.post('https://api.brickognize.com/predict/parts/', bqParts, { headers: bqParts.getHeaders(), timeout: 20000 }),
+            axios.post('https://api.brickognize.com/predict/figs/',  bqFigs,  { headers: bqFigs.getHeaders(),  timeout: 20000 }),
+          ]);
+          const partsTop = partsRes.status === 'fulfilled' ? partsRes.value.data?.items?.[0] : null;
+          const figsTop  = figsRes.status  === 'fulfilled' ? figsRes.value.data?.items?.[0]  : null;
+          // Prefer figs if its score beats parts by at least 0.05 (avoid random fig false-positives)
+          const useFig = figsTop && figsTop.score >= 0.4 && (!partsTop || figsTop.score > (partsTop.score ?? 0) + 0.05);
+          const topItem = useFig ? figsTop : partsTop;
+          const itemType = useFig ? 'MINIFIG' : 'PART';
 
-          const topItem = bqRes.data?.items?.[0];
           if (topItem) {
             const confidence = topItem.score >= 0.7 ? 'high' : topItem.score >= 0.4 ? 'medium' : 'low';
-            console.log(`[Brickanalyzer] Piece ${idx}: ${topItem.id} "${topItem.name}" score=${topItem.score.toFixed(2)} → ${confidence}`);
+            console.log(`[Brickanalyzer] Piece ${idx} (${itemType}): ${topItem.id} "${topItem.name}" score=${topItem.score.toFixed(2)} → ${confidence}`);
             return {
               partNo: topItem.id || '',
               partName: topItem.name || piece.roughName || 'Unknown',
-              colorName: piece.colorName || '',
+              colorName: itemType === 'MINIFIG' ? '' : (piece.colorName || ''), // minifigs have no color dimension
+              itemType,
               confidence,
               note: piece.note || '',
             };
           }
           // Brickognize returned no results — use GPT-4o rough name as fallback
-          return { partNo: '', partName: piece.roughName || 'Unknown', colorName: piece.colorName || '', confidence: 'low', note: 'Brickognize: no match' };
+          return { partNo: '', partName: piece.roughName || 'Unknown', colorName: piece.colorName || '', itemType: 'PART', confidence: 'low', note: 'Brickognize: no match' };
 
         } catch (err: any) {
           console.warn(`[Brickanalyzer] Piece ${idx} failed:`, err.message);
@@ -3432,12 +3438,13 @@ Return ONLY a valid JSON array, no other text. If no pieces found return [].`
 
           // 2a. Validate partNo against price guide cache — catches AI hallucinations
           //     If the cached item name for this partNo doesn't match the AI name, clear it
+          const blItemType = piece.itemType || 'PART';
           if (piece.partNo && piece.partName) {
             const pgValidate = await db.select({ itemName: priceGuideCache.itemName })
               .from(priceGuideCache)
               .where(and(
                 sql`upper(${priceGuideCache.itemNo}) = upper(${piece.partNo})`,
-                eq(priceGuideCache.itemType, 'PART')
+                eq(priceGuideCache.itemType, blItemType)
               ))
               .limit(1);
             if (pgValidate.length > 0 && pgValidate[0].itemName) {
@@ -3583,8 +3590,8 @@ Return ONLY a valid JSON array, no other text. If no pieces found return [].`
                 .from(priceGuideCache)
                 .where(and(
                   sql`upper(${priceGuideCache.itemNo}) = upper(${piece.partNo})`,
-                  eq(priceGuideCache.itemType, 'PART'),
-                  colorId ? eq(priceGuideCache.colorId, colorId) : sql`${priceGuideCache.colorId} IS NULL`,
+                  eq(priceGuideCache.itemType, blItemType),
+                  blItemType === 'PART' && colorId ? eq(priceGuideCache.colorId, colorId) : sql`1=1`,
                   eq(priceGuideCache.newOrUsed, cond)
                 ))
                 .limit(1);
@@ -3593,7 +3600,7 @@ Return ONLY a valid JSON array, no other text. If no pieces found return [].`
                   .from(priceGuideCache)
                   .where(and(
                     sql`upper(${priceGuideCache.itemNo}) = upper(${piece.partNo})`,
-                    eq(priceGuideCache.itemType, 'PART'),
+                    eq(priceGuideCache.itemType, blItemType),
                     eq(priceGuideCache.newOrUsed, cond)
                   ))
                   .limit(1);
@@ -3607,9 +3614,9 @@ Return ONLY a valid JSON array, no other text. If no pieces found return [].`
               if (!thumbnailUrl) thumbnailUrl = pgRowsNew[0].thumbnailUrl || pgRowsNew[0].imageUrl || null;
               if (!piece.partName && pgRowsNew[0].itemName) piece.partName = pgRowsNew[0].itemName;
             } else {
-              console.log(`[Brickanalyzer] Fetching live POM (new) for ${piece.partNo} color ${colorId ?? 'any'}`);
+              console.log(`[Brickanalyzer] Fetching live POM (new) for ${piece.partNo} color ${colorId ?? 'any'} type ${blItemType}`);
               const pgData = await fetchPriceOMagicData(
-                piece.partNo, 'PART', colorId ?? undefined, 'N', premiumPct, pomConfig
+                piece.partNo, blItemType as any, blItemType === 'PART' ? (colorId ?? undefined) : undefined, 'N', premiumPct, pomConfig
               );
               if (pgData) {
                 marketSoldMaxNew = pgData.soldMaxPrice ? Number(pgData.soldMaxPrice) : null;
@@ -3622,9 +3629,9 @@ Return ONLY a valid JSON array, no other text. If no pieces found return [].`
             if (pgRowsUsed.length > 0) {
               marketSoldMaxUsed = pgRowsUsed[0].soldMaxPrice ? Number(pgRowsUsed[0].soldMaxPrice) : null;
             } else {
-              console.log(`[Brickanalyzer] Fetching live POM (used) for ${piece.partNo} color ${colorId ?? 'any'}`);
+              console.log(`[Brickanalyzer] Fetching live POM (used) for ${piece.partNo} color ${colorId ?? 'any'} type ${blItemType}`);
               const pgDataUsed = await fetchPriceOMagicData(
-                piece.partNo, 'PART', colorId ?? undefined, 'U', premiumPct, pomConfig
+                piece.partNo, blItemType as any, blItemType === 'PART' ? (colorId ?? undefined) : undefined, 'U', premiumPct, pomConfig
               );
               if (pgDataUsed) {
                 marketSoldMaxUsed = pgDataUsed.soldMaxPrice ? Number(pgDataUsed.soldMaxPrice) : null;
@@ -3640,9 +3647,9 @@ Return ONLY a valid JSON array, no other text. If no pieces found return [].`
         const bestPrice = ourPriceNew ?? ourPriceUsed ?? marketSoldMaxNew ?? marketSoldMaxUsed;
 
         // Build color variants from BrickLink catalog — shows every known color for this part
-        // Cross-referenced with our inventory for pricing
+        // Minifigs don't have color variants, so skip the catalog call for them
         let inventoryLots: { colorId: number | null; colorName: string | null; colorRgb: string | null; qtyNew: number; priceNew: number | null; qtyUsed: number; priceUsed: number | null }[] = [];
-        if (piece.partNo) {
+        if (piece.partNo && blItemType === 'PART') {
           try {
             const { data: blColors_data } = await bricklinkCatalogRequest(`/items/PART/${piece.partNo}/colors`);
             console.log(`[Brickanalyzer] BL colors for ${piece.partNo}: ${JSON.stringify(blColors_data)?.slice(0, 200)}`);
@@ -3696,6 +3703,7 @@ Return ONLY a valid JSON array, no other text. If no pieces found return [].`
         return {
           partNo: piece.partNo || '',
           partName: piece.partName || 'Unknown Part',
+          itemType: piece.itemType || 'PART',
           colorName: piece.colorName || '',
           colorId,
           confidence: piece.confidence || 'low',
