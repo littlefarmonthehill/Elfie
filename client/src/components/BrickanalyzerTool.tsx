@@ -325,10 +325,6 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                 const key = grp.partNo || `__unknown_${gi}`;
                 const isExpanded = expandedParts.has(key);
                 const totalQty = grp.entries.reduce((s, e) => s + e.ourQty, 0);
-                const bestListed = grp.entries.reduce<number | null>((best, e) =>
-                  e.ourPrice !== null ? (best === null ? e.ourPrice : Math.max(best, e.ourPrice)) : best, null);
-                const bestMkt = grp.entries.reduce<number | null>((best, e) =>
-                  e.marketAvgPrice !== null ? (best === null ? e.marketAvgPrice : Math.max(best, e.marketAvgPrice)) : best, null);
                 const conditionLabel = (() => {
                   const hasNew = grp.entries.some(e => e.ourQty > 0 && e.condition === 'N');
                   const hasUsed = grp.entries.some(e => e.ourQty > 0 && e.condition === 'U');
@@ -412,24 +408,6 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                               · {totalQty} in stock{conditionLabel ? ` (${conditionLabel})` : ""}
                             </span>
                           )}
-                        </div>
-
-                        {/* Best prices across all colors */}
-                        <div className="flex items-center gap-3">
-                          <div className="flex items-baseline gap-1">
-                            <span className="text-[9px] text-gray-400 uppercase tracking-wider">Listed</span>
-                            {bestListed !== null
-                              ? <span className="text-[11px] font-mono text-green-400">${bestListed.toFixed(2)}</span>
-                              : <span className="text-[11px] text-gray-500">—</span>
-                            }
-                          </div>
-                          <div className="flex items-baseline gap-1">
-                            <span className="text-[9px] text-gray-400 uppercase tracking-wider">Sold Hi</span>
-                            {bestMkt !== null
-                              ? <span className="text-[11px] font-mono text-gray-200">${bestMkt.toFixed(2)}</span>
-                              : <span className="text-[11px] text-gray-500">—</span>
-                            }
-                          </div>
                         </div>
                       </div>
                     </div>
