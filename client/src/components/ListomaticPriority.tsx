@@ -1,9 +1,10 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Info, Flag, ChevronUp, ChevronDown, ChevronsUpDown, Check } from "lucide-react";
+import { Info, Flag, ChevronUp, ChevronDown, ChevronsUpDown, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 
 interface PriorityCategory {
@@ -73,6 +74,7 @@ export default function ListomaticPriority() {
   const [localPhaseScores, setLocalPhaseScores] = useState<Record<string, number> | null>(null);
   const [editingPhase, setEditingPhase] = useState<PhaseKey | null>(null);
   const [editValue, setEditValue] = useState('');
+  const [scoreDetailCat, setScoreDetailCat] = useState<PriorityCategory | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { data, isLoading, error } = useQuery<PriorityResponse>({
@@ -277,18 +279,19 @@ export default function ListomaticPriority() {
             return (
               <div
                 key={cat.id}
-                className={`relative rounded-lg border ${tileCfg.tileBorder} ${tileCfg.tileBg} px-3 py-2 ${tileCfg.tileShadow} transition-all duration-150`}
+                onClick={() => setScoreDetailCat(cat)}
+                className={`relative rounded-lg border ${tileCfg.tileBorder} ${tileCfg.tileBg} px-3 py-2 ${tileCfg.tileShadow} transition-all duration-150 cursor-pointer`}
                 data-testid={`tile-priority-${cat.id}`}
               >
-                {/* Row 1: Name + flag button + score badge (taps for breakdown) */}
+                {/* Row 1: Name + flag button + score badge */}
                 <div className="flex items-center gap-1.5 min-w-0 mb-1.5">
                   <p className={`text-xs font-medium truncate flex-1 min-w-0 ${cat.flagged ? 'text-orange-200' : 'text-gray-200'}`}>
                     {cat.name}
                   </p>
 
-                  {/* Flag toggle — direct button */}
+                  {/* Flag toggle — stopPropagation so tile click doesn't also fire */}
                   <button
-                    onClick={() => flagMutation.mutate(cat.id)}
+                    onClick={e => { e.stopPropagation(); flagMutation.mutate(cat.id); }}
                     className={`shrink-0 transition-colors p-1 rounded ${cat.flagged ? 'text-orange-400' : 'text-gray-600 hover:text-orange-400'}`}
                     title={cat.flagged
                       ? (inListing ? 'Flagged — ×2 active. Tap to remove.' : 'Flagged — ×2 will apply when in Listing. Tap to remove.')
@@ -298,46 +301,10 @@ export default function ListomaticPriority() {
                     <Flag className={`w-3.5 h-3.5 ${cat.flagged ? 'fill-current' : ''}`} />
                   </button>
 
-                  {/* Score badge — uncontrolled Popover trigger */}
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <button
-                        className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded border tabular-nums cursor-pointer ${scoreBadgeBg(cat.score)}`}
-                        data-testid={`score-badge-${cat.id}`}
-                      >
-                        {cat.score}
-                      </button>
-                    </PopoverTrigger>
-                    <PopoverContent side="left" align="center" className="w-64 bg-gray-900 border-gray-700 p-3 z-[300]">
-                      <p className="text-[11px] font-semibold text-gray-300 truncate mb-3">{cat.name}</p>
-                      <div className="space-y-1.5 text-[11px] font-mono">
-                        <div className="flex justify-between gap-2">
-                          <span className="text-amber-300">Sell-Through</span>
-                          <span className="text-gray-400">{cat.sellThroughPct}% × 30%</span>
-                          <span className="text-gray-200 w-8 text-right">{(cat.sellThroughPct * 0.30).toFixed(1)}</span>
-                        </div>
-                        <div className="flex justify-between gap-2">
-                          <span className="text-blue-300">Sold-Out</span>
-                          <span className="text-gray-400">{cat.soldOutSharePct}% × 30%</span>
-                          <span className="text-gray-200 w-8 text-right">{(cat.soldOutSharePct * 0.30).toFixed(1)}</span>
-                        </div>
-                        <div className="flex justify-between gap-2">
-                          <span className="text-purple-300">Effort{cat.flagged && inListing ? ' ×2' : ''}</span>
-                          <span className="text-gray-400">{cat.effectivePhaseScore} × 40%</span>
-                          <span className="text-gray-200 w-8 text-right">{(cat.effectivePhaseScore * 0.40).toFixed(1)}</span>
-                        </div>
-                        <div className="border-t border-gray-700 pt-1.5 flex justify-between font-semibold">
-                          <span className="text-gray-300">Total</span>
-                          <span className={scoreColor(cat.score)}>{cat.score}</span>
-                        </div>
-                      </div>
-                      {cat.flagged && !inListing && (
-                        <p className="text-[10px] text-orange-400/70 mt-2 pt-2 border-t border-gray-700">
-                          Flagged — ×2 activates when moved to Listing.
-                        </p>
-                      )}
-                    </PopoverContent>
-                  </Popover>
+                  {/* Score badge — visual only, tile click opens Dialog */}
+                  <span className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded border tabular-nums ${scoreBadgeBg(cat.score)}`}>
+                    {cat.score}
+                  </span>
                 </div>
 
                 {/* Row 2: Phase badge (own uncontrolled Popover) + stats */}
@@ -345,6 +312,7 @@ export default function ListomaticPriority() {
                   <Popover>
                     <PopoverTrigger asChild>
                       <button
+                        onClick={e => e.stopPropagation()}
                         className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border transition-colors ${
                           phaseCfg
                             ? `${phaseCfg.bgColor} ${phaseCfg.borderColor} ${phaseCfg.textColor}`
@@ -412,8 +380,50 @@ export default function ListomaticPriority() {
       )}
 
       <p className="text-[10px] text-gray-600">
-        {sorted.length} categories · Orange ring = flagged for ×2 effort in Listing phase.
+        {sorted.length} categories · Tap tile for score details.
       </p>
+
+      {/* Score breakdown Dialog — rendered outside tile map, works reliably on mobile */}
+      <Dialog open={!!scoreDetailCat} onOpenChange={open => { if (!open) setScoreDetailCat(null); }}>
+        <DialogContent className="bg-gray-900 border-gray-700 text-gray-200 max-w-sm z-[9999]">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-semibold text-gray-200 pr-6 truncate">
+              {scoreDetailCat?.name}
+            </DialogTitle>
+          </DialogHeader>
+          {scoreDetailCat && (() => {
+            const inListing = scoreDetailCat.sortingPhase === 'listing';
+            return (
+              <div className="space-y-2 font-mono text-sm">
+                <div className="flex justify-between gap-3">
+                  <span className="text-amber-300">Sell-Through</span>
+                  <span className="text-gray-500">{scoreDetailCat.sellThroughPct}% × 30%</span>
+                  <span className="text-gray-200 w-10 text-right">{(scoreDetailCat.sellThroughPct * 0.30).toFixed(1)}</span>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span className="text-blue-300">Sold-Out Lots</span>
+                  <span className="text-gray-500">{scoreDetailCat.soldOutSharePct}% × 30%</span>
+                  <span className="text-gray-200 w-10 text-right">{(scoreDetailCat.soldOutSharePct * 0.30).toFixed(1)}</span>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span className="text-purple-300">Effort{scoreDetailCat.flagged && inListing ? ' ×2' : ''}</span>
+                  <span className="text-gray-500">{scoreDetailCat.effectivePhaseScore} × 40%</span>
+                  <span className="text-gray-200 w-10 text-right">{(scoreDetailCat.effectivePhaseScore * 0.40).toFixed(1)}</span>
+                </div>
+                <div className="border-t border-gray-700 pt-2 flex justify-between font-semibold text-base">
+                  <span className="text-gray-300">Priority Score</span>
+                  <span className={scoreColor(scoreDetailCat.score)}>{scoreDetailCat.score}</span>
+                </div>
+                {scoreDetailCat.flagged && !inListing && (
+                  <p className="text-xs text-orange-400/70 pt-1 border-t border-gray-800">
+                    Flagged — ×2 effort activates when moved to Listing phase.
+                  </p>
+                )}
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
