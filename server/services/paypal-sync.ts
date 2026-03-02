@@ -1,6 +1,6 @@
 import { db } from '../db';
 import { orders, orderAdjustments } from '@shared/schema';
-import { eq, and, gte, sql } from 'drizzle-orm';
+import { eq, and, gte } from 'drizzle-orm';
 
 const PAYPAL_API_BASE = 'https://api-m.paypal.com';
 
@@ -297,35 +297,6 @@ export async function syncPayPalRefunds(sinceDays = 90, forceResync = false): Pr
     existingAdjustments.map(a => a.externalTransactionId).filter(Boolean) as string[]
   );
 
-  // ── Upgrade stale T0113 adjustments ───────────────────────────────────────
-  // Older syncs recorded only the tax amount (e.g. -$0.61) for T0113 transactions.
-  // T0113 signals a full BrickLink marketplace refund — upgrade any under-recorded
-  // T0113 adjustments to the full order total.
-  try {
-    const staleT0113 = await db.execute(sql`
-      SELECT oa.id, oa.amount, oa."orderId", o."orderTotal"
-      FROM order_adjustments oa
-      JOIN orders o ON o.id = oa."orderId"
-      WHERE oa."paymentMethod" = 'paypal'
-        AND oa.notes LIKE '%T0113%'
-        AND ABS(oa.amount::numeric) < o."orderTotal"::numeric - 0.01
-        AND NOT EXISTS (
-          SELECT 1 FROM order_adjustments oa2
-          WHERE oa2."orderId" = oa."orderId"
-            AND oa2."paymentMethod" = 'paypal'
-            AND oa2.type = 'refund'
-            AND oa2.notes NOT LIKE '%T0113%'
-        )
-    `);
-    const rows = staleT0113.rows as Array<{ id: number; amount: string; orderId: string; orderTotal: string }>;
-    for (const row of rows) {
-      const fullAmount = (-Number(row.orderTotal)).toFixed(2);
-      await db.update(orderAdjustments).set({ amount: fullAmount }).where(eq(orderAdjustments.id, row.id));
-      console.log(`🅿️ Upgraded stale T0113 adjustment on order ${row.orderId}: ${row.amount} → ${fullAmount}`);
-    }
-  } catch (err: any) {
-    console.warn('⚠️  Stale T0113 upgrade failed (non-fatal):', err.message);
-  }
 
   for (const txn of refundTxns) {
     const info = txn.transaction_info;
@@ -390,58 +361,43 @@ export async function syncPayPalRefunds(sinceDays = 90, forceResync = false): Pr
     }
 
     // Strategy 3: follow paypal_reference_id back to the original sale (T0006).
-    // PayPal sends a T0113 for the tax portion of a refund (e.g. $0.61) while the
-    // full order payment was $8.88. The T0113 carries a paypal_reference_id pointing
-    // to the T0006. We look up that T0006, use its FULL amount to find the order,
-    // and then record the refund for the full order total — not just the tax slice.
+    // The T0006 amount in Transaction Search is NET of fees (e.g. $7.47 on an $8.88 order),
+    // so we match the resolved T0006 to an order by DATE (within 2 hours), not by amount.
     if (!match && info.paypal_reference_id) {
       const origPayment = saleByTxnId.get(info.paypal_reference_id);
       if (origPayment) {
-        const origAmount = parseAmount(origPayment.transaction_info.transaction_amount.value);
+        const saleDate = new Date(origPayment.transaction_info.transaction_initiation_date);
         match = dbOrders.find(order => {
-          if (!order.orderTotal) return false;
-          const orderTotal = Number(order.orderTotal);
           const orderDate = new Date(order.orderDate);
-          if (Math.abs(orderTotal - origAmount) > 0.01) return false;
-          if (txnDate < orderDate) return false;
-          const daysDiff = (txnDate.getTime() - orderDate.getTime()) / (1000 * 60 * 60 * 24);
-          return daysDiff <= 60;
+          const hoursDiff = Math.abs(saleDate.getTime() - orderDate.getTime()) / (1000 * 60 * 60);
+          return hoursDiff <= 2;
         });
         if (match) {
-          // T0113 = the full order was refunded by BrickLink marketplace.
-          // BrickLink only surfaces the tax leg in the seller's Transaction Search,
-          // but the financial impact is the full order total. Override to full amount.
-          refundAmount = Number(match.orderTotal);
-          console.log(`  ${txnId} (${eventCode}): tax leg → linked via T0006 ref $${origAmount} → order ${match.orderNumber} — recording full order total $${refundAmount}`);
+          const origAmount = parseAmount(origPayment.transaction_info.transaction_amount.value);
+          console.log(`  ${txnId} (${eventCode}): $${refundAmount} → T0006 ref (net $${origAmount}, date ${saleDate.toISOString()}) → order ${match.orderNumber}`);
         }
       }
     }
 
     // Strategy 4: T0113 date-proximity fallback.
-    // PayPal's paypal_reference_id on T0113 sometimes points to an internal PayPal payment/order
-    // ID rather than the seller-visible T0006 transaction_id, causing Strategy 3 to miss.
-    // Fallback: find the T0006 sale that occurred within 60 days before this T0113 and whose
-    // amount matches a DB order. For BrickLink orders this is reliable because T0113 appears on
-    // the same day as the refund, which is after the original T0006 sale.
+    // The T0006 PayPal Transaction Search amount is net-of-fees (e.g. $7.47 on an $8.88 order),
+    // so amount-matching against order_total fails. Instead, match the T0006 by DATE:
+    // find a T0006 whose initiation_date is within 2 hours of an order's order_date,
+    // confirming the T0006 is the payment for that order. T0113 then references that order.
     if (!match && eventCode === 'T0113' && allSales.length > 0) {
       for (const sale of allSales) {
         const saleDate = new Date(sale.transaction_info.transaction_initiation_date);
         const daysBetween = (txnDate.getTime() - saleDate.getTime()) / (1000 * 60 * 60 * 24);
         if (daysBetween < -1 || daysBetween > 60) continue; // T0113 must come after the sale
-        const saleAmount = parseAmount(sale.transaction_info.transaction_amount.value);
+        // Match T0006 to order by sale date ≈ order date (within 2 hours)
         const candidate = dbOrders.find(order => {
-          if (!order.orderTotal) return false;
-          const orderTotal = Number(order.orderTotal);
-          if (Math.abs(orderTotal - saleAmount) > 0.01) return false;
           const orderDate = new Date(order.orderDate);
-          const orderDiff = (txnDate.getTime() - orderDate.getTime()) / (1000 * 60 * 60 * 24);
-          return orderDiff >= -1 && orderDiff <= 60;
+          const hoursDiff = Math.abs(saleDate.getTime() - orderDate.getTime()) / (1000 * 60 * 60);
+          return hoursDiff <= 2;
         });
         if (candidate) {
           match = candidate;
-          // T0113 = full order refunded by BrickLink. Record full order total, not just the tax leg.
-          refundAmount = Number(match.orderTotal);
-          console.log(`  ${txnId} (T0113): tax leg → date-proximity T0006 $${saleAmount} → order ${match.orderNumber} — recording full order total $${refundAmount}`);
+          console.log(`  ${txnId} (T0113): $${refundAmount} → T0006 date-match (${saleDate.toISOString()}) → order ${match.orderNumber}`);
           break;
         }
       }
