@@ -24,6 +24,7 @@ export default function Home() {
   const { toast } = useToast();
   const [activeDashboard, setActiveDashboard] = useState<DashboardType>('dashboard');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsInitialSection, setSettingsInitialSection] = useState<'general' | 'platforms' | 'ai' | 'automation' | 'priceomatic' | 'listomatc' | 'data' | 'users'>('general');
   const [salesPeriod, setSalesPeriod] = useState<'mtd' | 'ytd' | '1y' | '5y'>('ytd');
   const [dateRange, setDateRange] = useState<DateRangeValue>('mtd');
   const [chatOpen, setChatOpen] = useState(false);
@@ -304,7 +305,7 @@ export default function Home() {
   const renderDashboard = () => {
     switch (activeDashboard) {
       case 'inventory':
-        return <InventoryDashboard onItemClick={handleDashboardItemClick} activeDrawer={activeInventoryDrawer} onDrawerChange={setActiveInventoryDrawer} />;
+        return <InventoryDashboard onItemClick={handleDashboardItemClick} activeDrawer={activeInventoryDrawer} onDrawerChange={setActiveInventoryDrawer} onOpenSettings={(section) => { setSettingsInitialSection(section ?? 'listomatc'); setSettingsOpen(true); }} />;
       case 'orders':
         return <OrdersDashboard onItemClick={handleDashboardItemClick} activeDrawer={activeOrdersDrawer} onDrawerChange={setActiveOrdersDrawer} />;
       case 'sales':
@@ -889,7 +890,7 @@ export default function Home() {
         </SheetContent>
       </Sheet>
       
-      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} initialSection={settingsInitialSection} />
       
       {/* Detail modal - positioned lower-left in landscape mode */}
       <div className={detailModal.open ? 'landscape:fixed landscape:bottom-4 landscape:left-4 landscape:w-[45%] landscape:max-h-[60vh]' : ''}>

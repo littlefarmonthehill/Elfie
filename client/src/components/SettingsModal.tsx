@@ -24,6 +24,7 @@ import { useAuth } from "@/hooks/useAuth";
 interface SettingsModalProps {
   open: boolean;
   onClose: () => void;
+  initialSection?: 'general' | 'platforms' | 'ai' | 'automation' | 'priceomatic' | 'listomatc' | 'data' | 'users';
 }
 
 // ── API Call Schedule Chart ────────────────────────────────────────────────
@@ -440,7 +441,7 @@ function SyncStatusLine({ entry }: { entry: SyncStatusEntry }) {
   );
 }
 
-export default function SettingsModal({ open, onClose }: SettingsModalProps) {
+export default function SettingsModal({ open, onClose, initialSection }: SettingsModalProps) {
   const { toast } = useToast();
   const [clearDataDialog, setClearDataDialog] = useState<'inventory' | 'orders' | null>(null);
   const [cleanupRunning, setCleanupRunning] = useState(false);
@@ -595,7 +596,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   const [pomHighSupplyThreshold, setPomHighSupplyThreshold] = useState(10000); // BL stock qty = "full supply"
   const [pomHighSupplyPenalty, setPomHighSupplyPenalty] = useState(40);  // supply weight 0–100
 
-  const [activeSection, setActiveSection] = useState<'general' | 'platforms' | 'ai' | 'automation' | 'priceomatic' | 'listomatc' | 'data' | 'users'>('general');
+  const [activeSection, setActiveSection] = useState<'general' | 'platforms' | 'ai' | 'automation' | 'priceomatic' | 'listomatc' | 'data' | 'users'>(initialSection ?? 'general');
 
   const { data: settings } = useQuery<AppSettings>({
     queryKey: ['/api/settings'],

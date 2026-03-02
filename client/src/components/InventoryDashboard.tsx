@@ -68,9 +68,10 @@ interface InventoryDashboardProps {
   onItemClick?: (type: 'order' | 'inventory', id: number | string, initialTab?: string) => void;
   activeDrawer: 'priceomatic' | 'warehouse' | 'platformsync' | null;
   onDrawerChange: (drawer: 'priceomatic' | 'warehouse' | 'platformsync' | null) => void;
+  onOpenSettings?: (section?: 'general' | 'platforms' | 'ai' | 'automation' | 'priceomatic' | 'listomatc' | 'data' | 'users') => void;
 }
 
-export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawerChange }: InventoryDashboardProps) {
+export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawerChange, onOpenSettings }: InventoryDashboardProps) {
   const { toast } = useToast();
 
   const { data: appSettings } = useQuery<{ timezone?: string }>({
@@ -368,7 +369,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             </DrawerTitle>
           </DrawerHeader>
           <div className="overflow-y-auto px-4 pb-4 flex-1">
-            <ListomaticPriority />
+            <ListomaticPriority onOpenSettings={onOpenSettings} />
           </div>
         </DrawerContent>
       </Drawer>

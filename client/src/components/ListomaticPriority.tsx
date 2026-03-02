@@ -1,7 +1,7 @@
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Info, Flag, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
+import { Info, Flag, ChevronUp, ChevronDown, ChevronsUpDown, Settings, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -35,7 +35,11 @@ const PHASE_LABELS: Record<string, { label: string; color: string }> = {
 
 type SortKey = 'score' | 'name' | 'sortingPhase' | 'sellThroughPct' | 'soldOutSharePct' | 'effectivePhaseScore';
 
-export default function ListomaticPriority() {
+interface ListomaticPriorityProps {
+  onOpenSettings?: (section?: 'general' | 'platforms' | 'ai' | 'automation' | 'priceomatic' | 'listomatc' | 'data' | 'users') => void;
+}
+
+export default function ListomaticPriority({ onOpenSettings }: ListomaticPriorityProps) {
   const { toast } = useToast();
   const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({ key: 'score', dir: 'desc' });
   const [localPhaseScores, setLocalPhaseScores] = useState<Record<string, number> | null>(null);
@@ -118,7 +122,7 @@ export default function ListomaticPriority() {
     <div className="space-y-4">
 
       {/* Header */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <h3 className="text-sm font-semibold text-gray-100">Listing Priority Score</h3>
         <Popover>
           <PopoverTrigger asChild>
@@ -150,6 +154,17 @@ export default function ListomaticPriority() {
             </div>
           </PopoverContent>
         </Popover>
+        {onOpenSettings && (
+          <button
+            onClick={() => onOpenSettings('listomatc')}
+            className="ml-auto flex items-center gap-1 text-[11px] text-gray-500 hover:text-green-400 transition-colors"
+            data-testid="link-open-sorting-phases"
+          >
+            <Settings className="w-3 h-3" />
+            Configure Sorting Phases
+            <ExternalLink className="w-2.5 h-2.5" />
+          </button>
+        )}
       </div>
 
       {/* Phase Score Editors */}
@@ -258,10 +273,44 @@ export default function ListomaticPriority() {
                     )}
                   </div>
 
-                  {/* Score */}
-                  <div className={`px-2 py-2 font-semibold tabular-nums ${scoreColor(cat.score)}`}>
-                    {cat.score}
-                  </div>
+                  {/* Score — click for breakdown */}
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <div
+                        className={`px-2 py-2 font-semibold tabular-nums cursor-pointer underline decoration-dotted underline-offset-2 ${scoreColor(cat.score)}`}
+                        data-testid={`score-${cat.id}`}
+                      >
+                        {cat.score}
+                      </div>
+                    </PopoverTrigger>
+                    <PopoverContent side="left" align="center" className="w-64 bg-gray-900 border-gray-700 p-3 z-[300]">
+                      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">{cat.name} — Score Breakdown</p>
+                      <div className="space-y-1.5 text-[11px] font-mono">
+                        <div className="flex justify-between gap-2">
+                          <span className="text-amber-300">Sell-Through</span>
+                          <span className="text-gray-400">{cat.sellThroughPct}% × 30%</span>
+                          <span className="text-gray-200 w-10 text-right">= {(cat.sellThroughPct * 0.30).toFixed(1)}</span>
+                        </div>
+                        <div className="flex justify-between gap-2">
+                          <span className="text-blue-300">Sold-Out Share</span>
+                          <span className="text-gray-400">{cat.soldOutSharePct}% × 30%</span>
+                          <span className="text-gray-200 w-10 text-right">= {(cat.soldOutSharePct * 0.30).toFixed(1)}</span>
+                        </div>
+                        <div className="flex justify-between gap-2">
+                          <span className="text-purple-300">Effort{cat.flagged && cat.sortingPhase === 'listing' ? ' ×2' : ''}</span>
+                          <span className="text-gray-400">{cat.effectivePhaseScore} × 40%</span>
+                          <span className="text-gray-200 w-10 text-right">= {(cat.effectivePhaseScore * 0.40).toFixed(1)}</span>
+                        </div>
+                        <div className="border-t border-gray-700 pt-1.5 flex justify-between font-semibold">
+                          <span className="text-gray-300">Total Score</span>
+                          <span className={scoreColor(cat.score)}>{cat.score}</span>
+                        </div>
+                      </div>
+                      {cat.flagged && cat.sortingPhase === 'listing' && (
+                        <p className="text-[10px] text-orange-400 mt-2 pt-2 border-t border-gray-700">Flagged in Listing phase — effort score doubled.</p>
+                      )}
+                    </PopoverContent>
+                  </Popover>
 
                   {/* Flag */}
                   <div className="px-1 py-1 flex items-center justify-center">
