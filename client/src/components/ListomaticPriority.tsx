@@ -86,11 +86,11 @@ export default function ListomaticPriority() {
 
   const saveScoresMutation = useMutation({
     mutationFn: async (scores: Record<string, number>) =>
-      apiRequest('PATCH', '/api/settings', {
-        lomCategoryScore: scores.category,
-        lomSubcategoryScore: scores.subcategory,
-        lomFinalsortScore: scores.finalsort,
-        lomListingScore: scores.listing,
+      apiRequest('PATCH', '/api/listomatc/phase-scores', {
+        category:    scores.category,
+        subcategory: scores.subcategory,
+        finalsort:   scores.finalsort,
+        listing:     scores.listing,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/listomatc/priority'] });

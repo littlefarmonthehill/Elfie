@@ -5966,6 +5966,23 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
     }
   });
 
+  app.patch("/api/listomatc/phase-scores", isApproved, async (req, res) => {
+    try {
+      const { category, subcategory, finalsort, listing } = req.body;
+      await db.update(appSettings).set({
+        lomCategoryScore:    Number(category)    || 25,
+        lomSubcategoryScore: Number(subcategory) || 50,
+        lomFinalsortScore:   Number(finalsort)   || 75,
+        lomListingScore:     Number(listing)     || 100,
+        updatedAt: sql`CURRENT_TIMESTAMP`,
+      }).where(eq(appSettings.id, 'default'));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error saving phase scores:", error);
+      res.status(500).json({ error: "Failed to save phase scores" });
+    }
+  });
+
   // Get Price-o-Matic insights (pricing discrepancies)
   // Per-category Price-o-Matic freshness stats
   app.get("/api/priceomatic/freshness", isApproved, async (req, res) => {
