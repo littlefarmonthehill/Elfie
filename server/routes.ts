@@ -3302,6 +3302,55 @@ Coordinate rules:
           }));
 
         console.log(`[Brickanalyzer] GPT-4o detected ${pieces.length} pieces`);
+
+        // ── Proximity merge (same as contour pipeline) ─────────────────────
+        // GPT-4o gives correct per-piece boxes, but disassembled minifig parts
+        // (head/torso/legs) arrive at Brickognize separately and most return
+        // empty. Merging nearly-touching boxes replicates the contour behaviour
+        // that grouped those parts into a combined crop the figs endpoint could
+        // match. maxGapX=1.5%, maxGapY=2.0%, maxAreaRatio=1.5 (same as contour).
+        const _pmEdgeGap = (a: any, b: any) => {
+          const ax2 = a.x + a.w, ay2 = a.y + a.h;
+          const bx2 = b.x + b.w, by2 = b.y + b.h;
+          return {
+            gapX: Math.max(0, Math.max(a.x, b.x) - Math.min(ax2, bx2)),
+            gapY: Math.max(0, Math.max(a.y, b.y) - Math.min(ay2, by2)),
+          };
+        };
+        const _pmMerge = (a: any, b: any) => {
+          const x = Math.min(a.x, b.x), y = Math.min(a.y, b.y);
+          return { ...a, x, y, w: Math.max(a.x + a.w, b.x + b.w) - x, h: Math.max(a.y + a.h, b.y + b.h) - y,
+            roughName: a.roughName && b.roughName ? `${a.roughName} + ${b.roughName}` : (a.roughName || b.roughName) };
+        };
+        let pmBoxes = [...pieces];
+        let pmChanged = true;
+        while (pmChanged) {
+          pmChanged = false;
+          const pmNext: any[] = [];
+          const pmUsed = new Set<number>();
+          for (let i = 0; i < pmBoxes.length; i++) {
+            if (pmUsed.has(i)) continue;
+            let cur = pmBoxes[i];
+            for (let j = i + 1; j < pmBoxes.length; j++) {
+              if (pmUsed.has(j)) continue;
+              const { gapX, gapY } = _pmEdgeGap(cur, pmBoxes[j]);
+              if (gapX > 1.5 || gapY > 2.0) continue;
+              const r = pmBoxes[j];
+              const mW = Math.max(cur.x + cur.w, r.x + r.w) - Math.min(cur.x, r.x);
+              const mH = Math.max(cur.y + cur.h, r.y + r.h) - Math.min(cur.y, r.y);
+              if ((cur.w * cur.h + r.w * r.h) > 0 && (mW * mH) / (cur.w * cur.h + r.w * r.h) > 1.5) continue;
+              cur = _pmMerge(cur, r);
+              pmUsed.add(j);
+              pmChanged = true;
+            }
+            pmNext.push(cur);
+          }
+          pmBoxes = pmNext;
+        }
+        if (pmBoxes.length !== pieces.length) {
+          console.log(`[Brickanalyzer] Proximity merge: ${pieces.length} → ${pmBoxes.length} boxes`);
+        }
+        pieces = pmBoxes;
       } catch (gptErr: any) {
         console.warn('[Brickanalyzer] GPT-4o detection failed, falling back to contour:', gptErr.message);
         const { detectPieceBoundingBoxes } = await import('./services/contourDetect.js');
@@ -3345,19 +3394,32 @@ Coordinate rules:
           }
 
           // Crop the piece out of the full image (tight crop for parts)
+          // Ensure minimum 224×224 output so Brickognize has enough pixels to work with
+          const MIN_BQ_PX = 224;
           const cropBuffer = await sharp(imageBuffer)
             .extract({ left: x0, top: y0, width: cropWidth, height: cropHeight })
+            .resize(
+              cropWidth  < MIN_BQ_PX ? MIN_BQ_PX : undefined,
+              cropHeight < MIN_BQ_PX ? MIN_BQ_PX : undefined,
+              { fit: 'contain', background: { r: 255, g: 255, b: 255, alpha: 1 } }
+            )
             .jpeg({ quality: 90 })
             .toBuffer();
 
-          // Wider crop for figs — GPT-4o gives a tight head-to-toe box but a 15% pad gives
-          // Brickognize extra context around the full assembled figure.
+          // Wider crop for figs — 5% padding keeps individual fig tight without bleeding into neighbours
           const fx0 = Math.max(0, Math.round(((piece.x ?? 0) / 100 - FIG_PADDING) * imgWidth));
           const fy0 = Math.max(0, Math.round(((piece.y ?? 0) / 100 - FIG_PADDING) * imgHeight));
           const fx1 = Math.min(imgWidth,  Math.round((((piece.x ?? 0) + (piece.w ?? 20)) / 100 + FIG_PADDING) * imgWidth));
           const fy1 = Math.min(imgHeight, Math.round((((piece.y ?? 0) + (piece.h ?? 20)) / 100 + FIG_PADDING) * imgHeight));
+          const fCropW = fx1 - fx0;
+          const fCropH = fy1 - fy0;
           const figCropBuffer = await sharp(imageBuffer)
-            .extract({ left: fx0, top: fy0, width: fx1 - fx0, height: fy1 - fy0 })
+            .extract({ left: fx0, top: fy0, width: fCropW, height: fCropH })
+            .resize(
+              fCropW  < MIN_BQ_PX ? MIN_BQ_PX : undefined,
+              fCropH < MIN_BQ_PX ? MIN_BQ_PX : undefined,
+              { fit: 'contain', background: { r: 255, g: 255, b: 255, alpha: 1 } }
+            )
             .jpeg({ quality: 90 })
             .toBuffer();
 
@@ -3375,6 +3437,9 @@ Coordinate rules:
           // that inherently has more false-positive risk; the score itself is the quality gate
           if (figsTop || partsTop) {
             console.log(`[Brickanalyzer] Piece ${idx} scores — parts:${partsTop ? partsTop.score.toFixed(2) : '–'} figs:${figsTop ? figsTop.score.toFixed(2) : '–'}`);
+          }
+          if (!figsTop && !partsTop) {
+            console.log(`[Brickanalyzer] Piece ${idx} (${piece.roughName || 'unknown'}): both endpoints returned empty — not in Brickognize DB`);
           }
           const useFig = figsTop && figsTop.score >= 0.35;
           const topItem = useFig ? figsTop : partsTop;
