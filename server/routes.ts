@@ -3251,6 +3251,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
         const detectionResp = await gptClient.chat.completions.create({
           model: 'gpt-4o',
           max_tokens: 2048,
+          temperature: 0,
           response_format: { type: 'json_object' },
           messages: [{
             role: 'user',
@@ -3269,7 +3270,8 @@ Return ONLY valid JSON in this exact format:
 Coordinate rules:
 - x, y = top-left corner as percentage of image width/height (0–100)
 - w, h = bounding box width and height as percentage of image width/height (0–100)
-- Give each minifigure ONE box covering head-to-toe (include hat/helmet in height)
+- A minifigure is a small humanoid figure; give it ONE tight box from the TOP OF ITS HEAD (or helmet/hat) to the BOTTOM OF ITS FEET — do not cut off the head or feet
+- A minifig is typically taller than it is wide — expect h to be roughly 2× w
 - Give every shield, weapon, tile, brick, or other loose part its OWN separate box
 - Maximum 24 pieces total
 - No duplicate boxes for the same piece
@@ -3303,35 +3305,12 @@ Coordinate rules:
 
         console.log(`[Brickanalyzer] GPT-4o detected ${pieces.length} pieces`);
 
-        // ── Fig subdivision ─────────────────────────────────────────────────
-        // Assembled minifigs get one GPT-4o box but the figs endpoint often
-        // returns empty for specific combos. The parts endpoint CAN identify
-        // individual components (head, torso, legs) — same crops contour was
-        // accidentally generating. For any box labelled as an assembled figure,
-        // add three sub-crops so the parts endpoint gets a shot at each zone.
+        // Tag each piece so the Brickognize step knows which endpoint to use.
+        // Minifig-labelled boxes → figs endpoint only (no parts fallback).
+        // Everything else → parts endpoint only.
         const FIG_LABELS = /minifig|figure|knight|warrior|person|driver|worker|soldier|pirate|wizard|chef|officer/i;
-        const extraPieces: any[] = [];
         for (const p of pieces) {
-          if (!FIG_LABELS.test(p.roughName || '')) continue;
-          // Only subdivide boxes that are taller than they are wide (assembled fig portrait)
-          if ((p.h ?? 0) < (p.w ?? 0) * 1.2) continue;
-          const zones = [
-            { yOff: 0,    hFrac: 0.27, label: 'head' },
-            { yOff: 0.27, hFrac: 0.40, label: 'torso' },
-            { yOff: 0.67, hFrac: 0.33, label: 'legs' },
-          ];
-          for (const z of zones) {
-            extraPieces.push({
-              x: p.x, y: p.y + (p.h ?? 20) * z.yOff,
-              w: p.w, h: (p.h ?? 20) * z.hFrac,
-              colorName: '', roughName: `${z.label} of ${p.roughName}`,
-              confidence: 'medium', note: 'fig-component',
-            });
-          }
-        }
-        if (extraPieces.length > 0) {
-          console.log(`[Brickanalyzer] Added ${extraPieces.length} fig component sub-crops`);
-          pieces = [...pieces, ...extraPieces];
+          p.isFig = FIG_LABELS.test(p.roughName || '') && (p.h ?? 0) >= (p.w ?? 0) * 1.2;
         }
       } catch (gptErr: any) {
         console.warn('[Brickanalyzer] GPT-4o detection failed, falling back to contour:', gptErr.message);
@@ -3357,8 +3336,11 @@ Coordinate rules:
 
       // ── Step 2: Crop each piece + send to Brickognize in parallel ─────────
       console.log('[Brickanalyzer] Step 2: Cropping and sending to Brickognize...');
-      const PADDING = 0.06;     // 6% padding for parts crop
-      const FIG_PADDING = 0.05; // 5% padding for figs — GPT-4o gives a tight head-to-toe box per fig; 15%+ bleeds into adjacent figures and causes Brickognize figs endpoint to return nothing
+      // Padding is expressed as a fraction of image DIMENSIONS (not piece size).
+      // 0.006 = 0.6% of image width/height ≈ 34px on a 5712px image.
+      // Kept tight so adjacent pieces (e.g. shields placed above minifigs) don't bleed
+      // into each other's crops and confuse Brickognize.
+      const PADDING = 0.006;
 
       const identified: any[] = (await Promise.all(pieces.map(async (piece: any, idx: number) => {
         try {
@@ -3375,77 +3357,71 @@ Coordinate rules:
             return [{ partNo: '', partName: piece.roughName || 'Unknown', colorName: piece.colorName || '', confidence: 'low', note: 'crop region too small' }];
           }
 
-          // Crop the piece — send original pixels, no white-padding
+          // Crop the piece — tight padding, no white-padding resize
           const cropBuffer = await sharp(imageBuffer)
             .extract({ left: x0, top: y0, width: cropWidth, height: cropHeight })
             .jpeg({ quality: 90 })
             .toBuffer();
 
-          // Figs crop: same box but slightly different padding constant for future tuning
-          const fx0 = Math.max(0, Math.round(((piece.x ?? 0) / 100 - FIG_PADDING) * imgWidth));
-          const fy0 = Math.max(0, Math.round(((piece.y ?? 0) / 100 - FIG_PADDING) * imgHeight));
-          const fx1 = Math.min(imgWidth,  Math.round((((piece.x ?? 0) + (piece.w ?? 20)) / 100 + FIG_PADDING) * imgWidth));
-          const fy1 = Math.min(imgHeight, Math.round((((piece.y ?? 0) + (piece.h ?? 20)) / 100 + FIG_PADDING) * imgHeight));
-          const fCropW = fx1 - fx0;
-          const fCropH = fy1 - fy0;
-          const figCropBuffer = await sharp(imageBuffer)
-            .extract({ left: fx0, top: fy0, width: fCropW, height: fCropH })
-            .jpeg({ quality: 90 })
-            .toBuffer();
+          // Route to the correct Brickognize endpoint based on what GPT-4o labelled it.
+          // Minifig-labelled portrait boxes → figs endpoint only (no parts fallback —
+          // the parts endpoint would return component part IDs for sub-pieces of the
+          // assembled fig, which is misleading when scanning whole assembled minifigs).
+          // Everything else (shields, weapons, bricks, tiles) → parts endpoint only.
+          const makeBqForm = (buf: Buffer) => {
+            const f = new FormData();
+            f.append('query_image', buf, { filename: `piece_${idx}.jpg`, contentType: 'image/jpeg' });
+            return f;
+          };
 
-          // Send crops to BOTH endpoints in parallel
-          const makeBqForm = (buf: Buffer) => { const f = new FormData(); f.append('query_image', buf, { filename: `piece_${idx}.jpg`, contentType: 'image/jpeg' }); return f; };
-          const bqParts = makeBqForm(cropBuffer);
-          const bqFigs  = makeBqForm(figCropBuffer);
-          const [partsRes, figsRes] = await Promise.allSettled([
-            axios.post('https://api.brickognize.com/predict/parts/', bqParts, { headers: bqParts.getHeaders(), timeout: 20000 }),
-            axios.post('https://api.brickognize.com/predict/figs/',  bqFigs,  { headers: bqFigs.getHeaders(),  timeout: 20000 }),
-          ]);
-          const partsTop = partsRes.status === 'fulfilled' ? partsRes.value.data?.items?.[0] : null;
-          const figsTop  = figsRes.status  === 'fulfilled' ? figsRes.value.data?.items?.[0]  : null;
-          // Prefer figs if score ≥ 0.35 — no margin requirement vs parts since we use a larger crop
-          // that inherently has more false-positive risk; the score itself is the quality gate
-          if (figsTop || partsTop) {
-            console.log(`[Brickanalyzer] Piece ${idx} scores — parts:${partsTop ? partsTop.score.toFixed(2) : '–'} figs:${figsTop ? figsTop.score.toFixed(2) : '–'}`);
+          let topItem: any = null;
+          let itemType: 'MINIFIG' | 'PART' = 'PART';
+
+          if (piece.isFig) {
+            // Figs endpoint only
+            const bqFigs = makeBqForm(cropBuffer);
+            const figsRes = await axios.post(
+              'https://api.brickognize.com/predict/figs/',
+              bqFigs,
+              { headers: bqFigs.getHeaders(), timeout: 20000 }
+            ).catch(() => null);
+            topItem = figsRes?.data?.items?.[0] ?? null;
+            itemType = 'MINIFIG';
+            if (topItem) {
+              console.log(`[Brickanalyzer] Piece ${idx} (MINIFIG): ${topItem.id} "${topItem.name}" score=${topItem.score.toFixed(2)}`);
+            } else {
+              console.log(`[Brickanalyzer] Piece ${idx} (${piece.roughName || 'fig'}): figs endpoint empty — not in Brickognize DB`);
+            }
+          } else {
+            // Parts endpoint only
+            const bqParts = makeBqForm(cropBuffer);
+            const partsRes = await axios.post(
+              'https://api.brickognize.com/predict/parts/',
+              bqParts,
+              { headers: bqParts.getHeaders(), timeout: 20000 }
+            ).catch(() => null);
+            topItem = partsRes?.data?.items?.[0] ?? null;
+            itemType = 'PART';
+            if (topItem) {
+              console.log(`[Brickanalyzer] Piece ${idx} (PART): ${topItem.id} "${topItem.name}" score=${topItem.score.toFixed(2)}`);
+            } else {
+              console.log(`[Brickanalyzer] Piece ${idx} (${piece.roughName || 'part'}): parts endpoint empty — not in Brickognize DB`);
+            }
           }
-          if (!figsTop && !partsTop) {
-            console.log(`[Brickanalyzer] Piece ${idx} (${piece.roughName || 'unknown'}): both endpoints returned empty — not in Brickognize DB`);
-          }
-          // Prefer figs over parts when figs endpoint returns anything — Brickognize
-          // is the quality gate, no extra score threshold needed here
-          const useFig = !!figsTop;
-          const topItem = useFig ? figsTop : partsTop;
-          const itemType = useFig ? 'MINIFIG' : 'PART';
 
           if (topItem) {
             const confidence = topItem.score >= 0.7 ? 'high' : topItem.score >= 0.4 ? 'medium' : 'low';
-            console.log(`[Brickanalyzer] Piece ${idx} (${itemType}): ${topItem.id} "${topItem.name}" score=${topItem.score.toFixed(2)} → ${confidence}`);
-            const primary = {
+            return [{
               partNo: topItem.id || '',
               partName: topItem.name || piece.roughName || 'Unknown',
               colorName: itemType === 'MINIFIG' ? '' : (piece.colorName || ''),
               itemType,
               confidence,
               note: piece.note || '',
-            };
-            // When a crop contains a minifig AND a co-located part, report both —
-            // let Brickognize decide quality, no score gate here
-            if (useFig && partsTop && partsTop.id !== topItem.id) {
-              const secConf = partsTop.score >= 0.7 ? 'high' : partsTop.score >= 0.4 ? 'medium' : 'low';
-              console.log(`[Brickanalyzer] Piece ${idx} also PART: ${partsTop.id} "${partsTop.name}" score=${partsTop.score.toFixed(2)}`);
-              return [primary, {
-                partNo: partsTop.id || '',
-                partName: partsTop.name || 'Unknown',
-                colorName: piece.colorName || '',
-                itemType: 'PART',
-                confidence: secConf,
-                note: piece.note || '',
-              }];
-            }
-            return [primary];
+            }];
           }
-          // Brickognize returned no results
-          return [{ partNo: '', partName: piece.roughName || 'Unknown', colorName: piece.colorName || '', itemType: 'PART', confidence: 'low', note: 'Brickognize: no match' }];
+          // Brickognize returned no results — honest empty, don't fabricate a part number
+          return [{ partNo: '', partName: piece.roughName || 'Unknown', colorName: piece.colorName || '', itemType, confidence: 'low', note: 'Brickognize: no match' }];
 
         } catch (err: any) {
           console.warn(`[Brickanalyzer] Piece ${idx} failed:`, err.message);
