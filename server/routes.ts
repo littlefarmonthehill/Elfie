@@ -3297,6 +3297,7 @@ Return ONLY a valid JSON array, no other text. If you cannot identify any pieces
             itemName: blInventory.itemName,
             thumbnailUrl: blInventory.thumbnailUrl,
             imageUrl: blInventory.imageUrl,
+            newOrUsed: blInventory.newOrUsed,
           })
           .from(blInventory)
           .where(and(
@@ -3305,6 +3306,7 @@ Return ONLY a valid JSON array, no other text. If you cannot identify any pieces
           ))
           .limit(10);
 
+          let condition: string | null = null;
           if (invRows.length > 0) {
             const colorMatch = invRows.find(r =>
               colorId ? r.colorId === colorId :
@@ -3314,6 +3316,7 @@ Return ONLY a valid JSON array, no other text. If you cannot identify any pieces
             ourPrice = colorMatch.unitPrice ? Number(colorMatch.unitPrice) : null;
             ourQty = colorMatch.quantity || 0;
             inventoryId = colorMatch.id;
+            condition = colorMatch.newOrUsed || null;
             thumbnailUrl = colorMatch.thumbnailUrl || colorMatch.imageUrl || null;
             if (!piece.partName && colorMatch.itemName) piece.partName = colorMatch.itemName;
             if (!colorId && colorMatch.colorId) colorId = colorMatch.colorId;
@@ -3387,6 +3390,7 @@ Return ONLY a valid JSON array, no other text. If you cannot identify any pieces
           note: piece.note || '',
           ourPrice,
           ourQty,
+          condition,
           inventoryId,
           pomPrice,
           marketAvgPrice,

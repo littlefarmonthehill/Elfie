@@ -21,6 +21,7 @@ interface ScanResult {
   note: string;
   ourPrice: number | null;
   ourQty: number;
+  condition: string | null;
   inventoryId: number | null;
   pomPrice: number | null;
   marketAvgPrice: number | null;
@@ -171,9 +172,9 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
 
   const activeScan = scan ?? latestScan ?? null;
   const results: ScanResult[] = (uiState === "complete" && activeScan?.results) ? (activeScan.results as ScanResult[]) : [];
-  const totalValue = results.reduce((s, p) => s + (p.pomPrice ?? p.ourPrice ?? p.marketAvgPrice ?? 0), 0);
+  const totalValue = results.reduce((s, p) => s + (p.ourPrice ?? p.marketAvgPrice ?? 0), 0);
   const inStockCount = results.filter(p => p.ourPrice !== null).length;
-  const withPriceCount = results.filter(p => p.pomPrice !== null || p.ourPrice !== null || p.marketAvgPrice !== null).length;
+  const withPriceCount = results.filter(p => p.ourPrice !== null || p.marketAvgPrice !== null).length;
 
   // Group results by partNo — preserves sort order of first occurrence
   const groupedResults = useMemo(() => {
@@ -324,12 +325,18 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                 const key = grp.partNo || `__unknown_${gi}`;
                 const isExpanded = expandedParts.has(key);
                 const totalQty = grp.entries.reduce((s, e) => s + e.ourQty, 0);
-                const bestPom = grp.entries.reduce<number | null>((best, e) =>
-                  e.pomPrice !== null ? (best === null ? e.pomPrice : Math.max(best, e.pomPrice)) : best, null);
                 const bestListed = grp.entries.reduce<number | null>((best, e) =>
                   e.ourPrice !== null ? (best === null ? e.ourPrice : Math.max(best, e.ourPrice)) : best, null);
                 const bestMkt = grp.entries.reduce<number | null>((best, e) =>
                   e.marketAvgPrice !== null ? (best === null ? e.marketAvgPrice : Math.max(best, e.marketAvgPrice)) : best, null);
+                const conditionLabel = (() => {
+                  const hasNew = grp.entries.some(e => e.ourQty > 0 && e.condition === 'N');
+                  const hasUsed = grp.entries.some(e => e.ourQty > 0 && e.condition === 'U');
+                  if (hasNew && hasUsed) return "New & Used";
+                  if (hasNew) return "New";
+                  if (hasUsed) return "Used";
+                  return null;
+                })();
                 const repImg = grp.thumbnailUrl;
                 const repEntry = grp.entries[0];
 
@@ -401,19 +408,14 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                               : `${grp.entries.length} colors`}
                           </span>
                           {totalQty > 0 && (
-                            <span className="text-[10px] text-green-400 font-medium">· {totalQty} in stock</span>
+                            <span className="text-[10px] text-green-400 font-medium">
+                              · {totalQty} in stock{conditionLabel ? ` (${conditionLabel})` : ""}
+                            </span>
                           )}
                         </div>
 
                         {/* Best prices across all colors */}
                         <div className="flex items-center gap-3">
-                          <div className="flex items-baseline gap-1">
-                            <span className="text-[9px] text-gray-400 uppercase tracking-wider">POM</span>
-                            {bestPom !== null
-                              ? <span className="text-[11px] font-mono font-semibold text-lego-yellow">${bestPom.toFixed(2)}</span>
-                              : <span className="text-[11px] text-gray-500">—</span>
-                            }
-                          </div>
                           <div className="flex items-baseline gap-1">
                             <span className="text-[9px] text-gray-400 uppercase tracking-wider">Listed</span>
                             {bestListed !== null
@@ -422,7 +424,7 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                             }
                           </div>
                           <div className="flex items-baseline gap-1">
-                            <span className="text-[9px] text-gray-400 uppercase tracking-wider">Mkt Hi</span>
+                            <span className="text-[9px] text-gray-400 uppercase tracking-wider">Mkt Avg</span>
                             {bestMkt !== null
                               ? <span className="text-[11px] font-mono text-gray-200">${bestMkt.toFixed(2)}</span>
                               : <span className="text-[11px] text-gray-500">—</span>
@@ -444,23 +446,18 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                             {/* Color swatch */}
                             <div className="w-1 self-stretch rounded-full bg-gray-600/50 flex-shrink-0" />
 
-                            {/* Color name + qty */}
-                            <div className="w-28 flex-shrink-0">
+                            {/* Color name + condition + qty */}
+                            <div className="w-32 flex-shrink-0">
                               <p className="text-[11px] text-gray-300 truncate">{piece.colorName || "Unknown"}</p>
                               {piece.ourQty > 0 && (
-                                <p className="text-[10px] text-green-400">{piece.ourQty} in stock</p>
+                                <p className="text-[10px] text-green-400">
+                                  {piece.ourQty} in stock{piece.condition ? ` · ${piece.condition === 'N' ? 'New' : 'Used'}` : ""}
+                                </p>
                               )}
                             </div>
 
                             {/* Prices */}
                             <div className="flex-1 flex items-center gap-3">
-                              <div className="flex items-baseline gap-1">
-                                <span className="text-[9px] text-gray-400 uppercase">POM</span>
-                                {piece.pomPrice !== null
-                                  ? <span className="text-[11px] font-mono text-lego-yellow">${piece.pomPrice.toFixed(2)}</span>
-                                  : <span className="text-[11px] text-gray-500">—</span>
-                                }
-                              </div>
                               <div className="flex items-baseline gap-1">
                                 <span className="text-[9px] text-gray-400 uppercase">Listed</span>
                                 {piece.ourPrice !== null
@@ -469,7 +466,7 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                                 }
                               </div>
                               <div className="flex items-baseline gap-1">
-                                <span className="text-[9px] text-gray-400 uppercase">Mkt</span>
+                                <span className="text-[9px] text-gray-400 uppercase">Mkt Avg</span>
                                 {piece.marketAvgPrice !== null
                                   ? <span className="text-[11px] font-mono text-gray-200">${piece.marketAvgPrice.toFixed(2)}</span>
                                   : <span className="text-[11px] text-gray-500">—</span>
