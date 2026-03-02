@@ -102,6 +102,9 @@ export async function checkStuckInventoryDeductions(): Promise<void> {
           eq(orders.inventoryDeducted, false),
           ne(orders.orderStatus, "cancelled"),
           ne(orders.orderStatus, "returned"),
+          ne(orders.orderStatus, "shipped"),
+          ne(orders.orderStatus, "completed"),
+          ne(orders.orderStatus, "purged"),
           lt(orders.syncedAt, tenMinutesAgo)
         )
       )
