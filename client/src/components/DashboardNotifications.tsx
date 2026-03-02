@@ -47,6 +47,11 @@ const GROUPS: DashboardGroup[] = [
     label: "Dashboard",
     syncTypes: ["embedding_sync", "api_health", "forum_sync"],
   },
+  {
+    key: "tools",
+    label: "Tools",
+    syncTypes: ["brickanalyzer_scan"],
+  },
 ];
 
 function formatForAgent(issue: SyncIssue): string {

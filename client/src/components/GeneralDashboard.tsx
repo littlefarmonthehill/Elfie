@@ -329,8 +329,31 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
               </div>
             )}
 
-            {/* Brickanalyzer scan complete */}
-            {latestScan && latestScan.status === 'complete' && (
+            {/* Brickanalyzer scan complete — 0 pieces (warning) */}
+            {latestScan && latestScan.status === 'complete' && (latestScan.totalPieces ?? 0) === 0 && (
+              <div
+                className="rounded px-2 py-2 bg-yellow-950/40 border border-yellow-500/20 space-y-1.5"
+                data-testid="action-brickanalyzer-zero"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="w-3.5 h-3.5 text-yellow-400 flex-shrink-0" />
+                    <span className="text-xs md:text-sm text-yellow-300 font-medium">Brick Spotter — No Pieces Found</span>
+                  </div>
+                  <button
+                    onClick={() => dismissScanMutation.mutate(latestScan.id)}
+                    className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors flex-shrink-0"
+                    data-testid="button-brickanalyzer-dismiss-action"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+                <p className="text-[10px] font-mono text-yellow-600">Detection returned 0 pieces. Check the Tools section below for details. Try a clearer photo on a plain background.</p>
+              </div>
+            )}
+
+            {/* Brickanalyzer scan complete — with results */}
+            {latestScan && latestScan.status === 'complete' && (latestScan.totalPieces ?? 0) > 0 && (
               <div
                 className="rounded px-2 py-2 bg-green-950/40 border border-green-500/20 space-y-1.5"
                 data-testid="action-brickanalyzer-complete"

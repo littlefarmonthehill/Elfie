@@ -3333,6 +3333,18 @@ Return ONLY a valid JSON array, no other text. If no pieces found return [].`
         }
       }
 
+      if (gptPieces.length === 0) {
+        await db.insert(syncIssues).values({
+          syncType: 'brickanalyzer_scan',
+          platform: 'local',
+          itemId: String(scanId),
+          issueType: 'no_pieces_detected',
+          issueDescription: 'Brick Spotter could not detect any LEGO pieces. Contour detection found nothing and GPT-4o returned empty. Try a clearer photo on a plain background.',
+          severity: 'medium',
+          status: 'open',
+          metadata: JSON.stringify({ scanId }),
+        });
+      }
       console.log(`[Brickanalyzer] ${gptPieces.length} piece regions ready for Brickognize`);
 
       // ── Step 2: Crop each piece + send to Brickognize in parallel ─────────
@@ -3657,6 +3669,19 @@ Return ONLY a valid JSON array, no other text. If no pieces found return [].`
       }).where(eq(brickanalyzerScans.id, scanId));
 
       console.log(`🔍 Brickanalyzer scan ${scanId} complete: ${enriched.length} pieces, $${totalValue.toFixed(2)} estimated value`);
+
+      if (enriched.length === 0 && gptPieces.length > 0) {
+        await db.insert(syncIssues).values({
+          syncType: 'brickanalyzer_scan',
+          platform: 'brickognize',
+          itemId: String(scanId),
+          issueType: 'brickognize_no_results',
+          issueDescription: `Brick Spotter detected ${gptPieces.length} region(s) but Brickognize could not identify any parts. Pieces may be too small, blurry, or not recognized. Try photographing fewer pieces at a time.`,
+          severity: 'medium',
+          status: 'open',
+          metadata: JSON.stringify({ scanId, regionsDetected: gptPieces.length }),
+        });
+      }
     } catch (err: any) {
       console.error(`🔍 Brickanalyzer scan ${scanId} failed:`, err.message);
       await db.update(brickanalyzerScans).set({
@@ -3664,6 +3689,16 @@ Return ONLY a valid JSON array, no other text. If no pieces found return [].`
         errorMessage: err.message,
         completedAt: new Date(),
       }).where(eq(brickanalyzerScans.id, scanId));
+      await db.insert(syncIssues).values({
+        syncType: 'brickanalyzer_scan',
+        platform: 'openai',
+        itemId: String(scanId),
+        issueType: 'scan_failed',
+        issueDescription: `Brick Spotter scan ${scanId} crashed: ${err.message}`,
+        severity: 'high',
+        status: 'open',
+        metadata: JSON.stringify({ scanId, error: err.message }),
+      }).catch(() => {});
     }
   }
 
