@@ -1,7 +1,9 @@
 import MetricCard from "./MetricCard";
-import { useQuery } from "@tanstack/react-query";
-import { TrendingDown, AlertCircle, TrendingUp, ShoppingCart, RefreshCw, XCircle } from "lucide-react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
+import { TrendingDown, AlertCircle, TrendingUp, ShoppingCart, RefreshCw, XCircle, ScanSearch, CheckCircle, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import DashboardNotifications from "./DashboardNotifications";
 
 interface DashboardStats {
@@ -54,9 +56,10 @@ interface InsightsData {
 interface GeneralDashboardProps {
   onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
   onOpenFulfillment?: () => void;
+  onOpenBrickanalyzer?: () => void;
 }
 
-export default function GeneralDashboard({ onItemClick, onOpenFulfillment }: GeneralDashboardProps) {
+export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpenBrickanalyzer }: GeneralDashboardProps) {
   // Fetch dashboard stats (all-time)
   const { data: stats } = useQuery<DashboardStats>({
     queryKey: ['/api/dashboard/stats'],
@@ -128,6 +131,31 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment }: Gen
     staleTime: 0,
   });
   const isChannelSyncing = channelSyncRunning?.running === true;
+
+  // Poll for active Brickanalyzer scan
+  const { data: latestScan } = useQuery<{
+    id: number;
+    status: "processing" | "complete" | "failed";
+    totalPieces: number | null;
+    identifiedPieces: number | null;
+    estimatedValue: string | null;
+  } | null>({
+    queryKey: ['/api/brickanalyzer/scans/latest'],
+    queryFn: async () => {
+      const res = await fetch('/api/brickanalyzer/scans/latest', { credentials: 'include' });
+      if (!res.ok) return null;
+      return res.json();
+    },
+    refetchInterval: 5000,
+    staleTime: 0,
+  });
+
+  const dismissScanMutation = useMutation({
+    mutationFn: async (scanId: number) => {
+      await fetch(`/api/brickanalyzer/scan/${scanId}`, { method: 'DELETE', credentials: 'include' });
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['/api/brickanalyzer/scans/latest'] }),
+  });
 
   // Poll recent sync errors (last 24 h) for action items
   const { data: recentErrorsData } = useQuery<{
@@ -284,6 +312,77 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment }: Gen
                   <span className="text-xs md:text-sm text-teal-300 font-medium">Channel Sync Running</span>
                 </div>
                 <p className="text-[10px] font-mono text-teal-600">Pushing inventory updates to BrickOwl…</p>
+              </div>
+            )}
+
+            {/* Brickanalyzer scan in progress */}
+            {latestScan && latestScan.status === 'processing' && (
+              <div
+                className="rounded px-2 py-2 bg-yellow-950/40 border border-yellow-500/20 space-y-1"
+                data-testid="action-brickanalyzer-processing"
+              >
+                <div className="flex items-center gap-2">
+                  <Loader2 className="w-3.5 h-3.5 text-yellow-400 animate-spin flex-shrink-0" />
+                  <span className="text-xs md:text-sm text-yellow-300 font-medium">Brickanalyzer Scanning...</span>
+                </div>
+                <p className="text-[10px] font-mono text-yellow-600">AI is identifying your LEGO pieces — results coming shortly</p>
+              </div>
+            )}
+
+            {/* Brickanalyzer scan complete */}
+            {latestScan && latestScan.status === 'complete' && (
+              <div
+                className="rounded px-2 py-2 bg-green-950/40 border border-green-500/20 space-y-1.5"
+                data-testid="action-brickanalyzer-complete"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="w-3.5 h-3.5 text-green-400 flex-shrink-0" />
+                    <span className="text-xs md:text-sm text-green-300 font-medium">Brickanalyzer Complete</span>
+                  </div>
+                  <button
+                    onClick={() => dismissScanMutation.mutate(latestScan.id)}
+                    className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors flex-shrink-0"
+                    data-testid="button-brickanalyzer-dismiss-action"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+                <p className="text-[10px] font-mono text-green-600">
+                  {latestScan.totalPieces ?? 0} pieces found
+                  {latestScan.estimatedValue && Number(latestScan.estimatedValue) > 0
+                    ? ` · $${Number(latestScan.estimatedValue).toFixed(2)} value`
+                    : ''}
+                </p>
+                <button
+                  onClick={onOpenBrickanalyzer}
+                  className="text-[10px] text-green-400 underline hover:text-green-300"
+                  data-testid="button-brickanalyzer-view-results"
+                >
+                  View results before they expire
+                </button>
+              </div>
+            )}
+
+            {latestScan && latestScan.status === 'failed' && (
+              <div
+                className="rounded px-2 py-2 bg-red-950/40 border border-red-500/20 space-y-1"
+                data-testid="action-brickanalyzer-failed"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <XCircle className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
+                    <span className="text-xs md:text-sm text-red-300 font-medium">Brickanalyzer Failed</span>
+                  </div>
+                  <button
+                    onClick={() => dismissScanMutation.mutate(latestScan.id)}
+                    className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors flex-shrink-0"
+                    data-testid="button-brickanalyzer-dismiss-failed"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+                <p className="text-[10px] font-mono text-red-600">Scan could not complete. Try again from the Inventory tab.</p>
               </div>
             )}
 

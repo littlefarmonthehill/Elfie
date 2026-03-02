@@ -10,7 +10,7 @@ import { syncBrickLinkToBrickOwl } from "./services/brickowl";
 import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBackup } from "./services/export";
 import { getProcessedPartImage, processImageFromUrl } from "./services/image-proxy";
 import { db } from "./db";
-import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema } from "@shared/schema";
+import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans } from "@shared/schema";
 import { eq, desc, sql, inArray, like, or, and, isNotNull, isNull } from "drizzle-orm";
 import { z } from "zod";
 import multer from "multer";
@@ -3213,6 +3213,181 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       });
     }
   });
+
+  // ─── Brickanalyzer: Multi-piece scan endpoints ────────────────────────────
+
+  // Background processor: OpenAI Vision → POM price lookup → update DB
+  async function processBrickanalyzerScan(scanId: number, imageBuffer: Buffer, mimeType: string) {
+    try {
+      const settings = await db.select().from(appSettings).limit(1);
+      const apiKey = settings[0]?.openaiApiKey || process.env.OPENAI_API_KEY;
+      if (!apiKey) throw new Error("OpenAI API key not configured");
+
+      const base64Image = imageBuffer.toString('base64');
+      const dataUrl = `data:${mimeType};base64,${base64Image}`;
+
+      const { default: OpenAI } = await import('openai');
+      const openai = new OpenAI({ apiKey });
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o",
+        max_tokens: 2000,
+        messages: [{
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: `You are a LEGO expert analyzing an image of LEGO pieces laid out on a plain background. Identify every individual LEGO piece visible.
+
+For each piece return a JSON array with objects containing:
+- "partNo": BrickLink part number (e.g. "3001", "3004", "32316") - use your best knowledge, empty string if unsure
+- "partName": descriptive name (e.g. "Brick 2x4", "Plate 1x2")
+- "colorName": color in plain English (e.g. "Red", "Dark Bluish Gray", "Trans-Clear")
+- "confidence": "high", "medium", or "low"
+- "note": any caveat (e.g. "worn", "similar part possible") or empty string
+
+Return ONLY a valid JSON array, no other text. If you cannot identify any pieces return [].`
+            },
+            { type: "image_url", image_url: { url: dataUrl, detail: "high" } }
+          ]
+        }]
+      });
+
+      const raw = completion.choices[0]?.message?.content?.trim() || '[]';
+      let identified: any[] = [];
+      try {
+        const cleaned = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '');
+        identified = JSON.parse(cleaned);
+      } catch {
+        identified = [];
+      }
+
+      // For each identified part, look up pricing in bl_inventory
+      const enriched = await Promise.all(identified.map(async (piece: any) => {
+        let ourPrice: number | null = null;
+        let ourQty = 0;
+        let inventoryId: number | null = null;
+
+        if (piece.partNo) {
+          const rows = await db.select({
+            id: blInventory.id,
+            unitPrice: blInventory.unitPrice,
+            quantity: blInventory.quantity,
+            colorName: blInventory.colorName,
+            itemName: blInventory.itemName,
+          })
+          .from(blInventory)
+          .where(and(
+            eq(blInventory.itemNo, piece.partNo),
+            sql`${blInventory.quantity} > 0`
+          ))
+          .limit(5);
+
+          if (rows.length > 0) {
+            // Prefer matching color, fall back to any available
+            const colorMatch = rows.find(r =>
+              r.colorName?.toLowerCase().includes(piece.colorName?.toLowerCase() || '') ||
+              piece.colorName?.toLowerCase().includes(r.colorName?.toLowerCase() || '')
+            ) || rows[0];
+            ourPrice = colorMatch.unitPrice ? Number(colorMatch.unitPrice) : null;
+            ourQty = colorMatch.quantity || 0;
+            inventoryId = colorMatch.id;
+            if (!piece.partName && colorMatch.itemName) piece.partName = colorMatch.itemName;
+          }
+        }
+
+        return {
+          partNo: piece.partNo || '',
+          partName: piece.partName || 'Unknown Part',
+          colorName: piece.colorName || '',
+          confidence: piece.confidence || 'low',
+          note: piece.note || '',
+          ourPrice,
+          ourQty,
+          inventoryId,
+        };
+      }));
+
+      // Sort by our price descending
+      enriched.sort((a, b) => (b.ourPrice ?? 0) - (a.ourPrice ?? 0));
+
+      const totalValue = enriched.reduce((sum, p) => sum + (p.ourPrice ?? 0), 0);
+      const identifiedWithPrice = enriched.filter(p => p.ourPrice !== null).length;
+
+      await db.update(brickanalyzerScans).set({
+        status: 'complete',
+        totalPieces: enriched.length,
+        identifiedPieces: identifiedWithPrice,
+        estimatedValue: totalValue.toFixed(2),
+        results: enriched as any,
+        completedAt: new Date(),
+      }).where(eq(brickanalyzerScans.id, scanId));
+
+      console.log(`🔍 Brickanalyzer scan ${scanId} complete: ${enriched.length} pieces, $${totalValue.toFixed(2)} estimated value`);
+    } catch (err: any) {
+      console.error(`🔍 Brickanalyzer scan ${scanId} failed:`, err.message);
+      await db.update(brickanalyzerScans).set({
+        status: 'failed',
+        errorMessage: err.message,
+        completedAt: new Date(),
+      }).where(eq(brickanalyzerScans.id, scanId));
+    }
+  }
+
+  // POST /api/brickanalyzer/scan — upload image, start background job
+  const brickanalyzerUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
+  app.post("/api/brickanalyzer/scan", brickanalyzerUpload.single('image'), isApproved, async (req, res) => {
+    try {
+      if (!req.file) return res.status(400).json({ error: "No image provided" });
+
+      const [scan] = await db.insert(brickanalyzerScans).values({
+        status: 'processing',
+      }).returning();
+
+      // Fire and forget — client gets scanId immediately
+      processBrickanalyzerScan(scan.id, req.file.buffer, req.file.mimetype).catch(() => {});
+
+      res.json({ scanId: scan.id });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/brickanalyzer/scans/latest — for dashboard polling
+  app.get("/api/brickanalyzer/scans/latest", isApproved, async (req, res) => {
+    try {
+      const [scan] = await db.select().from(brickanalyzerScans)
+        .orderBy(desc(brickanalyzerScans.createdAt))
+        .limit(1);
+      res.json(scan || null);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/brickanalyzer/scan/:id — full results
+  app.get("/api/brickanalyzer/scan/:id", isApproved, async (req, res) => {
+    try {
+      const [scan] = await db.select().from(brickanalyzerScans)
+        .where(eq(brickanalyzerScans.id, Number(req.params.id)));
+      if (!scan) return res.status(404).json({ error: "Scan not found" });
+      res.json(scan);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // DELETE /api/brickanalyzer/scan/:id — dismiss scan
+  app.delete("/api/brickanalyzer/scan/:id", isApproved, async (req, res) => {
+    try {
+      await db.delete(brickanalyzerScans).where(eq(brickanalyzerScans.id, Number(req.params.id)));
+      res.json({ ok: true });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
 
   // Get Inventory Items
   app.get("/api/inventory", isApproved, async (req, res) => {

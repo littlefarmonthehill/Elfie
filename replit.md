@@ -64,6 +64,7 @@ The frontend uses React 18+, TypeScript, Vite, Shadcn/ui, and Tailwind CSS, feat
 -   **AI Intelligence & Embeddings Management:** Settings for AI configuration, server-side background jobs for embedding generation (inventory, orders, order details, set-parts using `text-embedding-3-small`), and a semantic search testing interface. Includes analytical tools for inventory aging, margin analysis, SKU performance, and sales by category, with automatic re-embedding triggers.
 -   **Automation & Scheduling:** Centralized controls for automated Inventory Sync, Price-o-Matic, Orders Sync, and BrickLink Forum Sync, with automatic purging of stale forum posts.
 -   **Backup & Restore System:** Production-ready disaster recovery with manual and automatic restore options, including Neon PITR.
+-   **Brickanalyzer:** Multi-piece LEGO scanning tool accessible from the Inventory tab. User photographs pieces laid flat on a plain background; OpenAI Vision (GPT-4o) identifies every piece and returns BrickLink part numbers, colors, and confidence scores. Each identified part is cross-referenced against live POM inventory for pricing. Results are sorted descending by value. Data is ephemeral — stored temporarily in `brickanalyzer_scans` DB table and permanently deleted when the user dismisses or closes the scan. User can leave the page mid-scan and receive an Action Items notification on the main dashboard when complete, with a "View results before they expire" link.
 
 ## External Dependencies
 

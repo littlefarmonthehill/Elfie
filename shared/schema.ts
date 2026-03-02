@@ -1049,6 +1049,20 @@ export const insertOrderAdjustmentSchema = createInsertSchema(orderAdjustments).
 export type InsertOrderAdjustment = z.infer<typeof insertOrderAdjustmentSchema>;
 export type OrderAdjustment = typeof orderAdjustments.$inferSelect;
 
+export const brickanalyzerScans = pgTable("brickanalyzer_scans", {
+  id: serial("id").primaryKey(),
+  status: text("status").notNull().default("processing"), // processing | complete | failed
+  totalPieces: integer("total_pieces"),
+  identifiedPieces: integer("identified_pieces"),
+  estimatedValue: decimal("estimated_value", { precision: 10, scale: 2 }),
+  results: jsonb("results"), // Array of { partNo, partName, colorName, colorId, ourPrice, qty, confidence, note }
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+});
+
+export type BrickanalyzerScan = typeof brickanalyzerScans.$inferSelect;
+
 export const blForumEmbeddings = pgTable("bl_forum_embeddings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   postId: varchar("post_id").notNull(), // Reference to bl_forum_posts.id

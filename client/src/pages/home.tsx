@@ -41,7 +41,7 @@ export default function Home() {
       threadUrl: string;
     }>;
   } | null>(null);
-  const [activeInventoryDrawer, setActiveInventoryDrawer] = useState<'priceomatic' | 'warehouse' | 'platformsync' | null>(null);
+  const [activeInventoryDrawer, setActiveInventoryDrawer] = useState<'priceomatic' | 'warehouse' | 'platformsync' | 'brickanalyzer' | null>(null);
   const [activeOrdersDrawer, setActiveOrdersDrawer] = useState<'fulfillment' | 'shipped' | null>(null);
   const [detailModal, setDetailModal] = useState<{ open: boolean; data: DetailData | null }>({
     open: false,
@@ -313,7 +313,7 @@ export default function Home() {
       case 'marketing':
         return <MarketingDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} />;
       default:
-        return <GeneralDashboard onItemClick={handleDashboardItemClick} onOpenFulfillment={() => { setActiveDashboard('orders'); setActiveOrdersDrawer('fulfillment'); }} />;
+        return <GeneralDashboard onItemClick={handleDashboardItemClick} onOpenFulfillment={() => { setActiveDashboard('orders'); setActiveOrdersDrawer('fulfillment'); }} onOpenBrickanalyzer={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('brickanalyzer'); }} />;
     }
   };
 
@@ -767,6 +767,13 @@ export default function Home() {
               data-testid="button-warehouse"
             >
               Warehouse
+            </button>
+            <button
+              onClick={() => setActiveInventoryDrawer('brickanalyzer')}
+              className="text-[10px] md:text-base lg:text-lg font-bold py-1 md:py-2 lg:py-2.5 px-1.5 md:px-4 lg:px-5 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
+              data-testid="button-brickanalyzer"
+            >
+              Brickanalyzer
             </button>
           </div>
         </div>

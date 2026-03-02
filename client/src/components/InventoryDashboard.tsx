@@ -2,7 +2,7 @@ import { useState } from "react";
 import MetricCard from "./MetricCard";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import { InfoIcon, AlertCircle, Package, TrendingUp, Clock, Sparkles, Warehouse, RefreshCw, Info, ListChecks } from "lucide-react";
+import { InfoIcon, AlertCircle, Package, TrendingUp, Clock, Sparkles, Warehouse, RefreshCw, Info, ListChecks, ScanSearch } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -26,6 +26,7 @@ import PriceOMaticDashboard from "./PriceOMaticDashboard";
 import WarehouseManagement from "./WarehouseManagement";
 import PlatformSyncTool from "./PlatformSyncTool";
 import ListomaticPriority from "./ListomaticPriority";
+import BrickanalyzerTool from "./BrickanalyzerTool";
 
 interface InventoryStats {
   totalLots: number;
@@ -66,12 +67,13 @@ interface RecentInventoryItem {
 
 interface InventoryDashboardProps {
   onItemClick?: (type: 'order' | 'inventory', id: number | string, initialTab?: string) => void;
-  activeDrawer: 'priceomatic' | 'warehouse' | 'platformsync' | null;
-  onDrawerChange: (drawer: 'priceomatic' | 'warehouse' | 'platformsync' | null) => void;
+  activeDrawer: 'priceomatic' | 'warehouse' | 'platformsync' | 'brickanalyzer' | null;
+  onDrawerChange: (drawer: 'priceomatic' | 'warehouse' | 'platformsync' | 'brickanalyzer' | null) => void;
   onOpenSettings?: (section?: 'general' | 'platforms' | 'ai' | 'automation' | 'priceomatic' | 'listomatc' | 'data' | 'users') => void;
 }
 
 export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawerChange, onOpenSettings }: InventoryDashboardProps) {
+
   const { toast } = useToast();
 
   const { data: appSettings } = useQuery<{ timezone?: string }>({
@@ -370,6 +372,21 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
           </DrawerHeader>
           <div className="overflow-y-auto px-4 pb-4 flex-1">
             <ListomaticPriority />
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Brickanalyzer Drawer */}
+      <Drawer open={activeDrawer === 'brickanalyzer'} onOpenChange={(open) => !open && onDrawerChange(null)}>
+        <DrawerContent className="h-[92dvh] flex flex-col">
+          <DrawerHeader>
+            <DrawerTitle className="flex items-center gap-2 text-base md:text-lg">
+              <ScanSearch className="w-5 h-5 text-lego-yellow" />
+              Brickanalyzer
+            </DrawerTitle>
+          </DrawerHeader>
+          <div className="overflow-y-auto px-4 pb-4 flex-1">
+            <BrickanalyzerTool />
           </div>
         </DrawerContent>
       </Drawer>
