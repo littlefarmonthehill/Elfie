@@ -15,6 +15,8 @@ interface PriorityCategory {
   currentQty: number;
   totalSold: number;
   soldOutLots: number;
+  grandTotalSoldOut: number;
+  basePhaseScore: number;
   sellThroughPct: number;
   soldOutSharePct: number;
   effectivePhaseScore: number;
@@ -392,33 +394,53 @@ export default function ListomaticPriority() {
             </DialogTitle>
           </DialogHeader>
           {scoreDetailCat && (() => {
-            const inListing = scoreDetailCat.sortingPhase === 'listing';
+            const c = scoreDetailCat;
+            const inListing = c.sortingPhase === 'listing';
+            const phaseName = c.sortingPhase ? PHASE_CONFIG[c.sortingPhase as PhaseKey]?.label : 'Unassigned';
+            const totalPieces = c.currentQty + c.totalSold;
             return (
-              <div className="space-y-2 font-mono text-sm">
-                <div className="flex justify-between gap-3">
-                  <span className="text-amber-300">Sell-Through</span>
-                  <span className="text-gray-500">{scoreDetailCat.sellThroughPct}% × 30%</span>
-                  <span className="text-gray-200 w-10 text-right">{(scoreDetailCat.sellThroughPct * 0.30).toFixed(1)}</span>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <span className="text-blue-300">Sold-Out Lots</span>
-                  <span className="text-gray-500">{scoreDetailCat.soldOutSharePct}% × 30%</span>
-                  <span className="text-gray-200 w-10 text-right">{(scoreDetailCat.soldOutSharePct * 0.30).toFixed(1)}</span>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <span className="text-purple-300">Effort{scoreDetailCat.flagged && inListing ? ' ×2' : ''}</span>
-                  <span className="text-gray-500">{scoreDetailCat.effectivePhaseScore} × 40%</span>
-                  <span className="text-gray-200 w-10 text-right">{(scoreDetailCat.effectivePhaseScore * 0.40).toFixed(1)}</span>
-                </div>
-                <div className="border-t border-gray-700 pt-2 flex justify-between font-semibold text-base">
-                  <span className="text-gray-300">Priority Score</span>
-                  <span className={scoreColor(scoreDetailCat.score)}>{scoreDetailCat.score}</span>
-                </div>
-                {scoreDetailCat.flagged && !inListing && (
-                  <p className="text-xs text-orange-400/70 pt-1 border-t border-gray-800">
-                    Flagged — ×2 effort activates when moved to Listing phase.
+              <div className="space-y-4 text-sm">
+
+                {/* Sell-Through */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-amber-300 font-semibold">Sell-Through</span>
+                    <span className="text-gray-400 font-mono text-xs">{c.sellThroughPct}% × 30% = <span className="text-gray-200">{(c.sellThroughPct * 0.30).toFixed(1)} pts</span></span>
+                  </div>
+                  <p className="text-xs text-gray-500 font-mono">
+                    {c.totalSold.toLocaleString()} sold ÷ {totalPieces.toLocaleString()} total pieces
                   </p>
-                )}
+                </div>
+
+                {/* Sold-Out */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-blue-300 font-semibold">Sold-Out Lots</span>
+                    <span className="text-gray-400 font-mono text-xs">{c.soldOutSharePct}% × 30% = <span className="text-gray-200">{(c.soldOutSharePct * 0.30).toFixed(1)} pts</span></span>
+                  </div>
+                  <p className="text-xs text-gray-500 font-mono">
+                    {c.soldOutLots.toLocaleString()} this category ÷ {c.grandTotalSoldOut.toLocaleString()} global sold-out lots
+                  </p>
+                </div>
+
+                {/* Effort / Phase */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-purple-300 font-semibold">Effort{c.flagged && inListing ? ' ×2' : ''}</span>
+                    <span className="text-gray-400 font-mono text-xs">{c.effectivePhaseScore} × 40% = <span className="text-gray-200">{(c.effectivePhaseScore * 0.40).toFixed(1)} pts</span></span>
+                  </div>
+                  <p className="text-xs text-gray-500 font-mono">
+                    Phase: {phaseName ?? 'None'} → base score {c.basePhaseScore}
+                    {c.flagged && inListing && <span className="text-orange-400"> ×2 (flagged in Listing)</span>}
+                    {c.flagged && !inListing && <span className="text-orange-400/60"> (×2 activates in Listing)</span>}
+                  </p>
+                </div>
+
+                {/* Total */}
+                <div className="border-t border-gray-700 pt-3 flex justify-between font-semibold text-base">
+                  <span className="text-gray-300">Priority Score</span>
+                  <span className={scoreColor(c.score)}>{c.score}</span>
+                </div>
               </div>
             );
           })()}

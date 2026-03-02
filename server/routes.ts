@@ -5933,6 +5933,8 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
           currentQty,
           totalSold,
           soldOutLots,
+          grandTotalSoldOut,
+          basePhaseScore: phaseScores[r.sorting_phase] ?? 0,
           sellThroughPct: Math.round(sellThroughPct * 10) / 10,
           soldOutSharePct: Math.round(soldOutSharePct * 10) / 10,
           effectivePhaseScore,
