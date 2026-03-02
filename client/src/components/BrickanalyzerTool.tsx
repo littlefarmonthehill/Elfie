@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
+import { useState, useRef, useEffect, useMemo, forwardRef, useImperativeHandle } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import { Camera, X, CheckCircle, Loader2, ExternalLink, Trash2, ScanSearch } from "lucide-react";
+import { Camera, X, CheckCircle, Loader2, ExternalLink, Trash2, ScanSearch, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -165,11 +165,36 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
     }
   }
 
+  const [expandedParts, setExpandedParts] = useState<Set<string>>(new Set());
+
   const activeScan = scan ?? latestScan ?? null;
   const results: ScanResult[] = (uiState === "complete" && activeScan?.results) ? (activeScan.results as ScanResult[]) : [];
   const totalValue = results.reduce((s, p) => s + (p.pomPrice ?? p.ourPrice ?? p.marketAvgPrice ?? 0), 0);
   const inStockCount = results.filter(p => p.ourPrice !== null).length;
   const withPriceCount = results.filter(p => p.pomPrice !== null || p.ourPrice !== null || p.marketAvgPrice !== null).length;
+
+  // Group results by partNo — preserves sort order of first occurrence
+  const groupedResults = useMemo(() => {
+    const map = new Map<string, { partNo: string; partName: string; thumbnailUrl: string | null; entries: ScanResult[] }>();
+    for (const r of results) {
+      const key = r.partNo || `__unknown_${r.partName}`;
+      if (!map.has(key)) {
+        map.set(key, { partNo: r.partNo, partName: r.partName, thumbnailUrl: r.thumbnailUrl, entries: [] });
+      }
+      const grp = map.get(key)!;
+      grp.entries.push(r);
+      if (!grp.thumbnailUrl && r.thumbnailUrl) grp.thumbnailUrl = r.thumbnailUrl;
+    }
+    return Array.from(map.values());
+  }, [results]);
+
+  function togglePart(partNo: string) {
+    setExpandedParts(prev => {
+      const next = new Set(prev);
+      if (next.has(partNo)) next.delete(partNo); else next.add(partNo);
+      return next;
+    });
+  }
 
   function confidenceColor(c: string) {
     if (c === "high") return "text-green-400";
@@ -286,115 +311,181 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
             </div>
           </div>
 
-          {/* Results tiles */}
-          {results.length === 0 ? (
+          {/* Results — grouped by part number, expandable */}
+          {groupedResults.length === 0 ? (
             <div className="text-center py-8 text-gray-500 text-sm">
               No pieces could be identified. Try a clearer photo with better lighting.
             </div>
           ) : (
-            <div className="space-y-2">
-              {results.map((piece, i) => (
-                <div
-                  key={i}
-                  className="rounded-lg border border-gray-700/60 bg-gradient-to-br from-gray-800/60 via-gray-900/80 to-gray-950/60 overflow-hidden"
-                  data-testid={`tile-brickanalyzer-${i}`}
-                >
-                  {/* ── Main body: image + info ───────────────────── */}
-                  <div className="flex gap-2.5 px-2.5 py-2">
-                    {/* Image */}
-                    <div className="flex-shrink-0 w-14 h-14 rounded bg-gray-800/80 flex items-center justify-center overflow-hidden">
-                      {piece.thumbnailUrl ? (
-                        <img
-                          src={`/api/images/proxy?url=${encodeURIComponent(piece.thumbnailUrl)}`}
-                          alt={piece.partName}
-                          className="w-full h-full object-contain p-0.5"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src = `https://img.bricklink.com/ItemImage/PN/${piece.colorId ?? 0}/${piece.partNo}.png`;
-                          }}
-                        />
-                      ) : piece.partNo ? (
-                        <img
-                          src={`https://img.bricklink.com/ItemImage/PN/${piece.colorId ?? 0}/${piece.partNo}.png`}
-                          alt={piece.partName}
-                          className="w-full h-full object-contain p-0.5"
-                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                        />
-                      ) : (
-                        <Camera className="w-5 h-5 text-gray-700" />
-                      )}
+            <div className="space-y-1.5">
+              {groupedResults.map((grp, gi) => {
+                const key = grp.partNo || `__unknown_${gi}`;
+                const isExpanded = expandedParts.has(key);
+                const totalQty = grp.entries.reduce((s, e) => s + e.ourQty, 0);
+                const bestPom = grp.entries.reduce<number | null>((best, e) =>
+                  e.pomPrice !== null ? (best === null ? e.pomPrice : Math.max(best, e.pomPrice)) : best, null);
+                const bestListed = grp.entries.reduce<number | null>((best, e) =>
+                  e.ourPrice !== null ? (best === null ? e.ourPrice : Math.max(best, e.ourPrice)) : best, null);
+                const bestMkt = grp.entries.reduce<number | null>((best, e) =>
+                  e.marketAvgPrice !== null ? (best === null ? e.marketAvgPrice : Math.max(best, e.marketAvgPrice)) : best, null);
+                const repImg = grp.thumbnailUrl;
+                const repEntry = grp.entries[0];
+
+                return (
+                  <div
+                    key={key}
+                    className="rounded-lg border border-gray-700/60 bg-gradient-to-br from-gray-800/60 via-gray-900/80 to-gray-950/60 overflow-hidden"
+                    data-testid={`tile-brickanalyzer-${gi}`}
+                  >
+                    {/* ── Collapsed header (always visible) ─────────── */}
+                    <div
+                      className="flex gap-2.5 px-2.5 py-2 cursor-pointer hover-elevate"
+                      onClick={() => togglePart(key)}
+                      data-testid={`toggle-part-${gi}`}
+                    >
+                      {/* Thumbnail */}
+                      <div className="flex-shrink-0 w-12 h-12 rounded bg-gray-800/80 flex items-center justify-center overflow-hidden">
+                        {repImg ? (
+                          <img
+                            src={`/api/images/proxy?url=${encodeURIComponent(repImg)}`}
+                            alt={grp.partName}
+                            className="w-full h-full object-contain p-0.5"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = `https://img.bricklink.com/ItemImage/PN/${repEntry.colorId ?? 0}/${grp.partNo}.png`;
+                            }}
+                          />
+                        ) : grp.partNo ? (
+                          <img
+                            src={`https://img.bricklink.com/ItemImage/PN/${repEntry.colorId ?? 0}/${grp.partNo}.png`}
+                            alt={grp.partName}
+                            className="w-full h-full object-contain p-0.5"
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                          />
+                        ) : (
+                          <Camera className="w-4 h-4 text-gray-700" />
+                        )}
+                      </div>
+
+                      {/* Info */}
+                      <div className="flex-1 min-w-0 flex flex-col gap-0.5 justify-center">
+                        {/* Part name + BL link + chevron */}
+                        <div className="flex items-center gap-1">
+                          <p className="text-xs font-semibold text-white leading-tight flex-1 truncate">
+                            {grp.partName || "Unknown Part"}
+                          </p>
+                          {grp.partNo && (
+                            <a
+                              href={`https://www.bricklink.com/v2/catalog/catalogitem.page?P=${grp.partNo}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-lego-blue hover:text-blue-300 flex-shrink-0"
+                              data-testid={`link-bricklink-${gi}`}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+                          )}
+                          <ChevronRight
+                            className={`w-3.5 h-3.5 text-gray-500 flex-shrink-0 transition-transform duration-150 ${isExpanded ? "rotate-90" : ""}`}
+                          />
+                        </div>
+
+                        {/* Part no · N colors · qty */}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {grp.partNo && <span className="font-mono text-[10px] text-gray-500">{grp.partNo}</span>}
+                          <span className="text-[10px] text-gray-600">
+                            {grp.entries.length === 1
+                              ? grp.entries[0].colorName || "1 color"
+                              : `${grp.entries.length} colors`}
+                          </span>
+                          {totalQty > 0 && (
+                            <span className="text-[10px] text-green-400 font-medium">· {totalQty} in stock</span>
+                          )}
+                        </div>
+
+                        {/* Best prices across all colors */}
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-[9px] text-gray-500 uppercase tracking-wider">POM</span>
+                            {bestPom !== null
+                              ? <span className="text-[11px] font-mono font-semibold text-lego-yellow">${bestPom.toFixed(2)}</span>
+                              : <span className="text-[11px] text-gray-600">—</span>
+                            }
+                          </div>
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-[9px] text-gray-500 uppercase tracking-wider">Listed</span>
+                            {bestListed !== null
+                              ? <span className="text-[11px] font-mono text-green-400">${bestListed.toFixed(2)}</span>
+                              : <span className="text-[11px] text-gray-600">—</span>
+                            }
+                          </div>
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-[9px] text-gray-500 uppercase tracking-wider">Mkt Hi</span>
+                            {bestMkt !== null
+                              ? <span className="text-[11px] font-mono text-gray-300">${bestMkt.toFixed(2)}</span>
+                              : <span className="text-[11px] text-gray-600">—</span>
+                            }
+                          </div>
+                        </div>
+                      </div>
                     </div>
 
-                    {/* Right side */}
-                    <div className="flex-1 min-w-0 flex flex-col gap-1">
-                      {/* Title + BL link */}
-                      <div className="flex items-start justify-between gap-1">
-                        <p className="text-xs font-semibold text-white leading-tight flex-1 truncate">
-                          {piece.partName || "Unknown Part"}
-                        </p>
-                        {piece.partNo && (
-                          <a
-                            href={`https://www.bricklink.com/v2/catalog/catalogitem.page?P=${piece.partNo}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-lego-blue hover:text-blue-300 flex-shrink-0"
-                            data-testid={`link-bricklink-${i}`}
+                    {/* ── Expanded: all color/condition rows ──────────── */}
+                    {isExpanded && (
+                      <div className="border-t border-gray-700/50">
+                        {grp.entries.map((piece, ei) => (
+                          <div
+                            key={ei}
+                            className="flex items-center gap-2 px-3 py-1.5 border-b border-gray-800/60 last:border-0"
+                            data-testid={`entry-${gi}-${ei}`}
                           >
-                            <ExternalLink className="w-3 h-3" />
-                          </a>
-                        )}
-                      </div>
+                            {/* Color swatch */}
+                            <div className="w-1 self-stretch rounded-full bg-gray-600/50 flex-shrink-0" />
 
-                      {/* Part no · color · qty */}
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        {piece.partNo && (
-                          <span className="font-mono text-[10px] text-gray-500">{piece.partNo}</span>
-                        )}
-                        {piece.colorName && (
-                          <span className="text-[10px] text-gray-500">{piece.colorName}</span>
-                        )}
-                        {piece.ourQty > 0 && (
-                          <span className="text-[10px] text-green-400 font-medium">· {piece.ourQty} in stock</span>
-                        )}
-                        <Badge
-                          variant="outline"
-                          className={`text-[9px] ml-auto capitalize ${confidenceColor(piece.confidence)} border-current`}
-                        >
-                          {piece.confidence}
-                        </Badge>
-                      </div>
+                            {/* Color name + qty */}
+                            <div className="w-28 flex-shrink-0">
+                              <p className="text-[11px] text-gray-300 truncate">{piece.colorName || "Unknown"}</p>
+                              {piece.ourQty > 0 && (
+                                <p className="text-[10px] text-green-400">{piece.ourQty} in stock</p>
+                              )}
+                            </div>
 
-                      {/* Prices: single row */}
-                      <div className="flex items-center gap-3 mt-0.5">
-                        <div className="flex items-baseline gap-1">
-                          <span className="text-[9px] text-gray-500 uppercase tracking-wider">POM</span>
-                          {piece.pomPrice !== null
-                            ? <span className="text-xs font-mono font-semibold text-lego-yellow">${piece.pomPrice.toFixed(2)}</span>
-                            : <span className="text-xs text-gray-600">—</span>
-                          }
-                        </div>
-                        <div className="flex items-baseline gap-1">
-                          <span className="text-[9px] text-gray-500 uppercase tracking-wider">Listed</span>
-                          {piece.ourPrice !== null
-                            ? <span className="text-xs font-mono text-green-400">${piece.ourPrice.toFixed(2)}</span>
-                            : <span className="text-xs text-gray-600">—</span>
-                          }
-                        </div>
-                        <div className="flex items-baseline gap-1">
-                          <span className="text-[9px] text-gray-500 uppercase tracking-wider">Mkt Hi</span>
-                          {piece.marketAvgPrice !== null
-                            ? <span className="text-xs font-mono text-gray-300">${piece.marketAvgPrice.toFixed(2)}</span>
-                            : <span className="text-xs text-gray-600">—</span>
-                          }
-                        </div>
-                      </div>
+                            {/* Prices */}
+                            <div className="flex-1 flex items-center gap-3">
+                              <div className="flex items-baseline gap-1">
+                                <span className="text-[9px] text-gray-600 uppercase">POM</span>
+                                {piece.pomPrice !== null
+                                  ? <span className="text-[11px] font-mono text-lego-yellow">${piece.pomPrice.toFixed(2)}</span>
+                                  : <span className="text-[11px] text-gray-700">—</span>
+                                }
+                              </div>
+                              <div className="flex items-baseline gap-1">
+                                <span className="text-[9px] text-gray-600 uppercase">Listed</span>
+                                {piece.ourPrice !== null
+                                  ? <span className="text-[11px] font-mono text-green-400">${piece.ourPrice.toFixed(2)}</span>
+                                  : <span className="text-[11px] text-gray-700">—</span>
+                                }
+                              </div>
+                              <div className="flex items-baseline gap-1">
+                                <span className="text-[9px] text-gray-600 uppercase">Mkt</span>
+                                {piece.marketAvgPrice !== null
+                                  ? <span className="text-[11px] font-mono text-gray-400">${piece.marketAvgPrice.toFixed(2)}</span>
+                                  : <span className="text-[11px] text-gray-700">—</span>
+                                }
+                              </div>
+                            </div>
 
-                      {piece.note && (
-                        <p className="text-[9px] text-gray-600 italic">{piece.note}</p>
-                      )}
-                    </div>
+                            {/* Confidence */}
+                            <span className={`text-[9px] capitalize flex-shrink-0 ${confidenceColor(piece.confidence)}`}>
+                              {piece.confidence}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
