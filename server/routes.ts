@@ -3253,7 +3253,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       const PADDING = 0.06;     // 6% padding for parts crop
       const FIG_PADDING = 0.15; // 15% padding for figs crop — proximity merge assembles full-body boxes now; 35% was bleeding into adjacent minifigs
 
-      const identified: any[] = await Promise.all(pieces.map(async (piece: any, idx: number) => {
+      const identified: any[] = (await Promise.all(pieces.map(async (piece: any, idx: number) => {
         try {
           // Convert percentage coords to pixels with padding
           const x0 = Math.max(0, Math.round(((piece.x ?? 0) / 100 - PADDING) * imgWidth));
@@ -3307,23 +3307,38 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
           if (topItem) {
             const confidence = topItem.score >= 0.7 ? 'high' : topItem.score >= 0.4 ? 'medium' : 'low';
             console.log(`[Brickanalyzer] Piece ${idx} (${itemType}): ${topItem.id} "${topItem.name}" score=${topItem.score.toFixed(2)} → ${confidence}`);
-            return {
+            const primary = {
               partNo: topItem.id || '',
               partName: topItem.name || piece.roughName || 'Unknown',
-              colorName: itemType === 'MINIFIG' ? '' : (piece.colorName || ''), // minifigs have no color dimension
+              colorName: itemType === 'MINIFIG' ? '' : (piece.colorName || ''),
               itemType,
               confidence,
               note: piece.note || '',
             };
+            // When a crop contains a minifig AND a co-located part (e.g. a flag next to a fig),
+            // Brickognize returns both. Report both if the secondary result is also confident (≥0.70).
+            if (useFig && partsTop && partsTop.score >= 0.70 && partsTop.id !== topItem.id) {
+              const secConf = partsTop.score >= 0.7 ? 'high' : 'medium';
+              console.log(`[Brickanalyzer] Piece ${idx} also PART: ${partsTop.id} "${partsTop.name}" score=${partsTop.score.toFixed(2)}`);
+              return [primary, {
+                partNo: partsTop.id || '',
+                partName: partsTop.name || 'Unknown',
+                colorName: piece.colorName || '',
+                itemType: 'PART',
+                confidence: secConf,
+                note: piece.note || '',
+              }];
+            }
+            return [primary];
           }
-          // Brickognize returned no results — use GPT-4o rough name as fallback
-          return { partNo: '', partName: piece.roughName || 'Unknown', colorName: piece.colorName || '', itemType: 'PART', confidence: 'low', note: 'Brickognize: no match' };
+          // Brickognize returned no results
+          return [{ partNo: '', partName: piece.roughName || 'Unknown', colorName: piece.colorName || '', itemType: 'PART', confidence: 'low', note: 'Brickognize: no match' }];
 
         } catch (err: any) {
           console.warn(`[Brickanalyzer] Piece ${idx} failed:`, err.message);
-          return { partNo: '', partName: piece.roughName || 'Unknown', colorName: piece.colorName || '', confidence: 'low', note: 'identification error' };
+          return [{ partNo: '', partName: piece.roughName || 'Unknown', colorName: piece.colorName || '', confidence: 'low', note: 'identification error' }];
         }
-      }));
+      }))).flat();
 
       // ── Step 2b: Resolve LEGO part numbers → BrickLink part numbers via Rebrickable ──
       // Also capture Rebrickable part images as a fallback for when we have no thumbnail.
