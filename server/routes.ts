@@ -3633,6 +3633,27 @@ Return ONLY a valid JSON array, no other text. If no pieces found return [].`
 
         const bestPrice = ourPriceNew ?? ourPriceUsed ?? marketSoldMaxNew ?? marketSoldMaxUsed;
 
+        // Build inventory lots grouped by colorId — powers the "All colors" list in the UI
+        const colorGroupMap = new Map<number | string, {
+          colorId: number | null; colorName: string | null; colorRgb: string | null;
+          qtyNew: number; priceNew: number | null; qtyUsed: number; priceUsed: number | null;
+        }>();
+        for (const row of activeInvRows) {
+          const key = row.colorId ?? `name_${row.colorName}`;
+          if (!colorGroupMap.has(key)) {
+            colorGroupMap.set(key, { colorId: row.colorId ?? null, colorName: row.colorName ?? null, colorRgb: null, qtyNew: 0, priceNew: null, qtyUsed: 0, priceUsed: null });
+          }
+          const cg = colorGroupMap.get(key)!;
+          if (row.newOrUsed === 'N') { cg.qtyNew += row.quantity || 0; if (cg.priceNew === null && row.unitPrice) cg.priceNew = Number(row.unitPrice); }
+          else if (row.newOrUsed === 'U') { cg.qtyUsed += row.quantity || 0; if (cg.priceUsed === null && row.unitPrice) cg.priceUsed = Number(row.unitPrice); }
+        }
+        const uniqueColorIds = [...colorGroupMap.values()].map(v => v.colorId).filter((id): id is number => id != null);
+        if (uniqueColorIds.length > 0) {
+          const rgbRows = await db.select({ id: blColors.id, rgb: blColors.rgb }).from(blColors).where(inArray(blColors.id, uniqueColorIds));
+          for (const r of rgbRows) { const cg = colorGroupMap.get(r.id); if (cg) cg.colorRgb = r.rgb ?? null; }
+        }
+        const inventoryLots = [...colorGroupMap.values()];
+
         return {
           partNo: piece.partNo || '',
           partName: piece.partName || 'Unknown Part',
@@ -3650,6 +3671,7 @@ Return ONLY a valid JSON array, no other text. If no pieces found return [].`
           colorRgb,
           thumbnailUrl,
           bestPrice,
+          inventoryLots,
         };
       }));
 

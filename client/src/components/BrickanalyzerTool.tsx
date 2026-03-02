@@ -13,6 +13,16 @@ export interface BrickanalyzerToolRef {
   triggerFile: () => void;
 }
 
+interface InventoryLot {
+  colorId: number | null;
+  colorName: string | null;
+  colorRgb: string | null;
+  qtyNew: number;
+  priceNew: number | null;
+  qtyUsed: number;
+  priceUsed: number | null;
+}
+
 interface ScanResult {
   partNo: string;
   partName: string;
@@ -30,6 +40,7 @@ interface ScanResult {
   marketSoldMaxUsed: number | null;
   thumbnailUrl: string | null;
   bestPrice: number | null;
+  inventoryLots?: InventoryLot[];
 }
 
 interface BrickanalyzerScan {
@@ -407,7 +418,8 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                 const beUScore = bePeak && bestEntry.ourPriceUsed && bestEntry.ourPriceUsed > 0
                   ? Number((bePeak / bestEntry.ourPriceUsed).toFixed(2)) : null;
                 const beInStock = (bestEntry.ourQtyNew + bestEntry.ourQtyUsed) > 0;
-                const otherEntries = grp.entries.filter(e => e !== bestEntry);
+                // Other inventory colors come from the backend lot list, excluding the best match color
+                const otherLots = (bestEntry.inventoryLots ?? []).filter(lot => lot.colorId !== bestEntry.colorId);
                 const entryScoreColor = (s: number | null) => {
                   if (s === null) return 'text-gray-600';
                   if (s >= 2.0) return 'text-emerald-400';
@@ -531,67 +543,45 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                           </div>
                         </div>
 
-                        {/* All colors sublist — only when other colors exist beyond the best match */}
-                        {otherEntries.length > 0 ? (
+                        {/* All colors — from inventory lots, excluding the best match color */}
+                        {otherLots.length > 0 ? (
                         <div className="space-y-0">
                           <div className="flex items-center gap-1 px-1 pb-0.5 pt-0.5">
                             <div className="flex-1 min-w-0">
-                              <span className="text-[9px] uppercase tracking-wider text-gray-600">All colors</span>
+                              <span className="text-[9px] uppercase tracking-wider text-gray-600">Other colors in stock</span>
                             </div>
-                            <span className="text-[9px] uppercase tracking-wider text-gray-400 w-14 text-right flex-shrink-0">N Cur</span>
-                            <span className="text-[9px] uppercase tracking-wider text-gray-400 w-[58px] text-right flex-shrink-0">N Score</span>
-                            <span className="text-[9px] uppercase tracking-wider text-gray-400 w-14 text-right flex-shrink-0">U Cur</span>
-                            <span className="text-[9px] uppercase tracking-wider text-gray-400 w-[58px] text-right flex-shrink-0">U Score</span>
+                            <span className="text-[9px] uppercase tracking-wider text-gray-400 w-14 text-right flex-shrink-0">N Price</span>
+                            <span className="text-[9px] uppercase tracking-wider text-gray-400 w-14 text-right flex-shrink-0">U Price</span>
                           </div>
-                          {otherEntries.map((piece, ei) => {
-                              const peak = Math.max(piece.marketSoldMaxNew ?? 0, piece.marketSoldMaxUsed ?? 0) || null;
-                              const peakVal = peak && peak > 0 ? peak : null;
-                              const nScore = peakVal && piece.ourPriceNew && piece.ourPriceNew > 0
-                                ? Number((peakVal / piece.ourPriceNew).toFixed(2)) : null;
-                              const uScore = peakVal && piece.ourPriceUsed && piece.ourPriceUsed > 0
-                                ? Number((peakVal / piece.ourPriceUsed).toFixed(2)) : null;
-                              const pieceTotalQty = piece.ourQtyNew + piece.ourQtyUsed;
-                              const inStock = pieceTotalQty > 0;
-                              const isBest = piece === bestEntry;
-                              return (
-                                <div
-                                  key={ei}
-                                  className={`border rounded-lg px-2 py-1.5 ${isBest ? 'bg-purple-900/20 border-purple-500/30' : 'bg-gray-900/50 border-gray-700/60'}`}
-                                  data-testid={`entry-${gi}-${ei}`}
-                                >
-                                  <div className="flex items-center gap-1 min-w-0">
-                                    <div className="flex flex-col flex-1 min-w-0">
-                                      <div className="flex items-center gap-1 min-w-0">
-                                        <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${inStock ? 'bg-emerald-500' : 'bg-gray-600'}`} />
-                                        {inStock && <span className="text-[10px] font-mono text-gray-300 flex-shrink-0">×{pieceTotalQty}</span>}
-                                        {piece.colorRgb ? (
-                                          <span className="w-2 h-2 rounded-full flex-shrink-0 border border-gray-600" style={{ backgroundColor: `#${piece.colorRgb}` }} />
-                                        ) : (
-                                          <span className="w-2 h-2 rounded-full flex-shrink-0 bg-gray-600" />
-                                        )}
-                                        <span className="text-[10px] text-gray-300 truncate">{piece.colorName || '—'}</span>
-                                        {isBest && <Sparkles className="w-2.5 h-2.5 text-purple-400 flex-shrink-0" />}
-                                      </div>
-                                      {peakVal && (
-                                        <span className="text-[9px] pl-0.5 text-purple-400">peak ${peakVal.toFixed(2)}</span>
-                                      )}
-                                    </div>
-                                    <span className="text-[10px] font-mono text-gray-300 w-14 text-right flex-shrink-0">
-                                      {piece.ourPriceNew != null ? `$${piece.ourPriceNew.toFixed(2)}` : '—'}
-                                    </span>
-                                    <span className={`text-[10px] font-mono font-bold w-[58px] text-right flex-shrink-0 ${entryScoreColor(nScore)}`}>
-                                      {nScore != null ? `${nScore}×` : '—'}
-                                    </span>
-                                    <span className="text-[10px] font-mono text-gray-300 w-14 text-right flex-shrink-0">
-                                      {piece.ourPriceUsed != null ? `$${piece.ourPriceUsed.toFixed(2)}` : '—'}
-                                    </span>
-                                    <span className={`text-[10px] font-mono font-bold w-[58px] text-right flex-shrink-0 ${entryScoreColor(uScore)}`}>
-                                      {uScore != null ? `${uScore}×` : '—'}
-                                    </span>
+                          {otherLots.map((lot, li) => {
+                            const lotInStock = (lot.qtyNew + lot.qtyUsed) > 0;
+                            return (
+                              <div
+                                key={li}
+                                className="bg-gray-900/50 border border-gray-700/60 rounded-lg px-2 py-1.5"
+                                data-testid={`lot-${gi}-${li}`}
+                              >
+                                <div className="flex items-center gap-1 min-w-0">
+                                  <div className="flex items-center gap-1 flex-1 min-w-0">
+                                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${lotInStock ? 'bg-emerald-500' : 'bg-gray-600'}`} />
+                                    {lotInStock && <span className="text-[10px] font-mono text-gray-300 flex-shrink-0">×{lot.qtyNew + lot.qtyUsed}</span>}
+                                    {lot.colorRgb ? (
+                                      <span className="w-2 h-2 rounded-full flex-shrink-0 border border-gray-600" style={{ backgroundColor: `#${lot.colorRgb}` }} />
+                                    ) : (
+                                      <span className="w-2 h-2 rounded-full flex-shrink-0 bg-gray-600" />
+                                    )}
+                                    <span className="text-[10px] text-gray-300 truncate">{lot.colorName || '—'}</span>
                                   </div>
+                                  <span className="text-[10px] font-mono text-gray-300 w-14 text-right flex-shrink-0">
+                                    {lot.priceNew != null ? `$${lot.priceNew.toFixed(2)}` : '—'}
+                                  </span>
+                                  <span className="text-[10px] font-mono text-gray-300 w-14 text-right flex-shrink-0">
+                                    {lot.priceUsed != null ? `$${lot.priceUsed.toFixed(2)}` : '—'}
+                                  </span>
                                 </div>
-                              );
-                            })}
+                              </div>
+                            );
+                          })}
                         </div>) : null}
                       </div>
                     )}
