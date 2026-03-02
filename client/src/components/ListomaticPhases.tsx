@@ -409,6 +409,7 @@ export function ListomaticPhases() {
                       isDragging={isDragging}
                       isBeingDragged={drag?.categoryId === cat.id}
                       onPointerDown={(e) => startDrag(e, cat)}
+                      onAssign={assignPhase}
                       onRemove={() => removeFromPhase(cat.id)}
                     />
                   ))}
@@ -529,6 +530,7 @@ function AssignedPill({
   isDragging,
   isBeingDragged,
   onPointerDown,
+  onAssign,
   onRemove,
 }: {
   cat: PhaseCategory;
@@ -536,31 +538,86 @@ function AssignedPill({
   isDragging: boolean;
   isBeingDragged: boolean;
   onPointerDown: (e: React.PointerEvent) => void;
+  onAssign: (id: number, phase: PhaseKey) => void;
   onRemove: () => void;
 }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  useEffect(() => { if (isDragging) setOpen(false); }, [isDragging]);
+
   return (
-    <div
-      className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] border select-none group transition-opacity ${cfg.badgeBg} ${isBeingDragged ? 'opacity-30' : ''}`}
-      data-testid={`pill-${cat.sortingPhase}-${cat.id}`}
-    >
-      <span
-        data-grip
-        onPointerDown={onPointerDown}
-        className="touch-none cursor-grab active:cursor-grabbing"
-        title="Drag to move"
+    <div className="relative" ref={ref}>
+      <div
+        className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] border select-none group transition-opacity ${cfg.badgeBg} ${isBeingDragged ? 'opacity-30' : ''}`}
+        data-testid={`pill-${cat.sortingPhase}-${cat.id}`}
       >
-        <GripVertical className="w-3 h-3 opacity-50 group-hover:opacity-80 shrink-0" />
-      </span>
-      {cat.name}
-      <button
-        onPointerDown={(e) => e.stopPropagation()}
-        onClick={(e) => { e.stopPropagation(); onRemove(); }}
-        className="ml-0.5 opacity-40 hover:opacity-90 transition-opacity"
-        data-testid={`remove-${cat.id}`}
-        title="Move back to Unassigned"
-      >
-        <X className="w-2.5 h-2.5" />
-      </button>
+        <span
+          data-grip
+          onPointerDown={onPointerDown}
+          className="touch-none cursor-grab active:cursor-grabbing"
+          title="Drag to move"
+        >
+          <GripVertical className="w-3 h-3 opacity-50 group-hover:opacity-80 shrink-0" />
+        </span>
+        <span
+          className="cursor-pointer"
+          onClick={() => !isDragging && setOpen(v => !v)}
+          title="Tap to change phase"
+        >
+          {cat.name}
+        </span>
+        <button
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => { e.stopPropagation(); onRemove(); }}
+          className="ml-0.5 opacity-40 hover:opacity-90 transition-opacity"
+          data-testid={`remove-${cat.id}`}
+          title="Move back to Unassigned"
+        >
+          <X className="w-2.5 h-2.5" />
+        </button>
+      </div>
+
+      {open && (
+        <div className="absolute top-full left-0 z-[200] mt-1 bg-gray-800 border border-gray-600 rounded-md shadow-xl overflow-hidden min-w-[190px]">
+          <div className="px-2.5 py-1.5 text-[10px] text-gray-500 border-b border-gray-700 font-medium uppercase tracking-wider">
+            Move to phase
+          </div>
+          {PHASES.filter(p => p !== cat.sortingPhase).map(p => {
+            const pcfg = PHASE_CONFIG[p];
+            return (
+              <button
+                key={p}
+                className={`w-full text-left px-2.5 py-2 text-[11px] flex items-center gap-2 hover:bg-gray-700 transition-colors ${pcfg.color}`}
+                onClick={() => { onAssign(cat.id, p); setOpen(false); }}
+                data-testid={`reassign-${cat.id}-${p}`}
+              >
+                <span className={`w-2 h-2 rounded-full shrink-0 ${pcfg.dot}`} />
+                {pcfg.label}
+              </button>
+            );
+          })}
+          <div className="border-t border-gray-700/60">
+            <button
+              className="w-full text-left px-2.5 py-2 text-[11px] flex items-center gap-2 hover:bg-gray-700 transition-colors text-gray-400"
+              onClick={() => { onRemove(); setOpen(false); }}
+              data-testid={`unassign-${cat.id}`}
+            >
+              <span className="w-2 h-2 rounded-full shrink-0 bg-gray-500" />
+              Move to Not Assigned
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
