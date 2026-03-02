@@ -108,23 +108,21 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
       if (!res.ok) throw new Error("Failed to fetch scan");
       return res.json();
     },
-    enabled: !!scanId && (uiState === "processing"),
-    refetchInterval: (data) => {
-      if (!data || (data as BrickanalyzerScan).status === "processing") return 2000;
-      return false;
-    },
-    select: (data) => {
-      if (data.status === "complete" && uiState === "processing") {
-        setUiState("complete");
-        queryClient.invalidateQueries({ queryKey: ["/api/brickanalyzer/scans/latest"] });
-      }
-      if (data.status === "failed" && uiState === "processing") {
-        setUiState("failed");
-        queryClient.invalidateQueries({ queryKey: ["/api/brickanalyzer/scans/latest"] });
-      }
-      return data;
-    },
+    enabled: !!scanId && uiState === "processing",
+    refetchInterval: 3000,
   });
+
+  // Transition out of "processing" via useEffect — safe, outside render
+  useEffect(() => {
+    if (!scan) return;
+    if (scan.status === "complete" && uiState === "processing") {
+      setUiState("complete");
+      queryClient.invalidateQueries({ queryKey: ["/api/brickanalyzer/scans/latest"] });
+    } else if (scan.status === "failed" && uiState === "processing") {
+      setUiState("failed");
+      queryClient.invalidateQueries({ queryKey: ["/api/brickanalyzer/scans/latest"] });
+    }
+  }, [scan?.status]);
 
   const dismissMutation = useMutation({
     mutationFn: async () => {
