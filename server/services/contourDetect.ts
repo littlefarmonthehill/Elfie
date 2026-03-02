@@ -213,7 +213,71 @@ export async function detectPieceBoundingBoxes(imageBuffer: Buffer): Promise<Det
   const merged = mergeProximate(pass1, 1.5, 2.0, 1.5);
 
   console.log(`[ContourDetect] After merge: ${pass1.length} → ${merged.length} boxes`);
-  return merged;
+
+  // ── Pass 3: Subdivide wide blobs (rows of touching pieces) ───────────────
+  // When minifigs stand shoulder-to-shoulder they form one wide connected blob.
+  // Contour can never find the boundary between touching same-color surfaces.
+  // Strategy: estimate how many pieces fit in the blob's width and split evenly.
+  //
+  // Only split if Math.round(blobW / expectedW) >= 2, i.e. blob is ≥ 1.5×
+  // the expected piece width — avoids splitting a single slightly-wide piece.
+  //
+  // Each resulting segment is accepted only if it contains ≥ SEG_MIN_DENSITY
+  // foreground pixels (skips empty background slices at image edges).
+  const FIG_EXPECTED_W  = 12;   // % — typical minifig width at work resolution
+  const PART_EXPECTED_W =  8;   // % — typical small part width
+  const TALL_THRESH     = 20;   // % — blobs this tall are likely minifigs
+  const SEG_MIN_DENSITY = 0.08; // min foreground fraction to accept a segment
+  const MAX_BOXES       = 24;   // cap total Brickognize calls per scan
+
+  const segmented: DetectedBox[] = [];
+  for (const box of merged) {
+    const expectedW = box.h >= TALL_THRESH ? FIG_EXPECTED_W : PART_EXPECTED_W;
+    const N = Math.round(box.w / expectedW);
+    if (N <= 1) { segmented.push(box); continue; }
+
+    const segW = box.w / N;
+    const py0  = Math.max(0, Math.round((box.y / 100) * H));
+    const py1  = Math.min(H, Math.round(((box.y + box.h) / 100) * H));
+    let keptAny = false;
+
+    for (let i = 0; i < N; i++) {
+      const sx  = box.x + i * segW;
+      const px0 = Math.max(0, Math.round((sx / 100) * W));
+      const px1 = Math.min(W, Math.round(((sx + segW) / 100) * W));
+      let fg = 0, tot = 0;
+      for (let y = py0; y < py1; y++)
+        for (let x = px0; x < px1; x++) { tot++; if (mask[y * W + x]) fg++; }
+      if (tot > 0 && fg / tot >= SEG_MIN_DENSITY) {
+        segmented.push({ x: sx, y: box.y, w: segW, h: box.h });
+        keptAny = true;
+      }
+    }
+    if (!keptAny) segmented.push(box); // fallback: keep original unsplit
+  }
+
+  // Remove any overlaps that subdivision may have introduced
+  const postSub = mergeOverlapping(segmented, 0.3);
+
+  // Cap: rank by foreground density, keep the MAX_BOXES densest regions
+  let finalBoxes = postSub;
+  if (postSub.length > MAX_BOXES) {
+    const scored = postSub.map(box => {
+      const px0 = Math.max(0, Math.round((box.x / 100) * W));
+      const py0 = Math.max(0, Math.round((box.y / 100) * H));
+      const px1 = Math.min(W, Math.round(((box.x + box.w) / 100) * W));
+      const py1 = Math.min(H, Math.round(((box.y + box.h) / 100) * H));
+      let fg = 0, tot = 0;
+      for (let y = py0; y < py1; y++)
+        for (let x = px0; x < px1; x++) { tot++; if (mask[y * W + x]) fg++; }
+      return { box, density: tot > 0 ? fg / tot : 0 };
+    });
+    scored.sort((a, b) => b.density - a.density);
+    finalBoxes = scored.slice(0, MAX_BOXES).map(s => s.box);
+  }
+
+  console.log(`[ContourDetect] After subdivide: ${segmented.length} → ${finalBoxes.length} boxes`);
+  return finalBoxes;
 }
 
 function iou(a: DetectedBox, b: DetectedBox): number {
