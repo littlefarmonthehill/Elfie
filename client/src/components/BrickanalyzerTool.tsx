@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { Camera, Upload, X, CheckCircle, Loader2, ExternalLink, Trash2, ScanSearch } from "lucide-react";
@@ -6,6 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+
+export interface BrickanalyzerToolRef {
+  triggerCamera: () => void;
+  triggerUpload: () => void;
+  triggerFile: () => void;
+}
 
 interface ScanResult {
   partNo: string;
@@ -37,13 +43,37 @@ interface BrickanalyzerScan {
 
 type UIState = "idle" | "uploading" | "processing" | "complete" | "failed";
 
-export default function BrickanalyzerTool() {
+const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uiState, setUiState] = useState<UIState>("idle");
   const [scanId, setScanId] = useState<number | null>(null);
   const [leftPage, setLeftPage] = useState(false);
   const [selectedPiece, setSelectedPiece] = useState<ScanResult | null>(null);
+
+  useImperativeHandle(ref, () => ({
+    triggerCamera: () => {
+      if (fileInputRef.current) {
+        fileInputRef.current.accept = "image/*";
+        (fileInputRef.current as any).capture = "environment";
+        fileInputRef.current.click();
+      }
+    },
+    triggerUpload: () => {
+      if (fileInputRef.current) {
+        fileInputRef.current.removeAttribute("capture");
+        fileInputRef.current.accept = "image/*";
+        fileInputRef.current.click();
+      }
+    },
+    triggerFile: () => {
+      if (fileInputRef.current) {
+        fileInputRef.current.removeAttribute("capture");
+        fileInputRef.current.accept = "*/*";
+        fileInputRef.current.click();
+      }
+    },
+  }));
 
   // On mount, check if there's an existing scan to restore (user left and came back)
   const { data: latestScan } = useQuery<BrickanalyzerScan | null>({
@@ -533,4 +563,6 @@ export default function BrickanalyzerTool() {
       </Dialog>
     </div>
   );
-}
+});
+
+export default BrickanalyzerTool;

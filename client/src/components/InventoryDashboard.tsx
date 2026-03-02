@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import MetricCard from "./MetricCard";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import { InfoIcon, AlertCircle, Package, TrendingUp, Clock, Sparkles, Warehouse, RefreshCw, Info, ListChecks, ScanSearch, AlertTriangle } from "lucide-react";
+import { InfoIcon, AlertCircle, Package, TrendingUp, Clock, Sparkles, Warehouse, RefreshCw, Info, ListChecks, ScanSearch, AlertTriangle, Camera, ImageIcon, FileText } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -26,7 +26,13 @@ import PriceOMaticDashboard from "./PriceOMaticDashboard";
 import WarehouseManagement from "./WarehouseManagement";
 import PlatformSyncTool from "./PlatformSyncTool";
 import ListomaticPriority from "./ListomaticPriority";
-import BrickanalyzerTool from "./BrickanalyzerTool";
+import BrickanalyzerTool, { BrickanalyzerToolRef } from "./BrickanalyzerTool";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface InventoryStats {
   totalLots: number;
@@ -75,6 +81,7 @@ interface InventoryDashboardProps {
 export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawerChange, onOpenSettings }: InventoryDashboardProps) {
 
   const { toast } = useToast();
+  const brickanalyzerRef = useRef<BrickanalyzerToolRef>(null);
 
   const { data: appSettings } = useQuery<{ timezone?: string }>({
     queryKey: ['/api/settings'],
@@ -379,7 +386,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
       {/* Brickanalyzer Drawer */}
       <Drawer open={activeDrawer === 'brickanalyzer'} onOpenChange={(open) => !open && onDrawerChange(null)}>
         <DrawerContent className="h-[92dvh] flex flex-col">
-          <DrawerHeader>
+          <DrawerHeader className="flex items-center justify-between gap-2 pr-10">
             <DrawerTitle className="flex items-center gap-2 text-base md:text-lg">
               <ScanSearch className="w-5 h-5 text-lego-yellow" />
               Brickanalyzer
@@ -412,9 +419,48 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 </PopoverContent>
               </Popover>
             </DrawerTitle>
+
+            {/* Camera trigger — right-aligned in the header */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className="text-gray-400 hover:text-white transition-colors flex-shrink-0"
+                  data-testid="button-brickanalyzer-camera-menu"
+                  aria-label="Scan pieces"
+                >
+                  <Camera className="w-5 h-5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48 bg-gray-900 border border-gray-700 text-white">
+                <DropdownMenuItem
+                  className="gap-2 cursor-pointer"
+                  onClick={() => brickanalyzerRef.current?.triggerCamera()}
+                  data-testid="menu-brickanalyzer-camera"
+                >
+                  <Camera className="w-4 h-4 text-lego-yellow" />
+                  Take Photo
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="gap-2 cursor-pointer"
+                  onClick={() => brickanalyzerRef.current?.triggerUpload()}
+                  data-testid="menu-brickanalyzer-upload-photo"
+                >
+                  <ImageIcon className="w-4 h-4 text-lego-blue" />
+                  Upload Photo
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="gap-2 cursor-pointer"
+                  onClick={() => brickanalyzerRef.current?.triggerFile()}
+                  data-testid="menu-brickanalyzer-upload-file"
+                >
+                  <FileText className="w-4 h-4 text-gray-400" />
+                  Upload File
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </DrawerHeader>
           <div className="overflow-y-auto px-4 pb-4 flex-1">
-            <BrickanalyzerTool />
+            <BrickanalyzerTool ref={brickanalyzerRef} />
           </div>
         </DrawerContent>
       </Drawer>
