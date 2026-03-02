@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import { Camera, Upload, X, CheckCircle, Loader2, ExternalLink, Trash2, ScanSearch } from "lucide-react";
+import { Camera, X, CheckCircle, Loader2, ExternalLink, Trash2, ScanSearch } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
@@ -186,41 +186,11 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
 
       {/* ── IDLE: Upload UI ─────────────────────────────────────────────── */}
       {uiState === "idle" && (
-        <div className="space-y-4">
-          {/* Upload / Camera buttons */}
-          <div className="flex flex-col sm:flex-row gap-3">
-            <Button
-              className="flex-1 h-24 flex-col gap-2"
-              variant="outline"
-              onClick={() => {
-                if (fileInputRef.current) {
-                  fileInputRef.current.accept = "image/*";
-                  fileInputRef.current.capture = "environment" as any;
-                  fileInputRef.current.click();
-                }
-              }}
-              data-testid="button-brickanalyzer-camera"
-            >
-              <Camera className="w-6 h-6 text-lego-yellow" />
-              <span className="text-sm">Take Photo</span>
-            </Button>
-            <Button
-              className="flex-1 h-24 flex-col gap-2"
-              variant="outline"
-              onClick={() => {
-                if (fileInputRef.current) {
-                  fileInputRef.current.removeAttribute("capture");
-                  fileInputRef.current.accept = "image/*";
-                  fileInputRef.current.click();
-                }
-              }}
-              data-testid="button-brickanalyzer-upload"
-            >
-              <Upload className="w-6 h-6 text-lego-blue" />
-              <span className="text-sm">Upload Image</span>
-            </Button>
-          </div>
-
+        <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+          <Camera className="w-12 h-12 text-gray-600" />
+          <p className="text-sm text-gray-400">
+            Tap the <span className="text-white font-medium">camera icon</span> above to take a photo, pick from your library, or upload a file.
+          </p>
           <input
             ref={fileInputRef}
             type="file"
