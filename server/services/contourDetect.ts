@@ -140,10 +140,9 @@ export async function detectPieceBoundingBoxes(imageBuffer: Buffer): Promise<Det
     });
   }
 
-  // ── Sort by area descending, cap at 30 ─────────────────────────────────
+  // ── Sort by area descending ─────────────────────────────────────────────
   boxes.sort((a, b) => (b.w * b.h) - (a.w * a.h));
-  const result = boxes.slice(0, 30);
 
-  console.log(`[ContourDetect] ${W}×${H} bg=${bgBrightness.toFixed(0)} → ${bboxMap.size} components → ${boxes.length} sized → ${result.length} returned`);
-  return result;
+  console.log(`[ContourDetect] ${W}×${H} bg=${bgBrightness.toFixed(0)} → ${bboxMap.size} components → ${boxes.length} returned`);
+  return boxes;
 }
