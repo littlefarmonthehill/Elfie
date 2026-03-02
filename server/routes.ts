@@ -3251,7 +3251,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       // ── Step 2: Crop each piece + send to Brickognize in parallel ─────────
       console.log('[Brickanalyzer] Step 2: Cropping and sending to Brickognize...');
       const PADDING = 0.06;     // 6% padding for parts crop
-      const FIG_PADDING = 0.35; // 35% padding for figs crop — contour may only catch one component of an assembled minifig
+      const FIG_PADDING = 0.15; // 15% padding for figs crop — proximity merge assembles full-body boxes now; 35% was bleeding into adjacent minifigs
 
       const identified: any[] = await Promise.all(pieces.map(async (piece: any, idx: number) => {
         try {

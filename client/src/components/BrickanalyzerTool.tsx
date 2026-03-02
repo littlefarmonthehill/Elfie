@@ -447,7 +447,7 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                           />
                         </div>
 
-                        {/* Part no · qty · confidence */}
+                        {/* Part no · qty · confidence · crop count */}
                         <div className="flex items-center gap-1.5 flex-wrap">
                           {grp.partNo && <span className="font-mono text-[10px] text-gray-300">{grp.partNo}</span>}
                           {stockLabel && (
@@ -456,6 +456,9 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                           <span className={`text-[10px] font-medium capitalize ${confidenceColor(bestConfidence)}`}>
                             · {bestConfidence}
                           </span>
+                          {grp.entries.length > 1 && (
+                            <span className="text-[10px] text-gray-500">· {grp.entries.length} crops</span>
+                          )}
                         </div>
                       </div>
                     </div>
