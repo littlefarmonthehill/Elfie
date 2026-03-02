@@ -201,7 +201,7 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
   function confidenceColor(c: string) {
     if (c === "high") return "text-green-400";
     if (c === "medium") return "text-yellow-400";
-    return "text-gray-500";
+    return "text-gray-400";
   }
 
   return (
@@ -394,8 +394,8 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
 
                         {/* Part no · N colors · qty */}
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          {grp.partNo && <span className="font-mono text-[10px] text-gray-500">{grp.partNo}</span>}
-                          <span className="text-[10px] text-gray-600">
+                          {grp.partNo && <span className="font-mono text-[10px] text-gray-300">{grp.partNo}</span>}
+                          <span className="text-[10px] text-gray-400">
                             {grp.entries.length === 1
                               ? grp.entries[0].colorName || "1 color"
                               : `${grp.entries.length} colors`}
@@ -408,24 +408,24 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                         {/* Best prices across all colors */}
                         <div className="flex items-center gap-3">
                           <div className="flex items-baseline gap-1">
-                            <span className="text-[9px] text-gray-500 uppercase tracking-wider">POM</span>
+                            <span className="text-[9px] text-gray-400 uppercase tracking-wider">POM</span>
                             {bestPom !== null
                               ? <span className="text-[11px] font-mono font-semibold text-lego-yellow">${bestPom.toFixed(2)}</span>
-                              : <span className="text-[11px] text-gray-600">—</span>
+                              : <span className="text-[11px] text-gray-500">—</span>
                             }
                           </div>
                           <div className="flex items-baseline gap-1">
-                            <span className="text-[9px] text-gray-500 uppercase tracking-wider">Listed</span>
+                            <span className="text-[9px] text-gray-400 uppercase tracking-wider">Listed</span>
                             {bestListed !== null
                               ? <span className="text-[11px] font-mono text-green-400">${bestListed.toFixed(2)}</span>
-                              : <span className="text-[11px] text-gray-600">—</span>
+                              : <span className="text-[11px] text-gray-500">—</span>
                             }
                           </div>
                           <div className="flex items-baseline gap-1">
-                            <span className="text-[9px] text-gray-500 uppercase tracking-wider">Mkt Hi</span>
+                            <span className="text-[9px] text-gray-400 uppercase tracking-wider">Mkt Hi</span>
                             {bestMkt !== null
-                              ? <span className="text-[11px] font-mono text-gray-300">${bestMkt.toFixed(2)}</span>
-                              : <span className="text-[11px] text-gray-600">—</span>
+                              ? <span className="text-[11px] font-mono text-gray-200">${bestMkt.toFixed(2)}</span>
+                              : <span className="text-[11px] text-gray-500">—</span>
                             }
                           </div>
                         </div>
@@ -455,24 +455,24 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                             {/* Prices */}
                             <div className="flex-1 flex items-center gap-3">
                               <div className="flex items-baseline gap-1">
-                                <span className="text-[9px] text-gray-600 uppercase">POM</span>
+                                <span className="text-[9px] text-gray-400 uppercase">POM</span>
                                 {piece.pomPrice !== null
                                   ? <span className="text-[11px] font-mono text-lego-yellow">${piece.pomPrice.toFixed(2)}</span>
-                                  : <span className="text-[11px] text-gray-700">—</span>
+                                  : <span className="text-[11px] text-gray-500">—</span>
                                 }
                               </div>
                               <div className="flex items-baseline gap-1">
-                                <span className="text-[9px] text-gray-600 uppercase">Listed</span>
+                                <span className="text-[9px] text-gray-400 uppercase">Listed</span>
                                 {piece.ourPrice !== null
                                   ? <span className="text-[11px] font-mono text-green-400">${piece.ourPrice.toFixed(2)}</span>
-                                  : <span className="text-[11px] text-gray-700">—</span>
+                                  : <span className="text-[11px] text-gray-500">—</span>
                                 }
                               </div>
                               <div className="flex items-baseline gap-1">
-                                <span className="text-[9px] text-gray-600 uppercase">Mkt</span>
+                                <span className="text-[9px] text-gray-400 uppercase">Mkt</span>
                                 {piece.marketAvgPrice !== null
-                                  ? <span className="text-[11px] font-mono text-gray-400">${piece.marketAvgPrice.toFixed(2)}</span>
-                                  : <span className="text-[11px] text-gray-700">—</span>
+                                  ? <span className="text-[11px] font-mono text-gray-200">${piece.marketAvgPrice.toFixed(2)}</span>
+                                  : <span className="text-[11px] text-gray-500">—</span>
                                 }
                               </div>
                             </div>
