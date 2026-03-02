@@ -3250,8 +3250,8 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       try {
         const detectionResp = await gptClient.chat.completions.create({
           model: 'gpt-4o',
-          max_tokens: 2048,
-          temperature: 0,
+          max_tokens: 4096,
+          temperature: 0.7,
           response_format: { type: 'json_object' },
           messages: [{
             role: 'user',
@@ -3262,21 +3262,22 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
               },
               {
                 type: 'text',
-                text: `Analyze this photo of LEGO pieces and return a bounding box for every distinct LEGO piece, minifigure, and accessory visible.
+                text: `Look carefully at this photo of LEGO pieces. Your job is to find EVERY individual piece — do not skip any.
+
+Step 1: Scan the image systematically from top-left to bottom-right. Count every shield, every minifigure, and every other loose part.
+Step 2: For each piece, record its ACTUAL position (not an estimate — look at where it really is).
 
 Return ONLY valid JSON in this exact format:
-{"pieces": [{"x": 12.5, "y": 8.0, "w": 9.3, "h": 14.2, "label": "blue triangular shield"}, ...]}
+{"pieces": [{"x": 12.5, "y": 8.0, "w": 9.3, "h": 14.2, "label": "description"}, ...]}
 
-Coordinate rules:
+Coordinate rules (IMPORTANT — use ACTUAL pixel locations, not estimates or evenly-spaced guesses):
 - x, y = top-left corner as percentage of image width/height (0–100)
 - w, h = bounding box width and height as percentage of image width/height (0–100)
-- A minifigure is a small humanoid figure; give it ONE tight box from the TOP OF ITS HEAD (or helmet/hat) to the BOTTOM OF ITS FEET — do not cut off the head or feet
-- A minifig is typically taller than it is wide — expect h to be roughly 2× w
-- Give every shield, weapon, tile, brick, or other loose part its OWN separate box
-- Maximum 24 pieces total
+- SHIELDS: each shield gets its own box — look for every shield in the image, including those in different rows
+- MINIFIGURES: ONE tight box from top of head/helmet to bottom of feet. A minifig is portrait-shaped (h ≈ 2× w).
+- Keep boxes tight — minimal empty space
 - No duplicate boxes for the same piece
-- Keep boxes tight — minimal empty space around each piece
-- Ignore shadows and the background surface`,
+- Ignore shadows and background`,
               }
             ]
           }],
