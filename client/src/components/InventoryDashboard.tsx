@@ -2,7 +2,7 @@ import { useState } from "react";
 import MetricCard from "./MetricCard";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import { InfoIcon, AlertCircle, Package, TrendingUp, Clock, Sparkles, Warehouse, RefreshCw, Info, ListChecks, ScanSearch } from "lucide-react";
+import { InfoIcon, AlertCircle, Package, TrendingUp, Clock, Sparkles, Warehouse, RefreshCw, Info, ListChecks, ScanSearch, AlertTriangle } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -383,6 +383,34 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             <DrawerTitle className="flex items-center gap-2 text-base md:text-lg">
               <ScanSearch className="w-5 h-5 text-lego-yellow" />
               Brickanalyzer
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className="text-gray-500 hover:text-gray-300 transition-colors" data-testid="button-brickanalyzer-info">
+                    <Info className="w-4 h-4" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent side="bottom" align="start" className="w-72 bg-gray-900 border border-gray-700 text-white p-0 space-y-0">
+                  <div className="px-3 py-2.5 border-b border-gray-700">
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <Info className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
+                      <span className="text-xs font-semibold text-blue-300">Setup for best results</span>
+                    </div>
+                    <ul className="text-xs text-blue-400/80 space-y-1 pl-4 list-disc">
+                      <li>Place pieces on a plain white or light-colored surface</li>
+                      <li>Spread them out so no pieces overlap or touch</li>
+                      <li>Use good lighting — avoid harsh shadows</li>
+                      <li>Shoot straight down for a flat overhead view</li>
+                      <li>Up to ~30 pieces per scan for best accuracy</li>
+                    </ul>
+                  </div>
+                  <div className="px-3 py-2.5 flex gap-2 items-start">
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-400 flex-shrink-0 mt-0.5" />
+                    <p className="text-xs text-amber-300">
+                      Results are <strong>not saved</strong>. Once you close or dismiss the scan the data is permanently deleted. Screenshot or note what you need before closing.
+                    </p>
+                  </div>
+                </PopoverContent>
+              </Popover>
             </DrawerTitle>
           </DrawerHeader>
           <div className="overflow-y-auto px-4 pb-4 flex-1">

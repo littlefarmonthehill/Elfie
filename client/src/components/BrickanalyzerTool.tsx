@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import { Camera, Upload, X, AlertTriangle, CheckCircle, Loader2, ExternalLink, Trash2, ScanSearch, Info } from "lucide-react";
+import { Camera, Upload, X, CheckCircle, Loader2, ExternalLink, Trash2, ScanSearch } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
@@ -157,29 +157,6 @@ export default function BrickanalyzerTool() {
       {/* ── IDLE: Upload UI ─────────────────────────────────────────────── */}
       {uiState === "idle" && (
         <div className="space-y-4">
-          {/* Instructions */}
-          <div className="bg-blue-950/40 border border-blue-500/20 rounded-lg p-3 space-y-2">
-            <div className="flex items-center gap-2">
-              <Info className="w-4 h-4 text-blue-400 flex-shrink-0" />
-              <span className="text-sm font-medium text-blue-300">Setup for best results</span>
-            </div>
-            <ul className="text-xs text-blue-400/80 space-y-1 pl-6 list-disc">
-              <li>Place pieces on a plain white or light-colored surface</li>
-              <li>Spread them out so no pieces overlap or touch</li>
-              <li>Use good lighting — avoid harsh shadows</li>
-              <li>Shoot straight down for a flat overhead view</li>
-              <li>Up to ~30 pieces per scan for best accuracy</li>
-            </ul>
-          </div>
-
-          {/* Ephemeral warning */}
-          <div className="bg-amber-950/40 border border-amber-500/20 rounded-lg p-3 flex gap-2 items-start">
-            <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
-            <p className="text-xs text-amber-300">
-              Results are <strong>not saved</strong>. Once you close or dismiss the scan the data is permanently deleted. Screenshot or note what you need before closing.
-            </p>
-          </div>
-
           {/* Upload / Camera buttons */}
           <div className="flex flex-col sm:flex-row gap-3">
             <Button
@@ -311,14 +288,6 @@ export default function BrickanalyzerTool() {
                 <span className="text-lego-yellow font-semibold">${totalValue.toFixed(2)} est. value</span>
               )}
             </div>
-          </div>
-
-          {/* Ephemeral warning */}
-          <div className="flex gap-2 items-start bg-amber-950/30 border border-amber-500/20 rounded-lg px-3 py-2">
-            <AlertTriangle className="w-3.5 h-3.5 text-amber-400 flex-shrink-0 mt-0.5" />
-            <p className="text-xs text-amber-300">
-              These results will be <strong>permanently deleted</strong> when you dismiss this scan. Save what you need now.
-            </p>
           </div>
 
           {/* Results table */}
