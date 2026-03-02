@@ -131,7 +131,7 @@ export async function detectPieceBoundingBoxes(imageBuffer: Buffer): Promise<Det
 
   // ── Filter by size and convert to % coordinates ────────────────────────
   const totalPx = W * H;
-  const MIN_FILL  = totalPx * 0.002;  // 0.2% — ignore dust/specks
+  const MIN_FILL  = totalPx * 0.0008; // 0.08% — shields fragment due to gold areas; keep small blobs so proximity merge can reassemble them
   const MAX_AREA  = totalPx * 0.80;   // 80%  — ignore if it's the whole image
   const MIN_BOX   = 2;                // minimum 2% dimension in either direction
 
