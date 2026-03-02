@@ -1158,6 +1158,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         FROM order_adjustments oa
         JOIN orders o ON o.id = oa.order_id
         WHERE oa.type = 'refund'
+          AND o.is_test = false
           AND o.order_date >= ${sinceDate}
           ${endDate ? sql`AND o.order_date <= ${endDate}` : sql``}
         GROUP BY oa.order_id
@@ -1207,7 +1208,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           COUNT(DISTINCT CASE WHEN oa.type = 'shipping_cost' THEN oa.order_id END) AS shipped_order_count
         FROM order_adjustments oa
         JOIN orders o ON o.id = oa.order_id
-        WHERE o.order_date >= ${sinceDate}
+        WHERE o.is_test = false
+          AND o.order_date >= ${sinceDate}
           ${endDate ? sql`AND o.order_date <= ${endDate}` : sql``}
       `);
 
