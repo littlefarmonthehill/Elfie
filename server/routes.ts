@@ -3306,13 +3306,7 @@ Coordinate rules (IMPORTANT — use ACTUAL pixel locations, not estimates or eve
 
         console.log(`[Brickanalyzer] GPT-4o detected ${pieces.length} pieces`);
 
-        // Tag each piece so the Brickognize step knows which endpoint to use.
-        // Minifig-labelled boxes → figs endpoint only (no parts fallback).
-        // Everything else → parts endpoint only.
-        const FIG_LABELS = /minifig|figure|knight|warrior|person|driver|worker|soldier|pirate|wizard|chef|officer/i;
-        for (const p of pieces) {
-          p.isFig = FIG_LABELS.test(p.roughName || '') && (p.h ?? 0) >= (p.w ?? 0) * 1.2;
-        }
+        // No pre-classification needed — Brickognize will tell us what it is.
       } catch (gptErr: any) {
         console.warn('[Brickanalyzer] GPT-4o detection failed, falling back to contour:', gptErr.message);
         const { detectPieceBoundingBoxes } = await import('./services/contourDetect.js');
@@ -3364,53 +3358,33 @@ Coordinate rules (IMPORTANT — use ACTUAL pixel locations, not estimates or eve
             .jpeg({ quality: 90 })
             .toBuffer();
 
-          // Route to the correct Brickognize endpoint based on what GPT-4o labelled it.
-          // Minifig-labelled portrait boxes → figs endpoint only (no parts fallback —
-          // the parts endpoint would return component part IDs for sub-pieces of the
-          // assembled fig, which is misleading when scanning whole assembled minifigs).
-          // Everything else (shields, weapons, bricks, tiles) → parts endpoint only.
+          // Send to both Brickognize endpoints in parallel — take whichever returns
+          // the higher confidence score. No pre-classification needed.
           const makeBqForm = (buf: Buffer) => {
             const f = new FormData();
             f.append('query_image', buf, { filename: `piece_${idx}.jpg`, contentType: 'image/jpeg' });
             return f;
           };
 
-          let topItem: any = null;
-          let itemType: 'MINIFIG' | 'PART' = 'PART';
+          const figsForm  = makeBqForm(cropBuffer);
+          const partsForm = makeBqForm(cropBuffer);
+          const [figsRes, partsRes] = await Promise.all([
+            axios.post('https://api.brickognize.com/predict/figs/',  figsForm,  { headers: figsForm.getHeaders(),  timeout: 20000 }).catch(() => null),
+            axios.post('https://api.brickognize.com/predict/parts/', partsForm, { headers: partsForm.getHeaders(), timeout: 20000 }).catch(() => null),
+          ]);
 
-          if (piece.isFig) {
-            // Figs endpoint only
-            const bqFigs = makeBqForm(cropBuffer);
-            const figsRes = await axios.post(
-              'https://api.brickognize.com/predict/figs/',
-              bqFigs,
-              { headers: bqFigs.getHeaders(), timeout: 20000 }
-            ).catch(() => null);
-            topItem = figsRes?.data?.items?.[0] ?? null;
-            itemType = 'MINIFIG';
-            if (topItem) {
-              console.log(`[Brickanalyzer] Piece ${idx} (MINIFIG): ${topItem.id} "${topItem.name}" score=${topItem.score.toFixed(2)}`);
-            } else {
-              console.log(`[Brickanalyzer] Piece ${idx} (${piece.roughName || 'fig'}): figs endpoint empty — not in Brickognize DB`);
-            }
-          } else {
-            // Parts endpoint only
-            const bqParts = makeBqForm(cropBuffer);
-            const partsRes = await axios.post(
-              'https://api.brickognize.com/predict/parts/',
-              bqParts,
-              { headers: bqParts.getHeaders(), timeout: 20000 }
-            ).catch(() => null);
-            topItem = partsRes?.data?.items?.[0] ?? null;
-            itemType = 'PART';
-            if (topItem) {
-              console.log(`[Brickanalyzer] Piece ${idx} (PART): ${topItem.id} "${topItem.name}" score=${topItem.score.toFixed(2)}`);
-            } else {
-              console.log(`[Brickanalyzer] Piece ${idx} (${piece.roughName || 'part'}): parts endpoint empty — not in Brickognize DB`);
-            }
-          }
+          const figTop  = figsRes?.data?.items?.[0]  ?? null;
+          const partTop = partsRes?.data?.items?.[0] ?? null;
+
+          // Winner = higher score; break ties in favour of figs (assembled fig
+          // is a more useful result than a component part identification)
+          const figScore  = figTop?.score  ?? -1;
+          const partScore = partTop?.score ?? -1;
+          const topItem   = figScore >= partScore ? figTop : partTop;
+          const itemType: 'MINIFIG' | 'PART' = figScore >= partScore ? 'MINIFIG' : 'PART';
 
           if (topItem) {
+            console.log(`[Brickanalyzer] Piece ${idx} (${itemType}): ${topItem.id} "${topItem.name}" score=${topItem.score.toFixed(2)} [fig=${figScore.toFixed(2)} part=${partScore.toFixed(2)}]`);
             const confidence = topItem.score >= 0.7 ? 'high' : topItem.score >= 0.4 ? 'medium' : 'low';
             return [{
               partNo: topItem.id || '',
@@ -3421,8 +3395,9 @@ Coordinate rules (IMPORTANT — use ACTUAL pixel locations, not estimates or eve
               note: piece.note || '',
             }];
           }
+          console.log(`[Brickanalyzer] Piece ${idx} (${piece.roughName || 'unknown'}): both endpoints empty`);
           // Brickognize returned no results — honest empty, don't fabricate a part number
-          return [{ partNo: '', partName: piece.roughName || 'Unknown', colorName: piece.colorName || '', itemType, confidence: 'low', note: 'Brickognize: no match' }];
+          return [{ partNo: '', partName: piece.roughName || 'Unknown', colorName: piece.colorName || '', itemType: 'PART' as const, confidence: 'low', note: 'Brickognize: no match' }];
 
         } catch (err: any) {
           console.warn(`[Brickanalyzer] Piece ${idx} failed:`, err.message);
