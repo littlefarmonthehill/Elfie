@@ -88,6 +88,7 @@ export default function ListomaticPriority() {
   const [editValue, setEditValue] = useState('');
   const [scoreDetailCat, setScoreDetailCat] = useState<PriorityCategory | null>(null);
   const [sampleCat, setSampleCat] = useState<{ id: number; name: string } | null>(null);
+  const [openPhaseId, setOpenPhaseId] = useState<number | null>(null);
 
   const { data: sampleData, isLoading: sampleLoading } = useQuery<{ items: SampleItem[] }>({
     queryKey: ['/api/listomatc/category', sampleCat?.id, 'sample'],
@@ -332,9 +333,9 @@ export default function ListomaticPriority() {
                   </button>
                 </div>
 
-                {/* Row 2: Phase badge (own uncontrolled Popover) + stats */}
+                {/* Row 2: Phase badge (controlled Popover — closes on selection) + stats */}
                 <div className="flex items-center gap-2 text-[10px] flex-wrap">
-                  <Popover>
+                  <Popover open={openPhaseId === cat.id} onOpenChange={open => setOpenPhaseId(open ? cat.id : null)}>
                     <PopoverTrigger asChild>
                       <button
                         className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border transition-colors ${
@@ -350,7 +351,7 @@ export default function ListomaticPriority() {
                     <PopoverContent side="bottom" align="start" className="w-52 bg-gray-900 border-gray-700 p-2.5 z-[400] space-y-1.5">
                       <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-2">Move to phase</p>
                       <button
-                        onClick={() => phaseMutation.mutate({ categoryId: cat.id, phase: null })}
+                        onClick={() => { phaseMutation.mutate({ categoryId: cat.id, phase: null }); setOpenPhaseId(null); }}
                         className={`w-full text-left text-[10px] px-2 py-1.5 rounded border transition-colors ${
                           !cat.sortingPhase
                             ? 'border-gray-500 bg-gray-700/60 text-gray-300'
@@ -366,7 +367,7 @@ export default function ListomaticPriority() {
                         return (
                           <button
                             key={phase}
-                            onClick={() => phaseMutation.mutate({ categoryId: cat.id, phase })}
+                            onClick={() => { phaseMutation.mutate({ categoryId: cat.id, phase }); setOpenPhaseId(null); }}
                             className={`w-full text-left text-[10px] px-2 py-1.5 rounded border transition-colors ${
                               isActive
                                 ? `${cfg.borderColor} ${cfg.bgColor} ${cfg.textColor} font-semibold`
@@ -411,8 +412,9 @@ export default function ListomaticPriority() {
       <Dialog open={!!sampleCat} onOpenChange={open => { if (!open) setSampleCat(null); }}>
         <DialogContent className="bg-gray-900 border-gray-700 text-gray-200 max-w-sm z-[9999]">
           <DialogHeader>
-            <DialogTitle className="text-sm font-semibold text-gray-200 pr-6 truncate">
-              {sampleCat?.name} — Sample Parts
+            <DialogTitle className="text-sm font-semibold text-gray-200 pr-6 leading-snug break-words">
+              {sampleCat?.name}
+              <span className="text-gray-500 font-normal"> — Sample Parts</span>
             </DialogTitle>
           </DialogHeader>
           {sampleLoading && (
