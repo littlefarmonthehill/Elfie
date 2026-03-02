@@ -3408,8 +3408,8 @@ Return ONLY a valid JSON array, no other text. If no pieces found return [].`
       }));
 
       // ── Step 2b: Resolve LEGO part numbers → BrickLink part numbers via Rebrickable ──
-      // Brickognize returns official LEGO part numbers which sometimes differ from BrickLink
-      // numbers (especially for decorated/printed parts). Rebrickable has the mapping.
+      // Also capture Rebrickable part images as a fallback for when we have no thumbnail.
+      const rbImageMap = new Map<string, string>(); // BL partNo (upper) → image URL from Rebrickable
       {
         const REBRICKABLE_API_KEY = process.env.REBRICKABLE_API_KEY;
         if (REBRICKABLE_API_KEY) {
@@ -3423,7 +3423,7 @@ Return ONLY a valid JSON array, no other text. If no pieces found return [].`
               .where(sql`upper(${blInventory.itemNo}) IN (${sql.join(upperList.map(p => sql`${p}`), sql`, `)})`);
             const knownSet = new Set(knownRows.map(r => r.itemNo?.toUpperCase()));
 
-            // For unknown part numbers, try Rebrickable to get BL mapping
+            // For unknown part numbers, try Rebrickable to get BL mapping + image URL
             const unknownPartNos = uniquePartNos.filter(p => !knownSet.has(p.toUpperCase()));
             if (unknownPartNos.length > 0) {
               console.log(`[Brickanalyzer] Resolving ${unknownPartNos.length} unknown LEGO part(s) via Rebrickable: ${unknownPartNos.join(', ')}`);
@@ -3435,19 +3435,24 @@ Return ONLY a valid JSON array, no other text. If no pieces found return [].`
                     `https://rebrickable.com/api/v3/lego/parts/${encodeURIComponent(legoPartNo)}/`,
                     { params: { key: REBRICKABLE_API_KEY }, timeout: 8000 }
                   );
+                  // Capture part image URL — generic color-neutral image as thumbnail fallback
+                  const partImgUrl: string | null = rbRes.data?.part_img_url ?? null;
                   const blIds: string[] = rbRes.data?.external_ids?.BrickLink?.ext_ids ?? [];
                   if (blIds.length > 0) {
                     console.log(`[Brickanalyzer] Rebrickable mapped ${legoPartNo} → BL: ${blIds.join(', ')}`);
                     // Prefer the first BL ID — verify it exists in our inventory
+                    let resolvedBlId: string | null = null;
                     for (const blId of blIds) {
                       const blCheck = await db.select({ itemNo: blInventory.itemNo }).from(blInventory)
                         .where(sql`upper(${blInventory.itemNo}) = upper(${blId})`).limit(1);
-                      if (blCheck.length > 0) { rbResolutionMap.set(legoPartNo.toUpperCase(), blCheck[0].itemNo!); break; }
+                      if (blCheck.length > 0) { resolvedBlId = blCheck[0].itemNo!; break; }
                     }
-                    // If none found in our inventory, still store the first BL ID so POM can try
-                    if (!rbResolutionMap.has(legoPartNo.toUpperCase())) {
-                      rbResolutionMap.set(legoPartNo.toUpperCase(), blIds[0]);
-                    }
+                    if (!resolvedBlId) resolvedBlId = blIds[0]; // fallback to first BL ID even if not in inventory
+                    rbResolutionMap.set(legoPartNo.toUpperCase(), resolvedBlId);
+                    if (partImgUrl) rbImageMap.set(resolvedBlId.toUpperCase(), partImgUrl);
+                  } else if (partImgUrl) {
+                    // No BL mapping but we still got an image — store under original LEGO number
+                    rbImageMap.set(legoPartNo.toUpperCase(), partImgUrl);
                   }
                 } catch (err: any) {
                   if (err?.response?.status !== 404) {
@@ -3761,6 +3766,29 @@ Return ONLY a valid JSON array, no other text. If no pieces found return [].`
             }
           } catch (blErr: any) {
             console.warn(`[Brickanalyzer] BL color variants failed for ${piece.partNo}:`, blErr.message);
+          }
+        }
+
+        // ── Image fallback: if no thumbnail from inventory/POM, try Rebrickable cache then BL catalog ──
+        if (!thumbnailUrl && piece.partNo) {
+          // 1. Check the Rebrickable image map populated in Step 2b
+          const rbImg = rbImageMap.get(piece.partNo.toUpperCase());
+          if (rbImg) {
+            console.log(`[Brickanalyzer] Using Rebrickable image for ${piece.partNo}`);
+            thumbnailUrl = rbImg;
+          } else {
+            // 2. Try BrickLink catalog API for thumbnail (works for both PART and MINIFIG)
+            try {
+              const blApiType = blItemType === 'MINIFIG' ? 'MINIFIG' : 'PART';
+              const { data: itemData } = await bricklinkCatalogRequest(`/items/${blApiType}/${piece.partNo}`);
+              const blThumb = (itemData as any)?.thumbnail_url || (itemData as any)?.image_url || null;
+              if (blThumb) {
+                console.log(`[Brickanalyzer] Got BL catalog image for ${piece.partNo}: ${blThumb}`);
+                thumbnailUrl = blThumb;
+              }
+            } catch (imgErr: any) {
+              // Silently skip — image is optional
+            }
           }
         }
 
