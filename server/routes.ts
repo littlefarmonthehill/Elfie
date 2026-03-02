@@ -3658,13 +3658,34 @@ Return ONLY a valid JSON array, no other text. If no pieces found return [].`
                 if (row.newOrUsed === 'N') { inv.qtyNew += row.quantity || 0; if (inv.priceNew === null && row.unitPrice) inv.priceNew = Number(row.unitPrice); }
                 else if (row.newOrUsed === 'U') { inv.qtyUsed += row.quantity || 0; if (inv.priceUsed === null && row.unitPrice) inv.priceUsed = Number(row.unitPrice); }
               }
-              // Fetch RGB for all catalog color IDs in one query
+              // Fetch name + RGB for all catalog color IDs from our DB (authoritative source)
               const catalogColorIds = catalogColors.map(c => c.color_id);
-              const rgbRows = await db.select({ id: blColors.id, rgb: blColors.rgb }).from(blColors).where(inArray(blColors.id, catalogColorIds));
-              const rgbMap = new Map(rgbRows.map(r => [r.id, r.rgb ?? null]));
+              const colorRows = await db.select({ id: blColors.id, name: blColors.name, rgb: blColors.rgb })
+                .from(blColors).where(inArray(blColors.id, catalogColorIds));
+              const colorMap = new Map(colorRows.map(r => [r.id, { name: r.name ?? null, rgb: r.rgb ?? null }]));
+              // Fetch peak prices from local priceGuideCache for each color (both conditions)
+              const peakRows = await db.select({
+                colorId: priceGuideCache.colorId,
+                newOrUsed: priceGuideCache.newOrUsed,
+                soldMaxPrice: priceGuideCache.soldMaxPrice,
+              }).from(priceGuideCache).where(and(
+                sql`upper(${priceGuideCache.itemNo}) = upper(${piece.partNo})`,
+                eq(priceGuideCache.itemType, 'PART'),
+                inArray(priceGuideCache.colorId, catalogColorIds)
+              ));
+              const peakByColor = new Map<number, { peakNew: number | null; peakUsed: number | null }>();
+              for (const r of peakRows) {
+                if (r.colorId == null) continue;
+                if (!peakByColor.has(r.colorId)) peakByColor.set(r.colorId, { peakNew: null, peakUsed: null });
+                const p = peakByColor.get(r.colorId)!;
+                if (r.newOrUsed === 'N') p.peakNew = r.soldMaxPrice ? Number(r.soldMaxPrice) : null;
+                else if (r.newOrUsed === 'U') p.peakUsed = r.soldMaxPrice ? Number(r.soldMaxPrice) : null;
+              }
               inventoryLots = catalogColors.map(c => {
                 const inv = invByColorId.get(c.color_id) ?? { qtyNew: 0, priceNew: null, qtyUsed: 0, priceUsed: null };
-                return { colorId: c.color_id, colorName: c.color_name, colorRgb: rgbMap.get(c.color_id) ?? null, ...inv };
+                const col = colorMap.get(c.color_id);
+                const pk = peakByColor.get(c.color_id) ?? { peakNew: null, peakUsed: null };
+                return { colorId: c.color_id, colorName: col?.name ?? null, colorRgb: col?.rgb ?? null, ...inv, ...pk };
               });
             }
           } catch (blErr: any) {

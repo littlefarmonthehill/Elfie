@@ -21,6 +21,8 @@ interface InventoryLot {
   priceNew: number | null;
   qtyUsed: number;
   priceUsed: number | null;
+  peakNew: number | null;
+  peakUsed: number | null;
 }
 
 interface ScanResult {
@@ -553,18 +555,25 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                           </div>
                         </div>
 
-                        {/* All colors — from inventory lots, excluding the best match color */}
+                        {/* All known color variants — matches Best Match column layout */}
                         {otherLots.length > 0 ? (
-                        <div className="space-y-0">
-                          <div className="flex items-center gap-1 px-1 pb-0.5 pt-1.5">
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-1 px-2 pb-0.5 pt-1.5">
                             <div className="flex-1 min-w-0">
                               <span className="text-[9px] uppercase tracking-wider text-gray-500">All known color variants</span>
                             </div>
                             <span className="text-[9px] uppercase tracking-wider text-gray-500 w-14 text-right flex-shrink-0">N Cur</span>
+                            <span className="text-[9px] uppercase tracking-wider text-gray-500 w-[58px] text-right flex-shrink-0">N Score</span>
                             <span className="text-[9px] uppercase tracking-wider text-gray-500 w-14 text-right flex-shrink-0">U Cur</span>
+                            <span className="text-[9px] uppercase tracking-wider text-gray-500 w-[58px] text-right flex-shrink-0">U Score</span>
                           </div>
                           {otherLots.map((lot, li) => {
                             const lotInStock = (lot.qtyNew + lot.qtyUsed) > 0;
+                            const lotPeak = Math.max(lot.peakNew ?? 0, lot.peakUsed ?? 0) || null;
+                            const lotNScore = lotPeak && lot.priceNew && lot.priceNew > 0
+                              ? Number((lotPeak / lot.priceNew).toFixed(2)) : null;
+                            const lotUScore = lotPeak && lot.priceUsed && lot.priceUsed > 0
+                              ? Number((lotPeak / lot.priceUsed).toFixed(2)) : null;
                             return (
                               <div
                                 key={li}
@@ -572,21 +581,32 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                                 data-testid={`lot-${gi}-${li}`}
                               >
                                 <div className="flex items-center gap-1 min-w-0">
-                                  <div className="flex items-center gap-1 flex-1 min-w-0">
-                                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${lotInStock ? 'bg-emerald-500' : 'bg-gray-600'}`} />
-                                    {lotInStock && <span className="text-[10px] font-mono text-gray-300 flex-shrink-0">×{lot.qtyNew + lot.qtyUsed}</span>}
-                                    {lot.colorRgb ? (
-                                      <span className="w-2 h-2 rounded-full flex-shrink-0 border border-gray-600" style={{ backgroundColor: `#${lot.colorRgb}` }} />
-                                    ) : (
-                                      <span className="w-2 h-2 rounded-full flex-shrink-0 bg-gray-600" />
+                                  <div className="flex flex-col flex-1 min-w-0">
+                                    <div className="flex items-center gap-1 min-w-0">
+                                      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${lotInStock ? 'bg-emerald-500' : 'bg-gray-600'}`} />
+                                      {lotInStock && <span className="text-[10px] font-mono text-gray-300 flex-shrink-0">×{lot.qtyNew + lot.qtyUsed}</span>}
+                                      {lot.colorRgb ? (
+                                        <span className="w-2 h-2 rounded-full flex-shrink-0 border border-gray-600" style={{ backgroundColor: `#${lot.colorRgb}` }} />
+                                      ) : (
+                                        <span className="w-2 h-2 rounded-full flex-shrink-0 bg-gray-600" />
+                                      )}
+                                      <span className="text-[10px] text-gray-300 truncate">{lot.colorName || '—'}</span>
+                                    </div>
+                                    {lotPeak && (
+                                      <span className="text-[9px] pl-0.5 text-purple-400">peak ${lotPeak.toFixed(2)}</span>
                                     )}
-                                    <span className="text-[10px] text-gray-300 truncate">{lot.colorName || '—'}</span>
                                   </div>
                                   <span className="text-[10px] font-mono text-gray-300 w-14 text-right flex-shrink-0">
                                     {lot.priceNew != null ? `$${lot.priceNew.toFixed(2)}` : '—'}
                                   </span>
+                                  <span className={`text-[10px] font-mono font-bold w-[58px] text-right flex-shrink-0 ${entryScoreColor(lotNScore)}`}>
+                                    {lotNScore != null ? `${lotNScore}×` : '—'}
+                                  </span>
                                   <span className="text-[10px] font-mono text-gray-300 w-14 text-right flex-shrink-0">
                                     {lot.priceUsed != null ? `$${lot.priceUsed.toFixed(2)}` : '—'}
+                                  </span>
+                                  <span className={`text-[10px] font-mono font-bold w-[58px] text-right flex-shrink-0 ${entryScoreColor(lotUScore)}`}>
+                                    {lotUScore != null ? `${lotUScore}×` : '—'}
                                   </span>
                                 </div>
                               </div>
