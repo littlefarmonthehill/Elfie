@@ -100,11 +100,16 @@ export async function checkStuckInventoryDeductions(): Promise<void> {
       .where(
         and(
           eq(orders.inventoryDeducted, false),
+          // Terminal / pre-confirmation statuses where deduction is not expected
           ne(orders.orderStatus, "cancelled"),
+          ne(orders.orderStatus, "Cancelled"),
           ne(orders.orderStatus, "returned"),
           ne(orders.orderStatus, "shipped"),
           ne(orders.orderStatus, "completed"),
           ne(orders.orderStatus, "purged"),
+          // Pre-payment statuses — buyer hasn't confirmed yet; inventory should NOT be deducted
+          ne(orders.orderStatus, "on_hold"),
+          ne(orders.orderStatus, "awaiting_payment"),
           lt(orders.syncedAt, tenMinutesAgo)
         )
       )
