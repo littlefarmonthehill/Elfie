@@ -3271,6 +3271,7 @@ Return ONLY a valid JSON array, no other text. If you cannot identify any pieces
       const enriched = await Promise.all(identified.map(async (piece: any) => {
         let ourPrice: number | null = null;
         let ourQty = 0;
+        let condition: string | null = null;
         let inventoryId: number | null = null;
         let thumbnailUrl: string | null = null;
         let pomPrice: number | null = null;
@@ -3306,7 +3307,6 @@ Return ONLY a valid JSON array, no other text. If you cannot identify any pieces
           ))
           .limit(10);
 
-          let condition: string | null = null;
           if (invRows.length > 0) {
             const colorMatch = invRows.find(r =>
               colorId ? r.colorId === colorId :
