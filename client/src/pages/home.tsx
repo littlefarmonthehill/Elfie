@@ -754,18 +754,18 @@ export default function Home() {
               Price-O-Matic
             </button>
             <button
-              onClick={() => setActiveInventoryDrawer('warehouse')}
-              className="text-[10px] md:text-base lg:text-lg font-bold py-1 md:py-2 lg:py-2.5 px-1.5 md:px-4 lg:px-5 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
-              data-testid="button-warehouse"
-            >
-              Warehouse
-            </button>
-            <button
               onClick={() => setActiveInventoryDrawer('platformsync')}
               className="text-[10px] md:text-base lg:text-lg font-bold py-1 md:py-2 lg:py-2.5 px-1.5 md:px-4 lg:px-5 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
               data-testid="button-platformsync"
             >
               List O Matic
+            </button>
+            <button
+              onClick={() => setActiveInventoryDrawer('warehouse')}
+              className="text-[10px] md:text-base lg:text-lg font-bold py-1 md:py-2 lg:py-2.5 px-1.5 md:px-4 lg:px-5 rounded transition-all bg-gray-900 text-gray-400 border border-gray-700 hover-elevate"
+              data-testid="button-warehouse"
+            >
+              Warehouse
             </button>
           </div>
         </div>

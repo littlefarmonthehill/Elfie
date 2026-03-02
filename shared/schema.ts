@@ -45,6 +45,7 @@ export const blCategories = pgTable("bl_categories", {
   name: text("name").notNull(),
   priorityTier: text("priority_tier").default('standard').notNull(), // 'top' | 'standard' | 'commodity'
   sortingPhase: text("sorting_phase"), // 'category' | 'subcategory' | 'finalsort' | 'listing' | null (unassigned)
+  flagged: boolean("flagged").default(false).notNull(), // doubles phase score in listing phase only
   syncedAt: timestamp("synced_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -423,6 +424,11 @@ export const appSettings = pgTable("app_settings", {
   channelSyncTime: text("channel_sync_time").default('03:00'),                  // Time of day (HH:MM) — run AFTER inbound + order syncs settle
   timezone: text("timezone").default('America/Chicago'),                        // User's local timezone for all schedulers
   pomDeepSpaceKeys: text("pom_deep_space_keys").default('[]'),                  // JSON array of item keys excluded from POM orbit view
+  // List-o-Matic Priority Scores — editable weight per sorting phase (0-100 scale)
+  lomCategoryScore: integer("lom_category_score").default(25).notNull(),       // Phase 1 — Category
+  lomSubcategoryScore: integer("lom_subcategory_score").default(50).notNull(), // Phase 2 — Subcategory
+  lomFinalsortScore: integer("lom_finalsort_score").default(75).notNull(),     // Phase 3 — Final Sort
+  lomListingScore: integer("lom_listing_score").default(100).notNull(),        // Phase 4 — Listing (flagged cats get 2x)
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
