@@ -678,6 +678,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       `;
       
       // Main query combining current inventory and sold data
+      // Sell-through = sold / (current_stock + sold)
+      // This represents "of everything ever available in this category, what fraction sold?"
       const query = sql`
         SELECT 
           c.id as category_id,
@@ -685,8 +687,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           COALESCE(sold.total_qty, 0)::integer as total_sold,
           COALESCE(inv.total_qty, 0)::integer as current_inventory,
           CASE 
-            WHEN COALESCE(inv.total_qty, 0) > 0 
-            THEN ROUND((COALESCE(sold.total_qty, 0)::numeric / inv.total_qty::numeric * 100), 2)
+            WHEN (COALESCE(inv.total_qty, 0) + COALESCE(sold.total_qty, 0)) > 0 
+            THEN ROUND((COALESCE(sold.total_qty, 0)::numeric / (COALESCE(inv.total_qty, 0) + COALESCE(sold.total_qty, 0))::numeric * 100), 2)
             ELSE 0 
           END as sell_through_pct
         FROM ${blCategories} c
@@ -698,7 +700,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         LEFT JOIN (
           ${soldSubquery}
         ) sold ON c.id = sold.category_id
-        WHERE COALESCE(inv.total_qty, 0) > 0
+        WHERE COALESCE(inv.total_qty, 0) + COALESCE(sold.total_qty, 0) > 0
         ORDER BY sell_through_pct DESC, c.name ASC
       `;
       
