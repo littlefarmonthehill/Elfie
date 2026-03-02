@@ -3494,6 +3494,7 @@ Return ONLY a valid JSON array, no other text. If no pieces found return [].`
         let colorId: number | null = null;
         let colorRgb: string | null = null;
         let activeInvRows: any[] = [];
+        const blItemType = piece.itemType || 'PART'; // hoisted — used in color variants + image fallback sections
 
         if (piece.partNo) {
           // 1. Resolve colorId from color name in bl_colors
@@ -3507,7 +3508,6 @@ Return ONLY a valid JSON array, no other text. If no pieces found return [].`
 
           // 2a. Validate partNo against price guide cache — catches AI hallucinations
           //     If the cached item name for this partNo doesn't match the AI name, clear it
-          const blItemType = piece.itemType || 'PART';
           if (piece.partNo && piece.partName) {
             const pgValidate = await db.select({ itemName: priceGuideCache.itemName })
               .from(priceGuideCache)
