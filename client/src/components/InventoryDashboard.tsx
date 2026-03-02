@@ -389,7 +389,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
           <DrawerHeader className="flex items-center justify-between gap-2 pr-10">
             <DrawerTitle className="flex items-center gap-2 text-base md:text-lg">
               <ScanSearch className="w-5 h-5 text-lego-yellow" />
-              Brickanalyzer
+              Brick Spotter 3000
               <Popover>
                 <PopoverTrigger asChild>
                   <button className="text-gray-500 hover:text-gray-300 transition-colors" data-testid="button-brickanalyzer-info">
