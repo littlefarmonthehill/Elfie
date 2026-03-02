@@ -3229,29 +3229,66 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       const { default: OpenAI } = await import('openai');
       const openai = new OpenAI({ apiKey });
 
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o",
-        max_tokens: 2000,
-        messages: [{
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: `You are a LEGO expert analyzing an image of LEGO pieces laid out on a plain background. Identify every individual LEGO piece visible.
+      // Run GPT-4o (multi-piece names/colors) and Brickognize (accurate part numbers) in parallel
+      const [completion, brickognizeResult] = await Promise.all([
+        openai.chat.completions.create({
+          model: "gpt-4o",
+          max_tokens: 2000,
+          messages: [{
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: `You are a LEGO expert analyzing an image of LEGO pieces laid out on a plain background. Identify every individual LEGO piece visible.
 
 For each piece return a JSON array with objects containing:
-- "partNo": BrickLink part number (e.g. "3001", "3004", "32316") - use your best knowledge, empty string if unsure
-- "partName": descriptive name (e.g. "Brick 2x4", "Plate 1x2")
-- "colorName": color in plain English (e.g. "Red", "Dark Bluish Gray", "Trans-Clear")
-- "confidence": "high", "medium", or "low"
-- "note": any caveat (e.g. "worn", "similar part possible") or empty string
+- "partNo": BrickLink part number (e.g. "3001", "3004", "32316"). CRITICAL: only provide this if you are absolutely certain it is the correct BrickLink number for this exact piece. A wrong part number is far worse than an empty string. If there is ANY doubt, use empty string "".
+- "partName": descriptive BrickLink-style name (e.g. "Brick 2 x 4", "Plate 1 x 2", "Minifigure, Utensil Carrot"). Be as specific as possible.
+- "colorName": BrickLink color name (e.g. "Red", "Dark Bluish Gray", "Trans-Clear", "White")
+- "confidence": "high" only if you are certain of both the part and color. "medium" if you recognize the piece but have some doubt. "low" if you are guessing.
+- "note": any caveat (e.g. "similar part possible", "part number uncertain") or empty string
+
+IMPORTANT: Never guess a part number. The part name is more important than the part number — a correct name with no part number is always better than a wrong part number.
 
 Return ONLY a valid JSON array, no other text. If you cannot identify any pieces return [].`
-            },
-            { type: "image_url", image_url: { url: dataUrl, detail: "high" } }
-          ]
-        }]
-      });
+              },
+              { type: "image_url", image_url: { url: dataUrl, detail: "high" } }
+            ]
+          }]
+        }),
+        // Brickognize: purpose-built LEGO recognition → accurate part IDs
+        (async () => {
+          try {
+            const bqFormData = new FormData();
+            bqFormData.append('query_image', imageBuffer, {
+              filename: 'scan.jpg',
+              contentType: mimeType,
+            });
+            const bqRes = await axios.post('https://api.brickognize.com/predict/parts/', bqFormData, {
+              headers: bqFormData.getHeaders(),
+              timeout: 20000,
+            });
+            const items: Array<{ id: string; name: string; score: number }> = bqRes.data?.items || [];
+            console.log(`[Brickanalyzer] Brickognize returned ${items.length} candidates`);
+            return items;
+          } catch (err: any) {
+            console.warn('[Brickanalyzer] Brickognize call failed (non-fatal):', err.message);
+            return [] as Array<{ id: string; name: string; score: number }>;
+          }
+        })(),
+      ]);
+
+      // Helper: word-overlap similarity between two part name strings
+      const nameSim = (a: string, b: string): number => {
+        if (!a || !b) return 0;
+        const words = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]/g, '').split(/\s+/).filter(w => w.length > 2);
+        const wa = words(a), wb = words(b);
+        if (wa.length === 0 || wb.length === 0) return 0;
+        const shared = wa.filter(w => wb.includes(w)).length;
+        return shared / Math.min(wa.length, wb.length);
+      };
+
+      const brickognizeItems = brickognizeResult as Array<{ id: string; name: string; score: number }>;
 
       const raw = completion.choices[0]?.message?.content?.trim() || '[]';
       let identified: any[] = [];
@@ -3261,6 +3298,24 @@ Return ONLY a valid JSON array, no other text. If you cannot identify any pieces
       } catch {
         identified = [];
       }
+
+      // Merge Brickognize part numbers into GPT-4o results
+      // For each GPT-4o piece, find the best name-matching Brickognize candidate
+      identified = identified.map((piece: any) => {
+        if (!piece.partName || brickognizeItems.length === 0) return piece;
+        let bestScore = 0;
+        let bestItem: { id: string; name: string; score: number } | null = null;
+        for (const bqItem of brickognizeItems) {
+          const sim = nameSim(piece.partName, bqItem.name);
+          if (sim > bestScore) { bestScore = sim; bestItem = bqItem; }
+        }
+        if (bestItem && bestScore >= 0.5) {
+          // Brickognize name matches well enough — use its part ID
+          console.log(`[Brickanalyzer] Brickognize corrected partNo: "${piece.partNo || '(none)'}" → "${bestItem.id}" for "${piece.partName}" (sim=${bestScore.toFixed(2)})`);
+          return { ...piece, partNo: bestItem.id };
+        }
+        return piece;
+      });
 
       // Load POM config once
       const pomConfig = await getPomFormulaConfig();
@@ -3288,6 +3343,29 @@ Return ONLY a valid JSON array, no other text. If you cannot identify any pieces
               .where(sql`lower(${blColors.name}) = lower(${piece.colorName})`)
               .limit(1);
             if (colorRows.length > 0) { colorId = colorRows[0].id; colorRgb = colorRows[0].rgb ?? null; }
+          }
+
+          // 2a. Validate partNo against price guide cache — catches AI hallucinations
+          //     If the cached item name for this partNo doesn't match the AI name, clear it
+          if (piece.partNo && piece.partName) {
+            const pgValidate = await db.select({ itemName: priceGuideCache.itemName })
+              .from(priceGuideCache)
+              .where(and(
+                sql`upper(${priceGuideCache.itemNo}) = upper(${piece.partNo})`,
+                eq(priceGuideCache.itemType, 'PART')
+              ))
+              .limit(1);
+            if (pgValidate.length > 0 && pgValidate[0].itemName) {
+              const wordsAI = piece.partName.toLowerCase().replace(/[^a-z0-9 ]/g, '').split(/\s+/).filter((w: string) => w.length > 2);
+              const wordsPG = pgValidate[0].itemName.toLowerCase().replace(/[^a-z0-9 ]/g, '').split(/\s+/).filter((w: string) => w.length > 2);
+              const shared = wordsAI.filter((w: string) => wordsPG.includes(w)).length;
+              const similarity = wordsAI.length > 0 && wordsPG.length > 0
+                ? shared / Math.min(wordsAI.length, wordsPG.length) : 1;
+              if (similarity < 0.4) {
+                console.log(`[Brickanalyzer] partNo validation failed: AI="${piece.partName}" cache="${pgValidate[0].itemName}" (${piece.partNo}) — clearing partNo`);
+                piece.partNo = '';
+              }
+            }
           }
 
           // 2. Look up our inventory listings — both new and used for the matched color
