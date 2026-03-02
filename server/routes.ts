@@ -3349,7 +3349,8 @@ Return ONLY a valid JSON array, no other text. If no pieces found return [].`
 
       // ── Step 2: Crop each piece + send to Brickognize in parallel ─────────
       console.log('[Brickanalyzer] Step 2: Cropping and sending to Brickognize...');
-      const PADDING = 0.06; // 6% padding around each crop
+      const PADDING = 0.06;     // 6% padding for parts crop
+      const FIG_PADDING = 0.35; // 35% padding for figs crop — contour may only catch one component of an assembled minifig
 
       const identified: any[] = await Promise.all(gptPieces.map(async (piece: any, idx: number) => {
         try {
@@ -3366,23 +3367,39 @@ Return ONLY a valid JSON array, no other text. If no pieces found return [].`
             return { partNo: '', partName: piece.roughName || 'Unknown', colorName: piece.colorName || '', confidence: 'low', note: 'crop region too small' };
           }
 
-          // Crop the piece out of the full image
+          // Crop the piece out of the full image (tight crop for parts)
           const cropBuffer = await sharp(imageBuffer)
             .extract({ left: x0, top: y0, width: cropWidth, height: cropHeight })
             .jpeg({ quality: 90 })
             .toBuffer();
 
-          // Send crop to BOTH /predict/parts/ and /predict/figs/ in parallel, use higher score
-          const makeBqForm = () => { const f = new FormData(); f.append('query_image', cropBuffer, { filename: `piece_${idx}.jpg`, contentType: 'image/jpeg' }); return f; };
-          const bqParts = makeBqForm(); const bqFigs = makeBqForm();
+          // Wider crop for figs — contour may have caught only one component of an assembled minifig
+          // (e.g. just the legs). A 35% pad gives Brickognize the full assembled figure in context.
+          const fx0 = Math.max(0, Math.round(((piece.x ?? 0) / 100 - FIG_PADDING) * imgWidth));
+          const fy0 = Math.max(0, Math.round(((piece.y ?? 0) / 100 - FIG_PADDING) * imgHeight));
+          const fx1 = Math.min(imgWidth,  Math.round((((piece.x ?? 0) + (piece.w ?? 20)) / 100 + FIG_PADDING) * imgWidth));
+          const fy1 = Math.min(imgHeight, Math.round((((piece.y ?? 0) + (piece.h ?? 20)) / 100 + FIG_PADDING) * imgHeight));
+          const figCropBuffer = await sharp(imageBuffer)
+            .extract({ left: fx0, top: fy0, width: fx1 - fx0, height: fy1 - fy0 })
+            .jpeg({ quality: 90 })
+            .toBuffer();
+
+          // Send crops to BOTH endpoints in parallel
+          const makeBqForm = (buf: Buffer) => { const f = new FormData(); f.append('query_image', buf, { filename: `piece_${idx}.jpg`, contentType: 'image/jpeg' }); return f; };
+          const bqParts = makeBqForm(cropBuffer);
+          const bqFigs  = makeBqForm(figCropBuffer);
           const [partsRes, figsRes] = await Promise.allSettled([
             axios.post('https://api.brickognize.com/predict/parts/', bqParts, { headers: bqParts.getHeaders(), timeout: 20000 }),
             axios.post('https://api.brickognize.com/predict/figs/',  bqFigs,  { headers: bqFigs.getHeaders(),  timeout: 20000 }),
           ]);
           const partsTop = partsRes.status === 'fulfilled' ? partsRes.value.data?.items?.[0] : null;
           const figsTop  = figsRes.status  === 'fulfilled' ? figsRes.value.data?.items?.[0]  : null;
-          // Prefer figs if its score beats parts by at least 0.05 (avoid random fig false-positives)
-          const useFig = figsTop && figsTop.score >= 0.4 && (!partsTop || figsTop.score > (partsTop.score ?? 0) + 0.05);
+          // Prefer figs if score ≥ 0.35 — no margin requirement vs parts since we use a larger crop
+          // that inherently has more false-positive risk; the score itself is the quality gate
+          if (figsTop || partsTop) {
+            console.log(`[Brickanalyzer] Piece ${idx} scores — parts:${partsTop ? partsTop.score.toFixed(2) : '–'} figs:${figsTop ? figsTop.score.toFixed(2) : '–'}`);
+          }
+          const useFig = figsTop && figsTop.score >= 0.35;
           const topItem = useFig ? figsTop : partsTop;
           const itemType = useFig ? 'MINIFIG' : 'PART';
 
