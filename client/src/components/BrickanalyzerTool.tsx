@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect, useMemo, forwardRef, useImperativeHandle } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import { Camera, X, CheckCircle, Loader2, ExternalLink, Trash2, ScanSearch, ChevronRight } from "lucide-react";
+import { Camera, X, CheckCircle, Loader2, ExternalLink, Trash2, ScanSearch, ChevronRight, ImageIcon, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 
 export interface BrickanalyzerToolRef {
@@ -212,11 +213,7 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
 
       {/* ── IDLE: Upload UI ─────────────────────────────────────────────── */}
       {uiState === "idle" && (
-        <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-          <Camera className="w-12 h-12 text-gray-600" />
-          <p className="text-sm text-gray-400">
-            Tap the <span className="text-white font-medium">camera icon</span> above to take a photo, pick from your library, or upload a file.
-          </p>
+        <>
           <input
             ref={fileInputRef}
             type="file"
@@ -228,7 +225,64 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
             }}
             data-testid="input-brickanalyzer-file"
           />
-        </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className="w-full flex flex-col items-center justify-center gap-3 py-16 text-center rounded-xl border border-dashed border-gray-700 hover:border-purple-500/50 hover:bg-purple-950/20 transition-colors cursor-pointer"
+                data-testid="button-brickanalyzer-idle-trigger"
+              >
+                <Camera className="w-12 h-12 text-gray-500" />
+                <p className="text-sm text-gray-400">
+                  Tap to take a photo, pick from your library, or upload a file.
+                </p>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="center" className="w-48 bg-gray-900 border border-gray-700 text-white">
+              <DropdownMenuItem
+                className="gap-2 cursor-pointer"
+                onClick={() => {
+                  if (fileInputRef.current) {
+                    fileInputRef.current.accept = "image/*";
+                    (fileInputRef.current as any).capture = "environment";
+                    fileInputRef.current.click();
+                  }
+                }}
+                data-testid="menu-brickanalyzer-camera"
+              >
+                <Camera className="w-4 h-4 text-lego-yellow" />
+                Take Photo
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="gap-2 cursor-pointer"
+                onClick={() => {
+                  if (fileInputRef.current) {
+                    fileInputRef.current.removeAttribute("capture");
+                    fileInputRef.current.accept = "image/*";
+                    fileInputRef.current.click();
+                  }
+                }}
+                data-testid="menu-brickanalyzer-upload-photo"
+              >
+                <ImageIcon className="w-4 h-4 text-lego-blue" />
+                Upload Photo
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="gap-2 cursor-pointer"
+                onClick={() => {
+                  if (fileInputRef.current) {
+                    fileInputRef.current.removeAttribute("capture");
+                    fileInputRef.current.accept = "*/*";
+                    fileInputRef.current.click();
+                  }
+                }}
+                data-testid="menu-brickanalyzer-upload-file"
+              >
+                <FileText className="w-4 h-4 text-gray-400" />
+                Upload File
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </>
       )}
 
       {/* ── UPLOADING ───────────────────────────────────────────────────── */}
@@ -341,7 +395,7 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                 return (
                   <div
                     key={key}
-                    className="rounded-lg border border-purple-500/15 bg-gradient-to-br from-purple-500/5 to-transparent overflow-hidden shadow-[0_0_12px_rgba(168,85,247,0.08)]"
+                    className="rounded-lg border border-purple-600/30 bg-gradient-to-br from-purple-800/20 to-purple-950/10 overflow-hidden shadow-[0_0_12px_rgba(168,85,247,0.10)]"
                     data-testid={`tile-brickanalyzer-${gi}`}
                   >
                     {/* ── Collapsed header (always visible) ─────────── */}
