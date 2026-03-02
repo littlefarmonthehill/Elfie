@@ -3223,99 +3223,112 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       const apiKey = settings[0]?.openaiApiKey || process.env.OPENAI_API_KEY;
       if (!apiKey) throw new Error("OpenAI API key not configured");
 
+      const { default: OpenAI } = await import('openai');
+      const { default: sharp } = await import('sharp');
+      const openai = new OpenAI({ apiKey });
+
+      // Get image dimensions for coordinate conversion
+      const imgMeta = await sharp(imageBuffer).metadata();
+      const imgWidth = imgMeta.width || 1000;
+      const imgHeight = imgMeta.height || 1000;
+
       const base64Image = imageBuffer.toString('base64');
       const dataUrl = `data:${mimeType};base64,${base64Image}`;
 
-      const { default: OpenAI } = await import('openai');
-      const openai = new OpenAI({ apiKey });
+      // ── Step 1: GPT-4o — locate every piece + identify color ──────────────
+      // GPT-4o's job is ONLY bounding boxes + colors. Brickognize handles part IDs.
+      console.log('[Brickanalyzer] Step 1: GPT-4o locating pieces...');
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o",
+        max_tokens: 2000,
+        messages: [{
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: `You are a LEGO expert. Analyze this image and locate every individual LEGO piece visible on the background.
 
-      // Run GPT-4o (multi-piece names/colors) and Brickognize (accurate part numbers) in parallel
-      const [completion, brickognizeResult] = await Promise.all([
-        openai.chat.completions.create({
-          model: "gpt-4o",
-          max_tokens: 2000,
-          messages: [{
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: `You are a LEGO expert analyzing an image of LEGO pieces laid out on a plain background. Identify every individual LEGO piece visible.
-
-For each piece return a JSON array with objects containing:
-- "partNo": BrickLink part number (e.g. "3001", "3004", "32316"). CRITICAL: only provide this if you are absolutely certain it is the correct BrickLink number for this exact piece. A wrong part number is far worse than an empty string. If there is ANY doubt, use empty string "".
-- "partName": descriptive BrickLink-style name (e.g. "Brick 2 x 4", "Plate 1 x 2", "Minifigure, Utensil Carrot"). Be as specific as possible.
+For each piece return a JSON array where each object has:
+- "x": left edge of the piece as a percentage of image width (0-100)
+- "y": top edge of the piece as a percentage of image height (0-100)
+- "w": width of the piece bounding box as a percentage of image width (0-100)
+- "h": height of the piece bounding box as a percentage of image height (0-100)
 - "colorName": BrickLink color name (e.g. "Red", "Dark Bluish Gray", "Trans-Clear", "White")
-- "confidence": "high" only if you are certain of both the part and color. "medium" if you recognize the piece but have some doubt. "low" if you are guessing.
-- "note": any caveat (e.g. "similar part possible", "part number uncertain") or empty string
+- "roughName": a short descriptive name for this piece type (e.g. "Brick 2x4", "Ghost Shroud", "Slope 45 2x2") — used as a fallback only
+- "confidence": "high", "medium", or "low" — how confident you are in the color identification
+- "note": any caveat or empty string
 
-IMPORTANT: Never guess a part number. The part name is more important than the part number — a correct name with no part number is always better than a wrong part number.
-
-Return ONLY a valid JSON array, no other text. If you cannot identify any pieces return [].`
-              },
-              { type: "image_url", image_url: { url: dataUrl, detail: "high" } }
-            ]
-          }]
-        }),
-        // Brickognize: purpose-built LEGO recognition → accurate part IDs
-        (async () => {
-          try {
-            const bqFormData = new FormData();
-            bqFormData.append('query_image', imageBuffer, {
-              filename: 'scan.jpg',
-              contentType: mimeType,
-            });
-            const bqRes = await axios.post('https://api.brickognize.com/predict/parts/', bqFormData, {
-              headers: bqFormData.getHeaders(),
-              timeout: 20000,
-            });
-            const items: Array<{ id: string; name: string; score: number }> = bqRes.data?.items || [];
-            console.log(`[Brickanalyzer] Brickognize returned ${items.length} candidates`);
-            return items;
-          } catch (err: any) {
-            console.warn('[Brickanalyzer] Brickognize call failed (non-fatal):', err.message);
-            return [] as Array<{ id: string; name: string; score: number }>;
-          }
-        })(),
-      ]);
-
-      // Helper: word-overlap similarity between two part name strings
-      const nameSim = (a: string, b: string): number => {
-        if (!a || !b) return 0;
-        const words = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]/g, '').split(/\s+/).filter(w => w.length > 2);
-        const wa = words(a), wb = words(b);
-        if (wa.length === 0 || wb.length === 0) return 0;
-        const shared = wa.filter(w => wb.includes(w)).length;
-        return shared / Math.min(wa.length, wb.length);
-      };
-
-      const brickognizeItems = brickognizeResult as Array<{ id: string; name: string; score: number }>;
+Draw bounding boxes that tightly contain exactly one piece each. Do not overlap boxes for the same piece.
+Return ONLY a valid JSON array, no other text. If no pieces found return [].`
+            },
+            { type: "image_url", image_url: { url: dataUrl, detail: "high" } }
+          ]
+        }]
+      });
 
       const raw = completion.choices[0]?.message?.content?.trim() || '[]';
-      let identified: any[] = [];
+      let gptPieces: any[] = [];
       try {
         const cleaned = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '');
-        identified = JSON.parse(cleaned);
-      } catch {
-        identified = [];
-      }
+        gptPieces = JSON.parse(cleaned);
+        if (!Array.isArray(gptPieces)) gptPieces = [];
+      } catch { gptPieces = []; }
 
-      // Merge Brickognize part numbers into GPT-4o results
-      // For each GPT-4o piece, find the best name-matching Brickognize candidate
-      identified = identified.map((piece: any) => {
-        if (!piece.partName || brickognizeItems.length === 0) return piece;
-        let bestScore = 0;
-        let bestItem: { id: string; name: string; score: number } | null = null;
-        for (const bqItem of brickognizeItems) {
-          const sim = nameSim(piece.partName, bqItem.name);
-          if (sim > bestScore) { bestScore = sim; bestItem = bqItem; }
+      console.log(`[Brickanalyzer] GPT-4o found ${gptPieces.length} pieces`);
+
+      // ── Step 2: Crop each piece + send to Brickognize in parallel ─────────
+      console.log('[Brickanalyzer] Step 2: Cropping and sending to Brickognize...');
+      const PADDING = 0.06; // 6% padding around each crop
+
+      const identified: any[] = await Promise.all(gptPieces.map(async (piece: any, idx: number) => {
+        try {
+          // Convert percentage coords to pixels with padding
+          const x0 = Math.max(0, Math.round(((piece.x ?? 0) / 100 - PADDING) * imgWidth));
+          const y0 = Math.max(0, Math.round(((piece.y ?? 0) / 100 - PADDING) * imgHeight));
+          const x1 = Math.min(imgWidth,  Math.round((((piece.x ?? 0) + (piece.w ?? 20)) / 100 + PADDING) * imgWidth));
+          const y1 = Math.min(imgHeight, Math.round((((piece.y ?? 0) + (piece.h ?? 20)) / 100 + PADDING) * imgHeight));
+          const cropWidth  = x1 - x0;
+          const cropHeight = y1 - y0;
+
+          if (cropWidth < 20 || cropHeight < 20) {
+            console.warn(`[Brickanalyzer] Piece ${idx}: crop too small (${cropWidth}×${cropHeight}), skipping`);
+            return { partNo: '', partName: piece.roughName || 'Unknown', colorName: piece.colorName || '', confidence: 'low', note: 'crop region too small' };
+          }
+
+          // Crop the piece out of the full image
+          const cropBuffer = await sharp(imageBuffer)
+            .extract({ left: x0, top: y0, width: cropWidth, height: cropHeight })
+            .jpeg({ quality: 90 })
+            .toBuffer();
+
+          // Send the individual crop to Brickognize
+          const bqFormData = new FormData();
+          bqFormData.append('query_image', cropBuffer, { filename: `piece_${idx}.jpg`, contentType: 'image/jpeg' });
+          const bqRes = await axios.post('https://api.brickognize.com/predict/parts/', bqFormData, {
+            headers: bqFormData.getHeaders(),
+            timeout: 20000,
+          });
+
+          const topItem = bqRes.data?.items?.[0];
+          if (topItem) {
+            const confidence = topItem.score >= 0.7 ? 'high' : topItem.score >= 0.4 ? 'medium' : 'low';
+            console.log(`[Brickanalyzer] Piece ${idx}: ${topItem.id} "${topItem.name}" score=${topItem.score.toFixed(2)} → ${confidence}`);
+            return {
+              partNo: topItem.id || '',
+              partName: topItem.name || piece.roughName || 'Unknown',
+              colorName: piece.colorName || '',
+              confidence,
+              note: piece.note || '',
+            };
+          }
+          // Brickognize returned no results — use GPT-4o rough name as fallback
+          return { partNo: '', partName: piece.roughName || 'Unknown', colorName: piece.colorName || '', confidence: 'low', note: 'Brickognize: no match' };
+
+        } catch (err: any) {
+          console.warn(`[Brickanalyzer] Piece ${idx} failed:`, err.message);
+          return { partNo: '', partName: piece.roughName || 'Unknown', colorName: piece.colorName || '', confidence: 'low', note: 'identification error' };
         }
-        if (bestItem && bestScore >= 0.5) {
-          // Brickognize name matches well enough — use its part ID
-          console.log(`[Brickanalyzer] Brickognize corrected partNo: "${piece.partNo || '(none)'}" → "${bestItem.id}" for "${piece.partName}" (sim=${bestScore.toFixed(2)})`);
-          return { ...piece, partNo: bestItem.id };
-        }
-        return piece;
-      });
+      }));
 
       // Load POM config once
       const pomConfig = await getPomFormulaConfig();
