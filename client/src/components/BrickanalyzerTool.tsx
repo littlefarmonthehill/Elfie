@@ -424,7 +424,7 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                       <div className="flex-1 min-w-0 flex flex-col gap-0.5 justify-center">
                         {/* Part name + BL link + chevron */}
                         <div className="flex items-center gap-1">
-                          <p className="text-xs font-semibold text-white leading-tight flex-1 truncate">
+                          <p className="text-xs font-semibold text-white leading-tight flex-1">
                             {grp.partName || "Unknown Part"}
                           </p>
                           {grp.itemType === 'MINIFIG' && (

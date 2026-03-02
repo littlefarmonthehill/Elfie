@@ -193,9 +193,24 @@ export async function detectPieceBoundingBoxes(imageBuffer: Buffer): Promise<Det
 
   console.log(`[ContourDetect] Filtered: dust=${filteredDust} giant=${filteredGiant} tiny=${filteredTiny} → ${raw.length} candidates before merge`);
 
-  // ── Merge overlapping / touching boxes (same piece split into blobs) ────
-  const merged = mergeOverlapping(raw, 0.15);
-  console.log(`[ContourDetect] After merge: ${merged.length} boxes`);
+  // ── Pass 1: Merge overlapping blobs (IoU > 15%) ─────────────────────────
+  const pass1 = mergeOverlapping(raw, 0.15);
+
+  // ── Pass 2: Proximity merge ──────────────────────────────────────────────
+  // Joins blobs that are vertically stacked (head/torso/legs of same minifig)
+  // without accidentally joining horizontally adjacent minifigs.
+  //
+  // Key geometry at ~640px work res with 6 figs/row:
+  //   - Head↔torso vertical gap:       0–1% (essentially touching)
+  //   - Adjacent minifig horiz gap:     ~3% of image width
+  //   - Minifig parts share X ranges (gapX ≈ 0); adjacent figs have gapX ~3%
+  //
+  // maxGapX=2 is tight enough to reject adjacent figs (gapX~3%) while
+  // accepting parts of the same fig (gapX=0). maxGapY=4 bridges the small
+  // vertical gaps between head/torso/legs.
+  const merged = mergeProximate(pass1, 2.0, 4.0);
+
+  console.log(`[ContourDetect] After merge: ${pass1.length} → ${merged.length} boxes`);
   return merged;
 }
 
@@ -228,6 +243,48 @@ function mergeOverlapping(boxes: DetectedBox[], threshold: number): DetectedBox[
       for (let j = i + 1; j < result.length; j++) {
         if (used.has(j)) continue;
         if (iou(cur, result[j]) > threshold) {
+          cur = mergePair(cur, result[j]);
+          used.add(j);
+          changed = true;
+        }
+      }
+      next.push(cur);
+    }
+    result = next;
+  }
+  return result;
+}
+
+/**
+ * Proximity merge: join two boxes if their nearest edges (in both X and Y)
+ * are within `maxGap` percentage points.
+ *
+ * Why: assembled minifig head/torso/legs are separate color blobs with
+ * essentially 0 px gap between them, while adjacent minifigs are 5–15% apart.
+ * A 3% threshold bridges intra-figure fragments without joining distinct figs.
+ */
+function boxEdgeGap(a: DetectedBox, b: DetectedBox): { gapX: number; gapY: number } {
+  const ax2 = a.x + a.w, ay2 = a.y + a.h;
+  const bx2 = b.x + b.w, by2 = b.y + b.h;
+  const gapX = Math.max(0, Math.max(a.x, b.x) - Math.min(ax2, bx2));
+  const gapY = Math.max(0, Math.max(a.y, b.y) - Math.min(ay2, by2));
+  return { gapX, gapY };
+}
+
+function mergeProximate(boxes: DetectedBox[], maxGapX: number, maxGapY: number): DetectedBox[] {
+  let result = [...boxes];
+  let changed = true;
+  while (changed) {
+    changed = false;
+    const next: DetectedBox[] = [];
+    const used = new Set<number>();
+    for (let i = 0; i < result.length; i++) {
+      if (used.has(i)) continue;
+      let cur = result[i];
+      for (let j = i + 1; j < result.length; j++) {
+        if (used.has(j)) continue;
+        const { gapX, gapY } = boxEdgeGap(cur, result[j]);
+        if (gapX <= maxGapX && gapY <= maxGapY) {
           cur = mergePair(cur, result[j]);
           used.add(j);
           changed = true;
