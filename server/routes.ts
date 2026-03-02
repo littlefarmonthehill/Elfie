@@ -3303,54 +3303,36 @@ Coordinate rules:
 
         console.log(`[Brickanalyzer] GPT-4o detected ${pieces.length} pieces`);
 
-        // ── Proximity merge (same as contour pipeline) ─────────────────────
-        // GPT-4o gives correct per-piece boxes, but disassembled minifig parts
-        // (head/torso/legs) arrive at Brickognize separately and most return
-        // empty. Merging nearly-touching boxes replicates the contour behaviour
-        // that grouped those parts into a combined crop the figs endpoint could
-        // match. maxGapX=1.5%, maxGapY=2.0%, maxAreaRatio=1.5 (same as contour).
-        const _pmEdgeGap = (a: any, b: any) => {
-          const ax2 = a.x + a.w, ay2 = a.y + a.h;
-          const bx2 = b.x + b.w, by2 = b.y + b.h;
-          return {
-            gapX: Math.max(0, Math.max(a.x, b.x) - Math.min(ax2, bx2)),
-            gapY: Math.max(0, Math.max(a.y, b.y) - Math.min(ay2, by2)),
-          };
-        };
-        const _pmMerge = (a: any, b: any) => {
-          const x = Math.min(a.x, b.x), y = Math.min(a.y, b.y);
-          return { ...a, x, y, w: Math.max(a.x + a.w, b.x + b.w) - x, h: Math.max(a.y + a.h, b.y + b.h) - y,
-            roughName: a.roughName && b.roughName ? `${a.roughName} + ${b.roughName}` : (a.roughName || b.roughName) };
-        };
-        let pmBoxes = [...pieces];
-        let pmChanged = true;
-        while (pmChanged) {
-          pmChanged = false;
-          const pmNext: any[] = [];
-          const pmUsed = new Set<number>();
-          for (let i = 0; i < pmBoxes.length; i++) {
-            if (pmUsed.has(i)) continue;
-            let cur = pmBoxes[i];
-            for (let j = i + 1; j < pmBoxes.length; j++) {
-              if (pmUsed.has(j)) continue;
-              const { gapX, gapY } = _pmEdgeGap(cur, pmBoxes[j]);
-              if (gapX > 1.5 || gapY > 2.0) continue;
-              const r = pmBoxes[j];
-              const mW = Math.max(cur.x + cur.w, r.x + r.w) - Math.min(cur.x, r.x);
-              const mH = Math.max(cur.y + cur.h, r.y + r.h) - Math.min(cur.y, r.y);
-              if ((cur.w * cur.h + r.w * r.h) > 0 && (mW * mH) / (cur.w * cur.h + r.w * r.h) > 1.5) continue;
-              cur = _pmMerge(cur, r);
-              pmUsed.add(j);
-              pmChanged = true;
-            }
-            pmNext.push(cur);
+        // ── Fig subdivision ─────────────────────────────────────────────────
+        // Assembled minifigs get one GPT-4o box but the figs endpoint often
+        // returns empty for specific combos. The parts endpoint CAN identify
+        // individual components (head, torso, legs) — same crops contour was
+        // accidentally generating. For any box labelled as an assembled figure,
+        // add three sub-crops so the parts endpoint gets a shot at each zone.
+        const FIG_LABELS = /minifig|figure|knight|warrior|person|driver|worker|soldier|pirate|wizard|chef|officer/i;
+        const extraPieces: any[] = [];
+        for (const p of pieces) {
+          if (!FIG_LABELS.test(p.roughName || '')) continue;
+          // Only subdivide boxes that are taller than they are wide (assembled fig portrait)
+          if ((p.h ?? 0) < (p.w ?? 0) * 1.2) continue;
+          const zones = [
+            { yOff: 0,    hFrac: 0.27, label: 'head' },
+            { yOff: 0.27, hFrac: 0.40, label: 'torso' },
+            { yOff: 0.67, hFrac: 0.33, label: 'legs' },
+          ];
+          for (const z of zones) {
+            extraPieces.push({
+              x: p.x, y: p.y + (p.h ?? 20) * z.yOff,
+              w: p.w, h: (p.h ?? 20) * z.hFrac,
+              colorName: '', roughName: `${z.label} of ${p.roughName}`,
+              confidence: 'medium', note: 'fig-component',
+            });
           }
-          pmBoxes = pmNext;
         }
-        if (pmBoxes.length !== pieces.length) {
-          console.log(`[Brickanalyzer] Proximity merge: ${pieces.length} → ${pmBoxes.length} boxes`);
+        if (extraPieces.length > 0) {
+          console.log(`[Brickanalyzer] Added ${extraPieces.length} fig component sub-crops`);
+          pieces = [...pieces, ...extraPieces];
         }
-        pieces = pmBoxes;
       } catch (gptErr: any) {
         console.warn('[Brickanalyzer] GPT-4o detection failed, falling back to contour:', gptErr.message);
         const { detectPieceBoundingBoxes } = await import('./services/contourDetect.js');
@@ -3393,20 +3375,13 @@ Coordinate rules:
             return [{ partNo: '', partName: piece.roughName || 'Unknown', colorName: piece.colorName || '', confidence: 'low', note: 'crop region too small' }];
           }
 
-          // Crop the piece out of the full image (tight crop for parts)
-          // Ensure minimum 224×224 output so Brickognize has enough pixels to work with
-          const MIN_BQ_PX = 224;
+          // Crop the piece — send original pixels, no white-padding
           const cropBuffer = await sharp(imageBuffer)
             .extract({ left: x0, top: y0, width: cropWidth, height: cropHeight })
-            .resize(
-              cropWidth  < MIN_BQ_PX ? MIN_BQ_PX : undefined,
-              cropHeight < MIN_BQ_PX ? MIN_BQ_PX : undefined,
-              { fit: 'contain', background: { r: 255, g: 255, b: 255, alpha: 1 } }
-            )
             .jpeg({ quality: 90 })
             .toBuffer();
 
-          // Wider crop for figs — 5% padding keeps individual fig tight without bleeding into neighbours
+          // Figs crop: same box but slightly different padding constant for future tuning
           const fx0 = Math.max(0, Math.round(((piece.x ?? 0) / 100 - FIG_PADDING) * imgWidth));
           const fy0 = Math.max(0, Math.round(((piece.y ?? 0) / 100 - FIG_PADDING) * imgHeight));
           const fx1 = Math.min(imgWidth,  Math.round((((piece.x ?? 0) + (piece.w ?? 20)) / 100 + FIG_PADDING) * imgWidth));
@@ -3415,11 +3390,6 @@ Coordinate rules:
           const fCropH = fy1 - fy0;
           const figCropBuffer = await sharp(imageBuffer)
             .extract({ left: fx0, top: fy0, width: fCropW, height: fCropH })
-            .resize(
-              fCropW  < MIN_BQ_PX ? MIN_BQ_PX : undefined,
-              fCropH < MIN_BQ_PX ? MIN_BQ_PX : undefined,
-              { fit: 'contain', background: { r: 255, g: 255, b: 255, alpha: 1 } }
-            )
             .jpeg({ quality: 90 })
             .toBuffer();
 
@@ -3893,7 +3863,9 @@ Coordinate rules:
       // For parts, duplicate part numbers with different colors are legitimate — only dedup if same color too.
       const seen = new Map<string, boolean>();
       const deduped = enriched.filter(p => {
-        if (!p.partNo) return true; // always show unidentified pieces
+        // Fig-component sub-crops only appear if Brickognize returned a part number
+        if (!p.partNo && p.note === 'fig-component') return false;
+        if (!p.partNo) return true; // always show other unidentified pieces
         const key = p.itemType === 'MINIFIG' ? p.partNo : `${p.partNo}|${p.colorId ?? ''}`;
         if (seen.has(key)) return false;
         seen.set(key, true);
