@@ -318,14 +318,14 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
             {/* Brickanalyzer scan in progress */}
             {latestScan && latestScan.status === 'processing' && (
               <div
-                className="rounded px-2 py-2 bg-yellow-950/40 border border-yellow-500/20 space-y-1"
+                className="rounded px-2 py-2 bg-purple-950/40 border border-purple-500/25 space-y-1"
                 data-testid="action-brickanalyzer-processing"
               >
                 <div className="flex items-center gap-2">
-                  <Loader2 className="w-3.5 h-3.5 text-yellow-400 animate-spin flex-shrink-0" />
-                  <span className="text-xs md:text-sm text-yellow-300 font-medium">Brick Spotter 3000 Scanning...</span>
+                  <Loader2 className="w-3.5 h-3.5 text-purple-400 animate-spin flex-shrink-0" />
+                  <span className="text-xs md:text-sm text-purple-200 font-medium">Brick Spotter 3000 Scanning...</span>
                 </div>
-                <p className="text-[10px] font-mono text-yellow-600">AI is identifying your LEGO pieces — results coming shortly</p>
+                <p className="text-[10px] font-mono text-purple-500">AI is identifying your LEGO pieces — results coming shortly</p>
               </div>
             )}
 
