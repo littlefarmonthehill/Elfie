@@ -3327,7 +3327,7 @@ Coordinate rules:
       // ── Step 2: Crop each piece + send to Brickognize in parallel ─────────
       console.log('[Brickanalyzer] Step 2: Cropping and sending to Brickognize...');
       const PADDING = 0.06;     // 6% padding for parts crop
-      const FIG_PADDING = 0.15; // 15% padding for figs crop — proximity merge assembles full-body boxes now; 35% was bleeding into adjacent minifigs
+      const FIG_PADDING = 0.05; // 5% padding for figs — GPT-4o gives a tight head-to-toe box per fig; 15%+ bleeds into adjacent figures and causes Brickognize figs endpoint to return nothing
 
       const identified: any[] = (await Promise.all(pieces.map(async (piece: any, idx: number) => {
         try {
