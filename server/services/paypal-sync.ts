@@ -374,7 +374,11 @@ export async function syncPayPalRefunds(sinceDays = 90, forceResync = false): Pr
         });
         if (match) {
           const origAmount = parseAmount(origPayment.transaction_info.transaction_amount.value);
-          console.log(`  ${txnId} (${eventCode}): $${refundAmount} → T0006 ref (net $${origAmount}, date ${saleDate.toISOString()}) → order ${match.orderNumber}`);
+          // T0113 is the ONLY refund transaction PayPal surfaces in Transaction Search for
+          // BrickLink marketplace orders. The $8.27 bank withdrawal that funds the buyer refund
+          // never appears. So T0113 = full order refunded; record the full order total.
+          if (eventCode === 'T0113') refundAmount = Number(match.orderTotal);
+          console.log(`  ${txnId} (${eventCode}): recording $${refundAmount} → T0006 ref (gross $${origAmount}, date ${saleDate.toISOString()}) → order ${match.orderNumber}`);
         }
       }
     }
@@ -397,7 +401,9 @@ export async function syncPayPalRefunds(sinceDays = 90, forceResync = false): Pr
         });
         if (candidate) {
           match = candidate;
-          console.log(`  ${txnId} (T0113): $${refundAmount} → T0006 date-match (${saleDate.toISOString()}) → order ${match.orderNumber}`);
+          // T0113 = full order refunded — record the full order total (see Strategy 3 note).
+          refundAmount = Number(match.orderTotal);
+          console.log(`  ${txnId} (T0113): recording $${refundAmount} → T0006 date-match (${saleDate.toISOString()}) → order ${match.orderNumber}`);
           break;
         }
       }
