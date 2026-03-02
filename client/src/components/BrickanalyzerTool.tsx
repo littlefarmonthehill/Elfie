@@ -1,10 +1,9 @@
 import { useState, useRef, useEffect, useMemo, forwardRef, useImperativeHandle } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import { Camera, X, CheckCircle, Loader2, ExternalLink, Trash2, ScanSearch, ChevronRight, ImageIcon, FileText, Sparkles, Check } from "lucide-react";
+import { Camera, X, CheckCircle, Loader2, ExternalLink, Trash2, ScanSearch, ChevronRight, Sparkles, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 
 export interface BrickanalyzerToolRef {
@@ -104,6 +103,7 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
 
   useEffect(() => {
     if (!latestScan || scanId) return;
+    // Only auto-restore complete or in-progress scans — don't drag up old failed scans
     if (latestScan.status === "complete") {
       setScanId(latestScan.id);
       setUiState("complete");
@@ -111,9 +111,6 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
       setScanId(latestScan.id);
       setUiState("processing");
       setLeftPage(true);
-    } else if (latestScan.status === "failed") {
-      setScanId(latestScan.id);
-      setUiState("failed");
     }
   }, [latestScan]);
 
@@ -229,9 +226,12 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
       {/* ── IDLE: Upload UI ─────────────────────────────────────────────── */}
       {uiState === "idle" && (
         <>
+          {/* Native file input — no capture attr so iOS shows its standard sheet:
+              "Take Photo", "Photo Library", "Browse". One tap, one sheet. */}
           <input
             ref={fileInputRef}
             type="file"
+            accept="image/*"
             className="hidden"
             onChange={(e) => {
               const file = e.target.files?.[0];
@@ -240,63 +240,16 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
             }}
             data-testid="input-brickanalyzer-file"
           />
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                className="w-full flex flex-col items-center justify-center gap-3 py-16 text-center rounded-xl border border-dashed border-gray-700 hover:border-purple-500/50 hover:bg-purple-950/20 transition-colors cursor-pointer"
-                data-testid="button-brickanalyzer-idle-trigger"
-              >
-                <Camera className="w-12 h-12 text-gray-500" />
-                <p className="text-sm text-gray-400">
-                  Tap to take a photo, pick from your library, or upload a file.
-                </p>
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="center" className="w-48 bg-gray-900 border border-gray-700 text-white">
-              <DropdownMenuItem
-                className="gap-2 cursor-pointer"
-                onClick={() => {
-                  if (fileInputRef.current) {
-                    fileInputRef.current.accept = "image/*";
-                    (fileInputRef.current as any).capture = "environment";
-                    fileInputRef.current.click();
-                  }
-                }}
-                data-testid="menu-brickanalyzer-camera"
-              >
-                <Camera className="w-4 h-4 text-lego-yellow" />
-                Take Photo
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="gap-2 cursor-pointer"
-                onClick={() => {
-                  if (fileInputRef.current) {
-                    fileInputRef.current.removeAttribute("capture");
-                    fileInputRef.current.accept = "image/*";
-                    fileInputRef.current.click();
-                  }
-                }}
-                data-testid="menu-brickanalyzer-upload-photo"
-              >
-                <ImageIcon className="w-4 h-4 text-lego-blue" />
-                Upload Photo
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="gap-2 cursor-pointer"
-                onClick={() => {
-                  if (fileInputRef.current) {
-                    fileInputRef.current.removeAttribute("capture");
-                    fileInputRef.current.accept = "*/*";
-                    fileInputRef.current.click();
-                  }
-                }}
-                data-testid="menu-brickanalyzer-upload-file"
-              >
-                <FileText className="w-4 h-4 text-gray-400" />
-                Upload File
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <button
+            className="w-full flex flex-col items-center justify-center gap-3 py-16 text-center rounded-xl border border-dashed border-gray-700 hover:border-purple-500/50 hover:bg-purple-950/20 transition-colors cursor-pointer"
+            data-testid="button-brickanalyzer-idle-trigger"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Camera className="w-12 h-12 text-gray-500" />
+            <p className="text-sm text-gray-400">
+              Tap to take a photo or pick from your library.
+            </p>
+          </button>
         </>
       )}
 

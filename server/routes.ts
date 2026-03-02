@@ -3216,17 +3216,11 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
 
   // ─── Brickanalyzer: Multi-piece scan endpoints ────────────────────────────
 
-  // Background processor: OpenAI Vision → POM price lookup → update DB
-  async function processBrickanalyzerScan(scanId: number, imageBuffer: Buffer, mimeType: string) {
+  // Background processor: Contour detection → Brickognize → POM price lookup → update DB
+  async function processBrickanalyzerScan(scanId: number, imageBuffer: Buffer) {
     try {
-      const settings = await db.select().from(appSettings).limit(1);
-      const apiKey = settings[0]?.openaiApiKey || process.env.OPENAI_API_KEY;
-      if (!apiKey) throw new Error("OpenAI API key not configured");
-
-      const { default: OpenAI } = await import('openai');
       const { default: sharp } = await import('sharp');
       const { detectPieceBoundingBoxes } = await import('./services/contourDetect.js');
-      const openai = new OpenAI({ apiKey });
 
       // Get image dimensions for coordinate conversion
       const imgMeta = await sharp(imageBuffer).metadata();
@@ -3234,125 +3228,32 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       const imgHeight = imgMeta.height || 1000;
 
       // ── Step 1: Contour detection (free, local, fast) ──────────────────────
-      // Uses adaptive threshold + connected-components on raw pixels via sharp.
-      // Falls back to GPT-4o bounding boxes only if contour detection finds nothing.
       console.log('[Brickanalyzer] Step 1: Contour detection...');
-      let gptPieces: any[] = [];
-
       const contourBoxes = await detectPieceBoundingBoxes(imageBuffer);
       console.log(`[Brickanalyzer] Contour detection found ${contourBoxes.length} regions`);
 
-      if (contourBoxes.length > 0) {
-        // Contour detection succeeded — use its boxes, ask GPT-4o ONLY for colors
-        gptPieces = contourBoxes.map(b => ({ ...b, colorName: '', roughName: '', confidence: 'medium', note: '' }));
+      const pieces: any[] = contourBoxes.map(b => ({ ...b, colorName: '', roughName: '', confidence: 'medium', note: '' }));
 
-        // Ask GPT-4o just for colors (much cheaper/faster — one call for all pieces)
-        try {
-          const base64Image = imageBuffer.toString('base64');
-          const dataUrl = `data:${mimeType};base64,${base64Image}`;
-          const colorCompletion = await openai.chat.completions.create({
-            model: "gpt-4o",
-            max_tokens: 800,
-            messages: [{
-              role: "user",
-              content: [
-                {
-                  type: "text",
-                  text: `I have detected ${gptPieces.length} LEGO piece(s) in this image using contour detection. For each piece (numbered 0 to ${gptPieces.length - 1}), tell me the BrickLink color name and a very short rough part name as a fallback.
-
-Return ONLY a JSON array with exactly ${gptPieces.length} objects (one per piece, in the same order they appear left-to-right, top-to-bottom), each with:
-- "colorName": BrickLink color name (e.g. "Red", "Dark Bluish Gray", "White")
-- "roughName": short part type guess (e.g. "Brick 2x4", "Plate 1x2", "Slope") or "" if unsure
-- "note": any caveat or ""
-
-Return ONLY a valid JSON array, no other text.`
-                },
-                { type: "image_url", image_url: { url: dataUrl, detail: "high" } }
-              ]
-            }]
-          });
-          const colorRaw = colorCompletion.choices[0]?.message?.content?.trim() || '[]';
-          try {
-            const cleaned = colorRaw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '');
-            const colorData = JSON.parse(cleaned);
-            if (Array.isArray(colorData)) {
-              colorData.forEach((c: any, i: number) => {
-                if (gptPieces[i]) {
-                  gptPieces[i].colorName = c.colorName || '';
-                  gptPieces[i].roughName = c.roughName || '';
-                  gptPieces[i].note = c.note || '';
-                }
-              });
-            }
-          } catch { /* colors remain empty — Brickognize name will be used */ }
-        } catch (colorErr: any) {
-          console.warn('[Brickanalyzer] Color lookup failed (non-fatal):', colorErr.message);
-        }
-
-      } else {
-        // Contour detection found nothing — fall back to GPT-4o for full bounding box detection
-        console.log('[Brickanalyzer] Contour detection found nothing, falling back to GPT-4o...');
-        const base64Image = imageBuffer.toString('base64');
-        const dataUrl = `data:${mimeType};base64,${base64Image}`;
-        const completion = await openai.chat.completions.create({
-          model: "gpt-4o",
-          max_tokens: 2000,
-          messages: [{
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: `You are a LEGO expert. Analyze this image and locate every individual LEGO piece visible on the background.
-
-For each piece return a JSON array where each object has:
-- "x": left edge of the piece as a percentage of image width (0-100)
-- "y": top edge of the piece as a percentage of image height (0-100)
-- "w": width of the piece bounding box as a percentage of image width (0-100)
-- "h": height of the piece bounding box as a percentage of image height (0-100)
-- "colorName": BrickLink color name (e.g. "Red", "Dark Bluish Gray", "Trans-Clear", "White")
-- "roughName": a short descriptive name for this piece type (e.g. "Brick 2x4", "Ghost Shroud") — used as a fallback only
-- "confidence": "high", "medium", or "low"
-- "note": any caveat or empty string
-
-Return ONLY a valid JSON array, no other text. If no pieces found return [].`
-              },
-              { type: "image_url", image_url: { url: dataUrl, detail: "high" } }
-            ]
-          }]
-        });
-        const raw = completion.choices[0]?.message?.content?.trim() || '[]';
-        console.log('[Brickanalyzer] GPT-4o fallback raw response:', raw.substring(0, 500));
-        try {
-          const cleaned = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '');
-          gptPieces = JSON.parse(cleaned);
-          if (!Array.isArray(gptPieces)) { console.warn('[Brickanalyzer] GPT-4o returned non-array:', typeof gptPieces); gptPieces = []; }
-          console.log(`[Brickanalyzer] GPT-4o parsed ${gptPieces.length} pieces`);
-        } catch (parseErr: any) {
-          console.warn('[Brickanalyzer] GPT-4o JSON parse failed:', parseErr.message, '| raw:', raw.substring(0, 200));
-          gptPieces = [];
-        }
-      }
-
-      if (gptPieces.length === 0) {
+      if (pieces.length === 0) {
         await db.insert(syncIssues).values({
           syncType: 'brickanalyzer_scan',
           platform: 'local',
           itemId: String(scanId),
           issueType: 'no_pieces_detected',
-          issueDescription: 'Brick Spotter could not detect any LEGO pieces. Contour detection found nothing and GPT-4o returned empty. Try a clearer photo on a plain background.',
+          issueDescription: 'Brick Spotter could not detect any LEGO pieces. Try a clearer photo on a plain, contrasting background.',
           severity: 'medium',
           status: 'open',
           metadata: JSON.stringify({ scanId }),
         });
       }
-      console.log(`[Brickanalyzer] ${gptPieces.length} piece regions ready for Brickognize`);
+      console.log(`[Brickanalyzer] ${pieces.length} piece regions ready for Brickognize`);
 
       // ── Step 2: Crop each piece + send to Brickognize in parallel ─────────
       console.log('[Brickanalyzer] Step 2: Cropping and sending to Brickognize...');
       const PADDING = 0.06;     // 6% padding for parts crop
       const FIG_PADDING = 0.35; // 35% padding for figs crop — contour may only catch one component of an assembled minifig
 
-      const identified: any[] = await Promise.all(gptPieces.map(async (piece: any, idx: number) => {
+      const identified: any[] = await Promise.all(pieces.map(async (piece: any, idx: number) => {
         try {
           // Convert percentage coords to pixels with padding
           const x0 = Math.max(0, Math.round(((piece.x ?? 0) / 100 - PADDING) * imgWidth));
@@ -3852,30 +3753,46 @@ Return ONLY a valid JSON array, no other text. If no pieces found return [].`
       // Sort by best price descending
       enriched.sort((a, b) => (b.bestPrice ?? 0) - (a.bestPrice ?? 0));
 
-      const totalValue = enriched.reduce((sum, p) => sum + (p.ourPriceNew ?? p.ourPriceUsed ?? p.marketSoldMaxNew ?? 0), 0);
-      const identifiedWithPrice = enriched.filter(p => p.ourPriceNew !== null || p.ourPriceUsed !== null || p.marketSoldMaxNew !== null).length;
+      // Deduplicate: the wider figs crop means multiple contour regions for the same assembled
+      // minifig can all correctly identify the same fig ID — keep only the first (highest-priced) result.
+      // For parts, duplicate part numbers with different colors are legitimate — only dedup if same color too.
+      const seen = new Map<string, boolean>();
+      const deduped = enriched.filter(p => {
+        if (!p.partNo) return true; // always show unidentified pieces
+        const key = p.itemType === 'MINIFIG' ? p.partNo : `${p.partNo}|${p.colorId ?? ''}`;
+        if (seen.has(key)) return false;
+        seen.set(key, true);
+        return true;
+      });
+
+      if (deduped.length < enriched.length) {
+        console.log(`[Brickanalyzer] Deduplicated ${enriched.length} → ${deduped.length} results`);
+      }
+
+      const totalValue = deduped.reduce((sum, p) => sum + (p.ourPriceNew ?? p.ourPriceUsed ?? p.marketSoldMaxNew ?? 0), 0);
+      const identifiedWithPrice = deduped.filter(p => p.ourPriceNew !== null || p.ourPriceUsed !== null || p.marketSoldMaxNew !== null).length;
 
       await db.update(brickanalyzerScans).set({
         status: 'complete',
-        totalPieces: enriched.length,
+        totalPieces: deduped.length,
         identifiedPieces: identifiedWithPrice,
         estimatedValue: totalValue.toFixed(2),
-        results: enriched as any,
+        results: deduped as any,
         completedAt: new Date(),
       }).where(eq(brickanalyzerScans.id, scanId));
 
-      console.log(`🔍 Brickanalyzer scan ${scanId} complete: ${enriched.length} pieces, $${totalValue.toFixed(2)} estimated value`);
+      console.log(`🔍 Brickanalyzer scan ${scanId} complete: ${deduped.length} pieces, $${totalValue.toFixed(2)} estimated value`);
 
-      if (enriched.length === 0 && gptPieces.length > 0) {
+      if (deduped.length === 0 && pieces.length > 0) {
         await db.insert(syncIssues).values({
           syncType: 'brickanalyzer_scan',
           platform: 'brickognize',
           itemId: String(scanId),
           issueType: 'brickognize_no_results',
-          issueDescription: `Brick Spotter detected ${gptPieces.length} region(s) but Brickognize could not identify any parts. Pieces may be too small, blurry, or not recognized. Try photographing fewer pieces at a time.`,
+          issueDescription: `Brick Spotter detected ${pieces.length} region(s) but Brickognize could not identify any parts. Pieces may be too small, blurry, or not recognized. Try photographing fewer pieces at a time.`,
           severity: 'medium',
           status: 'open',
-          metadata: JSON.stringify({ scanId, regionsDetected: gptPieces.length }),
+          metadata: JSON.stringify({ scanId, regionsDetected: pieces.length }),
         });
       }
     } catch (err: any) {
@@ -3887,7 +3804,7 @@ Return ONLY a valid JSON array, no other text. If no pieces found return [].`
       }).where(eq(brickanalyzerScans.id, scanId));
       await db.insert(syncIssues).values({
         syncType: 'brickanalyzer_scan',
-        platform: 'openai',
+        platform: 'brickognize',
         itemId: String(scanId),
         issueType: 'scan_failed',
         issueDescription: `Brick Spotter scan ${scanId} crashed: ${err.message}`,
@@ -3909,7 +3826,7 @@ Return ONLY a valid JSON array, no other text. If no pieces found return [].`
       }).returning();
 
       // Fire and forget — client gets scanId immediately
-      processBrickanalyzerScan(scan.id, req.file.buffer, req.file.mimetype).catch(() => {});
+      processBrickanalyzerScan(scan.id, req.file.buffer).catch(() => {});
 
       res.json({ scanId: scan.id });
     } catch (err: any) {
