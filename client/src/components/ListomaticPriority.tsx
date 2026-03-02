@@ -281,7 +281,7 @@ export default function ListomaticPriority() {
                   <div
                     role="button"
                     tabIndex={0}
-                    className={`relative rounded-lg border ${tileCfg.tileBorder} ${tileCfg.tileBg} px-3 py-2 ${tileCfg.tileShadow} transition-all duration-150 cursor-pointer select-none ${cat.flagged ? 'ring-1 ring-orange-500/60' : ''}`}
+                    className={`relative rounded-lg border ${tileCfg.tileBorder} ${tileCfg.tileBg} px-3 py-2 ${tileCfg.tileShadow} transition-all duration-150 cursor-pointer select-none`}
                     data-testid={`tile-priority-${cat.id}`}
                   >
                     {/* Row 1: Name + flag button + score badge */}
