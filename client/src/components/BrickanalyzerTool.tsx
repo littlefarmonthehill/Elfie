@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo, forwardRef, useImperativeHandle } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import { Camera, X, CheckCircle, Loader2, ExternalLink, Trash2, ScanSearch, ChevronRight, ImageIcon, FileText } from "lucide-react";
+import { Camera, X, CheckCircle, Loader2, ExternalLink, Trash2, ScanSearch, ChevronRight, ImageIcon, FileText, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -394,6 +394,27 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                 const bestConfidence = grp.entries.some(e => e.confidence === 'high') ? 'high'
                   : grp.entries.some(e => e.confidence === 'medium') ? 'medium' : 'low';
 
+                // Best match: highest confidence + in-stock bonus
+                const confRank = (c: 'high' | 'medium' | 'low') => c === 'high' ? 2 : c === 'medium' ? 1 : 0;
+                const bestEntry = grp.entries.reduce((best, e) => {
+                  const bScore = confRank(best.confidence) * 2 + (best.ourQtyNew + best.ourQtyUsed > 0 ? 1 : 0);
+                  const eScore = confRank(e.confidence) * 2 + (e.ourQtyNew + e.ourQtyUsed > 0 ? 1 : 0);
+                  return eScore > bScore ? e : best;
+                }, grp.entries[0]);
+                const bePeak = Math.max(bestEntry.marketSoldMaxNew ?? 0, bestEntry.marketSoldMaxUsed ?? 0) || null;
+                const beNScore = bePeak && bestEntry.ourPriceNew && bestEntry.ourPriceNew > 0
+                  ? Number((bePeak / bestEntry.ourPriceNew).toFixed(2)) : null;
+                const beUScore = bePeak && bestEntry.ourPriceUsed && bestEntry.ourPriceUsed > 0
+                  ? Number((bePeak / bestEntry.ourPriceUsed).toFixed(2)) : null;
+                const beInStock = (bestEntry.ourQtyNew + bestEntry.ourQtyUsed) > 0;
+                const entryScoreColor = (s: number | null) => {
+                  if (s === null) return 'text-gray-600';
+                  if (s >= 2.0) return 'text-emerald-400';
+                  if (s >= 1.5) return 'text-orange-400';
+                  if (s >= 1.0) return 'text-yellow-500';
+                  return 'text-gray-500';
+                };
+
                 return (
                   <div
                     key={key}
@@ -471,76 +492,112 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                       </div>
                     </div>
 
-                    {/* ── Expanded: all color/condition rows ──────────── */}
+                    {/* ── Expanded: best match + all color/condition rows ── */}
                     {isExpanded && (
                       <div className="border-t border-purple-500/10 px-2 py-1.5 space-y-1">
-                        {/* Column header */}
-                        <div className="flex items-center gap-1 px-1 pb-0.5">
-                          <div className="flex-1 min-w-0" />
-                          <span className="text-[9px] uppercase tracking-wider text-gray-400 w-14 text-right flex-shrink-0">N Cur</span>
-                          <span className="text-[9px] uppercase tracking-wider text-gray-400 w-[58px] text-right flex-shrink-0">N Score</span>
-                          <span className="text-[9px] uppercase tracking-wider text-gray-400 w-14 text-right flex-shrink-0">U Cur</span>
-                          <span className="text-[9px] uppercase tracking-wider text-gray-400 w-[58px] text-right flex-shrink-0">U Score</span>
-                        </div>
-                        {grp.entries.map((piece, ei) => {
-                          const peak = Math.max(piece.marketSoldMaxNew ?? 0, piece.marketSoldMaxUsed ?? 0) || null;
-                          const peakVal = peak && peak > 0 ? peak : null;
-                          const nScore = peakVal && piece.ourPriceNew && piece.ourPriceNew > 0
-                            ? Number((peakVal / piece.ourPriceNew).toFixed(2)) : null;
-                          const uScore = peakVal && piece.ourPriceUsed && piece.ourPriceUsed > 0
-                            ? Number((peakVal / piece.ourPriceUsed).toFixed(2)) : null;
-                          const scoreColor = (s: number | null) => {
-                            if (s === null) return 'text-gray-600';
-                            if (s >= 2.0) return 'text-emerald-400';
-                            if (s >= 1.5) return 'text-orange-400';
-                            if (s >= 1.0) return 'text-yellow-500';
-                            return 'text-gray-500';
-                          };
-                          const totalQty = piece.ourQtyNew + piece.ourQtyUsed;
-                          const inStock = totalQty > 0;
-                          return (
-                            <div
-                              key={ei}
-                              className="bg-gray-900/50 border border-gray-700/60 rounded-lg px-2 py-1.5"
-                              data-testid={`entry-${gi}-${ei}`}
-                            >
+                        {/* Best Match banner */}
+                        <div className="rounded-lg border border-purple-500/40 bg-purple-900/25 px-2 py-1.5">
+                          <div className="flex items-center gap-1 mb-1">
+                            <Sparkles className="w-3 h-3 text-purple-400 flex-shrink-0" />
+                            <span className="text-[9px] uppercase tracking-wider text-purple-400 font-semibold">Best Match</span>
+                            <span className={`ml-1 text-[9px] font-medium capitalize ${confidenceColor(bestEntry.confidence)}`}>
+                              · {bestEntry.confidence} confidence
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1 min-w-0">
+                            <div className="flex flex-col flex-1 min-w-0">
                               <div className="flex items-center gap-1 min-w-0">
-                                {/* Left: in-stock dot + qty + color dot + name + peak */}
-                                <div className="flex flex-col flex-1 min-w-0">
-                                  <div className="flex items-center gap-1 min-w-0">
-                                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${inStock ? 'bg-emerald-500' : 'bg-gray-600'}`} />
-                                    {inStock && <span className="text-[10px] font-mono text-gray-300 flex-shrink-0">×{totalQty}</span>}
-                                    {piece.colorRgb ? (
-                                      <span className="w-2 h-2 rounded-full flex-shrink-0 border border-gray-600" style={{ backgroundColor: `#${piece.colorRgb}` }} />
-                                    ) : (
-                                      <span className="w-2 h-2 rounded-full flex-shrink-0 bg-gray-600" />
-                                    )}
-                                    <span className="text-[10px] text-gray-300 truncate">{piece.colorName || '—'}</span>
-                                  </div>
-                                  {peakVal && (
-                                    <span className="text-[9px] pl-0.5 text-purple-400">peak ${peakVal.toFixed(2)}</span>
-                                  )}
-                                </div>
-                                {/* N Cur */}
-                                <span className="text-[10px] font-mono text-gray-300 w-14 text-right flex-shrink-0">
-                                  {piece.ourPriceNew != null ? `$${piece.ourPriceNew.toFixed(2)}` : '—'}
-                                </span>
-                                {/* N Score */}
-                                <span className={`text-[10px] font-mono font-bold w-[58px] text-right flex-shrink-0 ${scoreColor(nScore)}`}>
-                                  {nScore != null ? `${nScore}×` : '—'}
-                                </span>
-                                {/* U Cur */}
-                                <span className="text-[10px] font-mono text-gray-300 w-14 text-right flex-shrink-0">
-                                  {piece.ourPriceUsed != null ? `$${piece.ourPriceUsed.toFixed(2)}` : '—'}
-                                </span>
-                                {/* U Score */}
-                                <span className={`text-[10px] font-mono font-bold w-[58px] text-right flex-shrink-0 ${scoreColor(uScore)}`}>
-                                  {uScore != null ? `${uScore}×` : '—'}
-                                </span>
+                                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${beInStock ? 'bg-emerald-500' : 'bg-gray-600'}`} />
+                                {beInStock && <span className="text-[10px] font-mono text-gray-300 flex-shrink-0">×{bestEntry.ourQtyNew + bestEntry.ourQtyUsed}</span>}
+                                {bestEntry.colorRgb ? (
+                                  <span className="w-2 h-2 rounded-full flex-shrink-0 border border-gray-600" style={{ backgroundColor: `#${bestEntry.colorRgb}` }} />
+                                ) : (
+                                  <span className="w-2 h-2 rounded-full flex-shrink-0 bg-gray-600" />
+                                )}
+                                <span className="text-[10px] text-white font-medium truncate">{bestEntry.colorName || '—'}</span>
                               </div>
+                              {bePeak && (
+                                <span className="text-[9px] pl-0.5 text-purple-400">peak ${bePeak.toFixed(2)}</span>
+                              )}
                             </div>
-                          );
-                        })}
+                            <span className="text-[10px] font-mono text-gray-300 w-14 text-right flex-shrink-0">
+                              {bestEntry.ourPriceNew != null ? `$${bestEntry.ourPriceNew.toFixed(2)}` : '—'}
+                            </span>
+                            <span className={`text-[10px] font-mono font-bold w-[58px] text-right flex-shrink-0 ${entryScoreColor(beNScore)}`}>
+                              {beNScore != null ? `${beNScore}×` : '—'}
+                            </span>
+                            <span className="text-[10px] font-mono text-gray-300 w-14 text-right flex-shrink-0">
+                              {bestEntry.ourPriceUsed != null ? `$${bestEntry.ourPriceUsed.toFixed(2)}` : '—'}
+                            </span>
+                            <span className={`text-[10px] font-mono font-bold w-[58px] text-right flex-shrink-0 ${entryScoreColor(beUScore)}`}>
+                              {beUScore != null ? `${beUScore}×` : '—'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* All colors sublist — only shown when multiple entries */}
+                        {grp.entries.length > 1 && (
+                          <>
+                            <div className="flex items-center gap-1 px-1 pb-0.5 pt-0.5">
+                              <div className="flex-1 min-w-0">
+                                <span className="text-[9px] uppercase tracking-wider text-gray-600">All colors</span>
+                              </div>
+                              <span className="text-[9px] uppercase tracking-wider text-gray-400 w-14 text-right flex-shrink-0">N Cur</span>
+                              <span className="text-[9px] uppercase tracking-wider text-gray-400 w-[58px] text-right flex-shrink-0">N Score</span>
+                              <span className="text-[9px] uppercase tracking-wider text-gray-400 w-14 text-right flex-shrink-0">U Cur</span>
+                              <span className="text-[9px] uppercase tracking-wider text-gray-400 w-[58px] text-right flex-shrink-0">U Score</span>
+                            </div>
+                            {grp.entries.map((piece, ei) => {
+                              const peak = Math.max(piece.marketSoldMaxNew ?? 0, piece.marketSoldMaxUsed ?? 0) || null;
+                              const peakVal = peak && peak > 0 ? peak : null;
+                              const nScore = peakVal && piece.ourPriceNew && piece.ourPriceNew > 0
+                                ? Number((peakVal / piece.ourPriceNew).toFixed(2)) : null;
+                              const uScore = peakVal && piece.ourPriceUsed && piece.ourPriceUsed > 0
+                                ? Number((peakVal / piece.ourPriceUsed).toFixed(2)) : null;
+                              const pieceTotalQty = piece.ourQtyNew + piece.ourQtyUsed;
+                              const inStock = pieceTotalQty > 0;
+                              const isBest = piece === bestEntry;
+                              return (
+                                <div
+                                  key={ei}
+                                  className={`border rounded-lg px-2 py-1.5 ${isBest ? 'bg-purple-900/20 border-purple-500/30' : 'bg-gray-900/50 border-gray-700/60'}`}
+                                  data-testid={`entry-${gi}-${ei}`}
+                                >
+                                  <div className="flex items-center gap-1 min-w-0">
+                                    <div className="flex flex-col flex-1 min-w-0">
+                                      <div className="flex items-center gap-1 min-w-0">
+                                        <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${inStock ? 'bg-emerald-500' : 'bg-gray-600'}`} />
+                                        {inStock && <span className="text-[10px] font-mono text-gray-300 flex-shrink-0">×{pieceTotalQty}</span>}
+                                        {piece.colorRgb ? (
+                                          <span className="w-2 h-2 rounded-full flex-shrink-0 border border-gray-600" style={{ backgroundColor: `#${piece.colorRgb}` }} />
+                                        ) : (
+                                          <span className="w-2 h-2 rounded-full flex-shrink-0 bg-gray-600" />
+                                        )}
+                                        <span className="text-[10px] text-gray-300 truncate">{piece.colorName || '—'}</span>
+                                        {isBest && <Sparkles className="w-2.5 h-2.5 text-purple-400 flex-shrink-0" />}
+                                      </div>
+                                      {peakVal && (
+                                        <span className="text-[9px] pl-0.5 text-purple-400">peak ${peakVal.toFixed(2)}</span>
+                                      )}
+                                    </div>
+                                    <span className="text-[10px] font-mono text-gray-300 w-14 text-right flex-shrink-0">
+                                      {piece.ourPriceNew != null ? `$${piece.ourPriceNew.toFixed(2)}` : '—'}
+                                    </span>
+                                    <span className={`text-[10px] font-mono font-bold w-[58px] text-right flex-shrink-0 ${entryScoreColor(nScore)}`}>
+                                      {nScore != null ? `${nScore}×` : '—'}
+                                    </span>
+                                    <span className="text-[10px] font-mono text-gray-300 w-14 text-right flex-shrink-0">
+                                      {piece.ourPriceUsed != null ? `$${piece.ourPriceUsed.toFixed(2)}` : '—'}
+                                    </span>
+                                    <span className={`text-[10px] font-mono font-bold w-[58px] text-right flex-shrink-0 ${entryScoreColor(uScore)}`}>
+                                      {uScore != null ? `${uScore}×` : '—'}
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </>
+                        )}
                       </div>
                     )}
                   </div>
