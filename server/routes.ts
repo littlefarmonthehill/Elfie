@@ -3226,94 +3226,18 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       const imgWidth = imgMeta.width || 1000;
       const imgHeight = imgMeta.height || 1000;
 
-      // ── Step 1: GPT-4o vision — locate every LEGO piece ────────────────────
-      // GPT-4o understands piece boundaries far better than pixel thresholding:
-      // it handles touching pieces of similar colour, angled shields, accessories
-      // attached to minifigs, and cluttered scenes with no tuning required.
-      console.log('[Brickanalyzer] Step 1: GPT-4o piece detection...');
+      // ── Step 1: Contour detection — pixel-accurate piece bounding boxes ─────
+      // Classical image processing (adaptive threshold + connected components)
+      // gives exact pixel positions on any background. No API calls, no position
+      // drift. Brickognize (step 2) identifies what each piece is.
+      console.log('[Brickanalyzer] Step 1: Contour detection...');
 
-      const [scanSettings] = await db.select().from(appSettings).limit(1);
-      const scanApiKey = scanSettings?.openaiApiKey || process.env.OPENAI_API_KEY;
-      if (!scanApiKey) throw new Error('OpenAI API key not configured — please add it in Settings.');
-
-      const { default: OpenAI } = await import('openai');
-      const gptClient = new OpenAI({ apiKey: scanApiKey });
-
-      // Scale to ≤1600px for the vision call (keeps percentages identical to original)
-      const scaledBuffer = await sharp(imageBuffer)
-        .resize(1600, 1600, { fit: 'inside', withoutEnlargement: true })
-        .jpeg({ quality: 85 })
-        .toBuffer();
-      const base64Image = scaledBuffer.toString('base64');
-
-      let pieces: any[] = [];
-      try {
-        const detectionResp = await gptClient.chat.completions.create({
-          model: 'gpt-4o',
-          max_tokens: 4096,
-          temperature: 0.7,
-          response_format: { type: 'json_object' },
-          messages: [{
-            role: 'user',
-            content: [
-              {
-                type: 'image_url',
-                image_url: { url: `data:image/jpeg;base64,${base64Image}`, detail: 'high' },
-              },
-              {
-                type: 'text',
-                text: `Look carefully at this photo of LEGO pieces. Your job is to find EVERY individual piece — do not skip any.
-
-Step 1: Scan the image systematically from top-left to bottom-right. Count every shield, every minifigure, and every other loose part.
-Step 2: For each piece, record its ACTUAL position (not an estimate — look at where it really is).
-
-Return ONLY valid JSON in this exact format:
-{"pieces": [{"x": 12.5, "y": 8.0, "w": 9.3, "h": 14.2, "label": "description"}, ...]}
-
-Coordinate rules (IMPORTANT — use ACTUAL pixel locations, not estimates or evenly-spaced guesses):
-- x, y = top-left corner as percentage of image width/height (0–100)
-- w, h = bounding box width and height as percentage of image width/height (0–100)
-- SHIELDS: each shield gets its own box — look for every shield in the image, including those in different rows
-- MINIFIGURES: ONE tight box from top of head/helmet to bottom of feet. A minifig is portrait-shaped (h ≈ 2× w).
-- Keep boxes tight — minimal empty space
-- No duplicate boxes for the same piece
-- Ignore shadows and background`,
-              }
-            ]
-          }],
-        });
-
-        const content = detectionResp.choices[0]?.message?.content || '{"pieces":[]}';
-        const parsed = JSON.parse(content);
-        const rawBoxes: Array<{x: number; y: number; w: number; h: number; label?: string}> =
-          Array.isArray(parsed.pieces) ? parsed.pieces : [];
-
-        pieces = rawBoxes
-          .filter(b => typeof b.x === 'number' && typeof b.y === 'number' &&
-                       typeof b.w === 'number' && typeof b.h === 'number' &&
-                       b.w > 1 && b.h > 1)
-          .slice(0, 24)
-          .map(b => ({
-            x: Math.max(0, Math.min(99, b.x)),
-            y: Math.max(0, Math.min(99, b.y)),
-            w: Math.max(1, Math.min(100 - b.x, b.w)),
-            h: Math.max(1, Math.min(100 - b.y, b.h)),
-            colorName: '',
-            roughName: b.label || '',
-            confidence: 'medium',
-            note: '',
-          }));
-
-        console.log(`[Brickanalyzer] GPT-4o detected ${pieces.length} pieces`);
-
-        // No pre-classification needed — Brickognize will tell us what it is.
-      } catch (gptErr: any) {
-        console.warn('[Brickanalyzer] GPT-4o detection failed, falling back to contour:', gptErr.message);
-        const { detectPieceBoundingBoxes } = await import('./services/contourDetect.js');
-        const contourBoxes = await detectPieceBoundingBoxes(imageBuffer);
-        pieces = contourBoxes.map(b => ({ ...b, colorName: '', roughName: '', confidence: 'medium', note: '' }));
-        console.log(`[Brickanalyzer] Contour fallback found ${pieces.length} regions`);
-      }
+      const { detectPieceBoundingBoxes } = await import('./services/contourDetect.js');
+      const contourBoxes = await detectPieceBoundingBoxes(imageBuffer);
+      const pieces: any[] = contourBoxes.map(b => ({
+        ...b, colorName: '', roughName: '', confidence: 'medium', note: '',
+      }));
+      console.log(`[Brickanalyzer] Contour detection found ${pieces.length} regions`);
 
       if (pieces.length === 0) {
         await db.insert(syncIssues).values({
@@ -3762,26 +3686,14 @@ Coordinate rules (IMPORTANT — use ACTUAL pixel locations, not estimates or eve
           }
         }
 
-        // ── Image fallback: if no thumbnail from inventory/POM, try Rebrickable cache then BL catalog ──
+        // ── Image fallback: if no thumbnail from inventory/POM, try Rebrickable image cache ──
+        // BrickLink catalog URLs are constructed directly in the frontend
+        // (BL API returns protocol-relative URLs that fail URL validation in the proxy)
         if (!thumbnailUrl && piece.partNo) {
-          // 1. Check the Rebrickable image map populated in Step 2b
           const rbImg = rbImageMap.get(piece.partNo.toUpperCase());
           if (rbImg) {
             console.log(`[Brickanalyzer] Using Rebrickable image for ${piece.partNo}`);
             thumbnailUrl = rbImg;
-          } else {
-            // 2. Try BrickLink catalog API for thumbnail (works for both PART and MINIFIG)
-            try {
-              const blApiType = blItemType === 'MINIFIG' ? 'MINIFIG' : 'PART';
-              const { data: itemData } = await bricklinkCatalogRequest(`/items/${blApiType}/${piece.partNo}`);
-              const blThumb = (itemData as any)?.thumbnail_url || (itemData as any)?.image_url || null;
-              if (blThumb) {
-                console.log(`[Brickanalyzer] Got BL catalog image for ${piece.partNo}: ${blThumb}`);
-                thumbnailUrl = blThumb;
-              }
-            } catch (imgErr: any) {
-              // Silently skip — image is optional
-            }
           }
         }
 

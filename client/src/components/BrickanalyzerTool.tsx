@@ -399,25 +399,31 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                     >
                       {/* Thumbnail */}
                       <div className="flex-shrink-0 w-12 h-12 rounded bg-gray-800/80 flex items-center justify-center overflow-hidden">
-                        {repImg ? (
-                          <img
-                            src={`/api/images/proxy?url=${encodeURIComponent(repImg)}`}
-                            alt={grp.partName}
-                            className="w-full h-full object-contain p-0.5"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = `https://img.bricklink.com/ItemImage/PN/${repEntry.colorId ?? 0}/${grp.partNo}.png`;
-                            }}
-                          />
-                        ) : grp.partNo ? (
-                          <img
-                            src={`https://img.bricklink.com/ItemImage/PN/${repEntry.colorId ?? 0}/${grp.partNo}.png`}
-                            alt={grp.partName}
-                            className="w-full h-full object-contain p-0.5"
-                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                          />
-                        ) : (
-                          <Camera className="w-4 h-4 text-gray-700" />
-                        )}
+                        {(() => {
+                          const isMinifig = grp.itemType === 'MINIFIG';
+                          // Rebrickable images go through proxy; BL images rendered directly
+                          const blDirectUrl = grp.partNo
+                            ? isMinifig
+                              ? `https://img.bricklink.com/ItemImage/MN/0/${grp.partNo}.png`
+                              : `https://img.bricklink.com/ItemImage/PN/${repEntry.colorId ?? 0}/${grp.partNo}.png`
+                            : null;
+                          const isRebrickable = repImg?.includes('cdn.rebrickable.com');
+                          const primarySrc = isRebrickable
+                            ? `/api/images/proxy?url=${encodeURIComponent(repImg!)}`
+                            : (repImg && repImg.startsWith('https://')) ? repImg : blDirectUrl;
+                          return primarySrc ? (
+                            <img
+                              src={primarySrc}
+                              alt={grp.partName}
+                              className="w-full h-full object-contain p-0.5"
+                              onError={(e) => {
+                                const el = e.target as HTMLImageElement;
+                                if (blDirectUrl && el.src !== blDirectUrl) { el.src = blDirectUrl; }
+                                else { el.style.display = 'none'; }
+                              }}
+                            />
+                          ) : <Camera className="w-4 h-4 text-gray-700" />;
+                        })()}
                       </div>
 
                       {/* Info */}
