@@ -3323,7 +3323,7 @@ Return ONLY a valid JSON array, no other text. If you cannot identify any pieces
           try {
             const pgRows = await db.select({
               suggestedPrice: priceGuideCache.suggestedPrice,
-              stockAvgPrice: priceGuideCache.stockAvgPrice,
+              stockMaxPrice: priceGuideCache.stockMaxPrice,
               thumbnailUrl: priceGuideCache.thumbnailUrl,
               imageUrl: priceGuideCache.imageUrl,
               itemName: priceGuideCache.itemName,
@@ -3339,7 +3339,7 @@ Return ONLY a valid JSON array, no other text. If you cannot identify any pieces
 
             if (pgRows.length > 0) {
               pomPrice = pgRows[0].suggestedPrice ? Number(pgRows[0].suggestedPrice) : null;
-              marketAvgPrice = pgRows[0].stockAvgPrice ? Number(pgRows[0].stockAvgPrice) : null;
+              marketAvgPrice = pgRows[0].stockMaxPrice ? Number(pgRows[0].stockMaxPrice) : null;
               if (!thumbnailUrl) thumbnailUrl = pgRows[0].thumbnailUrl || pgRows[0].imageUrl || null;
               if (!piece.partName && pgRows[0].itemName) piece.partName = pgRows[0].itemName;
             } else {
@@ -3349,7 +3349,7 @@ Return ONLY a valid JSON array, no other text. If you cannot identify any pieces
               );
               if (pgData) {
                 pomPrice = pgData.suggestedPrice ? Number(pgData.suggestedPrice) : null;
-                marketAvgPrice = pgData.stockAvgPrice ? Number(pgData.stockAvgPrice) : null;
+                marketAvgPrice = pgData.stockMaxPrice ? Number(pgData.stockMaxPrice) : null;
                 if (!thumbnailUrl) thumbnailUrl = pgData.thumbnailUrl || pgData.imageUrl || null;
                 if (!piece.partName && pgData.itemName) piece.partName = pgData.itemName;
               }

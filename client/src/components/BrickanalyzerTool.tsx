@@ -332,7 +332,7 @@ export default function BrickanalyzerTool() {
                     <th className="text-left px-2 py-2 text-gray-400 font-medium">Part</th>
                     <th className="text-right px-2 py-2 text-gray-400 font-medium">POM Price</th>
                     <th className="text-right px-2 py-2 text-gray-400 font-medium">Our Price</th>
-                    <th className="text-right px-2 py-2 text-gray-400 font-medium">Mkt Avg</th>
+                    <th className="text-right px-2 py-2 text-gray-400 font-medium">Mkt High</th>
                     <th className="text-right px-2 py-2 text-gray-400 font-medium">Qty</th>
                     <th className="text-center px-2 py-2 text-gray-400 font-medium">AI</th>
                   </tr>
