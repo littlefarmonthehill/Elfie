@@ -407,6 +407,7 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                 const beUScore = bePeak && bestEntry.ourPriceUsed && bestEntry.ourPriceUsed > 0
                   ? Number((bePeak / bestEntry.ourPriceUsed).toFixed(2)) : null;
                 const beInStock = (bestEntry.ourQtyNew + bestEntry.ourQtyUsed) > 0;
+                const otherEntries = grp.entries.filter(e => e !== bestEntry);
                 const entryScoreColor = (s: number | null) => {
                   if (s === null) return 'text-gray-600';
                   if (s >= 2.0) return 'text-emerald-400';
@@ -530,8 +531,9 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                           </div>
                         </div>
 
-                        {/* All colors sublist */}
-                        <>
+                        {/* All colors sublist — only when other colors exist beyond the best match */}
+                        {otherEntries.length > 0 ? (
+                        <div className="space-y-0">
                           <div className="flex items-center gap-1 px-1 pb-0.5 pt-0.5">
                             <div className="flex-1 min-w-0">
                               <span className="text-[9px] uppercase tracking-wider text-gray-600">All colors</span>
@@ -541,7 +543,7 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                             <span className="text-[9px] uppercase tracking-wider text-gray-400 w-14 text-right flex-shrink-0">U Cur</span>
                             <span className="text-[9px] uppercase tracking-wider text-gray-400 w-[58px] text-right flex-shrink-0">U Score</span>
                           </div>
-                          {grp.entries.map((piece, ei) => {
+                          {otherEntries.map((piece, ei) => {
                               const peak = Math.max(piece.marketSoldMaxNew ?? 0, piece.marketSoldMaxUsed ?? 0) || null;
                               const peakVal = peak && peak > 0 ? peak : null;
                               const nScore = peakVal && piece.ourPriceNew && piece.ourPriceNew > 0
@@ -590,7 +592,7 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                                 </div>
                               );
                             })}
-                          </>
+                        </div>) : null}
                       </div>
                     )}
                   </div>
