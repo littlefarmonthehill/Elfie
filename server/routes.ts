@@ -3263,9 +3263,9 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
           const cropWidth  = x1 - x0;
           const cropHeight = y1 - y0;
 
-          if (cropWidth < 20 || cropHeight < 20) {
+          if (cropWidth < 12 || cropHeight < 12) {
             console.warn(`[Brickanalyzer] Piece ${idx}: crop too small (${cropWidth}×${cropHeight}), skipping`);
-            return { partNo: '', partName: piece.roughName || 'Unknown', colorName: piece.colorName || '', confidence: 'low', note: 'crop region too small' };
+            return [{ partNo: '', partName: piece.roughName || 'Unknown', colorName: piece.colorName || '', confidence: 'low', note: 'crop region too small' }];
           }
 
           // Crop the piece out of the full image (tight crop for parts)

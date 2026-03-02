@@ -131,7 +131,7 @@ export async function detectPieceBoundingBoxes(imageBuffer: Buffer): Promise<Det
 
   // ── Filter by size and convert to % coordinates ────────────────────────
   const totalPx = W * H;
-  const MIN_FILL  = totalPx * 0.0008; // 0.08% — shields fragment due to gold areas; keep small blobs so proximity merge can reassemble them
+  const MIN_FILL  = totalPx * 0.0003; // 0.03% — shields fragment into thin color-band components at work res; allow small blobs through so proximity merge can reassemble them
   const MAX_AREA  = totalPx * 0.80;   // 80%  — ignore if it's the whole image
   const MIN_BOX   = 2;                // minimum 2% dimension in either direction
 
@@ -224,7 +224,7 @@ export async function detectPieceBoundingBoxes(imageBuffer: Buffer): Promise<Det
   //
   // Each resulting segment is accepted only if it contains ≥ SEG_MIN_DENSITY
   // foreground pixels (skips empty background slices at image edges).
-  const FIG_EXPECTED_W  = 12;   // % — typical minifig width at work resolution
+  const FIG_EXPECTED_W  = 12;   // % — minimum expected minifig width at work resolution
   const PART_EXPECTED_W =  8;   // % — typical small part width
   const TALL_THRESH     = 20;   // % — blobs this tall are likely minifigs
   const SEG_MIN_DENSITY = 0.08; // min foreground fraction to accept a segment
@@ -232,7 +232,14 @@ export async function detectPieceBoundingBoxes(imageBuffer: Buffer): Promise<Det
 
   const segmented: DetectedBox[] = [];
   for (const box of merged) {
-    const expectedW = box.h >= TALL_THRESH ? FIG_EXPECTED_W : PART_EXPECTED_W;
+    // For minifig rows, scale expected width with blob height (aspect ratio ≈ 2.2:1 H/W).
+    // This prevents over-slicing when figs are photographed at medium/far distance —
+    // e.g. a 30%-tall fig row gives expectedW=13.5% instead of 12%, yielding N=5
+    // for 5 figs spanning 70% rather than the incorrect N=6 (which creates a stray
+    // half-fig crop that Brickognize cannot identify).
+    const expectedW = box.h >= TALL_THRESH
+      ? Math.max(FIG_EXPECTED_W, box.h * 0.45)
+      : PART_EXPECTED_W;
     const N = Math.round(box.w / expectedW);
     if (N <= 1) { segmented.push(box); continue; }
 
