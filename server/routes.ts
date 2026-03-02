@@ -3220,19 +3220,95 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
   async function processBrickanalyzerScan(scanId: number, imageBuffer: Buffer) {
     try {
       const { default: sharp } = await import('sharp');
-      const { detectPieceBoundingBoxes } = await import('./services/contourDetect.js');
 
       // Get image dimensions for coordinate conversion
       const imgMeta = await sharp(imageBuffer).metadata();
       const imgWidth = imgMeta.width || 1000;
       const imgHeight = imgMeta.height || 1000;
 
-      // ── Step 1: Contour detection (free, local, fast) ──────────────────────
-      console.log('[Brickanalyzer] Step 1: Contour detection...');
-      const contourBoxes = await detectPieceBoundingBoxes(imageBuffer);
-      console.log(`[Brickanalyzer] Contour detection found ${contourBoxes.length} regions`);
+      // ── Step 1: GPT-4o vision — locate every LEGO piece ────────────────────
+      // GPT-4o understands piece boundaries far better than pixel thresholding:
+      // it handles touching pieces of similar colour, angled shields, accessories
+      // attached to minifigs, and cluttered scenes with no tuning required.
+      console.log('[Brickanalyzer] Step 1: GPT-4o piece detection...');
 
-      const pieces: any[] = contourBoxes.map(b => ({ ...b, colorName: '', roughName: '', confidence: 'medium', note: '' }));
+      const [scanSettings] = await db.select().from(appSettings).limit(1);
+      const scanApiKey = scanSettings?.openaiApiKey || process.env.OPENAI_API_KEY;
+      if (!scanApiKey) throw new Error('OpenAI API key not configured — please add it in Settings.');
+
+      const { default: OpenAI } = await import('openai');
+      const gptClient = new OpenAI({ apiKey: scanApiKey });
+
+      // Scale to ≤1600px for the vision call (keeps percentages identical to original)
+      const scaledBuffer = await sharp(imageBuffer)
+        .resize(1600, 1600, { fit: 'inside', withoutEnlargement: true })
+        .jpeg({ quality: 85 })
+        .toBuffer();
+      const base64Image = scaledBuffer.toString('base64');
+
+      let pieces: any[] = [];
+      try {
+        const detectionResp = await gptClient.chat.completions.create({
+          model: 'gpt-4o',
+          max_tokens: 2048,
+          response_format: { type: 'json_object' },
+          messages: [{
+            role: 'user',
+            content: [
+              {
+                type: 'image_url',
+                image_url: { url: `data:image/jpeg;base64,${base64Image}`, detail: 'high' },
+              },
+              {
+                type: 'text',
+                text: `Analyze this photo of LEGO pieces and return a bounding box for every distinct LEGO piece, minifigure, and accessory visible.
+
+Return ONLY valid JSON in this exact format:
+{"pieces": [{"x": 12.5, "y": 8.0, "w": 9.3, "h": 14.2, "label": "blue triangular shield"}, ...]}
+
+Coordinate rules:
+- x, y = top-left corner as percentage of image width/height (0–100)
+- w, h = bounding box width and height as percentage of image width/height (0–100)
+- Give each minifigure ONE box covering head-to-toe (include hat/helmet in height)
+- Give every shield, weapon, tile, brick, or other loose part its OWN separate box
+- Maximum 24 pieces total
+- No duplicate boxes for the same piece
+- Keep boxes tight — minimal empty space around each piece
+- Ignore shadows and the background surface`,
+              }
+            ]
+          }],
+        });
+
+        const content = detectionResp.choices[0]?.message?.content || '{"pieces":[]}';
+        const parsed = JSON.parse(content);
+        const rawBoxes: Array<{x: number; y: number; w: number; h: number; label?: string}> =
+          Array.isArray(parsed.pieces) ? parsed.pieces : [];
+
+        pieces = rawBoxes
+          .filter(b => typeof b.x === 'number' && typeof b.y === 'number' &&
+                       typeof b.w === 'number' && typeof b.h === 'number' &&
+                       b.w > 1 && b.h > 1)
+          .slice(0, 24)
+          .map(b => ({
+            x: Math.max(0, Math.min(99, b.x)),
+            y: Math.max(0, Math.min(99, b.y)),
+            w: Math.max(1, Math.min(100 - b.x, b.w)),
+            h: Math.max(1, Math.min(100 - b.y, b.h)),
+            colorName: '',
+            roughName: b.label || '',
+            confidence: 'medium',
+            note: '',
+          }));
+
+        console.log(`[Brickanalyzer] GPT-4o detected ${pieces.length} pieces`);
+      } catch (gptErr: any) {
+        console.warn('[Brickanalyzer] GPT-4o detection failed, falling back to contour:', gptErr.message);
+        const { detectPieceBoundingBoxes } = await import('./services/contourDetect.js');
+        const contourBoxes = await detectPieceBoundingBoxes(imageBuffer);
+        pieces = contourBoxes.map(b => ({ ...b, colorName: '', roughName: '', confidence: 'medium', note: '' }));
+        console.log(`[Brickanalyzer] Contour fallback found ${pieces.length} regions`);
+      }
 
       if (pieces.length === 0) {
         await db.insert(syncIssues).values({
@@ -3274,8 +3350,8 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
             .jpeg({ quality: 90 })
             .toBuffer();
 
-          // Wider crop for figs — contour may have caught only one component of an assembled minifig
-          // (e.g. just the legs). A 35% pad gives Brickognize the full assembled figure in context.
+          // Wider crop for figs — GPT-4o gives a tight head-to-toe box but a 15% pad gives
+          // Brickognize extra context around the full assembled figure.
           const fx0 = Math.max(0, Math.round(((piece.x ?? 0) / 100 - FIG_PADDING) * imgWidth));
           const fy0 = Math.max(0, Math.round(((piece.y ?? 0) / 100 - FIG_PADDING) * imgHeight));
           const fx1 = Math.min(imgWidth,  Math.round((((piece.x ?? 0) + (piece.w ?? 20)) / 100 + FIG_PADDING) * imgWidth));
@@ -3768,8 +3844,8 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       // Sort by best price descending
       enriched.sort((a, b) => (b.bestPrice ?? 0) - (a.bestPrice ?? 0));
 
-      // Deduplicate: the wider figs crop means multiple contour regions for the same assembled
-      // minifig can all correctly identify the same fig ID — keep only the first (highest-priced) result.
+      // Deduplicate: GPT-4o gives one box per fig, but the wider fig crop padding means
+      // adjacent fig boxes can overlap and both return the same fig ID. Keep only the first (highest-priced).
       // For parts, duplicate part numbers with different colors are legitimate — only dedup if same color too.
       const seen = new Map<string, boolean>();
       const deduped = enriched.filter(p => {
