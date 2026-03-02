@@ -106,8 +106,10 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
       if (!res.ok) throw new Error("Failed to fetch scan");
       return res.json();
     },
-    enabled: !!scanId && uiState === "processing",
-    refetchInterval: 3000,
+    // Run whenever we have a scanId (fetches results on restore too, not just during polling)
+    enabled: !!scanId,
+    // Poll every 3s while processing; single fetch once complete/failed
+    refetchInterval: uiState === "processing" ? 3000 : false,
   });
 
   // Transition out of "processing" via useEffect — safe, outside render
