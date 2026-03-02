@@ -424,7 +424,7 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                             }
                           </div>
                           <div className="flex items-baseline gap-1">
-                            <span className="text-[9px] text-gray-400 uppercase tracking-wider">Mkt Avg</span>
+                            <span className="text-[9px] text-gray-400 uppercase tracking-wider">Sold Hi</span>
                             {bestMkt !== null
                               ? <span className="text-[11px] font-mono text-gray-200">${bestMkt.toFixed(2)}</span>
                               : <span className="text-[11px] text-gray-500">—</span>
@@ -466,7 +466,7 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                                 }
                               </div>
                               <div className="flex items-baseline gap-1">
-                                <span className="text-[9px] text-gray-400 uppercase">Mkt Avg</span>
+                                <span className="text-[9px] text-gray-400 uppercase">Sold Hi</span>
                                 {piece.marketAvgPrice !== null
                                   ? <span className="text-[11px] font-mono text-gray-200">${piece.marketAvgPrice.toFixed(2)}</span>
                                   : <span className="text-[11px] text-gray-500">—</span>
