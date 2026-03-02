@@ -1164,24 +1164,24 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
               <div className="text-xs md:text-base lg:text-lg text-lego-green font-mono">${Math.round(totalRevenue).toLocaleString()}</div>
             </div>
           </div>
-          {adjustmentSummary && (adjustmentSummary.totalRefunds > 0 || adjustmentSummary.totalFees > 0 || adjustmentSummary.totalShipping > 0) && (
+          {adjustmentSummary && (
             <div className="mt-2 pt-2 border-t border-yellow-500/10 grid grid-cols-4 gap-2">
               <div className="text-center">
                 <div className="text-[9px] md:text-xs text-gray-600">Refunds</div>
                 <div className="text-[10px] md:text-sm text-lego-red font-mono">
-                  {adjustmentSummary.totalRefunds > 0 ? `-$${adjustmentSummary.totalRefunds.toFixed(2)}` : '—'}
+                  {adjustmentSummary.totalRefunds > 0 ? `-$${adjustmentSummary.totalRefunds.toFixed(2)}` : '$0.00'}
                 </div>
               </div>
               <div className="text-center">
                 <div className="text-[9px] md:text-xs text-gray-600">Merchant Fees</div>
                 <div className="text-[10px] md:text-sm text-amber-500/70 font-mono">
-                  {adjustmentSummary.totalFees > 0 ? `-$${adjustmentSummary.totalFees.toFixed(2)}` : '—'}
+                  {adjustmentSummary.totalFees > 0 ? `-$${adjustmentSummary.totalFees.toFixed(2)}` : '$0.00'}
                 </div>
               </div>
               <div className="text-center">
                 <div className="text-[9px] md:text-xs text-gray-600">Shipping</div>
                 <div className="text-[10px] md:text-sm text-amber-500/70 font-mono">
-                  {adjustmentSummary.totalShipping > 0 ? `-$${adjustmentSummary.totalShipping.toFixed(2)}` : '—'}
+                  {adjustmentSummary.totalShipping > 0 ? `-$${adjustmentSummary.totalShipping.toFixed(2)}` : '$0.00'}
                 </div>
               </div>
               <div className="text-center">
