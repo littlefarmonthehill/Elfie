@@ -80,6 +80,12 @@ function scoreBadgeBg(score: number) {
   return "bg-gray-800/60 border-gray-700/30 text-gray-500";
 }
 
+function decodeHtml(str: string): string {
+  const txt = document.createElement('textarea');
+  txt.innerHTML = str;
+  return txt.value;
+}
+
 export default function ListomaticPriority() {
   const { toast } = useToast();
   const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({ key: 'score', dir: 'desc' });
@@ -410,7 +416,7 @@ export default function ListomaticPriority() {
 
       {/* Category sample Dialog — shows top 5 parts by quantity */}
       <Dialog open={!!sampleCat} onOpenChange={open => { if (!open) setSampleCat(null); }}>
-        <DialogContent className="bg-gray-900 border-gray-700 text-gray-200 max-w-sm z-[9999]">
+        <DialogContent className="bg-gray-900 border-gray-700 text-gray-200 max-w-sm z-[9999] overflow-hidden">
           <DialogHeader>
             <DialogTitle className="text-sm font-semibold text-gray-200 pr-6 leading-snug break-words">
               {sampleCat?.name}
@@ -438,9 +444,11 @@ export default function ListomaticPriority() {
                       {item.itemNo}
                     </div>
                   )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-gray-200 truncate">{item.itemName ?? '—'}</p>
-                    <p className="text-[10px] text-gray-500 font-mono">
+                  <div className="flex-1 min-w-0 overflow-hidden">
+                    <p className="text-xs font-medium text-gray-200 truncate">
+                      {item.itemName ? decodeHtml(item.itemName) : '—'}
+                    </p>
+                    <p className="text-[10px] text-gray-500 font-mono truncate">
                       #{item.itemNo}{item.colorName ? ` · ${item.colorName}` : ''}
                     </p>
                   </div>
