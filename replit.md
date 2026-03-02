@@ -58,7 +58,7 @@ The frontend uses React 18+, TypeScript, Vite, Shadcn/ui, and Tailwind CSS, feat
 -   **Notification System:** Dismissible, severity-grouped notification center for sync errors.
 -   **Platform Sync:** Multi-platform inventory synchronization system with BrickLink as the source of truth, offering manual sync, real-time progress, and discrepancy detection.
 -   **Picklist & Fulfillment:** Bin-level picking system and an order fulfillment system with actions for packing slips, shipping, and order splitting.
--   **Shipped Orders:** Customer support tool for searching and reprinting documents.
+-   **Shipped Orders:** Customer support tool for searching and reprinting documents. Supports "Mark as Test Order" toggle (via Print dropdown) for shipped orders that have a refund and $0 net total — hides the order and customer from all dashboards and analytics.
 -   **Order Sync Tester:** Dry-run tool for validating order sync logic.
 -   **Sales Analytics:** Year-over-Year Sales Comparison, Platform Comparison Analysis, and Platform Performance Dashboard.
 -   **AI Intelligence & Embeddings Management:** Settings for AI configuration, server-side background jobs for embedding generation (inventory, orders, order details, set-parts using `text-embedding-3-small`), and a semantic search testing interface. Includes analytical tools for inventory aging, margin analysis, SKU performance, and sales by category, with automatic re-embedding triggers.

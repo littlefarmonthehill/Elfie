@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
-import { Search, Package, Loader2, Printer, Tag, FileText, ChevronDown, RotateCcw, ScanLine, ExternalLink } from "lucide-react";
+import { Search, Package, Loader2, Printer, Tag, FileText, ChevronDown, RotateCcw, ScanLine, FlaskConical } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -28,6 +28,7 @@ type ShippedOrder = {
   marketplace: string | null;
   shipTo: string | null;
   orderStatus: string;
+  isTest: boolean;
   trackingNumber: string | null;
   carrier: string | null;
   service: string | null;
@@ -44,7 +45,7 @@ export default function ShippedOrdersTool() {
   const returnToQueueMutation = useMutation({
     mutationFn: async (orderId: string) =>
       apiRequest('POST', `/api/orders/${encodeURIComponent(orderId)}/status`, { status: 'awaiting_shipment' }),
-    onSuccess: (_data, orderId) => {
+    onSuccess: () => {
       toast({ title: "Order returned to fulfillment queue" });
       queryClient.invalidateQueries({ queryKey: ['/api/orders/shipped'] });
       queryClient.invalidateQueries({ queryKey: ['/api/fulfillment'] });
@@ -53,6 +54,30 @@ export default function ShippedOrdersTool() {
     },
     onError: (err: any) => {
       toast({ title: "Failed to return order", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const toggleTestMutation = useMutation({
+    mutationFn: async (orderId: string) =>
+      apiRequest('PATCH', `/api/orders/${encodeURIComponent(orderId)}/toggle-test`),
+    onSuccess: (data: any, orderId) => {
+      toast({
+        title: data.isTest ? "Marked as test order" : "Test flag removed",
+        description: data.isTest
+          ? "This order and customer are now hidden from all dashboards."
+          : "This order is now visible in dashboards again.",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/orders/shipped'] });
+    },
+    onError: (err: any) => {
+      let msg = "Failed to update test flag";
+      try {
+        const raw = err?.message || "";
+        const jsonStr = raw.includes(": ") ? raw.substring(raw.indexOf(": ") + 2) : raw;
+        const parsed = JSON.parse(jsonStr);
+        msg = parsed.error || msg;
+      } catch {}
+      toast({ title: "Cannot mark as test", description: msg, variant: "destructive" });
     },
   });
 
@@ -198,13 +223,19 @@ export default function ShippedOrdersTool() {
                   <div className="flex items-start justify-between gap-4">
                     {/* Order Info */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-2">
+                      <div className="flex items-center gap-2 mb-2 flex-wrap">
                         <h3 className="text-sm font-mono font-bold text-white">
                           {order.orderNumber}
                         </h3>
                         {order.marketplace && (
                           <Badge variant="outline" className="text-xs">
                             {order.marketplace}
+                          </Badge>
+                        )}
+                        {order.isTest && (
+                          <Badge className="text-xs bg-purple-900/60 text-purple-300 border border-purple-700/50 gap-1">
+                            <FlaskConical className="w-3 h-3" />
+                            Test
                           </Badge>
                         )}
                       </div>
@@ -282,6 +313,19 @@ export default function ShippedOrdersTool() {
                             : <ScanLine className="w-4 h-4 mr-2" />
                           }
                           Print EOD Form
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => toggleTestMutation.mutate(order.id)}
+                          disabled={toggleTestMutation.isPending}
+                          data-testid={`menu-toggle-test-${order.orderNumber}`}
+                          className="text-purple-400 focus:text-purple-300"
+                        >
+                          {toggleTestMutation.isPending
+                            ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            : <FlaskConical className="w-4 h-4 mr-2" />
+                          }
+                          {order.isTest ? "Remove Test Flag" : "Mark as Test Order"}
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem

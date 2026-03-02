@@ -265,7 +265,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         // Query orders that have at least one item matching the product line
-        let whereConditions = sql`o.order_status NOT IN ('cancelled', 'Cancelled') AND ${productLineCondition}`;
+        let whereConditions = sql`o.order_status NOT IN ('cancelled', 'Cancelled') AND o.is_test = false AND ${productLineCondition}`;
         
         if (platform) {
           whereConditions = sql`${whereConditions} AND (o.marketplace = ${platform} OR (o.marketplace IS NULL AND ${platform} = 'Unknown'))`;
@@ -328,15 +328,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         orderStatus: orders.orderStatus,
       };
 
+      const isTestExclude = sql`${orders.isTest} = false`;
       const allOrders = dateFilter
         ? endDateFilter
           ? await db.select(selectFields).from(orders)
-              .where(sql`${orders.orderDate} >= ${dateFilter.toISOString()} AND ${orders.orderDate} < ${endDateFilter.toISOString()}`)
+              .where(and(isTestExclude, sql`${orders.orderDate} >= ${dateFilter.toISOString()} AND ${orders.orderDate} < ${endDateFilter.toISOString()}`))
               .orderBy(desc(orders.orderDate))
           : await db.select(selectFields).from(orders)
-              .where(sql`${orders.orderDate} >= ${dateFilter.toISOString()}`)
+              .where(and(isTestExclude, sql`${orders.orderDate} >= ${dateFilter.toISOString()}`))
               .orderBy(desc(orders.orderDate))
-        : await db.select(selectFields).from(orders).orderBy(desc(orders.orderDate));
+        : await db.select(selectFields).from(orders)
+            .where(isTestExclude)
+            .orderBy(desc(orders.orderDate));
       
       const responseSize = JSON.stringify(allOrders).length;
       console.log(`📊 Sending ${allOrders.length} order summaries (no details), response size: ${(responseSize / 1024 / 1024).toFixed(2)} MB (dateFilter: ${dateFilter ? 'set' : 'none'})`);
@@ -353,11 +356,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // Parse date range parameter
       const range = req.query.range as string;
+      // lean=true skips fetching line items — used by Marketing dashboard for performance
+      const lean = req.query.lean === 'true';
       let dateFilter: Date | null = null;
       let endDateFilter: Date | null = null;
       
       // Debug logging
-      console.log(`📊 Orders API called with range: ${range || 'none'}`);
+      console.log(`📊 Orders API called with range: ${range || 'none'}, lean: ${lean}`);
       
       if (range && range !== 'all') {
         const now = new Date();
@@ -384,21 +389,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Fetch orders with optional date filter
+      // Build where clause — always exclude test orders from analytics
+      const isTestFilter = sql`${orders.isTest} = false`;
+      const buildWhere = (dateClause: any) =>
+        dateClause ? and(isTestFilter, dateClause) : isTestFilter;
+
       const allOrders = dateFilter
         ? endDateFilter
           ? await db.select().from(orders)
-              .where(sql`${orders.orderDate} >= ${dateFilter.toISOString()} AND ${orders.orderDate} < ${endDateFilter.toISOString()}`)
+              .where(buildWhere(sql`${orders.orderDate} >= ${dateFilter.toISOString()} AND ${orders.orderDate} < ${endDateFilter.toISOString()}`))
               .orderBy(desc(orders.orderDate))
           : await db.select().from(orders)
-              .where(sql`${orders.orderDate} >= ${dateFilter.toISOString()}`)
+              .where(buildWhere(sql`${orders.orderDate} >= ${dateFilter.toISOString()}`))
               .orderBy(desc(orders.orderDate))
-        : await db.select().from(orders).orderBy(desc(orders.orderDate));
+        : await db.select().from(orders)
+            .where(isTestFilter)
+            .orderBy(desc(orders.orderDate));
       
       console.log(`📊 Fetched ${allOrders.length} orders (dateFilter: ${dateFilter ? 'set' : 'none'})`);
       
       if (allOrders.length === 0) {
         res.json([]);
+        return;
+      }
+
+      // lean mode: skip line items — orders only (much smaller response)
+      if (lean) {
+        res.json(allOrders);
         return;
       }
       
@@ -460,6 +477,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           FROM orders o
           LEFT JOIN adj a ON a.order_id = o.id
           WHERE o.order_status IN ('awaiting_payment', 'awaiting_shipment')
+            AND o.is_test = false
           ORDER BY o.order_date DESC
           LIMIT 5
         `),
@@ -469,6 +487,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           FROM orders o
           LEFT JOIN adj a ON a.order_id = o.id
           WHERE o.order_status = 'shipped'
+            AND o.is_test = false
           ORDER BY o.order_date DESC
           LIMIT 5
         `),
@@ -479,6 +498,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           LEFT JOIN adj a ON a.order_id = o.id
           WHERE o.order_total IS NOT NULL AND o.order_total::numeric > 0
             AND o.order_status NOT IN ('cancelled', 'Cancelled')
+            AND o.is_test = false
           ORDER BY net_total DESC
           LIMIT 5
         `),
@@ -541,6 +561,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           marketplace: orders.marketplace,
           shipTo: orders.shipTo,
           orderStatus: orders.orderStatus,
+          isTest: orders.isTest,
           trackingNumber: shipments.trackingNumber,
           carrier: shipments.carrier,
           service: shipments.service,
@@ -556,6 +577,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching shipped orders:", error);
       res.status(500).json({ error: "Failed to fetch shipped orders" });
+    }
+  });
+
+  // Toggle test order flag — only for shipped orders with net total of $0 and a refund
+  app.patch("/api/orders/:id/toggle-test", isApproved, async (req, res) => {
+    try {
+      const orderId = decodeURIComponent(req.params.id);
+
+      const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+      if (!order) return res.status(404).json({ error: "Order not found" });
+
+      // Verify eligibility: must have a refund adjustment and net total ≤ 0
+      const adjResult = await db.execute(sql`
+        SELECT COALESCE(SUM(ABS(amount::numeric)) FILTER (WHERE type = 'refund'), 0) AS refund_total
+        FROM order_adjustments WHERE order_id = ${orderId}
+      `);
+      const refundTotal = parseFloat((adjResult.rows[0] as any)?.refund_total ?? '0');
+      const orderTotal = parseFloat(order.orderTotal ?? '0');
+      const netTotal = orderTotal - refundTotal;
+
+      if (!order.isTest && (refundTotal === 0 || netTotal > 0.01)) {
+        return res.status(400).json({
+          error: "Cannot mark as test: order must have a refund and a net total of $0",
+          refundTotal,
+          netTotal,
+        });
+      }
+
+      const [updated] = await db.update(orders)
+        .set({ isTest: !order.isTest, updatedAt: new Date() })
+        .where(eq(orders.id, orderId))
+        .returning();
+
+      res.json({ isTest: updated.isTest });
+    } catch (error) {
+      console.error("Error toggling test flag:", error);
+      res.status(500).json({ error: "Failed to toggle test flag" });
     }
   });
 
@@ -592,7 +650,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Build WHERE conditions
-      let whereConditions = sql`o.order_status NOT IN ('cancelled', 'Cancelled')`;
+      let whereConditions = sql`o.order_status NOT IN ('cancelled', 'Cancelled') AND o.is_test = false`;
       if (dateFilter && !endDateFilter) {
         whereConditions = sql`${whereConditions} AND o.order_date >= ${dateFilter}`;
       } else if (dateFilter && endDateFilter) {
@@ -659,7 +717,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // SKU is now standardized to BrickLink inventory ID for both platforms
       
       // Build WHERE conditions for the query
-      let whereConditions = sql`o.order_status NOT IN ('cancelled', 'Cancelled')`;
+      let whereConditions = sql`o.order_status NOT IN ('cancelled', 'Cancelled') AND o.is_test = false`;
       if (dateFilter && !endDateFilter) {
         whereConditions = sql`${whereConditions} AND o.order_date >= ${dateFilter}`;
       } else if (dateFilter && endDateFilter) {
@@ -744,7 +802,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Build WHERE conditions
-      let whereConditions = sql`o.order_status NOT IN ('cancelled', 'Cancelled')`;
+      let whereConditions = sql`o.order_status NOT IN ('cancelled', 'Cancelled') AND o.is_test = false`;
       if (dateFilter && !endDateFilter) {
         whereConditions = sql`${whereConditions} AND o.order_date >= ${dateFilter}`;
       } else if (dateFilter && endDateFilter) {

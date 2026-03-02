@@ -39,17 +39,14 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick }: M
   };
 
   const { data: orders = [], isLoading } = useQuery<Order[]>({
-    queryKey: ['/api/orders', dateRange],
+    queryKey: ['/api/orders', 'marketing', dateRange],
     queryFn: async () => {
-      const url = buildQueryUrl('/api/orders');
-      console.log(`[MarketingDashboard] Fetching orders with dateRange="${dateRange}", URL: ${url}`);
-      const response = await fetch(url);
+      const url = `${buildQueryUrl('/api/orders')}&lean=true`;
+      const response = await fetch(url, { credentials: 'include' });
       if (!response.ok) throw new Error('Failed to fetch orders');
-      const data = await response.json();
-      console.log(`[MarketingDashboard] Received ${data.length} orders for dateRange="${dateRange}"`);
-      return data;
+      return response.json();
     },
-    staleTime: 30000, // Cache for 30 seconds
+    staleTime: 30000,
   });
 
   // Calculate customer metrics

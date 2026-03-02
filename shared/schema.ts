@@ -191,6 +191,7 @@ export const orders = pgTable("orders", {
   inventoryDeducted: boolean("inventory_deducted").default(false).notNull(), // True once inventory has been reduced for this order
   paypalOrderId: text("paypal_order_id"),   // PayPal Order ID (from T0006 reference type ODR)
   paypalCaptureId: text("paypal_capture_id"), // PayPal Capture ID = T0006 transaction_id; used to query /v2/payments/captures/{id} and match webhooks
+  isTest: boolean("is_test").default(false).notNull(), // True for test/return orders — excluded from all dashboards
   syncedAt: timestamp("synced_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
