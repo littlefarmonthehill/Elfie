@@ -5891,6 +5891,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
                  COUNT(*) FILTER (WHERE quantity = 0)              AS sold_out_lots,
                  COUNT(*)                                          AS total_lots
           FROM ${blInventory}
+          WHERE item_type = 'P'
           GROUP BY category_id
         ) inv ON c.id = inv.category_id
         LEFT JOIN (
@@ -5899,6 +5900,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
           JOIN ${orders} o ON od.order_id = o.id
           JOIN ${blInventory} i ON od.sku = CAST(i.id AS TEXT)
           WHERE o.order_status NOT IN ('cancelled', 'Cancelled')
+            AND i.item_type = 'P'
           GROUP BY i.category_id
         ) sold ON c.id = sold.category_id
         WHERE COALESCE(inv.current_qty, 0) + COALESCE(inv.sold_out_lots, 0) + COALESCE(sold.total_sold, 0) > 0
@@ -5965,7 +5967,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
           thumbnailUrl: blInventory.thumbnailUrl,
         })
         .from(blInventory)
-        .where(eq(blInventory.categoryId, categoryId))
+        .where(and(eq(blInventory.categoryId, categoryId), eq(blInventory.itemType, 'P')))
         .orderBy(desc(blInventory.quantity))
         .limit(5);
 
