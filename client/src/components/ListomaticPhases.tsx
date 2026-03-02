@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { X, GripVertical, Layers, SplitSquareHorizontal, Tag, FolderOpen } from "lucide-react";
+import { X, GripVertical, Layers, SplitSquareHorizontal, Tag, FolderOpen, Info, Puzzle, User } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { createPortal } from "react-dom";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface PhaseCategory {
   id: number;
@@ -25,6 +26,8 @@ const PHASE_CONFIG: Record<PhaseKey, {
   dot: string;
   partsDetail: string;
   mfDetail: string;
+  partsInfo: string[];
+  mfInfo: string[];
 }> = {
   category: {
     label: "Phase 1 — Category",
@@ -36,6 +39,18 @@ const PHASE_CONFIG: Record<PhaseKey, {
     dot: "bg-amber-400",
     partsDetail: "Broad grouping (Misc, Weapons, Accessories)",
     mfDetail: "Broad grouping (Minifigs)",
+    partsInfo: [
+      "Sort all loose parts into their broadest functional buckets.",
+      "Typical groups: Misc, Weapons, Accessories, Structural, Technic, Bricks, Plates, Tiles, etc.",
+      "Goal: clear the unsorted pile and create defined starting piles for the next phase.",
+      "Don't overthink sub-categories yet — speed matters here.",
+    ],
+    mfInfo: [
+      "Pull all minifigures and minifig components into a single Minifigs bucket.",
+      "Separate complete figures from loose torsos, legs, heads, and accessories.",
+      "Sub-types to identify: standard figs, Star Wars, Castle, City, licensed themes.",
+      "Goal: isolate all human-shaped elements before detailed sorting begins.",
+    ],
   },
   subcategory: {
     label: "Phase 2 — Subcategory",
@@ -47,6 +62,19 @@ const PHASE_CONFIG: Record<PhaseKey, {
     dot: "bg-blue-400",
     partsDetail: "Cluster within the category",
     mfDetail: "Cluster within the category",
+    partsInfo: [
+      "Break each broad category pile into tighter sub-groups.",
+      "Example: Bricks → 1×1, 1×2, 1×4, 2×2, 2×4, etc.",
+      "Example: Technic → Beams, Connectors, Axles, Gears, Panels.",
+      "Example: Accessories → Hats, Tools, Weapons, Food, Animals.",
+      "Goal: each sub-pile should be small enough to sort by color in the next phase.",
+    ],
+    mfInfo: [
+      "Cluster minifig components by body part and major theme.",
+      "Separate: Heads, Torsos, Legs, Hats/Hair, Accessories.",
+      "Group torsos by theme cluster (City, Castle, Space, Licensed, etc.).",
+      "Goal: create tight sub-groups that allow fast color and deco sorting later.",
+    ],
   },
   finalsort: {
     label: "Phase 3 — Final Sort",
@@ -58,6 +86,18 @@ const PHASE_CONFIG: Record<PhaseKey, {
     dot: "bg-purple-400",
     partsDetail: "Shape Sort",
     mfDetail: "Hue Sort → Final Color Sort",
+    partsInfo: [
+      "Sort each sub-category pile by shape within that group.",
+      "Example: 1×2 Bricks sorted by stud count, then slope angle, then special features.",
+      "Decorated or printed parts are pulled out and handled separately.",
+      "Goal: each pile now contains one specific shape ready for a color pass.",
+    ],
+    mfInfo: [
+      "Sort each minifig sub-group by hue (warm → cool spectrum).",
+      "Hue order: Red → Orange → Yellow → Green → Blue → Purple → Brown → Grey → Black → White.",
+      "Within each hue, sort Light → Dark shade.",
+      "Goal: produce a hue-ordered pile per body part for the final color precision sort.",
+    ],
   },
   listing: {
     label: "Phase 4 — Listing",
@@ -69,6 +109,21 @@ const PHASE_CONFIG: Record<PhaseKey, {
     dot: "bg-green-400",
     partsDetail: "Variation Sort → Final Color Sort",
     mfDetail: "Deco Group → Torso Deco → Variation of Torso → Final MF / Torso Sort",
+    partsInfo: [
+      "Variation Sort: within each shape-sorted pile, split by part variation (stud type, pin hole, etc.).",
+      "Final Color Sort: sort each variation by BrickLink color ID order for consistent listing.",
+      "Count and bag each color-variation combo; note quantity for inventory entry.",
+      "Flag any damaged, discolored, or non-LEGO parts before bagging.",
+      "Goal: each bag = one BrickLink lot, ready to weigh, price, and list.",
+    ],
+    mfInfo: [
+      "Deco Group: separate torsos by decoration type (plain, printed, stickered).",
+      "Torso Deco: within printed torsos, cluster by decoration theme (uniform, civilian, licensed).",
+      "Variation of Torso: identify arm-color variations of the same torso print.",
+      "Final MF / Torso Sort: arrange by BrickLink color order within each variation group.",
+      "Count, bag, and photograph each unique torso combo; note condition and completeness.",
+      "Goal: each bag = one BrickLink lot with accurate variation metadata ready to list.",
+    ],
   },
 };
 
@@ -269,9 +324,64 @@ export function ListomaticPhases() {
             <div className="flex items-start gap-2 px-3 py-2.5 border-b border-white/10">
               <Icon className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${cfg.color}`} />
               <div className="flex-1 min-w-0">
-                <p className={`text-xs font-semibold ${cfg.color} uppercase tracking-wider`}>
-                  {cfg.label}
-                </p>
+                <div className="flex items-center gap-1.5">
+                  <p className={`text-xs font-semibold ${cfg.color} uppercase tracking-wider`}>
+                    {cfg.label}
+                  </p>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button
+                        className="text-gray-500 hover:text-gray-300 transition-colors flex-shrink-0"
+                        data-testid={`info-${phase}`}
+                        title="What happens in this phase"
+                      >
+                        <Info className="w-3 h-3" />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      side="bottom"
+                      align="start"
+                      className="w-80 bg-gray-900 border-gray-700 p-0 shadow-xl"
+                    >
+                      <div className={`px-3 py-2 border-b border-gray-700 flex items-center gap-1.5`}>
+                        <Icon className={`w-3.5 h-3.5 ${cfg.color}`} />
+                        <span className={`text-xs font-semibold ${cfg.color} uppercase tracking-wider`}>
+                          {cfg.label}
+                        </span>
+                      </div>
+                      <div className="p-3 space-y-3">
+                        <div>
+                          <div className="flex items-center gap-1.5 mb-1.5">
+                            <Puzzle className="w-3 h-3 text-gray-400 shrink-0" />
+                            <span className="text-[10px] font-semibold text-gray-300 uppercase tracking-wider">LEGO Parts</span>
+                          </div>
+                          <ul className="space-y-1">
+                            {cfg.partsInfo.map((line, i) => (
+                              <li key={i} className="flex gap-1.5 text-[11px] text-gray-400">
+                                <span className={`mt-0.5 shrink-0 w-1 h-1 rounded-full ${cfg.dot} mt-[5px]`} />
+                                {line}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                        <div className="border-t border-gray-700/60 pt-3">
+                          <div className="flex items-center gap-1.5 mb-1.5">
+                            <User className="w-3 h-3 text-gray-400 shrink-0" />
+                            <span className="text-[10px] font-semibold text-gray-300 uppercase tracking-wider">Minifigures</span>
+                          </div>
+                          <ul className="space-y-1">
+                            {cfg.mfInfo.map((line, i) => (
+                              <li key={i} className="flex gap-1.5 text-[11px] text-gray-400">
+                                <span className={`mt-0.5 shrink-0 w-1 h-1 rounded-full ${cfg.dot} mt-[5px]`} />
+                                {line}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
                 <p className="text-[10px] text-gray-400 mt-0.5">
                   <span className="text-gray-300">Parts:</span> {cfg.partsDetail}
                 </p>
