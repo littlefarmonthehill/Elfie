@@ -2,7 +2,7 @@ import { useState } from "react";
 import MetricCard from "./MetricCard";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import { InfoIcon, AlertCircle, Package, TrendingUp, Clock, Sparkles, Warehouse, RefreshCw, Info } from "lucide-react";
+import { InfoIcon, AlertCircle, Package, TrendingUp, Clock, Sparkles, Warehouse, RefreshCw, Info, ListChecks } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -25,6 +25,7 @@ import { formatDistanceToNow } from "date-fns";
 import PriceOMaticDashboard from "./PriceOMaticDashboard";
 import WarehouseManagement from "./WarehouseManagement";
 import PlatformSyncTool from "./PlatformSyncTool";
+import ListomaticPriority from "./ListomaticPriority";
 
 interface InventoryStats {
   totalLots: number;
@@ -359,19 +360,15 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
 
       {/* List O Matic Drawer */}
       <Drawer open={activeDrawer === 'platformsync'} onOpenChange={(open) => !open && onDrawerChange(null)}>
-        <DrawerContent className="h-[90vh]">
+        <DrawerContent className="h-[92dvh] flex flex-col">
           <DrawerHeader>
             <DrawerTitle className="flex items-center gap-2 text-base md:text-lg">
-              <RefreshCw className="w-5 h-5 text-purple-400" />
-              List O Matic
+              <ListChecks className="w-5 h-5 text-green-400" />
+              List-o-Matic
             </DrawerTitle>
           </DrawerHeader>
-          <div className="overflow-y-auto px-4 pb-4 flex-1 flex items-center justify-center">
-            <div className="text-center text-gray-500">
-              <RefreshCw className="w-10 h-10 mx-auto mb-3 opacity-30" />
-              <p className="text-sm font-medium">List O Matic</p>
-              <p className="text-xs mt-1">Coming soon</p>
-            </div>
+          <div className="overflow-y-auto px-4 pb-4 flex-1">
+            <ListomaticPriority />
           </div>
         </DrawerContent>
       </Drawer>

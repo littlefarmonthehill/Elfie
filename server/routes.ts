@@ -5857,6 +5857,115 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
     }
   });
 
+  // List-o-Matic Priority Score List
+  app.get("/api/listomatc/priority", isApproved, async (req, res) => {
+    try {
+      const [cfg] = await db.select({
+        lomCategoryScore: appSettings.lomCategoryScore,
+        lomSubcategoryScore: appSettings.lomSubcategoryScore,
+        lomFinalsortScore: appSettings.lomFinalsortScore,
+        lomListingScore: appSettings.lomListingScore,
+      }).from(appSettings).limit(1);
+
+      const phaseScores: Record<string, number> = {
+        category: cfg?.lomCategoryScore ?? 25,
+        subcategory: cfg?.lomSubcategoryScore ?? 50,
+        finalsort: cfg?.lomFinalsortScore ?? 75,
+        listing: cfg?.lomListingScore ?? 100,
+      };
+
+      const rows = await db.execute(sql`
+        SELECT
+          c.id,
+          c.name,
+          c.sorting_phase,
+          c.flagged,
+          COALESCE(inv.current_qty, 0)::integer   AS current_qty,
+          COALESCE(inv.sold_out_lots, 0)::integer AS sold_out_lots,
+          COALESCE(sold.total_sold, 0)::integer   AS total_sold,
+          tot.grand_total::integer                AS grand_total_sold_out
+        FROM ${blCategories} c
+        LEFT JOIN (
+          SELECT category_id,
+                 SUM(quantity)                                     AS current_qty,
+                 COUNT(*) FILTER (WHERE quantity = 0)              AS sold_out_lots
+          FROM ${blInventory}
+          GROUP BY category_id
+        ) inv ON c.id = inv.category_id
+        LEFT JOIN (
+          SELECT i.category_id, SUM(od.quantity) AS total_sold
+          FROM ${orderDetails} od
+          JOIN ${orders} o ON od.order_id = o.id
+          JOIN ${blInventory} i ON od.sku = CAST(i.id AS TEXT)
+          WHERE o.order_status NOT IN ('cancelled', 'Cancelled')
+          GROUP BY i.category_id
+        ) sold ON c.id = sold.category_id
+        CROSS JOIN (
+          SELECT COUNT(*) FILTER (WHERE quantity = 0) AS grand_total
+          FROM ${blInventory}
+        ) tot
+        WHERE COALESCE(inv.current_qty, 0) + COALESCE(inv.sold_out_lots, 0) + COALESCE(sold.total_sold, 0) > 0
+      `);
+
+      const scored = (rows.rows as any[]).map(r => {
+        const currentQty        = Number(r.current_qty);
+        const totalSold         = Number(r.total_sold);
+        const soldOutLots       = Number(r.sold_out_lots);
+        const grandTotalSoldOut = Number(r.grand_total_sold_out);
+
+        const sellThroughPct   = (currentQty + totalSold) > 0
+          ? (totalSold / (currentQty + totalSold)) * 100 : 0;
+
+        const soldOutSharePct  = grandTotalSoldOut > 0
+          ? (soldOutLots / grandTotalSoldOut) * 100 : 0;
+
+        const basePhaseScore   = phaseScores[r.sorting_phase] ?? 0;
+        const effectivePhaseScore = (r.sorting_phase === 'listing' && r.flagged)
+          ? basePhaseScore * 2 : basePhaseScore;
+
+        const score = sellThroughPct * 0.30 + soldOutSharePct * 0.30 + effectivePhaseScore * 0.40;
+
+        return {
+          id: Number(r.id),
+          name: r.name,
+          sortingPhase: r.sorting_phase,
+          flagged: r.flagged,
+          currentQty,
+          totalSold,
+          soldOutLots,
+          sellThroughPct: Math.round(sellThroughPct * 10) / 10,
+          soldOutSharePct: Math.round(soldOutSharePct * 10) / 10,
+          effectivePhaseScore,
+          score: Math.round(score * 10) / 10,
+        };
+      });
+
+      scored.sort((a, b) => b.score - a.score);
+      res.json({ categories: scored, phaseScores });
+    } catch (error) {
+      console.error("Error fetching listomatc priority:", error);
+      res.status(500).json({ error: "Failed to fetch priority list" });
+    }
+  });
+
+  // Toggle flag on a category (doubles phase score in listing phase)
+  app.patch("/api/listomatc/categories/:id/flag", isApproved, async (req, res) => {
+    try {
+      const categoryId = parseInt(req.params.id);
+      if (isNaN(categoryId)) return res.status(400).json({ error: "Invalid category id" });
+      const [current] = await db.select({ flagged: blCategories.flagged })
+        .from(blCategories).where(eq(blCategories.id, categoryId)).limit(1);
+      if (!current) return res.status(404).json({ error: "Category not found" });
+      await db.update(blCategories)
+        .set({ flagged: !current.flagged, updatedAt: new Date() })
+        .where(eq(blCategories.id, categoryId));
+      res.json({ success: true, flagged: !current.flagged });
+    } catch (error) {
+      console.error("Error toggling flag:", error);
+      res.status(500).json({ error: "Failed to toggle flag" });
+    }
+  });
+
   // Get Price-o-Matic insights (pricing discrepancies)
   // Per-category Price-o-Matic freshness stats
   app.get("/api/priceomatic/freshness", isApproved, async (req, res) => {
