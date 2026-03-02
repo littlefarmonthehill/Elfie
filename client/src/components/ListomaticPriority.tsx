@@ -400,10 +400,10 @@ export default function ListomaticPriority() {
                   </Popover>
 
                   {cat.sellThroughPct > 0 && (
-                    <span className="text-gray-500">ST {cat.sellThroughPct}%</span>
+                    <span className="text-gray-500">Sell-Through {cat.sellThroughPct}%</span>
                   )}
                   {cat.soldOutLots > 0 && (
-                    <span className="text-gray-500">SO {cat.soldOutSharePct}%</span>
+                    <span className="text-gray-500">Sold-Out {cat.soldOutSharePct}%</span>
                   )}
                   {cat.effectivePhaseScore > 0 && (
                     <span className={cat.flagged && inListing ? 'text-orange-400 font-semibold' : 'text-gray-500'}>
