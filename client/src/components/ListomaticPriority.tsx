@@ -38,10 +38,10 @@ const PHASE_CONFIG: Record<PhaseKey, {
   tileShadow: string;
   tileHover: string;
 }> = {
-  category:    { label: "Category",    textColor: "text-amber-400",   borderColor: "border-amber-500/40",   bgColor: "bg-amber-500/10",   tileBorder: "border-amber-700/30",   tileBg: "bg-gradient-to-br from-amber-950/40 via-slate-800/70 to-yellow-900/20",   tileShadow: "shadow-[0_2px_8px_rgba(80,50,0,0.35)]",   tileHover: "hover:border-amber-600/50" },
-  subcategory: { label: "Subcategory", textColor: "text-blue-400",    borderColor: "border-blue-500/40",    bgColor: "bg-blue-500/10",    tileBorder: "border-blue-700/30",    tileBg: "bg-gradient-to-br from-blue-950/40 via-slate-800/70 to-blue-900/20",    tileShadow: "shadow-[0_2px_8px_rgba(10,40,100,0.35)]", tileHover: "hover:border-blue-600/50" },
-  finalsort:   { label: "Final Sort",  textColor: "text-purple-400",  borderColor: "border-purple-500/40",  bgColor: "bg-purple-500/10",  tileBorder: "border-purple-700/30",  tileBg: "bg-gradient-to-br from-purple-950/40 via-slate-800/70 to-violet-900/20", tileShadow: "shadow-[0_2px_8px_rgba(60,0,100,0.35)]",  tileHover: "hover:border-purple-600/50" },
-  listing:     { label: "Listing",     textColor: "text-emerald-400", borderColor: "border-emerald-500/40", bgColor: "bg-emerald-500/10", tileBorder: "border-emerald-700/30", tileBg: "bg-gradient-to-br from-emerald-950/40 via-slate-800/70 to-green-900/20",  tileShadow: "shadow-[0_2px_8px_rgba(0,60,30,0.35)]",   tileHover: "hover:border-emerald-600/50" },
+  category:    { label: "Category",    textColor: "text-amber-400",   borderColor: "border-amber-500/40",   bgColor: "bg-amber-500/10",   tileBorder: "border-amber-600/60",   tileBg: "bg-gradient-to-br from-amber-800/35 via-amber-950/25 to-slate-900/70",   tileShadow: "shadow-[0_2px_10px_rgba(120,70,0,0.4)]",  tileHover: "hover:border-amber-500/80" },
+  subcategory: { label: "Subcategory", textColor: "text-blue-400",    borderColor: "border-blue-500/40",    bgColor: "bg-blue-500/10",    tileBorder: "border-blue-600/60",    tileBg: "bg-gradient-to-br from-blue-800/35 via-blue-950/25 to-slate-900/70",    tileShadow: "shadow-[0_2px_10px_rgba(30,60,160,0.4)]", tileHover: "hover:border-blue-500/80" },
+  finalsort:   { label: "Final Sort",  textColor: "text-purple-400",  borderColor: "border-purple-500/40",  bgColor: "bg-purple-500/10",  tileBorder: "border-purple-600/60",  tileBg: "bg-gradient-to-br from-purple-800/35 via-purple-950/25 to-slate-900/70", tileShadow: "shadow-[0_2px_10px_rgba(100,30,160,0.4)]", tileHover: "hover:border-purple-500/80" },
+  listing:     { label: "Listing",     textColor: "text-emerald-400", borderColor: "border-emerald-500/40", bgColor: "bg-emerald-500/10", tileBorder: "border-emerald-600/60", tileBg: "bg-gradient-to-br from-emerald-800/35 via-emerald-950/25 to-slate-900/70", tileShadow: "shadow-[0_2px_10px_rgba(0,100,60,0.4)]",  tileHover: "hover:border-emerald-500/80" },
 };
 
 const UNASSIGNED_TILE = {
@@ -234,7 +234,7 @@ export default function ListomaticPriority() {
           );
         })}
       </div>
-      <p className="text-[10px] text-gray-600 -mt-1">Tap a phase card to edit its score. Tap the phase badge on a tile to reassign. Flag icon toggles ×2 boost.</p>
+      <p className="text-[10px] text-gray-600 -mt-1">Tap a phase card to edit its score. Tap the phase badge on a tile to reassign. Flag icon pre-tags a category — ×2 activates when it reaches Listing.</p>
 
       {/* Sort controls */}
       <div className="flex items-center gap-1 flex-wrap">
@@ -274,12 +274,12 @@ export default function ListomaticPriority() {
             const tileCfg  = phaseCfg
               ? { tileBorder: phaseCfg.tileBorder, tileBg: phaseCfg.tileBg, tileShadow: phaseCfg.tileShadow, tileHover: phaseCfg.tileHover }
               : UNASSIGNED_TILE;
-            const canFlag = cat.sortingPhase === 'listing';
+            const inListing = cat.sortingPhase === 'listing';
 
             return (
               <div
                 key={cat.id}
-                className={`relative rounded-lg border ${tileCfg.tileBorder} ${tileCfg.tileBg} px-3 py-2 ${tileCfg.tileShadow} transition-all duration-150 ${cat.flagged ? 'ring-1 ring-orange-500/50' : ''}`}
+                className={`relative rounded-lg border ${tileCfg.tileBorder} ${tileCfg.tileBg} px-3 py-2 ${tileCfg.tileShadow} transition-all duration-150 ${cat.flagged ? 'ring-1 ring-orange-500/60' : ''}`}
                 data-testid={`tile-priority-${cat.id}`}
               >
                 {/* Row 1: Name + flag button + score badge */}
@@ -288,21 +288,23 @@ export default function ListomaticPriority() {
                     {cat.name}
                   </p>
 
-                  {/* Flag toggle — Listing phase only */}
-                  {canFlag && (
-                    <button
-                      onClick={() => flagMutation.mutate(cat.id)}
-                      className={`shrink-0 transition-colors p-0.5 rounded ${
-                        cat.flagged
-                          ? 'text-orange-400'
-                          : 'text-gray-700 hover:text-orange-400'
-                      }`}
-                      title={cat.flagged ? 'Remove ×2 boost' : 'Flag for ×2 effort boost'}
-                      data-testid={`flag-btn-${cat.id}`}
-                    >
-                      <Flag className={`w-3 h-3 ${cat.flagged ? 'fill-current' : ''}`} />
-                    </button>
-                  )}
+                  {/* Flag toggle — always visible */}
+                  <button
+                    onClick={() => flagMutation.mutate(cat.id)}
+                    className={`shrink-0 transition-colors p-0.5 rounded ${
+                      cat.flagged
+                        ? 'text-orange-400'
+                        : 'text-gray-700 hover:text-orange-400'
+                    }`}
+                    title={
+                      cat.flagged
+                        ? (inListing ? 'Flagged — ×2 active. Tap to remove.' : 'Flagged — ×2 will apply when moved to Listing. Tap to remove.')
+                        : 'Flag to double effort score when in Listing phase'
+                    }
+                    data-testid={`flag-btn-${cat.id}`}
+                  >
+                    <Flag className={`w-3 h-3 ${cat.flagged ? 'fill-current' : ''}`} />
+                  </button>
 
                   {/* Score badge — tap for breakdown */}
                   <Popover
@@ -312,7 +314,6 @@ export default function ListomaticPriority() {
                     <PopoverTrigger asChild>
                       <button
                         className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded border tabular-nums cursor-pointer ${scoreBadgeBg(cat.score)}`}
-                        onClick={e => e.stopPropagation()}
                         data-testid={`score-badge-${cat.id}`}
                       >
                         {cat.score}
@@ -332,7 +333,7 @@ export default function ListomaticPriority() {
                           <span className="text-gray-200 w-8 text-right">{(cat.soldOutSharePct * 0.30).toFixed(1)}</span>
                         </div>
                         <div className="flex justify-between gap-2">
-                          <span className="text-purple-300">Effort{cat.flagged && canFlag ? ' ×2' : ''}</span>
+                          <span className="text-purple-300">Effort{cat.flagged && inListing ? ' ×2' : ''}</span>
                           <span className="text-gray-400">{cat.effectivePhaseScore} × 40%</span>
                           <span className="text-gray-200 w-8 text-right">{(cat.effectivePhaseScore * 0.40).toFixed(1)}</span>
                         </div>
@@ -405,8 +406,8 @@ export default function ListomaticPriority() {
                     <span className="text-gray-500">SO {cat.soldOutSharePct}%</span>
                   )}
                   {cat.effectivePhaseScore > 0 && (
-                    <span className={cat.flagged && canFlag ? 'text-orange-400 font-semibold' : 'text-gray-500'}>
-                      Effort {cat.effectivePhaseScore}{cat.flagged && canFlag ? ' ×2' : ''}
+                    <span className={cat.flagged && inListing ? 'text-orange-400 font-semibold' : 'text-gray-500'}>
+                      Effort {cat.effectivePhaseScore}{cat.flagged && inListing ? ' ×2' : ''}
                     </span>
                   )}
                 </div>
