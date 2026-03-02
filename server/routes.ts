@@ -3309,16 +3309,66 @@ Return ONLY a valid JSON array, no other text. If you cannot identify any pieces
           ))
           .limit(20);
 
-          if (invRows.length > 0) {
+          // Helper: check if two part names share enough words to be the same part
+          const namesSimilar = (a: string, b: string): boolean => {
+            if (!a || !b) return true; // can't judge, allow it
+            const wordsA = a.toLowerCase().replace(/[^a-z0-9 ]/g, '').split(/\s+/).filter(w => w.length > 2);
+            const wordsB = b.toLowerCase().replace(/[^a-z0-9 ]/g, '').split(/\s+/).filter(w => w.length > 2);
+            if (wordsA.length === 0 || wordsB.length === 0) return true;
+            const shared = wordsA.filter(w => wordsB.includes(w)).length;
+            return shared / Math.min(wordsA.length, wordsB.length) >= 0.4;
+          };
+
+          let activeInvRows = invRows;
+
+          // If we got inventory rows but the names don't match the AI's name,
+          // the AI gave a wrong part number — try a name-based search instead
+          if (invRows.length > 0 && piece.partName) {
+            const repName = invRows[0]?.itemName || '';
+            if (!namesSimilar(repName, piece.partName)) {
+              console.log(`[Brickanalyzer] Name mismatch: AI="${piece.partName}" inv="${repName}" for partNo=${piece.partNo} — searching by name`);
+              const nameRows = await db.select({
+                id: blInventory.id,
+                itemNo: blInventory.itemNo,
+                unitPrice: blInventory.unitPrice,
+                quantity: blInventory.quantity,
+                colorName: blInventory.colorName,
+                colorId: blInventory.colorId,
+                itemName: blInventory.itemName,
+                thumbnailUrl: blInventory.thumbnailUrl,
+                imageUrl: blInventory.imageUrl,
+                newOrUsed: blInventory.newOrUsed,
+              })
+              .from(blInventory)
+              .where(and(
+                sql`lower(${blInventory.itemName}) like lower(${'%' + piece.partName.replace(/[%_]/g, '') + '%'})`,
+                sql`${blInventory.quantity} > 0`
+              ))
+              .limit(20);
+
+              if (nameRows.length > 0) {
+                // Correct the part number to what's actually in inventory
+                const resolvedPartNo = nameRows[0].itemNo;
+                console.log(`[Brickanalyzer] Corrected partNo: ${piece.partNo} → ${resolvedPartNo} (from name match)`);
+                piece.partNo = resolvedPartNo;
+                activeInvRows = nameRows;
+              } else {
+                // No name match in inventory — discard the wrong partNo rows to avoid bad data
+                activeInvRows = [];
+              }
+            }
+          }
+
+          if (activeInvRows.length > 0) {
             const matchColor = (r: any) => colorId
               ? r.colorId === colorId
               : (r.colorName?.toLowerCase().includes(piece.colorName?.toLowerCase() || '') ||
                  piece.colorName?.toLowerCase().includes(r.colorName?.toLowerCase() || ''));
 
-            const newMatch = invRows.filter(r => r.newOrUsed === 'N').find(matchColor)
-              || invRows.find(r => r.newOrUsed === 'N');
-            const usedMatch = invRows.filter(r => r.newOrUsed === 'U').find(matchColor)
-              || invRows.find(r => r.newOrUsed === 'U');
+            const newMatch = activeInvRows.filter(r => r.newOrUsed === 'N').find(matchColor)
+              || activeInvRows.find(r => r.newOrUsed === 'N');
+            const usedMatch = activeInvRows.filter(r => r.newOrUsed === 'U').find(matchColor)
+              || activeInvRows.find(r => r.newOrUsed === 'U');
 
             if (newMatch) {
               ourPriceNew = newMatch.unitPrice ? Number(newMatch.unitPrice) : null;
