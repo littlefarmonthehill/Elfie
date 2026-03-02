@@ -391,6 +391,8 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                 })();
                 const repImg = grp.thumbnailUrl;
                 const repEntry = grp.entries[0];
+                const bestConfidence = grp.entries.some(e => e.confidence === 'high') ? 'high'
+                  : grp.entries.some(e => e.confidence === 'medium') ? 'medium' : 'low';
 
                 return (
                   <div
@@ -451,7 +453,7 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                           />
                         </div>
 
-                        {/* Part no · N colors · qty */}
+                        {/* Part no · N colors · qty · confidence */}
                         <div className="flex items-center gap-1.5 flex-wrap">
                           {grp.partNo && <span className="font-mono text-[10px] text-gray-300">{grp.partNo}</span>}
                           <span className="text-[10px] text-gray-400">
@@ -462,6 +464,9 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                           {stockLabel && (
                             <span className="text-[10px] text-green-400 font-medium">· {stockLabel}</span>
                           )}
+                          <span className={`text-[10px] font-medium capitalize ${confidenceColor(bestConfidence)}`}>
+                            · {bestConfidence}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -511,7 +516,6 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                                       <span className="w-2 h-2 rounded-full flex-shrink-0 bg-gray-600" />
                                     )}
                                     <span className="text-[10px] text-gray-300 truncate">{piece.colorName || '—'}</span>
-                                    <span className={`text-[9px] capitalize ml-auto flex-shrink-0 ${confidenceColor(piece.confidence)}`}>{piece.confidence}</span>
                                   </div>
                                   {peakVal && (
                                     <span className="text-[9px] pl-0.5 text-purple-400">peak ${peakVal.toFixed(2)}</span>
