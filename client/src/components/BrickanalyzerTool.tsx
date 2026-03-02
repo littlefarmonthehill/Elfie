@@ -3,6 +3,8 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { Camera, Upload, X, AlertTriangle, CheckCircle, Loader2, ExternalLink, Trash2, ScanSearch, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 
 interface ScanResult {
@@ -41,6 +43,7 @@ export default function BrickanalyzerTool() {
   const [uiState, setUiState] = useState<UIState>("idle");
   const [scanId, setScanId] = useState<number | null>(null);
   const [leftPage, setLeftPage] = useState(false);
+  const [selectedPiece, setSelectedPiece] = useState<ScanResult | null>(null);
 
   // On mount, check if there's an existing scan to restore (user left and came back)
   const { data: latestScan } = useQuery<BrickanalyzerScan | null>({
@@ -341,8 +344,9 @@ export default function BrickanalyzerTool() {
                   {results.map((piece, i) => (
                     <tr
                       key={i}
-                      className="border-b border-gray-800 last:border-0 hover-elevate"
+                      className="border-b border-gray-800 last:border-0 hover-elevate cursor-pointer"
                       data-testid={`row-brickanalyzer-${i}`}
+                      onClick={() => setSelectedPiece(piece)}
                     >
                       {/* Thumbnail */}
                       <td className="px-2 py-1.5">
@@ -375,6 +379,7 @@ export default function BrickanalyzerTool() {
                                 rel="noopener noreferrer"
                                 className="font-mono text-lego-blue hover:underline flex items-center gap-0.5"
                                 data-testid={`link-bricklink-${i}`}
+                                onClick={(e) => e.stopPropagation()}
                               >
                                 {piece.partNo}
                                 <ExternalLink className="w-2.5 h-2.5" />
@@ -453,6 +458,110 @@ export default function BrickanalyzerTool() {
           </div>
         </div>
       )}
+
+      {/* Part detail popup */}
+      <Dialog open={!!selectedPiece} onOpenChange={(open) => { if (!open) setSelectedPiece(null); }}>
+        <DialogContent className="bg-gray-900 border border-gray-700 text-white max-w-sm" data-testid="dialog-part-detail">
+          {selectedPiece && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-base font-semibold text-gray-100 pr-6">
+                  {selectedPiece.partName || "Unknown Part"}
+                </DialogTitle>
+              </DialogHeader>
+
+              <div className="flex flex-col gap-4">
+                {/* Image */}
+                <div className="flex justify-center bg-gray-800 rounded-lg p-4">
+                  {selectedPiece.thumbnailUrl ? (
+                    <img
+                      src={`/api/images/proxy?url=${encodeURIComponent(selectedPiece.thumbnailUrl)}`}
+                      alt={selectedPiece.partName}
+                      className="w-40 h-40 object-contain"
+                      onError={(e) => { (e.target as HTMLImageElement).src = `https://img.bricklink.com/ItemImage/PN/${selectedPiece.colorId ?? 0}/${selectedPiece.partNo}.png`; }}
+                    />
+                  ) : selectedPiece.partNo ? (
+                    <img
+                      src={`https://img.bricklink.com/ItemImage/PN/${selectedPiece.colorId ?? 0}/${selectedPiece.partNo}.png`}
+                      alt={selectedPiece.partName}
+                      className="w-40 h-40 object-contain"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                  ) : (
+                    <div className="w-40 h-40 flex items-center justify-center text-gray-600 text-sm">No image</div>
+                  )}
+                </div>
+
+                {/* Details */}
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-400">Part No.</span>
+                    <span className="font-mono text-gray-200">{selectedPiece.partNo || "—"}</span>
+                  </div>
+                  {selectedPiece.colorName && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-400">Color</span>
+                      <span className="text-gray-200">{selectedPiece.colorName}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-400">AI Confidence</span>
+                    <Badge variant="outline" className={`text-xs capitalize ${confidenceColor(selectedPiece.confidence)} border-current`}>
+                      {selectedPiece.confidence}
+                    </Badge>
+                  </div>
+                </div>
+
+                {/* Prices */}
+                <div className="border border-gray-700 rounded-lg divide-y divide-gray-700 text-sm">
+                  <div className="flex items-center justify-between px-3 py-2">
+                    <span className="text-gray-400">POM Price</span>
+                    {selectedPiece.pomPrice !== null
+                      ? <span className="text-lego-yellow font-mono font-semibold">${selectedPiece.pomPrice.toFixed(2)}</span>
+                      : <span className="text-gray-600">—</span>
+                    }
+                  </div>
+                  <div className="flex items-center justify-between px-3 py-2">
+                    <span className="text-gray-400">Our Price</span>
+                    {selectedPiece.ourPrice !== null
+                      ? <span className="text-green-400 font-mono">${selectedPiece.ourPrice.toFixed(2)}</span>
+                      : <span className="text-gray-600">—</span>
+                    }
+                  </div>
+                  <div className="flex items-center justify-between px-3 py-2">
+                    <span className="text-gray-400">Mkt High</span>
+                    {selectedPiece.marketAvgPrice !== null
+                      ? <span className="text-gray-300 font-mono">${selectedPiece.marketAvgPrice.toFixed(2)}</span>
+                      : <span className="text-gray-600">—</span>
+                    }
+                  </div>
+                  {selectedPiece.ourQty > 0 && (
+                    <div className="flex items-center justify-between px-3 py-2">
+                      <span className="text-gray-400">In Stock</span>
+                      <span className="font-mono text-gray-300">{selectedPiece.ourQty}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* BrickLink button */}
+                {selectedPiece.partNo && (
+                  <a
+                    href={`https://www.bricklink.com/v2/catalog/catalogitem.page?P=${selectedPiece.partNo}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    data-testid="button-open-bricklink-catalog"
+                  >
+                    <Button className="w-full" data-testid="button-bricklink-catalog">
+                      <ExternalLink className="w-4 h-4 mr-2" />
+                      Open BrickLink Catalog
+                    </Button>
+                  </a>
+                )}
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
