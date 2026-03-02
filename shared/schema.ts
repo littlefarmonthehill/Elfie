@@ -135,6 +135,23 @@ export type InsertBlInventory = z.infer<typeof insertBlInventorySchema>;
 export type BlInventory = typeof blInventory.$inferSelect;
 
 // Set-Part Relationships (from Rebrickable)
+// Cross-channel part ID mapping — lazy cache populated as Brick Spotter resolves numbers
+export const partIdMappings = pgTable("part_id_mappings", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  blId: text("bl_id"),          // BrickLink part number (canonical)
+  legoId: text("lego_id"),      // Official LEGO part number
+  brickOwlId: text("brickowl_id"), // BrickOwl BOID
+  rebrickableId: text("rebrickable_id"), // Rebrickable part_num
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  blIdIdx: index("part_mappings_bl_id_idx").on(table.blId),
+  legoIdIdx: index("part_mappings_lego_id_idx").on(table.legoId),
+}));
+
+export const insertPartIdMappingSchema = createInsertSchema(partIdMappings).omit({ id: true, updatedAt: true });
+export type InsertPartIdMapping = z.infer<typeof insertPartIdMappingSchema>;
+export type PartIdMapping = typeof partIdMappings.$inferSelect;
+
 export const setPartRelationships = pgTable("set_part_relationships", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
   setNum: text("set_num").notNull(), // e.g., "10179-1"

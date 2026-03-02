@@ -10,7 +10,7 @@ import { syncBrickLinkToBrickOwl } from "./services/brickowl";
 import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBackup } from "./services/export";
 import { getProcessedPartImage, processImageFromUrl } from "./services/image-proxy";
 import { db } from "./db";
-import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache } from "@shared/schema";
+import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings } from "@shared/schema";
 import { eq, desc, sql, inArray, like, or, and, isNotNull, isNull } from "drizzle-orm";
 import { z } from "zod";
 import multer from "multer";
@@ -3412,64 +3412,82 @@ Return ONLY a valid JSON array, no other text. If no pieces found return [].`
       const rbImageMap = new Map<string, string>(); // BL partNo (upper) → image URL from Rebrickable
       {
         const REBRICKABLE_API_KEY = process.env.REBRICKABLE_API_KEY;
-        if (REBRICKABLE_API_KEY) {
-          // Get all unique part numbers from identified pieces (PART type only)
-          const uniquePartNos = [...new Set(identified.filter(p => p.partNo && p.itemType !== 'MINIFIG').map(p => p.partNo as string))];
-          if (uniquePartNos.length > 0) {
-            // Batch-check which part numbers are already known in our blInventory
-            const upperList = uniquePartNos.map(p => p.toUpperCase());
-            const knownRows = await db.select({ itemNo: blInventory.itemNo })
-              .from(blInventory)
-              .where(sql`upper(${blInventory.itemNo}) IN (${sql.join(upperList.map(p => sql`${p}`), sql`, `)})`);
-            const knownSet = new Set(knownRows.map(r => r.itemNo?.toUpperCase()));
+        // Get all unique part numbers from identified pieces (PART type only)
+        const uniquePartNos = [...new Set(identified.filter(p => p.partNo && p.itemType !== 'MINIFIG').map(p => p.partNo as string))];
+        if (uniquePartNos.length > 0) {
+          const upperList = uniquePartNos.map(p => p.toUpperCase());
 
-            // For unknown part numbers, try Rebrickable to get BL mapping + image URL
-            const unknownPartNos = uniquePartNos.filter(p => !knownSet.has(p.toUpperCase()));
-            if (unknownPartNos.length > 0) {
-              console.log(`[Brickanalyzer] Resolving ${unknownPartNos.length} unknown LEGO part(s) via Rebrickable: ${unknownPartNos.join(', ')}`);
-              const rbResolutionMap = new Map<string, string>(); // LEGO partNo → BL partNo
+          // ── Check 1: part_id_mappings cache (LEGO → BL, populated by prior scans) ──
+          const cachedMappings = await db.select({ legoId: partIdMappings.legoId, blId: partIdMappings.blId })
+            .from(partIdMappings)
+            .where(sql`upper(${partIdMappings.legoId}) IN (${sql.join(upperList.map(p => sql`${p}`), sql`, `)})`);
+          const cachedMap = new Map(cachedMappings.filter(r => r.legoId && r.blId).map(r => [r.legoId!.toUpperCase(), r.blId!]));
+          if (cachedMap.size > 0) console.log(`[Brickanalyzer] Cache hit for ${cachedMap.size} part(s): ${[...cachedMap.entries()].map(([l,b]) => `${l}→${b}`).join(', ')}`);
 
-              await Promise.all(unknownPartNos.map(async (legoPartNo) => {
+          // ── Check 2: which are already known BL part numbers in blInventory ──
+          const knownRows = await db.select({ itemNo: blInventory.itemNo })
+            .from(blInventory)
+            .where(sql`upper(${blInventory.itemNo}) IN (${sql.join(upperList.map(p => sql`${p}`), sql`, `)})`);
+          const knownSet = new Set(knownRows.map(r => r.itemNo?.toUpperCase()));
+
+          // Needs Rebrickable: not in cache and not a known BL number
+          const needsRebrickable = uniquePartNos.filter(p => !cachedMap.has(p.toUpperCase()) && !knownSet.has(p.toUpperCase()));
+
+          // ── Check 3: Rebrickable API for remaining unknowns ──
+          if (needsRebrickable.length > 0 && REBRICKABLE_API_KEY) {
+            console.log(`[Brickanalyzer] Resolving ${needsRebrickable.length} unknown LEGO part(s) via Rebrickable: ${needsRebrickable.join(', ')}`);
+
+            await Promise.all(needsRebrickable.map(async (legoPartNo) => {
+              try {
+                const rbRes = await axios.get(
+                  `https://rebrickable.com/api/v3/lego/parts/${encodeURIComponent(legoPartNo)}/`,
+                  { params: { key: REBRICKABLE_API_KEY }, timeout: 8000 }
+                );
+                const partImgUrl: string | null = rbRes.data?.part_img_url ?? null;
+                const rbPartNum: string | null = rbRes.data?.part_num ?? null;
+                const blIds: string[] = rbRes.data?.external_ids?.BrickLink?.ext_ids ?? [];
+
+                let resolvedBlId: string | null = null;
+                if (blIds.length > 0) {
+                  console.log(`[Brickanalyzer] Rebrickable mapped ${legoPartNo} → BL: ${blIds.join(', ')}`);
+                  for (const blId of blIds) {
+                    const blCheck = await db.select({ itemNo: blInventory.itemNo }).from(blInventory)
+                      .where(sql`upper(${blInventory.itemNo}) = upper(${blId})`).limit(1);
+                    if (blCheck.length > 0) { resolvedBlId = blCheck[0].itemNo!; break; }
+                  }
+                  if (!resolvedBlId) resolvedBlId = blIds[0];
+                }
+
+                // Save to part_id_mappings for future scans
                 try {
-                  const rbRes = await axios.get(
-                    `https://rebrickable.com/api/v3/lego/parts/${encodeURIComponent(legoPartNo)}/`,
-                    { params: { key: REBRICKABLE_API_KEY }, timeout: 8000 }
-                  );
-                  // Capture part image URL — generic color-neutral image as thumbnail fallback
-                  const partImgUrl: string | null = rbRes.data?.part_img_url ?? null;
-                  const blIds: string[] = rbRes.data?.external_ids?.BrickLink?.ext_ids ?? [];
-                  if (blIds.length > 0) {
-                    console.log(`[Brickanalyzer] Rebrickable mapped ${legoPartNo} → BL: ${blIds.join(', ')}`);
-                    // Prefer the first BL ID — verify it exists in our inventory
-                    let resolvedBlId: string | null = null;
-                    for (const blId of blIds) {
-                      const blCheck = await db.select({ itemNo: blInventory.itemNo }).from(blInventory)
-                        .where(sql`upper(${blInventory.itemNo}) = upper(${blId})`).limit(1);
-                      if (blCheck.length > 0) { resolvedBlId = blCheck[0].itemNo!; break; }
-                    }
-                    if (!resolvedBlId) resolvedBlId = blIds[0]; // fallback to first BL ID even if not in inventory
-                    rbResolutionMap.set(legoPartNo.toUpperCase(), resolvedBlId);
-                    if (partImgUrl) rbImageMap.set(resolvedBlId.toUpperCase(), partImgUrl);
-                  } else if (partImgUrl) {
-                    // No BL mapping but we still got an image — store under original LEGO number
-                    rbImageMap.set(legoPartNo.toUpperCase(), partImgUrl);
-                  }
-                } catch (err: any) {
-                  if (err?.response?.status !== 404) {
-                    console.warn(`[Brickanalyzer] Rebrickable lookup failed for ${legoPartNo}:`, err.message);
-                  }
-                }
-              }));
+                  await db.insert(partIdMappings).values({
+                    legoId: legoPartNo,
+                    blId: resolvedBlId ?? undefined,
+                    rebrickableId: rbPartNum ?? undefined,
+                  }).onConflictDoNothing();
+                } catch { /* ignore dupe */ }
 
-              // Apply resolutions to identified pieces
-              for (const piece of identified) {
-                if (piece.partNo && piece.itemType !== 'MINIFIG') {
-                  const resolved = rbResolutionMap.get(piece.partNo.toUpperCase());
-                  if (resolved && resolved.toUpperCase() !== piece.partNo.toUpperCase()) {
-                    console.log(`[Brickanalyzer] Part number corrected: ${piece.partNo} → ${resolved}`);
-                    piece.partNo = resolved;
-                  }
+                if (resolvedBlId) {
+                  cachedMap.set(legoPartNo.toUpperCase(), resolvedBlId);
+                  if (partImgUrl) rbImageMap.set(resolvedBlId.toUpperCase(), partImgUrl);
+                } else if (partImgUrl) {
+                  rbImageMap.set(legoPartNo.toUpperCase(), partImgUrl);
                 }
+              } catch (err: any) {
+                if (err?.response?.status !== 404) {
+                  console.warn(`[Brickanalyzer] Rebrickable lookup failed for ${legoPartNo}:`, err.message);
+                }
+              }
+            }));
+          }
+
+          // Apply all resolutions (from cache or fresh Rebrickable call) to identified pieces
+          for (const piece of identified) {
+            if (piece.partNo && piece.itemType !== 'MINIFIG') {
+              const resolved = cachedMap.get(piece.partNo.toUpperCase());
+              if (resolved && resolved.toUpperCase() !== piece.partNo.toUpperCase()) {
+                console.log(`[Brickanalyzer] Part number corrected: ${piece.partNo} → ${resolved}`);
+                piece.partNo = resolved;
               }
             }
           }
