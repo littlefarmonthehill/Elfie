@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo, forwardRef, useImperativeHandle } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import { Camera, X, CheckCircle, Loader2, ExternalLink, Trash2, ScanSearch, ChevronRight, ImageIcon, FileText, Sparkles } from "lucide-react";
+import { Camera, X, CheckCircle, Loader2, ExternalLink, Trash2, ScanSearch, ChevronRight, ImageIcon, FileText, Sparkles, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -423,11 +423,11 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                 // Other inventory colors come from the backend lot list, excluding the best match color
                 const otherLots = (bestEntry.inventoryLots ?? []).filter(lot => lot.colorId !== bestEntry.colorId);
                 const entryScoreColor = (s: number | null) => {
-                  if (s === null) return 'text-gray-600';
+                  if (s === null) return 'text-gray-500';
                   if (s >= 2.0) return 'text-emerald-400';
                   if (s >= 1.5) return 'text-orange-400';
                   if (s >= 1.0) return 'text-yellow-500';
-                  return 'text-gray-500';
+                  return 'text-gray-400';
                 };
 
                 return (
@@ -527,12 +527,12 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                           <div className="flex items-center gap-1 min-w-0">
                             <div className="flex flex-col flex-1 min-w-0">
                               <div className="flex items-center gap-1 min-w-0">
-                                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${beInStock ? 'bg-emerald-500' : 'bg-gray-600'}`} />
-                                {beInStock && <span className="text-[10px] font-mono text-gray-300 flex-shrink-0">×{bestEntry.ourQtyNew + bestEntry.ourQtyUsed}</span>}
+                                {beInStock && <Check className="w-3 h-3 text-emerald-400 flex-shrink-0" />}
+                                {beInStock && <span className="text-[10px] font-mono text-gray-200 flex-shrink-0">×{bestEntry.ourQtyNew + bestEntry.ourQtyUsed}</span>}
                                 {bestEntry.colorRgb ? (
-                                  <span className="w-2 h-2 rounded-full flex-shrink-0 border border-gray-600" style={{ backgroundColor: `#${bestEntry.colorRgb}` }} />
+                                  <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 border border-gray-500" style={{ backgroundColor: `#${bestEntry.colorRgb}` }} />
                                 ) : (
-                                  <span className="w-2 h-2 rounded-full flex-shrink-0 bg-gray-600" />
+                                  <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-gray-600" />
                                 )}
                                 <span className="text-[10px] text-white font-medium truncate">{bestEntry.colorName || '—'}</span>
                               </div>
@@ -540,13 +540,13 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                                 <span className="text-[9px] pl-0.5 text-purple-400">peak ${bePeak.toFixed(2)}</span>
                               )}
                             </div>
-                            <span className="text-[10px] font-mono text-gray-300 w-14 text-right flex-shrink-0">
+                            <span className="text-[10px] font-mono text-gray-200 w-14 text-right flex-shrink-0">
                               {bestEntry.ourPriceNew != null ? `$${bestEntry.ourPriceNew.toFixed(2)}` : '—'}
                             </span>
                             <span className={`text-[10px] font-mono font-bold w-[58px] text-right flex-shrink-0 ${entryScoreColor(beNScore)}`}>
                               {beNScore != null ? `${beNScore}×` : '—'}
                             </span>
-                            <span className="text-[10px] font-mono text-gray-300 w-14 text-right flex-shrink-0">
+                            <span className="text-[10px] font-mono text-gray-200 w-14 text-right flex-shrink-0">
                               {bestEntry.ourPriceUsed != null ? `$${bestEntry.ourPriceUsed.toFixed(2)}` : '—'}
                             </span>
                             <span className={`text-[10px] font-mono font-bold w-[58px] text-right flex-shrink-0 ${entryScoreColor(beUScore)}`}>
@@ -583,26 +583,26 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                                 <div className="flex items-center gap-1 min-w-0">
                                   <div className="flex flex-col flex-1 min-w-0">
                                     <div className="flex items-center gap-1 min-w-0">
-                                      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${lotInStock ? 'bg-emerald-500' : 'bg-gray-600'}`} />
-                                      {lotInStock && <span className="text-[10px] font-mono text-gray-300 flex-shrink-0">×{lot.qtyNew + lot.qtyUsed}</span>}
+                                      {lotInStock && <Check className="w-3 h-3 text-emerald-400 flex-shrink-0" />}
+                                      {lotInStock && <span className="text-[10px] font-mono text-gray-200 flex-shrink-0">×{lot.qtyNew + lot.qtyUsed}</span>}
                                       {lot.colorRgb ? (
-                                        <span className="w-2 h-2 rounded-full flex-shrink-0 border border-gray-600" style={{ backgroundColor: `#${lot.colorRgb}` }} />
+                                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 border border-gray-500" style={{ backgroundColor: `#${lot.colorRgb}` }} />
                                       ) : (
-                                        <span className="w-2 h-2 rounded-full flex-shrink-0 bg-gray-600" />
+                                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-gray-600" />
                                       )}
-                                      <span className="text-[10px] text-gray-300 truncate">{lot.colorName || '—'}</span>
+                                      <span className={`text-[10px] truncate ${lotInStock ? 'text-gray-100' : 'text-gray-400'}`}>{lot.colorName || '—'}</span>
                                     </div>
                                     {lotPeak && (
                                       <span className="text-[9px] pl-0.5 text-purple-400">peak ${lotPeak.toFixed(2)}</span>
                                     )}
                                   </div>
-                                  <span className="text-[10px] font-mono text-gray-300 w-14 text-right flex-shrink-0">
+                                  <span className="text-[10px] font-mono text-gray-200 w-14 text-right flex-shrink-0">
                                     {lot.priceNew != null ? `$${lot.priceNew.toFixed(2)}` : '—'}
                                   </span>
                                   <span className={`text-[10px] font-mono font-bold w-[58px] text-right flex-shrink-0 ${entryScoreColor(lotNScore)}`}>
                                     {lotNScore != null ? `${lotNScore}×` : '—'}
                                   </span>
-                                  <span className="text-[10px] font-mono text-gray-300 w-14 text-right flex-shrink-0">
+                                  <span className="text-[10px] font-mono text-gray-200 w-14 text-right flex-shrink-0">
                                     {lot.priceUsed != null ? `$${lot.priceUsed.toFixed(2)}` : '—'}
                                   </span>
                                   <span className={`text-[10px] font-mono font-bold w-[58px] text-right flex-shrink-0 ${entryScoreColor(lotUScore)}`}>
