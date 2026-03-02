@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { X, GripVertical, Layers, SplitSquareHorizontal, Tag, FolderOpen, Info, Puzzle, User } from "lucide-react";
+import { X, GripVertical, Layers, SplitSquareHorizontal, Tag, FolderOpen, Info, Puzzle, User, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { createPortal } from "react-dom";
@@ -264,11 +264,15 @@ export function ListomaticPhases() {
   }
 
   const isDragging = drag !== null;
+  const [unassignedSearch, setUnassignedSearch] = useState("");
+  const filteredUnassigned = unassigned.filter(c =>
+    !unassignedSearch || c.name.toLowerCase().includes(unassignedSearch.toLowerCase())
+  );
 
   return (
     <div className="space-y-3" style={{ touchAction: isDragging ? "none" : undefined }}>
 
-      {/* Unassigned zone */}
+      {/* Unassigned zone — fixed scrollable window */}
       <div
         {...{ [ZONE_ATTR]: "unassigned" }}
         className={`rounded-lg border transition-all duration-100 ${
@@ -278,21 +282,49 @@ export function ListomaticPhases() {
         }`}
         data-testid="phase-unassigned"
       >
+        {/* Header row */}
         <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-700/40">
-          <span className="w-2 h-2 rounded-full bg-gray-500" />
+          <span className="w-2 h-2 rounded-full bg-gray-500 shrink-0" />
           <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Not Assigned</span>
-          <Badge variant="outline" className="ml-auto text-[10px] text-gray-500 border-gray-600">
+          <Badge variant="outline" className="text-[10px] text-gray-500 border-gray-600">
             {unassigned.length}
           </Badge>
+          {filteredUnassigned.length !== unassigned.length && (
+            <span className="text-[10px] text-gray-600 italic">({filteredUnassigned.length} shown)</span>
+          )}
         </div>
-        <div className="p-3 min-h-[52px]">
+
+        {/* Search bar */}
+        <div className="px-3 py-2 border-b border-gray-700/30">
+          <div className="flex items-center gap-2 bg-gray-800/60 border border-gray-700/50 rounded px-2 py-1">
+            <Search className="w-3 h-3 text-gray-500 shrink-0" />
+            <input
+              type="text"
+              value={unassignedSearch}
+              onChange={e => setUnassignedSearch(e.target.value)}
+              placeholder="Filter categories…"
+              className="bg-transparent text-[11px] text-gray-300 placeholder-gray-600 outline-none flex-1 min-w-0"
+              data-testid="input-unassigned-search"
+            />
+            {unassignedSearch && (
+              <button onClick={() => setUnassignedSearch("")} className="text-gray-600 hover:text-gray-400">
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Scrollable pill window — fixed 200px tall */}
+        <div className="p-3 h-[200px] overflow-y-auto overscroll-contain">
           {unassigned.length === 0 ? (
             <p className={`text-[11px] italic ${isDragging && dragOverZone === 'unassigned' ? 'text-gray-300' : 'text-gray-600'}`}>
               {isDragging && dragOverZone === 'unassigned' ? "Release to unassign" : (categories.length === 0 ? "No inventory categories found." : "All categories assigned.")}
             </p>
+          ) : filteredUnassigned.length === 0 ? (
+            <p className="text-[11px] italic text-gray-600">No categories match "{unassignedSearch}"</p>
           ) : (
-            <div className="flex flex-wrap gap-1.5">
-              {unassigned.map(cat => (
+            <div className="flex flex-wrap gap-1.5 content-start">
+              {filteredUnassigned.map(cat => (
                 <UnassignedPill
                   key={cat.id}
                   cat={cat}
@@ -305,6 +337,11 @@ export function ListomaticPhases() {
             </div>
           )}
         </div>
+
+        {/* Drop hint when dragging over */}
+        {isDragging && dragOverZone === 'unassigned' && (
+          <div className="px-3 pb-2 text-[10px] text-gray-400 italic text-center">Release to move to Not Assigned</div>
+        )}
       </div>
 
       {/* Phase zones */}
