@@ -30,7 +30,8 @@ app = Flask(__name__)
 
 # ── Config ─────────────────────────────────────────────────────────────────
 MIN_AREA_FRAC  = 0.0008  # ignore regions < 0.08% of image area (noise)
-MAX_AREA_FRAC  = 0.85    # ignore regions > 85% of image area (background)
+MAX_AREA_FRAC  = 0.12    # ignore regions > 12% of image area (baseplates, table)
+MAX_DIM_FRAC   = 0.55    # ignore bounding boxes wider OR taller than 55% of image
 MORPH_CLOSE_K  = 7       # kernel size for closing small gaps inside pieces
 BORDER_MARGIN  = 0.01    # ignore regions whose center is within 1% of edge
 
@@ -138,6 +139,12 @@ def segment_pieces(rgb: np.ndarray) -> list[dict]:
         x1, y1 = int(xs.min()), int(ys.min())
         x2, y2 = int(xs.max()), int(ys.max())
         cx, cy  = (x1 + x2) / 2, (y1 + y2) / 2
+        bw, bh  = x2 - x1, y2 - y1
+
+        # Skip regions whose bounding box is too large in either dimension
+        # (catches baseplates, table surfaces, shadows covering most of frame)
+        if bw / W > MAX_DIM_FRAC or bh / H > MAX_DIM_FRAC:
+            continue
 
         # Skip regions whose center is too close to the image edge
         if cx < border_px_x or cx > W - border_px_x:
