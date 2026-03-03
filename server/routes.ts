@@ -3263,7 +3263,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       }
       console.log(`[Brickanalyzer] ${pieces.length} refined regions ready for Brickognize`);
 
-      // ── Step 2: Crop each piece + send to Brickognize in parallel ─────────
+      // ── Step 2: Crop each piece + send to Brickognize (throttled) ────────
       console.log('[Brickanalyzer] Step 2: Cropping and sending to Brickognize...');
       // Padding is expressed as a fraction of image DIMENSIONS (not piece size).
       // 0.006 = 0.6% of image width/height ≈ 34px on a 5712px image.
@@ -3271,7 +3271,30 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       // into each other's crops and confuse Brickognize.
       const PADDING = 0.006;
 
-      const identified: any[] = (await Promise.all(pieces.map(async (piece: any, idx: number) => {
+      // Throttle concurrent Brickognize calls. Sending all N pieces at once
+      // (2N parallel requests) triggers rate limiting — silently returns empty.
+      // Limiting to BQ_CONCURRENCY pieces at a time (2×BQ_CONCURRENCY requests) avoids this.
+      const BQ_CONCURRENCY = 4;
+      function makeBqLimiter(concurrency: number) {
+        let active = 0;
+        const waitQueue: Array<() => void> = [];
+        return function<T>(fn: () => Promise<T>): Promise<T> {
+          return new Promise<T>((resolve, reject) => {
+            const run = () => {
+              active++;
+              fn().then(resolve, reject).finally(() => {
+                active--;
+                if (waitQueue.length > 0) waitQueue.shift()!();
+              });
+            };
+            if (active < concurrency) run();
+            else waitQueue.push(run);
+          });
+        };
+      }
+      const bqLimit = makeBqLimiter(BQ_CONCURRENCY);
+
+      const identified: any[] = (await Promise.all(pieces.map(async (piece: any, idx: number) => bqLimit(async () => {
         try {
           // Convert percentage coords to pixels with padding
           const x0 = Math.max(0, Math.round(((piece.x ?? 0) / 100 - PADDING) * imgWidth));
@@ -3308,8 +3331,10 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
           const figsForm  = makeBqForm(cropBuffer);
           const partsForm = makeBqForm(cropBuffer);
           const [figsRes, partsRes] = await Promise.all([
-            axios.post('https://api.brickognize.com/predict/figs/',  figsForm,  { headers: figsForm.getHeaders(),  timeout: 20000 }).catch(() => null),
-            axios.post('https://api.brickognize.com/predict/parts/', partsForm, { headers: partsForm.getHeaders(), timeout: 20000 }).catch(() => null),
+            axios.post('https://api.brickognize.com/predict/figs/',  figsForm,  { headers: figsForm.getHeaders(),  timeout: 20000 })
+              .catch((e: any) => { console.warn(`[Brickognize] figs piece ${idx} failed: ${e.message} (HTTP ${e.response?.status ?? 'N/A'})`); return null; }),
+            axios.post('https://api.brickognize.com/predict/parts/', partsForm, { headers: partsForm.getHeaders(), timeout: 20000 })
+              .catch((e: any) => { console.warn(`[Brickognize] parts piece ${idx} failed: ${e.message} (HTTP ${e.response?.status ?? 'N/A'})`); return null; }),
           ]);
 
           const figTop  = figsRes?.data?.items?.[0]  ?? null;
@@ -3349,7 +3374,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
           console.warn(`[Brickanalyzer] Piece ${idx} failed:`, err.message);
           return [{ partNo: '', partName: piece.roughName || 'Unknown', colorName: piece.colorName || '', confidence: 'low', note: 'identification error' }];
         }
-      }))).flat();
+      })))).flat();
 
       // ── Step 2b: Resolve LEGO part numbers → BrickLink part numbers via Rebrickable ──
       // Also capture Rebrickable part images as a fallback for when we have no thumbnail.
