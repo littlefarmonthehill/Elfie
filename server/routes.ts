@@ -3275,6 +3275,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
             console.warn(`[Brickanalyzer] Piece ${idx}: crop too small (${cropWidth}×${cropHeight}), skipping`);
             return [{ partNo: '', partName: piece.roughName || 'Unknown', colorName: piece.colorName || '', confidence: 'low', note: 'crop region too small' }];
           }
+          console.log(`[Brickanalyzer] Piece ${idx}: crop ${cropWidth}×${cropHeight}px @ (${x0},${y0})`);
 
           // Crop the piece — tight padding, no white-padding resize
           const cropBuffer = await sharp(imageBuffer)

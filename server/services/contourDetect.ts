@@ -159,7 +159,7 @@ export async function detectPieceBoundingBoxes(imageBuffer: Buffer): Promise<Det
       const iy = Math.max(0, Math.min(s.y + s.h, l.y + l.h) - Math.max(s.y, l.y));
       const inter = ix * iy;
       const sArea = s.w * s.h;
-      if (sArea > 0 && inter / sArea >= 0.70) { keep[i] = false; break; }
+      if (sArea > 0 && inter / sArea >= 0.55) { keep[i] = false; break; }
     }
   }
   const filtered = boxes.filter((_, i) => keep[i]);
