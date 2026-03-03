@@ -62,7 +62,7 @@ type UIState = "idle" | "uploading" | "processing" | "complete" | "failed";
 
 interface ScanSettings {
   // Shared
-  segmenter:       "watershed" | "sam";
+  segmenter:       "watershed" | "sam" | "contour";
   minSizePct:      number;  // % of image area — noise floor
   maxSizePct:      number;  // % of image area — surface/baseplate ceiling
   maxPieces:       number;  // cap on crops sent to Brickognize
@@ -75,6 +75,11 @@ interface ScanSettings {
   iouThresh:       number;  // predicted IoU quality filter
   stabilityThresh: number;  // mask stability filter
   nmsThresh:       number;  // overlap removal (NMS)
+  // Contour-only
+  blurRadius:      number;  // Gaussian blur kernel size (noise suppression)
+  cannyLow:        number;  // Canny lower threshold
+  cannyHigh:       number;  // Canny upper threshold
+  dilateIter:      number;  // dilation passes to close edge gaps
 }
 
 const DEFAULT_SETTINGS: ScanSettings = {
@@ -89,6 +94,10 @@ const DEFAULT_SETTINGS: ScanSettings = {
   iouThresh:       0.86,
   stabilityThresh: 0.90,
   nmsThresh:       0.70,
+  blurRadius:      5,
+  cannyLow:        50,
+  cannyHigh:       150,
+  dilateIter:      2,
 };
 
 const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
@@ -321,6 +330,13 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                       Watershed
                     </button>
                     <button
+                      className={`flex-1 py-1.5 rounded text-xs font-medium transition-colors ${settings.segmenter === "contour" ? "bg-purple-600 text-white" : "bg-gray-800 text-gray-400 hover:bg-gray-700"}`}
+                      onClick={() => setSettings(s => ({ ...s, segmenter: "contour" }))}
+                      data-testid="button-segmenter-contour"
+                    >
+                      Contour
+                    </button>
+                    <button
                       className={`flex-1 py-1.5 rounded text-xs font-medium transition-colors ${settings.segmenter === "sam" ? "bg-purple-600 text-white" : "bg-gray-800 text-gray-400 hover:bg-gray-700"}`}
                       onClick={() => setSettings(s => ({ ...s, segmenter: "sam" }))}
                       data-testid="button-segmenter-sam"
@@ -331,6 +347,8 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                   <p className="text-[10px] text-gray-500">
                     {settings.segmenter === "sam"
                       ? "SAM uses a neural network for precise masks. First scan downloads a 375MB model — subsequent scans are faster. Expect 15–60s per photo on CPU."
+                      : settings.segmenter === "contour"
+                      ? "Contour finds piece edges using Canny edge detection. Fast like Watershed — good alternative when pieces have strong outlines against the background."
                       : "Watershed is fast (~1s) and works well for pieces on a plain background."}
                   </p>
                 </div>
@@ -364,6 +382,67 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                       data-testid="slider-sensitivity"
                     />
                     <p className="text-[10px] text-gray-500">Lower → detects more pieces but may over-split. Raise if too many fragments appear.</p>
+                  </div>
+
+                </>)}
+
+                {/* ── Contour-specific settings ────────────────────────────── */}
+                {settings.segmenter === "contour" && (<>
+
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-baseline">
+                      <label className="text-xs font-medium text-gray-300">Blur Radius</label>
+                      <span className="text-xs font-mono text-purple-400">{settings.blurRadius}</span>
+                    </div>
+                    <input type="range" min="1" max="15" step="2"
+                      value={settings.blurRadius}
+                      onChange={e => setSettings(s => ({ ...s, blurRadius: Number(e.target.value) }))}
+                      className="w-full accent-purple-500"
+                      data-testid="slider-blur-radius"
+                    />
+                    <p className="text-[10px] text-gray-500">Gaussian blur before edge detection. Raise to smooth noise; lower to catch finer edges.</p>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-baseline">
+                      <label className="text-xs font-medium text-gray-300">Edge Sensitivity (Low)</label>
+                      <span className="text-xs font-mono text-purple-400">{settings.cannyLow}</span>
+                    </div>
+                    <input type="range" min="10" max="200" step="10"
+                      value={settings.cannyLow}
+                      onChange={e => setSettings(s => ({ ...s, cannyLow: Number(e.target.value) }))}
+                      className="w-full accent-purple-500"
+                      data-testid="slider-canny-low"
+                    />
+                    <p className="text-[10px] text-gray-500">Canny lower threshold. Lower = picks up weaker edges. Must stay below the high threshold.</p>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-baseline">
+                      <label className="text-xs font-medium text-gray-300">Edge Sensitivity (High)</label>
+                      <span className="text-xs font-mono text-purple-400">{settings.cannyHigh}</span>
+                    </div>
+                    <input type="range" min="50" max="400" step="10"
+                      value={settings.cannyHigh}
+                      onChange={e => setSettings(s => ({ ...s, cannyHigh: Number(e.target.value) }))}
+                      className="w-full accent-purple-500"
+                      data-testid="slider-canny-high"
+                    />
+                    <p className="text-[10px] text-gray-500">Canny upper threshold. Lower = more edges detected; raise to keep only strong, clear boundaries.</p>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-baseline">
+                      <label className="text-xs font-medium text-gray-300">Edge Dilation</label>
+                      <span className="text-xs font-mono text-purple-400">{settings.dilateIter}</span>
+                    </div>
+                    <input type="range" min="0" max="8" step="1"
+                      value={settings.dilateIter}
+                      onChange={e => setSettings(s => ({ ...s, dilateIter: Number(e.target.value) }))}
+                      className="w-full accent-purple-500"
+                      data-testid="slider-dilate-iter"
+                    />
+                    <p className="text-[10px] text-gray-500">Dilation passes after edge detection. Higher closes more gaps between disconnected edges on the same piece.</p>
                   </div>
 
                 </>)}

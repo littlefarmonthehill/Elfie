@@ -145,6 +145,95 @@ def segment_pieces_watershed(rgb: np.ndarray, settings: dict = None) -> list[dic
     return boxes
 
 
+# ── Contour segmentation ─────────────────────────────────────────────────────
+
+CONTOUR_MAX_DIM = 1600  # same as watershed — fast, can handle high res
+
+def _iou_pct(a: dict, b: dict) -> float:
+    """IoU between two {x,y,w,h} boxes expressed as % of image dimensions."""
+    ix1 = max(a["x"], b["x"])
+    iy1 = max(a["y"], b["y"])
+    ix2 = min(a["x"] + a["w"], b["x"] + b["w"])
+    iy2 = min(a["y"] + a["h"], b["y"] + b["h"])
+    if ix2 <= ix1 or iy2 <= iy1:
+        return 0.0
+    inter = (ix2 - ix1) * (iy2 - iy1)
+    union = a["w"] * a["h"] + b["w"] * b["h"] - inter
+    return inter / union if union > 0 else 0.0
+
+
+def _nms_boxes(boxes: list, iou_thresh: float = 0.30) -> list:
+    """Greedy NMS: keep the largest box when two overlap more than iou_thresh."""
+    boxes = sorted(boxes, key=lambda b: b["w"] * b["h"], reverse=True)
+    keep: list = []
+    for b in boxes:
+        if all(_iou_pct(b, k) < iou_thresh for k in keep):
+            keep.append(b)
+    return keep
+
+
+def segment_pieces_contour(rgb: np.ndarray, settings: dict = None) -> list:
+    s = settings or {}
+
+    min_area_frac = s.get("minSizePct", MIN_AREA_FRAC * 100) / 100
+    max_area_frac = s.get("maxSizePct", MAX_AREA_FRAC * 100) / 100
+    blur_radius   = int(s.get("blurRadius",  5))
+    canny_low     = int(s.get("cannyLow",   50))
+    canny_high    = int(s.get("cannyHigh", 150))
+    dilate_iter   = int(s.get("dilateIter",  2))
+
+    H, W = rgb.shape[:2]
+    img_area = H * W
+
+    gray = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)
+
+    # ── 1. Gaussian blur — suppresses noise before edge detection ────────────
+    k = blur_radius if blur_radius % 2 == 1 else blur_radius + 1
+    blurred = cv2.GaussianBlur(gray, (k, k), 0)
+
+    # ── 2. Canny edge map ────────────────────────────────────────────────────
+    edges = cv2.Canny(blurred, canny_low, canny_high)
+
+    # ── 3. Dilate to close gaps between nearby edge segments ─────────────────
+    if dilate_iter > 0:
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+        edges = cv2.dilate(edges, kernel, iterations=dilate_iter)
+
+    # ── 4. Find external contours ────────────────────────────────────────────
+    contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    min_area    = img_area * min_area_frac
+    max_area    = img_area * max_area_frac
+    border_px_x = W * BORDER_MARGIN
+    border_px_y = H * BORDER_MARGIN
+
+    raw_boxes: list = []
+    for cnt in contours:
+        area = float(cv2.contourArea(cnt))
+        if area < min_area or area > max_area:
+            continue
+        x1, y1, bw, bh = cv2.boundingRect(cnt)
+        cx, cy = x1 + bw / 2, y1 + bh / 2
+        if bw / W > MAX_DIM_FRAC or bh / H > MAX_DIM_FRAC:
+            continue
+        if cx < border_px_x or cx > W - border_px_x:
+            continue
+        if cy < border_px_y or cy > H - border_px_y:
+            continue
+        raw_boxes.append({
+            "x": round(x1 / W * 100, 2),
+            "y": round(y1 / H * 100, 2),
+            "w": round(bw  / W * 100, 2),
+            "h": round(bh  / H * 100, 2),
+        })
+
+    # ── 5. NMS — remove heavily-overlapping duplicates from the same piece ───
+    boxes = _nms_boxes(raw_boxes)
+
+    print(f"[SegService] Contour {H}×{W} contours={len(contours)} raw={len(raw_boxes)} → {len(boxes)} pieces", flush=True)
+    return boxes
+
+
 # ── SAM segmentation ─────────────────────────────────────────────────────────
 
 def segment_pieces_sam(rgb: np.ndarray, settings: dict = None) -> list[dict]:
@@ -240,6 +329,9 @@ def segment():
         if segmenter == "sam":
             rgb   = load_image(b64, max_dim=SAM_MAX_DIM)
             boxes = segment_pieces_sam(rgb, settings)
+        elif segmenter == "contour":
+            rgb   = load_image(b64, max_dim=CONTOUR_MAX_DIM)
+            boxes = segment_pieces_contour(rgb, settings)
         else:
             rgb   = load_image(b64, max_dim=WATERSHED_MAX_DIM)
             boxes = segment_pieces_watershed(rgb, settings)
