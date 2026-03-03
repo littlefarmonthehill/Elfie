@@ -1110,6 +1110,7 @@ export const appFeedback = pgTable("app_feedback", {
   refinedDescription: text("refined_description"),
   acceptanceCriteria: text("acceptance_criteria"),
   status: text("status").notNull().default('new'), // 'new' | 'in_progress' | 'on_hold' | 'done'
+  sourcePage: text("source_page"), // URL path where feedback was submitted
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

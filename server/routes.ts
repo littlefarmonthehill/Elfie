@@ -9114,7 +9114,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
   // POST /api/feedback — save a refined feedback item
   app.post("/api/feedback", isApproved, async (req, res) => {
     try {
-      const { type, title, rawDescription, refinedDescription, acceptanceCriteria, status } = req.body;
+      const { type, title, rawDescription, refinedDescription, acceptanceCriteria, status, sourcePage } = req.body;
       if (!title || !rawDescription) return res.status(400).json({ error: "title and rawDescription are required" });
       const [item] = await db.insert(appFeedback).values({
         type: type ?? "enhancement",
@@ -9123,6 +9123,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
         refinedDescription: refinedDescription ?? null,
         acceptanceCriteria: acceptanceCriteria ?? null,
         status: status ?? "new",
+        sourcePage: sourcePage ?? null,
       }).returning();
       res.json(item);
     } catch (error: any) {

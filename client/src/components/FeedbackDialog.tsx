@@ -76,6 +76,7 @@ export function FeedbackDialog({ open, onClose }: FeedbackDialogProps) {
         refinedDescription: refined!.refinedDescription,
         acceptanceCriteria: refined!.acceptanceCriteria,
         status: "new",
+        sourcePage: window.location.pathname,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/feedback"] });

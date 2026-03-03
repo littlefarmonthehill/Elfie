@@ -36,6 +36,7 @@ function copyFeedbackText(item: AppFeedback): string {
   return [
     `[${typeLbl}] ${item.title}`,
     `Status: ${statusLbl}`,
+    item.sourcePage ? `Page: ${item.sourcePage}` : null,
     ``,
     `Description:`,
     item.refinedDescription ?? item.rawDescription,
@@ -44,7 +45,7 @@ function copyFeedbackText(item: AppFeedback): string {
     criteria,
     ``,
     `Submitted: ${new Date(item.createdAt).toLocaleDateString()}`,
-  ].join("\n");
+  ].filter((l) => l !== null).join("\n");
 }
 
 function FeedbackCard({ item }: { item: AppFeedback }) {
@@ -89,6 +90,9 @@ function FeedbackCard({ item }: { item: AppFeedback }) {
           <p className="text-sm font-medium text-gray-100 leading-snug">{item.title}</p>
           <p className="text-[10px] text-gray-500 mt-0.5">
             {typeInfo.label} · {new Date(item.createdAt).toLocaleDateString()}
+            {item.sourcePage && (
+              <span className="ml-1.5 text-gray-600">· from <span className="font-mono text-gray-500">{item.sourcePage}</span></span>
+            )}
           </p>
         </div>
         {/* Actions */}
