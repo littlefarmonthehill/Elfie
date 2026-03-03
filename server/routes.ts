@@ -3683,6 +3683,32 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
             }
           }
 
+          // Fallback color detection: if we have a detected RGB but still no colorId
+          // (part not in our inventory), match against the full BrickLink palette.
+          if (piece.detectedRgb && !colorId) {
+            const { r: dr, g: dg, b: db } = piece.detectedRgb;
+            const allColors = await db.select({ id: blColors.id, name: blColors.name, rgb: blColors.rgb })
+              .from(blColors)
+              .where(sql`${blColors.rgb} is not null and length(${blColors.rgb}) = 6`);
+            let closestId: number | null = null;
+            let closestName: string | null = null;
+            let closestDist = Infinity;
+            for (const c of allColors) {
+              const cr = parseInt(c.rgb!.slice(0, 2), 16);
+              const cg = parseInt(c.rgb!.slice(2, 4), 16);
+              const cb = parseInt(c.rgb!.slice(4, 6), 16);
+              const dist = Math.sqrt((dr - cr) ** 2 + (dg - cg) ** 2 + (db - cb) ** 2);
+              if (dist < closestDist) { closestDist = dist; closestId = c.id; closestName = c.name; }
+            }
+            if (closestId) {
+              colorId = closestId;
+              piece.colorName = closestName || '';
+              console.log(`[ColorDetect] fallback palette: RGB=(${dr},${dg},${db}) → "${closestName}" (dist=${closestDist.toFixed(1)})`);
+              const rgbRow = await db.select({ rgb: blColors.rgb }).from(blColors).where(eq(blColors.id, closestId)).limit(1);
+              if (rgbRow.length > 0) colorRgb = rgbRow[0].rgb ?? null;
+            }
+          }
+
           // 3. Price guide cache — query separately for new and used
           try {
             const pgCols = {
