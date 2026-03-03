@@ -3,8 +3,9 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { AppSettings, User } from "@shared/schema";
 import { APP_VERSION, APP_NAME } from "@shared/version";
-import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Zap, Info, Layers, Play, Loader2, ChevronDown, ChevronRight, BarChart2 } from "lucide-react";
+import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Zap, Info, Layers, Play, Loader2, ChevronDown, ChevronRight, BarChart2, MessageSquarePlus } from "lucide-react";
 import { PomCategoryTiers } from "@/components/PomCategoryTiers";
+import { FeedbackBacklog } from "@/components/FeedbackBacklog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,7 +24,7 @@ import { useAuth } from "@/hooks/useAuth";
 interface SettingsModalProps {
   open: boolean;
   onClose: () => void;
-  initialSection?: 'general' | 'platforms' | 'ai' | 'automation' | 'priceomatic' | 'data' | 'users';
+  initialSection?: 'general' | 'platforms' | 'ai' | 'automation' | 'priceomatic' | 'data' | 'users' | 'feedback';
 }
 
 // ── API Call Schedule Chart ────────────────────────────────────────────────
@@ -595,7 +596,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const [pomHighSupplyThreshold, setPomHighSupplyThreshold] = useState(10000); // BL stock qty = "full supply"
   const [pomHighSupplyPenalty, setPomHighSupplyPenalty] = useState(40);  // supply weight 0–100
 
-  const [activeSection, setActiveSection] = useState<'general' | 'platforms' | 'ai' | 'automation' | 'priceomatic' | 'data' | 'users'>(initialSection ?? 'general');
+  const [activeSection, setActiveSection] = useState<'general' | 'platforms' | 'ai' | 'automation' | 'priceomatic' | 'data' | 'users' | 'feedback'>(initialSection ?? 'general');
 
   const { data: settings } = useQuery<AppSettings>({
     queryKey: ['/api/settings'],
@@ -1009,6 +1010,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     { id: 'automation' as const, label: 'Automation', icon: Clock },
     { id: 'priceomatic' as const, label: 'Price-o-Matic', icon: Zap },
     { id: 'data' as const, label: 'Backup & Clear', icon: Database },
+    { id: 'feedback' as const, label: 'Feedback', icon: MessageSquarePlus },
     ...(isAdmin ? [{ id: 'users' as const, label: 'User Management', icon: Users }] : []),
   ];
 
@@ -3001,6 +3003,11 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   </div>
                 </div>
               </div>
+            )}
+
+            {/* Feedback Backlog */}
+            {activeSection === 'feedback' && (
+              <FeedbackBacklog />
             )}
 
             {/* User Management (Admin Only) */}

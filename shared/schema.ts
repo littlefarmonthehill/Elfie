@@ -1100,3 +1100,25 @@ export const insertBlForumEmbeddingSchema = createInsertSchema(blForumEmbeddings
 
 export type InsertBlForumEmbedding = z.infer<typeof insertBlForumEmbeddingSchema>;
 export type BlForumEmbedding = typeof blForumEmbeddings.$inferSelect;
+
+// App Feedback — user-submitted requests tracked for Replit backlog
+export const appFeedback = pgTable("app_feedback", {
+  id: serial("id").primaryKey(),
+  type: text("type").notNull().default('enhancement'), // 'defect' | 'enhancement' | 'feature'
+  title: text("title").notNull(),
+  rawDescription: text("raw_description").notNull(),
+  refinedDescription: text("refined_description"),
+  acceptanceCriteria: text("acceptance_criteria"),
+  status: text("status").notNull().default('new'), // 'new' | 'in_progress' | 'on_hold' | 'done'
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertAppFeedbackSchema = createInsertSchema(appFeedback).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertAppFeedback = z.infer<typeof insertAppFeedbackSchema>;
+export type AppFeedback = typeof appFeedback.$inferSelect;

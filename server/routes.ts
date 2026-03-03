@@ -10,7 +10,7 @@ import { syncBrickLinkToBrickOwl } from "./services/brickowl";
 import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBackup } from "./services/export";
 import { getProcessedPartImage, processImageFromUrl } from "./services/image-proxy";
 import { db } from "./db";
-import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings } from "@shared/schema";
+import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback } from "@shared/schema";
 import { eq, desc, sql, inArray, like, or, and, isNotNull, isNull, ne } from "drizzle-orm";
 import { z } from "zod";
 import multer from "multer";
@@ -9097,6 +9097,120 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
     } catch (error: any) {
       console.error("Error verifying restore:", error);
       res.status(500).json({ error: error.message || "Failed to verify restore" });
+    }
+  });
+
+  // ─── App Feedback ─────────────────────────────────────────────────────────
+  // GET /api/feedback — list all, newest first
+  app.get("/api/feedback", isApproved, async (req, res) => {
+    try {
+      const items = await db.select().from(appFeedback).orderBy(desc(appFeedback.createdAt));
+      res.json(items);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // POST /api/feedback — save a refined feedback item
+  app.post("/api/feedback", isApproved, async (req, res) => {
+    try {
+      const { type, title, rawDescription, refinedDescription, acceptanceCriteria, status } = req.body;
+      if (!title || !rawDescription) return res.status(400).json({ error: "title and rawDescription are required" });
+      const [item] = await db.insert(appFeedback).values({
+        type: type ?? "enhancement",
+        title,
+        rawDescription,
+        refinedDescription: refinedDescription ?? null,
+        acceptanceCriteria: acceptanceCriteria ?? null,
+        status: status ?? "new",
+      }).returning();
+      res.json(item);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // PATCH /api/feedback/:id — update status (or other fields)
+  app.patch("/api/feedback/:id", isApproved, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { status } = req.body;
+      if (!status) return res.status(400).json({ error: "status is required" });
+      const [updated] = await db
+        .update(appFeedback)
+        .set({ status, updatedAt: new Date() })
+        .where(eq(appFeedback.id, id))
+        .returning();
+      if (!updated) return res.status(404).json({ error: "Not found" });
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // DELETE /api/feedback/:id
+  app.delete("/api/feedback/:id", isApproved, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await db.delete(appFeedback).where(eq(appFeedback.id, id));
+      res.json({ ok: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // POST /api/feedback/refine — use OpenAI to refine raw feedback into structured form
+  app.post("/api/feedback/refine", isApproved, async (req, res) => {
+    try {
+      const { type, rawDescription } = req.body;
+      if (!rawDescription?.trim()) return res.status(400).json({ error: "rawDescription is required" });
+
+      const [settings] = await db.select().from(appSettings).limit(1);
+      const apiKey = settings?.openaiApiKey || process.env.OPENAI_API_KEY;
+      if (!apiKey) return res.status(400).json({ error: "OpenAI API key not configured" });
+
+      const typeLabels: Record<string, string> = {
+        defect: "Bug / Defect",
+        enhancement: "Enhancement",
+        feature: "New Feature / Capability",
+      };
+      const typeLabel = typeLabels[type] ?? "Enhancement";
+
+      const systemPrompt = `You are E.L.F.I.E., the AI assistant for PlanetBrick, a LEGO reselling business operations platform.
+Your job is to take a user's raw app feedback and refine it into a clear, structured request that can be handed to a developer.
+Write everything in plain English that a non-technical business owner can understand.
+Your response MUST be valid JSON with these exact keys: title, refinedDescription, acceptanceCriteria.
+- title: a short (under 10 words), action-oriented title
+- refinedDescription: 2-4 sentences clearly explaining what the user wants and why it matters to their business
+- acceptanceCriteria: a newline-separated list of 3-6 bullet points (plain text, no markdown) describing what "done" looks like from the user's perspective`;
+
+      const userPrompt = `Feedback type: ${typeLabel}\n\nUser's raw description:\n${rawDescription}\n\nRefine this into a structured request.`;
+
+      const OpenAI = (await import('openai')).default;
+      const client = new OpenAI({ apiKey });
+
+      const completion = await client.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.4,
+        max_tokens: 600,
+      });
+
+      const text = completion.choices[0]?.message?.content ?? "{}";
+      const parsed = JSON.parse(text);
+
+      res.json({
+        title: parsed.title ?? "Untitled Request",
+        refinedDescription: parsed.refinedDescription ?? rawDescription,
+        acceptanceCriteria: parsed.acceptanceCriteria ?? "",
+      });
+    } catch (error: any) {
+      console.error("❌ Feedback refine error:", error.message);
+      res.status(500).json({ error: error.message });
     }
   });
 

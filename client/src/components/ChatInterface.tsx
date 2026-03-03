@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, Bot, RefreshCcw, ChevronUp, ChevronDown, Minimize2, Maximize2, ExternalLink, X, Camera, Image, Sparkles } from "lucide-react";
+import { Send, Bot, RefreshCcw, ChevronUp, ChevronDown, Minimize2, Maximize2, ExternalLink, X, Camera, Image, Sparkles, MessageSquarePlus } from "lucide-react";
+import { FeedbackDialog } from "@/components/FeedbackDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -537,6 +538,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isInputFocused, setIsInputFocused] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -900,6 +902,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
   };
 
   return (
+    <>
     <div 
       className={`flex flex-col ${isMinimized ? 'min-h-16' : 'h-full'} border-t-4 ${colors.border} bg-gradient-to-br ${colors.gradient} to-transparent ${colors.glow}`}
     >
@@ -1030,6 +1033,16 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
                 className="hidden"
                 data-testid="input-file"
               />
+              <Button
+                size="icon"
+                onClick={(e) => { e.stopPropagation(); setFeedbackOpen(true); }}
+                variant="ghost"
+                className="text-purple-400 hover:text-purple-300 hover:bg-purple-500/20 md:h-12 md:w-12 lg:h-14 lg:w-14"
+                data-testid="button-feedback"
+                title="Submit app feedback to E.L.F.I.E."
+              >
+                <MessageSquarePlus className="h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6" />
+              </Button>
               <Button 
                 size="icon" 
                 onClick={(e) => {
@@ -1097,5 +1110,8 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
       )}
 
     </div>
+
+    <FeedbackDialog open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
+    </>
   );
 }
