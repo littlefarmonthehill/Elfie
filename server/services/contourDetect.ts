@@ -164,25 +164,21 @@ export async function detectPieceBoundingBoxes(imageBuffer: Buffer): Promise<Det
   }
   const filtered = boxes.filter((_, i) => keep[i]);
 
-  // ── Subdivide large blobs into piece-sized tiles ────────────────────────
-  // Touching pieces (e.g. minifigs side by side) form one connected region.
-  // Any box whose width AND height both exceed 15% is almost certainly multiple
-  // pieces merged. Replace it with a grid of ~15% tiles so each tile covers
-  // roughly one piece and gets its own Brickognize call.
-  const TILE = 15; // target tile size in % of image
+  // ── Subdivide wide blobs into column strips ────────────────────────────
+  // Touching pieces side-by-side form one wide connected region. Split by
+  // WIDTH only — the blob height already represents the full piece height
+  // (a fig blob is tall because figs are tall, not because figs are stacked).
+  // Target ~20% column width ≈ one piece. No row splitting.
+  const TILE_W = 20; // target column width in % of image
   const result: DetectedBox[] = [];
   for (const b of filtered) {
-    if (b.w > TILE && b.h > TILE) {
-      const cols = Math.ceil(b.w / TILE);
-      const rows = Math.ceil(b.h / TILE);
+    if (b.w > TILE_W) {
+      const cols = Math.ceil(b.w / TILE_W);
       const tw = b.w / cols;
-      const th = b.h / rows;
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          result.push({ x: b.x + c * tw, y: b.y + r * th, w: tw, h: th });
-        }
+      for (let c = 0; c < cols; c++) {
+        result.push({ x: b.x + c * tw, y: b.y, w: tw, h: b.h });
       }
-      console.log(`[ContourDetect] Large blob ${b.w.toFixed(1)}%×${b.h.toFixed(1)}% → ${cols}×${rows} grid`);
+      console.log(`[ContourDetect] Wide blob ${b.w.toFixed(1)}%×${b.h.toFixed(1)}% → ${cols} columns`);
     } else {
       result.push(b);
     }
