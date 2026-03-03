@@ -58,47 +58,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
   <title>Driftless Business Solutions – Service Agreement</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Georgia', serif; font-size: 11pt; color: #1a1a1a; background: #fff; line-height: 1.65; }
-    .page { max-width: 750px; margin: 0 auto; padding: 52px 56px 64px; }
-    .header { text-align: center; border-bottom: 2.5px solid #2c5f8a; padding-bottom: 20px; margin-bottom: 28px; }
-    .header .company { font-size: 22pt; font-weight: bold; color: #2c5f8a; letter-spacing: 0.04em; text-transform: uppercase; }
-    .header .tagline { font-size: 10pt; color: #555; font-style: italic; margin-top: 4px; }
-    .header .doc-title { font-size: 14pt; font-weight: bold; color: #1a1a1a; margin-top: 14px; letter-spacing: 0.02em; }
-    .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 32px; background: #f5f8fb; border: 1px solid #d0dde8; border-radius: 4px; padding: 14px 18px; margin-bottom: 28px; font-size: 10.5pt; }
+    body { font-family: 'Georgia', serif; font-size: 10pt; color: #1a1a1a; background: #fff; line-height: 1.45; }
+    .page { max-width: 720px; margin: 0 auto; padding: 36px 44px 40px; }
+    .header { text-align: center; border-bottom: 2.5px solid #2c5f8a; padding-bottom: 10px; margin-bottom: 14px; }
+    .header .company { font-size: 18pt; font-weight: bold; color: #2c5f8a; letter-spacing: 0.04em; text-transform: uppercase; }
+    .header .tagline { font-size: 9pt; color: #555; font-style: italic; margin-top: 3px; }
+    .header .doc-title { font-size: 12pt; font-weight: bold; color: #1a1a1a; margin-top: 8px; letter-spacing: 0.02em; }
+    .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 24px; background: #f5f8fb; border: 1px solid #d0dde8; border-radius: 4px; padding: 9px 14px; margin-bottom: 14px; font-size: 9.5pt; }
     .meta label { color: #555; font-style: italic; }
     .meta value { font-weight: bold; color: #1a1a1a; }
-    .purpose { background: #eef4fa; border-left: 4px solid #2c5f8a; padding: 12px 16px; margin-bottom: 28px; font-size: 10.5pt; color: #2a3a4a; font-style: italic; }
-    h2 { font-size: 12.5pt; font-weight: bold; color: #2c5f8a; text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid #d0dde8; padding-bottom: 5px; margin-top: 30px; margin-bottom: 12px; }
-    h3 { font-size: 11pt; font-weight: bold; color: #1a1a1a; margin-top: 18px; margin-bottom: 8px; }
-    p { margin-bottom: 10px; }
-    ul { padding-left: 20px; margin-bottom: 10px; }
-    ul li { margin-bottom: 4px; }
-    table { width: 100%; border-collapse: collapse; margin: 12px 0 16px; font-size: 10.5pt; }
+    h2 { font-size: 10.5pt; font-weight: bold; color: #2c5f8a; text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid #d0dde8; padding-bottom: 3px; margin-top: 14px; margin-bottom: 7px; }
+    h3 { font-size: 10pt; font-weight: bold; color: #1a1a1a; margin-top: 10px; margin-bottom: 5px; }
+    p { margin-bottom: 6px; }
+    ul { padding-left: 18px; margin-bottom: 6px; }
+    ul li { margin-bottom: 2px; }
+    table { width: 100%; border-collapse: collapse; margin: 8px 0 10px; font-size: 9.5pt; }
     thead tr { background: #2c5f8a; color: #fff; }
-    thead th { padding: 8px 12px; text-align: left; font-weight: bold; letter-spacing: 0.03em; white-space: nowrap; }
+    thead th { padding: 6px 10px; text-align: left; font-weight: bold; letter-spacing: 0.03em; white-space: nowrap; }
     tbody tr:nth-child(even) { background: #f5f8fb; }
-    tbody td { padding: 8px 12px; border-bottom: 1px solid #dce8f0; vertical-align: top; }
-    .package-choice { display: flex; gap: 20px; margin: 10px 0 16px; }
-    .package-box { flex: 1; border: 1.5px solid #2c5f8a; border-radius: 5px; padding: 14px 16px; }
-    .package-box .pkg-name { font-weight: bold; font-size: 11.5pt; color: #2c5f8a; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
-    .package-box .pkg-price { font-size: 14pt; font-weight: bold; color: #1a1a1a; margin-bottom: 6px; }
-    .package-box .pkg-desc { font-size: 9.5pt; color: #444; }
-    .checkbox { display: inline-block; width: 14px; height: 14px; border: 1.5px solid #2c5f8a; border-radius: 2px; vertical-align: middle; flex-shrink: 0; }
-    .timeline { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; margin: 12px 0 16px; font-size: 10.5pt; }
+    tbody td { padding: 6px 10px; border-bottom: 1px solid #dce8f0; vertical-align: top; }
+    .package-choice { display: flex; gap: 12px; margin: 7px 0 10px; }
+    .package-box { flex: 1; border: 1.5px solid #2c5f8a; border-radius: 5px; padding: 10px 12px; }
+    .package-box .pkg-name { font-weight: bold; font-size: 10.5pt; color: #2c5f8a; margin-bottom: 2px; display: flex; align-items: center; gap: 7px; }
+    .package-box .pkg-price { font-size: 12pt; font-weight: bold; color: #1a1a1a; margin-bottom: 4px; }
+    .package-box .pkg-desc { font-size: 9pt; color: #444; }
+    .checkbox { display: inline-block; width: 13px; height: 13px; border: 1.5px solid #2c5f8a; border-radius: 2px; vertical-align: middle; flex-shrink: 0; }
+    .timeline { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; margin: 7px 0 10px; font-size: 9.5pt; }
     .timeline .week { font-weight: bold; color: #2c5f8a; white-space: nowrap; }
-    .signature-block { margin-top: 36px; display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
-    .sig-party label { display: block; font-size: 9pt; color: #666; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
-    .sig-party .party-name { font-weight: bold; font-size: 10.5pt; color: #1a1a1a; margin-bottom: 32px; }
-    .sig-line { border-top: 1.5px solid #1a1a1a; padding-top: 5px; font-size: 9.5pt; color: #444; }
-    .selected-package-line { margin-top: 18px; font-size: 10.5pt; border-top: 1px solid #d0dde8; padding-top: 14px; }
-    .selected-package-line span { display: inline-block; width: 180px; border-bottom: 1px solid #333; margin-left: 8px; }
-    .footer { margin-top: 40px; border-top: 1px solid #d0dde8; padding-top: 12px; text-align: center; font-size: 8.5pt; color: #999; }
+    .signature-block { margin-top: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+    .sig-party label { display: block; font-size: 8.5pt; color: #666; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 3px; }
+    .sig-party .party-name { font-weight: bold; font-size: 10pt; color: #1a1a1a; margin-bottom: 26px; }
+    .sig-line { border-top: 1.5px solid #1a1a1a; padding-top: 4px; font-size: 9pt; color: #444; }
+    .selected-package-line { margin-top: 12px; font-size: 10pt; border-top: 1px solid #d0dde8; padding-top: 10px; }
+    .selected-package-line span { display: inline-block; width: 160px; border-bottom: 1px solid #333; margin-left: 6px; }
+    .footer { margin-top: 22px; border-top: 1px solid #d0dde8; padding-top: 8px; text-align: center; font-size: 8pt; color: #999; }
     @media print {
-      body { font-size: 10.5pt; }
-      .page { padding: 30px 36px 48px; max-width: 100%; }
+      body { font-size: 10pt; }
+      .page { padding: 24px 32px 28px; max-width: 100%; }
       h2 { page-break-after: avoid; }
       .package-choice { page-break-inside: avoid; }
-      .signature-block { page-break-inside: avoid; }
+      .signature-block { page-break-inside: avoid; margin-top: 16px; }
     }
   </style>
 </head>
@@ -106,17 +105,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   <div class="page">
     <div class="header">
       <div class="company">Driftless Business Solutions</div>
-      <div class="tagline">Digital solutions for the businesses that build our communities</div>
+      <div class="tagline">Customized systems that just work, so you can do the work you love</div>
       <div class="doc-title">Service Agreement</div>
     </div>
     <div class="meta">
       <label>Date:</label><value>March 3, 2026</value>
       <label>Client:</label><value>Minnesota Building Contractors</value>
       <label>Service Provider:</label><value>Driftless Business Solutions ("DBS")</value>
-    </div>
-    <div class="purpose">
-      DBS helps business owners focus on the work they love by taking care of website, messaging, and
-      digital management — so the Client can spend more time with customers and less time on admin tasks.
     </div>
     <h2>Scope of Work</h2>
     <p>DBS will provide services to support <strong>Minnesota Building Contractors</strong> in:</p>
@@ -127,7 +122,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       <li>Providing lead capture and contact forms</li>
       <li>Creating content assets ready for marketing and social media</li>
     </ul>
-    <p>Work can be front-loaded in the Initial Development package or spread out over time with Ongoing Support, depending on the Client's chosen package and priorities.</p>
     <h2>1.1 &nbsp; Initial Development</h2>
     <p>DBS will build a custom public-facing website focused on residential services, using the Client's existing pages and content as the foundation, and including:</p>
     <ul>
