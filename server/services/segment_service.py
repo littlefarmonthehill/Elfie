@@ -57,29 +57,28 @@ def segment_pieces(rgb: np.ndarray) -> list[dict]:
     img_area = H * W
 
     # ── 1. Background detection ─────────────────────────────────────────
-    # Sample the four corners to estimate background brightness.
-    corners = [
-        rgb[:20, :20], rgb[:20, -20:],
-        rgb[-20:, :20], rgb[-20:, -20:],
-    ]
-    bg_brightness = float(np.mean([np.mean(c) for c in corners]))
-
+    # Use full-image histogram MODE instead of corner sampling.
+    # Corner sampling breaks when the photo backdrop (paper) sits in the
+    # center surrounded by a different surface (wooden desk at the edges).
+    # The most common pixel value in the whole image is almost always the
+    # large background surface wherever it happens to appear.
     gray = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)
+    hist = cv2.calcHist([gray], [0], None, [256], [0, 256]).flatten()
+    bg_brightness = float(np.argmax(hist))
 
     # ── 2. Threshold: foreground = piece pixels ─────────────────────────
-    # Use Otsu's method but bias toward the known background brightness.
-    # Light background → pieces are darker → threshold below bg brightness.
-    # Dark background → pieces are lighter → threshold above bg brightness.
-    _, otsu_thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
-    otsu_val = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[0]
+    # Run Otsu with both polarities; pick whichever gives a foreground
+    # fraction closest to a plausible range (TARGET ≈ 20 %).
+    # The wrong polarity will produce near-0 % or near-100 % foreground.
+    _, thresh_inv  = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    _, thresh_norm = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY     + cv2.THRESH_OTSU)
 
-    light_bg = bg_brightness > 128
-    if light_bg:
-        # Light background: pieces are darker → use Otsu inverse (pieces=255)
-        thresh = otsu_thresh
-    else:
-        # Dark background: pieces are brighter → invert
-        thresh = 255 - otsu_thresh
+    fg_inv  = float(np.sum(thresh_inv  > 0)) / (H * W)
+    fg_norm = float(np.sum(thresh_norm > 0)) / (H * W)
+
+    TARGET = 0.20
+    thresh = thresh_inv if abs(fg_inv - TARGET) <= abs(fg_norm - TARGET) else thresh_norm
+    print(f'[SegService] bg_mode={bg_brightness:.0f} fg_inv={fg_inv:.2f} fg_norm={fg_norm:.2f} → {"inv" if thresh is thresh_inv else "norm"}', flush=True)
 
     # ── 3. Morphological cleanup ────────────────────────────────────────
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (MORPH_CLOSE_K, MORPH_CLOSE_K))
@@ -93,7 +92,7 @@ def segment_pieces(rgb: np.ndarray) -> list[dict]:
 
     # Find local maxima using dilation trick (no scipy peak_local_max needed)
     # A pixel is a local max if it equals the dilated (max-pooled) value.
-    dil_k = max(15, int(min(H, W) * 0.04))  # ~4% of shorter side
+    dil_k = max(11, int(min(H, W) * 0.025))  # ~2.5% of shorter side – tighter = more seeds
     dil_k = dil_k if dil_k % 2 == 1 else dil_k + 1
     dil_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (dil_k, dil_k))
     dilated = cv2.dilate(dist, dil_kernel)
