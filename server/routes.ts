@@ -157,7 +157,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         <div class="package-box">
           <div class="pkg-header">
             <div class="pkg-name"><span class="checkbox"></span> Starter MVP</div>
-            <div class="pkg-price">$750</div>
+            <div class="pkg-price">$1,000</div>
           </div>
           <div class="pkg-desc">Residential site with lead capture, 1–2 lightweight tools, and basic project showcase.</div>
         </div>
