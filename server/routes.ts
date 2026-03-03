@@ -135,6 +135,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         <li>Content assets ready for marketing and social media</li>
         <li>Showcase completed work through galleries, photos, and videos</li>
       </ul>
+      <h3>Ramp Up &amp; Delivery of Initial Development (1.1)</h3>
+      <div class="timeline">
+        <div class="timeline-step"><div class="wk">Week 1</div>Consulting &amp; Vision <em>(no charge)</em></div>
+        <div class="timeline-step"><div class="wk">Week 2</div>Design &amp; Build</div>
+        <div class="timeline-step"><div class="wk">Week 3</div>Review &amp; Revisions</div>
+        <div class="timeline-step"><div class="wk">Week 4</div>Launch</div>
+      </div>
     </div>
 
     <div class="section">
@@ -162,13 +169,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           <div class="pkg-desc">Full-featured site with lead capture workflows, enhanced showcase, and marketing-ready messaging assets.</div>
         </div>
       </div>
-      <h3>Project Timeline</h3>
-      <div class="timeline">
-        <div class="timeline-step"><div class="wk">Week 1</div>Consulting &amp; Vision <em>(no charge)</em></div>
-        <div class="timeline-step"><div class="wk">Week 2</div>Design &amp; Build</div>
-        <div class="timeline-step"><div class="wk">Week 3</div>Review &amp; Revisions</div>
-        <div class="timeline-step"><div class="wk">Week 4</div>Launch</div>
-      </div>
     </div>
 
     <div class="section">
@@ -179,14 +179,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
             <div class="pkg-name"><span class="checkbox"></span> Starter Support</div>
             <div class="pkg-price">$600/mo</div>
           </div>
-          <div class="pkg-desc">4 hrs/month — Minor updates, content tweaks, messaging adjustments.</div>
+          <div class="pkg-desc">4 hrs/month — Technology maintenance, minor updates, content tweaks, messaging adjustments.</div>
         </div>
         <div class="package-box">
           <div class="pkg-header">
             <div class="pkg-name"><span class="checkbox"></span> Core Support</div>
             <div class="pkg-price">$1,250/mo</div>
           </div>
-          <div class="pkg-desc">10 hrs/month — Full maintenance, messaging updates, vendor coordination, media updates.</div>
+          <div class="pkg-desc">10 hrs/month — Technology maintenance, messaging updates, vendor coordination, media updates.</div>
         </div>
       </div>
       <p style="font-size:8.5pt; color:#555; margin-top:-2px;">Additional hours billed at <strong>$150/hr</strong>.</p>
