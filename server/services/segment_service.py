@@ -30,8 +30,8 @@ app = Flask(__name__)
 
 # ── Config ─────────────────────────────────────────────────────────────────
 MIN_AREA_FRAC  = 0.0008  # ignore regions < 0.08% of image area (noise)
-MAX_AREA_FRAC  = 0.12    # ignore regions > 12% of image area (baseplates, table)
-MAX_DIM_FRAC   = 0.55    # ignore bounding boxes wider OR taller than 55% of image
+MAX_AREA_FRAC  = 0.06    # ignore regions > 6% of image area (baseplates, table)
+MAX_DIM_FRAC   = 0.38    # ignore bounding boxes wider OR taller than 38% of image
 MORPH_CLOSE_K  = 7       # kernel size for closing small gaps inside pieces
 BORDER_MARGIN  = 0.01    # ignore regions whose center is within 1% of edge
 
