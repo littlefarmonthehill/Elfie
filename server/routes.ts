@@ -3221,7 +3221,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
   // Lives only in this process; cleared when the scan is dismissed.
   const brickanalyzerCropCache = new Map<number, Buffer[]>();
 
-  async function processBrickanalyzerScan(scanId: number, imageBuffer: Buffer) {
+  async function processBrickanalyzerScan(scanId: number, imageBuffer: Buffer, settings: Record<string, number> = {}) {
     try {
       const { default: sharp } = await import('sharp');
 
@@ -3236,10 +3236,16 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       console.log('[Brickanalyzer] Step 1: Watershed segmentation...');
 
       const { segmentImage } = await import('./services/segmentClient.js');
-      const allBoxes = await segmentImage(imageBuffer);
+      const allBoxes = await segmentImage(imageBuffer, settings);
 
-      console.log(`[Brickanalyzer] Step 1 complete: ${allBoxes.length} pieces detected`);
-      const pieces: any[] = allBoxes.map(b => ({
+      const maxPieces = settings.maxPieces ?? 50;
+      const clampedBoxes = allBoxes.slice(0, maxPieces);
+      if (clampedBoxes.length < allBoxes.length) {
+        console.log(`[Brickanalyzer] Capped at ${maxPieces} pieces (${allBoxes.length} detected)`);
+      }
+
+      console.log(`[Brickanalyzer] Step 1 complete: ${clampedBoxes.length} pieces detected`);
+      const pieces: any[] = clampedBoxes.map(b => ({
         ...b, colorName: '', roughName: '', confidence: 'medium', note: '',
       }));
 
@@ -3315,6 +3321,13 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
           const partScore = partTop?.score ?? -1;
           const topItem   = figScore >= partScore ? figTop : partTop;
           const itemType: 'MINIFIG' | 'PART' = figScore >= partScore ? 'MINIFIG' : 'PART';
+
+          // Apply minimum confidence threshold — discard low-confidence identifications
+          const minConfidence = settings.minConfidence ?? 0.5;
+          if (topItem && topItem.score < minConfidence) {
+            console.log(`[Brickanalyzer] Piece ${idx} (${itemType}): ${topItem.id} score=${topItem.score.toFixed(2)} below threshold ${minConfidence.toFixed(2)} — discarded`);
+            return [{ partNo: '', partName: 'Unknown', colorName: '', itemType: 'PART' as const, confidence: 'low' as const, note: `Score ${topItem.score.toFixed(2)} below threshold` }];
+          }
 
           if (topItem) {
             console.log(`[Brickanalyzer] Piece ${idx} (${itemType}): ${topItem.id} "${topItem.name}" score=${topItem.score.toFixed(2)} [fig=${figScore.toFixed(2)} part=${partScore.toFixed(2)}]`);
@@ -3806,8 +3819,14 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
         status: 'processing',
       }).returning();
 
+      // Parse scan settings passed as a JSON string form field
+      let settings: Record<string, number> = {};
+      if (req.body?.settings) {
+        try { settings = JSON.parse(req.body.settings); } catch {}
+      }
+
       // Fire and forget — client gets scanId immediately
-      processBrickanalyzerScan(scan.id, req.file.buffer).catch(() => {});
+      processBrickanalyzerScan(scan.id, req.file.buffer, settings).catch(() => {});
 
       res.json({ scanId: scan.id });
     } catch (err: any) {

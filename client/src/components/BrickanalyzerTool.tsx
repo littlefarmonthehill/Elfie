@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo, forwardRef, useImperativeHandle } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import { Camera, X, CheckCircle, Loader2, ExternalLink, Trash2, ScanSearch, ChevronRight, Sparkles, Check, Grid3X3 } from "lucide-react";
+import { Camera, X, CheckCircle, Loader2, ExternalLink, Trash2, ScanSearch, ChevronRight, Sparkles, Check, Grid3X3, Settings2, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -60,12 +60,32 @@ interface BrickanalyzerScan {
 
 type UIState = "idle" | "uploading" | "processing" | "complete" | "failed";
 
+interface ScanSettings {
+  minSizePct:    number;  // % of image area — noise floor
+  maxSizePct:    number;  // % of image area — surface/baseplate ceiling
+  separation:    number;  // % of short side — piece-splitting distance
+  sensitivity:   number;  // 0–1 — distance-transform peak threshold
+  maxPieces:     number;  // cap on crops sent to Brickognize
+  minConfidence: number;  // Brickognize minimum score to accept ID (0–1)
+}
+
+const DEFAULT_SETTINGS: ScanSettings = {
+  minSizePct:    0.08,
+  maxSizePct:    6,
+  separation:    2.5,
+  sensitivity:   0.30,
+  maxPieces:     50,
+  minConfidence: 0.50,
+};
+
 const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uiState, setUiState] = useState<UIState>("idle");
   const [scanId, setScanId] = useState<number | null>(null);
   const [leftPage, setLeftPage] = useState(false);
+  const [settings, setSettings] = useState<ScanSettings>(DEFAULT_SETTINGS);
+  const [showSettings, setShowSettings] = useState(false);
 
   useImperativeHandle(ref, () => ({
     triggerCamera: () => {
@@ -166,6 +186,7 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
 
     const formData = new FormData();
     formData.append("image", file);
+    formData.append("settings", JSON.stringify(settings));
 
     try {
       const res = await fetch("/api/brickanalyzer/scan", {
@@ -252,6 +273,132 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
               Tap to take a photo or pick from your library.
             </p>
           </button>
+
+          {/* ── Scan Settings ──────────────────────────────────────────── */}
+          <div className="rounded-lg border border-gray-700 bg-gray-900/40">
+            <button
+              className="w-full flex items-center justify-between px-3 py-2 text-left"
+              onClick={() => setShowSettings(v => !v)}
+              data-testid="button-brickanalyzer-settings-toggle"
+            >
+              <span className="flex items-center gap-2 text-xs font-medium text-gray-400">
+                <Settings2 className="w-3.5 h-3.5" />
+                Scan Settings
+              </span>
+              <span className="flex items-center gap-2">
+                {JSON.stringify(settings) !== JSON.stringify(DEFAULT_SETTINGS) && (
+                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Custom</Badge>
+                )}
+                <ChevronRight className={`w-3.5 h-3.5 text-gray-500 transition-transform ${showSettings ? "rotate-90" : ""}`} />
+              </span>
+            </button>
+
+            {showSettings && (
+              <div className="px-3 pb-3 space-y-4 border-t border-gray-700 pt-3">
+
+                {/* Piece Separation */}
+                <div className="space-y-1">
+                  <div className="flex justify-between items-baseline">
+                    <label className="text-xs font-medium text-gray-300">Piece Separation</label>
+                    <span className="text-xs font-mono text-purple-400">{settings.separation.toFixed(1)}%</span>
+                  </div>
+                  <input type="range" min="1" max="8" step="0.5"
+                    value={settings.separation}
+                    onChange={e => setSettings(s => ({ ...s, separation: Number(e.target.value) }))}
+                    className="w-full accent-purple-500"
+                    data-testid="slider-separation"
+                  />
+                  <p className="text-[10px] text-gray-500">Lower → splits touching pieces more aggressively. Raise if one piece is split into many.</p>
+                </div>
+
+                {/* Min Size */}
+                <div className="space-y-1">
+                  <div className="flex justify-between items-baseline">
+                    <label className="text-xs font-medium text-gray-300">Min Piece Size</label>
+                    <span className="text-xs font-mono text-purple-400">{settings.minSizePct.toFixed(2)}%</span>
+                  </div>
+                  <input type="range" min="0.01" max="0.5" step="0.01"
+                    value={settings.minSizePct}
+                    onChange={e => setSettings(s => ({ ...s, minSizePct: Number(e.target.value) }))}
+                    className="w-full accent-purple-500"
+                    data-testid="slider-min-size"
+                  />
+                  <p className="text-[10px] text-gray-500">Raise to ignore dust, shadows, and tiny noise. Lower if small pieces are being missed.</p>
+                </div>
+
+                {/* Max Size */}
+                <div className="space-y-1">
+                  <div className="flex justify-between items-baseline">
+                    <label className="text-xs font-medium text-gray-300">Max Piece Size</label>
+                    <span className="text-xs font-mono text-purple-400">{settings.maxSizePct.toFixed(0)}%</span>
+                  </div>
+                  <input type="range" min="1" max="30" step="1"
+                    value={settings.maxSizePct}
+                    onChange={e => setSettings(s => ({ ...s, maxSizePct: Number(e.target.value) }))}
+                    className="w-full accent-purple-500"
+                    data-testid="slider-max-size"
+                  />
+                  <p className="text-[10px] text-gray-500">Lower if baseplates or the table surface are being detected as pieces.</p>
+                </div>
+
+                {/* Peak Sensitivity */}
+                <div className="space-y-1">
+                  <div className="flex justify-between items-baseline">
+                    <label className="text-xs font-medium text-gray-300">Peak Sensitivity</label>
+                    <span className="text-xs font-mono text-purple-400">{settings.sensitivity.toFixed(2)}</span>
+                  </div>
+                  <input type="range" min="0.10" max="0.70" step="0.05"
+                    value={settings.sensitivity}
+                    onChange={e => setSettings(s => ({ ...s, sensitivity: Number(e.target.value) }))}
+                    className="w-full accent-purple-500"
+                    data-testid="slider-sensitivity"
+                  />
+                  <p className="text-[10px] text-gray-500">Lower → detects more pieces but may over-split. Raise if too many fragments appear.</p>
+                </div>
+
+                {/* Min Confidence */}
+                <div className="space-y-1">
+                  <div className="flex justify-between items-baseline">
+                    <label className="text-xs font-medium text-gray-300">Min Confidence</label>
+                    <span className="text-xs font-mono text-purple-400">{Math.round(settings.minConfidence * 100)}%</span>
+                  </div>
+                  <input type="range" min="0.10" max="0.95" step="0.05"
+                    value={settings.minConfidence}
+                    onChange={e => setSettings(s => ({ ...s, minConfidence: Number(e.target.value) }))}
+                    className="w-full accent-purple-500"
+                    data-testid="slider-min-confidence"
+                  />
+                  <p className="text-[10px] text-gray-500">Brickognize score required to accept an ID. Raise for fewer but higher-quality results. Lower to see more guesses.</p>
+                </div>
+
+                {/* Max Pieces */}
+                <div className="space-y-1">
+                  <div className="flex justify-between items-baseline">
+                    <label className="text-xs font-medium text-gray-300">Max Pieces</label>
+                    <span className="text-xs font-mono text-purple-400">{settings.maxPieces}</span>
+                  </div>
+                  <input type="range" min="5" max="100" step="5"
+                    value={settings.maxPieces}
+                    onChange={e => setSettings(s => ({ ...s, maxPieces: Number(e.target.value) }))}
+                    className="w-full accent-purple-500"
+                    data-testid="slider-max-pieces"
+                  />
+                  <p className="text-[10px] text-gray-500">Cap how many crops are sent to Brickognize. Reduce for faster results on crowded photos.</p>
+                </div>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full gap-1.5 text-gray-500"
+                  onClick={() => setSettings(DEFAULT_SETTINGS)}
+                  data-testid="button-settings-reset"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  Reset to defaults
+                </Button>
+              </div>
+            )}
+          </div>
         </>
       )}
 

@@ -107,16 +107,25 @@ function postJson(urlPath: string, body: object): Promise<any> {
 
 export interface SegBox { x: number; y: number; w: number; h: number; }
 
+export interface ScanSettings {
+  minSizePct?:    number;  // min piece area as % of image (default 0.08)
+  maxSizePct?:    number;  // max piece area as % of image (default 6)
+  separation?:    number;  // seed search radius as % of shorter side (default 2.5)
+  sensitivity?:   number;  // distance-transform peak threshold 0–1 (default 0.3)
+  maxPieces?:     number;  // max crops to send to Brickognize (default 50)
+  minConfidence?: number;  // Brickognize minimum score to accept ID (default 0.5)
+}
+
 /**
  * Segment all LEGO pieces in an image buffer.
  * Returns bounding boxes as percentages of image dimensions.
  */
-export async function segmentImage(imageBuffer: Buffer): Promise<SegBox[]> {
+export async function segmentImage(imageBuffer: Buffer, settings?: ScanSettings): Promise<SegBox[]> {
   if (!proc) startService();
   await waitReady();
 
   const b64  = imageBuffer.toString('base64');
-  const resp = await postJson('/segment', { image: b64 });
+  const resp = await postJson('/segment', { image: b64, settings: settings ?? {} });
 
   if (resp.error) throw new Error(`Seg service error: ${resp.error}`);
   return (resp.boxes || []) as SegBox[];
