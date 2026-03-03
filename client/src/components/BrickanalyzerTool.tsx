@@ -61,21 +61,34 @@ interface BrickanalyzerScan {
 type UIState = "idle" | "uploading" | "processing" | "complete" | "failed";
 
 interface ScanSettings {
-  minSizePct:    number;  // % of image area — noise floor
-  maxSizePct:    number;  // % of image area — surface/baseplate ceiling
-  separation:    number;  // % of short side — piece-splitting distance
-  sensitivity:   number;  // 0–1 — distance-transform peak threshold
-  maxPieces:     number;  // cap on crops sent to Brickognize
-  minConfidence: number;  // Brickognize minimum score to accept ID (0–1)
+  // Shared
+  segmenter:       "watershed" | "sam";
+  minSizePct:      number;  // % of image area — noise floor
+  maxSizePct:      number;  // % of image area — surface/baseplate ceiling
+  maxPieces:       number;  // cap on crops sent to Brickognize
+  minConfidence:   number;  // Brickognize minimum score (0 = off)
+  // Watershed-only
+  separation:      number;  // % of short side — piece-splitting distance
+  sensitivity:     number;  // 0–1 — distance-transform peak threshold
+  // SAM-only
+  pointsPerSide:   number;  // grid density (4–32)
+  iouThresh:       number;  // predicted IoU quality filter
+  stabilityThresh: number;  // mask stability filter
+  nmsThresh:       number;  // overlap removal (NMS)
 }
 
 const DEFAULT_SETTINGS: ScanSettings = {
-  minSizePct:    0.08,
-  maxSizePct:    6,
-  separation:    2.5,
-  sensitivity:   0.30,
-  maxPieces:     50,
-  minConfidence: 0,   // 0 = disabled — show all Brickognize results regardless of score
+  segmenter:       "watershed",
+  minSizePct:      0.08,
+  maxSizePct:      6,
+  maxPieces:       50,
+  minConfidence:   0,
+  separation:      2.5,
+  sensitivity:     0.30,
+  pointsPerSide:   8,
+  iouThresh:       0.86,
+  stabilityThresh: 0.90,
+  nmsThresh:       0.70,
 };
 
 const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
@@ -296,96 +309,187 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
             {showSettings && (
               <div className="px-3 pb-3 space-y-4 border-t border-gray-700 pt-3">
 
-                {/* Piece Separation */}
-                <div className="space-y-1">
-                  <div className="flex justify-between items-baseline">
-                    <label className="text-xs font-medium text-gray-300">Piece Separation</label>
-                    <span className="text-xs font-mono text-purple-400">{settings.separation.toFixed(1)}%</span>
+                {/* ── Segmenter toggle ──────────────────────────────────────── */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-gray-300">Detection Method</label>
+                  <div className="flex gap-1.5">
+                    <button
+                      className={`flex-1 py-1.5 rounded text-xs font-medium transition-colors ${settings.segmenter === "watershed" ? "bg-purple-600 text-white" : "bg-gray-800 text-gray-400 hover:bg-gray-700"}`}
+                      onClick={() => setSettings(s => ({ ...s, segmenter: "watershed" }))}
+                      data-testid="button-segmenter-watershed"
+                    >
+                      Watershed
+                    </button>
+                    <button
+                      className={`flex-1 py-1.5 rounded text-xs font-medium transition-colors ${settings.segmenter === "sam" ? "bg-purple-600 text-white" : "bg-gray-800 text-gray-400 hover:bg-gray-700"}`}
+                      onClick={() => setSettings(s => ({ ...s, segmenter: "sam" }))}
+                      data-testid="button-segmenter-sam"
+                    >
+                      SAM (AI)
+                    </button>
                   </div>
-                  <input type="range" min="1" max="8" step="0.5"
-                    value={settings.separation}
-                    onChange={e => setSettings(s => ({ ...s, separation: Number(e.target.value) }))}
-                    className="w-full accent-purple-500"
-                    data-testid="slider-separation"
-                  />
-                  <p className="text-[10px] text-gray-500">Lower → splits touching pieces more aggressively. Raise if one piece is split into many.</p>
+                  <p className="text-[10px] text-gray-500">
+                    {settings.segmenter === "sam"
+                      ? "SAM uses a neural network for precise masks. First scan downloads a 375MB model — subsequent scans are faster. Expect 15–60s per photo on CPU."
+                      : "Watershed is fast (~1s) and works well for pieces on a plain background."}
+                  </p>
                 </div>
 
-                {/* Min Size */}
-                <div className="space-y-1">
-                  <div className="flex justify-between items-baseline">
-                    <label className="text-xs font-medium text-gray-300">Min Piece Size</label>
-                    <span className="text-xs font-mono text-purple-400">{settings.minSizePct.toFixed(2)}%</span>
-                  </div>
-                  <input type="range" min="0.01" max="0.5" step="0.01"
-                    value={settings.minSizePct}
-                    onChange={e => setSettings(s => ({ ...s, minSizePct: Number(e.target.value) }))}
-                    className="w-full accent-purple-500"
-                    data-testid="slider-min-size"
-                  />
-                  <p className="text-[10px] text-gray-500">Raise to ignore dust, shadows, and tiny noise. Lower if small pieces are being missed.</p>
-                </div>
+                {/* ── Watershed-specific settings ───────────────────────────── */}
+                {settings.segmenter === "watershed" && (<>
 
-                {/* Max Size */}
-                <div className="space-y-1">
-                  <div className="flex justify-between items-baseline">
-                    <label className="text-xs font-medium text-gray-300">Max Piece Size</label>
-                    <span className="text-xs font-mono text-purple-400">{settings.maxSizePct.toFixed(0)}%</span>
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-baseline">
+                      <label className="text-xs font-medium text-gray-300">Piece Separation</label>
+                      <span className="text-xs font-mono text-purple-400">{settings.separation.toFixed(1)}%</span>
+                    </div>
+                    <input type="range" min="1" max="8" step="0.5"
+                      value={settings.separation}
+                      onChange={e => setSettings(s => ({ ...s, separation: Number(e.target.value) }))}
+                      className="w-full accent-purple-500"
+                      data-testid="slider-separation"
+                    />
+                    <p className="text-[10px] text-gray-500">Lower → splits touching pieces more aggressively. Raise if one piece is split into many.</p>
                   </div>
-                  <input type="range" min="1" max="30" step="1"
-                    value={settings.maxSizePct}
-                    onChange={e => setSettings(s => ({ ...s, maxSizePct: Number(e.target.value) }))}
-                    className="w-full accent-purple-500"
-                    data-testid="slider-max-size"
-                  />
-                  <p className="text-[10px] text-gray-500">Lower if baseplates or the table surface are being detected as pieces.</p>
-                </div>
 
-                {/* Peak Sensitivity */}
-                <div className="space-y-1">
-                  <div className="flex justify-between items-baseline">
-                    <label className="text-xs font-medium text-gray-300">Peak Sensitivity</label>
-                    <span className="text-xs font-mono text-purple-400">{settings.sensitivity.toFixed(2)}</span>
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-baseline">
+                      <label className="text-xs font-medium text-gray-300">Peak Sensitivity</label>
+                      <span className="text-xs font-mono text-purple-400">{settings.sensitivity.toFixed(2)}</span>
+                    </div>
+                    <input type="range" min="0.10" max="0.70" step="0.05"
+                      value={settings.sensitivity}
+                      onChange={e => setSettings(s => ({ ...s, sensitivity: Number(e.target.value) }))}
+                      className="w-full accent-purple-500"
+                      data-testid="slider-sensitivity"
+                    />
+                    <p className="text-[10px] text-gray-500">Lower → detects more pieces but may over-split. Raise if too many fragments appear.</p>
                   </div>
-                  <input type="range" min="0.10" max="0.70" step="0.05"
-                    value={settings.sensitivity}
-                    onChange={e => setSettings(s => ({ ...s, sensitivity: Number(e.target.value) }))}
-                    className="w-full accent-purple-500"
-                    data-testid="slider-sensitivity"
-                  />
-                  <p className="text-[10px] text-gray-500">Lower → detects more pieces but may over-split. Raise if too many fragments appear.</p>
-                </div>
 
-                {/* Min Confidence */}
-                <div className="space-y-1">
-                  <div className="flex justify-between items-baseline">
-                    <label className="text-xs font-medium text-gray-300">Min Confidence</label>
-                    <span className="text-xs font-mono text-purple-400">
-                      {settings.minConfidence === 0 ? "Off" : `${Math.round(settings.minConfidence * 100)}%`}
-                    </span>
-                  </div>
-                  <input type="range" min="0" max="0.95" step="0.05"
-                    value={settings.minConfidence}
-                    onChange={e => setSettings(s => ({ ...s, minConfidence: Number(e.target.value) }))}
-                    className="w-full accent-purple-500"
-                    data-testid="slider-min-confidence"
-                  />
-                  <p className="text-[10px] text-gray-500">Off = show all results. Raise to hide low-confidence IDs. Recommended: leave Off unless you see too many wrong guesses.</p>
-                </div>
+                </>)}
 
-                {/* Max Pieces */}
-                <div className="space-y-1">
-                  <div className="flex justify-between items-baseline">
-                    <label className="text-xs font-medium text-gray-300">Max Pieces</label>
-                    <span className="text-xs font-mono text-purple-400">{settings.maxPieces}</span>
+                {/* ── SAM-specific settings ─────────────────────────────────── */}
+                {settings.segmenter === "sam" && (<>
+
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-baseline">
+                      <label className="text-xs font-medium text-gray-300">Points Per Side</label>
+                      <span className="text-xs font-mono text-purple-400">{settings.pointsPerSide}</span>
+                    </div>
+                    <input type="range" min="4" max="32" step="2"
+                      value={settings.pointsPerSide}
+                      onChange={e => setSettings(s => ({ ...s, pointsPerSide: Number(e.target.value) }))}
+                      className="w-full accent-purple-500"
+                      data-testid="slider-points-per-side"
+                    />
+                    <p className="text-[10px] text-gray-500">Grid density for point prompts. Higher = finds more pieces but much slower. Start at 8.</p>
                   </div>
-                  <input type="range" min="5" max="100" step="5"
-                    value={settings.maxPieces}
-                    onChange={e => setSettings(s => ({ ...s, maxPieces: Number(e.target.value) }))}
-                    className="w-full accent-purple-500"
-                    data-testid="slider-max-pieces"
-                  />
-                  <p className="text-[10px] text-gray-500">Cap how many crops are sent to Brickognize. Reduce for faster results on crowded photos.</p>
+
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-baseline">
+                      <label className="text-xs font-medium text-gray-300">Mask Quality (IoU)</label>
+                      <span className="text-xs font-mono text-purple-400">{settings.iouThresh.toFixed(2)}</span>
+                    </div>
+                    <input type="range" min="0.50" max="0.99" step="0.02"
+                      value={settings.iouThresh}
+                      onChange={e => setSettings(s => ({ ...s, iouThresh: Number(e.target.value) }))}
+                      className="w-full accent-purple-500"
+                      data-testid="slider-iou-thresh"
+                    />
+                    <p className="text-[10px] text-gray-500">Lower to get more masks. Raise to filter out lower-quality detections.</p>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-baseline">
+                      <label className="text-xs font-medium text-gray-300">Mask Stability</label>
+                      <span className="text-xs font-mono text-purple-400">{settings.stabilityThresh.toFixed(2)}</span>
+                    </div>
+                    <input type="range" min="0.50" max="0.99" step="0.02"
+                      value={settings.stabilityThresh}
+                      onChange={e => setSettings(s => ({ ...s, stabilityThresh: Number(e.target.value) }))}
+                      className="w-full accent-purple-500"
+                      data-testid="slider-stability-thresh"
+                    />
+                    <p className="text-[10px] text-gray-500">How consistent the mask must be across threshold shifts. Lower = more masks, potentially noisier.</p>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-baseline">
+                      <label className="text-xs font-medium text-gray-300">Overlap Removal (NMS)</label>
+                      <span className="text-xs font-mono text-purple-400">{settings.nmsThresh.toFixed(2)}</span>
+                    </div>
+                    <input type="range" min="0.10" max="0.90" step="0.05"
+                      value={settings.nmsThresh}
+                      onChange={e => setSettings(s => ({ ...s, nmsThresh: Number(e.target.value) }))}
+                      className="w-full accent-purple-500"
+                      data-testid="slider-nms-thresh"
+                    />
+                    <p className="text-[10px] text-gray-500">Lower to remove more overlapping boxes. Raise if touching pieces are being merged.</p>
+                  </div>
+
+                </>)}
+
+                {/* ── Shared settings ───────────────────────────────────────── */}
+                <div className="border-t border-gray-700/50 pt-3 space-y-4">
+
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-baseline">
+                      <label className="text-xs font-medium text-gray-300">Min Piece Size</label>
+                      <span className="text-xs font-mono text-purple-400">{settings.minSizePct.toFixed(2)}%</span>
+                    </div>
+                    <input type="range" min="0.01" max="0.5" step="0.01"
+                      value={settings.minSizePct}
+                      onChange={e => setSettings(s => ({ ...s, minSizePct: Number(e.target.value) }))}
+                      className="w-full accent-purple-500"
+                      data-testid="slider-min-size"
+                    />
+                    <p className="text-[10px] text-gray-500">Raise to ignore dust, shadows, and tiny noise. Lower if small pieces are being missed.</p>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-baseline">
+                      <label className="text-xs font-medium text-gray-300">Max Piece Size</label>
+                      <span className="text-xs font-mono text-purple-400">{settings.maxSizePct.toFixed(0)}%</span>
+                    </div>
+                    <input type="range" min="1" max="30" step="1"
+                      value={settings.maxSizePct}
+                      onChange={e => setSettings(s => ({ ...s, maxSizePct: Number(e.target.value) }))}
+                      className="w-full accent-purple-500"
+                      data-testid="slider-max-size"
+                    />
+                    <p className="text-[10px] text-gray-500">Lower if baseplates or the table surface are being detected as pieces.</p>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-baseline">
+                      <label className="text-xs font-medium text-gray-300">Min Confidence</label>
+                      <span className="text-xs font-mono text-purple-400">
+                        {settings.minConfidence === 0 ? "Off" : `${Math.round(settings.minConfidence * 100)}%`}
+                      </span>
+                    </div>
+                    <input type="range" min="0" max="0.95" step="0.05"
+                      value={settings.minConfidence}
+                      onChange={e => setSettings(s => ({ ...s, minConfidence: Number(e.target.value) }))}
+                      className="w-full accent-purple-500"
+                      data-testid="slider-min-confidence"
+                    />
+                    <p className="text-[10px] text-gray-500">Off = show all Brickognize results. Raise to hide low-confidence IDs.</p>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-baseline">
+                      <label className="text-xs font-medium text-gray-300">Max Pieces</label>
+                      <span className="text-xs font-mono text-purple-400">{settings.maxPieces}</span>
+                    </div>
+                    <input type="range" min="5" max="100" step="5"
+                      value={settings.maxPieces}
+                      onChange={e => setSettings(s => ({ ...s, maxPieces: Number(e.target.value) }))}
+                      className="w-full accent-purple-500"
+                      data-testid="slider-max-pieces"
+                    />
+                    <p className="text-[10px] text-gray-500">Cap how many crops are sent to Brickognize. Reduce for faster results on crowded photos.</p>
+                  </div>
+
                 </div>
 
                 <Button
