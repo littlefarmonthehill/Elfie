@@ -3563,10 +3563,17 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
           }
 
           if (activeInvRows.length > 0) {
-            const matchColor = (r: any) => colorId
-              ? r.colorId === colorId
-              : (r.colorName?.toLowerCase().includes(piece.colorName?.toLowerCase() || '') ||
-                 piece.colorName?.toLowerCase().includes(r.colorName?.toLowerCase() || ''));
+            // Only attempt a color match when we actually know the color.
+            // An empty colorName would match every inventory row ('' is a substring
+            // of anything), silently assigning whatever color happens to sort first.
+            const hasKnownColor = !!(colorId || piece.colorName);
+            const matchColor = (r: any) => {
+              if (!hasKnownColor) return false;
+              return colorId
+                ? r.colorId === colorId
+                : (r.colorName?.toLowerCase().includes(piece.colorName?.toLowerCase() || '') ||
+                   piece.colorName?.toLowerCase().includes(r.colorName?.toLowerCase() || ''));
+            };
 
             // Strict color match first; fallback only used for part name / thumbnail — never for color override
             const colorMatchNew = activeInvRows.filter(r => r.newOrUsed === 'N').find(matchColor);
