@@ -61,9 +61,17 @@ export function FeedbackDialog({ open, onClose }: FeedbackDialogProps) {
       setRefined(data);
       setStep("review");
     },
-    onError: () => {
+    onError: (err: any) => {
       setStep("input");
-      toast({ title: "E.L.F.I.E. couldn't refine that — please try again", variant: "destructive" });
+      const msg = err?.message ?? "";
+      const isAuth = msg.includes("401") || msg.toLowerCase().includes("unauthorized");
+      toast({
+        title: isAuth ? "Not logged in" : "E.L.F.I.E. refinement failed",
+        description: isAuth
+          ? "Please log in to use this feature."
+          : (msg || "Please try again."),
+        variant: "destructive",
+      });
     },
   });
 

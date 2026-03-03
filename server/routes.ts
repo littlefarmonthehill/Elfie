@@ -16,6 +16,7 @@ import { z } from "zod";
 import multer from "multer";
 import FormData from "form-data";
 import axios from "axios";
+import OpenAI from "openai";
 
 // Decode HTML entities from BrickLink notes for accurate comparison.
 // Regex compiled once at module level; single-pass replace with a lookup table.
@@ -9187,7 +9188,6 @@ Your response MUST be valid JSON with these exact keys: title, refinedDescriptio
 
       const userPrompt = `Feedback type: ${typeLabel}\n\nUser's raw description:\n${rawDescription}\n\nRefine this into a structured request.`;
 
-      const OpenAI = (await import('openai')).default;
       const client = new OpenAI({ apiKey });
 
       const completion = await client.chat.completions.create({
