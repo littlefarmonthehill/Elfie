@@ -3221,6 +3221,49 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
   // Lives only in this process; cleared when the scan is dismissed.
   const brickanalyzerCropCache = new Map<number, Buffer[]>();
 
+  // Sample the dominant non-background color from a crop and return its raw RGB.
+  // Color-to-BrickLink-name resolution is deferred to the enrichment stage, where
+  // the match is constrained to colors the specific part actually exists in.
+  async function detectDominantRgb(
+    cropBuffer: Buffer
+  ): Promise<{ r: number; g: number; b: number } | null> {
+    try {
+      const { default: sharp } = await import('sharp');
+      const { data: pixels, info } = await sharp(cropBuffer)
+        .resize(60, 60, { fit: 'cover' })
+        .removeAlpha()
+        .raw()
+        .toBuffer({ resolveWithObject: true });
+
+      const ch = info.channels as number;
+      const counts = new Map<string, { rSum: number; gSum: number; bSum: number; n: number }>();
+
+      for (let i = 0; i < pixels.length; i += ch) {
+        const r = pixels[i], g = pixels[i + 1], b = pixels[i + 2];
+        // Skip near-white backgrounds and pure shadows
+        if (r > 215 && g > 215 && b > 215) continue;
+        if (r < 15  && g < 15  && b < 15)  continue;
+        // Quantize to 16-step bins for bucketing
+        const key = `${r >> 4},${g >> 4},${b >> 4}`;
+        const bucket = counts.get(key) ?? { rSum: 0, gSum: 0, bSum: 0, n: 0 };
+        bucket.rSum += r; bucket.gSum += g; bucket.bSum += b; bucket.n++;
+        counts.set(key, bucket);
+      }
+
+      if (counts.size === 0) return null;
+
+      let best = { rSum: 0, gSum: 0, bSum: 0, n: 0 };
+      for (const b of counts.values()) { if (b.n > best.n) best = b; }
+      return {
+        r: Math.round(best.rSum / best.n),
+        g: Math.round(best.gSum / best.n),
+        b: Math.round(best.bSum / best.n),
+      };
+    } catch {
+      return null;
+    }
+  }
+
   async function processBrickanalyzerScan(scanId: number, imageBuffer: Buffer, settings: Record<string, number> = {}) {
     try {
       const { default: sharp } = await import('sharp');
@@ -3319,6 +3362,12 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
           // Cache the crop so the client can preview it
           if (!brickanalyzerCropCache.has(scanId)) brickanalyzerCropCache.set(scanId, []);
           brickanalyzerCropCache.get(scanId)![idx] = cropBuffer;
+
+          // Sample dominant RGB from the crop. Color-to-BrickLink-name resolution
+          // is deferred to enrichment, where it's constrained to colors this
+          // specific part actually exists in on BrickLink (Brickognize has no color API).
+          const detectedRgb = await detectDominantRgb(cropBuffer);
+          if (detectedRgb) piece.detectedRgb = detectedRgb;
 
           // Send to both Brickognize endpoints in parallel — take whichever returns
           // the higher confidence score. No pre-classification needed.
@@ -3563,24 +3612,47 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
           }
 
           if (activeInvRows.length > 0) {
-            // Only attempt a color match when we actually know the color.
-            // An empty colorName would match every inventory row ('' is a substring
-            // of anything), silently assigning whatever color happens to sort first.
-            const hasKnownColor = !!(colorId || piece.colorName);
-            const matchColor = (r: any) => {
-              if (!hasKnownColor) return false;
-              return colorId
-                ? r.colorId === colorId
-                : (r.colorName?.toLowerCase().includes(piece.colorName?.toLowerCase() || '') ||
-                   piece.colorName?.toLowerCase().includes(r.colorName?.toLowerCase() || ''));
-            };
+            // ── Color resolution: constrained to colors this part actually exists in ──
+            // If we have a detected RGB from image analysis, find which of the part's
+            // real BrickLink color variants is closest — never assign a color the part
+            // was never made in.
+            if (piece.detectedRgb) {
+              const uniqueColorIds = [...new Set(activeInvRows.map((r: any) => r.colorId).filter(Boolean))] as number[];
+              if (uniqueColorIds.length > 0) {
+                const colorRgbRows = await db.select({ id: blColors.id, name: blColors.name, rgb: blColors.rgb })
+                  .from(blColors)
+                  .where(inArray(blColors.id, uniqueColorIds));
+
+                const { r: dr, g: dg, b: db } = piece.detectedRgb;
+                let closestColorId: number | null = null;
+                let closestColorName: string | null = null;
+                let closestDist = Infinity;
+
+                for (const c of colorRgbRows) {
+                  if (!c.rgb || c.rgb.length !== 6) continue;
+                  const cr = parseInt(c.rgb.slice(0, 2), 16);
+                  const cg = parseInt(c.rgb.slice(2, 4), 16);
+                  const cb = parseInt(c.rgb.slice(4, 6), 16);
+                  const dist = Math.sqrt((dr - cr) ** 2 + (dg - cg) ** 2 + (db - cb) ** 2);
+                  if (dist < closestDist) { closestDist = dist; closestColorId = c.id; closestColorName = c.name; }
+                }
+
+                if (closestColorId) {
+                  colorId = closestColorId;
+                  piece.colorName = closestColorName || '';
+                  console.log(`[ColorDetect] piece ${piece.partNo}: RGB=(${dr},${dg},${db}) → "${closestColorName}" (dist=${closestDist.toFixed(1)}, from ${uniqueColorIds.length} variant(s))`);
+                }
+              }
+            }
+
+            const matchColor = (r: any) => colorId ? r.colorId === colorId : false;
 
             // Strict color match first; fallback only used for part name / thumbnail — never for color override
-            const colorMatchNew = activeInvRows.filter(r => r.newOrUsed === 'N').find(matchColor);
-            const colorMatchUsed = activeInvRows.filter(r => r.newOrUsed === 'U').find(matchColor);
-            const anyNew = activeInvRows.find(r => r.newOrUsed === 'N');
-            const anyUsed = activeInvRows.find(r => r.newOrUsed === 'U');
-            const newMatch = colorMatchNew; // pricing only when color matches
+            const colorMatchNew = activeInvRows.filter((r: any) => r.newOrUsed === 'N').find(matchColor);
+            const colorMatchUsed = activeInvRows.filter((r: any) => r.newOrUsed === 'U').find(matchColor);
+            const anyNew = activeInvRows.find((r: any) => r.newOrUsed === 'N');
+            const anyUsed = activeInvRows.find((r: any) => r.newOrUsed === 'U');
+            const newMatch = colorMatchNew;
             const usedMatch = colorMatchUsed;
             const nameSrc = colorMatchNew || colorMatchUsed || anyNew || anyUsed; // for name/thumb only
 
@@ -3593,17 +3665,12 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
               ourQtyNew = newMatch.quantity || 0;
               inventoryId = newMatch.id;
               if (!thumbnailUrl) thumbnailUrl = newMatch.thumbnailUrl || newMatch.imageUrl || null;
-              // Only override color from inventory when we have a true color match
-              if (newMatch.colorName) piece.colorName = newMatch.colorName;
-              if (newMatch.colorId) { colorId = newMatch.colorId; colorRgb = null; }
             }
             if (usedMatch) {
               ourPriceUsed = usedMatch.unitPrice ? Number(usedMatch.unitPrice) : null;
               ourQtyUsed = usedMatch.quantity || 0;
               if (!inventoryId) inventoryId = usedMatch.id;
               if (!thumbnailUrl) thumbnailUrl = usedMatch.thumbnailUrl || usedMatch.imageUrl || null;
-              if (!piece.colorName && usedMatch.colorName) piece.colorName = usedMatch.colorName;
-              if (!colorId && usedMatch.colorId) { colorId = usedMatch.colorId; colorRgb = null; }
             }
 
             // Re-fetch colorRgb if colorId was updated from inventory but rgb is not yet known
