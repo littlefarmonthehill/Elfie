@@ -90,15 +90,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     .section > h2:first-child { margin-top: 0; }
     .two-col-terms { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; margin-top: 8px; }
     .term-block h2 { margin-top: 0; }
-    .sig-section { margin-top: 22px; border-top: 1px solid #d0dde8; padding-top: 12px; }
+    .sig-section { margin-top: 10px; border-top: 1px solid #d0dde8; padding-top: 8px; }
     .pkg-select-line { font-size: 9pt; margin-bottom: 10px; }
     .pkg-select-line span { display: inline-block; width: 150px; border-bottom: 1px solid #333; margin-left: 5px; }
     .signature-block { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
     .sig-party label { display: block; font-size: 7.5pt; color: #666; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px; }
-    .sig-party .party-name { font-weight: bold; font-size: 9pt; color: #1a1a1a; margin-bottom: 36px; }
+    .sig-party .party-name { font-weight: bold; font-size: 9pt; color: #1a1a1a; margin-bottom: 24px; }
     .sig-line { border-top: 1.5px solid #1a1a1a; padding-top: 3px; font-size: 8.5pt; color: #444; }
     .sig-line-2 { margin-top: 16px; border-top: 1px solid #aaa; padding-top: 3px; font-size: 8.5pt; color: #666; }
-    .footer { margin-top: 14px; border-top: 1px solid #d0dde8; padding-top: 6px; text-align: center; font-size: 7.5pt; color: #999; }
+    .footer { margin-top: 8px; border-top: 1px solid #d0dde8; padding-top: 4px; text-align: center; font-size: 7.5pt; color: #999; }
     @media print {
       body { font-size: 9pt; }
       .page { padding: 16px 28px 16px; max-width: 100%; }
