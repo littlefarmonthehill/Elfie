@@ -3274,7 +3274,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       // Throttle concurrent Brickognize calls. Sending all N pieces at once
       // (2N parallel requests) triggers rate limiting — silently returns empty.
       // Limiting to BQ_CONCURRENCY pieces at a time (2×BQ_CONCURRENCY requests) avoids this.
-      const BQ_CONCURRENCY = 4;
+      const BQ_CONCURRENCY = 1;
       function makeBqLimiter(concurrency: number) {
         let active = 0;
         const waitQueue: Array<() => void> = [];
