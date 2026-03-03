@@ -164,28 +164,10 @@ export async function detectPieceBoundingBoxes(imageBuffer: Buffer): Promise<Det
   }
   const filtered = boxes.filter((_, i) => keep[i]);
 
-  // ── Subdivide wide blobs into column strips ────────────────────────────
-  // Touching pieces side-by-side form one wide connected region. Split by
-  // WIDTH only — the blob height already represents the full piece height
-  // (a fig blob is tall because figs are tall, not because figs are stacked).
-  // Target ~20% column width ≈ one piece. No row splitting.
-  const TILE_W = 20; // target column width in % of image
-  const result: DetectedBox[] = [];
-  for (const b of filtered) {
-    if (b.w > TILE_W) {
-      const cols = Math.ceil(b.w / TILE_W);
-      const tw = b.w / cols;
-      for (let c = 0; c < cols; c++) {
-        result.push({ x: b.x + c * tw, y: b.y, w: tw, h: b.h });
-      }
-      console.log(`[ContourDetect] Wide blob ${b.w.toFixed(1)}%×${b.h.toFixed(1)}% → ${cols} columns`);
-    } else {
-      result.push(b);
-    }
-  }
-
-  console.log(`[ContourDetect] ${W}×${H} bg=${bgBrightness.toFixed(0)} → ${bboxMap.size} components → ${boxes.length} sized → ${filtered.length} after fragment filter → ${result.length} final`);
-  return result;
+  // No column splitting here — routes.ts classifies large blobs and sends
+  // them to GPT-4o for accurate sub-piece detection.
+  console.log(`[ContourDetect] ${W}×${H} bg=${bgBrightness.toFixed(0)} → ${bboxMap.size} components → ${boxes.length} sized → ${filtered.length} returned`);
+  return filtered;
 }
 
 /**
