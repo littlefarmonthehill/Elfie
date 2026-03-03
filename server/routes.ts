@@ -95,7 +95,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     .pkg-select-line span { display: inline-block; width: 150px; border-bottom: 1px solid #333; margin-left: 5px; }
     .signature-block { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
     .sig-party label { display: block; font-size: 7.5pt; color: #666; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px; }
-    .sig-party .party-name { font-weight: bold; font-size: 9pt; color: #1a1a1a; margin-bottom: 18px; }
+    .sig-party .party-name { font-weight: bold; font-size: 9pt; color: #1a1a1a; margin-bottom: 36px; }
     .sig-line { border-top: 1.5px solid #1a1a1a; padding-top: 3px; font-size: 8.5pt; color: #444; }
     .sig-line-2 { margin-top: 16px; border-top: 1px solid #aaa; padding-top: 3px; font-size: 8.5pt; color: #666; }
     .footer { margin-top: 14px; border-top: 1px solid #d0dde8; padding-top: 6px; text-align: center; font-size: 7.5pt; color: #999; }
