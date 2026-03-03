@@ -68,7 +68,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     .meta { display: flex; gap: 24px; background: #f5f8fb; border: 1px solid #d0dde8; border-radius: 4px; padding: 6px 12px; margin-bottom: 10px; font-size: 8.5pt; }
     .meta-item label { color: #666; font-style: italic; margin-right: 4px; }
     .meta-item value { font-weight: bold; }
-    h2 { font-size: 9.5pt; font-weight: bold; color: #2c5f8a; text-transform: uppercase; letter-spacing: 0.05em; background: #deeaf7; padding: 3px 8px; border-radius: 3px; margin-top: 10px; margin-bottom: 5px; }
+    h2 { font-size: 9.5pt; font-weight: bold; color: #2c5f8a; text-transform: uppercase; letter-spacing: 0.05em; background: #e2e6ea; padding: 3px 8px; border-radius: 3px; margin-top: 10px; margin-bottom: 5px; }
     h3 { font-size: 9pt; font-weight: bold; color: #1a1a1a; margin-top: 7px; margin-bottom: 3px; }
     p { margin-bottom: 4px; }
     ul { padding-left: 15px; margin-bottom: 4px; }
