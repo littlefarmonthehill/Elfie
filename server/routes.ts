@@ -127,6 +127,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     </div>
 
     <div class="section">
+      <h2>Scope of Work</h2>
+      <ul class="two-col-list">
+        <li>Increase residential service inquiries and referrals</li>
+        <li>Lead capture and contact forms</li>
+        <li>Express the Client's vision, mission, and messaging</li>
+        <li>Content assets ready for marketing and social media</li>
+        <li>Showcase completed work through galleries, photos, and videos</li>
+      </ul>
+    </div>
+
+    <div class="section">
       <h2>1.1 &nbsp; Initial Development</h2>
       <p>DBS will build a custom residential-focused website for <strong>Minnesota Building Contractors</strong>, including:</p>
       <ul class="two-col-list">
