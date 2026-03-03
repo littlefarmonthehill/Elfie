@@ -3227,119 +3227,156 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       const imgHeight = imgMeta.height || 1000;
 
       // ── Step 1: Hybrid detection ────────────────────────────────────────────
-      // GPT-4o understands scenes and separates touching pieces; contour
-      // detection finds exact pixel boundaries. Combined:
-      //   a) GPT-4o locates each piece approximately (handles touching figs etc.)
-      //   b) For each GPT-4o region, contour detection refines the boundary
-      //      within that sub-region → eliminates coordinate drift completely
-      console.log('[Brickanalyzer] Step 1a: GPT-4o piece detection...');
+      // Contour runs first on the full image — accurate for isolated pieces and
+      // correctly locates large "merged blobs" (touching pieces).
+      // GPT-4o then only runs on each large blob sub-image to split it into
+      // individual pieces. Small focused crops → much better coordinate accuracy
+      // than asking GPT-4o to map the entire complex scene.
+      console.log('[Brickanalyzer] Step 1a: Contour detection on full image...');
 
-      const [scanSettings] = await db.select().from(appSettings).limit(1);
-      const gptKey = scanSettings?.openaiApiKey;
-      if (!gptKey) throw new Error('OpenAI API key not configured — add it in Settings.');
+      const { detectPieceBoundingBoxes, detectLargestPiece } = await import('./services/contourDetect.js');
+      const contourAll = await detectPieceBoundingBoxes(imageBuffer);
 
-      const { default: OpenAI } = await import('openai');
-      const gptClient = new OpenAI({ apiKey: gptKey });
+      // Separate individual pieces (small) from large merged blobs
+      // A blob is "large" if both dimensions exceed 18% — almost certainly
+      // multiple touching pieces rather than one piece.
+      const BLOB_THRESH = 18;
+      const individualBoxes = contourAll.filter(b => b.w <= BLOB_THRESH || b.h <= BLOB_THRESH);
+      const largeBlobs      = contourAll.filter(b => b.w  > BLOB_THRESH && b.h  > BLOB_THRESH);
+      console.log(`[Brickanalyzer] Contour: ${individualBoxes.length} individual + ${largeBlobs.length} large blob(s)`);
 
-      // Scale to ≤1600px for GPT-4o (keeps token cost low; percentages identical)
-      const scaledBuf = await sharp(imageBuffer)
-        .resize(1600, 1600, { fit: 'inside', withoutEnlargement: true })
-        .jpeg({ quality: 85 })
-        .toBuffer();
+      // ── Step 1b: GPT-4o splits each large blob ────────────────────────────
+      // Send only the blob sub-image (not the whole photo) so GPT-4o has a
+      // small focused view → far less coordinate drift.
+      const splitBoxes: Array<{x:number;y:number;w:number;h:number}> = [];
 
-      let gptBoxes: Array<{x:number;y:number;w:number;h:number}> = [];
-      try {
-        const resp = await gptClient.chat.completions.create({
-          model: 'gpt-4o',
-          max_tokens: 2048,
-          temperature: 0.2,
-          response_format: { type: 'json_object' },
-          messages: [{
-            role: 'user',
-            content: [
-              { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${scaledBuf.toString('base64')}`, detail: 'high' } },
-              { type: 'text', text: `Find every individual LEGO piece in this photo. Each minifigure is ONE piece (head+torso+legs together). Each shield, brick, or part is also ONE piece.
+      if (largeBlobs.length > 0) {
+        const [scanSettings] = await db.select().from(appSettings).limit(1);
+        const gptKey = scanSettings?.openaiApiKey;
 
-Return ONLY JSON: {"pieces": [{"x":12.5,"y":8.0,"w":9.3,"h":14.2}, ...]}
+        if (gptKey) {
+          const { default: OpenAI } = await import('openai');
+          const gptClient = new OpenAI({ apiKey: gptKey });
 
-Rules:
-- x,y = top-left corner as % of image width/height
-- w,h = bounding box size as % of image width/height  
-- Draw a box tightly around each individual piece
-- Minifigures: one box from helmet top to feet bottom
-- Count every piece — do not skip any` }
-            ]
-          }],
-        });
-        const parsed = JSON.parse(resp.choices[0]?.message?.content || '{"pieces":[]}');
-        gptBoxes = (Array.isArray(parsed.pieces) ? parsed.pieces : [])
-          .filter((b: any) => typeof b.x==='number' && typeof b.y==='number' && b.w>1 && b.h>1)
-          .map((b: any) => ({
-            x: Math.max(0, Math.min(99, b.x)),
-            y: Math.max(0, Math.min(99, b.y)),
-            w: Math.max(2, b.w),
-            h: Math.max(2, b.h),
+          await Promise.all(largeBlobs.map(async (blob) => {
+            // Crop the blob from the original image
+            const bx = Math.max(0, Math.round((blob.x / 100) * imgWidth));
+            const by = Math.max(0, Math.round((blob.y / 100) * imgHeight));
+            const bw = Math.min(imgWidth  - bx, Math.round((blob.w / 100) * imgWidth));
+            const bh = Math.min(imgHeight - by, Math.round((blob.h / 100) * imgHeight));
+
+            if (bw < 40 || bh < 40) { splitBoxes.push(blob); return; }
+
+            const blobBuf = await sharp(imageBuffer)
+              .extract({ left: bx, top: by, width: bw, height: bh })
+              .resize(800, 800, { fit: 'inside', withoutEnlargement: true })
+              .jpeg({ quality: 85 })
+              .toBuffer();
+
+            try {
+              const resp = await gptClient.chat.completions.create({
+                model: 'gpt-4o',
+                max_tokens: 1024,
+                temperature: 0.2,
+                response_format: { type: 'json_object' },
+                messages: [{
+                  role: 'user',
+                  content: [
+                    { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${blobBuf.toString('base64')}`, detail: 'high' } },
+                    { type: 'text', text: `This image contains multiple touching LEGO pieces. Find each individual piece and draw a tight bounding box around it.
+
+Return ONLY JSON: {"pieces": [{"x":10.0,"y":5.0,"w":25.0,"h":80.0}, ...]}
+
+- x,y = top-left corner as % of THIS image's width/height
+- w,h = box size as % of THIS image's width/height
+- Each minifigure = one box from helmet top to feet bottom
+- Count every piece` }
+                  ]
+                }],
+              });
+
+              const parsed = JSON.parse(resp.choices[0]?.message?.content || '{"pieces":[]}');
+              const subBoxes: Array<{x:number;y:number;w:number;h:number}> = (Array.isArray(parsed.pieces) ? parsed.pieces : [])
+                .filter((b: any) => typeof b.x==='number' && typeof b.y==='number' && b.w>2 && b.h>2);
+
+              console.log(`[Brickanalyzer] GPT-4o split blob ${blob.w.toFixed(0)}%×${blob.h.toFixed(0)}% → ${subBoxes.length} pieces`);
+
+              if (subBoxes.length === 0) { splitBoxes.push(blob); return; }
+
+              // Translate sub-box % coords back to full image % coords,
+              // then contour-refine each for pixel-accurate boundaries.
+              await Promise.all(subBoxes.map(async (sb) => {
+                // Sub-box in original blob pixels
+                const sbX = Math.max(0, Math.round((sb.x / 100) * bw));
+                const sbY = Math.max(0, Math.round((sb.y / 100) * bh));
+                const sbW = Math.min(bw - sbX, Math.round((sb.w / 100) * bw));
+                const sbH = Math.min(bh - sbY, Math.round((sb.h / 100) * bh));
+
+                // Expand 20% to absorb GPT-4o drift within the blob
+                const EXPAND = 0.20;
+                const exX = Math.max(0, sbX - sbW * EXPAND);
+                const exY = Math.max(0, sbY - sbH * EXPAND);
+                const exW = Math.min(bw - exX, sbW * (1 + 2 * EXPAND));
+                const exH = Math.min(bh - exY, sbH * (1 + 2 * EXPAND));
+
+                if (exW < 20 || exH < 20) {
+                  splitBoxes.push({
+                    x: blob.x + (sbX / bw) * blob.w,
+                    y: blob.y + (sbY / bh) * blob.h,
+                    w: (sbW / bw) * blob.w,
+                    h: (sbH / bh) * blob.h,
+                  });
+                  return;
+                }
+
+                try {
+                  const subImg = await sharp(imageBuffer)
+                    .extract({ left: bx + Math.round(exX), top: by + Math.round(exY), width: Math.round(exW), height: Math.round(exH) })
+                    .toBuffer();
+                  const localBox = await detectLargestPiece(subImg);
+                  if (localBox) {
+                    const absX = bx + exX + (localBox.x / 100) * exW;
+                    const absY = by + exY + (localBox.y / 100) * exH;
+                    const absW = (localBox.w / 100) * exW;
+                    const absH = (localBox.h / 100) * exH;
+                    splitBoxes.push({
+                      x: (absX / imgWidth) * 100,
+                      y: (absY / imgHeight) * 100,
+                      w: (absW / imgWidth) * 100,
+                      h: (absH / imgHeight) * 100,
+                    });
+                  } else {
+                    splitBoxes.push({
+                      x: blob.x + (sbX / bw) * blob.w,
+                      y: blob.y + (sbY / bh) * blob.h,
+                      w: (sbW / bw) * blob.w,
+                      h: (sbH / bh) * blob.h,
+                    });
+                  }
+                } catch {
+                  splitBoxes.push({
+                    x: blob.x + (sbX / bw) * blob.w,
+                    y: blob.y + (sbY / bh) * blob.h,
+                    w: (sbW / bw) * blob.w,
+                    h: (sbH / bh) * blob.h,
+                  });
+                }
+              }));
+            } catch (e: any) {
+              console.warn(`[Brickanalyzer] GPT-4o blob split failed: ${e.message} — keeping blob`);
+              splitBoxes.push(blob);
+            }
           }));
-        console.log(`[Brickanalyzer] GPT-4o found ${gptBoxes.length} piece locations`);
-      } catch (e: any) {
-        console.warn('[Brickanalyzer] GPT-4o failed:', e.message);
+        } else {
+          // No API key — send blobs as-is (Brickognize picks the dominant piece)
+          console.warn('[Brickanalyzer] No OpenAI key — large blobs sent unsplit');
+          splitBoxes.push(...largeBlobs);
+        }
       }
 
-      // ── Step 1b: Contour-refine each GPT-4o region ───────────────────────
-      // Expand each GPT-4o box by 25% in all directions to absorb drift, then
-      // run contour detection within that sub-region to find the exact boundary.
-      console.log('[Brickanalyzer] Step 1b: Contour-refining each region...');
-      const { detectLargestPiece } = await import('./services/contourDetect.js');
-
-      const EXPAND = 0.25; // expand GPT-4o box by 25% in each direction
-      const refinedBoxes: Array<{x:number;y:number;w:number;h:number}> = [];
-
-      await Promise.all(gptBoxes.map(async (gb) => {
-        // Expand the GPT-4o hint box
-        const exX = Math.max(0, (gb.x - gb.w * EXPAND) / 100);
-        const exY = Math.max(0, (gb.y - gb.h * EXPAND) / 100);
-        const exX2 = Math.min(1, (gb.x + gb.w * (1 + EXPAND)) / 100);
-        const exY2 = Math.min(1, (gb.y + gb.h * (1 + EXPAND)) / 100);
-        const subX = Math.round(exX * imgWidth);
-        const subY = Math.round(exY * imgHeight);
-        const subW = Math.round((exX2 - exX) * imgWidth);
-        const subH = Math.round((exY2 - exY) * imgHeight);
-
-        if (subW < 20 || subH < 20) {
-          // Too small to crop — use GPT-4o box as-is
-          refinedBoxes.push(gb);
-          return;
-        }
-
-        try {
-          const subImg = await sharp(imageBuffer)
-            .extract({ left: subX, top: subY, width: subW, height: subH })
-            .toBuffer();
-
-          const localBox = await detectLargestPiece(subImg);
-          if (localBox) {
-            // Translate local % coords back to full image % coords
-            const absX = subX + (localBox.x / 100) * subW;
-            const absY = subY + (localBox.y / 100) * subH;
-            const absW = (localBox.w / 100) * subW;
-            const absH = (localBox.h / 100) * subH;
-            refinedBoxes.push({
-              x: (absX / imgWidth) * 100,
-              y: (absY / imgHeight) * 100,
-              w: (absW / imgWidth) * 100,
-              h: (absH / imgHeight) * 100,
-            });
-          } else {
-            // Contour found nothing — fall back to GPT-4o box
-            refinedBoxes.push(gb);
-          }
-        } catch {
-          refinedBoxes.push(gb);
-        }
-      }));
-
-      console.log(`[Brickanalyzer] Step 1 complete: ${refinedBoxes.length} refined regions`);
-      const pieces: any[] = refinedBoxes.map(b => ({
+      const allBoxes = [...individualBoxes, ...splitBoxes];
+      console.log(`[Brickanalyzer] Step 1 complete: ${individualBoxes.length} individual + ${splitBoxes.length} from blobs = ${allBoxes.length} total`);
+      const pieces: any[] = allBoxes.map(b => ({
         ...b, colorName: '', roughName: '', confidence: 'medium', note: '',
       }));
 
