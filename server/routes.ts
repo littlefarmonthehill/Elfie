@@ -134,7 +134,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         <li>Express the Client's vision, mission, and messaging</li>
         <li>Content assets ready for marketing and social media</li>
         <li>Showcase completed work through galleries, photos, and videos</li>
-        <li>Ramp up &amp; delivery of Initial Development (1.1): Week 1 Consulting &amp; Vision (no charge) &rarr; Week 2 Design &amp; Build &rarr; Week 3 Review &amp; Revisions &rarr; Week 4 Launch</li>
+        <li>Full website design, build, review, and launch completed within 4 weeks</li>
       </ul>
     </div>
 
