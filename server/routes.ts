@@ -3612,39 +3612,6 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
           }
 
           if (activeInvRows.length > 0) {
-            // ── Color resolution: constrained to colors this part actually exists in ──
-            // If we have a detected RGB from image analysis, find which of the part's
-            // real BrickLink color variants is closest — never assign a color the part
-            // was never made in.
-            if (piece.detectedRgb) {
-              const uniqueColorIds = [...new Set(activeInvRows.map((r: any) => r.colorId).filter(Boolean))] as number[];
-              if (uniqueColorIds.length > 0) {
-                const colorRgbRows = await db.select({ id: blColors.id, name: blColors.name, rgb: blColors.rgb })
-                  .from(blColors)
-                  .where(inArray(blColors.id, uniqueColorIds));
-
-                const { r: dr, g: dg, b: db } = piece.detectedRgb;
-                let closestColorId: number | null = null;
-                let closestColorName: string | null = null;
-                let closestDist = Infinity;
-
-                for (const c of colorRgbRows) {
-                  if (!c.rgb || c.rgb.length !== 6) continue;
-                  const cr = parseInt(c.rgb.slice(0, 2), 16);
-                  const cg = parseInt(c.rgb.slice(2, 4), 16);
-                  const cb = parseInt(c.rgb.slice(4, 6), 16);
-                  const dist = Math.sqrt((dr - cr) ** 2 + (dg - cg) ** 2 + (db - cb) ** 2);
-                  if (dist < closestDist) { closestDist = dist; closestColorId = c.id; closestColorName = c.name; }
-                }
-
-                if (closestColorId) {
-                  colorId = closestColorId;
-                  piece.colorName = closestColorName || '';
-                  console.log(`[ColorDetect] piece ${piece.partNo}: RGB=(${dr},${dg},${db}) → "${closestColorName}" (dist=${closestDist.toFixed(1)}, from ${uniqueColorIds.length} variant(s))`);
-                }
-              }
-            }
-
             const matchColor = (r: any) => colorId ? r.colorId === colorId : false;
 
             // Strict color match first; fallback only used for part name / thumbnail — never for color override
@@ -3680,32 +3647,6 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
                 .where(eq(blColors.id, colorId))
                 .limit(1);
               if (rgbRows.length > 0) colorRgb = rgbRows[0].rgb ?? null;
-            }
-          }
-
-          // Fallback color detection: if we have a detected RGB but still no colorId
-          // (part not in our inventory), match against the full BrickLink palette.
-          if (piece.detectedRgb && !colorId) {
-            const { r: dr, g: dg, b: db } = piece.detectedRgb;
-            const allColors = await db.select({ id: blColors.id, name: blColors.name, rgb: blColors.rgb })
-              .from(blColors)
-              .where(sql`${blColors.rgb} is not null and length(${blColors.rgb}) = 6`);
-            let closestId: number | null = null;
-            let closestName: string | null = null;
-            let closestDist = Infinity;
-            for (const c of allColors) {
-              const cr = parseInt(c.rgb!.slice(0, 2), 16);
-              const cg = parseInt(c.rgb!.slice(2, 4), 16);
-              const cb = parseInt(c.rgb!.slice(4, 6), 16);
-              const dist = Math.sqrt((dr - cr) ** 2 + (dg - cg) ** 2 + (db - cb) ** 2);
-              if (dist < closestDist) { closestDist = dist; closestId = c.id; closestName = c.name; }
-            }
-            if (closestId) {
-              colorId = closestId;
-              piece.colorName = closestName || '';
-              console.log(`[ColorDetect] fallback palette: RGB=(${dr},${dg},${db}) → "${closestName}" (dist=${closestDist.toFixed(1)})`);
-              const rgbRow = await db.select({ rgb: blColors.rgb }).from(blColors).where(eq(blColors.id, closestId)).limit(1);
-              if (rgbRow.length > 0) colorRgb = rgbRow[0].rgb ?? null;
             }
           }
 
@@ -3803,6 +3744,31 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
               const colorRows = await db.select({ id: blColors.id, name: blColors.name, rgb: blColors.rgb })
                 .from(blColors).where(inArray(blColors.id, catalogColorIds));
               const colorMap = new Map(colorRows.map(r => [r.id, { name: r.name ?? null, rgb: r.rgb ?? null }]));
+
+              // ── Catalog-constrained color detection ──
+              // Use detected RGB to pick the closest color from the real BrickLink catalog
+              // for this part — the definitive list of all colors it was ever made in.
+              if (piece.detectedRgb && !colorId) {
+                const { r: dr, g: dg, b: db } = piece.detectedRgb;
+                let closestId: number | null = null;
+                let closestName: string | null = null;
+                let closestDist = Infinity;
+                for (const [cid, col] of colorMap.entries()) {
+                  if (!col.rgb || col.rgb.length !== 6) continue;
+                  const cr = parseInt(col.rgb.slice(0, 2), 16);
+                  const cg = parseInt(col.rgb.slice(2, 4), 16);
+                  const cb = parseInt(col.rgb.slice(4, 6), 16);
+                  const dist = Math.sqrt((dr - cr) ** 2 + (dg - cg) ** 2 + (db - cb) ** 2);
+                  if (dist < closestDist) { closestDist = dist; closestId = cid; closestName = col.name; }
+                }
+                if (closestId) {
+                  colorId = closestId;
+                  piece.colorName = closestName || '';
+                  colorRgb = colorMap.get(closestId)?.rgb ?? null;
+                  console.log(`[ColorDetect] catalog match ${piece.partNo}: RGB=(${dr},${dg},${db}) → "${closestName}" (dist=${closestDist.toFixed(1)}, from ${catalogColors.length} BL color(s))`);
+                }
+              }
+
               // Fetch peak prices from local priceGuideCache for each color (both conditions)
               const peakRows = await db.select({
                 colorId: priceGuideCache.colorId,
