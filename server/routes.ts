@@ -86,8 +86,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     .timeline-step { flex: 1; padding: 5px 8px; border-right: 1px solid #d0dde8; }
     .timeline-step:last-child { border-right: none; }
     .timeline-step .wk { font-weight: bold; color: #2c5f8a; font-size: 8pt; }
-    .two-col-terms { display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; margin-top: 10px; }
-    .term-block h2 { margin-top: 8px; }
+    .section { background: #eef4fb; border-radius: 5px; padding: 8px 12px 10px; margin-bottom: 8px; }
+    .section > h2:first-child { margin-top: 0; }
+    .two-col-terms { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; margin-top: 8px; }
+    .term-block { background: #eef4fb; border-radius: 5px; padding: 6px 10px 8px; }
+    .term-block h2 { margin-top: 0; }
     .sig-section { margin-top: 10px; border-top: 1px solid #d0dde8; padding-top: 8px; }
     .pkg-select-line { font-size: 9pt; margin-bottom: 10px; }
     .pkg-select-line span { display: inline-block; width: 150px; border-bottom: 1px solid #333; margin-left: 5px; }
@@ -124,56 +127,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
       <div class="meta-item"><label>Service Provider:</label><value>Driftless Business Solutions ("DBS")</value></div>
     </div>
 
-    <h2>1.1 &nbsp; Initial Development</h2>
-    <p>DBS will build a custom residential-focused website for <strong>Minnesota Building Contractors</strong>, including:</p>
-    <ul class="two-col-list">
-      <li>Custom design, layout &amp; mobile display</li>
-      <li>Lead capture &amp; contact forms</li>
-      <li>Residential-focused copywriting &amp; messaging</li>
-      <li>Project showcase (galleries, photos, videos)</li>
-    </ul>
-    <div class="package-choice">
-      <div class="package-box">
-        <div class="pkg-header">
-          <div class="pkg-name"><span class="checkbox"></span> Starter MVP</div>
-          <div class="pkg-price">$750</div>
+    <div class="section">
+      <h2>1.1 &nbsp; Initial Development</h2>
+      <p>DBS will build a custom residential-focused website for <strong>Minnesota Building Contractors</strong>, including:</p>
+      <ul class="two-col-list">
+        <li>Custom design, layout &amp; mobile display</li>
+        <li>Lead capture &amp; contact forms</li>
+        <li>Residential-focused copywriting &amp; messaging</li>
+        <li>Project showcase (galleries, photos, videos)</li>
+      </ul>
+      <div class="package-choice">
+        <div class="package-box">
+          <div class="pkg-header">
+            <div class="pkg-name"><span class="checkbox"></span> Starter MVP</div>
+            <div class="pkg-price">$750</div>
+          </div>
+          <div class="pkg-desc">Residential site with lead capture, 1–2 lightweight tools, and basic project showcase.</div>
         </div>
-        <div class="pkg-desc">Residential site with lead capture, 1–2 lightweight tools, and basic project showcase.</div>
-      </div>
-      <div class="package-box">
-        <div class="pkg-header">
-          <div class="pkg-name"><span class="checkbox"></span> Core MVP</div>
-          <div class="pkg-price">$2,000</div>
+        <div class="package-box">
+          <div class="pkg-header">
+            <div class="pkg-name"><span class="checkbox"></span> Core MVP</div>
+            <div class="pkg-price">$2,000</div>
+          </div>
+          <div class="pkg-desc">Full-featured site with lead capture workflows, enhanced showcase, and marketing-ready messaging assets.</div>
         </div>
-        <div class="pkg-desc">Full-featured site with lead capture workflows, enhanced showcase, and marketing-ready messaging assets.</div>
       </div>
-    </div>
-    <h3>Project Timeline</h3>
-    <div class="timeline">
-      <div class="timeline-step"><div class="wk">Week 1</div>Consulting &amp; Vision <em>(no charge)</em></div>
-      <div class="timeline-step"><div class="wk">Week 2</div>Design &amp; Build</div>
-      <div class="timeline-step"><div class="wk">Week 3</div>Review &amp; Revisions</div>
-      <div class="timeline-step"><div class="wk">Week 4</div>Launch</div>
+      <h3>Project Timeline</h3>
+      <div class="timeline">
+        <div class="timeline-step"><div class="wk">Week 1</div>Consulting &amp; Vision <em>(no charge)</em></div>
+        <div class="timeline-step"><div class="wk">Week 2</div>Design &amp; Build</div>
+        <div class="timeline-step"><div class="wk">Week 3</div>Review &amp; Revisions</div>
+        <div class="timeline-step"><div class="wk">Week 4</div>Launch</div>
+      </div>
     </div>
 
-    <h2>1.2 &nbsp; Ongoing Support</h2>
-    <div class="package-choice">
-      <div class="package-box">
-        <div class="pkg-header">
-          <div class="pkg-name"><span class="checkbox"></span> Starter Support</div>
-          <div class="pkg-price">$500/mo</div>
+    <div class="section">
+      <h2>1.2 &nbsp; Ongoing Support</h2>
+      <div class="package-choice">
+        <div class="package-box">
+          <div class="pkg-header">
+            <div class="pkg-name"><span class="checkbox"></span> Starter Support</div>
+            <div class="pkg-price">$500/mo</div>
+          </div>
+          <div class="pkg-desc">4 hrs/month — Minor updates, content tweaks, messaging adjustments.</div>
         </div>
-        <div class="pkg-desc">4 hrs/month — Minor updates, content tweaks, messaging adjustments.</div>
-      </div>
-      <div class="package-box">
-        <div class="pkg-header">
-          <div class="pkg-name"><span class="checkbox"></span> Core Support</div>
-          <div class="pkg-price">$1,250/mo</div>
+        <div class="package-box">
+          <div class="pkg-header">
+            <div class="pkg-name"><span class="checkbox"></span> Core Support</div>
+            <div class="pkg-price">$1,250/mo</div>
+          </div>
+          <div class="pkg-desc">10 hrs/month — Full maintenance, messaging updates, vendor coordination, media updates.</div>
         </div>
-        <div class="pkg-desc">10 hrs/month — Full maintenance, messaging updates, vendor coordination, media updates.</div>
       </div>
+      <p style="font-size:8.5pt; color:#555; margin-top:-2px;">Additional hours billed at <strong>$150/hr</strong>.</p>
     </div>
-    <p style="font-size:8.5pt; color:#555; margin-top:-2px;">Additional hours billed at <strong>$150/hr</strong>.</p>
 
     <div class="two-col-terms">
       <div class="term-block">
