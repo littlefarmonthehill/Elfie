@@ -177,7 +177,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         <div class="package-box">
           <div class="pkg-header">
             <div class="pkg-name"><span class="checkbox"></span> Starter Support</div>
-            <div class="pkg-price">$500/mo</div>
+            <div class="pkg-price">$600/mo</div>
           </div>
           <div class="pkg-desc">4 hrs/month — Minor updates, content tweaks, messaging adjustments.</div>
         </div>
