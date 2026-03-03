@@ -106,8 +106,18 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
   const [uiState, setUiState] = useState<UIState>("idle");
   const [scanId, setScanId] = useState<number | null>(null);
   const [leftPage, setLeftPage] = useState(false);
-  const [settings, setSettings] = useState<ScanSettings>(DEFAULT_SETTINGS);
+  const [settings, setSettings] = useState<ScanSettings>(() => {
+    try {
+      const saved = localStorage.getItem("brickspotter-settings");
+      if (saved) return { ...DEFAULT_SETTINGS, ...JSON.parse(saved) };
+    } catch {}
+    return DEFAULT_SETTINGS;
+  });
   const [showSettings, setShowSettings] = useState(false);
+
+  useEffect(() => {
+    try { localStorage.setItem("brickspotter-settings", JSON.stringify(settings)); } catch {}
+  }, [settings]);
 
   useImperativeHandle(ref, () => ({
     triggerCamera: () => {
