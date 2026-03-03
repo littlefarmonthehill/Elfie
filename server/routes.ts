@@ -218,13 +218,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           <label>Client</label>
           <div class="party-name">Minnesota Building Contractors</div>
           <div class="sig-line">Signature &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Date</div>
-          <div class="sig-line-2">Printed Name</div>
         </div>
         <div class="sig-party">
           <label>Service Provider</label>
           <div class="party-name">Driftless Business Solutions</div>
           <div class="sig-line">Signature &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Date</div>
-          <div class="sig-line-2">Printed Name</div>
         </div>
       </div>
     </div>
