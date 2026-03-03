@@ -3413,6 +3413,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
               itemType,
               confidence,
               note: piece.note || '',
+              detectedRgb: piece.detectedRgb ?? null,
             }];
           }
           console.log(`[Brickanalyzer] Piece ${idx} (${piece.roughName || 'unknown'}): both endpoints empty`);
