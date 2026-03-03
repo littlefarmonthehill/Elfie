@@ -214,6 +214,18 @@ def health():
     return jsonify({"ok": True})
 
 
+@app.route("/warmup-sam", methods=["POST"])
+def warmup_sam():
+    """Pre-download checkpoint and load SAM model into memory.
+    Called at server startup so the first user scan doesn't wait."""
+    try:
+        get_sam()
+        return jsonify({"ok": True, "message": "SAM model ready"})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/segment", methods=["POST"])
 def segment():
     try:

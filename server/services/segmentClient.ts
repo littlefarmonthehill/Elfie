@@ -80,14 +80,14 @@ function waitReady(): Promise<void> {
   });
 }
 
-function postJson(urlPath: string, body: object): Promise<any> {
+function postJson(urlPath: string, body: object, timeoutMs = 60_000): Promise<any> {
   return new Promise((resolve, reject) => {
     const payload = JSON.stringify(body);
     const req = http.request(
       {
         hostname: '127.0.0.1', port: SEG_PORT, path: urlPath, method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) },
-        timeout: 60_000,
+        timeout: timeoutMs,
       },
       (res) => {
         let data = '';
@@ -108,12 +108,38 @@ function postJson(urlPath: string, body: object): Promise<any> {
 export interface SegBox { x: number; y: number; w: number; h: number; }
 
 export interface ScanSettings {
-  minSizePct?:    number;  // min piece area as % of image (default 0.08)
-  maxSizePct?:    number;  // max piece area as % of image (default 6)
-  separation?:    number;  // seed search radius as % of shorter side (default 2.5)
-  sensitivity?:   number;  // distance-transform peak threshold 0–1 (default 0.3)
-  maxPieces?:     number;  // max crops to send to Brickognize (default 50)
-  minConfidence?: number;  // Brickognize minimum score to accept ID (default 0.5)
+  // Shared
+  segmenter?:       'watershed' | 'sam';
+  minSizePct?:      number;
+  maxSizePct?:      number;
+  maxPieces?:       number;
+  minConfidence?:   number;
+  // Watershed
+  separation?:      number;
+  sensitivity?:     number;
+  // SAM
+  pointsPerSide?:   number;
+  iouThresh?:       number;
+  stabilityThresh?: number;
+  nmsThresh?:       number;
+}
+
+/**
+ * Pre-download the SAM checkpoint and load the model into memory.
+ * Called at startup so the first user scan doesn't have to wait.
+ */
+export function warmupSam(): void {
+  (async () => {
+    try {
+      await waitReady();
+      console.log('[SegClient] Pre-warming SAM model (downloading checkpoint if needed)...');
+      const resp = await postJson('/warmup-sam', {}, 600_000); // 10 min — first-ever download
+      if (resp.ok) console.log('[SegClient] SAM model warm and ready.');
+      else console.warn('[SegClient] SAM warmup response:', resp);
+    } catch (e: any) {
+      console.warn('[SegClient] SAM warmup failed (model will load on first scan):', e.message);
+    }
+  })();
 }
 
 /**
@@ -124,8 +150,12 @@ export async function segmentImage(imageBuffer: Buffer, settings?: ScanSettings)
   if (!proc) startService();
   await waitReady();
 
+  // SAM needs much more time: model load + inference on CPU can take 2–3 minutes
+  const isSam = (settings?.segmenter === 'sam');
+  const timeoutMs = isSam ? 300_000 : 60_000; // 5 min for SAM, 1 min for watershed
+
   const b64  = imageBuffer.toString('base64');
-  const resp = await postJson('/segment', { image: b64, settings: settings ?? {} });
+  const resp = await postJson('/segment', { image: b64, settings: settings ?? {} }, timeoutMs);
 
   if (resp.error) throw new Error(`Seg service error: ${resp.error}`);
   return (resp.boxes || []) as SegBox[];
