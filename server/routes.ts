@@ -58,123 +58,136 @@ export async function registerRoutes(app: Express): Promise<Server> {
   <title>Driftless Business Solutions – Service Agreement</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Georgia', serif; font-size: 10pt; color: #1a1a1a; background: #fff; line-height: 1.45; }
-    .page { max-width: 720px; margin: 0 auto; padding: 36px 44px 40px; }
-    .header { text-align: center; border-bottom: 2.5px solid #2c5f8a; padding-bottom: 10px; margin-bottom: 14px; }
-    .header .company { font-size: 18pt; font-weight: bold; color: #2c5f8a; letter-spacing: 0.04em; text-transform: uppercase; }
-    .header .tagline { font-size: 9pt; color: #555; font-style: italic; margin-top: 3px; }
-    .header .doc-title { font-size: 12pt; font-weight: bold; color: #1a1a1a; margin-top: 8px; letter-spacing: 0.02em; }
-    .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 24px; background: #f5f8fb; border: 1px solid #d0dde8; border-radius: 4px; padding: 9px 14px; margin-bottom: 14px; font-size: 9.5pt; }
-    .meta label { color: #555; font-style: italic; }
-    .meta value { font-weight: bold; color: #1a1a1a; }
-    h2 { font-size: 10.5pt; font-weight: bold; color: #2c5f8a; text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid #d0dde8; padding-bottom: 3px; margin-top: 14px; margin-bottom: 7px; }
-    h3 { font-size: 10pt; font-weight: bold; color: #1a1a1a; margin-top: 10px; margin-bottom: 5px; }
-    p { margin-bottom: 6px; }
-    ul { padding-left: 18px; margin-bottom: 6px; }
-    ul li { margin-bottom: 2px; }
-    table { width: 100%; border-collapse: collapse; margin: 8px 0 10px; font-size: 9.5pt; }
-    thead tr { background: #2c5f8a; color: #fff; }
-    thead th { padding: 6px 10px; text-align: left; font-weight: bold; letter-spacing: 0.03em; white-space: nowrap; }
-    tbody tr:nth-child(even) { background: #f5f8fb; }
-    tbody td { padding: 6px 10px; border-bottom: 1px solid #dce8f0; vertical-align: top; }
-    .package-choice { display: flex; gap: 12px; margin: 7px 0 10px; }
-    .package-box { flex: 1; border: 1.5px solid #2c5f8a; border-radius: 5px; padding: 10px 12px; }
-    .package-box .pkg-name { font-weight: bold; font-size: 10.5pt; color: #2c5f8a; margin-bottom: 2px; display: flex; align-items: center; gap: 7px; }
-    .package-box .pkg-price { font-size: 12pt; font-weight: bold; color: #1a1a1a; margin-bottom: 4px; }
-    .package-box .pkg-desc { font-size: 9pt; color: #444; }
-    .checkbox { display: inline-block; width: 13px; height: 13px; border: 1.5px solid #2c5f8a; border-radius: 2px; vertical-align: middle; flex-shrink: 0; }
-    .timeline { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; margin: 7px 0 10px; font-size: 9.5pt; }
-    .timeline .week { font-weight: bold; color: #2c5f8a; white-space: nowrap; }
-    .two-col-terms { display: grid; grid-template-columns: 1fr 1fr; gap: 0 24px; margin-top: 14px; }
-    .term-block h2 { margin-top: 10px; }
-    .signature-block { margin-top: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
-    .sig-party label { display: block; font-size: 8.5pt; color: #666; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 3px; }
-    .sig-party .party-name { font-weight: bold; font-size: 10pt; color: #1a1a1a; margin-bottom: 26px; }
-    .sig-line { border-top: 1.5px solid #1a1a1a; padding-top: 4px; font-size: 9pt; color: #444; }
-    .selected-package-line { margin-top: 10px; font-size: 10pt; border-top: 1px solid #d0dde8; padding-top: 8px; }
-    .selected-package-line span { display: inline-block; width: 160px; border-bottom: 1px solid #333; margin-left: 6px; }
-    .footer { margin-top: 18px; border-top: 1px solid #d0dde8; padding-top: 8px; text-align: center; font-size: 8pt; color: #999; }
+    body { font-family: 'Georgia', serif; font-size: 9pt; color: #1a1a1a; background: #fff; line-height: 1.35; }
+    .page { max-width: 720px; margin: 0 auto; padding: 28px 40px 28px; }
+    .header { display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #2c5f8a; padding-bottom: 8px; margin-bottom: 10px; }
+    .header-left .company { font-size: 15pt; font-weight: bold; color: #2c5f8a; letter-spacing: 0.04em; text-transform: uppercase; }
+    .header-left .tagline { font-size: 8pt; color: #666; font-style: italic; margin-top: 2px; }
+    .header-right .doc-title { font-size: 11pt; font-weight: bold; color: #1a1a1a; }
+    .header-right .doc-date { font-size: 8.5pt; color: #555; margin-top: 3px; text-align: right; }
+    .meta { display: flex; gap: 24px; background: #f5f8fb; border: 1px solid #d0dde8; border-radius: 4px; padding: 6px 12px; margin-bottom: 10px; font-size: 8.5pt; }
+    .meta-item label { color: #666; font-style: italic; margin-right: 4px; }
+    .meta-item value { font-weight: bold; }
+    h2 { font-size: 9.5pt; font-weight: bold; color: #2c5f8a; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #d0dde8; padding-bottom: 2px; margin-top: 10px; margin-bottom: 5px; }
+    h3 { font-size: 9pt; font-weight: bold; color: #1a1a1a; margin-top: 7px; margin-bottom: 3px; }
+    p { margin-bottom: 4px; }
+    ul { padding-left: 15px; margin-bottom: 4px; }
+    ul li { margin-bottom: 1px; }
+    .two-col-list { columns: 2; column-gap: 20px; padding-left: 15px; margin-bottom: 4px; }
+    .two-col-list li { margin-bottom: 1px; break-inside: avoid; }
+    .package-choice { display: flex; gap: 10px; margin: 5px 0 6px; }
+    .package-box { flex: 1; border: 1.5px solid #2c5f8a; border-radius: 4px; padding: 7px 10px; }
+    .package-box .pkg-header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 2px; }
+    .package-box .pkg-name { font-weight: bold; font-size: 9.5pt; color: #2c5f8a; display: flex; align-items: center; gap: 6px; }
+    .package-box .pkg-price { font-size: 11pt; font-weight: bold; color: #1a1a1a; margin-left: auto; }
+    .package-box .pkg-desc { font-size: 8.5pt; color: #444; }
+    .checkbox { display: inline-block; width: 11px; height: 11px; border: 1.5px solid #2c5f8a; border-radius: 2px; vertical-align: middle; flex-shrink: 0; }
+    .timeline { display: flex; gap: 0; margin: 5px 0 6px; border: 1px solid #d0dde8; border-radius: 4px; overflow: hidden; font-size: 8.5pt; }
+    .timeline-step { flex: 1; padding: 5px 8px; border-right: 1px solid #d0dde8; }
+    .timeline-step:last-child { border-right: none; }
+    .timeline-step .wk { font-weight: bold; color: #2c5f8a; font-size: 8pt; }
+    .two-col-terms { display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; margin-top: 10px; }
+    .term-block h2 { margin-top: 8px; }
+    .sig-section { margin-top: 10px; border-top: 1px solid #d0dde8; padding-top: 8px; }
+    .pkg-select-line { font-size: 9pt; margin-bottom: 10px; }
+    .pkg-select-line span { display: inline-block; width: 150px; border-bottom: 1px solid #333; margin-left: 5px; }
+    .signature-block { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .sig-party label { display: block; font-size: 7.5pt; color: #666; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px; }
+    .sig-party .party-name { font-weight: bold; font-size: 9pt; color: #1a1a1a; margin-bottom: 18px; }
+    .sig-line { border-top: 1.5px solid #1a1a1a; padding-top: 3px; font-size: 8.5pt; color: #444; }
+    .sig-line-2 { margin-top: 16px; border-top: 1px solid #aaa; padding-top: 3px; font-size: 8.5pt; color: #666; }
+    .footer { margin-top: 14px; border-top: 1px solid #d0dde8; padding-top: 6px; text-align: center; font-size: 7.5pt; color: #999; }
     @media print {
-      body { font-size: 10pt; }
-      .page { padding: 20px 30px 24px; max-width: 100%; }
+      body { font-size: 9pt; }
+      .page { padding: 16px 28px 16px; max-width: 100%; }
       h2 { page-break-after: avoid; }
       .package-choice { page-break-inside: avoid; }
       .two-col-terms { page-break-inside: avoid; }
-      .signature-block { page-break-inside: avoid; margin-top: 12px; }
+      .sig-section { page-break-inside: avoid; }
     }
   </style>
 </head>
 <body>
   <div class="page">
     <div class="header">
-      <div class="company">Driftless Business Solutions</div>
-      <div class="tagline">Customized systems that just work, so you can do the work you love</div>
-      <div class="doc-title">Service Agreement</div>
+      <div class="header-left">
+        <div class="company">Driftless Business Solutions</div>
+        <div class="tagline">Customized systems that just work, so you can do the work you love</div>
+      </div>
+      <div class="header-right">
+        <div class="doc-title">Service Agreement</div>
+        <div class="doc-date">March 3, 2026</div>
+      </div>
     </div>
     <div class="meta">
-      <label>Date:</label><value>March 3, 2026</value>
-      <label>Client:</label><value>Minnesota Building Contractors</value>
-      <label>Service Provider:</label><value>Driftless Business Solutions ("DBS")</value>
+      <div class="meta-item"><label>Client:</label><value>Minnesota Building Contractors</value></div>
+      <div class="meta-item"><label>Service Provider:</label><value>Driftless Business Solutions ("DBS")</value></div>
     </div>
 
     <h2>1.1 &nbsp; Initial Development</h2>
     <p>DBS will build a custom residential-focused website for <strong>Minnesota Building Contractors</strong>, including:</p>
-    <ul>
-      <li>Custom design, layout, and mobile-friendly display</li>
-      <li>Copywriting aligned with vision, mission, and residential messaging</li>
-      <li>Lead capture, contact forms, and project showcase (galleries, photos, videos)</li>
-      <li>Content and messaging assets ready for marketing or social media</li>
+    <ul class="two-col-list">
+      <li>Custom design, layout &amp; mobile display</li>
+      <li>Lead capture &amp; contact forms</li>
+      <li>Residential-focused copywriting &amp; messaging</li>
+      <li>Project showcase (galleries, photos, videos)</li>
     </ul>
     <div class="package-choice">
       <div class="package-box">
-        <div class="pkg-name"><span class="checkbox"></span> Starter MVP</div>
-        <div class="pkg-price">$750</div>
-        <div class="pkg-desc">Residential-focused website with lead capture, 1–2 lightweight tools, and basic project showcase.</div>
+        <div class="pkg-header">
+          <div class="pkg-name"><span class="checkbox"></span> Starter MVP</div>
+          <div class="pkg-price">$750</div>
+        </div>
+        <div class="pkg-desc">Residential site with lead capture, 1–2 lightweight tools, and basic project showcase.</div>
       </div>
       <div class="package-box">
-        <div class="pkg-name"><span class="checkbox"></span> Core MVP</div>
-        <div class="pkg-price">$2,000</div>
-        <div class="pkg-desc">Full-featured site with lead capture workflows, enhanced project showcase, and marketing-ready messaging assets.</div>
+        <div class="pkg-header">
+          <div class="pkg-name"><span class="checkbox"></span> Core MVP</div>
+          <div class="pkg-price">$2,000</div>
+        </div>
+        <div class="pkg-desc">Full-featured site with lead capture workflows, enhanced showcase, and marketing-ready messaging assets.</div>
       </div>
     </div>
     <h3>Project Timeline</h3>
     <div class="timeline">
-      <div class="week">Week 1:</div><div>Complimentary Consulting – Messaging &amp; Vision Session <em>(no charge)</em></div>
-      <div class="week">Week 2:</div><div>Website Design &amp; Build</div>
-      <div class="week">Week 3:</div><div>Review &amp; Revisions</div>
-      <div class="week">Week 4:</div><div>Launch</div>
+      <div class="timeline-step"><div class="wk">Week 1</div>Consulting &amp; Vision <em>(no charge)</em></div>
+      <div class="timeline-step"><div class="wk">Week 2</div>Design &amp; Build</div>
+      <div class="timeline-step"><div class="wk">Week 3</div>Review &amp; Revisions</div>
+      <div class="timeline-step"><div class="wk">Week 4</div>Launch</div>
     </div>
 
     <h2>1.2 &nbsp; Ongoing Support</h2>
     <div class="package-choice">
       <div class="package-box">
-        <div class="pkg-name"><span class="checkbox"></span> Starter Support</div>
-        <div class="pkg-price">$500 / mo</div>
-        <div class="pkg-desc">4 hrs / month &mdash; Minor updates, content tweaks, and messaging adjustments.</div>
+        <div class="pkg-header">
+          <div class="pkg-name"><span class="checkbox"></span> Starter Support</div>
+          <div class="pkg-price">$500/mo</div>
+        </div>
+        <div class="pkg-desc">4 hrs/month — Minor updates, content tweaks, messaging adjustments.</div>
       </div>
       <div class="package-box">
-        <div class="pkg-name"><span class="checkbox"></span> Core Support</div>
-        <div class="pkg-price">$1,250 / mo</div>
-        <div class="pkg-desc">10 hrs / month &mdash; Full maintenance, messaging updates, vendor coordination, and media updates.</div>
+        <div class="pkg-header">
+          <div class="pkg-name"><span class="checkbox"></span> Core Support</div>
+          <div class="pkg-price">$1,250/mo</div>
+        </div>
+        <div class="pkg-desc">10 hrs/month — Full maintenance, messaging updates, vendor coordination, media updates.</div>
       </div>
     </div>
-    <p style="font-size:9pt; color:#555; margin-top:-4px;">Additional hours billed at <strong>$150 / hr</strong>.</p>
+    <p style="font-size:8.5pt; color:#555; margin-top:-2px;">Additional hours billed at <strong>$150/hr</strong>.</p>
 
     <div class="two-col-terms">
       <div class="term-block">
         <h2>Payment Terms</h2>
         <ul>
-          <li>50% of Initial Development Fee due at signing</li>
-          <li>Remaining 50% due upon project completion</li>
+          <li>50% due at signing; 50% upon completion</li>
           <li>Ongoing Support billed monthly</li>
         </ul>
       </div>
       <div class="term-block">
         <h2>Client Responsibilities</h2>
         <ul>
-          <li>Provide access to existing website, branding, and content</li>
-          <li>Respond promptly to approvals and feedback</li>
-          <li>Identify preferred vendors for coordination</li>
+          <li>Provide access to existing site, branding &amp; content</li>
+          <li>Respond promptly to approvals; identify preferred vendors</li>
         </ul>
       </div>
       <div class="term-block">
@@ -193,23 +206,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       </div>
     </div>
 
-    <div class="selected-package-line">
-      <strong>Selected Package:</strong><span>&nbsp;</span>
-      &nbsp;&nbsp;&nbsp;&nbsp;
-      <strong>Selected Support Plan:</strong><span>&nbsp;</span>
-    </div>
-    <div class="signature-block">
-      <div class="sig-party">
-        <label>Client</label>
-        <div class="party-name">Minnesota Building Contractors</div>
-        <div class="sig-line">Signature &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Date</div>
-        <div style="margin-top:24px;" class="sig-line">Printed Name</div>
+    <div class="sig-section">
+      <div class="pkg-select-line">
+        <strong>Selected Package:</strong><span>&nbsp;</span>
+        &nbsp;&nbsp;&nbsp;
+        <strong>Selected Support Plan:</strong><span>&nbsp;</span>
       </div>
-      <div class="sig-party">
-        <label>Service Provider</label>
-        <div class="party-name">Driftless Business Solutions</div>
-        <div class="sig-line">Signature &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Date</div>
-        <div style="margin-top:24px;" class="sig-line">Printed Name</div>
+      <div class="signature-block">
+        <div class="sig-party">
+          <label>Client</label>
+          <div class="party-name">Minnesota Building Contractors</div>
+          <div class="sig-line">Signature &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Date</div>
+          <div class="sig-line-2">Printed Name</div>
+        </div>
+        <div class="sig-party">
+          <label>Service Provider</label>
+          <div class="party-name">Driftless Business Solutions</div>
+          <div class="sig-line">Signature &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Date</div>
+          <div class="sig-line-2">Printed Name</div>
+        </div>
       </div>
     </div>
     <div class="footer">Driftless Business Solutions &nbsp;|&nbsp; Service Agreement &nbsp;|&nbsp; March 3, 2026</div>
