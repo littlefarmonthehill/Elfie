@@ -75,7 +75,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     ul li { margin-bottom: 4px; }
     table { width: 100%; border-collapse: collapse; margin: 12px 0 16px; font-size: 10.5pt; }
     thead tr { background: #2c5f8a; color: #fff; }
-    thead th { padding: 8px 12px; text-align: left; font-weight: bold; letter-spacing: 0.03em; }
+    thead th { padding: 8px 12px; text-align: left; font-weight: bold; letter-spacing: 0.03em; white-space: nowrap; }
     tbody tr:nth-child(even) { background: #f5f8fb; }
     tbody td { padding: 8px 12px; border-bottom: 1px solid #dce8f0; vertical-align: top; }
     .package-choice { display: flex; gap: 20px; margin: 10px 0 16px; }
@@ -160,13 +160,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     </div>
     <h2>1.2 &nbsp; Ongoing Support</h2>
     <p>Monthly retainer packages to maintain and improve the website, messaging, and digital workflows, including galleries, photos, and video updates as needed:</p>
-    <table>
-      <thead><tr><th>Package</th><th>Scope</th><th>Hours / Month</th><th>Monthly Fee</th></tr></thead>
-      <tbody>
-        <tr><td><strong>Starter Support</strong></td><td>Minor updates, content tweaks, messaging adjustments</td><td>4 hrs</td><td><strong>$500</strong></td></tr>
-        <tr><td><strong>Core Support</strong></td><td>Full website &amp; content maintenance, messaging updates, vendor coordination, enhanced galleries and media updates</td><td>10 hrs</td><td><strong>$1,250</strong></td></tr>
-      </tbody>
-    </table>
+    <div class="package-choice">
+      <div class="package-box">
+        <div class="pkg-name"><span class="checkbox"></span> Starter Support</div>
+        <div class="pkg-price">$500 / mo</div>
+        <div class="pkg-desc">4 hrs / month &mdash; Minor updates, content tweaks, and messaging adjustments.</div>
+      </div>
+      <div class="package-box">
+        <div class="pkg-name"><span class="checkbox"></span> Core Support</div>
+        <div class="pkg-price">$1,250 / mo</div>
+        <div class="pkg-desc">10 hrs / month &mdash; Full website &amp; content maintenance, messaging updates, vendor coordination, enhanced galleries and media updates.</div>
+      </div>
+    </div>
     <p style="font-size:10pt; color:#555;">Additional hours billed at <strong>$150 / hr</strong>.</p>
     <h2>Payment Terms</h2>
     <ul>
