@@ -68,7 +68,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     .meta { display: flex; gap: 24px; background: #f5f8fb; border: 1px solid #d0dde8; border-radius: 4px; padding: 6px 12px; margin-bottom: 10px; font-size: 8.5pt; }
     .meta-item label { color: #666; font-style: italic; margin-right: 4px; }
     .meta-item value { font-weight: bold; }
-    h2 { font-size: 9.5pt; font-weight: bold; color: #2c5f8a; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #d0dde8; padding-bottom: 2px; margin-top: 10px; margin-bottom: 5px; }
+    h2 { font-size: 9.5pt; font-weight: bold; color: #2c5f8a; text-transform: uppercase; letter-spacing: 0.05em; background: #deeaf7; padding: 3px 8px; border-radius: 3px; margin-top: 10px; margin-bottom: 5px; }
     h3 { font-size: 9pt; font-weight: bold; color: #1a1a1a; margin-top: 7px; margin-bottom: 3px; }
     p { margin-bottom: 4px; }
     ul { padding-left: 15px; margin-bottom: 4px; }
@@ -86,10 +86,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     .timeline-step { flex: 1; padding: 5px 8px; border-right: 1px solid #d0dde8; }
     .timeline-step:last-child { border-right: none; }
     .timeline-step .wk { font-weight: bold; color: #2c5f8a; font-size: 8pt; }
-    .section { background: #eef4fb; border-radius: 5px; padding: 8px 12px 10px; margin-bottom: 8px; }
+    .section { margin-bottom: 8px; }
     .section > h2:first-child { margin-top: 0; }
     .two-col-terms { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; margin-top: 8px; }
-    .term-block { background: #eef4fb; border-radius: 5px; padding: 6px 10px 8px; }
     .term-block h2 { margin-top: 0; }
     .sig-section { margin-top: 10px; border-top: 1px solid #d0dde8; padding-top: 8px; }
     .pkg-select-line { font-size: 9pt; margin-bottom: 10px; }
@@ -214,11 +213,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     </div>
 
     <div class="sig-section">
-      <div class="pkg-select-line">
-        <strong>Selected Package:</strong><span>&nbsp;</span>
-        &nbsp;&nbsp;&nbsp;
-        <strong>Selected Support Plan:</strong><span>&nbsp;</span>
-      </div>
       <div class="signature-block">
         <div class="sig-party">
           <label>Client</label>
