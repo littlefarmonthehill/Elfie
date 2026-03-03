@@ -7,6 +7,7 @@ import { startChannelSyncScheduler } from "./services/channel-sync-scheduler";
 import { startOrderSyncScheduler } from "./services/order-sync-scheduler";
 import { startEmbeddingWorker } from "./services/embedding-worker";
 import { startForumSyncScheduler } from "./services/bl-forum-scheduler";
+import { startService as startSegmentService } from "./services/segmentClient";
 import { pool } from "./db";
 
 // Suppress Vite's process.exit(1) which fires on any CSS/TS compilation error.
@@ -183,7 +184,11 @@ app.use((req, res, next) => {
       host: "0.0.0.0",
     }, () => {
       log(`serving on port ${port}`);
-      
+
+      // Warm up the Python segmentation service immediately so it's ready
+      // before the first Brickanalyzer scan request arrives.
+      startSegmentService();
+
       // Start automatic inventory sync scheduler
       startInventorySyncScheduler();
 
