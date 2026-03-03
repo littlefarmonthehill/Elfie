@@ -2052,7 +2052,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         </div>
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-1.5">
-                            <Label className="text-xs text-gray-400">Daily API ceiling</Label>
+                            <Label className="text-xs text-gray-400">Max API calls per 24h</Label>
                             <Popover>
                               <PopoverTrigger asChild>
                                 <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
@@ -2060,7 +2060,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                 </button>
                               </PopoverTrigger>
                               <PopoverContent side="bottom" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
-                                Price-o-Matic stops when this many API calls have been made today. Hard limit is 5,000/day. Recommended: 3,000–4,000.
+                                Price-o-Matic stops once this many BrickLink API calls have been used in the last 24 hours. Hard limit is 5,000/day. Recommended: 3,000–4,000.
                               </PopoverContent>
                             </Popover>
                           </div>
