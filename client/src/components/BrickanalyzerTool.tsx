@@ -43,6 +43,7 @@ interface ScanResult {
   thumbnailUrl: string | null;
   bestPrice: number | null;
   inventoryLots?: InventoryLot[];
+  cropIndex?: number | null;
 }
 
 interface BrickanalyzerScan {
@@ -100,24 +101,46 @@ const DEFAULT_SETTINGS: ScanSettings = {
   dilateIter:      2,
 };
 
+const SETTINGS_KEY  = "brickspotter-settings";
+const BASELINE_KEY  = "brickspotter-baseline";
+
+function loadBaseline(): ScanSettings {
+  try {
+    const saved = localStorage.getItem(BASELINE_KEY);
+    if (saved) return { ...DEFAULT_SETTINGS, ...JSON.parse(saved) };
+  } catch {}
+  return DEFAULT_SETTINGS;
+}
+
+function saveBaselineToStorage(s: ScanSettings) {
+  try { localStorage.setItem(BASELINE_KEY, JSON.stringify(s)); } catch {}
+}
+
 const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uiState, setUiState] = useState<UIState>("idle");
   const [scanId, setScanId] = useState<number | null>(null);
   const [leftPage, setLeftPage] = useState(false);
+  const [baseline, setBaseline] = useState<ScanSettings>(loadBaseline);
   const [settings, setSettings] = useState<ScanSettings>(() => {
     try {
-      const saved = localStorage.getItem("brickspotter-settings");
+      const saved = localStorage.getItem(SETTINGS_KEY);
       if (saved) return { ...DEFAULT_SETTINGS, ...JSON.parse(saved) };
     } catch {}
-    return DEFAULT_SETTINGS;
+    return loadBaseline();
   });
   const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
-    try { localStorage.setItem("brickspotter-settings", JSON.stringify(settings)); } catch {}
+    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch {}
   }, [settings]);
+
+  function handleSaveBaseline() {
+    saveBaselineToStorage(settings);
+    setBaseline({ ...settings });
+    toast({ title: "Baseline saved", description: "Current settings saved as your new baseline." });
+  }
 
   useImperativeHandle(ref, () => ({
     triggerCamera: () => {
@@ -318,7 +341,7 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                 Scan Settings
               </span>
               <span className="flex items-center gap-2">
-                {JSON.stringify(settings) !== JSON.stringify(DEFAULT_SETTINGS) && (
+                {JSON.stringify(settings) !== JSON.stringify(baseline) && (
                   <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Custom</Badge>
                 )}
                 <ChevronRight className={`w-3.5 h-3.5 text-gray-500 transition-transform ${showSettings ? "rotate-90" : ""}`} />
@@ -581,16 +604,27 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
 
                 </div>
 
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full gap-1.5 text-gray-500"
-                  onClick={() => setSettings(DEFAULT_SETTINGS)}
-                  data-testid="button-settings-reset"
-                >
-                  <RotateCcw className="w-3 h-3" />
-                  Reset to defaults
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="flex-1 gap-1.5 text-gray-500"
+                    onClick={() => setSettings(loadBaseline())}
+                    data-testid="button-settings-reset"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    Reset to baseline
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="flex-1 gap-1.5 text-purple-400"
+                    onClick={handleSaveBaseline}
+                    data-testid="button-settings-save-baseline"
+                  >
+                    Save as baseline
+                  </Button>
+                </div>
               </div>
             )}
           </div>
@@ -882,6 +916,9 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                                 <span className={`ml-1 text-[9px] font-medium capitalize ${confidenceColor(entry.confidence)}`}>
                                   · {entry.confidence} confidence
                                 </span>
+                                {entry.cropIndex != null && (
+                                  <span className="ml-auto text-[9px] font-mono text-gray-500 flex-shrink-0">crop #{entry.cropIndex + 1}</span>
+                                )}
                               </div>
                               <div className="flex items-center gap-1 min-w-0">
                                 <div className="flex flex-col flex-1 min-w-0">

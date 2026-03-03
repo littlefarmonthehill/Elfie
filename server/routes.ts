@@ -3224,6 +3224,23 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
   // Sample the dominant non-background color from a crop and return its raw RGB.
   // Color-to-BrickLink-name resolution is deferred to the enrichment stage, where
   // the match is constrained to colors the specific part actually exists in.
+  // Perceptual color distance using CIE LAB Delta-E
+  // Much more accurate than RGB Euclidean for human-visible color differences
+  function rgbToLab(r: number, g: number, b: number): [number, number, number] {
+    const lin = (c: number) => { const n = c / 255; return n <= 0.04045 ? n / 12.92 : Math.pow((n + 0.055) / 1.055, 2.4); };
+    const rl = lin(r), gl = lin(g), bl = lin(b);
+    const x = (rl * 0.4124564 + gl * 0.3575761 + bl * 0.1804375) / 0.95047;
+    const y = (rl * 0.2126729 + gl * 0.7151522 + bl * 0.0721750) / 1.00000;
+    const z = (rl * 0.0193339 + gl * 0.1191920 + bl * 0.9503041) / 1.08883;
+    const f = (t: number) => t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116;
+    return [116 * f(y) - 16, 500 * (f(x) - f(y)), 200 * (f(y) - f(z))];
+  }
+  function deltaE(r1: number, g1: number, b1: number, r2: number, g2: number, b2: number): number {
+    const [L1, a1, b1l] = rgbToLab(r1, g1, b1);
+    const [L2, a2, b2l] = rgbToLab(r2, g2, b2);
+    return Math.sqrt((L1 - L2) ** 2 + (a1 - a2) ** 2 + (b1l - b2l) ** 2);
+  }
+
   async function detectDominantRgb(
     cropBuffer: Buffer
   ): Promise<{ r: number; g: number; b: number } | null> {
@@ -3349,7 +3366,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
 
           if (cropWidth < 12 || cropHeight < 12) {
             console.warn(`[Brickanalyzer] Piece ${idx}: crop too small (${cropWidth}×${cropHeight}), skipping`);
-            return [{ partNo: '', partName: piece.roughName || 'Unknown', colorName: piece.colorName || '', confidence: 'low', note: 'crop region too small' }];
+            return [{ partNo: '', partName: piece.roughName || 'Unknown', colorName: piece.colorName || '', confidence: 'low', note: 'crop region too small', cropIndex: idx, bboxX: piece.x, bboxY: piece.y, bboxW: piece.w, bboxH: piece.h }];
           }
           console.log(`[Brickanalyzer] Piece ${idx}: crop ${cropWidth}×${cropHeight}px @ (${x0},${y0})`);
 
@@ -3414,17 +3431,45 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
               confidence,
               note: piece.note || '',
               detectedRgb: piece.detectedRgb ?? null,
+              cropIndex: idx,
+              bboxX: piece.x, bboxY: piece.y, bboxW: piece.w, bboxH: piece.h,
             }];
           }
           console.log(`[Brickanalyzer] Piece ${idx} (${piece.roughName || 'unknown'}): both endpoints empty`);
-          // Brickognize returned no results — honest empty, don't fabricate a part number
-          return [{ partNo: '', partName: piece.roughName || 'Unknown', colorName: piece.colorName || '', itemType: 'PART' as const, confidence: 'low', note: 'Brickognize: no match' }];
+          return [{ partNo: '', partName: piece.roughName || 'Unknown', colorName: piece.colorName || '', itemType: 'PART' as const, confidence: 'low', note: 'Brickognize: no match', cropIndex: idx, bboxX: piece.x, bboxY: piece.y, bboxW: piece.w, bboxH: piece.h }];
 
         } catch (err: any) {
           console.warn(`[Brickanalyzer] Piece ${idx} failed:`, err.message);
-          return [{ partNo: '', partName: piece.roughName || 'Unknown', colorName: piece.colorName || '', confidence: 'low', note: 'identification error' }];
+          return [{ partNo: '', partName: piece.roughName || 'Unknown', colorName: piece.colorName || '', confidence: 'low', note: 'identification error', cropIndex: idx, bboxX: piece.x, bboxY: piece.y, bboxW: piece.w, bboxH: piece.h }];
         }
       })))).flat();
+
+      // ── Zone suppression: if a MINIFIG and one or more PARTs share the same
+      // detection zone (significant bbox overlap), keep only the MINIFIG ──
+      const iou = (ax: number, ay: number, aw: number, ah: number,
+                   bx: number, by: number, bw: number, bh: number): number => {
+        const ix0 = Math.max(ax, bx), iy0 = Math.max(ay, by);
+        const ix1 = Math.min(ax + aw, bx + bw), iy1 = Math.min(ay + ah, by + bh);
+        const inter = Math.max(0, ix1 - ix0) * Math.max(0, iy1 - iy0);
+        if (inter === 0) return 0;
+        return inter / (aw * ah + bw * bh - inter);
+      };
+      const minifigItems = identified.filter((p: any) => p.itemType === 'MINIFIG' && p.partNo);
+      const suppressedCropIndexes = new Set<number>();
+      for (const fig of minifigItems) {
+        for (const part of identified) {
+          if (part.itemType === 'MINIFIG' || part.cropIndex === fig.cropIndex) continue;
+          const overlap = iou(fig.bboxX ?? 0, fig.bboxY ?? 0, fig.bboxW ?? 0, fig.bboxH ?? 0,
+                              part.bboxX ?? 0, part.bboxY ?? 0, part.bboxW ?? 0, part.bboxH ?? 0);
+          if (overlap > 0.3) {
+            console.log(`[Brickanalyzer] Zone suppress: crop ${part.cropIndex} (${part.partNo}) overlaps MINIFIG ${fig.partNo} (IoU=${overlap.toFixed(2)})`);
+            suppressedCropIndexes.add(part.cropIndex);
+          }
+        }
+      }
+      const filteredIdentified = suppressedCropIndexes.size > 0
+        ? identified.filter((p: any) => !suppressedCropIndexes.has(p.cropIndex))
+        : identified;
 
       // ── Step 2b: Resolve LEGO part numbers → BrickLink part numbers via Rebrickable ──
       // Also capture Rebrickable part images as a fallback for when we have no thumbnail.
@@ -3432,7 +3477,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       {
         const REBRICKABLE_API_KEY = process.env.REBRICKABLE_API_KEY;
         // Get all unique part numbers from identified pieces (PART type only)
-        const uniquePartNos = [...new Set(identified.filter(p => p.partNo && p.itemType !== 'MINIFIG').map(p => p.partNo as string))];
+        const uniquePartNos = [...new Set(filteredIdentified.filter(p => p.partNo && p.itemType !== 'MINIFIG').map(p => p.partNo as string))];
         if (uniquePartNos.length > 0) {
           const upperList = uniquePartNos.map(p => p.toUpperCase());
 
@@ -3501,7 +3546,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
           }
 
           // Apply all resolutions (from cache or fresh Rebrickable call) to identified pieces
-          for (const piece of identified) {
+          for (const piece of filteredIdentified) {
             if (piece.partNo && piece.itemType !== 'MINIFIG') {
               const resolved = cachedMap.get(piece.partNo.toUpperCase());
               if (resolved && resolved.toUpperCase() !== piece.partNo.toUpperCase()) {
@@ -3519,7 +3564,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       const premiumPct = pomSettings[0]?.pomBasePremium ?? 15;
 
       // For each identified part: inventory lookup + POM price + image
-      const enriched = await Promise.all(identified.map(async (piece: any) => {
+      const enriched = await Promise.all(filteredIdentified.map(async (piece: any) => {
         let ourPriceNew: number | null = null;
         let ourQtyNew = 0;
         let ourPriceUsed: number | null = null;
@@ -3759,14 +3804,14 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
                   const cr = parseInt(col.rgb.slice(0, 2), 16);
                   const cg = parseInt(col.rgb.slice(2, 4), 16);
                   const cb = parseInt(col.rgb.slice(4, 6), 16);
-                  const dist = Math.sqrt((dr - cr) ** 2 + (dg - cg) ** 2 + (db - cb) ** 2);
+                  const dist = deltaE(dr, dg, db, cr, cg, cb);
                   if (dist < closestDist) { closestDist = dist; closestId = cid; closestName = col.name; }
                 }
                 if (closestId) {
                   colorId = closestId;
                   piece.colorName = closestName || '';
                   colorRgb = colorMap.get(closestId)?.rgb ?? null;
-                  console.log(`[ColorDetect] catalog match ${piece.partNo}: RGB=(${dr},${dg},${db}) → "${closestName}" (dist=${closestDist.toFixed(1)}, from ${catalogColors.length} BL color(s))`);
+                  console.log(`[ColorDetect] catalog match ${piece.partNo}: RGB=(${dr},${dg},${db}) → "${closestName}" (ΔE=${closestDist.toFixed(1)}, from ${catalogColors.length} BL color(s))`);
                 }
               }
 
@@ -3830,6 +3875,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
           thumbnailUrl,
           bestPrice,
           inventoryLots,
+          cropIndex: piece.cropIndex ?? null,
         };
       }));
 
