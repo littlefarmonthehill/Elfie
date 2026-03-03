@@ -7,22 +7,16 @@ import { recordSyncIssue, resolveSchedulerIssues } from "./sync-issue-service";
 
 const SYNC_ID = 'bricklink_orders';
 const SYNC_TYPE = 'order_sync';
+const MAX_RETRIES = 5;
+const RETRY_BASE_MS = 5 * 60 * 1000;
 
-/**
- * Start the automatic order sync scheduler.
- * Reads ordersSyncEnabled / ordersSyncFrequency from app_settings.
- * Checks every 60s; skips the cycle if the frequency window hasn't elapsed
- * or if another sync holds the lock.
- *
- * Gold-standard pattern: same as channel-sync-scheduler and pom-scheduler.
- * runPlatformOrderSync() manages its own lock — do NOT pre-acquire here.
- */
+// In-memory retry state — resets on server restart (intentional)
+const retry = { count: 0, nextAt: 0 };
+
 export async function startOrderSyncScheduler() {
   console.log('🕒 Order sync scheduler initialized');
   await checkAndRunSync();
-  setInterval(async () => {
-    await checkAndRunSync();
-  }, 60 * 1000);
+  setInterval(async () => { await checkAndRunSync(); }, 60 * 1000);
 }
 
 async function checkAndRunSync() {
@@ -42,14 +36,24 @@ async function checkAndRunSync() {
 
     const frequencyMs = (settings.ordersSyncFrequency ?? 15) * 60 * 1000;
 
-    const [meta] = await db
-      .select()
-      .from(syncMetadata)
-      .where(eq(syncMetadata.id, SYNC_ID))
-      .limit(1);
+    const [meta] = await db.select().from(syncMetadata).where(eq(syncMetadata.id, SYNC_ID)).limit(1);
+    const lastRunTs = meta?.lastSyncTime ? new Date(meta.lastSyncTime).getTime() : 0;
 
-    const lastRun = meta?.lastSyncTime ? new Date(meta.lastSyncTime).getTime() : 0;
-    if (Date.now() - lastRun < frequencyMs) return;
+    if (meta?.lastSyncStatus === 'error') {
+      // On failure: retry up to MAX_RETRIES with incremental delays
+      if (retry.count >= MAX_RETRIES) {
+        // All retries exhausted — fall back to normal frequency window
+        if (Date.now() - lastRunTs < frequencyMs) return;
+        retry.count = 0; // Reset and run on normal schedule
+      } else {
+        if (Date.now() < retry.nextAt) return;
+        console.log(`[Order Sync] Retrying after failure (attempt ${retry.count + 1}/${MAX_RETRIES})...`);
+      }
+    } else {
+      // Normal frequency gate
+      if (Date.now() - lastRunTs < frequencyMs) return;
+      retry.count = 0; // Fresh run, reset retries
+    }
 
     if (syncLock.isRunning()) {
       const blocker = syncLock.getActive().join(', ');
@@ -58,7 +62,7 @@ async function checkAndRunSync() {
         syncType: SYNC_TYPE,
         platform: 'scheduler',
         issueType: 'scheduler_blocked',
-        issueDescription: `Scheduled order sync was blocked by: ${blocker}. The sync will retry on the next interval.`,
+        issueDescription: `Scheduled order sync was blocked by: ${blocker}. Will retry on the next interval.`,
         severity: 'medium',
         metadata: { blockedBy: blocker, timestamp: new Date().toISOString() },
       });
@@ -86,9 +90,6 @@ async function runScheduledOrderSync() {
   });
 
   try {
-    // runPlatformOrderSync() handles its own lock acquisition and release internally.
-    // Do NOT acquire the lock here — doing so causes a double-lock that immediately
-    // throws "Order sync blocked: Order Sync is already running".
     const result = await runPlatformOrderSync("all", {
       fullSync: false,
       withEmbeddings: true,
@@ -120,9 +121,18 @@ async function runScheduledOrderSync() {
       },
     });
 
+    retry.count = 0;
     resolveSchedulerIssues(SYNC_TYPE);
   } catch (error: any) {
-    console.error('❌ Scheduled order sync failed:', error.message);
+    retry.count++;
+    retry.nextAt = Date.now() + retry.count * RETRY_BASE_MS;
+    const minsUntilRetry = retry.count * 5;
+    console.error(`❌ Scheduled order sync failed (attempt ${retry.count}/${MAX_RETRIES}): ${error.message}`);
+    if (retry.count < MAX_RETRIES) {
+      console.log(`[Order Sync] Next retry in ${minsUntilRetry} minute(s)`);
+    } else {
+      console.log(`[Order Sync] All ${MAX_RETRIES} retries exhausted — resuming normal schedule`);
+    }
 
     await db.insert(syncMetadata).values({
       id: SYNC_ID,
@@ -140,11 +150,10 @@ async function runScheduledOrderSync() {
       syncType: SYNC_TYPE,
       platform: 'scheduler',
       issueType: 'sync_failed',
-      issueDescription: `Scheduled order sync failed: ${error.message}`,
+      issueDescription: `Scheduled order sync failed (attempt ${retry.count}/${MAX_RETRIES}): ${error.message}`,
       severity: 'high',
-      metadata: { error: error.message, timestamp: new Date().toISOString() },
+      metadata: { error: error.message, attempt: retry.count, maxRetries: MAX_RETRIES, timestamp: new Date().toISOString() },
     });
-    // Lock is released inside runPlatformOrderSync's finally block — no release needed here.
   }
 }
 

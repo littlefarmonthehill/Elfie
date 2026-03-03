@@ -7,18 +7,20 @@ import { recordSyncIssue, resolveSchedulerIssues } from "./sync-issue-service";
 
 const SYNC_ID = 'bricklink_inventory';
 const SYNC_TYPE = 'inventory_sync';
+const MAX_RETRIES = 5;
+const RETRY_BASE_MS = 5 * 60 * 1000; // 5 minutes base — each retry adds another 5 min
+
+// In-memory retry state — resets on server restart (intentional)
+const retry = { count: 0, nextAt: 0 };
 
 export async function startInventorySyncScheduler() {
   console.log('📦 Inventory sync scheduler initialized');
-
-  setInterval(async () => {
-    await checkAndRunInventorySync();
-  }, 60 * 1000);
+  setInterval(async () => { await checkAndRunInventorySync(); }, 60 * 1000);
 }
 
 async function checkAndRunInventorySync() {
   try {
-    let settingsRow;
+    let settingsRow: any;
     try {
       [settingsRow] = await db.select().from(appSettings).limit(1);
     } catch (connErr: any) {
@@ -33,22 +35,35 @@ async function checkAndRunInventorySync() {
 
     const tz = settings.timezone || 'America/Chicago';
     const now = new Date();
+
+    // Time-of-day gate — must have reached the scheduled time in local timezone
     const localTimeStr = now.toLocaleString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false });
     const [hStr, mStr] = localTimeStr.replace(/\u202f/g, '').split(':');
     const currentTotalMinutes = parseInt(hStr) * 60 + parseInt(mStr);
     const scheduledTime = settings.inventorySyncTime || '02:00';
     const [schedH, schedM] = scheduledTime.split(':');
     const scheduledTotalMinutes = parseInt(schedH) * 60 + parseInt(schedM);
-
-    // Too early in the day — not yet reached the scheduled time.
     if (currentTotalMinutes < scheduledTotalMinutes) return;
 
-    // Already ran successfully within the last 20 hours — skip until tomorrow's window.
-    // NOTE: lastSyncTime is only written when runAutomatedInventorySync() is called,
-    // NOT when blocked. So a blocked sync keeps retrying every minute until the lock clears.
+    // Fetch last run metadata
     const [meta] = await db.select().from(syncMetadata).where(eq(syncMetadata.id, SYNC_ID)).limit(1);
-    const lastRun = meta?.lastSyncTime ? new Date(meta.lastSyncTime).getTime() : 0;
-    if (Date.now() - lastRun < 20 * 60 * 60 * 1000) return;
+    const lastRunTs = meta?.lastSyncTime ? new Date(meta.lastSyncTime).getTime() : 0;
+
+    if (meta?.lastSyncStatus === 'error') {
+      // Retry logic: up to MAX_RETRIES with incremental delays
+      if (retry.count >= MAX_RETRIES) {
+        console.log(`[Inventory] All ${MAX_RETRIES} retries exhausted — waiting for next scheduled window`);
+        return;
+      }
+      if (Date.now() < retry.nextAt) return; // Wait for retry delay
+      console.log(`[Inventory] Retrying after failure (attempt ${retry.count + 1}/${MAX_RETRIES})...`);
+    } else {
+      // Calendar-date dedup in local timezone — only run once per calendar day
+      const todayStr = now.toLocaleDateString('en-US', { timeZone: tz });
+      const lastRunStr = lastRunTs ? new Date(lastRunTs).toLocaleDateString('en-US', { timeZone: tz }) : '';
+      if (todayStr === lastRunStr) { retry.count = 0; return; } // Already ran today successfully
+      retry.count = 0; // Fresh day, reset retries
+    }
 
     if (syncLock.isRunning()) {
       const blocker = syncLock.getActive().join(', ');
@@ -71,10 +86,6 @@ async function checkAndRunInventorySync() {
 }
 
 async function runAutomatedInventorySync() {
-  // syncBricklinkData() handles its own lock acquisition and release internally.
-  // Do NOT acquire the lock here — doing so causes a double-lock that immediately
-  // throws "Inventory sync already in progress" when syncBricklinkData tries to acquire it.
-
   console.log('\n🔄 Starting automated inventory sync (BrickLink → Local DB)...');
 
   await db.insert(syncMetadata).values({
@@ -116,9 +127,18 @@ async function runAutomatedInventorySync() {
       },
     });
 
+    retry.count = 0;
     resolveSchedulerIssues(SYNC_TYPE);
   } catch (error: any) {
-    console.error('❌ Automated inventory sync failed:', error.message);
+    retry.count++;
+    retry.nextAt = Date.now() + retry.count * RETRY_BASE_MS;
+    const minsUntilRetry = retry.count * 5;
+    console.error(`❌ Automated inventory sync failed (attempt ${retry.count}/${MAX_RETRIES}): ${error.message}`);
+    if (retry.count < MAX_RETRIES) {
+      console.log(`[Inventory] Next retry in ${minsUntilRetry} minute(s)`);
+    } else {
+      console.log(`[Inventory] All ${MAX_RETRIES} retries exhausted`);
+    }
 
     await db.insert(syncMetadata).values({
       id: SYNC_ID,
@@ -136,11 +156,10 @@ async function runAutomatedInventorySync() {
       syncType: SYNC_TYPE,
       platform: 'scheduler',
       issueType: 'sync_failed',
-      issueDescription: `Automated inventory sync failed: ${error.message}`,
+      issueDescription: `Automated inventory sync failed (attempt ${retry.count}/${MAX_RETRIES}): ${error.message}`,
       severity: 'critical',
-      metadata: { error: error.message, timestamp: new Date().toISOString() },
+      metadata: { error: error.message, attempt: retry.count, maxRetries: MAX_RETRIES, timestamp: new Date().toISOString() },
     });
-    // Lock is released inside syncBricklinkData's finally block — no release needed here.
   }
 }
 

@@ -6,29 +6,23 @@ import { syncLock } from "./sync-lock";
 import { recordSyncIssue, resolveSchedulerIssues } from "./sync-issue-service";
 
 const SYNC_TYPE = 'channel_sync';
+const MAX_RETRIES = 5;
+const RETRY_BASE_MS = 5 * 60 * 1000;
+
+const retry = { count: 0, nextAt: 0 };
 
 export function getChannelSyncIsRunning() {
   return syncLock.getActive().includes('Channel Sync');
 }
 
-/**
- * Start the Channel Sync scheduler.
- *
- * Gold-standard pattern: same as pom-scheduler.
- * Uses "scheduled time has passed + not run in 20h" instead of exact minute match,
- * so a blocked sync keeps retrying every minute until the lock clears.
- */
 export async function startChannelSyncScheduler() {
   console.log('🌐 Channel sync scheduler initialized');
-
-  setInterval(async () => {
-    await checkAndRunChannelSync();
-  }, 60 * 1000);
+  setInterval(async () => { await checkAndRunChannelSync(); }, 60 * 1000);
 }
 
 async function checkAndRunChannelSync() {
   try {
-    let settingsRow;
+    let settingsRow: any;
     try {
       [settingsRow] = await db.select().from(appSettings).limit(1);
     } catch (connErr: any) {
@@ -43,35 +37,39 @@ async function checkAndRunChannelSync() {
 
     const tz = settings.timezone || 'America/Chicago';
     const now = new Date();
-    const localTimeStr = now.toLocaleString('en-US', {
-      timeZone: tz,
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    });
+
+    // Time-of-day gate
+    const localTimeStr = now.toLocaleString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false });
     const [hStr, mStr] = localTimeStr.replace(/\u202f/g, '').split(':');
     const currentTotalMinutes = parseInt(hStr) * 60 + parseInt(mStr);
     const scheduledTime = settings.channelSyncTime || '03:00';
     const [schedH, schedM] = scheduledTime.split(':');
     const scheduledTotalMinutes = parseInt(schedH) * 60 + parseInt(schedM);
-
-    // Too early in the day.
     if (currentTotalMinutes < scheduledTotalMinutes) return;
 
-    // Already ran within the last 20 hours — skip until tomorrow's window.
-    // When blocked, runScheduledChannelSync() is never called so lastSyncTime is not
-    // updated, meaning the scheduler keeps retrying every minute until the lock clears.
     const [meta] = await db.select().from(syncMetadata).where(eq(syncMetadata.id, 'channel_sync')).limit(1);
-    const lastRun = meta?.lastSyncTime ? new Date(meta.lastSyncTime).getTime() : 0;
-    if (Date.now() - lastRun < 20 * 60 * 60 * 1000) return;
+    const lastRunTs = meta?.lastSyncTime ? new Date(meta.lastSyncTime).getTime() : 0;
 
-    // If channel sync itself is already running, silently skip (duplicate tick guard).
+    if (meta?.lastSyncStatus === 'error') {
+      if (retry.count >= MAX_RETRIES) {
+        console.log(`[Channel] All ${MAX_RETRIES} retries exhausted — waiting for next scheduled window`);
+        return;
+      }
+      if (Date.now() < retry.nextAt) return;
+      console.log(`[Channel] Retrying after failure (attempt ${retry.count + 1}/${MAX_RETRIES})...`);
+    } else {
+      // Calendar-date dedup in local timezone
+      const todayStr = now.toLocaleDateString('en-US', { timeZone: tz });
+      const lastRunStr = lastRunTs ? new Date(lastRunTs).toLocaleDateString('en-US', { timeZone: tz }) : '';
+      if (todayStr === lastRunStr) { retry.count = 0; return; }
+      retry.count = 0;
+    }
+
     if (getChannelSyncIsRunning()) {
       console.log('⏭️ Channel sync already in progress, skipping this cycle');
       return;
     }
 
-    // If a different sync is holding the lock, record the issue and retry next minute.
     if (syncLock.isRunning()) {
       const blocker = syncLock.getActive().join(', ');
       console.log(`⏭️ Channel sync blocked by: ${blocker} — will retry next minute`);
@@ -79,7 +77,7 @@ async function checkAndRunChannelSync() {
         syncType: SYNC_TYPE,
         platform: 'scheduler',
         issueType: 'scheduler_blocked',
-        issueDescription: `Scheduled channel sync (${scheduledTime}) is blocked by: ${blocker}. Retrying every minute until the lock clears.`,
+        issueDescription: `Scheduled channel sync (${scheduledTime}) is blocked by: ${blocker}. Retrying every minute.`,
         severity: 'high',
         metadata: { blockedBy: blocker, scheduledTime, timestamp: new Date().toISOString() },
       });
@@ -137,9 +135,18 @@ async function runScheduledChannelSync() {
       },
     });
 
+    retry.count = 0;
     resolveSchedulerIssues(SYNC_TYPE);
   } catch (error: any) {
-    console.error('❌ Scheduled channel sync failed:', error.message);
+    retry.count++;
+    retry.nextAt = Date.now() + retry.count * RETRY_BASE_MS;
+    const minsUntilRetry = retry.count * 5;
+    console.error(`❌ Scheduled channel sync failed (attempt ${retry.count}/${MAX_RETRIES}): ${error.message}`);
+    if (retry.count < MAX_RETRIES) {
+      console.log(`[Channel] Next retry in ${minsUntilRetry} minute(s)`);
+    } else {
+      console.log(`[Channel] All ${MAX_RETRIES} retries exhausted`);
+    }
 
     await db.insert(syncMetadata).values({
       id: 'channel_sync',
@@ -157,9 +164,9 @@ async function runScheduledChannelSync() {
       syncType: SYNC_TYPE,
       platform: 'scheduler',
       issueType: 'sync_failed',
-      issueDescription: `Scheduled channel sync failed: ${error.message}`,
+      issueDescription: `Scheduled channel sync failed (attempt ${retry.count}/${MAX_RETRIES}): ${error.message}`,
       severity: 'high',
-      metadata: { error: error.message, timestamp: new Date().toISOString() },
+      metadata: { error: error.message, attempt: retry.count, maxRetries: MAX_RETRIES, timestamp: new Date().toISOString() },
     });
   } finally {
     syncLock.release('Channel Sync');
