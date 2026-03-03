@@ -11,7 +11,7 @@ import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBacku
 import { getProcessedPartImage, processImageFromUrl } from "./services/image-proxy";
 import { db } from "./db";
 import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings } from "@shared/schema";
-import { eq, desc, sql, inArray, like, or, and, isNotNull, isNull } from "drizzle-orm";
+import { eq, desc, sql, inArray, like, or, and, isNotNull, isNull, ne } from "drizzle-orm";
 import { z } from "zod";
 import multer from "multer";
 import FormData from "form-data";
@@ -3835,9 +3835,13 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
   });
 
   // GET /api/brickanalyzer/scans/latest — for dashboard polling
+  // Returns the most recent scan that is not "failed" (complete or processing).
+  // A newer failed scan should not overwrite an older successful scan that may
+  // have an outstanding action-items notification pointing to it.
   app.get("/api/brickanalyzer/scans/latest", isApproved, async (req, res) => {
     try {
       const [scan] = await db.select().from(brickanalyzerScans)
+        .where(ne(brickanalyzerScans.status, 'failed'))
         .orderBy(desc(brickanalyzerScans.createdAt))
         .limit(1);
       if (!scan) return res.json(null);
