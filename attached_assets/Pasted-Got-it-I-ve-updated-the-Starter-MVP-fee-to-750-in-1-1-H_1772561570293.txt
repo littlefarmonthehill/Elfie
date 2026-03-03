@@ -1,0 +1,115 @@
+Got it! I’ve updated the Starter MVP fee to $750 in 1.1. Here’s the fully updated contract reflecting that and keeping Core MVP at $2,000:
+
+⸻
+
+Driftless Business Solutions – Service Agreement
+
+Date: [Insert Date]
+
+Client: Minnesota Building Contractors (“Client”)
+Service Provider: Driftless Business Solutions (“DBS”)
+
+Purpose:
+DBS helps business owners focus on the work they love by taking care of website, messaging, and digital management, so the Client can spend more time with customers and less on admin tasks.
+
+⸻
+
+Scope of Work
+
+DBS will provide services to support Minnesota Building Contractors in:
+	•	Increasing residential service inquiries and referrals
+	•	Clearly expressing the Client’s vision, mission, and messaging
+	•	Showcasing completed work through before-and-after galleries, photos, and videos
+	•	Providing lead capture and contact forms
+	•	Creating content assets that can be used for marketing and social media
+
+Work can be front-loaded in the Initial Development package or spread out over time using Ongoing Support, depending on the Client’s chosen package and priorities.
+
+⸻
+
+Services Provided
+
+1.1 Initial Development
+
+DBS will build a custom public-facing website focused on residential services, using the Client’s existing pages and content as the foundation, and including:
+	•	Custom design and layout
+	•	Mobile-friendly display
+	•	Copywriting aligned with vision, mission, and residential messaging
+	•	Lead capture and contact forms
+	•	Project showcase (galleries, photos, videos) optional based on package or monthly support
+	•	Organized content for easy reuse and messaging assets ready for marketing or social media
+
+Packages (choose one):
+
+Package	Scope	Fee
+Starter MVP	Custom website with residential focus, lead capture, 1–2 lightweight tools, basic project showcase	$750
+Core MVP	Full-featured website with residential lead capture workflows, enhanced project showcase, and messaging assets ready for marketing or social media	$2,000
+
+Timeline for Initial Development:
+	•	Week 1: Complimentary Business Consulting – Messaging & Vision Session (no charge)
+	•	Week 2: Website Design & Build
+	•	Week 3: Review & Revisions
+	•	Week 4: Launch
+
+⸻
+
+1.2 Ongoing Support
+
+Monthly retainer packages to maintain and improve the website, messaging, and digital workflows, including adding or enhancing galleries, photos, and videos as needed:
+
+Package	Scope	Hours / Month	Fee
+Starter Support	Minor updates, content tweaks, messaging adjustments	4 hrs	$500
+Core Support	Full website & content maintenance, messaging updates, vendor coordination, enhanced galleries and media updates	10 hrs	$1,250
+
+Additional hours billed at $150/hr.
+
+⸻
+
+Payment Terms
+	•	50% of Initial Development Fee due at signing
+	•	Remaining 50% due upon completion of Initial Development services
+	•	Ongoing Support billed monthly
+
+⸻
+
+Client Responsibilities
+	•	Provide access to existing website, branding, and content
+	•	Respond promptly to messaging and content approvals
+	•	Identify any preferred vendors DBS should coordinate with
+
+⸻
+
+Ownership & Rights
+	•	Work produced by DBS becomes Client property upon final payment, including website code, copy, and assets
+	•	DBS may showcase work in portfolio or marketing materials
+
+⸻
+
+Termination
+	•	Either party may terminate with 30-day written notice
+	•	Client pays for all work completed up to termination
+
+⸻
+
+Acceptance
+
+By signing below, Client agrees to this Agreement and authorizes DBS to begin work according to the selected package.
+
+Client: ___________________________ Date: _________
+
+Driftless Business Solutions: ___________________________ Date: _________
+
+⸻
+
+✅ Summary of Updates:
+	•	Starter MVP fee updated to $750
+	•	Core MVP remains $2,000
+	•	Week 1 remains complimentary consulting
+	•	Timeline embedded in Initial Development section
+	•	Warm, easy-to-read tone maintained
+
+⸻
+
+If you want, I can now make a polished PDF version with checkboxes for Starter/Core packages and signature lines so it’s ready to send to the client today.
+
+Do you want me to do that next?
