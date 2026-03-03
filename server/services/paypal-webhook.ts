@@ -120,6 +120,19 @@ async function refundAlreadyRecorded(refundId: string): Promise<boolean> {
   return rows.length > 0;
 }
 
+/**
+ * Check if a refund of the same amount already exists for this order.
+ * Guards against duplicate records when PayPal returns fees immediately via T0113
+ * and then fires a PAYMENT.CAPTURE.REFUNDED webhook days later for the same amount.
+ */
+async function orderRefundAmountAlreadyRecorded(orderId: string, amount: number): Promise<boolean> {
+  const rows = await db
+    .select({ id: orderAdjustments.id, amount: orderAdjustments.amount })
+    .from(orderAdjustments)
+    .where(and(eq(orderAdjustments.orderId, orderId), eq(orderAdjustments.type, 'refund')));
+  return rows.some(r => Math.abs(Math.abs(Number(r.amount)) - amount) < 0.01);
+}
+
 async function recordRefund(
   orderId: string,
   refundId: string,
@@ -223,6 +236,15 @@ export async function handleCaptureRefunded(event: any): Promise<{ processed: bo
     return { processed: false, reason: 'No matching order found' };
   }
 
+  // Guard against duplicate: PayPal returns fees immediately (T0113) and sends
+  // PAYMENT.CAPTURE.REFUNDED days later for the same gross amount. Both have
+  // different refund IDs so refundAlreadyRecorded won't catch this — check by
+  // order + amount instead.
+  if (await orderRefundAmountAlreadyRecorded(order.id, amount)) {
+    console.log(`  Refund of $${amount} already recorded on order ${order.orderNumber} — skipping duplicate`);
+    return { processed: false, reason: 'Refund amount already recorded for this order' };
+  }
+
   // If this webhook gave us IDs we haven't stored yet, persist them
   const updates: Record<string, string> = {};
   if (captureId && !order.paypalCaptureId) updates.paypalCaptureId = captureId;
@@ -298,6 +320,8 @@ export async function syncPayPalRefundsByCapture(): Promise<CapturePollResult> {
           if (await refundAlreadyRecorded(refund.id)) { result.alreadySynced++; continue; }
 
           const amount = Math.abs(parseFloat(refund.amount.value));
+          if (await orderRefundAmountAlreadyRecorded(order.id, amount)) { result.alreadySynced++; continue; }
+
           const refundDate = new Date(refund.update_time ?? refund.create_time ?? Date.now());
           await recordRefund(order.id, refund.id, amount, 'PAYMENT.CAPTURE.REFUNDED', refundDate, captureId);
           console.log(`  ✅ Recorded refund ${refund.id} -$${amount} on order ${order.orderNumber}`);
