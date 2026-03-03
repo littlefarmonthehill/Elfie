@@ -3322,9 +3322,9 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
           const topItem   = figScore >= partScore ? figTop : partTop;
           const itemType: 'MINIFIG' | 'PART' = figScore >= partScore ? 'MINIFIG' : 'PART';
 
-          // Apply minimum confidence threshold — discard low-confidence identifications
-          const minConfidence = settings.minConfidence ?? 0.5;
-          if (topItem && topItem.score < minConfidence) {
+          // Apply minimum confidence threshold — 0 means disabled (show everything Brickognize returns)
+          const minConfidence = settings.minConfidence ?? 0;
+          if (minConfidence > 0 && topItem && topItem.score < minConfidence) {
             console.log(`[Brickanalyzer] Piece ${idx} (${itemType}): ${topItem.id} score=${topItem.score.toFixed(2)} below threshold ${minConfidence.toFixed(2)} — discarded`);
             return [{ partNo: '', partName: 'Unknown', colorName: '', itemType: 'PART' as const, confidence: 'low' as const, note: `Score ${topItem.score.toFixed(2)} below threshold` }];
           }

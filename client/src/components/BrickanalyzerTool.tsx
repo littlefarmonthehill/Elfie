@@ -75,7 +75,7 @@ const DEFAULT_SETTINGS: ScanSettings = {
   separation:    2.5,
   sensitivity:   0.30,
   maxPieces:     50,
-  minConfidence: 0.50,
+  minConfidence: 0,   // 0 = disabled — show all Brickognize results regardless of score
 };
 
 const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
@@ -360,15 +360,17 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                 <div className="space-y-1">
                   <div className="flex justify-between items-baseline">
                     <label className="text-xs font-medium text-gray-300">Min Confidence</label>
-                    <span className="text-xs font-mono text-purple-400">{Math.round(settings.minConfidence * 100)}%</span>
+                    <span className="text-xs font-mono text-purple-400">
+                      {settings.minConfidence === 0 ? "Off" : `${Math.round(settings.minConfidence * 100)}%`}
+                    </span>
                   </div>
-                  <input type="range" min="0.10" max="0.95" step="0.05"
+                  <input type="range" min="0" max="0.95" step="0.05"
                     value={settings.minConfidence}
                     onChange={e => setSettings(s => ({ ...s, minConfidence: Number(e.target.value) }))}
                     className="w-full accent-purple-500"
                     data-testid="slider-min-confidence"
                   />
-                  <p className="text-[10px] text-gray-500">Brickognize score required to accept an ID. Raise for fewer but higher-quality results. Lower to see more guesses.</p>
+                  <p className="text-[10px] text-gray-500">Off = show all results. Raise to hide low-confidence IDs. Recommended: leave Off unless you see too many wrong guesses.</p>
                 </div>
 
                 {/* Max Pieces */}
