@@ -3217,6 +3217,10 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
   // ─── Brickanalyzer: Multi-piece scan endpoints ────────────────────────────
 
   // Background processor: Contour detection → Brickognize → POM price lookup → update DB
+  // In-memory crop cache: scanId → array of JPEG Buffers (one per detected region).
+  // Lives only in this process; cleared when the scan is dismissed.
+  const brickanalyzerCropCache = new Map<number, Buffer[]>();
+
   async function processBrickanalyzerScan(scanId: number, imageBuffer: Buffer) {
     try {
       const { default: sharp } = await import('sharp');
@@ -3282,6 +3286,10 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
             .extract({ left: x0, top: y0, width: cropWidth, height: cropHeight })
             .jpeg({ quality: 90 })
             .toBuffer();
+
+          // Cache the crop so the client can preview it
+          if (!brickanalyzerCropCache.has(scanId)) brickanalyzerCropCache.set(scanId, []);
+          brickanalyzerCropCache.get(scanId)![idx] = cropBuffer;
 
           // Send to both Brickognize endpoints in parallel — take whichever returns
           // the higher confidence score. No pre-classification needed.
@@ -3744,6 +3752,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       const totalValue = deduped.reduce((sum, p) => sum + (p.ourPriceNew ?? p.ourPriceUsed ?? p.marketSoldMaxNew ?? 0), 0);
       const identifiedWithPrice = deduped.filter(p => p.ourPriceNew !== null || p.ourPriceUsed !== null || p.marketSoldMaxNew !== null).length;
 
+      const cropCount = brickanalyzerCropCache.get(scanId)?.filter(Boolean).length ?? 0;
       await db.update(brickanalyzerScans).set({
         status: 'complete',
         totalPieces: deduped.length,
@@ -3812,19 +3821,37 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       const [scan] = await db.select().from(brickanalyzerScans)
         .orderBy(desc(brickanalyzerScans.createdAt))
         .limit(1);
-      res.json(scan || null);
+      if (!scan) return res.json(null);
+      const crops = brickanalyzerCropCache.get(scan.id);
+      res.json({ ...scan, cropCount: crops ? crops.filter(Boolean).length : 0 });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
   });
 
-  // GET /api/brickanalyzer/scan/:id — full results
+  // GET /api/brickanalyzer/scan/:id — full results (includes cropCount from cache)
   app.get("/api/brickanalyzer/scan/:id", isApproved, async (req, res) => {
     try {
       const [scan] = await db.select().from(brickanalyzerScans)
         .where(eq(brickanalyzerScans.id, Number(req.params.id)));
       if (!scan) return res.status(404).json({ error: "Scan not found" });
-      res.json(scan);
+      const crops = brickanalyzerCropCache.get(scan.id);
+      res.json({ ...scan, cropCount: crops ? crops.filter(Boolean).length : 0 });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/brickanalyzer/scan/:id/crop/:index — serve a single crop image
+  app.get("/api/brickanalyzer/scan/:id/crop/:index", isApproved, async (req, res) => {
+    try {
+      const scanId = Number(req.params.id);
+      const idx    = Number(req.params.index);
+      const crops  = brickanalyzerCropCache.get(scanId);
+      if (!crops || !crops[idx]) return res.status(404).json({ error: "Crop not found" });
+      res.set('Content-Type', 'image/jpeg');
+      res.set('Cache-Control', 'private, max-age=3600');
+      res.send(crops[idx]);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -3833,7 +3860,9 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
   // DELETE /api/brickanalyzer/scan/:id — dismiss scan
   app.delete("/api/brickanalyzer/scan/:id", isApproved, async (req, res) => {
     try {
-      await db.delete(brickanalyzerScans).where(eq(brickanalyzerScans.id, Number(req.params.id)));
+      const scanId = Number(req.params.id);
+      await db.delete(brickanalyzerScans).where(eq(brickanalyzerScans.id, scanId));
+      brickanalyzerCropCache.delete(scanId);  // free memory
       res.json({ ok: true });
     } catch (err: any) {
       res.status(500).json({ error: err.message });

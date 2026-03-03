@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo, forwardRef, useImperativeHandle } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import { Camera, X, CheckCircle, Loader2, ExternalLink, Trash2, ScanSearch, ChevronRight, Sparkles, Check } from "lucide-react";
+import { Camera, X, CheckCircle, Loader2, ExternalLink, Trash2, ScanSearch, ChevronRight, Sparkles, Check, Grid3X3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -55,6 +55,7 @@ interface BrickanalyzerScan {
   errorMessage: string | null;
   createdAt: string;
   completedAt: string | null;
+  cropCount?: number;
 }
 
 type UIState = "idle" | "uploading" | "processing" | "complete" | "failed";
@@ -183,6 +184,7 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
   }
 
   const [expandedParts, setExpandedParts] = useState<Set<string>>(new Set());
+  const [showCrops, setShowCrops] = useState(false);
 
   const activeScan = scan ?? latestScan ?? null;
   const results: ScanResult[] = (uiState === "complete" && activeScan?.results) ? (activeScan.results as ScanResult[]) : [];
@@ -323,9 +325,9 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
       {uiState === "complete" && (
         <div className="space-y-3">
           {/* Summary bar */}
-          <div className="flex flex-wrap items-center gap-3 bg-gray-800/60 border border-gray-700 rounded-lg px-3 py-2">
-            <div className="flex items-center gap-1.5">
-              <CheckCircle className="w-4 h-4 text-green-400" />
+          <div className="flex flex-wrap items-center gap-2 bg-gray-800/60 border border-gray-700 rounded-lg px-3 py-2">
+            <div className="flex items-center gap-1.5 flex-1 min-w-0">
+              <CheckCircle className="w-4 h-4 text-green-400 shrink-0" />
               <span className="text-sm font-medium text-green-300">Scan complete</span>
             </div>
             <div className="flex gap-3 text-xs font-mono text-gray-400 flex-wrap">
@@ -336,7 +338,43 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                 <span className="text-lego-yellow font-semibold">${totalValue.toFixed(2)} est. value</span>
               )}
             </div>
+            {(activeScan?.cropCount ?? 0) > 0 && (
+              <Button
+                size="sm"
+                variant={showCrops ? "default" : "outline"}
+                className="shrink-0 gap-1.5"
+                onClick={() => setShowCrops(v => !v)}
+                data-testid="button-brickanalyzer-view-crops"
+              >
+                <Grid3X3 className="w-3.5 h-3.5" />
+                {showCrops ? "Hide Crops" : `View ${activeScan?.cropCount} Crops`}
+              </Button>
+            )}
           </div>
+
+          {/* ── Crops grid ────────────────────────────────────────────────── */}
+          {showCrops && activeScan && (activeScan.cropCount ?? 0) > 0 && (
+            <div className="rounded-lg border border-gray-700 bg-gray-900/60 p-2">
+              <p className="text-xs text-gray-500 mb-2 px-1">
+                Raw crops extracted by Brick Spotter — {activeScan.cropCount} regions detected
+              </p>
+              <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-1.5">
+                {Array.from({ length: activeScan.cropCount ?? 0 }, (_, i) => (
+                  <div key={i} className="relative aspect-square rounded overflow-hidden bg-gray-800 border border-gray-700">
+                    <img
+                      src={`/api/brickanalyzer/scan/${activeScan.id}/crop/${i}`}
+                      alt={`Crop ${i + 1}`}
+                      className="w-full h-full object-contain"
+                      loading="lazy"
+                    />
+                    <span className="absolute bottom-0 right-0 bg-black/60 text-white text-[9px] px-0.5 leading-tight">
+                      {i + 1}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Results — grouped by part number, expandable */}
           {groupedResults.length === 0 ? (
