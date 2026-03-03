@@ -85,19 +85,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     .checkbox { display: inline-block; width: 13px; height: 13px; border: 1.5px solid #2c5f8a; border-radius: 2px; vertical-align: middle; flex-shrink: 0; }
     .timeline { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; margin: 7px 0 10px; font-size: 9.5pt; }
     .timeline .week { font-weight: bold; color: #2c5f8a; white-space: nowrap; }
-    .signature-block { margin-top: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+    .two-col-terms { display: grid; grid-template-columns: 1fr 1fr; gap: 0 24px; margin-top: 14px; }
+    .term-block h2 { margin-top: 10px; }
+    .signature-block { margin-top: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
     .sig-party label { display: block; font-size: 8.5pt; color: #666; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 3px; }
     .sig-party .party-name { font-weight: bold; font-size: 10pt; color: #1a1a1a; margin-bottom: 26px; }
     .sig-line { border-top: 1.5px solid #1a1a1a; padding-top: 4px; font-size: 9pt; color: #444; }
-    .selected-package-line { margin-top: 12px; font-size: 10pt; border-top: 1px solid #d0dde8; padding-top: 10px; }
+    .selected-package-line { margin-top: 10px; font-size: 10pt; border-top: 1px solid #d0dde8; padding-top: 8px; }
     .selected-package-line span { display: inline-block; width: 160px; border-bottom: 1px solid #333; margin-left: 6px; }
-    .footer { margin-top: 22px; border-top: 1px solid #d0dde8; padding-top: 8px; text-align: center; font-size: 8pt; color: #999; }
+    .footer { margin-top: 18px; border-top: 1px solid #d0dde8; padding-top: 8px; text-align: center; font-size: 8pt; color: #999; }
     @media print {
       body { font-size: 10pt; }
-      .page { padding: 24px 32px 28px; max-width: 100%; }
+      .page { padding: 20px 30px 24px; max-width: 100%; }
       h2 { page-break-after: avoid; }
       .package-choice { page-break-inside: avoid; }
-      .signature-block { page-break-inside: avoid; margin-top: 16px; }
+      .two-col-terms { page-break-inside: avoid; }
+      .signature-block { page-break-inside: avoid; margin-top: 12px; }
     }
   </style>
 </head>
@@ -113,47 +116,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       <label>Client:</label><value>Minnesota Building Contractors</value>
       <label>Service Provider:</label><value>Driftless Business Solutions ("DBS")</value>
     </div>
-    <h2>Scope of Work</h2>
-    <p>DBS will provide services to support <strong>Minnesota Building Contractors</strong> in:</p>
-    <ul>
-      <li>Increasing residential service inquiries and referrals</li>
-      <li>Clearly expressing the Client's vision, mission, and messaging</li>
-      <li>Showcasing completed work through before-and-after galleries, photos, and videos</li>
-      <li>Providing lead capture and contact forms</li>
-      <li>Creating content assets ready for marketing and social media</li>
-    </ul>
+
     <h2>1.1 &nbsp; Initial Development</h2>
-    <p>DBS will build a custom public-facing website focused on residential services, using the Client's existing pages and content as the foundation, and including:</p>
+    <p>DBS will build a custom residential-focused website for <strong>Minnesota Building Contractors</strong>, including:</p>
     <ul>
-      <li>Custom design and layout</li>
-      <li>Mobile-friendly display</li>
+      <li>Custom design, layout, and mobile-friendly display</li>
       <li>Copywriting aligned with vision, mission, and residential messaging</li>
-      <li>Lead capture and contact forms</li>
-      <li>Project showcase (galleries, photos, videos) — scope varies by package</li>
-      <li>Organized content and messaging assets ready for marketing or social media</li>
+      <li>Lead capture, contact forms, and project showcase (galleries, photos, videos)</li>
+      <li>Content and messaging assets ready for marketing or social media</li>
     </ul>
-    <h3>Select a Package</h3>
     <div class="package-choice">
       <div class="package-box">
         <div class="pkg-name"><span class="checkbox"></span> Starter MVP</div>
         <div class="pkg-price">$750</div>
-        <div class="pkg-desc">Custom website with residential focus, lead capture, 1–2 lightweight tools, and a basic project showcase.</div>
+        <div class="pkg-desc">Residential-focused website with lead capture, 1–2 lightweight tools, and basic project showcase.</div>
       </div>
       <div class="package-box">
         <div class="pkg-name"><span class="checkbox"></span> Core MVP</div>
         <div class="pkg-price">$2,000</div>
-        <div class="pkg-desc">Full-featured website with residential lead capture workflows, enhanced project showcase, and messaging assets ready for marketing or social media.</div>
+        <div class="pkg-desc">Full-featured site with lead capture workflows, enhanced project showcase, and marketing-ready messaging assets.</div>
       </div>
     </div>
     <h3>Project Timeline</h3>
     <div class="timeline">
-      <div class="week">Week 1:</div><div>Complimentary Business Consulting – Messaging &amp; Vision Session <em>(no charge)</em></div>
+      <div class="week">Week 1:</div><div>Complimentary Consulting – Messaging &amp; Vision Session <em>(no charge)</em></div>
       <div class="week">Week 2:</div><div>Website Design &amp; Build</div>
       <div class="week">Week 3:</div><div>Review &amp; Revisions</div>
       <div class="week">Week 4:</div><div>Launch</div>
     </div>
+
     <h2>1.2 &nbsp; Ongoing Support</h2>
-    <p>Monthly retainer packages to maintain and improve the website, messaging, and digital workflows, including galleries, photos, and video updates as needed:</p>
     <div class="package-choice">
       <div class="package-box">
         <div class="pkg-name"><span class="checkbox"></span> Starter Support</div>
@@ -163,34 +155,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
       <div class="package-box">
         <div class="pkg-name"><span class="checkbox"></span> Core Support</div>
         <div class="pkg-price">$1,250 / mo</div>
-        <div class="pkg-desc">10 hrs / month &mdash; Full website &amp; content maintenance, messaging updates, vendor coordination, enhanced galleries and media updates.</div>
+        <div class="pkg-desc">10 hrs / month &mdash; Full maintenance, messaging updates, vendor coordination, and media updates.</div>
       </div>
     </div>
-    <p style="font-size:10pt; color:#555;">Additional hours billed at <strong>$150 / hr</strong>.</p>
-    <h2>Payment Terms</h2>
-    <ul>
-      <li>50% of Initial Development Fee due at signing</li>
-      <li>Remaining 50% due upon completion of Initial Development services</li>
-      <li>Ongoing Support billed monthly</li>
-    </ul>
-    <h2>Client Responsibilities</h2>
-    <ul>
-      <li>Provide access to existing website, branding, and content</li>
-      <li>Respond promptly to messaging and content approvals</li>
-      <li>Identify any preferred vendors DBS should coordinate with</li>
-    </ul>
-    <h2>Ownership &amp; Rights</h2>
-    <ul>
-      <li>Work produced by DBS becomes Client property upon final payment, including website code, copy, and assets</li>
-      <li>DBS may showcase completed work in portfolio or marketing materials</li>
-    </ul>
-    <h2>Termination</h2>
-    <ul>
-      <li>Either party may terminate this Agreement with 30 days written notice</li>
-      <li>Client is responsible for payment of all work completed up to the date of termination</li>
-    </ul>
-    <h2>Acceptance</h2>
-    <p>By signing below, both parties agree to this Agreement and authorize DBS to begin work according to the selected package.</p>
+    <p style="font-size:9pt; color:#555; margin-top:-4px;">Additional hours billed at <strong>$150 / hr</strong>.</p>
+
+    <div class="two-col-terms">
+      <div class="term-block">
+        <h2>Payment Terms</h2>
+        <ul>
+          <li>50% of Initial Development Fee due at signing</li>
+          <li>Remaining 50% due upon project completion</li>
+          <li>Ongoing Support billed monthly</li>
+        </ul>
+      </div>
+      <div class="term-block">
+        <h2>Client Responsibilities</h2>
+        <ul>
+          <li>Provide access to existing website, branding, and content</li>
+          <li>Respond promptly to approvals and feedback</li>
+          <li>Identify preferred vendors for coordination</li>
+        </ul>
+      </div>
+      <div class="term-block">
+        <h2>Ownership &amp; Rights</h2>
+        <ul>
+          <li>All work becomes Client property upon final payment</li>
+          <li>DBS may showcase work in portfolio materials</li>
+        </ul>
+      </div>
+      <div class="term-block">
+        <h2>Termination</h2>
+        <ul>
+          <li>Either party may terminate with 30 days written notice</li>
+          <li>Client pays for all work completed through termination</li>
+        </ul>
+      </div>
+    </div>
+
     <div class="selected-package-line">
       <strong>Selected Package:</strong><span>&nbsp;</span>
       &nbsp;&nbsp;&nbsp;&nbsp;
