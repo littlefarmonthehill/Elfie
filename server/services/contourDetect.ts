@@ -164,6 +164,30 @@ export async function detectPieceBoundingBoxes(imageBuffer: Buffer): Promise<Det
   }
   const filtered = boxes.filter((_, i) => keep[i]);
 
-  console.log(`[ContourDetect] ${W}×${H} bg=${bgBrightness.toFixed(0)} → ${bboxMap.size} components → ${boxes.length} sized → ${filtered.length} after sub-fragment removal`);
-  return filtered;
+  // ── Subdivide large blobs into piece-sized tiles ────────────────────────
+  // Touching pieces (e.g. minifigs side by side) form one connected region.
+  // Any box whose width AND height both exceed 15% is almost certainly multiple
+  // pieces merged. Replace it with a grid of ~15% tiles so each tile covers
+  // roughly one piece and gets its own Brickognize call.
+  const TILE = 15; // target tile size in % of image
+  const result: DetectedBox[] = [];
+  for (const b of filtered) {
+    if (b.w > TILE && b.h > TILE) {
+      const cols = Math.ceil(b.w / TILE);
+      const rows = Math.ceil(b.h / TILE);
+      const tw = b.w / cols;
+      const th = b.h / rows;
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          result.push({ x: b.x + c * tw, y: b.y + r * th, w: tw, h: th });
+        }
+      }
+      console.log(`[ContourDetect] Large blob ${b.w.toFixed(1)}%×${b.h.toFixed(1)}% → ${cols}×${rows} grid`);
+    } else {
+      result.push(b);
+    }
+  }
+
+  console.log(`[ContourDetect] ${W}×${H} bg=${bgBrightness.toFixed(0)} → ${bboxMap.size} components → ${boxes.length} sized → ${filtered.length} after fragment filter → ${result.length} final`);
+  return result;
 }
