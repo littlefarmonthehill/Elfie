@@ -4,6 +4,7 @@ import { queryClient } from "@/lib/queryClient";
 import { Camera, X, CheckCircle, Loader2, ExternalLink, Trash2, ScanSearch, ChevronRight, Sparkles, Check, Grid3X3, Settings2, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 
 export interface BrickanalyzerToolRef {
@@ -261,6 +262,7 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
 
   const [expandedParts, setExpandedParts] = useState<Set<string>>(new Set());
   const [showCrops, setShowCrops] = useState(false);
+  const [lightboxImage, setLightboxImage] = useState<{ src: string; alt: string } | null>(null);
 
   const activeScan = scan ?? latestScan ?? null;
   const results: ScanResult[] = (uiState === "complete" && activeScan?.results) ? (activeScan.results as ScanResult[]) : [];
@@ -736,7 +738,12 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
               </p>
               <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-1.5">
                 {Array.from({ length: activeScan.cropCount ?? 0 }, (_, i) => (
-                  <div key={i} className="relative aspect-square rounded overflow-hidden bg-gray-800 border border-gray-700">
+                  <div
+                    key={i}
+                    className="relative aspect-square rounded overflow-hidden bg-gray-800 border border-gray-700 cursor-pointer hover-elevate"
+                    onClick={() => setLightboxImage({ src: `/api/brickanalyzer/scan/${activeScan.id}/crop/${i}`, alt: `Crop ${i + 1}` })}
+                    data-testid={`crop-thumbnail-${i}`}
+                  >
                     <img
                       src={`/api/brickanalyzer/scan/${activeScan.id}/crop/${i}`}
                       alt={`Crop ${i + 1}`}
@@ -818,33 +825,38 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                       data-testid={`toggle-part-${gi}`}
                     >
                       {/* Thumbnail */}
-                      <div className="flex-shrink-0 w-12 h-12 rounded bg-gray-800/80 flex items-center justify-center overflow-hidden">
-                        {(() => {
-                          const isMinifig = grp.itemType === 'MINIFIG';
-                          // Rebrickable images go through proxy; BL images rendered directly
-                          const blDirectUrl = grp.partNo
-                            ? isMinifig
-                              ? `https://img.bricklink.com/ItemImage/MN/0/${grp.partNo}.png`
-                              : `https://img.bricklink.com/ItemImage/PN/${repEntry.colorId ?? 0}/${grp.partNo}.png`
-                            : null;
-                          const isRebrickable = repImg?.includes('cdn.rebrickable.com');
-                          const primarySrc = isRebrickable
-                            ? `/api/images/proxy?url=${encodeURIComponent(repImg!)}`
-                            : (repImg && repImg.startsWith('https://')) ? repImg : blDirectUrl;
-                          return primarySrc ? (
-                            <img
-                              src={primarySrc}
-                              alt={grp.partName}
-                              className="w-full h-full object-contain p-0.5"
-                              onError={(e) => {
-                                const el = e.target as HTMLImageElement;
-                                if (blDirectUrl && el.src !== blDirectUrl) { el.src = blDirectUrl; }
-                                else { el.style.display = 'none'; }
-                              }}
-                            />
-                          ) : <Camera className="w-4 h-4 text-gray-700" />;
-                        })()}
-                      </div>
+                      {(() => {
+                        const isMinifig = grp.itemType === 'MINIFIG';
+                        const blDirectUrl = grp.partNo
+                          ? isMinifig
+                            ? `https://img.bricklink.com/ItemImage/MN/0/${grp.partNo}.png`
+                            : `https://img.bricklink.com/ItemImage/PN/${repEntry.colorId ?? 0}/${grp.partNo}.png`
+                          : null;
+                        const isRebrickable = repImg?.includes('cdn.rebrickable.com');
+                        const primarySrc = isRebrickable
+                          ? `/api/images/proxy?url=${encodeURIComponent(repImg!)}`
+                          : (repImg && repImg.startsWith('https://')) ? repImg : blDirectUrl;
+                        return (
+                          <div
+                            className={`flex-shrink-0 w-12 h-12 rounded bg-gray-800/80 flex items-center justify-center overflow-hidden ${primarySrc ? 'cursor-pointer hover-elevate' : ''}`}
+                            onClick={primarySrc ? (e) => { e.stopPropagation(); setLightboxImage({ src: primarySrc, alt: grp.partName || grp.partNo }); } : undefined}
+                            data-testid={`thumbnail-part-${gi}`}
+                          >
+                            {primarySrc ? (
+                              <img
+                                src={primarySrc}
+                                alt={grp.partName}
+                                className="w-full h-full object-contain p-0.5"
+                                onError={(e) => {
+                                  const el = e.target as HTMLImageElement;
+                                  if (blDirectUrl && el.src !== blDirectUrl) { el.src = blDirectUrl; }
+                                  else { el.style.display = 'none'; }
+                                }}
+                              />
+                            ) : <Camera className="w-4 h-4 text-gray-700" />}
+                          </div>
+                        );
+                      })()}
 
                       {/* Info */}
                       <div className="flex-1 min-w-0 flex flex-col gap-0.5 justify-center">
@@ -1044,6 +1056,19 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
           </div>
         </div>
       )}
+
+    {/* Lightbox */}
+    <Dialog open={!!lightboxImage} onOpenChange={(open) => { if (!open) setLightboxImage(null); }}>
+      <DialogContent className="max-w-lg p-2 bg-gray-950 border-gray-700 flex items-center justify-center">
+        {lightboxImage && (
+          <img
+            src={lightboxImage.src}
+            alt={lightboxImage.alt}
+            className="max-w-full max-h-[80vh] object-contain rounded"
+          />
+        )}
+      </DialogContent>
+    </Dialog>
 
     </div>
   );
