@@ -143,6 +143,27 @@ export async function detectPieceBoundingBoxes(imageBuffer: Buffer): Promise<Det
   // ── Sort by area descending ─────────────────────────────────────────────
   boxes.sort((a, b) => (b.w * b.h) - (a.w * a.h));
 
-  console.log(`[ContourDetect] ${W}×${H} bg=${bgBrightness.toFixed(0)} → ${bboxMap.size} components → ${boxes.length} returned`);
-  return boxes;
+  // ── Drop sub-fragments: remove any box that is ≥70% contained inside a ──
+  // larger box. Printed pieces (shields, tiles) generate many internal color  
+  // regions as separate components. Those inner regions are entirely within   
+  // the outer piece bbox — dropping them avoids sending piece fragments to    
+  // Brickognize, which always returns empty for partial views.
+  const keep: boolean[] = new Array(boxes.length).fill(true);
+  for (let i = boxes.length - 1; i >= 1; i--) {       // smaller to larger
+    const s = boxes[i];
+    for (let j = 0; j < i; j++) {                      // compare with each larger box
+      if (!keep[j]) continue;
+      const l = boxes[j];
+      // Intersection area
+      const ix = Math.max(0, Math.min(s.x + s.w, l.x + l.w) - Math.max(s.x, l.x));
+      const iy = Math.max(0, Math.min(s.y + s.h, l.y + l.h) - Math.max(s.y, l.y));
+      const inter = ix * iy;
+      const sArea = s.w * s.h;
+      if (sArea > 0 && inter / sArea >= 0.70) { keep[i] = false; break; }
+    }
+  }
+  const filtered = boxes.filter((_, i) => keep[i]);
+
+  console.log(`[ContourDetect] ${W}×${H} bg=${bgBrightness.toFixed(0)} → ${bboxMap.size} components → ${boxes.length} sized → ${filtered.length} after sub-fragment removal`);
+  return filtered;
 }
