@@ -90,7 +90,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     .section > h2:first-child { margin-top: 0; }
     .two-col-terms { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; margin-top: 8px; }
     .term-block h2 { margin-top: 0; }
-    .sig-section { margin-top: 10px; border-top: 1px solid #d0dde8; padding-top: 8px; }
+    .sig-section { margin-top: 22px; border-top: 1px solid #d0dde8; padding-top: 12px; }
     .pkg-select-line { font-size: 9pt; margin-bottom: 10px; }
     .pkg-select-line span { display: inline-block; width: 150px; border-bottom: 1px solid #333; margin-left: 5px; }
     .signature-block { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
