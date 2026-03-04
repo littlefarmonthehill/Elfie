@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo, forwardRef, useImperativeHandle } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import { Camera, X, CheckCircle, Loader2, ExternalLink, Trash2, ScanSearch, ChevronRight, Sparkles, Check, Grid3X3, Settings2, RotateCcw } from "lucide-react";
+import { Camera, X, CheckCircle, Loader2, ExternalLink, Trash2, ScanSearch, ChevronRight, Sparkles, Check, Grid3X3, Settings2, RotateCcw, ZoomIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -123,7 +123,8 @@ function saveBaselineToStorage(s: ScanSettings) {
   try { localStorage.setItem(BASELINE_KEY, JSON.stringify(s)); } catch {}
 }
 
-const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, Record<string, never>>((_, ref) => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const BrickanalyzerTool = forwardRef<any, any>((_, ref) => {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uiState, setUiState] = useState<UIState>("idle");
@@ -269,6 +270,40 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, Record<string, never>
   const [expandedParts, setExpandedParts] = useState<Set<string>>(new Set());
   const [showCrops, setShowCrops] = useState(false);
   const [lightboxImage, setLightboxImage] = useState<{ src: string; alt: string } | null>(null);
+  const [scanPhotoOpen, setScanPhotoOpen] = useState(false);
+  const [scanZoom, setScanZoom] = useState(1);
+  const [scanPan, setScanPan] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [pinchDist, setPinchDist] = useState<number | null>(null);
+  const scanContainerRef = useRef<HTMLDivElement>(null);
+
+  function closeScanPhoto() { setScanPhotoOpen(false); setScanZoom(1); setScanPan({ x: 0, y: 0 }); }
+  function handleScanWheel(e: React.WheelEvent) {
+    e.preventDefault();
+    setScanZoom(prev => { const next = Math.min(8, Math.max(1, prev - e.deltaY * 0.003)); if (next === 1) setScanPan({ x: 0, y: 0 }); return next; });
+  }
+  function handleScanMouseDown(e: React.MouseEvent) { if (scanZoom <= 1) return; e.preventDefault(); setIsDragging(true); setDragStart({ x: e.clientX - scanPan.x, y: e.clientY - scanPan.y }); }
+  function handleScanMouseMove(e: React.MouseEvent) { if (!isDragging) return; setScanPan({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y }); }
+  function handleScanMouseUp() { setIsDragging(false); }
+  function handleScanTouchStart(e: React.TouchEvent) {
+    if (e.touches.length === 2) {
+      const dx = e.touches[1].clientX - e.touches[0].clientX;
+      const dy = e.touches[1].clientY - e.touches[0].clientY;
+      setPinchDist(Math.sqrt(dx * dx + dy * dy));
+    }
+  }
+  function handleScanTouchMove(e: React.TouchEvent) {
+    if (e.touches.length === 2 && pinchDist != null) {
+      const dx = e.touches[1].clientX - e.touches[0].clientX;
+      const dy = e.touches[1].clientY - e.touches[0].clientY;
+      const newDist = Math.sqrt(dx * dx + dy * dy);
+      const ratio = newDist / pinchDist;
+      setScanZoom(prev => Math.min(8, Math.max(1, prev * ratio)));
+      setPinchDist(newDist);
+    }
+  }
+  function handleScanTouchEnd() { setPinchDist(null); }
 
   const activeScan = scan ?? latestScan ?? null;
   const results: ScanResult[] = useMemo(() => {
@@ -732,6 +767,18 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, Record<string, never>
                 <span className="text-lego-yellow font-semibold">${totalValue.toFixed(2)} est. value</span>
               )}
             </div>
+            {activeScan?.imgWidth && activeScan?.imgHeight && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="shrink-0 gap-1.5"
+                onClick={() => setScanPhotoOpen(true)}
+                data-testid="button-view-scan-photo"
+              >
+                <Camera className="w-3.5 h-3.5" />
+                View Photo
+              </Button>
+            )}
             {(activeScan?.cropCount ?? 0) > 0 && (
               <Button
                 size="sm"
@@ -745,47 +792,6 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, Record<string, never>
               </Button>
             )}
           </div>
-
-          {/* ── Scan photo with price overlays ────────────────────────────── */}
-          {activeScan && activeScan.imgWidth && activeScan.imgHeight && (
-            <div className="rounded-lg overflow-hidden border border-gray-700 bg-gray-900">
-              <div className="relative" style={{ aspectRatio: `${activeScan.imgWidth}/${activeScan.imgHeight}` }}>
-                <img
-                  src={`/api/brickanalyzer/scan/${activeScan.id}/image`}
-                  alt="Original scan"
-                  className="absolute inset-0 w-full h-full object-fill block"
-                />
-                {results.filter(r => r.bboxX != null && r.bboxY != null && r.bboxW != null && r.bboxH != null).map((r, i) => {
-                  const W = activeScan.imgWidth!;
-                  const H = activeScan.imgHeight!;
-                  const peakPrice = Math.max(r.marketSoldMaxNew ?? 0, r.marketSoldMaxUsed ?? 0) || null;
-                  const displayPrice = r.ourPriceNew ?? r.ourPriceUsed ?? peakPrice;
-                  const scrollTarget = `result-${r.partNo || r.cropIndex ?? i}`;
-                  return (
-                    <button
-                      key={r.cropIndex ?? i}
-                      onClick={() => document.getElementById(scrollTarget)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-                      style={{
-                        position: 'absolute',
-                        left:   `${(r.bboxX! / W) * 100}%`,
-                        top:    `${(r.bboxY! / H) * 100}%`,
-                        width:  `${(r.bboxW! / W) * 100}%`,
-                        height: `${(r.bboxH! / H) * 100}%`,
-                      }}
-                      className="border-2 border-lego-yellow/80 hover:border-lego-yellow hover:bg-lego-yellow/10 transition-colors"
-                      data-testid={`overlay-crop-${r.cropIndex ?? i}`}
-                    >
-                      {displayPrice != null && (
-                        <span className="absolute bottom-0.5 left-0.5 bg-black/75 text-lego-yellow text-[9px] font-bold px-1 py-px rounded-sm leading-tight whitespace-nowrap">
-                          ${displayPrice.toFixed(2)}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
 
           {/* ── Crops grid ────────────────────────────────────────────────── */}
           {showCrops && activeScan && (activeScan.cropCount ?? 0) > 0 && (
@@ -1114,6 +1120,102 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, Record<string, never>
           </div>
         </div>
       )}
+
+    {/* ── Scan photo zoom dialog ─────────────────────────────────────── */}
+    <Dialog open={scanPhotoOpen} onOpenChange={(open) => { if (!open) closeScanPhoto(); }}>
+      <DialogContent className="max-w-[96vw] w-full p-0 bg-gray-950 border-gray-700 overflow-hidden flex flex-col" style={{ maxHeight: '94vh' }}>
+        {/* Header */}
+        <div className="flex items-center justify-between px-3 py-2 border-b border-gray-800 shrink-0">
+          <div className="flex items-center gap-2 text-xs text-gray-400">
+            <Camera className="w-3.5 h-3.5 text-lego-yellow" />
+            <span>Scan photo — tap a box to jump to that result</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            {scanZoom > 1 && (
+              <Button size="sm" variant="ghost" className="text-xs h-7 gap-1 text-gray-400" onClick={() => { setScanZoom(1); setScanPan({ x: 0, y: 0 }); }}>
+                <RotateCcw className="w-3 h-3" /> Reset
+              </Button>
+            )}
+            <span className="text-[10px] text-gray-600 font-mono w-8 text-right">{Math.round(scanZoom * 100)}%</span>
+            <Button size="icon" variant="ghost" onClick={closeScanPhoto} data-testid="button-close-scan-photo"><X className="w-4 h-4" /></Button>
+          </div>
+        </div>
+        {/* Zoomable image area */}
+        {activeScan && activeScan.imgWidth && activeScan.imgHeight && (
+          <div
+            ref={scanContainerRef}
+            className="flex-1 overflow-hidden flex items-center justify-center bg-black"
+            style={{ cursor: scanZoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default', touchAction: 'none' }}
+            onWheel={handleScanWheel}
+            onMouseDown={handleScanMouseDown}
+            onMouseMove={handleScanMouseMove}
+            onMouseUp={handleScanMouseUp}
+            onMouseLeave={handleScanMouseUp}
+            onTouchStart={handleScanTouchStart}
+            onTouchMove={handleScanTouchMove}
+            onTouchEnd={handleScanTouchEnd}
+          >
+            <div
+              style={{
+                transform: `translate(${scanPan.x}px, ${scanPan.y}px) scale(${scanZoom})`,
+                transformOrigin: 'center center',
+                transition: isDragging ? 'none' : 'transform 0.1s ease-out',
+                position: 'relative',
+                width: '100%',
+                maxHeight: 'calc(94vh - 52px)',
+                aspectRatio: `${activeScan.imgWidth}/${activeScan.imgHeight}`,
+                flexShrink: 0,
+              }}
+            >
+              <img
+                src={`/api/brickanalyzer/scan/${activeScan.id}/image`}
+                alt="Original scan"
+                className="absolute inset-0 w-full h-full object-fill block select-none"
+                draggable={false}
+              />
+              {results.filter(r => r.bboxX != null && r.bboxY != null && r.bboxW != null && r.bboxH != null).map((r, i) => {
+                const W = activeScan.imgWidth!;
+                const H = activeScan.imgHeight!;
+                const peakPrice = Math.max(r.marketSoldMaxNew ?? 0, r.marketSoldMaxUsed ?? 0) || null;
+                const displayPrice = r.ourPriceNew ?? r.ourPriceUsed ?? peakPrice;
+                const scrollTarget = `result-${r.partNo || r.cropIndex ?? i}`;
+                return (
+                  <button
+                    key={r.cropIndex ?? i}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      closeScanPhoto();
+                      setTimeout(() => document.getElementById(scrollTarget)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 200);
+                    }}
+                    style={{
+                      position: 'absolute',
+                      left:   `${(r.bboxX! / W) * 100}%`,
+                      top:    `${(r.bboxY! / H) * 100}%`,
+                      width:  `${(r.bboxW! / W) * 100}%`,
+                      height: `${(r.bboxH! / H) * 100}%`,
+                    }}
+                    className="border-2 border-lego-yellow/80 hover:border-lego-yellow hover:bg-lego-yellow/10 transition-colors group"
+                    data-testid={`scan-overlay-${r.cropIndex ?? i}`}
+                  >
+                    {displayPrice != null && (
+                      <span className="absolute bottom-0.5 left-0.5 bg-black/80 text-lego-yellow text-[9px] font-bold px-1 py-px rounded-sm leading-tight whitespace-nowrap">
+                        ${displayPrice.toFixed(2)}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        {/* Footer hint */}
+        <div className="px-3 py-1.5 border-t border-gray-800 shrink-0 flex items-center gap-2 text-[10px] text-gray-600">
+          <ZoomIn className="w-3 h-3" />
+          <span>Scroll or pinch to zoom · Drag to pan when zoomed</span>
+        </div>
+      </DialogContent>
+    </Dialog>
 
     {/* Lightbox */}
     <Dialog open={!!lightboxImage} onOpenChange={(open) => { if (!open) setLightboxImage(null); }}>
