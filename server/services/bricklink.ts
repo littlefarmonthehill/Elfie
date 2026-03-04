@@ -49,8 +49,8 @@ async function getCallCeiling(): Promise<number> {
     return _ceilingCache.value;
   }
   try {
-    const [row] = await db.select({ pomApiCallLimit: appSettings.pomApiCallLimit }).from(appSettings).limit(1);
-    const value = row?.pomApiCallLimit ?? 4500;
+    const [row] = await db.select({ blApiCallLimit: appSettings.blApiCallLimit }).from(appSettings).limit(1);
+    const value = row?.blApiCallLimit ?? 4900;
     _ceilingCache = { value, fetchedAt: Date.now() };
     return value;
   } catch {

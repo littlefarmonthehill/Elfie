@@ -587,6 +587,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const [pomScoringOpen, setPomScoringOpen] = useState(false);
   const [pomBatchSize, setPomBatchSize] = useState(1500);
   const [pomApiCallLimit, setPomApiCallLimit] = useState(4500);
+  const [blApiCallLimit, setBlApiCallLimit] = useState(4900);
   const [pomCostFloorPct, setPomCostFloorPct] = useState(0);
   const [pomMinPrice, setPomMinPrice] = useState(0.02);
   const [pomTrendingEnabled, setPomTrendingEnabled] = useState(false);
@@ -735,6 +736,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
       setPomTooLowThreshold(settings.pomTooLowThreshold ?? 20);
       setPomBatchSize(settings.pomBatchSize ?? 1500);
       setPomApiCallLimit(settings.pomApiCallLimit ?? 4500);
+      setBlApiCallLimit(settings.blApiCallLimit ?? 4900);
       setPomCostFloorPct(settings.pomCostFloorPct ?? 0);
       setPomMinPrice(parseFloat(String(settings.pomMinPrice ?? '0.02')));
       setPomTrendingEnabled(settings.pomTrendingEnabled ?? false);
@@ -1486,6 +1488,24 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             onBlur={() => updateSettingsMutation.mutate({ bricklinkConsumerKey: bricklinkConsumerKey || null, bricklinkConsumerSecret: bricklinkConsumerSecret || null, bricklinkTokenValue: bricklinkTokenValue || null, bricklinkTokenSecret: bricklinkTokenSecret || null })}
                             data-testid="input-bricklink-token-secret"
                           />
+                        </div>
+                        <div className="space-y-1 pt-2 border-t border-gray-700">
+                          <Label className="text-xs text-gray-400">Overall Daily API Limit</Label>
+                          <p className="text-[10px] text-gray-500">Hard stop for all BrickLink API calls app-wide (syncs, Brick Spotter, etc.). BrickLink's hard cap is 5,000/day.</p>
+                          <div className="flex items-center gap-2">
+                            <Input
+                              type="number"
+                              min={500}
+                              max={5000}
+                              step={100}
+                              value={blApiCallLimit}
+                              onChange={(e) => setBlApiCallLimit(parseInt(e.target.value) || 500)}
+                              onBlur={() => updateSettingsMutation.mutate({ blApiCallLimit })}
+                              className="text-xs w-24 text-right"
+                              data-testid="input-bl-api-limit"
+                            />
+                            <span className="text-[10px] text-gray-500">/ 5,000</span>
+                          </div>
                         </div>
                       </div>
                     </AccordionContent>
