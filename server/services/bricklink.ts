@@ -42,6 +42,22 @@ export interface RateLimitStatus {
 // Clean token values - remove any non-alphanumeric characters that may have been added
 const cleanToken = (value: string) => value.replace(/[^A-Z0-9]/gi, '');
 
+// Cached call ceiling — read from app_settings.pom_api_call_limit, refreshed every 5 minutes
+let _ceilingCache: { value: number; fetchedAt: number } | null = null;
+async function getCallCeiling(): Promise<number> {
+  if (_ceilingCache && Date.now() - _ceilingCache.fetchedAt < 5 * 60 * 1000) {
+    return _ceilingCache.value;
+  }
+  try {
+    const [row] = await db.select({ pomApiCallLimit: appSettings.pomApiCallLimit }).from(appSettings).limit(1);
+    const value = row?.pomApiCallLimit ?? 4500;
+    _ceilingCache = { value, fetchedAt: Date.now() };
+    return value;
+  } catch {
+    return 4500;
+  }
+}
+
 // Check rate limit status for the last 24 hours
 export async function checkRateLimit(): Promise<RateLimitStatus> {
   const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -83,8 +99,9 @@ export async function checkRateLimit(): Promise<RateLimitStatus> {
     });
   }
 
-  // Block at 4500 calls to preserve quota for Price-o-Matic
-  if (callsLast24h >= 4500) {
+  // Block when the user-configured ceiling is reached (default 4500 if not set)
+  const callCeiling = await getCallCeiling();
+  if (callsLast24h >= callCeiling) {
     return {
       allowed: false,
       callsLast24h,
@@ -92,7 +109,7 @@ export async function checkRateLimit(): Promise<RateLimitStatus> {
       oldestCallTime,
       newestCallTime,
       hourlyBuckets,
-      warning: `API limit reached: ${callsLast24h}/5000 calls in 24 hours. Please wait before syncing again.`,
+      warning: `API limit reached: ${callsLast24h}/${callCeiling} calls in 24 hours. Please wait before syncing again.`,
     };
   }
   
