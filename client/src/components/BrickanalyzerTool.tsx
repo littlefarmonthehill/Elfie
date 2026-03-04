@@ -275,9 +275,16 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [pinchDist, setPinchDist] = useState<number | null>(null);
+  const [highlightedResult, setHighlightedResult] = useState<string | null>(null);
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scanContainerRef = useRef<HTMLDivElement>(null);
 
   function closeScanPhoto() { setScanPhotoOpen(false); setScanZoom(1); setScanPan({ x: 0, y: 0 }); }
+  function flashResult(id: string) {
+    if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+    setHighlightedResult(id);
+    highlightTimerRef.current = setTimeout(() => setHighlightedResult(null), 2500);
+  }
   function handleScanWheel(e: React.WheelEvent) {
     e.preventDefault();
     setScanZoom(prev => { const next = Math.min(8, Math.max(1, prev - e.deltaY * 0.003)); if (next === 1) setScanPan({ x: 0, y: 0 }); return next; });
@@ -290,6 +297,10 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
       const dx = e.touches[1].clientX - e.touches[0].clientX;
       const dy = e.touches[1].clientY - e.touches[0].clientY;
       setPinchDist(Math.sqrt(dx * dx + dy * dy));
+      setIsDragging(false);
+    } else if (e.touches.length === 1 && scanZoom > 1) {
+      setIsDragging(true);
+      setDragStart({ x: e.touches[0].clientX - scanPan.x, y: e.touches[0].clientY - scanPan.y });
     }
   }
   function handleScanTouchMove(e: React.TouchEvent) {
@@ -300,9 +311,11 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
       const ratio = newDist / pinchDist;
       setScanZoom(prev => Math.min(8, Math.max(1, prev * ratio)));
       setPinchDist(newDist);
+    } else if (e.touches.length === 1 && isDragging) {
+      setScanPan({ x: e.touches[0].clientX - dragStart.x, y: e.touches[0].clientY - dragStart.y });
     }
   }
-  function handleScanTouchEnd() { setPinchDist(null); }
+  function handleScanTouchEnd() { setPinchDist(null); setIsDragging(false); }
 
   const activeScan = scan ?? latestScan ?? null;
   const results: ScanResult[] = useMemo(() => {
@@ -874,11 +887,20 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                   return 'text-gray-400';
                 };
 
+                const cardId = `result-${grp.partNo || gi}`;
+                const isHighlighted = highlightedResult === cardId;
                 return (
                   <div
                     key={key}
-                    id={`result-${grp.partNo || gi}`}
-                    className="rounded-lg border border-purple-600/30 bg-gradient-to-br from-purple-800/20 to-purple-950/10 overflow-hidden shadow-[0_0_12px_rgba(168,85,247,0.10)]"
+                    id={cardId}
+                    className="rounded-lg border bg-gradient-to-br from-purple-800/20 to-purple-950/10 overflow-hidden"
+                    style={{
+                      borderColor: isHighlighted ? 'rgba(251,191,36,0.9)' : 'rgba(168,85,247,0.3)',
+                      boxShadow: isHighlighted
+                        ? '0 0 0 2px rgba(251,191,36,0.6), 0 0 28px 6px rgba(251,191,36,0.35)'
+                        : '0 0 12px rgba(168,85,247,0.10)',
+                      transition: 'box-shadow 0.3s ease, border-color 0.3s ease',
+                    }}
                     data-testid={`tile-brickanalyzer-${gi}`}
                   >
                     {/* ── Collapsed header (always visible) ─────────── */}
@@ -1198,7 +1220,10 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                       onClick={(e) => {
                         e.stopPropagation();
                         closeScanPhoto();
-                        setTimeout(() => document.getElementById(scrollTarget)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 200);
+                        setTimeout(() => {
+                          document.getElementById(scrollTarget)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                          flashResult(scrollTarget);
+                        }, 200);
                       }}
                       style={{
                         position: 'absolute',
