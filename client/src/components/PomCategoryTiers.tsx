@@ -109,9 +109,9 @@ function ageLabel(daysSince: number | null): string {
 
 function freshnessDot(status: 'fresh' | 'stale' | 'never', daysSince: number | null, refreshDays: number) {
   const age = ageLabel(daysSince);
-  if (status === 'fresh') return { color: "bg-green-400", label: `Fresh — updated ${age} · reprices every ${refreshDays}d` };
-  if (status === 'stale') return { color: "bg-yellow-400", label: `Stale — updated ${age} (>6 months) · reprices every ${refreshDays}d` };
-  return { color: "bg-red-400/70", label: "Never fetched" };
+  if (status === 'fresh') return { color: "bg-green-400", label: `Fresh — last POM run ${age} · reprices every ${refreshDays}d` };
+  if (status === 'stale') return { color: "bg-yellow-400", label: `Stale — last POM run ${age} (>6 months) · reprices every ${refreshDays}d` };
+  return { color: "bg-red-400/70", label: "Never fetched by POM" };
 }
 
 function TierStatusBar({ summary, tier }: { summary: TierSummary; tier: TierKey }) {

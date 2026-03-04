@@ -7178,19 +7178,18 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
         const fetchedLots = parseInt(row.fetched_lots) || 0;
         const neverFetched = totalLots - fetchedLots;
 
-        // Fresh = all lots covered AND oldest fetch within 6 months
-        // Stale = fetched but oldest entry is older than 6 months (or not all covered)
-        // Never = no price guide data at all
+        // Fresh = POM has run on this category recently (last_fetched_at within 6 months)
+        // Stale = POM has touched it but not within 6 months
+        // Never = no lots in this category have ever been fetched
         let status: 'fresh' | 'stale' | 'never' = 'never';
-        if (oldestFetchedAt) {
-          const allCovered = fetchedLots >= totalLots;
-          const oldestStillFresh = now - oldestFetchedAt.getTime() < FRESH_THRESHOLD_MS;
-          status = allCovered && oldestStillFresh ? 'fresh' : 'stale';
+        if (lastFetchedAt && fetchedLots > 0) {
+          const lastActivityFresh = now - lastFetchedAt.getTime() < FRESH_THRESHOLD_MS;
+          status = lastActivityFresh ? 'fresh' : 'stale';
         }
 
-        // daysSince reflects the OLDEST cached entry — shows how stale the worst-case lot is
-        const daysSince = oldestFetchedAt
-          ? Math.floor((now - oldestFetchedAt.getTime()) / 86400000)
+        // daysSince reflects last POM activity on this category (most recent fetch)
+        const daysSince = lastFetchedAt
+          ? Math.floor((now - lastFetchedAt.getTime()) / 86400000)
           : null;
 
         return {
