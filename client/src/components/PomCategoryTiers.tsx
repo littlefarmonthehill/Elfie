@@ -98,9 +98,19 @@ const TIER_CONFIG: Record<TierKey, {
 
 const SHOW_LIMIT = 20;
 
+function ageLabel(daysSince: number | null): string {
+  if (daysSince === null) return 'unknown';
+  if (daysSince === 0) return 'today';
+  if (daysSince === 1) return '1 day ago';
+  if (daysSince < 30) return `${daysSince} days ago`;
+  const months = Math.round(daysSince / 30);
+  return months === 1 ? '1 month ago' : `${months} months ago`;
+}
+
 function freshnessDot(status: 'fresh' | 'stale' | 'never', daysSince: number | null, refreshDays: number) {
-  if (status === 'fresh') return { color: "bg-green-400", label: `Fresh — updated ${daysSince === 0 ? 'today' : `${daysSince}d ago`}` };
-  if (status === 'stale') return { color: "bg-yellow-400", label: `Stale — ${daysSince}d ago (refresh every ${refreshDays}d)` };
+  const age = ageLabel(daysSince);
+  if (status === 'fresh') return { color: "bg-green-400", label: `Fresh — updated ${age} · reprices every ${refreshDays}d` };
+  if (status === 'stale') return { color: "bg-yellow-400", label: `Stale — updated ${age} (>6 months) · reprices every ${refreshDays}d` };
   return { color: "bg-red-400/70", label: "Never fetched" };
 }
 

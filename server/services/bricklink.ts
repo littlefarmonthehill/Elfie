@@ -1317,8 +1317,10 @@ export async function syncPriceOMagicCache(maxItems?: number): Promise<{
       )
       .where(gt(blInventory.quantity, 0))
       .orderBy(
-        // Sort by effective tier priority (tier1 first), then staleness within each tier
+        // Sort by oldest fetch date first (never-fetched = epoch → always first),
+        // then by effective tier priority as tiebreaker (tier1 wins when dates are equal).
         sql`
+          COALESCE(${priceGuideCache.fetchedAt}, '1970-01-01'::timestamp) ASC,
           CASE
             WHEN COALESCE(${blInventory.quantity}, 0) <= ${qtyPromote} THEN
               GREATEST(1, (CASE COALESCE(${blCategories.priorityTier}, 'tier2')
@@ -1332,8 +1334,7 @@ export async function syncPriceOMagicCache(maxItems?: number): Promise<{
               (CASE COALESCE(${blCategories.priorityTier}, 'tier2')
                 WHEN 'tier1' THEN 1 WHEN 'tier2' THEN 2 WHEN 'tier3' THEN 3 WHEN 'tier4' THEN 4
                 ELSE 2 END)
-          END ASC,
-          COALESCE(${priceGuideCache.fetchedAt}, '1970-01-01'::timestamp) ASC
+          END ASC
         `
       )
       .limit(100000); // Fetch all candidates — JS filter + slice enforces the real batch limit below
@@ -1367,18 +1368,12 @@ export async function syncPriceOMagicCache(maxItems?: number): Promise<{
       return now - new Date(item.lastFetched).getTime() >= refreshMs;
     });
 
-    // Strict tier sequencing: complete all categories in tier1 before touching tier2,
-    // tier2 before tier3, tier3 before tier4, then loop back to tier1.
-    // Find the lowest-numbered tier that still has stale items and restrict this batch to it.
-    const TIER_ORDER = ['tier1', 'tier2', 'tier3', 'tier4'];
-    const activeTier = TIER_ORDER.find(t => filteredItems.some(item => getEffectiveTier(item) === t)) ?? 'tier4';
-    const tierBatch = filteredItems.filter(item => getEffectiveTier(item) === activeTier);
-
-    // Apply batch size limit after stale + tier filtering
-    const itemsToProcess = tierBatch.slice(0, effectiveMaxItems);
+    // Apply batch size limit — items are already sorted oldest-first with tier as tiebreaker,
+    // so the most urgent items across all tiers bubble to the top automatically.
+    const itemsToProcess = filteredItems.slice(0, effectiveMaxItems);
     pomSyncProgress.itemsTotal = itemsToProcess.length;
 
-    console.log(`[Price-o-Matic Sync] Found ${inventoryItems.length} candidates, ${filteredItems.length} stale | active tier: ${activeTier} (${tierBatch.length} items, ${tierBatch.length - itemsToProcess.length} deferred), processing ${itemsToProcess.length}`);
+    console.log(`[Price-o-Matic Sync] Found ${inventoryItems.length} candidates, ${filteredItems.length} stale, processing ${itemsToProcess.length}`);
 
     // Process each item in tier-priority order
     // Market dynamics (demand + supply) are computed inside fetchPriceOMagicData from BL API data.

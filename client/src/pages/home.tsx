@@ -105,6 +105,9 @@ export default function Home() {
           ? ` · ${c.recordsAdded} added, ${c.recordsUpdated} updated`
           : '';
         toast({ title: `${label} complete`, description: `Finished successfully${counts}.` });
+      } else if (p.lastSyncStatus === 'in_progress' && c.lastSyncStatus === 'partial') {
+        const counts = c.recordsUpdated ? ` · ${c.recordsUpdated} updated` : '';
+        toast({ title: `${label} partial run`, description: `Hit API limit before finishing${counts}. Updates saved.` });
       } else if (p.lastSyncStatus === 'in_progress' && (c.lastSyncStatus === 'failed' || c.lastSyncStatus === 'error')) {
         toast({ title: `${label} failed`, description: c.errorMessage || 'Sync encountered an error.', variant: 'destructive' });
       }

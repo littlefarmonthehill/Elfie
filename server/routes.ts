@@ -7164,23 +7164,27 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
         ORDER BY c.name
       `);
 
+      // Fresh = updated within 6 months (180 days). Stale = older than 6 months.
+      // This is separate from the tier refresh schedule (which controls how often POM reprices).
+      const FRESH_THRESHOLD_DAYS = 180;
+      const FRESH_THRESHOLD_MS = FRESH_THRESHOLD_DAYS * 86400000;
+
       const now = Date.now();
       const categories = (rows.rows as any[]).map((row) => {
         const tier = row.tier || 'tier2';
-        const refreshMs = (tierDays[tier] ?? 3) * 86400000;
         const oldestFetchedAt = row.oldest_fetched_at ? new Date(row.oldest_fetched_at) : null;
         const lastFetchedAt = row.last_fetched_at ? new Date(row.last_fetched_at) : null;
         const totalLots = parseInt(row.total_lots) || 0;
         const fetchedLots = parseInt(row.fetched_lots) || 0;
         const neverFetched = totalLots - fetchedLots;
 
-        // Fresh = every lot in the category has been fetched AND the oldest fetch is still within the refresh window
-        // Stale = at least one lot fetched but either not all covered or oldest is expired
-        // Never = no lots have any price guide data
+        // Fresh = all lots covered AND oldest fetch within 6 months
+        // Stale = fetched but oldest entry is older than 6 months (or not all covered)
+        // Never = no price guide data at all
         let status: 'fresh' | 'stale' | 'never' = 'never';
         if (oldestFetchedAt) {
           const allCovered = fetchedLots >= totalLots;
-          const oldestStillFresh = now - oldestFetchedAt.getTime() < refreshMs;
+          const oldestStillFresh = now - oldestFetchedAt.getTime() < FRESH_THRESHOLD_MS;
           status = allCovered && oldestStillFresh ? 'fresh' : 'stale';
         }
 
@@ -7200,7 +7204,8 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
           lastFetchedAt: lastFetchedAt?.toISOString() ?? null,
           daysSince,
           status,
-          refreshDays: tierDays[tier] ?? 3,
+          refreshDays: tierDays[tier] ?? 3,       // tier schedule (how often POM reprices)
+          freshThresholdDays: FRESH_THRESHOLD_DAYS, // freshness status threshold (6 months)
         };
       });
 
