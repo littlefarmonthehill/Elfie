@@ -3410,7 +3410,9 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
   // Background processor: Contour detection → Brickognize → POM price lookup → update DB
   // In-memory crop cache: scanId → array of JPEG Buffers (one per detected region).
   // Lives only in this process; cleared when the scan is dismissed.
-  const brickanalyzerCropCache = new Map<number, Buffer[]>();
+  const brickanalyzerCropCache  = new Map<number, Buffer[]>();
+  const brickanalyzerImageCache = new Map<number, Buffer>();
+  const brickanalyzerImageMeta  = new Map<number, { width: number; height: number }>();
 
   // Sample the dominant non-background color from a crop and return its raw RGB.
   // Color-to-BrickLink-name resolution is deferred to the enrichment stage, where
@@ -3480,6 +3482,16 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       const imgMeta = await sharp(imageBuffer).metadata();
       const imgWidth = imgMeta.width || 1000;
       const imgHeight = imgMeta.height || 1000;
+
+      // Cache a resized version of the original image for the film-strip overlay
+      try {
+        const resized = await sharp(imageBuffer)
+          .resize({ width: 1400, withoutEnlargement: true })
+          .jpeg({ quality: 78 })
+          .toBuffer();
+        brickanalyzerImageCache.set(scanId, resized);
+        brickanalyzerImageMeta.set(scanId, { width: imgWidth, height: imgHeight });
+      } catch { /* non-fatal */ }
 
       // ── Step 1: Watershed segmentation ─────────────────────────────────────
       // Python service uses OpenCV distance-transform + watershed to separate
@@ -4067,11 +4079,22 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
           bestPrice,
           inventoryLots,
           cropIndex: piece.cropIndex ?? null,
+          bboxX: (piece as any).bboxX ?? null,
+          bboxY: (piece as any).bboxY ?? null,
+          bboxW: (piece as any).bboxW ?? null,
+          bboxH: (piece as any).bboxH ?? null,
         };
       }));
 
-      // Sort by best price descending
-      enriched.sort((a, b) => (b.bestPrice ?? 0) - (a.bestPrice ?? 0));
+      // Sort by confidence desc, then peak price desc
+      const _confRank = (c: string) => c === 'high' ? 3 : c === 'medium' ? 2 : 1;
+      enriched.sort((a, b) => {
+        const cs = _confRank(b.confidence) - _confRank(a.confidence);
+        if (cs !== 0) return cs;
+        const ap = Math.max((a as any).marketSoldMaxNew ?? 0, (a as any).marketSoldMaxUsed ?? 0);
+        const bp = Math.max((b as any).marketSoldMaxNew ?? 0, (b as any).marketSoldMaxUsed ?? 0);
+        return bp - ap;
+      });
 
       // Deduplicate: GPT-4o gives one box per fig, but the wider fig crop padding means
       // adjacent fig boxes can overlap and both return the same fig ID. Keep only the first (highest-priced).
@@ -4175,7 +4198,8 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
         .limit(1);
       if (!scan) return res.json(null);
       const crops = brickanalyzerCropCache.get(scan.id);
-      res.json({ ...scan, cropCount: crops ? crops.filter(Boolean).length : 0 });
+      const meta  = brickanalyzerImageMeta.get(scan.id);
+      res.json({ ...scan, cropCount: crops ? crops.filter(Boolean).length : 0, imgWidth: meta?.width ?? null, imgHeight: meta?.height ?? null });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -4188,7 +4212,22 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
         .where(eq(brickanalyzerScans.id, Number(req.params.id)));
       if (!scan) return res.status(404).json({ error: "Scan not found" });
       const crops = brickanalyzerCropCache.get(scan.id);
-      res.json({ ...scan, cropCount: crops ? crops.filter(Boolean).length : 0 });
+      const meta  = brickanalyzerImageMeta.get(scan.id);
+      res.json({ ...scan, cropCount: crops ? crops.filter(Boolean).length : 0, imgWidth: meta?.width ?? null, imgHeight: meta?.height ?? null });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/brickanalyzer/scan/:id/image — serve the cached full scan image
+  app.get("/api/brickanalyzer/scan/:id/image", isApproved, async (req, res) => {
+    try {
+      const scanId = Number(req.params.id);
+      const img = brickanalyzerImageCache.get(scanId);
+      if (!img) return res.status(404).json({ error: "Image not cached" });
+      res.set('Content-Type', 'image/jpeg');
+      res.set('Cache-Control', 'private, max-age=3600');
+      res.send(img);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -4214,7 +4253,9 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
     try {
       const scanId = Number(req.params.id);
       await db.delete(brickanalyzerScans).where(eq(brickanalyzerScans.id, scanId));
-      brickanalyzerCropCache.delete(scanId);  // free memory
+      brickanalyzerCropCache.delete(scanId);
+      brickanalyzerImageCache.delete(scanId);
+      brickanalyzerImageMeta.delete(scanId);
       res.json({ ok: true });
     } catch (err: any) {
       res.status(500).json({ error: err.message });

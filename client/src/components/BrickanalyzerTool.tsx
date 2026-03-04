@@ -45,6 +45,10 @@ interface ScanResult {
   bestPrice: number | null;
   inventoryLots?: InventoryLot[];
   cropIndex?: number | null;
+  bboxX?: number | null;
+  bboxY?: number | null;
+  bboxW?: number | null;
+  bboxH?: number | null;
 }
 
 interface BrickanalyzerScan {
@@ -58,6 +62,8 @@ interface BrickanalyzerScan {
   createdAt: string;
   completedAt: string | null;
   cropCount?: number;
+  imgWidth?: number | null;
+  imgHeight?: number | null;
 }
 
 type UIState = "idle" | "uploading" | "processing" | "complete" | "failed";
@@ -117,7 +123,7 @@ function saveBaselineToStorage(s: ScanSettings) {
   try { localStorage.setItem(BASELINE_KEY, JSON.stringify(s)); } catch {}
 }
 
-const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
+const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, Record<string, never>>((_, ref) => {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uiState, setUiState] = useState<UIState>("idle");
@@ -265,7 +271,17 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
   const [lightboxImage, setLightboxImage] = useState<{ src: string; alt: string } | null>(null);
 
   const activeScan = scan ?? latestScan ?? null;
-  const results: ScanResult[] = (uiState === "complete" && activeScan?.results) ? (activeScan.results as ScanResult[]) : [];
+  const results: ScanResult[] = useMemo(() => {
+    if (uiState !== "complete" || !activeScan?.results) return [];
+    const rank = (c: string) => c === 'high' ? 3 : c === 'medium' ? 2 : 1;
+    return [...(activeScan.results as ScanResult[])].sort((a, b) => {
+      const cs = rank(b.confidence) - rank(a.confidence);
+      if (cs !== 0) return cs;
+      const ap = Math.max(a.marketSoldMaxNew ?? 0, a.marketSoldMaxUsed ?? 0);
+      const bp = Math.max(b.marketSoldMaxNew ?? 0, b.marketSoldMaxUsed ?? 0);
+      return bp - ap;
+    });
+  }, [activeScan?.results, uiState]);
   const totalValue = results.reduce((s, p) => s + (p.ourPriceNew ?? p.ourPriceUsed ?? p.marketSoldMaxNew ?? 0), 0);
   const inStockCount = results.filter(p => p.ourQtyNew > 0 || p.ourQtyUsed > 0).length;
   const withPriceCount = results.filter(p => p.ourPriceNew !== null || p.ourPriceUsed !== null || p.marketSoldMaxNew !== null).length;
@@ -730,6 +746,47 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
             )}
           </div>
 
+          {/* ── Scan photo with price overlays ────────────────────────────── */}
+          {activeScan && activeScan.imgWidth && activeScan.imgHeight && (
+            <div className="rounded-lg overflow-hidden border border-gray-700 bg-gray-900">
+              <div className="relative" style={{ aspectRatio: `${activeScan.imgWidth}/${activeScan.imgHeight}` }}>
+                <img
+                  src={`/api/brickanalyzer/scan/${activeScan.id}/image`}
+                  alt="Original scan"
+                  className="absolute inset-0 w-full h-full object-fill block"
+                />
+                {results.filter(r => r.bboxX != null && r.bboxY != null && r.bboxW != null && r.bboxH != null).map((r, i) => {
+                  const W = activeScan.imgWidth!;
+                  const H = activeScan.imgHeight!;
+                  const peakPrice = Math.max(r.marketSoldMaxNew ?? 0, r.marketSoldMaxUsed ?? 0) || null;
+                  const displayPrice = r.ourPriceNew ?? r.ourPriceUsed ?? peakPrice;
+                  const scrollTarget = `result-${r.partNo || r.cropIndex ?? i}`;
+                  return (
+                    <button
+                      key={r.cropIndex ?? i}
+                      onClick={() => document.getElementById(scrollTarget)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                      style={{
+                        position: 'absolute',
+                        left:   `${(r.bboxX! / W) * 100}%`,
+                        top:    `${(r.bboxY! / H) * 100}%`,
+                        width:  `${(r.bboxW! / W) * 100}%`,
+                        height: `${(r.bboxH! / H) * 100}%`,
+                      }}
+                      className="border-2 border-lego-yellow/80 hover:border-lego-yellow hover:bg-lego-yellow/10 transition-colors"
+                      data-testid={`overlay-crop-${r.cropIndex ?? i}`}
+                    >
+                      {displayPrice != null && (
+                        <span className="absolute bottom-0.5 left-0.5 bg-black/75 text-lego-yellow text-[9px] font-bold px-1 py-px rounded-sm leading-tight whitespace-nowrap">
+                          ${displayPrice.toFixed(2)}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* ── Crops grid ────────────────────────────────────────────────── */}
           {showCrops && activeScan && (activeScan.cropCount ?? 0) > 0 && (
             <div className="rounded-lg border border-gray-700 bg-gray-900/60 p-2">
@@ -815,6 +872,7 @@ const BrickanalyzerTool = forwardRef<BrickanalyzerToolRef, {}>((_, ref) => {
                 return (
                   <div
                     key={key}
+                    id={`result-${grp.partNo || gi}`}
                     className="rounded-lg border border-purple-600/30 bg-gradient-to-br from-purple-800/20 to-purple-950/10 overflow-hidden shadow-[0_0_12px_rgba(168,85,247,0.10)]"
                     data-testid={`tile-brickanalyzer-${gi}`}
                   >
