@@ -4049,13 +4049,27 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
         }
 
         // ── Image fallback: if no thumbnail from inventory/POM, try Rebrickable image cache ──
-        // BrickLink catalog URLs are constructed directly in the frontend
-        // (BL API returns protocol-relative URLs that fail URL validation in the proxy)
         if (!thumbnailUrl && piece.partNo) {
           const rbImg = rbImageMap.get(piece.partNo.toUpperCase());
           if (rbImg) {
             console.log(`[Brickanalyzer] Using Rebrickable image for ${piece.partNo}`);
             thumbnailUrl = rbImg;
+          }
+        }
+        // ── Final fallback: construct BrickLink catalog image URL ──
+        // Uses the resolved colorId (from Brickognize color name or inventory match).
+        // For printed parts (e.g. 973pb*) colorId is usually 1 (White); for
+        // minifigs the image lives under /MN/0/. We store a fully-qualified URL
+        // so it works via the image proxy without needing frontend construction.
+        if (!thumbnailUrl && piece.partNo) {
+          const isMinifig = (piece.itemType || 'PART') === 'MINIFIG';
+          if (isMinifig) {
+            thumbnailUrl = `https://img.bricklink.com/ItemImage/MN/0/${piece.partNo}.png`;
+          } else {
+            // For printed parts where no color was detected, default to colorId 1 (White)
+            // which is almost always correct for torso / printed element images on BrickLink
+            const blColorId = colorId ?? (piece.partNo.toLowerCase().includes('pb') ? 1 : 0);
+            thumbnailUrl = `https://img.bricklink.com/ItemImage/PN/${blColorId}/${piece.partNo}.png`;
           }
         }
 
