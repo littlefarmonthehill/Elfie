@@ -123,8 +123,7 @@ function saveBaselineToStorage(s: ScanSettings) {
   try { localStorage.setItem(BASELINE_KEY, JSON.stringify(s)); } catch {}
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const BrickanalyzerTool = forwardRef<any, any>((_, ref) => {
+const BrickanalyzerTool = forwardRef((_, ref) => {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uiState, setUiState] = useState<UIState>("idle");
@@ -1173,46 +1172,77 @@ const BrickanalyzerTool = forwardRef<any, any>((_, ref) => {
                 className="absolute inset-0 w-full h-full object-fill block select-none"
                 draggable={false}
               />
-              {results.filter(r => r.bboxX != null && r.bboxY != null && r.bboxW != null && r.bboxH != null).map((r, i) => {
-                const W = activeScan.imgWidth!;
-                const H = activeScan.imgHeight!;
-                const peakPrice = Math.max(r.marketSoldMaxNew ?? 0, r.marketSoldMaxUsed ?? 0) || null;
-                const displayPrice = r.ourPriceNew ?? r.ourPriceUsed ?? peakPrice;
-                const scrollTarget = `result-${r.partNo || r.cropIndex ?? i}`;
-                return (
-                  <button
-                    key={r.cropIndex ?? i}
-                    onMouseDown={(e) => e.stopPropagation()}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      closeScanPhoto();
-                      setTimeout(() => document.getElementById(scrollTarget)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 200);
-                    }}
-                    style={{
-                      position: 'absolute',
-                      left:   `${(r.bboxX! / W) * 100}%`,
-                      top:    `${(r.bboxY! / H) * 100}%`,
-                      width:  `${(r.bboxW! / W) * 100}%`,
-                      height: `${(r.bboxH! / H) * 100}%`,
-                    }}
-                    className="border-2 border-lego-yellow/80 hover:border-lego-yellow hover:bg-lego-yellow/10 transition-colors group"
-                    data-testid={`scan-overlay-${r.cropIndex ?? i}`}
-                  >
-                    {displayPrice != null && (
-                      <span className="absolute bottom-0.5 left-0.5 bg-black/80 text-lego-yellow text-[9px] font-bold px-1 py-px rounded-sm leading-tight whitespace-nowrap">
-                        ${displayPrice.toFixed(2)}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
+              {(() => {
+                const bboxResults = results.filter(r => r.bboxX != null && r.bboxY != null && r.bboxW != null && r.bboxH != null);
+                const allPrices = bboxResults.map(r => Math.max(r.marketSoldMaxNew ?? 0, r.marketSoldMaxUsed ?? 0, r.ourPriceNew ?? 0, r.ourPriceUsed ?? 0)).filter(p => p > 0);
+                const maxPrice = allPrices.length > 0 ? Math.max(...allPrices) : 0;
+                const hiThresh = maxPrice * 0.60;
+                const midThresh = maxPrice * 0.25;
+                // tier → [fill rgba, border rgb, label text color]
+                const tierStyle = {
+                  high:    { fill: 'rgba(239,68,68,0.38)',  border: 'rgb(239,68,68)',   label: '#fca5a5', badge: 'rgba(127,29,29,0.85)'  },
+                  medium:  { fill: 'rgba(251,146,60,0.35)', border: 'rgb(251,146,60)',  label: '#fdba74', badge: 'rgba(124,45,18,0.85)'  },
+                  low:     { fill: 'rgba(250,204,21,0.28)', border: 'rgb(250,204,21)',  label: '#fde68a', badge: 'rgba(120,80,0,0.85)'   },
+                  none:    { fill: 'rgba(107,114,128,0.18)', border: 'rgb(107,114,128)', label: '#9ca3af', badge: 'rgba(17,24,39,0.80)'  },
+                };
+                return bboxResults.map((r, i) => {
+                  const W = activeScan.imgWidth!;
+                  const H = activeScan.imgHeight!;
+                  const peak = Math.max(r.marketSoldMaxNew ?? 0, r.marketSoldMaxUsed ?? 0, r.ourPriceNew ?? 0, r.ourPriceUsed ?? 0);
+                  const displayPrice = r.ourPriceNew ?? r.ourPriceUsed ?? (r.marketSoldMaxNew ?? r.marketSoldMaxUsed ?? null);
+                  const tier = peak === 0 ? 'none' : peak >= hiThresh ? 'high' : peak >= midThresh ? 'medium' : 'low';
+                  const ts = tierStyle[tier];
+                  const scrollTarget = `result-${r.partNo || r.cropIndex ?? i}`;
+                  return (
+                    <button
+                      key={r.cropIndex ?? i}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        closeScanPhoto();
+                        setTimeout(() => document.getElementById(scrollTarget)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 200);
+                      }}
+                      style={{
+                        position: 'absolute',
+                        left:   `${(r.bboxX! / W) * 100}%`,
+                        top:    `${(r.bboxY! / H) * 100}%`,
+                        width:  `${(r.bboxW! / W) * 100}%`,
+                        height: `${(r.bboxH! / H) * 100}%`,
+                        background: ts.fill,
+                        border: `2px solid ${ts.border}`,
+                        transition: 'filter 0.15s',
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.filter = 'brightness(1.35)')}
+                      onMouseLeave={(e) => (e.currentTarget.style.filter = '')}
+                      data-testid={`scan-overlay-${r.cropIndex ?? i}`}
+                    >
+                      {displayPrice != null && (
+                        <span
+                          style={{ background: ts.badge, color: ts.label }}
+                          className="absolute bottom-0.5 left-0.5 text-[9px] font-bold px-1 py-px rounded-sm leading-tight whitespace-nowrap"
+                        >
+                          ${displayPrice.toFixed(2)}
+                        </span>
+                      )}
+                    </button>
+                  );
+                });
+              })()}
             </div>
           </div>
         )}
-        {/* Footer hint */}
-        <div className="px-3 py-1.5 border-t border-gray-800 shrink-0 flex items-center gap-2 text-[10px] text-gray-600">
-          <ZoomIn className="w-3 h-3" />
-          <span>Scroll or pinch to zoom · Drag to pan when zoomed</span>
+        {/* Footer: heat map legend + zoom hint */}
+        <div className="px-3 py-1.5 border-t border-gray-800 shrink-0 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-gray-500">
+          <div className="flex items-center gap-2.5">
+            <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: 'rgba(239,68,68,0.6)', border: '1.5px solid rgb(239,68,68)' }} /> High value</span>
+            <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: 'rgba(251,146,60,0.55)', border: '1.5px solid rgb(251,146,60)' }} /> Mid</span>
+            <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: 'rgba(250,204,21,0.45)', border: '1.5px solid rgb(250,204,21)' }} /> Low</span>
+            <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: 'rgba(107,114,128,0.35)', border: '1.5px solid rgb(107,114,128)' }} /> No price</span>
+          </div>
+          <div className="flex items-center gap-1 ml-auto">
+            <ZoomIn className="w-3 h-3" />
+            <span>Scroll or pinch to zoom · Drag to pan</span>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
