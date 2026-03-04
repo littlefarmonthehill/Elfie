@@ -857,7 +857,6 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                 const repEntry = grp.entries[0];
                 const bestConfidence = grp.entries.some(e => e.confidence === 'high') ? 'high'
                   : grp.entries.some(e => e.confidence === 'medium') ? 'medium' : 'low';
-
                 // Group entries by detected color — one representative per unique color
                 const confRank = (c: 'high' | 'medium' | 'low') => c === 'high' ? 2 : c === 'medium' ? 1 : 0;
                 const colorGroupMap = new Map<string, ScanResult[]>();
@@ -912,33 +911,46 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                       {/* Thumbnail */}
                       {(() => {
                         const isMinifig = grp.itemType === 'MINIFIG';
+                        const colorIdForBl = repEntry.colorId ?? 0;
                         const blDirectUrl = grp.partNo
                           ? isMinifig
                             ? `https://img.bricklink.com/ItemImage/MN/0/${grp.partNo}.png`
-                            : `https://img.bricklink.com/ItemImage/PN/${repEntry.colorId ?? 0}/${grp.partNo}.png`
+                            : `https://img.bricklink.com/ItemImage/PN/${colorIdForBl}/${grp.partNo}.png`
+                          : null;
+                        // When colorId is unknown (0), also try White (1) as a common fallback for printed parts
+                        const blFallbackUrl = (!isMinifig && grp.partNo && colorIdForBl === 0)
+                          ? `https://img.bricklink.com/ItemImage/PN/1/${grp.partNo}.png`
                           : null;
                         const isRebrickable = repImg?.includes('cdn.rebrickable.com');
                         const primarySrc = isRebrickable
                           ? `/api/images/proxy?url=${encodeURIComponent(repImg!)}`
                           : (repImg && repImg.startsWith('https://')) ? repImg : blDirectUrl;
+                        const hasSrc = !!primarySrc;
                         return (
                           <div
-                            className={`flex-shrink-0 w-12 h-12 rounded bg-gray-800/80 flex items-center justify-center overflow-hidden ${primarySrc ? 'cursor-pointer hover-elevate' : ''}`}
-                            onClick={primarySrc ? (e) => { e.stopPropagation(); setLightboxImage({ src: primarySrc, alt: grp.partName || grp.partNo }); } : undefined}
+                            className={`relative flex-shrink-0 w-12 h-12 rounded bg-gray-800/80 flex items-center justify-center overflow-hidden ${hasSrc ? 'cursor-pointer hover-elevate' : ''}`}
+                            onClick={hasSrc ? (e) => { e.stopPropagation(); setLightboxImage({ src: primarySrc!, alt: grp.partName || grp.partNo }); } : undefined}
                             data-testid={`thumbnail-part-${gi}`}
                           >
-                            {primarySrc ? (
+                            {/* Camera icon always present — shows through when image fails */}
+                            <Camera className="absolute w-4 h-4 text-gray-700" />
+                            {primarySrc && (
                               <img
                                 src={primarySrc}
                                 alt={grp.partName}
-                                className="w-full h-full object-contain p-0.5"
+                                className="absolute inset-0 w-full h-full object-contain p-0.5 bg-gray-800/80"
                                 onError={(e) => {
                                   const el = e.target as HTMLImageElement;
-                                  if (blDirectUrl && el.src !== blDirectUrl) { el.src = blDirectUrl; }
-                                  else { el.style.display = 'none'; }
+                                  if (blFallbackUrl && el.src !== blFallbackUrl && el.src !== blDirectUrl) {
+                                    el.src = blFallbackUrl;
+                                  } else if (blDirectUrl && el.src !== blDirectUrl) {
+                                    el.src = blDirectUrl;
+                                  } else {
+                                    el.style.display = 'none';
+                                  }
                                 }}
                               />
-                            ) : <Camera className="w-4 h-4 text-gray-700" />}
+                            )}
                           </div>
                         );
                       })()}
@@ -1066,7 +1078,11 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                           </div>
                           {otherLots.map((lot, li) => {
                             const lotInStock = (lot.qtyNew + lot.qtyUsed) > 0;
-                            const lotPeak = Math.max(lot.peakNew ?? 0, lot.peakUsed ?? 0) || null;
+                            const lotPeakExact = Math.max(lot.peakNew ?? 0, lot.peakUsed ?? 0) || null;
+                            // Fall back to part's overall market peak when color-specific data is missing
+                            const partPeak = Math.max(bestEntry.marketSoldMaxNew ?? 0, bestEntry.marketSoldMaxUsed ?? 0) || null;
+                            const lotPeak = lotPeakExact ?? partPeak;
+                            const lotPeakIsEstimate = !lotPeakExact && !!partPeak;
                             const lotNScore = lotPeak && lot.priceNew && lot.priceNew > 0
                               ? Number((lotPeak / lot.priceNew).toFixed(2)) : null;
                             const lotUScore = lotPeak && lot.priceUsed && lot.priceUsed > 0
@@ -1090,7 +1106,9 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                                       <span className={`text-[10px] truncate ${lotInStock ? 'text-gray-100' : 'text-gray-400'}`}>{lot.colorName || '—'}</span>
                                     </div>
                                     {lotPeak && (
-                                      <span className="text-[9px] pl-0.5 text-purple-400">peak ${lotPeak.toFixed(2)}</span>
+                                      <span className={`text-[9px] pl-0.5 ${lotPeakIsEstimate ? 'text-purple-400/60' : 'text-purple-400'}`}>
+                                        {lotPeakIsEstimate ? '~' : ''}peak ${lotPeak.toFixed(2)}
+                                      </span>
                                     )}
                                   </div>
                                   <span className="text-[10px] font-mono text-gray-200 w-14 text-right flex-shrink-0">
