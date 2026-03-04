@@ -4049,27 +4049,13 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
         }
 
         // ── Image fallback: if no thumbnail from inventory/POM, try Rebrickable image cache ──
+        // BrickLink catalog URLs are constructed directly in the frontend
+        // (BL API returns protocol-relative URLs that fail URL validation in the proxy)
         if (!thumbnailUrl && piece.partNo) {
           const rbImg = rbImageMap.get(piece.partNo.toUpperCase());
           if (rbImg) {
             console.log(`[Brickanalyzer] Using Rebrickable image for ${piece.partNo}`);
             thumbnailUrl = rbImg;
-          }
-        }
-        // ── Final fallback: construct BrickLink catalog image URL ──
-        // Uses the resolved colorId (from Brickognize color name or inventory match).
-        // For printed parts (e.g. 973pb*) colorId is usually 1 (White); for
-        // minifigs the image lives under /MN/0/. We store a fully-qualified URL
-        // so it works via the image proxy without needing frontend construction.
-        if (!thumbnailUrl && piece.partNo) {
-          const isMinifig = (piece.itemType || 'PART') === 'MINIFIG';
-          if (isMinifig) {
-            thumbnailUrl = `https://img.bricklink.com/ItemImage/MN/0/${piece.partNo}.png`;
-          } else {
-            // For printed parts where no color was detected, default to colorId 1 (White)
-            // which is almost always correct for torso / printed element images on BrickLink
-            const blColorId = colorId ?? (piece.partNo.toLowerCase().includes('pb') ? 1 : 0);
-            thumbnailUrl = `https://img.bricklink.com/ItemImage/PN/${blColorId}/${piece.partNo}.png`;
           }
         }
 
@@ -4100,8 +4086,11 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
         };
       }));
 
-      // Sort by peak price desc
+      // Sort by confidence desc, then peak price desc
+      const _confRank = (c: string) => c === 'high' ? 3 : c === 'medium' ? 2 : 1;
       enriched.sort((a, b) => {
+        const cs = _confRank(b.confidence) - _confRank(a.confidence);
+        if (cs !== 0) return cs;
         const ap = Math.max((a as any).marketSoldMaxNew ?? 0, (a as any).marketSoldMaxUsed ?? 0);
         const bp = Math.max((b as any).marketSoldMaxNew ?? 0, (b as any).marketSoldMaxUsed ?? 0);
         return bp - ap;
@@ -4129,15 +4118,12 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       const identifiedWithPrice = deduped.filter(p => p.ourPriceNew !== null || p.ourPriceUsed !== null || p.marketSoldMaxNew !== null).length;
 
       const cropCount = brickanalyzerCropCache.get(scanId)?.filter(Boolean).length ?? 0;
-      const savedMeta = brickanalyzerImageMeta.get(scanId);
       await db.update(brickanalyzerScans).set({
         status: 'complete',
         totalPieces: deduped.length,
         identifiedPieces: identifiedWithPrice,
         estimatedValue: totalValue.toFixed(2),
         results: deduped as any,
-        imgWidth: savedMeta?.width ?? null,
-        imgHeight: savedMeta?.height ?? null,
         completedAt: new Date(),
       }).where(eq(brickanalyzerScans.id, scanId));
 
@@ -4213,7 +4199,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       if (!scan) return res.json(null);
       const crops = brickanalyzerCropCache.get(scan.id);
       const meta  = brickanalyzerImageMeta.get(scan.id);
-      res.json({ ...scan, cropCount: crops ? crops.filter(Boolean).length : 0, imgWidth: meta?.width ?? scan.imgWidth ?? null, imgHeight: meta?.height ?? scan.imgHeight ?? null });
+      res.json({ ...scan, cropCount: crops ? crops.filter(Boolean).length : 0, imgWidth: meta?.width ?? null, imgHeight: meta?.height ?? null });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -4227,7 +4213,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       if (!scan) return res.status(404).json({ error: "Scan not found" });
       const crops = brickanalyzerCropCache.get(scan.id);
       const meta  = brickanalyzerImageMeta.get(scan.id);
-      res.json({ ...scan, cropCount: crops ? crops.filter(Boolean).length : 0, imgWidth: meta?.width ?? scan.imgWidth ?? null, imgHeight: meta?.height ?? scan.imgHeight ?? null });
+      res.json({ ...scan, cropCount: crops ? crops.filter(Boolean).length : 0, imgWidth: meta?.width ?? null, imgHeight: meta?.height ?? null });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
