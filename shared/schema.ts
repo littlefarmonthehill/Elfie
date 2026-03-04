@@ -1074,6 +1074,8 @@ export const brickanalyzerScans = pgTable("brickanalyzer_scans", {
   estimatedValue: decimal("estimated_value", { precision: 10, scale: 2 }),
   results: jsonb("results"), // Array of { partNo, partName, colorName, colorId, ourPrice, qty, confidence, note }
   errorMessage: text("error_message"),
+  imgWidth: integer("img_width"),
+  imgHeight: integer("img_height"),
   createdAt: timestamp("created_at").defaultNow(),
   completedAt: timestamp("completed_at"),
 });

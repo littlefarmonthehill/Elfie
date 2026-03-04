@@ -4115,12 +4115,15 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       const identifiedWithPrice = deduped.filter(p => p.ourPriceNew !== null || p.ourPriceUsed !== null || p.marketSoldMaxNew !== null).length;
 
       const cropCount = brickanalyzerCropCache.get(scanId)?.filter(Boolean).length ?? 0;
+      const savedMeta = brickanalyzerImageMeta.get(scanId);
       await db.update(brickanalyzerScans).set({
         status: 'complete',
         totalPieces: deduped.length,
         identifiedPieces: identifiedWithPrice,
         estimatedValue: totalValue.toFixed(2),
         results: deduped as any,
+        imgWidth: savedMeta?.width ?? null,
+        imgHeight: savedMeta?.height ?? null,
         completedAt: new Date(),
       }).where(eq(brickanalyzerScans.id, scanId));
 
@@ -4196,7 +4199,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       if (!scan) return res.json(null);
       const crops = brickanalyzerCropCache.get(scan.id);
       const meta  = brickanalyzerImageMeta.get(scan.id);
-      res.json({ ...scan, cropCount: crops ? crops.filter(Boolean).length : 0, imgWidth: meta?.width ?? null, imgHeight: meta?.height ?? null });
+      res.json({ ...scan, cropCount: crops ? crops.filter(Boolean).length : 0, imgWidth: meta?.width ?? scan.imgWidth ?? null, imgHeight: meta?.height ?? scan.imgHeight ?? null });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -4210,7 +4213,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       if (!scan) return res.status(404).json({ error: "Scan not found" });
       const crops = brickanalyzerCropCache.get(scan.id);
       const meta  = brickanalyzerImageMeta.get(scan.id);
-      res.json({ ...scan, cropCount: crops ? crops.filter(Boolean).length : 0, imgWidth: meta?.width ?? null, imgHeight: meta?.height ?? null });
+      res.json({ ...scan, cropCount: crops ? crops.filter(Boolean).length : 0, imgWidth: meta?.width ?? scan.imgWidth ?? null, imgHeight: meta?.height ?? scan.imgHeight ?? null });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }

@@ -766,7 +766,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                 <span className="text-lego-yellow font-semibold">${totalValue.toFixed(2)} est. value</span>
               )}
             </div>
-            {activeScan?.imgWidth && activeScan?.imgHeight && (
+            {activeScan && (
               <Button
                 size="sm"
                 variant="outline"
@@ -1140,7 +1140,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
           </div>
         </div>
         {/* Zoomable image area */}
-        {activeScan && activeScan.imgWidth && activeScan.imgHeight && (
+        {activeScan && (
           <div
             ref={scanContainerRef}
             className="flex-1 overflow-hidden flex items-center justify-center bg-black"
@@ -1162,7 +1162,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                 position: 'relative',
                 width: '100%',
                 maxHeight: 'calc(94vh - 52px)',
-                aspectRatio: `${activeScan.imgWidth}/${activeScan.imgHeight}`,
+                aspectRatio: activeScan.imgWidth && activeScan.imgHeight ? `${activeScan.imgWidth}/${activeScan.imgHeight}` : '4/3',
                 flexShrink: 0,
               }}
             >
@@ -1186,8 +1186,6 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                   none:    { fill: 'rgba(107,114,128,0.18)', border: 'rgb(107,114,128)', label: '#9ca3af', badge: 'rgba(17,24,39,0.80)'  },
                 };
                 return bboxResults.map((r, i) => {
-                  const W = activeScan.imgWidth!;
-                  const H = activeScan.imgHeight!;
                   const peak = Math.max(r.marketSoldMaxNew ?? 0, r.marketSoldMaxUsed ?? 0, r.ourPriceNew ?? 0, r.ourPriceUsed ?? 0);
                   const displayPrice = r.ourPriceNew ?? r.ourPriceUsed ?? (r.marketSoldMaxNew ?? r.marketSoldMaxUsed ?? null);
                   const tier = peak === 0 ? 'none' : peak >= hiThresh ? 'high' : peak >= midThresh ? 'medium' : 'low';
@@ -1204,10 +1202,10 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                       }}
                       style={{
                         position: 'absolute',
-                        left:   `${(r.bboxX! / W) * 100}%`,
-                        top:    `${(r.bboxY! / H) * 100}%`,
-                        width:  `${(r.bboxW! / W) * 100}%`,
-                        height: `${(r.bboxH! / H) * 100}%`,
+                        left:   `${r.bboxX}%`,
+                        top:    `${r.bboxY}%`,
+                        width:  `${r.bboxW}%`,
+                        height: `${r.bboxH}%`,
                         background: ts.fill,
                         border: `2px solid ${ts.border}`,
                         transition: 'filter 0.15s',
