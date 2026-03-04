@@ -4086,11 +4086,8 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
         };
       }));
 
-      // Sort by confidence desc, then peak price desc
-      const _confRank = (c: string) => c === 'high' ? 3 : c === 'medium' ? 2 : 1;
+      // Sort by peak price desc
       enriched.sort((a, b) => {
-        const cs = _confRank(b.confidence) - _confRank(a.confidence);
-        if (cs !== 0) return cs;
         const ap = Math.max((a as any).marketSoldMaxNew ?? 0, (a as any).marketSoldMaxUsed ?? 0);
         const bp = Math.max((b as any).marketSoldMaxNew ?? 0, (b as any).marketSoldMaxUsed ?? 0);
         return bp - ap;
