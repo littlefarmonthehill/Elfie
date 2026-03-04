@@ -275,9 +275,16 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [pinchDist, setPinchDist] = useState<number | null>(null);
+  const [highlightedResult, setHighlightedResult] = useState<string | null>(null);
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scanContainerRef = useRef<HTMLDivElement>(null);
 
   function closeScanPhoto() { setScanPhotoOpen(false); setScanZoom(1); setScanPan({ x: 0, y: 0 }); }
+  function flashResult(id: string) {
+    if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+    setHighlightedResult(id);
+    highlightTimerRef.current = setTimeout(() => setHighlightedResult(null), 2500);
+  }
   function handleScanWheel(e: React.WheelEvent) {
     e.preventDefault();
     setScanZoom(prev => { const next = Math.min(8, Math.max(1, prev - e.deltaY * 0.003)); if (next === 1) setScanPan({ x: 0, y: 0 }); return next; });
@@ -290,6 +297,10 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
       const dx = e.touches[1].clientX - e.touches[0].clientX;
       const dy = e.touches[1].clientY - e.touches[0].clientY;
       setPinchDist(Math.sqrt(dx * dx + dy * dy));
+      setIsDragging(false);
+    } else if (e.touches.length === 1 && scanZoom > 1) {
+      setIsDragging(true);
+      setDragStart({ x: e.touches[0].clientX - scanPan.x, y: e.touches[0].clientY - scanPan.y });
     }
   }
   function handleScanTouchMove(e: React.TouchEvent) {
@@ -300,9 +311,11 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
       const ratio = newDist / pinchDist;
       setScanZoom(prev => Math.min(8, Math.max(1, prev * ratio)));
       setPinchDist(newDist);
+    } else if (e.touches.length === 1 && isDragging) {
+      setScanPan({ x: e.touches[0].clientX - dragStart.x, y: e.touches[0].clientY - dragStart.y });
     }
   }
-  function handleScanTouchEnd() { setPinchDist(null); }
+  function handleScanTouchEnd() { setPinchDist(null); setIsDragging(false); }
 
   const activeScan = scan ?? latestScan ?? null;
   const results: ScanResult[] = useMemo(() => {
@@ -766,7 +779,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                 <span className="text-lego-yellow font-semibold">${totalValue.toFixed(2)} est. value</span>
               )}
             </div>
-            {activeScan?.imgWidth && activeScan?.imgHeight && (
+            {activeScan && (
               <Button
                 size="sm"
                 variant="outline"
@@ -874,11 +887,20 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                   return 'text-gray-400';
                 };
 
+                const cardId = `result-${grp.partNo || gi}`;
+                const isHighlighted = highlightedResult === cardId;
                 return (
                   <div
                     key={key}
-                    id={`result-${grp.partNo || gi}`}
-                    className="rounded-lg border border-purple-600/30 bg-gradient-to-br from-purple-800/20 to-purple-950/10 overflow-hidden shadow-[0_0_12px_rgba(168,85,247,0.10)]"
+                    id={cardId}
+                    className="rounded-lg border bg-gradient-to-br from-purple-800/20 to-purple-950/10 overflow-hidden"
+                    style={{
+                      borderColor: isHighlighted ? 'rgba(251,191,36,0.9)' : 'rgba(168,85,247,0.3)',
+                      boxShadow: isHighlighted
+                        ? '0 0 0 2px rgba(251,191,36,0.6), 0 0 28px 6px rgba(251,191,36,0.35)'
+                        : '0 0 12px rgba(168,85,247,0.10)',
+                      transition: 'box-shadow 0.3s ease, border-color 0.3s ease',
+                    }}
                     data-testid={`tile-brickanalyzer-${gi}`}
                   >
                     {/* ── Collapsed header (always visible) ─────────── */}
@@ -1140,7 +1162,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
           </div>
         </div>
         {/* Zoomable image area */}
-        {activeScan && activeScan.imgWidth && activeScan.imgHeight && (
+        {activeScan && (
           <div
             ref={scanContainerRef}
             className="flex-1 overflow-hidden flex items-center justify-center bg-black"
@@ -1162,7 +1184,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                 position: 'relative',
                 width: '100%',
                 maxHeight: 'calc(94vh - 52px)',
-                aspectRatio: `${activeScan.imgWidth}/${activeScan.imgHeight}`,
+                aspectRatio: activeScan.imgWidth && activeScan.imgHeight ? `${activeScan.imgWidth}/${activeScan.imgHeight}` : '4/3',
                 flexShrink: 0,
               }}
             >
@@ -1186,13 +1208,11 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                   none:    { fill: 'rgba(107,114,128,0.18)', border: 'rgb(107,114,128)', label: '#9ca3af', badge: 'rgba(17,24,39,0.80)'  },
                 };
                 return bboxResults.map((r, i) => {
-                  const W = activeScan.imgWidth!;
-                  const H = activeScan.imgHeight!;
                   const peak = Math.max(r.marketSoldMaxNew ?? 0, r.marketSoldMaxUsed ?? 0, r.ourPriceNew ?? 0, r.ourPriceUsed ?? 0);
                   const displayPrice = r.ourPriceNew ?? r.ourPriceUsed ?? (r.marketSoldMaxNew ?? r.marketSoldMaxUsed ?? null);
                   const tier = peak === 0 ? 'none' : peak >= hiThresh ? 'high' : peak >= midThresh ? 'medium' : 'low';
                   const ts = tierStyle[tier];
-                  const scrollTarget = `result-${r.partNo || (r.cropIndex ?? i)}`;
+                  const scrollTarget = `result-${(r.partNo || r.cropIndex) ?? i}`;
                   return (
                     <button
                       key={r.cropIndex ?? i}
@@ -1200,30 +1220,41 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                       onClick={(e) => {
                         e.stopPropagation();
                         closeScanPhoto();
-                        setTimeout(() => document.getElementById(scrollTarget)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 200);
+                        setTimeout(() => {
+                          document.getElementById(scrollTarget)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                          flashResult(scrollTarget);
+                        }, 200);
                       }}
                       style={{
                         position: 'absolute',
-                        left:   `${(r.bboxX! / W) * 100}%`,
-                        top:    `${(r.bboxY! / H) * 100}%`,
-                        width:  `${(r.bboxW! / W) * 100}%`,
-                        height: `${(r.bboxH! / H) * 100}%`,
+                        left:   `${r.bboxX}%`,
+                        top:    `${r.bboxY}%`,
+                        width:  `${r.bboxW}%`,
+                        height: `${r.bboxH}%`,
                         background: ts.fill,
                         border: `2px solid ${ts.border}`,
                         transition: 'filter 0.15s',
+                        overflow: 'visible',
                       }}
                       onMouseEnter={(e) => (e.currentTarget.style.filter = 'brightness(1.35)')}
                       onMouseLeave={(e) => (e.currentTarget.style.filter = '')}
                       data-testid={`scan-overlay-${r.cropIndex ?? i}`}
                     >
-                      {displayPrice != null && (
-                        <span
-                          style={{ background: ts.badge, color: ts.label }}
-                          className="absolute bottom-0.5 left-0.5 text-[9px] font-bold px-1 py-px rounded-sm leading-tight whitespace-nowrap"
-                        >
-                          ${displayPrice.toFixed(2)}
-                        </span>
-                      )}
+                      <span
+                        style={{
+                          background: ts.badge,
+                          color: ts.label,
+                          border: `1px solid ${ts.border}`,
+                          position: 'absolute',
+                          top: 'calc(100% + 2px)',
+                          left: '50%',
+                          transform: 'translateX(-50%)',
+                          zIndex: 20,
+                        }}
+                        className="text-[10px] font-bold px-1.5 py-0.5 rounded-sm leading-tight whitespace-nowrap shadow-lg"
+                      >
+                        {displayPrice != null ? `$${displayPrice.toFixed(2)}` : '—'}
+                      </span>
                     </button>
                   );
                 });

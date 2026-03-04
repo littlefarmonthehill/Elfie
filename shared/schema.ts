@@ -1077,6 +1077,8 @@ export const brickanalyzerScans = pgTable("brickanalyzer_scans", {
   errorMessage: text("error_message"),
   createdAt: timestamp("created_at").defaultNow(),
   completedAt: timestamp("completed_at"),
+  imgWidth: integer("img_width"),
+  imgHeight: integer("img_height"),
 });
 
 export type BrickanalyzerScan = typeof brickanalyzerScans.$inferSelect;
