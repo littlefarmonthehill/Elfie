@@ -1211,19 +1211,27 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                         background: ts.fill,
                         border: `2px solid ${ts.border}`,
                         transition: 'filter 0.15s',
+                        overflow: 'visible',
                       }}
                       onMouseEnter={(e) => (e.currentTarget.style.filter = 'brightness(1.35)')}
                       onMouseLeave={(e) => (e.currentTarget.style.filter = '')}
                       data-testid={`scan-overlay-${r.cropIndex ?? i}`}
                     >
-                      {displayPrice != null && (
-                        <span
-                          style={{ background: ts.badge, color: ts.label }}
-                          className="absolute bottom-0.5 left-0.5 text-[9px] font-bold px-1 py-px rounded-sm leading-tight whitespace-nowrap"
-                        >
-                          ${displayPrice.toFixed(2)}
-                        </span>
-                      )}
+                      <span
+                        style={{
+                          background: ts.badge,
+                          color: ts.label,
+                          border: `1px solid ${ts.border}`,
+                          position: 'absolute',
+                          top: 'calc(100% + 2px)',
+                          left: '50%',
+                          transform: 'translateX(-50%)',
+                          zIndex: 20,
+                        }}
+                        className="text-[10px] font-bold px-1.5 py-0.5 rounded-sm leading-tight whitespace-nowrap shadow-lg"
+                      >
+                        {displayPrice != null ? `$${displayPrice.toFixed(2)}` : '—'}
+                      </span>
                     </button>
                   );
                 });
