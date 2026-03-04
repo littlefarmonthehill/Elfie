@@ -1192,7 +1192,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                   const displayPrice = r.ourPriceNew ?? r.ourPriceUsed ?? (r.marketSoldMaxNew ?? r.marketSoldMaxUsed ?? null);
                   const tier = peak === 0 ? 'none' : peak >= hiThresh ? 'high' : peak >= midThresh ? 'medium' : 'low';
                   const ts = tierStyle[tier];
-                  const scrollTarget = `result-${r.partNo || r.cropIndex ?? i}`;
+                  const scrollTarget = `result-${r.partNo || (r.cropIndex ?? i)}`;
                   return (
                     <button
                       key={r.cropIndex ?? i}
