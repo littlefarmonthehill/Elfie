@@ -3544,61 +3544,46 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
 
         console.log(`[Brickanalyzer] Multi-pass results — pass1(minifig/large)=${boxes1.length}, pass2(standard)=${boxes2.length}, pass3(small/fine)=${boxes3.length}`);
 
-        // Merge with IoU deduplication — priority: pass1 > pass2 > pass3
-        // If two boxes overlap > 35% they're the same piece; keep the earlier (higher-priority) one
-        const merged: { x: number; y: number; w: number; h: number }[] = [];
-        for (const box of [...boxes1, ...boxes2, ...boxes3]) {
+        // ── Exclusion-zone strategy ──────────────────────────────────────────
+        // Pass 1 (large/minifig) boxes become exclusion zones.
+        // Each zone is expanded: +10% on left/right/top to absorb arms/head overhang,
+        // and +80% extra on the bottom to cover feet that hang below the body box.
+        // Any Pass 2/3 box with >25% of its area inside an exclusion zone is dropped —
+        // this prevents feet, shadows, and internal details from being split into separate pieces.
+        const exclusionZones = boxes1.map(b => ({
+          x: b.x - b.w * 0.10,
+          y: b.y - b.h * 0.10,
+          w: b.w * 1.20,
+          h: b.h * 1.90,   // original height + 80% extra below for feet
+        }));
+
+        function overlapsExclusion(box: { x: number; y: number; w: number; h: number }): boolean {
+          const boxArea = box.w * box.h;
+          if (boxArea === 0) return false;
+          return exclusionZones.some(zone => {
+            const ix0 = Math.max(box.x, zone.x), iy0 = Math.max(box.y, zone.y);
+            const ix1 = Math.min(box.x + box.w, zone.x + zone.w), iy1 = Math.min(box.y + box.h, zone.y + zone.h);
+            const inter = Math.max(0, ix1 - ix0) * Math.max(0, iy1 - iy0);
+            return inter / boxArea > 0.25; // suppress if >25% of small box is inside the exclusion zone
+          });
+        }
+
+        // Filter passes 2 & 3 — remove anything that falls in a Pass 1 exclusion zone
+        const filteredBoxes23 = [...boxes2, ...boxes3].filter(box => !overlapsExclusion(box));
+        const suppressed23 = (boxes2.length + boxes3.length) - filteredBoxes23.length;
+        if (suppressed23 > 0) {
+          console.log(`[Brickanalyzer] Exclusion-zone suppression: removed ${suppressed23} pass2/3 box(es) inside large-piece zones`);
+        }
+
+        // Combine: Pass 1 always wins; deduplicate within the pass2/3 pool only
+        const merged: { x: number; y: number; w: number; h: number }[] = [...boxes1];
+        for (const box of filteredBoxes23) {
           if (!merged.some(m => iouBox(m, box) > 0.35)) merged.push(box);
         }
 
-        console.log(`[Brickanalyzer] Multi-pass merged: ${boxes1.length + boxes2.length + boxes3.length} total → ${merged.length} unique regions`);
+        console.log(`[Brickanalyzer] Final merged: ${merged.length} unique regions (${boxes1.length} from pass1 + ${merged.length - boxes1.length} from pass2/3)`);
 
-        // Containment suppression — "minifig rules":
-        // After merging, if a smaller box is >65% contained within a larger box, suppress it.
-        // Pass 1 (minifig/large) has priority, so its boxes are in `merged` first.
-        // This prevents small-piece pass sub-regions from subdividing a minifig detection.
-        const containmentFiltered = merged.filter((box) => {
-          const boxArea = box.w * box.h;
-          return !merged.some((other) => {
-            if (other === box) return false;
-            const otherArea = other.w * other.h;
-            if (otherArea <= boxArea * 1.5) return false; // only suppress if other is meaningfully larger
-            const ix0 = Math.max(box.x, other.x), iy0 = Math.max(box.y, other.y);
-            const ix1 = Math.min(box.x + box.w, other.x + other.w), iy1 = Math.min(box.y + box.h, other.y + other.h);
-            const inter = Math.max(0, ix1 - ix0) * Math.max(0, iy1 - iy0);
-            return inter / boxArea > 0.65; // >65% of this small box is inside the large box
-          });
-        });
-
-        if (containmentFiltered.length < merged.length) {
-          console.log(`[Brickanalyzer] Containment suppression: removed ${merged.length - containmentFiltered.length} sub-regions (minifig rule) → ${containmentFiltered.length} final boxes`);
-        }
-
-        // Feet-zone suppression:
-        // Minifig feet/legs hang BELOW the body box, so containment suppression doesn't catch them.
-        // If a small box sits just below a significantly larger box and shares most of its horizontal
-        // span, it's almost certainly the feet — suppress it.
-        const feetFiltered = containmentFiltered.filter((box) => {
-          const boxArea = box.w * box.h;
-          return !containmentFiltered.some((large) => {
-            if (large === box) return false;
-            const largeArea = large.w * large.h;
-            if (largeArea <= boxArea * 2.5) return false;  // large must be meaningfully bigger
-            // Box top must be in the lower half of `large` or just below it (within 60% of large height)
-            const largeBottom = large.y + large.h;
-            if (box.y < large.y + large.h * 0.5) return false;  // box starts too high (not feet)
-            if (box.y > largeBottom + large.h * 0.6) return false; // box too far below
-            // Horizontal overlap: box must share >50% of its own width with large
-            const overlapX = Math.max(0, Math.min(box.x + box.w, large.x + large.w) - Math.max(box.x, large.x));
-            return overlapX / box.w > 0.50;
-          });
-        });
-
-        if (feetFiltered.length < containmentFiltered.length) {
-          console.log(`[Brickanalyzer] Feet-zone suppression: removed ${containmentFiltered.length - feetFiltered.length} sub-box(es) below large regions → ${feetFiltered.length} final boxes`);
-        }
-
-        allBoxes = feetFiltered;
+        allBoxes = merged;
 
       } else {
         console.log('[Brickanalyzer] Step 1: Single-pass segmentation...');
