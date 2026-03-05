@@ -331,7 +331,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
       return bp - ap;
     });
   }, [activeScan?.results, uiState]);
-  const totalValue = results.reduce((s, p) => s + (p.ourPriceNew ?? p.ourPriceUsed ?? p.marketSoldMaxNew ?? 0), 0);
+  const totalValue = results.reduce((s, p) => s + (Math.max(p.marketSoldMaxNew ?? 0, p.marketSoldMaxUsed ?? 0) || p.ourPriceNew || p.ourPriceUsed || 0), 0);
   const inStockCount = results.filter(p => p.ourQtyNew > 0 || p.ourQtyUsed > 0).length;
   const withPriceCount = results.filter(p => p.ourPriceNew !== null || p.ourPriceUsed !== null || p.marketSoldMaxNew !== null).length;
 
@@ -1110,8 +1110,11 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                   none:    { fill: 'rgba(107,114,128,0.18)', border: 'rgb(107,114,128)', label: '#9ca3af', badge: 'rgba(17,24,39,0.80)'  },
                 };
                 return bboxResults.map((r, i) => {
+                  const marketPeak = Math.max(r.marketSoldMaxNew ?? 0, r.marketSoldMaxUsed ?? 0) || null;
                   const peak = Math.max(r.marketSoldMaxNew ?? 0, r.marketSoldMaxUsed ?? 0, r.ourPriceNew ?? 0, r.ourPriceUsed ?? 0);
-                  const displayPrice = r.ourPriceNew ?? r.ourPriceUsed ?? (r.marketSoldMaxNew ?? r.marketSoldMaxUsed ?? null);
+                  // Show market peak price first — the highest sold price on BrickLink is what matters.
+                  // Fall back to our own listing price only when no market data is available.
+                  const displayPrice = marketPeak ?? (r.ourPriceNew || r.ourPriceUsed) ?? null;
                   const tier = peak === 0 ? 'none' : peak >= hiThresh ? 'high' : peak >= midThresh ? 'medium' : 'low';
                   const ts = tierStyle[tier];
                   const scrollTarget = `result-${(r.partNo || r.cropIndex) ?? i}`;

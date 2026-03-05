@@ -3756,15 +3756,16 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
             continue;
           }
 
-          // Feet-zone suppress — catches boxes that hang directly below the minifig body.
-          // IoU is near 0 for these (they don't overlap the body box) so we use a positional test:
-          //   • Part top is in the lower 40% of the minifig box or below it (within 70% of fig height)
-          //   • Part shares >40% of its own width with the minifig box horizontally
+          // Feet-zone suppress — catches feet, legs, and display stands that sit below the minifig.
+          // These score near-zero IoU with the body box, so we use a positional test:
+          //   • Part top is in the lower 50% of the minifig box or below it (within 150% of fig height)
+          //     — wide range covers stands placed on the table beneath the fig
+          //   • Part shares >30% of its own width with the minifig box horizontally
           const figBottom = fy + fh;
-          const inFeetZoneVertically = py >= fy + fh * 0.60 && py <= figBottom + fh * 0.70;
+          const inFeetZoneVertically = py >= fy + fh * 0.50 && py <= figBottom + fh * 1.50;
           if (inFeetZoneVertically) {
             const horizOverlap = Math.max(0, Math.min(px + pw, fx + fw) - Math.max(px, fx));
-            if (pw > 0 && horizOverlap / pw > 0.40) {
+            if (pw > 0 && horizOverlap / pw > 0.30) {
               console.log(`[Brickanalyzer] Zone suppress (feet): crop ${part.cropIndex} (${part.partNo}) below MINIFIG ${fig.partNo}`);
               suppressedCropIndexes.add(part.cropIndex);
             }
