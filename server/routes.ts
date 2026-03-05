@@ -3884,7 +3884,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
         const blItemType = piece.itemType || 'PART'; // hoisted — used in color variants + image fallback sections
 
         if (piece.partNo) {
-          // 1. Look up our inventory listings — both new and used for the matched color
+          // 1. Look up our inventory listings — all conditions for this partNo
           const invRows = await db.select({
             id: blInventory.id,
             unitPrice: blInventory.unitPrice,
@@ -3905,7 +3905,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
 
           // Helper: check if two part names share enough words to be the same part
           const namesSimilar = (a: string, b: string): boolean => {
-            if (!a || !b) return true; // can't judge, allow it
+            if (!a || !b) return true;
             const wordsA = a.toLowerCase().replace(/[^a-z0-9 ]/g, '').split(/\s+/).filter(w => w.length > 2);
             const wordsB = b.toLowerCase().replace(/[^a-z0-9 ]/g, '').split(/\s+/).filter(w => w.length > 2);
             if (wordsA.length === 0 || wordsB.length === 0) return true;
@@ -3941,63 +3941,20 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
               .limit(20);
 
               if (nameRows.length > 0) {
-                // Correct the part number to what's actually in inventory
                 const resolvedPartNo = nameRows[0].itemNo;
                 console.log(`[Brickanalyzer] Corrected partNo: ${piece.partNo} → ${resolvedPartNo} (from name match)`);
                 piece.partNo = resolvedPartNo;
                 activeInvRows = nameRows;
               } else {
-                // No name match in inventory — discard the wrong partNo rows to avoid bad data
                 activeInvRows = [];
               }
             }
           }
 
-          if (activeInvRows.length > 0) {
-            const matchColor = (r: any) => colorId ? r.colorId === colorId : false;
-
-            // Strict color match first; fallback only used for part name / thumbnail — never for color override
-            const colorMatchNew = activeInvRows.filter((r: any) => r.newOrUsed === 'N').find(matchColor);
-            const colorMatchUsed = activeInvRows.filter((r: any) => r.newOrUsed === 'U').find(matchColor);
-            const anyNew = activeInvRows.find((r: any) => r.newOrUsed === 'N');
-            const anyUsed = activeInvRows.find((r: any) => r.newOrUsed === 'U');
-            const newMatch = colorMatchNew;
-            const usedMatch = colorMatchUsed;
-            const nameSrc = colorMatchNew || colorMatchUsed || anyNew || anyUsed; // for name/thumb only
-
-            if (nameSrc) {
-              if (!piece.partName && nameSrc.itemName) piece.partName = nameSrc.itemName;
-              if (!thumbnailUrl) thumbnailUrl = nameSrc.thumbnailUrl || nameSrc.imageUrl || null;
-            }
-            if (newMatch) {
-              ourPriceNew = newMatch.unitPrice ? Number(newMatch.unitPrice) : null;
-              ourQtyNew = newMatch.quantity || 0;
-              inventoryId = newMatch.id;
-              if (!thumbnailUrl) thumbnailUrl = newMatch.thumbnailUrl || newMatch.imageUrl || null;
-            }
-            if (usedMatch) {
-              ourPriceUsed = usedMatch.unitPrice ? Number(usedMatch.unitPrice) : null;
-              ourQtyUsed = usedMatch.quantity || 0;
-              if (!inventoryId) inventoryId = usedMatch.id;
-              if (!thumbnailUrl) thumbnailUrl = usedMatch.thumbnailUrl || usedMatch.imageUrl || null;
-            }
-
-            // Re-fetch colorRgb if colorId was updated from inventory but rgb is not yet known
-            if (colorId && colorRgb === null) {
-              const rgbRows = await db.select({ rgb: blColors.rgb })
-                .from(blColors)
-                .where(eq(blColors.id, colorId))
-                .limit(1);
-              if (rgbRows.length > 0) colorRgb = rgbRows[0].rgb ?? null;
-            }
-          }
-
-          // 2a. Early catalog-constrained color detection (PARTs only, when colorId still unknown)
-          // Fetches BL catalog colors for this part and runs Delta-E RGB matching against the
-          // detected dominant crop color. This runs BEFORE the price guide lookup so that
-          // fetchPriceOMagicData receives the correct colorId for non-inventory items.
-          // catalogColorMap and catalogColorsList are hoisted so the inventoryLots section
-          // below can reuse them without a second BL API call.
+          // 2a. Early catalog-constrained color detection (PARTs only, when colorId unknown)
+          // Must run BEFORE inventory color-matching so colorId is available for the strict match.
+          // Results are hoisted in catalogColorMap/catalogColorsList to avoid a duplicate API call
+          // in the inventoryLots section below.
           let catalogColorMap = new Map<number, { name: string | null; rgb: string | null }>();
           let catalogColorsList: { color_id: number; color_name: string }[] = [];
           if (piece.partNo && blItemType === 'PART' && !colorId && piece.detectedRgb) {
@@ -4028,6 +3985,53 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
               }
             } catch (earlyErr: any) {
               console.warn(`[ColorDetect/early] catalog fetch failed for ${piece.partNo}:`, earlyErr.message);
+            }
+          }
+
+          // 2b. Match inventory rows against detected colorId.
+          // When colorId is known: strict match on color, then fall back to any row for name/thumb.
+          // When colorId is unknown (BL API rate-limited, no catalog data, etc.): accept any color
+          // in inventory so the piece still registers as "in stock."
+          if (activeInvRows.length > 0) {
+            const matchColor = (r: any) => !colorId || r.colorId === colorId;
+
+            const colorMatchNew  = activeInvRows.filter((r: any) => r.newOrUsed === 'N').find(matchColor);
+            const colorMatchUsed = activeInvRows.filter((r: any) => r.newOrUsed === 'U').find(matchColor);
+            const anyNew  = activeInvRows.find((r: any) => r.newOrUsed === 'N');
+            const anyUsed = activeInvRows.find((r: any) => r.newOrUsed === 'U');
+            const newMatch  = colorMatchNew ?? anyNew;
+            const usedMatch = colorMatchUsed ?? anyUsed;
+            const nameSrc   = newMatch || usedMatch;
+
+            if (nameSrc) {
+              if (!piece.partName && nameSrc.itemName) piece.partName = nameSrc.itemName;
+              if (!thumbnailUrl) thumbnailUrl = nameSrc.thumbnailUrl || nameSrc.imageUrl || null;
+            }
+            if (newMatch) {
+              ourPriceNew = newMatch.unitPrice ? Number(newMatch.unitPrice) : null;
+              ourQtyNew   = newMatch.quantity || 0;
+              inventoryId = newMatch.id;
+              if (!colorId && newMatch.colorId) {
+                // Adopt the inventory color when we couldn't detect it via RGB
+                colorId = newMatch.colorId;
+                piece.colorName = newMatch.colorName || '';
+              }
+            }
+            if (usedMatch) {
+              ourPriceUsed = usedMatch.unitPrice ? Number(usedMatch.unitPrice) : null;
+              ourQtyUsed   = usedMatch.quantity || 0;
+              if (!inventoryId) inventoryId = usedMatch.id;
+              if (!colorId && usedMatch.colorId) {
+                colorId = usedMatch.colorId;
+                piece.colorName = usedMatch.colorName || '';
+              }
+            }
+
+            // Fetch colorRgb if colorId came from inventory and rgb is not yet resolved
+            if (colorId && colorRgb === null) {
+              const rgbRows = await db.select({ rgb: blColors.rgb })
+                .from(blColors).where(eq(blColors.id, colorId)).limit(1);
+              if (rgbRows.length > 0) colorRgb = rgbRows[0].rgb ?? null;
             }
           }
 

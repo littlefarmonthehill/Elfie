@@ -720,10 +720,10 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                 key={i}
                 className="absolute border-2 border-purple-400/80 rounded-sm pointer-events-none"
                 style={{
-                  left:   `${(box.x / previewData.imageWidth)  * 100}%`,
-                  top:    `${(box.y / previewData.imageHeight) * 100}%`,
-                  width:  `${(box.w / previewData.imageWidth)  * 100}%`,
-                  height: `${(box.h / previewData.imageHeight) * 100}%`,
+                  left:   `${box.x}%`,
+                  top:    `${box.y}%`,
+                  width:  `${box.w}%`,
+                  height: `${box.h}%`,
                 }}
               >
                 <span className="absolute -top-4 left-0 text-[9px] font-mono text-purple-300 bg-gray-900/80 px-0.5 leading-3">
