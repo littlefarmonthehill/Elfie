@@ -3530,29 +3530,47 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
         const pass3: Record<string, any> = {
           segmenter: 'contour',
           minSizePct: 0.02,   // very small minimum — catch tiny pieces
-          maxSizePct: 3,      // don't pick up large things (handled by passes 1 & 2)
+          maxSizePct: 5,      // up from 3 — catch medium shields between pass1/pass2
           blurRadius: 3,      // less blur to preserve fine detail
           cannyLow: 25,       // more sensitive to weak edges
           cannyHigh: 90,
           dilateIter: 1,      // minimal dilation — preserve small piece boundaries
         };
 
-        const [boxes1, boxes2, boxes3] = await Promise.all([
+        // Pass 4 — CLAHE contrast-boosted pass for dark/shadowed areas
+        // Phone camera vignette and dark table surfaces reduce local contrast,
+        // causing standard Canny to miss pieces near image edges or on dark backgrounds.
+        // CLAHE (Contrast Limited Adaptive Histogram Equalization) normalizes local
+        // brightness before edge detection so these pieces become visible.
+        const pass4: Record<string, any> = {
+          segmenter: 'contour',
+          minSizePct: 0.02,
+          maxSizePct: 8,
+          blurRadius: 3,
+          cannyLow: 20,       // very sensitive — dark areas have weak edges
+          cannyHigh: 80,
+          dilateIter: 2,
+          clahe: true,        // enables CLAHE preprocessing in Python service
+        };
+
+        const [boxes1, boxes2, boxes3, boxes4] = await Promise.all([
           segmentImage(imageBuffer, pass1 as any),
           segmentImage(imageBuffer, pass2 as any),
           segmentImage(imageBuffer, pass3 as any),
+          segmentImage(imageBuffer, pass4 as any),
         ]);
 
-        console.log(`[Brickanalyzer] Multi-pass results — pass1(minifig/large)=${boxes1.length}, pass2(standard)=${boxes2.length}, pass3(small/fine)=${boxes3.length}`);
+        console.log(`[Brickanalyzer] Multi-pass results — pass1(minifig/large)=${boxes1.length}, pass2(standard)=${boxes2.length}, pass3(small/fine)=${boxes3.length}, pass4(clahe/dark)=${boxes4.length}`);
 
-        // Merge with IoU deduplication — priority: pass1 > pass2 > pass3
-        // If two boxes overlap > 35% they're the same piece; keep the earlier (higher-priority) one.
+        // Merge with IoU deduplication — priority: pass1 > pass2 > pass3 > pass4
+        // Threshold 0.25: slightly tighter than 0.35 so nearby-but-distinct items
+        // (e.g. two adjacent shields) are more likely to stay separate.
         const merged: { x: number; y: number; w: number; h: number }[] = [];
-        for (const box of [...boxes1, ...boxes2, ...boxes3]) {
-          if (!merged.some(m => iouBox(m, box) > 0.35)) merged.push(box);
+        for (const box of [...boxes1, ...boxes2, ...boxes3, ...boxes4]) {
+          if (!merged.some(m => iouBox(m, box) > 0.25)) merged.push(box);
         }
 
-        console.log(`[Brickanalyzer] Multi-pass merged: ${boxes1.length + boxes2.length + boxes3.length} total → ${merged.length} unique regions`);
+        console.log(`[Brickanalyzer] Multi-pass merged: ${boxes1.length + boxes2.length + boxes3.length + boxes4.length} total → ${merged.length} unique regions`);
 
         // Containment suppression — "minifig rule":
         // If a smaller box is >65% contained within a larger box, suppress it.

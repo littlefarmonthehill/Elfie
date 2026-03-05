@@ -181,11 +181,19 @@ def segment_pieces_contour(rgb: np.ndarray, settings: dict = None) -> list:
     canny_low     = int(s.get("cannyLow",   50))
     canny_high    = int(s.get("cannyHigh", 150))
     dilate_iter   = int(s.get("dilateIter",  2))
+    use_clahe     = bool(s.get("clahe",      False))
 
     H, W = rgb.shape[:2]
     img_area = H * W
 
     gray = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)
+
+    # ── 0. Optional CLAHE contrast enhancement ───────────────────────────────
+    # Helps find pieces on dark/shadowed backgrounds (phone camera vignette,
+    # dark table surfaces). Tilesize of 8 preserves local piece boundaries.
+    if use_clahe:
+        clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8))
+        gray = clahe.apply(gray)
 
     # ── 1. Gaussian blur — suppresses noise before edge detection ────────────
     k = blur_radius if blur_radius % 2 == 1 else blur_radius + 1
