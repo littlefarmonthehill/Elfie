@@ -3509,11 +3509,12 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       if (settings.multiPass) {
         console.log('[Brickanalyzer] Step 1: Smart Multi-Pass — running 3 concurrent segmentation passes...');
 
-        // Pass 1 — Minifigs / Large pieces
-        // Contour with higher min-size + more dilation to close gaps on complex outlines
+        // Pass 1 — Minifigs / Large pieces only
+        // High minSizePct ensures only genuine large objects (minifigs) are detected here.
+        // These boxes seed the exclusion zones — keep this threshold strict.
         const pass1: Record<string, any> = {
           segmenter: 'contour',
-          minSizePct: 0.25,   // catch shields and medium pieces as well as minifigs
+          minSizePct: 0.40,   // only large pieces/minifigs — shields are too small for this pass
           maxSizePct: 14,     // allow tall minifig bounding boxes
           blurRadius: 5,      // moderate blur — smooth noise on large surfaces
           cannyLow: 40,       // moderate edge sensitivity
@@ -3544,46 +3545,39 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
 
         console.log(`[Brickanalyzer] Multi-pass results — pass1(minifig/large)=${boxes1.length}, pass2(standard)=${boxes2.length}, pass3(small/fine)=${boxes3.length}`);
 
-        // ── Exclusion-zone strategy ──────────────────────────────────────────
-        // Pass 1 (large/minifig) boxes become exclusion zones.
-        // Each zone is expanded: +10% on left/right/top to absorb arms/head overhang,
-        // and +80% extra on the bottom to cover feet that hang below the body box.
-        // Any Pass 2/3 box with >25% of its area inside an exclusion zone is dropped —
-        // this prevents feet, shadows, and internal details from being split into separate pieces.
-        const exclusionZones = boxes1.map(b => ({
-          x: b.x - b.w * 0.10,
-          y: b.y - b.h * 0.10,
-          w: b.w * 1.20,
-          h: b.h * 1.90,   // original height + 80% extra below for feet
-        }));
-
-        function overlapsExclusion(box: { x: number; y: number; w: number; h: number }): boolean {
-          const boxArea = box.w * box.h;
-          if (boxArea === 0) return false;
-          return exclusionZones.some(zone => {
-            const ix0 = Math.max(box.x, zone.x), iy0 = Math.max(box.y, zone.y);
-            const ix1 = Math.min(box.x + box.w, zone.x + zone.w), iy1 = Math.min(box.y + box.h, zone.y + zone.h);
-            const inter = Math.max(0, ix1 - ix0) * Math.max(0, iy1 - iy0);
-            return inter / boxArea > 0.25; // suppress if >25% of small box is inside the exclusion zone
-          });
-        }
-
-        // Filter passes 2 & 3 — remove anything that falls in a Pass 1 exclusion zone
-        const filteredBoxes23 = [...boxes2, ...boxes3].filter(box => !overlapsExclusion(box));
-        const suppressed23 = (boxes2.length + boxes3.length) - filteredBoxes23.length;
-        if (suppressed23 > 0) {
-          console.log(`[Brickanalyzer] Exclusion-zone suppression: removed ${suppressed23} pass2/3 box(es) inside large-piece zones`);
-        }
-
-        // Combine: Pass 1 always wins; deduplicate within the pass2/3 pool only
-        const merged: { x: number; y: number; w: number; h: number }[] = [...boxes1];
-        for (const box of filteredBoxes23) {
+        // Merge with IoU deduplication — priority: pass1 > pass2 > pass3
+        // If two boxes overlap > 35% they're the same piece; keep the earlier (higher-priority) one.
+        const merged: { x: number; y: number; w: number; h: number }[] = [];
+        for (const box of [...boxes1, ...boxes2, ...boxes3]) {
           if (!merged.some(m => iouBox(m, box) > 0.35)) merged.push(box);
         }
 
-        console.log(`[Brickanalyzer] Final merged: ${merged.length} unique regions (${boxes1.length} from pass1 + ${merged.length - boxes1.length} from pass2/3)`);
+        console.log(`[Brickanalyzer] Multi-pass merged: ${boxes1.length + boxes2.length + boxes3.length} total → ${merged.length} unique regions`);
 
-        allBoxes = merged;
+        // Containment suppression — "minifig rule":
+        // If a smaller box is >65% contained within a larger box, suppress it.
+        // Pass 1 boxes (minifig/large) are first in the list so they take priority.
+        // This prevents sub-regions from subdividing a minifig detection.
+        // A second post-Brickognize zone suppression cleans up any remaining PART boxes
+        // that overlap a box ultimately identified as a MINIFIG.
+        const containmentFiltered = merged.filter((box) => {
+          const boxArea = box.w * box.h;
+          return !merged.some((other) => {
+            if (other === box) return false;
+            const otherArea = other.w * other.h;
+            if (otherArea <= boxArea * 1.5) return false; // only suppress if other is meaningfully larger
+            const ix0 = Math.max(box.x, other.x), iy0 = Math.max(box.y, other.y);
+            const ix1 = Math.min(box.x + box.w, other.x + other.w), iy1 = Math.min(box.y + box.h, other.y + other.h);
+            const inter = Math.max(0, ix1 - ix0) * Math.max(0, iy1 - iy0);
+            return inter / boxArea > 0.65;
+          });
+        });
+
+        if (containmentFiltered.length < merged.length) {
+          console.log(`[Brickanalyzer] Containment suppression: removed ${merged.length - containmentFiltered.length} sub-regions → ${containmentFiltered.length} final boxes`);
+        }
+
+        allBoxes = containmentFiltered;
 
       } else {
         console.log('[Brickanalyzer] Step 1: Single-pass segmentation...');
@@ -3749,13 +3743,31 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       const minifigItems = identified.filter((p: any) => p.itemType === 'MINIFIG' && p.partNo);
       const suppressedCropIndexes = new Set<number>();
       for (const fig of minifigItems) {
+        const fx = fig.bboxX ?? 0, fy = fig.bboxY ?? 0, fw = fig.bboxW ?? 0, fh = fig.bboxH ?? 0;
         for (const part of identified) {
           if (part.itemType === 'MINIFIG' || part.cropIndex === fig.cropIndex) continue;
-          const overlap = iou(fig.bboxX ?? 0, fig.bboxY ?? 0, fig.bboxW ?? 0, fig.bboxH ?? 0,
-                              part.bboxX ?? 0, part.bboxY ?? 0, part.bboxW ?? 0, part.bboxH ?? 0);
+          const px = part.bboxX ?? 0, py = part.bboxY ?? 0, pw = part.bboxW ?? 0, ph = part.bboxH ?? 0;
+
+          // Standard IoU overlap — catches torso/head sub-boxes inside the minifig zone
+          const overlap = iou(fx, fy, fw, fh, px, py, pw, ph);
           if (overlap > 0.3) {
-            console.log(`[Brickanalyzer] Zone suppress: crop ${part.cropIndex} (${part.partNo}) overlaps MINIFIG ${fig.partNo} (IoU=${overlap.toFixed(2)})`);
+            console.log(`[Brickanalyzer] Zone suppress (IoU): crop ${part.cropIndex} (${part.partNo}) overlaps MINIFIG ${fig.partNo} (IoU=${overlap.toFixed(2)})`);
             suppressedCropIndexes.add(part.cropIndex);
+            continue;
+          }
+
+          // Feet-zone suppress — catches boxes that hang directly below the minifig body.
+          // IoU is near 0 for these (they don't overlap the body box) so we use a positional test:
+          //   • Part top is in the lower 40% of the minifig box or below it (within 70% of fig height)
+          //   • Part shares >40% of its own width with the minifig box horizontally
+          const figBottom = fy + fh;
+          const inFeetZoneVertically = py >= fy + fh * 0.60 && py <= figBottom + fh * 0.70;
+          if (inFeetZoneVertically) {
+            const horizOverlap = Math.max(0, Math.min(px + pw, fx + fw) - Math.max(px, fx));
+            if (pw > 0 && horizOverlap / pw > 0.40) {
+              console.log(`[Brickanalyzer] Zone suppress (feet): crop ${part.cropIndex} (${part.partNo}) below MINIFIG ${fig.partNo}`);
+              suppressedCropIndexes.add(part.cropIndex);
+            }
           }
         }
       }
