@@ -69,6 +69,8 @@ interface BrickanalyzerScan {
 type UIState = "idle" | "uploading" | "processing" | "complete" | "failed";
 
 interface ScanSettings {
+  // Multi-pass
+  multiPass:       boolean; // run 3 passes (large/minifig, standard, small) and merge
   // Shared
   segmenter:       "watershed" | "sam" | "contour";
   minSizePct:      number;  // % of image area — noise floor
@@ -91,6 +93,7 @@ interface ScanSettings {
 }
 
 const DEFAULT_SETTINGS: ScanSettings = {
+  multiPass:       false,
   segmenter:       "watershed",
   minSizePct:      0.08,
   maxSizePct:      6,
@@ -110,6 +113,7 @@ const DEFAULT_SETTINGS: ScanSettings = {
 
 const SETTINGS_KEY  = "brickspotter-settings";
 const BASELINE_KEY  = "brickspotter-baseline";
+const SCAN_MODE_KEY = "brickspotter-scan-mode";
 
 function loadBaseline(): ScanSettings {
   try {
@@ -138,6 +142,14 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
     return loadBaseline();
   });
   const [showSettings, setShowSettings] = useState(false);
+  const [scanMode, setScanMode] = useState<"auto" | "manual">(() => {
+    try { return (localStorage.getItem(SCAN_MODE_KEY) as "auto" | "manual") || "auto"; } catch { return "auto"; }
+  });
+
+  function handleScanModeChange(mode: "auto" | "manual") {
+    setScanMode(mode);
+    try { localStorage.setItem(SCAN_MODE_KEY, mode); } catch {}
+  }
 
   useEffect(() => {
     try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch {}
@@ -248,7 +260,11 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
 
     const formData = new FormData();
     formData.append("image", file);
-    formData.append("settings", JSON.stringify(settings));
+    // Auto mode always uses 3-pass; manual uses user's single-pass settings
+    const effectiveSettings = scanMode === "auto"
+      ? { ...DEFAULT_SETTINGS, multiPass: true }
+      : { ...settings, multiPass: false };
+    formData.append("settings", JSON.stringify(effectiveSettings));
 
     try {
       const res = await fetch("/api/brickanalyzer/scan", {
@@ -394,10 +410,41 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
             </p>
           </button>
 
-          {/* ── Scan Settings ──────────────────────────────────────────── */}
-          <div className="rounded-lg border border-gray-700 bg-gray-900/40">
+          {/* ── Auto / Manual mode selector ─────────────────────────── */}
+          <div className="rounded-lg border border-gray-700 bg-gray-900/40 overflow-hidden">
+
+            {/* Mode toggle row */}
+            <div className="flex">
+              <button
+                className={`flex-1 py-2.5 text-xs font-semibold transition-colors ${scanMode === "auto" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-gray-300 hover:bg-gray-800/60"}`}
+                onClick={() => { handleScanModeChange("auto"); setShowSettings(false); }}
+                data-testid="button-scan-mode-auto"
+              >
+                Auto
+              </button>
+              <button
+                className={`flex-1 py-2.5 text-xs font-semibold transition-colors border-l border-gray-700 ${scanMode === "manual" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-gray-300 hover:bg-gray-800/60"}`}
+                onClick={() => { handleScanModeChange("manual"); setShowSettings(true); }}
+                data-testid="button-scan-mode-manual"
+              >
+                Manual
+              </button>
+            </div>
+
+            {/* Auto mode: brief description */}
+            {scanMode === "auto" && (
+              <div className="px-3 py-2.5 border-t border-gray-700/60 space-y-1">
+                <p className="text-[11px] text-gray-300 font-medium">Smart 3-pass scan</p>
+                <p className="text-[10px] text-gray-500 leading-relaxed">
+                  Runs 3 Contour passes in parallel — minifigs/large pieces first, then standard parts, then small/fine pieces. Minifig regions block smaller-piece passes from subdividing them. Results merged before Brickognize.
+                </p>
+              </div>
+            )}
+
+            {/* Manual mode: full settings panel */}
+            {scanMode === "manual" && (<>
             <button
-              className="w-full flex items-center justify-between px-3 py-2 text-left"
+              className="w-full flex items-center justify-between px-3 py-2 text-left border-t border-gray-700/60"
               onClick={() => setShowSettings(v => !v)}
               data-testid="button-brickanalyzer-settings-toggle"
             >
@@ -406,7 +453,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                 Scan Settings
               </span>
               <span className="flex items-center gap-2">
-                {JSON.stringify(settings) !== JSON.stringify(baseline) && (
+                {JSON.stringify({ ...settings, multiPass: false }) !== JSON.stringify({ ...baseline, multiPass: false }) && (
                   <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Custom</Badge>
                 )}
                 <ChevronRight className={`w-3.5 h-3.5 text-gray-500 transition-transform ${showSettings ? "rotate-90" : ""}`} />
@@ -692,6 +739,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                 </div>
               </div>
             )}
+            </>)}
           </div>
         </>
       )}

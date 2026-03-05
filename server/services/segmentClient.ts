@@ -109,7 +109,7 @@ export interface SegBox { x: number; y: number; w: number; h: number; }
 
 export interface ScanSettings {
   // Shared
-  segmenter?:       'watershed' | 'sam';
+  segmenter?:       'watershed' | 'sam' | 'contour';
   minSizePct?:      number;
   maxSizePct?:      number;
   maxPieces?:       number;

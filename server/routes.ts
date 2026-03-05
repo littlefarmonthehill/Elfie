@@ -3493,13 +3493,92 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
         brickanalyzerImageMeta.set(scanId, { width: imgWidth, height: imgHeight });
       } catch { /* non-fatal */ }
 
-      // ── Step 1: Watershed segmentation ─────────────────────────────────────
-      // Python service uses OpenCV distance-transform + watershed to separate
-      // individual pieces — handles touching pieces that confuse contour detection.
-      console.log('[Brickanalyzer] Step 1: Watershed segmentation...');
-
+      // ── Step 1: Segmentation (single or multi-pass) ──────────────────────
       const { segmentImage } = await import('./services/segmentClient.js');
-      const allBoxes = await segmentImage(imageBuffer, settings);
+
+      const iouBox = (a: any, b: any): number => {
+        const ix0 = Math.max(a.x, b.x), iy0 = Math.max(a.y, b.y);
+        const ix1 = Math.min(a.x + a.w, b.x + b.w), iy1 = Math.min(a.y + a.h, b.y + b.h);
+        const inter = Math.max(0, ix1 - ix0) * Math.max(0, iy1 - iy0);
+        if (inter === 0) return 0;
+        return inter / (a.w * a.h + b.w * b.h - inter);
+      };
+
+      let allBoxes: { x: number; y: number; w: number; h: number }[];
+
+      if (settings.multiPass) {
+        console.log('[Brickanalyzer] Step 1: Smart Multi-Pass — running 3 concurrent segmentation passes...');
+
+        // Pass 1 — Minifigs / Large pieces
+        // Contour with higher min-size + more dilation to close gaps on complex outlines
+        const pass1: Record<string, any> = {
+          segmenter: 'contour',
+          minSizePct: 0.40,   // ignore tiny noise; focus on large pieces / minifigs
+          maxSizePct: 14,     // allow tall minifig bounding boxes
+          blurRadius: 5,      // moderate blur — smooth noise on large surfaces
+          cannyLow: 40,       // moderate edge sensitivity
+          cannyHigh: 130,
+          dilateIter: 4,      // close more gaps — minifig outlines have lots of detail
+        };
+
+        // Pass 2 — Standard (user's own settings, unchanged)
+        const pass2: Record<string, any> = { ...settings };
+
+        // Pass 3 — Small / Fine pieces
+        // Contour tuned to catch 1×1 tiles, clips, small plates watershed merges or misses
+        const pass3: Record<string, any> = {
+          segmenter: 'contour',
+          minSizePct: 0.02,   // very small minimum — catch tiny pieces
+          maxSizePct: 3,      // don't pick up large things (handled by passes 1 & 2)
+          blurRadius: 3,      // less blur to preserve fine detail
+          cannyLow: 25,       // more sensitive to weak edges
+          cannyHigh: 90,
+          dilateIter: 1,      // minimal dilation — preserve small piece boundaries
+        };
+
+        const [boxes1, boxes2, boxes3] = await Promise.all([
+          segmentImage(imageBuffer, pass1 as any),
+          segmentImage(imageBuffer, pass2 as any),
+          segmentImage(imageBuffer, pass3 as any),
+        ]);
+
+        console.log(`[Brickanalyzer] Multi-pass results — pass1(minifig/large)=${boxes1.length}, pass2(standard)=${boxes2.length}, pass3(small/fine)=${boxes3.length}`);
+
+        // Merge with IoU deduplication — priority: pass1 > pass2 > pass3
+        // If two boxes overlap > 35% they're the same piece; keep the earlier (higher-priority) one
+        const merged: { x: number; y: number; w: number; h: number }[] = [];
+        for (const box of [...boxes1, ...boxes2, ...boxes3]) {
+          if (!merged.some(m => iouBox(m, box) > 0.35)) merged.push(box);
+        }
+
+        console.log(`[Brickanalyzer] Multi-pass merged: ${boxes1.length + boxes2.length + boxes3.length} total → ${merged.length} unique regions`);
+
+        // Containment suppression — "minifig rules":
+        // After merging, if a smaller box is >65% contained within a larger box, suppress it.
+        // Pass 1 (minifig/large) has priority, so its boxes are in `merged` first.
+        // This prevents small-piece pass sub-regions from subdividing a minifig detection.
+        const containmentFiltered = merged.filter((box) => {
+          const boxArea = box.w * box.h;
+          return !merged.some((other) => {
+            if (other === box) return false;
+            const otherArea = other.w * other.h;
+            if (otherArea <= boxArea * 1.5) return false; // only suppress if other is meaningfully larger
+            const ix0 = Math.max(box.x, other.x), iy0 = Math.max(box.y, other.y);
+            const ix1 = Math.min(box.x + box.w, other.x + other.w), iy1 = Math.min(box.y + box.h, other.y + other.h);
+            const inter = Math.max(0, ix1 - ix0) * Math.max(0, iy1 - iy0);
+            return inter / boxArea > 0.65; // >65% of this small box is inside the large box
+          });
+        });
+
+        if (containmentFiltered.length < merged.length) {
+          console.log(`[Brickanalyzer] Containment suppression: removed ${merged.length - containmentFiltered.length} sub-regions (minifig rule) → ${containmentFiltered.length} final boxes`);
+        }
+        allBoxes = containmentFiltered;
+
+      } else {
+        console.log('[Brickanalyzer] Step 1: Single-pass segmentation...');
+        allBoxes = await segmentImage(imageBuffer, settings as any);
+      }
 
       const maxPieces = settings.maxPieces ?? 50;
       const clampedBoxes = allBoxes.slice(0, maxPieces);
