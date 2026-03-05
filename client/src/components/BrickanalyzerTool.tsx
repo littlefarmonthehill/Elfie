@@ -262,7 +262,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
     formData.append("image", file);
     // Auto mode always uses 3-pass; manual uses user's single-pass settings
     const effectiveSettings = scanMode === "auto"
-      ? { ...DEFAULT_SETTINGS, multiPass: true }
+      ? { ...settings, multiPass: true }   // Pass 2 uses user's own tuned settings; passes 1 & 3 are auto presets
       : { ...settings, multiPass: false };
     formData.append("settings", JSON.stringify(effectiveSettings));
 
@@ -436,7 +436,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
               <div className="px-3 py-2.5 border-t border-gray-700/60 space-y-1">
                 <p className="text-[11px] text-gray-300 font-medium">Smart 3-pass scan</p>
                 <p className="text-[10px] text-gray-500 leading-relaxed">
-                  Runs 3 Contour passes in parallel — minifigs/large pieces first, then standard parts, then small/fine pieces. Minifig regions block smaller-piece passes from subdividing them. Results merged before Brickognize.
+                  Your Manual settings are used as the core pass. Two additional passes run alongside — one tuned for large pieces and minifigs, one for small/fine pieces. Minifig regions block smaller-piece passes from subdividing them.
                 </p>
               </div>
             )}
