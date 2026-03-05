@@ -3513,7 +3513,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
         // Contour with higher min-size + more dilation to close gaps on complex outlines
         const pass1: Record<string, any> = {
           segmenter: 'contour',
-          minSizePct: 0.40,   // ignore tiny noise; focus on large pieces / minifigs
+          minSizePct: 0.25,   // catch shields and medium pieces as well as minifigs
           maxSizePct: 14,     // allow tall minifig bounding boxes
           blurRadius: 5,      // moderate blur — smooth noise on large surfaces
           cannyLow: 40,       // moderate edge sensitivity
@@ -3573,7 +3573,32 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
         if (containmentFiltered.length < merged.length) {
           console.log(`[Brickanalyzer] Containment suppression: removed ${merged.length - containmentFiltered.length} sub-regions (minifig rule) → ${containmentFiltered.length} final boxes`);
         }
-        allBoxes = containmentFiltered;
+
+        // Feet-zone suppression:
+        // Minifig feet/legs hang BELOW the body box, so containment suppression doesn't catch them.
+        // If a small box sits just below a significantly larger box and shares most of its horizontal
+        // span, it's almost certainly the feet — suppress it.
+        const feetFiltered = containmentFiltered.filter((box) => {
+          const boxArea = box.w * box.h;
+          return !containmentFiltered.some((large) => {
+            if (large === box) return false;
+            const largeArea = large.w * large.h;
+            if (largeArea <= boxArea * 2.5) return false;  // large must be meaningfully bigger
+            // Box top must be in the lower half of `large` or just below it (within 60% of large height)
+            const largeBottom = large.y + large.h;
+            if (box.y < large.y + large.h * 0.5) return false;  // box starts too high (not feet)
+            if (box.y > largeBottom + large.h * 0.6) return false; // box too far below
+            // Horizontal overlap: box must share >50% of its own width with large
+            const overlapX = Math.max(0, Math.min(box.x + box.w, large.x + large.w) - Math.max(box.x, large.x));
+            return overlapX / box.w > 0.50;
+          });
+        });
+
+        if (feetFiltered.length < containmentFiltered.length) {
+          console.log(`[Brickanalyzer] Feet-zone suppression: removed ${containmentFiltered.length - feetFiltered.length} sub-box(es) below large regions → ${feetFiltered.length} final boxes`);
+        }
+
+        allBoxes = feetFiltered;
 
       } else {
         console.log('[Brickanalyzer] Step 1: Single-pass segmentation...');
