@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo, forwardRef, useImperativeHandle } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import { Camera, X, CheckCircle, Loader2, ExternalLink, Trash2, ScanSearch, ChevronRight, Sparkles, Check, Grid3X3, Settings2, RotateCcw, ZoomIn } from "lucide-react";
+import { Camera, X, CheckCircle, Loader2, ExternalLink, Trash2, ScanSearch, ChevronRight, Sparkles, Check, Grid3X3, Settings2, RotateCcw, ZoomIn, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -218,6 +218,18 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
     refetchInterval: uiState === "processing" ? 3000 : false,
   });
 
+  // BrickLink API call limit — poll every 5 min so banner stays current without hammering
+  const { data: blRateLimit } = useQuery<{ allowed: boolean; blocked: boolean; callsLast24h: number; oldestCallTime: string | null; warning?: string }>({
+    queryKey: ["/api/bricklink/rate-limit"],
+    queryFn: async () => {
+      const res = await fetch("/api/bricklink/rate-limit", { credentials: "include" });
+      if (!res.ok) return { allowed: true, blocked: false, callsLast24h: 0, oldestCallTime: null };
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
+  });
+
   // Transition out of "processing" via useEffect — safe, outside render
   useEffect(() => {
     if (!scan) return;
@@ -416,8 +428,30 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
     return "text-gray-400";
   }
 
+  // Compute reset time: oldest BL call in the 24h window rolls off after 24h
+  const blResetTime = blRateLimit?.oldestCallTime
+    ? new Date(new Date(blRateLimit.oldestCallTime).getTime() + 24 * 60 * 60 * 1000)
+    : null;
+  const blResetStr = blResetTime
+    ? blResetTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    : null;
+
   return (
     <div className="space-y-4 p-1">
+
+      {/* ── BrickLink API limit warning ──────────────────────────────────── */}
+      {blRateLimit?.blocked && (
+        <div className="flex items-start gap-2.5 bg-red-950/50 border border-red-500/40 rounded-lg px-3 py-2.5">
+          <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+          <div className="space-y-0.5 min-w-0">
+            <p className="text-xs font-semibold text-red-300">BrickLink API limit reached</p>
+            <p className="text-xs text-red-400/80 leading-relaxed">
+              Brick Spotter can still identify pieces, but price lookups and color matching won't work until the limit resets.
+              {blResetStr && <span className="text-red-300"> Resets around <strong>{blResetStr}</strong>.</span>}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* ── IDLE: Upload UI ─────────────────────────────────────────────── */}
       {uiState === "idle" && (
