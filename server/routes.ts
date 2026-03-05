@@ -3951,13 +3951,18 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
             }
           }
 
-          // 2a. Early catalog-constrained color detection (PARTs only, when colorId unknown)
+          // 2a. Early catalog-constrained color detection (PARTs only, when colorId still unknown)
           // Must run BEFORE inventory color-matching so colorId is available for the strict match.
           // Results are hoisted in catalogColorMap/catalogColorsList to avoid a duplicate API call
           // in the inventoryLots section below.
+          //
+          // Strategy:
+          //   • 1 catalog color → use it unconditionally (printed/patterned parts are color 0)
+          //   • Multiple catalog colors + detectedRgb → Delta-E pick
+          //   • Multiple catalog colors + no detectedRgb → leave colorId null (can't determine)
           let catalogColorMap = new Map<number, { name: string | null; rgb: string | null }>();
           let catalogColorsList: { color_id: number; color_name: string }[] = [];
-          if (piece.partNo && blItemType === 'PART' && !colorId && piece.detectedRgb) {
+          if (piece.partNo && blItemType === 'PART' && !colorId) {
             try {
               const { data: blColorsEarly } = await bricklinkCatalogRequest(`/items/PART/${piece.partNo}/colors`);
               catalogColorsList = Array.isArray(blColorsEarly) ? blColorsEarly : [];
@@ -3966,21 +3971,33 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
                 const earlyRows = await db.select({ id: blColors.id, name: blColors.name, rgb: blColors.rgb })
                   .from(blColors).where(inArray(blColors.id, earlyIds));
                 catalogColorMap = new Map(earlyRows.map(r => [r.id, { name: r.name ?? null, rgb: r.rgb ?? null }]));
-                const { r: dr, g: dg, b: db } = piece.detectedRgb;
-                let closestId: number | null = null, closestName: string | null = null, closestDist = Infinity;
-                for (const [cid, col] of catalogColorMap.entries()) {
-                  if (!col.rgb || col.rgb.length !== 6) continue;
-                  const cr = parseInt(col.rgb.slice(0, 2), 16);
-                  const cg = parseInt(col.rgb.slice(2, 4), 16);
-                  const cb = parseInt(col.rgb.slice(4, 6), 16);
-                  const dist = deltaE(dr, dg, db, cr, cg, cb);
-                  if (dist < closestDist) { closestDist = dist; closestId = cid; closestName = col.name; }
-                }
-                if (closestId) {
-                  colorId = closestId;
-                  piece.colorName = closestName || '';
-                  colorRgb = catalogColorMap.get(closestId)?.rgb ?? null;
-                  console.log(`[ColorDetect/early] ${piece.partNo}: RGB=(${dr},${dg},${db}) → "${closestName}" id=${colorId} ΔE=${closestDist.toFixed(1)} (${catalogColorsList.length} catalog colors)`);
+
+                if (catalogColorsList.length === 1) {
+                  // Only one possible color — use it unconditionally (handles colorId=0 printed parts)
+                  const solo = catalogColorsList[0];
+                  colorId = solo.color_id;
+                  const soloRow = catalogColorMap.get(colorId);
+                  piece.colorName = soloRow?.name ?? solo.color_name ?? '';
+                  colorRgb = soloRow?.rgb ?? null;
+                  console.log(`[ColorDetect/early] ${piece.partNo}: single catalog color → "${piece.colorName}" id=${colorId}`);
+                } else if (piece.detectedRgb) {
+                  // Multiple catalog colors — use Delta-E to find closest match
+                  const { r: dr, g: dg, b: db } = piece.detectedRgb;
+                  let closestId: number | null = null, closestName: string | null = null, closestDist = Infinity;
+                  for (const [cid, col] of catalogColorMap.entries()) {
+                    if (!col.rgb || col.rgb.length !== 6) continue;
+                    const cr = parseInt(col.rgb.slice(0, 2), 16);
+                    const cg = parseInt(col.rgb.slice(2, 4), 16);
+                    const cb = parseInt(col.rgb.slice(4, 6), 16);
+                    const dist = deltaE(dr, dg, db, cr, cg, cb);
+                    if (dist < closestDist) { closestDist = dist; closestId = cid; closestName = col.name; }
+                  }
+                  if (closestId) {
+                    colorId = closestId;
+                    piece.colorName = closestName || '';
+                    colorRgb = catalogColorMap.get(closestId)?.rgb ?? null;
+                    console.log(`[ColorDetect/early] ${piece.partNo}: RGB=(${dr},${dg},${db}) → "${closestName}" id=${colorId} ΔE=${closestDist.toFixed(1)} (${catalogColorsList.length} catalog colors)`);
+                  }
                 }
               }
             } catch (earlyErr: any) {

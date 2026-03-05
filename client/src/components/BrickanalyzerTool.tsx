@@ -968,29 +968,36 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                       {/* Thumbnail */}
                       {(() => {
                         const isMinifig = grp.itemType === 'MINIFIG';
-                        const blDirectUrl = grp.partNo
+                        // Primary BL CDN URL — colorId-specific for parts, static for minifigs
+                        const blColorUrl = grp.partNo
                           ? isMinifig
                             ? `https://img.bricklink.com/ItemImage/MN/0/${grp.partNo}.png`
                             : `https://img.bricklink.com/ItemImage/PN/${repEntry.colorId ?? 0}/${grp.partNo}.png`
                           : null;
+                        // Secondary BL CDN URL — part-listing image, no color needed (parts only)
+                        const blPlUrl = (grp.partNo && !isMinifig)
+                          ? `https://img.bricklink.com/ItemImage/PL/${grp.partNo}.png`
+                          : null;
                         const isRebrickable = repImg?.includes('cdn.rebrickable.com');
                         const primarySrc = isRebrickable
                           ? `/api/images/proxy?url=${encodeURIComponent(repImg!)}`
-                          : (repImg && repImg.startsWith('https://')) ? repImg : blDirectUrl;
+                          : (repImg && repImg.startsWith('https://')) ? repImg : blColorUrl;
+                        const lightboxSrc = primarySrc || blPlUrl;
                         return (
                           <div
-                            className={`flex-shrink-0 w-12 h-12 rounded bg-gray-800/80 flex items-center justify-center overflow-hidden ${primarySrc ? 'cursor-pointer hover-elevate' : ''}`}
-                            onClick={primarySrc ? (e) => { e.stopPropagation(); setLightboxImage({ src: primarySrc, alt: grp.partName || grp.partNo }); } : undefined}
+                            className={`flex-shrink-0 w-12 h-12 rounded bg-gray-800/80 flex items-center justify-center overflow-hidden ${lightboxSrc ? 'cursor-pointer hover-elevate' : ''}`}
+                            onClick={lightboxSrc ? (e) => { e.stopPropagation(); setLightboxImage({ src: lightboxSrc, alt: grp.partName || grp.partNo }); } : undefined}
                             data-testid={`thumbnail-part-${gi}`}
                           >
-                            {primarySrc ? (
+                            {(primarySrc || blPlUrl) ? (
                               <img
-                                src={primarySrc}
+                                src={primarySrc || blPlUrl!}
                                 alt={grp.partName}
                                 className="w-full h-full object-contain p-0.5"
                                 onError={(e) => {
                                   const el = e.target as HTMLImageElement;
-                                  if (blDirectUrl && el.src !== blDirectUrl) { el.src = blDirectUrl; }
+                                  if (blColorUrl && el.src !== blColorUrl) { el.src = blColorUrl; }
+                                  else if (blPlUrl && el.src !== blPlUrl) { el.src = blPlUrl; }
                                   else { el.style.display = 'none'; }
                                 }}
                               />
