@@ -3900,6 +3900,9 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
         let colorRgb: string | null = null;
         let activeInvRows: any[] = [];
         const blItemType = piece.itemType || 'PART'; // hoisted — used in color variants + image fallback sections
+        // Hoisted outside if(piece.partNo) so inventoryLots section below can read them
+        let catalogColorMap = new Map<number, { name: string | null; rgb: string | null }>();
+        let catalogColorsList: { color_id: number; color_name: string }[] = [];
 
         if (piece.partNo) {
           // 1. Look up our inventory listings — all conditions for this partNo
@@ -3971,15 +3974,13 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
 
           // 2a. Early catalog-constrained color detection (PARTs only, when colorId still unknown)
           // Must run BEFORE inventory color-matching so colorId is available for the strict match.
-          // Results are hoisted in catalogColorMap/catalogColorsList to avoid a duplicate API call
-          // in the inventoryLots section below.
+          // catalogColorMap/catalogColorsList are declared above (outside this block) so they are
+          // readable by the inventoryLots section that runs after if(piece.partNo) closes.
           //
           // Strategy:
           //   • 1 catalog color → use it unconditionally (printed/patterned parts are color 0)
           //   • Multiple catalog colors + detectedRgb → Delta-E pick
           //   • Multiple catalog colors + no detectedRgb → leave colorId null (can't determine)
-          let catalogColorMap = new Map<number, { name: string | null; rgb: string | null }>();
-          let catalogColorsList: { color_id: number; color_name: string }[] = [];
           if (piece.partNo && blItemType === 'PART' && !colorId) {
             try {
               const { data: blColorsEarly } = await bricklinkCatalogRequest(`/items/PART/${piece.partNo}/colors`);
@@ -4103,11 +4104,18 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
             };
 
             const pgRowsNew = await getPgRows('N');
-            if (pgRowsNew.length > 0) {
-              marketSoldMaxNew = pgRowsNew[0].soldMaxPrice ? Number(pgRowsNew[0].soldMaxPrice) : null;
+            // Only treat cache as a hit when it has actual price data.
+            // A row with soldMaxPrice=null is a "nothing found" record — still try a fresh fetch.
+            if (pgRowsNew.length > 0 && pgRowsNew[0].soldMaxPrice != null) {
+              marketSoldMaxNew = Number(pgRowsNew[0].soldMaxPrice);
               if (!thumbnailUrl) thumbnailUrl = pgRowsNew[0].thumbnailUrl || pgRowsNew[0].imageUrl || null;
               if (!piece.partName && pgRowsNew[0].itemName) piece.partName = pgRowsNew[0].itemName;
             } else {
+              // Pull name/thumb from cache even if price is null (avoids missing part names)
+              if (pgRowsNew.length > 0) {
+                if (!thumbnailUrl) thumbnailUrl = pgRowsNew[0].thumbnailUrl || pgRowsNew[0].imageUrl || null;
+                if (!piece.partName && pgRowsNew[0].itemName) piece.partName = pgRowsNew[0].itemName;
+              }
               console.log(`[Brickanalyzer] Fetching live POM (new) for ${piece.partNo} color ${colorId ?? 'any'} type ${blItemType}`);
               const pgData = await fetchPriceOMagicData(
                 piece.partNo, blItemType as any, blItemType === 'PART' ? (colorId ?? undefined) : undefined, 'N', premiumPct, pomConfig
@@ -4120,8 +4128,8 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
             }
 
             const pgRowsUsed = await getPgRows('U');
-            if (pgRowsUsed.length > 0) {
-              marketSoldMaxUsed = pgRowsUsed[0].soldMaxPrice ? Number(pgRowsUsed[0].soldMaxPrice) : null;
+            if (pgRowsUsed.length > 0 && pgRowsUsed[0].soldMaxPrice != null) {
+              marketSoldMaxUsed = Number(pgRowsUsed[0].soldMaxPrice);
             } else {
               console.log(`[Brickanalyzer] Fetching live POM (used) for ${piece.partNo} color ${colorId ?? 'any'} type ${blItemType}`);
               const pgDataUsed = await fetchPriceOMagicData(
