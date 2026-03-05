@@ -66,7 +66,14 @@ interface BrickanalyzerScan {
   imgHeight?: number | null;
 }
 
-type UIState = "idle" | "uploading" | "processing" | "complete" | "failed";
+type UIState = "idle" | "uploading" | "previewing" | "processing" | "complete" | "failed";
+
+interface PreviewData {
+  boxes: { x: number; y: number; w: number; h: number }[];
+  imageWidth: number;
+  imageHeight: number;
+  objectUrl: string;
+}
 
 interface ScanSettings {
   // Multi-pass
@@ -128,6 +135,9 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
     return loadBaseline();
   });
   const [showSettings, setShowSettings] = useState(false);
+  const [previewData, setPreviewData] = useState<PreviewData | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [pendingSettings, setPendingSettings] = useState<Record<string, any> | null>(null);
   const [scanMode, setScanMode] = useState<"auto" | "manual">(() => {
     try { return (localStorage.getItem(SCAN_MODE_KEY) as "auto" | "manual") || "auto"; } catch { return "auto"; }
   });
@@ -244,14 +254,40 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
     setUiState("uploading");
     setLeftPage(false);
 
-    const formData = new FormData();
-    formData.append("image", file);
     // Auto mode always uses 3-pass; manual uses user's single-pass settings
     const effectiveSettings = scanMode === "auto"
-      ? { ...settings, multiPass: true }   // Pass 2 uses user's own tuned settings; passes 1 & 3 are auto presets
+      ? { ...settings, multiPass: true }
       : { ...settings, multiPass: false };
-    formData.append("settings", JSON.stringify(effectiveSettings));
 
+    // Step 1: Run segmentation preview — show detected zones before committing to Brickognize
+    const previewForm = new FormData();
+    previewForm.append("image", file);
+    previewForm.append("settings", JSON.stringify(effectiveSettings));
+    try {
+      const res = await fetch("/api/brickanalyzer/segment", {
+        method: "POST",
+        credentials: "include",
+        body: previewForm,
+      });
+      if (!res.ok) throw new Error("Segmentation failed");
+      const { boxes, imageWidth, imageHeight } = await res.json();
+      const objectUrl = URL.createObjectURL(file);
+      if (previewData?.objectUrl) URL.revokeObjectURL(previewData.objectUrl);
+      setPreviewData({ boxes, imageWidth, imageHeight, objectUrl });
+      setPendingFile(file);
+      setPendingSettings(effectiveSettings);
+      setUiState("previewing");
+    } catch {
+      // If preview fails, fall through to full scan directly
+      await startFullScan(file, effectiveSettings);
+    }
+  }
+
+  async function startFullScan(file: File, effectiveSettings: Record<string, any>) {
+    setUiState("uploading");
+    const formData = new FormData();
+    formData.append("image", file);
+    formData.append("settings", JSON.stringify(effectiveSettings));
     try {
       const res = await fetch("/api/brickanalyzer/scan", {
         method: "POST",
@@ -266,6 +302,21 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
       setUiState("failed");
       toast({ title: "Upload failed", description: "Couldn't start the scan. Try again.", variant: "destructive" });
     }
+  }
+
+  function handleConfirmScan() {
+    if (!pendingFile || !pendingSettings) return;
+    if (previewData?.objectUrl) URL.revokeObjectURL(previewData.objectUrl);
+    setPreviewData(null);
+    startFullScan(pendingFile, pendingSettings);
+  }
+
+  function handleCancelPreview() {
+    if (previewData?.objectUrl) URL.revokeObjectURL(previewData.objectUrl);
+    setPreviewData(null);
+    setPendingFile(null);
+    setPendingSettings(null);
+    setUiState("idle");
   }
 
   const [expandedParts, setExpandedParts] = useState<Set<string>>(new Set());
@@ -602,7 +653,76 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
       {uiState === "uploading" && (
         <div className="flex flex-col items-center gap-3 py-12">
           <Loader2 className="w-8 h-8 text-lego-blue animate-spin" />
-          <p className="text-sm text-gray-300">Uploading image...</p>
+          <p className="text-sm text-gray-300">Detecting pieces...</p>
+        </div>
+      )}
+
+      {/* ── PREVIEWING ──────────────────────────────────────────────────── */}
+      {uiState === "previewing" && previewData && (
+        <div className="space-y-3">
+          {/* Header bar */}
+          <div className="flex flex-wrap items-center gap-2 bg-gray-800/60 border border-gray-700 rounded-lg px-3 py-2">
+            <div className="flex items-center gap-1.5 flex-1 min-w-0">
+              <ScanSearch className="w-4 h-4 text-purple-400 shrink-0" />
+              <span className="text-sm font-medium text-purple-300">
+                {previewData.boxes.length} zone{previewData.boxes.length !== 1 ? "s" : ""} detected
+              </span>
+            </div>
+            <span className="text-xs text-gray-500">Review before identifying</span>
+          </div>
+
+          {/* Photo with overlaid bounding boxes */}
+          <div
+            className="relative w-full rounded-lg overflow-hidden bg-gray-900 border border-gray-700"
+            style={{ aspectRatio: `${previewData.imageWidth} / ${previewData.imageHeight}` }}
+          >
+            <img
+              src={previewData.objectUrl}
+              alt="Scan preview"
+              className="w-full h-full object-contain"
+            />
+            {previewData.boxes.map((box, i) => (
+              <div
+                key={i}
+                className="absolute border-2 border-purple-400/80 rounded-sm pointer-events-none"
+                style={{
+                  left:   `${(box.x / previewData.imageWidth)  * 100}%`,
+                  top:    `${(box.y / previewData.imageHeight) * 100}%`,
+                  width:  `${(box.w / previewData.imageWidth)  * 100}%`,
+                  height: `${(box.h / previewData.imageHeight) * 100}%`,
+                }}
+              >
+                <span className="absolute -top-4 left-0 text-[9px] font-mono text-purple-300 bg-gray-900/80 px-0.5 leading-3">
+                  {i + 1}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={handleCancelPreview}
+              data-testid="button-preview-cancel"
+            >
+              Retake
+            </Button>
+            <Button
+              className="flex-1 bg-purple-600 gap-1.5"
+              onClick={handleConfirmScan}
+              data-testid="button-preview-confirm"
+            >
+              <ScanSearch className="w-3.5 h-3.5" />
+              Identify {previewData.boxes.length} piece{previewData.boxes.length !== 1 ? "s" : ""}
+            </Button>
+          </div>
+          {previewData.boxes.length === 0 && (
+            <p className="text-xs text-gray-500 text-center">
+              No pieces detected. Try adjusting your settings or retaking the photo.
+            </p>
+          )}
         </div>
       )}
 

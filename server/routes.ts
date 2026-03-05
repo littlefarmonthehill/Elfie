@@ -3884,16 +3884,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
         const blItemType = piece.itemType || 'PART'; // hoisted — used in color variants + image fallback sections
 
         if (piece.partNo) {
-          // 1. Resolve colorId from color name in bl_colors
-          if (piece.colorName) {
-            const colorRows = await db.select({ id: blColors.id, rgb: blColors.rgb })
-              .from(blColors)
-              .where(sql`lower(${blColors.name}) = lower(${piece.colorName})`)
-              .limit(1);
-            if (colorRows.length > 0) { colorId = colorRows[0].id; colorRgb = colorRows[0].rgb ?? null; }
-          }
-
-          // 2. Look up our inventory listings — both new and used for the matched color
+          // 1. Look up our inventory listings — both new and used for the matched color
           const invRows = await db.select({
             id: blInventory.id,
             unitPrice: blInventory.unitPrice,
@@ -4001,6 +3992,45 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
             }
           }
 
+          // 2a. Early catalog-constrained color detection (PARTs only, when colorId still unknown)
+          // Fetches BL catalog colors for this part and runs Delta-E RGB matching against the
+          // detected dominant crop color. This runs BEFORE the price guide lookup so that
+          // fetchPriceOMagicData receives the correct colorId for non-inventory items.
+          // catalogColorMap and catalogColorsList are hoisted so the inventoryLots section
+          // below can reuse them without a second BL API call.
+          let catalogColorMap = new Map<number, { name: string | null; rgb: string | null }>();
+          let catalogColorsList: { color_id: number; color_name: string }[] = [];
+          if (piece.partNo && blItemType === 'PART' && !colorId && piece.detectedRgb) {
+            try {
+              const { data: blColorsEarly } = await bricklinkCatalogRequest(`/items/PART/${piece.partNo}/colors`);
+              catalogColorsList = Array.isArray(blColorsEarly) ? blColorsEarly : [];
+              if (catalogColorsList.length > 0) {
+                const earlyIds = catalogColorsList.map((c: { color_id: number }) => c.color_id);
+                const earlyRows = await db.select({ id: blColors.id, name: blColors.name, rgb: blColors.rgb })
+                  .from(blColors).where(inArray(blColors.id, earlyIds));
+                catalogColorMap = new Map(earlyRows.map(r => [r.id, { name: r.name ?? null, rgb: r.rgb ?? null }]));
+                const { r: dr, g: dg, b: db } = piece.detectedRgb;
+                let closestId: number | null = null, closestName: string | null = null, closestDist = Infinity;
+                for (const [cid, col] of catalogColorMap.entries()) {
+                  if (!col.rgb || col.rgb.length !== 6) continue;
+                  const cr = parseInt(col.rgb.slice(0, 2), 16);
+                  const cg = parseInt(col.rgb.slice(2, 4), 16);
+                  const cb = parseInt(col.rgb.slice(4, 6), 16);
+                  const dist = deltaE(dr, dg, db, cr, cg, cb);
+                  if (dist < closestDist) { closestDist = dist; closestId = cid; closestName = col.name; }
+                }
+                if (closestId) {
+                  colorId = closestId;
+                  piece.colorName = closestName || '';
+                  colorRgb = catalogColorMap.get(closestId)?.rgb ?? null;
+                  console.log(`[ColorDetect/early] ${piece.partNo}: RGB=(${dr},${dg},${db}) → "${closestName}" id=${colorId} ΔE=${closestDist.toFixed(1)} (${catalogColorsList.length} catalog colors)`);
+                }
+              }
+            } catch (earlyErr: any) {
+              console.warn(`[ColorDetect/early] catalog fetch failed for ${piece.partNo}:`, earlyErr.message);
+            }
+          }
+
           // 3. Price guide cache — query separately for new and used
           try {
             const pgCols = {
@@ -4073,12 +4103,25 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
 
         // Build color variants from BrickLink catalog — shows every known color for this part
         // Minifigs don't have color variants, so skip the catalog call for them
+        // catalogColorMap / catalogColorsList may already be populated by the early color
+        // detection block (2a) above — if so, reuse them to avoid a second BL API call.
         let inventoryLots: { colorId: number | null; colorName: string | null; colorRgb: string | null; qtyNew: number; priceNew: number | null; qtyUsed: number; priceUsed: number | null }[] = [];
         if (piece.partNo && blItemType === 'PART') {
           try {
-            const { data: blColors_data } = await bricklinkCatalogRequest(`/items/PART/${piece.partNo}/colors`);
-            console.log(`[Brickanalyzer] BL colors for ${piece.partNo}: ${JSON.stringify(blColors_data)?.slice(0, 200)}`);
-            const catalogColors: { color_id: number; color_name: string }[] = Array.isArray(blColors_data) ? blColors_data : [];
+            // Only fetch catalog colors if not already populated by early detection block
+            if (catalogColorsList.length === 0) {
+              const { data: blColors_data } = await bricklinkCatalogRequest(`/items/PART/${piece.partNo}/colors`);
+              console.log(`[Brickanalyzer] BL colors for ${piece.partNo}: ${JSON.stringify(blColors_data)?.slice(0, 200)}`);
+              catalogColorsList = Array.isArray(blColors_data) ? blColors_data : [];
+              if (catalogColorsList.length > 0) {
+                const ids = catalogColorsList.map(c => c.color_id);
+                const rows = await db.select({ id: blColors.id, name: blColors.name, rgb: blColors.rgb })
+                  .from(blColors).where(inArray(blColors.id, ids));
+                catalogColorMap = new Map(rows.map(r => [r.id, { name: r.name ?? null, rgb: r.rgb ?? null }]));
+              }
+            }
+            const catalogColors = catalogColorsList;
+            const colorMap = catalogColorMap;
             if (catalogColors.length > 0) {
               // Build an inventory lookup map from activeInvRows for O(1) access
               const invByColorId = new Map<number, { qtyNew: number; priceNew: number | null; qtyUsed: number; priceUsed: number | null }>();
@@ -4090,13 +4133,9 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
                 if (row.newOrUsed === 'N') { inv.qtyNew += row.quantity || 0; if (inv.priceNew === null && row.unitPrice) inv.priceNew = Number(row.unitPrice); }
                 else if (row.newOrUsed === 'U') { inv.qtyUsed += row.quantity || 0; if (inv.priceUsed === null && row.unitPrice) inv.priceUsed = Number(row.unitPrice); }
               }
-              // Fetch name + RGB for all catalog color IDs from our DB (authoritative source)
               const catalogColorIds = catalogColors.map(c => c.color_id);
-              const colorRows = await db.select({ id: blColors.id, name: blColors.name, rgb: blColors.rgb })
-                .from(blColors).where(inArray(blColors.id, catalogColorIds));
-              const colorMap = new Map(colorRows.map(r => [r.id, { name: r.name ?? null, rgb: r.rgb ?? null }]));
 
-              // ── Catalog-constrained color detection ──
+              // ── Catalog-constrained color detection (only if not already resolved by early block) ──
               // Use detected RGB to pick the closest color from the real BrickLink catalog
               // for this part — the definitive list of all colors it was ever made in.
               if (piece.detectedRgb && !colorId) {
@@ -4263,8 +4302,64 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
     }
   }
 
-  // POST /api/brickanalyzer/scan — upload image, start background job
+  // POST /api/brickanalyzer/segment — preview only: run segmentation, return bounding boxes (no Brickognize)
   const brickanalyzerUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
+  app.post("/api/brickanalyzer/segment", brickanalyzerUpload.single('image'), isApproved, async (req, res) => {
+    try {
+      if (!req.file) return res.status(400).json({ error: "No image provided" });
+      const { default: sharp } = await import('sharp');
+      const imgMeta = await sharp(req.file.buffer).metadata();
+      const imgWidth = imgMeta.width || 1000;
+      const imgHeight = imgMeta.height || 1000;
+      let settings: Record<string, any> = {};
+      if (req.body?.settings) { try { settings = JSON.parse(req.body.settings); } catch {} }
+
+      const { segmentImage } = await import('./services/segmentClient.js');
+      const iouBox2 = (a: any, b: any): number => {
+        const ix0 = Math.max(a.x, b.x), iy0 = Math.max(a.y, b.y);
+        const ix1 = Math.min(a.x + a.w, b.x + b.w), iy1 = Math.min(a.y + a.h, b.y + b.h);
+        const inter = Math.max(0, ix1 - ix0) * Math.max(0, iy1 - iy0);
+        if (inter === 0) return 0;
+        return inter / (a.w * a.h + b.w * b.h - inter);
+      };
+
+      let allBoxes: { x: number; y: number; w: number; h: number }[];
+      if (settings.multiPass) {
+        const pass1 = { segmenter: 'contour', minSizePct: 0.40, maxSizePct: 14, blurRadius: 5, cannyLow: 40, cannyHigh: 130, dilateIter: 4 };
+        const pass2 = { ...settings };
+        const pass3 = { segmenter: 'contour', minSizePct: 0.02, maxSizePct: 3, blurRadius: 3, cannyLow: 25, cannyHigh: 90, dilateIter: 1 };
+        const [b1, b2, b3] = await Promise.all([
+          segmentImage(req.file.buffer, pass1 as any),
+          segmentImage(req.file.buffer, pass2 as any),
+          segmentImage(req.file.buffer, pass3 as any),
+        ]);
+        const merged: typeof b1 = [];
+        for (const box of [...b1, ...b2, ...b3]) {
+          if (!merged.some(m => iouBox2(m, box) > 0.35)) merged.push(box);
+        }
+        allBoxes = merged.filter((box) => {
+          const boxArea = box.w * box.h;
+          return !merged.some((other) => {
+            if (other === box) return false;
+            if (other.w * other.h <= boxArea * 1.5) return false;
+            const ix0 = Math.max(box.x, other.x), iy0 = Math.max(box.y, other.y);
+            const ix1 = Math.min(box.x + box.w, other.x + other.w), iy1 = Math.min(box.y + box.h, other.y + other.h);
+            return Math.max(0, ix1 - ix0) * Math.max(0, iy1 - iy0) / boxArea > 0.65;
+          });
+        });
+      } else {
+        allBoxes = await segmentImage(req.file.buffer, settings as any);
+      }
+
+      const maxPieces = Number(settings.maxPieces ?? 100);
+      res.json({ boxes: allBoxes.slice(0, maxPieces), imageWidth: imgWidth, imageHeight: imgHeight });
+    } catch (err: any) {
+      console.error('[Brickanalyzer] Segment preview error:', err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/brickanalyzer/scan — upload image, start background job
   app.post("/api/brickanalyzer/scan", brickanalyzerUpload.single('image'), isApproved, async (req, res) => {
     try {
       if (!req.file) return res.status(400).json({ error: "No image provided" });
