@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo, forwardRef, useImperativeHandle } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import { Camera, X, CheckCircle, Loader2, ExternalLink, Trash2, ScanSearch, ChevronRight, Sparkles, Check, Grid3X3, Settings2, RotateCcw, ZoomIn, AlertTriangle } from "lucide-react";
+import { Camera, X, CheckCircle, Loader2, ExternalLink, Trash2, ScanSearch, ChevronRight, Sparkles, Check, Grid3X3, Settings2, RotateCcw, ZoomIn, AlertTriangle, ThumbsUp, ThumbsDown, Minus, FlaskConical, BarChart3, RefreshCw, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -106,9 +106,64 @@ const DEFAULT_SETTINGS: ScanSettings = {
   dilateIter:      6,
 };
 
-const SETTINGS_KEY  = "brickspotter-settings";
-const BASELINE_KEY  = "brickspotter-baseline";
-const SCAN_MODE_KEY = "brickspotter-scan-mode";
+const SETTINGS_KEY    = "brickspotter-settings";
+const BASELINE_KEY    = "brickspotter-baseline";
+const SCAN_MODE_KEY   = "brickspotter-scan-mode";
+const CALIBRATION_KEY = "brickspotter-calibration";
+
+interface CalibrationEntry {
+  timestamp: number;
+  round: 1 | 2 | 3 | 4;
+  scanId: number;
+  partNo: string;
+  partName: string;
+  confidence: string;
+  cropIndex: number | null;
+  verdict: 'correct' | 'close' | 'wrong';
+}
+
+const CALIBRATION_ROUNDS = [
+  {
+    round: 1 as const,
+    label: 'Easy Calibration',
+    goal: 'Baseline accuracy — big, obvious parts',
+    color: 'text-green-400',
+    borderColor: 'border-green-500/30',
+    bg: 'bg-green-950/20',
+    instructions: 'Scan 5–10 large, distinctive parts — long Technic beams, big slopes, doors, or windows. One piece per photo, plain background.',
+    tips: ['Even, flat lighting works best', 'Keep the piece centered in frame', 'Dark or neutral background helps edge detection'],
+  },
+  {
+    round: 2 as const,
+    label: 'High-Value Targets',
+    goal: 'Minifig + specialty part accuracy',
+    color: 'text-amber-400',
+    borderColor: 'border-amber-500/30',
+    bg: 'bg-amber-950/20',
+    instructions: 'Scan minifig torsos, heads, and accessories. Also try rare or highly-colored parts. These are your highest-value ID decisions.',
+    tips: ['Minifig heads: try face-on first, then angled', 'Flat diffuse lighting prevents glare on printed faces', 'Accessories often match best when isolated'],
+  },
+  {
+    round: 3 as const,
+    label: 'Common Parts',
+    goal: 'Volume accuracy — bread-and-butter inventory',
+    color: 'text-blue-400',
+    borderColor: 'border-blue-500/30',
+    bg: 'bg-blue-950/20',
+    instructions: 'Scan 1×1s, 1×2s, 2×4 bricks, tiles, and plates in various colors. This is your highest-volume category — accuracy here matters most.',
+    tips: ['Small parts are hardest — try close-up shots', 'Color accuracy is critical for pricing', 'Try the same part in 2–3 colors to check color detection'],
+  },
+  {
+    round: 4 as const,
+    label: 'Stress Test',
+    goal: 'Edge cases and failure modes',
+    color: 'text-red-400',
+    borderColor: 'border-red-500/30',
+    bg: 'bg-red-950/20',
+    instructions: 'Scan a pile of 5–8 mixed pieces, worn/dirty parts, unusual angles, or very similar-looking parts side by side.',
+    tips: ['This exposes segmentation weaknesses', 'Note which failure types repeat — they reveal tuning opportunities', 'Adjust Manual settings if pieces merge or split'],
+  },
+] as const;
 
 function loadBaseline(): ScanSettings {
   try {
@@ -333,6 +388,90 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
     setUiState("idle");
   }
 
+  // ── Calibration mode state ────────────────────────────────────────────────
+  const [calibrateMode, setCalibrateMode] = useState(false);
+  const [calibrateRound, setCalibrateRound] = useState<1 | 2 | 3 | 4>(1);
+  const [showScorecard, setShowScorecard] = useState(false);
+  const [verdicts, setVerdicts] = useState<Record<string, 'correct' | 'close' | 'wrong'>>(() => {
+    try { const s = localStorage.getItem(CALIBRATION_KEY); return s ? JSON.parse(s).verdicts ?? {} : {}; } catch { return {}; }
+  });
+  const [calibrationLog, setCalibrationLog] = useState<CalibrationEntry[]>(() => {
+    try { const s = localStorage.getItem(CALIBRATION_KEY); return s ? JSON.parse(s).log ?? [] : []; } catch { return []; }
+  });
+  const [confirmedClips, setConfirmedClips] = useState<Set<string>>(new Set());
+  const [confirmingClip, setConfirmingClip] = useState<string | null>(null);
+
+  useEffect(() => {
+    try { localStorage.setItem(CALIBRATION_KEY, JSON.stringify({ verdicts, log: calibrationLog })); } catch {}
+  }, [verdicts, calibrationLog]);
+
+  function handleVerdict(partNo: string, partName: string, confidence: string, cropIndex: number | null, verdict: 'correct' | 'close' | 'wrong') {
+    const key = `${partNo}__${cropIndex ?? 'x'}`;
+    setVerdicts(v => ({ ...v, [key]: verdict }));
+    if (scanId) {
+      setCalibrationLog(log => [...log, {
+        timestamp: Date.now(), round: calibrateRound, scanId,
+        partNo, partName, confidence, cropIndex, verdict,
+      }]);
+    }
+  }
+
+  async function handleConfirmToClip(partNo: string, colorId: number | null, cropIndex: number | null, itemType: string) {
+    if (!scanId || cropIndex == null) return;
+    const key = `${partNo}__${cropIndex}`;
+    setConfirmingClip(key);
+    try {
+      const res = await fetch('/api/brickspotter/confirm-embedding', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scanId, cropIndex, itemNo: partNo, colorId, itemType }),
+      });
+      if (!res.ok) throw new Error('failed');
+      setConfirmedClips(prev => new Set([...prev, key]));
+      toast({ title: 'Added to CLIP catalog', description: `${partNo} confirmed as a visual reference.` });
+    } catch {
+      toast({ title: 'Failed to confirm', variant: 'destructive' });
+    } finally {
+      setConfirmingClip(null);
+    }
+  }
+
+  function resetCalibration() {
+    setVerdicts({});
+    setCalibrationLog([]);
+    setConfirmedClips(new Set());
+    try { localStorage.removeItem(CALIBRATION_KEY); } catch {}
+    toast({ title: 'Calibration reset', description: 'All scores cleared. Start fresh.' });
+  }
+
+  // Calibration scorecard computed stats
+  const calibStats = useMemo(() => {
+    const total = calibrationLog.length;
+    const correct = calibrationLog.filter(e => e.verdict === 'correct').length;
+    const close   = calibrationLog.filter(e => e.verdict === 'close').length;
+    const wrong   = calibrationLog.filter(e => e.verdict === 'wrong').length;
+    const byRound = [1, 2, 3, 4].map(r => {
+      const entries = calibrationLog.filter(e => e.round === r);
+      return {
+        round: r as 1|2|3|4,
+        total: entries.length,
+        correct: entries.filter(e => e.verdict === 'correct').length,
+        close: entries.filter(e => e.verdict === 'close').length,
+        wrong: entries.filter(e => e.verdict === 'wrong').length,
+      };
+    });
+    const byConf = (['high', 'medium', 'low'] as const).map(c => {
+      const entries = calibrationLog.filter(e => e.confidence === c);
+      return {
+        conf: c,
+        total: entries.length,
+        correct: entries.filter(e => e.verdict === 'correct').length,
+      };
+    });
+    return { total, correct, close, wrong, byRound, byConf };
+  }, [calibrationLog]);
+
+  // ── Standard results state ────────────────────────────────────────────────
   const [expandedParts, setExpandedParts] = useState<Set<string>>(new Set());
   const [showCrops, setShowCrops] = useState(false);
   const [lightboxImage, setLightboxImage] = useState<{ src: string; alt: string } | null>(null);
@@ -441,6 +580,33 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
   return (
     <div className="space-y-4 sm:space-y-12 p-1 sm:p-6">
 
+      {/* ── Scan / Calibrate mode toggle ─────────────────────────────────── */}
+      {(uiState === "idle" || uiState === "complete" || uiState === "failed") && (
+        <div className="flex rounded-lg border border-gray-700 overflow-hidden">
+          <button
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 sm:py-5 text-xs sm:text-xl font-semibold transition-colors ${!calibrateMode ? "bg-purple-600 text-white" : "text-gray-400 hover:text-gray-300 hover:bg-gray-800/50"}`}
+            onClick={() => setCalibrateMode(false)}
+            data-testid="button-mode-scan"
+          >
+            <ScanSearch className="w-3.5 h-3.5 sm:w-6 sm:h-6" />
+            Scan
+          </button>
+          <button
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 sm:py-5 text-xs sm:text-xl font-semibold transition-colors border-l border-gray-700 ${calibrateMode ? "bg-amber-600 text-white" : "text-gray-400 hover:text-gray-300 hover:bg-gray-800/50"}`}
+            onClick={() => setCalibrateMode(true)}
+            data-testid="button-mode-calibrate"
+          >
+            <FlaskConical className="w-3.5 h-3.5 sm:w-6 sm:h-6" />
+            Calibrate
+            {calibStats.total > 0 && (
+              <span className={`text-[10px] sm:text-lg font-bold px-1.5 rounded-full ${calibrateMode ? 'bg-amber-800/60 text-amber-200' : 'bg-gray-700 text-gray-300'}`}>
+                {calibStats.total}
+              </span>
+            )}
+          </button>
+        </div>
+      )}
+
       {/* ── BrickLink API limit warning ──────────────────────────────────── */}
       {blRateLimit?.blocked && (
         <div className="flex items-start gap-2.5 bg-red-950/50 border border-red-500/40 rounded-lg px-3 sm:px-10 py-2.5 sm:py-7">
@@ -482,6 +648,109 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
               Tap to take a photo or pick from your library.
             </p>
           </button>
+
+          {/* ── Calibration: round guidance ──────────────────────────── */}
+          {calibrateMode && (() => {
+            const rd = CALIBRATION_ROUNDS.find(r => r.round === calibrateRound)!;
+            const rdStats = calibStats.byRound.find(r => r.round === calibrateRound)!;
+            return (
+              <div className={`rounded-lg border ${rd.borderColor} ${rd.bg} space-y-3 p-3 sm:p-8`}>
+                {/* Round selector */}
+                <div className="flex flex-wrap gap-1.5">
+                  {CALIBRATION_ROUNDS.map(r => (
+                    <button
+                      key={r.round}
+                      onClick={() => setCalibrateRound(r.round)}
+                      className={`text-[10px] sm:text-lg font-semibold px-2.5 py-1 rounded-full transition-colors ${calibrateRound === r.round ? `${r.color} bg-gray-800` : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/60'}`}
+                      data-testid={`button-calib-round-${r.round}`}
+                    >
+                      {r.round}. {r.label}
+                    </button>
+                  ))}
+                </div>
+                {/* Goal + instructions */}
+                <div className="space-y-1">
+                  <p className={`text-xs sm:text-xl font-semibold ${rd.color}`}>{rd.goal}</p>
+                  <p className="text-[11px] sm:text-lg text-gray-300 leading-relaxed">{rd.instructions}</p>
+                </div>
+                {/* Tips */}
+                <ul className="space-y-0.5">
+                  {rd.tips.map((tip, i) => (
+                    <li key={i} className="flex items-start gap-1.5 text-[10px] sm:text-lg text-gray-500">
+                      <Target className="w-3 h-3 sm:w-5 sm:h-5 mt-0.5 flex-shrink-0 text-gray-600" />
+                      {tip}
+                    </li>
+                  ))}
+                </ul>
+                {/* Round progress + overall scorecard access */}
+                <div className="flex flex-wrap items-center gap-3 pt-1 border-t border-gray-700/50">
+                  {rdStats.total > 0 ? (
+                    <>
+                      <span className="text-[10px] sm:text-lg text-gray-500">Round {rd.round}:</span>
+                      <span className="text-[10px] sm:text-lg text-green-400 font-medium">{rdStats.correct} correct</span>
+                      <span className="text-[10px] sm:text-lg text-yellow-400 font-medium">{rdStats.close} close</span>
+                      <span className="text-[10px] sm:text-lg text-red-400 font-medium">{rdStats.wrong} wrong</span>
+                      <span className="text-[10px] sm:text-lg text-gray-600">
+                        {Math.round(rdStats.correct / rdStats.total * 100)}% accurate
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-[10px] sm:text-lg text-gray-600">No scans yet for this round — take a photo above to start.</span>
+                  )}
+                  {calibStats.total > 0 && (
+                    <button
+                      onClick={() => setShowScorecard(v => !v)}
+                      className="ml-auto flex items-center gap-1 text-[10px] sm:text-lg text-amber-500 hover:text-amber-300 transition-colors font-medium"
+                      data-testid="button-calib-scorecard-idle"
+                    >
+                      <BarChart3 className="w-3 h-3" />
+                      {showScorecard ? 'Hide' : 'View'} scorecard ({calibStats.total} total)
+                    </button>
+                  )}
+                </div>
+
+                {/* Inline mini scorecard on idle screen */}
+                {showScorecard && calibStats.total > 0 && (
+                  <div className="space-y-2 pt-1 border-t border-gray-700/50">
+                    <div className="grid grid-cols-3 gap-1.5">
+                      <div className="rounded bg-green-950/40 border border-green-500/20 p-1.5 text-center">
+                        <p className="text-sm sm:text-2xl font-bold text-green-400">{Math.round(calibStats.correct / calibStats.total * 100)}%</p>
+                        <p className="text-[9px] sm:text-base text-green-600">Accuracy</p>
+                      </div>
+                      <div className="rounded bg-yellow-950/40 border border-yellow-500/20 p-1.5 text-center">
+                        <p className="text-sm sm:text-2xl font-bold text-yellow-400">{calibStats.close}</p>
+                        <p className="text-[9px] sm:text-base text-yellow-600">Close</p>
+                      </div>
+                      <div className="rounded bg-red-950/40 border border-red-500/20 p-1.5 text-center">
+                        <p className="text-sm sm:text-2xl font-bold text-red-400">{calibStats.wrong}</p>
+                        <p className="text-[9px] sm:text-base text-red-600">Wrong</p>
+                      </div>
+                    </div>
+                    {calibStats.byConf.filter(c => c.total > 0).map(c => {
+                      const pct = Math.round(c.correct / c.total * 100);
+                      const confLabel = c.conf === 'high' ? 'text-green-400' : c.conf === 'medium' ? 'text-yellow-400' : 'text-gray-400';
+                      return (
+                        <div key={c.conf} className="flex items-center gap-2">
+                          <span className={`text-[10px] sm:text-lg capitalize w-12 ${confLabel}`}>{c.conf}</span>
+                          <div className="flex-1 bg-gray-800 rounded-full h-1 overflow-hidden">
+                            <div className="h-full rounded-full" style={{ width: `${pct}%`, background: pct >= 70 ? '#22c55e' : pct >= 40 ? '#eab308' : '#ef4444' }} />
+                          </div>
+                          <span className="text-[10px] sm:text-lg text-gray-500 font-mono">{pct}%</span>
+                        </div>
+                      );
+                    })}
+                    <button
+                      onClick={resetCalibration}
+                      className="flex items-center gap-1 text-[10px] sm:text-lg text-gray-500 hover:text-gray-300 transition-colors"
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                      Reset all scores
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* ── Auto / Manual mode selector ─────────────────────────── */}
           <div className="rounded-lg border border-gray-700 bg-gray-900/40 overflow-hidden">
@@ -861,6 +1130,18 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                 {showCrops ? "Hide Crops" : `View ${activeScan?.cropCount} Crops`}
               </Button>
             )}
+            {calibrateMode && calibStats.total > 0 && (
+              <Button
+                size="sm"
+                variant={showScorecard ? "default" : "outline"}
+                className="shrink-0 gap-1.5"
+                onClick={() => setShowScorecard(v => !v)}
+                data-testid="button-view-scorecard"
+              >
+                <BarChart3 className="w-3.5 h-3.5" />
+                Scorecard
+              </Button>
+            )}
           </div>
 
           {/* ── Crops grid ────────────────────────────────────────────────── */}
@@ -888,6 +1169,83 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                     </span>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── Calibration Scorecard Panel ──────────────────────────────── */}
+          {calibrateMode && showScorecard && calibStats.total > 0 && (
+            <div className="rounded-lg border border-amber-500/30 bg-amber-950/15 p-3 sm:p-8 space-y-3">
+              {/* Header */}
+              <div className="flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 sm:w-7 sm:h-7 text-amber-400" />
+                <span className="text-sm sm:text-xl font-semibold text-amber-300">Calibration Scorecard</span>
+                <button
+                  onClick={resetCalibration}
+                  className="ml-auto flex items-center gap-1 text-[10px] sm:text-lg text-gray-500 hover:text-gray-300 transition-colors"
+                  data-testid="button-reset-calibration"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  Reset
+                </button>
+              </div>
+
+              {/* Overall stats */}
+              <div className="grid grid-cols-3 gap-2">
+                <div className="rounded-lg bg-green-950/40 border border-green-500/20 p-2 sm:p-5 text-center">
+                  <p className="text-lg sm:text-3xl font-bold text-green-400">{calibStats.total > 0 ? Math.round(calibStats.correct / calibStats.total * 100) : 0}%</p>
+                  <p className="text-[10px] sm:text-lg text-green-600 font-medium">Accuracy</p>
+                  <p className="text-[9px] sm:text-base text-gray-600">{calibStats.correct}/{calibStats.total} correct</p>
+                </div>
+                <div className="rounded-lg bg-yellow-950/40 border border-yellow-500/20 p-2 sm:p-5 text-center">
+                  <p className="text-lg sm:text-3xl font-bold text-yellow-400">{calibStats.close}</p>
+                  <p className="text-[10px] sm:text-lg text-yellow-600 font-medium">Close</p>
+                  <p className="text-[9px] sm:text-base text-gray-600">right part, wrong color</p>
+                </div>
+                <div className="rounded-lg bg-red-950/40 border border-red-500/20 p-2 sm:p-5 text-center">
+                  <p className="text-lg sm:text-3xl font-bold text-red-400">{calibStats.wrong}</p>
+                  <p className="text-[10px] sm:text-lg text-red-600 font-medium">Wrong</p>
+                  <p className="text-[9px] sm:text-base text-gray-600">misidentified</p>
+                </div>
+              </div>
+
+              {/* By round */}
+              <div className="space-y-1">
+                <p className="text-[10px] sm:text-lg uppercase tracking-wider text-gray-500 font-medium">By Round</p>
+                {calibStats.byRound.filter(r => r.total > 0).map(r => {
+                  const rd = CALIBRATION_ROUNDS.find(x => x.round === r.round)!;
+                  const pct = r.total > 0 ? Math.round(r.correct / r.total * 100) : 0;
+                  return (
+                    <div key={r.round} className="flex items-center gap-2">
+                      <span className={`text-[10px] sm:text-lg font-medium w-40 sm:w-56 truncate ${rd.color}`}>{r.round}. {rd.label}</span>
+                      <div className="flex-1 bg-gray-800 rounded-full h-1.5 sm:h-3 overflow-hidden">
+                        <div className="h-full bg-green-500 rounded-full" style={{ width: `${pct}%` }} />
+                      </div>
+                      <span className="text-[10px] sm:text-lg font-mono text-gray-400 w-8 text-right">{pct}%</span>
+                      <span className="text-[10px] sm:text-lg text-gray-600 w-12 text-right">{r.correct}/{r.total}</span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* By confidence */}
+              <div className="space-y-1">
+                <p className="text-[10px] sm:text-lg uppercase tracking-wider text-gray-500 font-medium">Confidence Calibration</p>
+                <p className="text-[10px] sm:text-lg text-gray-600">How often does each confidence level actually match?</p>
+                {calibStats.byConf.filter(c => c.total > 0).map(c => {
+                  const pct = c.total > 0 ? Math.round(c.correct / c.total * 100) : 0;
+                  const confLabel = c.conf === 'high' ? 'text-green-400' : c.conf === 'medium' ? 'text-yellow-400' : 'text-gray-400';
+                  return (
+                    <div key={c.conf} className="flex items-center gap-2">
+                      <span className={`text-[10px] sm:text-lg font-medium w-14 sm:w-20 capitalize ${confLabel}`}>{c.conf}</span>
+                      <div className="flex-1 bg-gray-800 rounded-full h-1.5 sm:h-3 overflow-hidden">
+                        <div className="h-full rounded-full" style={{ width: `${pct}%`, background: pct >= 70 ? '#22c55e' : pct >= 40 ? '#eab308' : '#ef4444' }} />
+                      </div>
+                      <span className="text-[10px] sm:text-lg font-mono text-gray-400 w-8 text-right">{pct}%</span>
+                      <span className="text-[10px] sm:text-lg text-gray-600 w-12 text-right">{c.correct}/{c.total}</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -1050,6 +1408,64 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                         </div>
                       </div>
                     </div>
+
+                    {/* ── Calibration verdict bar ── */}
+                    {calibrateMode && (() => {
+                      const vKey = grp.partNo || `__unk_${gi}`;
+                      const currentVerdict = verdicts[vKey];
+                      const repCropIndex = repEntry.cropIndex ?? null;
+                      const clipKey = `${grp.partNo}__${repCropIndex}`;
+                      const isConfirmed = confirmedClips.has(clipKey);
+                      const isConfirming = confirmingClip === clipKey;
+                      return (
+                        <div className="border-t border-amber-500/15 px-2.5 sm:px-8 py-1.5 sm:py-4 flex flex-wrap items-center gap-2">
+                          <span className="text-[10px] sm:text-lg text-amber-500/70 font-medium flex-shrink-0">Rate this ID:</span>
+                          <div className="flex gap-1 flex-shrink-0">
+                            <button
+                              onClick={() => handleVerdict(grp.partNo, grp.partName, bestConfidence, repCropIndex, 'correct')}
+                              className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] sm:text-lg font-semibold transition-colors ${currentVerdict === 'correct' ? 'bg-green-600 text-white' : 'border border-green-600/40 text-green-500 hover:bg-green-900/40'}`}
+                              data-testid={`verdict-correct-${gi}`}
+                            >
+                              <ThumbsUp className="w-2.5 h-2.5 sm:w-4 sm:h-4" />
+                              Correct
+                            </button>
+                            <button
+                              onClick={() => handleVerdict(grp.partNo, grp.partName, bestConfidence, repCropIndex, 'close')}
+                              className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] sm:text-lg font-semibold transition-colors ${currentVerdict === 'close' ? 'bg-yellow-600 text-white' : 'border border-yellow-600/40 text-yellow-500 hover:bg-yellow-900/40'}`}
+                              data-testid={`verdict-close-${gi}`}
+                            >
+                              <Minus className="w-2.5 h-2.5 sm:w-4 sm:h-4" />
+                              Close
+                            </button>
+                            <button
+                              onClick={() => handleVerdict(grp.partNo, grp.partName, bestConfidence, repCropIndex, 'wrong')}
+                              className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] sm:text-lg font-semibold transition-colors ${currentVerdict === 'wrong' ? 'bg-red-600 text-white' : 'border border-red-600/40 text-red-500 hover:bg-red-900/40'}`}
+                              data-testid={`verdict-wrong-${gi}`}
+                            >
+                              <ThumbsDown className="w-2.5 h-2.5 sm:w-4 sm:h-4" />
+                              Wrong
+                            </button>
+                          </div>
+                          {currentVerdict === 'correct' && grp.partNo && repCropIndex != null && !isConfirmed && (
+                            <button
+                              onClick={() => handleConfirmToClip(grp.partNo, repEntry.colorId ?? null, repCropIndex, grp.itemType)}
+                              disabled={isConfirming}
+                              className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] sm:text-lg font-semibold border border-purple-500/40 text-purple-400 hover:bg-purple-900/40 disabled:opacity-50 transition-colors"
+                              data-testid={`confirm-clip-${gi}`}
+                            >
+                              {isConfirming ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Sparkles className="w-2.5 h-2.5 sm:w-4 sm:h-4" />}
+                              Add to CLIP
+                            </button>
+                          )}
+                          {isConfirmed && (
+                            <span className="flex items-center gap-1 text-[10px] sm:text-lg text-purple-400 font-medium">
+                              <Check className="w-2.5 h-2.5 sm:w-4 sm:h-4" />
+                              In CLIP catalog
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })()}
 
                     {/* ── Expanded: best match + all color/condition rows ── */}
                     {isExpanded && (
