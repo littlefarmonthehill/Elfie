@@ -85,6 +85,7 @@ interface ScanSettings {
   segmenter:       "contour";
   minSizePct:      number;  // % of image area — noise floor
   maxSizePct:      number;  // % of image area — surface/baseplate ceiling
+  maxDimFrac:      number;  // max bbox width or height as % of image dimension (0-100)
   maxPieces:       number;  // cap on crops sent to Brickognize
   minConfidence:   number;  // Brickognize minimum score (0 = off)
   // Contour
@@ -98,7 +99,8 @@ const DEFAULT_SETTINGS: ScanSettings = {
   multiPass:       false,
   segmenter:       "contour",
   minSizePct:      0.05,
-  maxSizePct:      6,
+  maxSizePct:      50,   // raised from 6 — allows close-up shots where a piece fills the frame
+  maxDimFrac:      85,   // allow piece bounding box up to 85% of frame width/height
   maxPieces:       100,
   minConfidence:   0,
   blurRadius:      7,

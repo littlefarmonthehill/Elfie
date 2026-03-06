@@ -131,6 +131,7 @@ export interface ScanSettings {
   segmenter?:       'contour';
   minSizePct?:      number;
   maxSizePct?:      number;
+  maxDimFrac?:      number;
   maxPieces?:       number;
   minConfidence?:   number;
   // Watershed

@@ -224,17 +224,22 @@ def segment_pieces_contour(rgb: np.ndarray, settings: dict = None) -> list:
     border_px_y = H * BORDER_MARGIN
 
     raw_boxes: list = []
+    rejected_area = rejected_dim = rejected_border = 0
     for cnt in contours:
         area = float(cv2.contourArea(cnt))
         if area < min_area or area > max_area:
+            rejected_area += 1
             continue
         x1, y1, bw, bh = cv2.boundingRect(cnt)
         cx, cy = x1 + bw / 2, y1 + bh / 2
         if bw / W > max_dim_frac or bh / H > max_dim_frac:
+            rejected_dim += 1
             continue
         if cx < border_px_x or cx > W - border_px_x:
+            rejected_border += 1
             continue
         if cy < border_px_y or cy > H - border_px_y:
+            rejected_border += 1
             continue
         raw_boxes.append({
             "x": round(x1 / W * 100, 2),
@@ -242,6 +247,9 @@ def segment_pieces_contour(rgb: np.ndarray, settings: dict = None) -> list:
             "w": round(bw  / W * 100, 2),
             "h": round(bh  / H * 100, 2),
         })
+    if rejected_area or rejected_dim or rejected_border:
+        print(f"[SegService] Contour rejected: area={rejected_area} dim={rejected_dim} border={rejected_border} "
+              f"(limits: area={min_area_frac*100:.2f}%-{max_area_frac*100:.0f}% dim={max_dim_frac*100:.0f}%)", flush=True)
 
     # ── 5. NMS — remove heavily-overlapping duplicates from the same piece ───
     boxes = _nms_boxes(raw_boxes)
