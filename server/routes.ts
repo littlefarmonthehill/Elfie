@@ -6455,6 +6455,19 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
         success: true,
         data: result,
       });
+      // Fire-and-forget: embed any new items that don't yet have a CLIP catalog embedding.
+      (async () => {
+        try {
+          const { buildCatalogEmbeddings } = await import('./services/clip-search.js');
+          const rows = await db.select({ itemNo: blInventory.itemNo, colorId: blInventory.colorId }).from(blInventory);
+          const items = rows.map((r) => ({ itemNo: r.itemNo, colorId: Number(r.colorId), itemType: 'PART' }));
+          if (items.length === 0) return;
+          const built = await buildCatalogEmbeddings(items);
+          if (built.done > 0) console.log(`[CLIP Auto] Manual sync: ${built.done} new catalog embeddings added`);
+        } catch (e: any) {
+          console.warn('[CLIP Auto] Post-manual-sync catalog update failed (non-fatal):', e.message);
+        }
+      })();
     } catch (error: any) {
       const isConflict = error?.message?.toLowerCase().includes('blocked') || error?.message?.toLowerCase().includes('already in progress') || error?.message?.toLowerCase().includes('already running');
       console.error("BrickLink sync error:", error);
