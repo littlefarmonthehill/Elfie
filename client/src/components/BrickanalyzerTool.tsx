@@ -438,6 +438,12 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
   const [confirmingClip, setConfirmingClip] = useState<string | null>(null);
   // colorCorrectedClips: clipKey → { colorId, colorName } picked by SME
   const [colorCorrectedClips, setColorCorrectedClips] = useState<Map<string, { colorId: number; colorName: string }>>(new Map());
+  // pendingClipConfirm: staged item awaiting user confirmation before CLIP training
+  const [pendingClipConfirm, setPendingClipConfirm] = useState<{
+    partNo: string; partName: string; confidence: string;
+    colorId: number | null; colorName: string | null; colorRgb: string | null;
+    cropIndex: number; itemType: string;
+  } | null>(null);
 
   useEffect(() => {
     try { localStorage.setItem(CALIBRATION_KEY, JSON.stringify({ verdicts, log: calibrationLog })); } catch {}
@@ -1535,10 +1541,19 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                               </div>
                             </TooltipContent>
                           </Tooltip>
-                          {/* Add to CLIP — primary single-tap action, auto-records Correct */}
+                          {/* Add to CLIP — stages for confirmation first */}
                           {grp.partNo && repCropIndex != null && !isConfirmed && (
                             <button
-                              onClick={() => handleConfirmToClip(grp.partNo, grp.partName, bestConfidence, repEntry.colorId ?? null, repCropIndex, grp.itemType)}
+                              onClick={e => {
+                                e.stopPropagation();
+                                setPendingClipConfirm({
+                                  partNo: grp.partNo, partName: grp.partName, confidence: bestConfidence,
+                                  colorId: repEntry.colorId ?? null,
+                                  colorName: repEntry.colorName ?? null,
+                                  colorRgb: repEntry.colorRgb ?? null,
+                                  cropIndex: repCropIndex, itemType: grp.itemType ?? 'PART',
+                                });
+                              }}
                               disabled={isConfirming}
                               className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] sm:text-lg font-semibold transition-colors disabled:opacity-50 ${currentVerdict === 'correct' ? 'bg-purple-600 text-white' : 'border border-purple-500/50 text-purple-400 hover:bg-purple-900/40'}`}
                               data-testid={`confirm-clip-${gi}`}
@@ -1552,6 +1567,54 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                               <Check className="w-2.5 h-2.5 sm:w-4 sm:h-4" />
                               In CLIP catalog
                             </span>
+                          )}
+                          {/* ── CLIP confirmation panel ── */}
+                          {pendingClipConfirm?.partNo === grp.partNo && pendingClipConfirm?.cropIndex === repCropIndex && (
+                            <div
+                              className="w-full basis-full mt-1 pt-2 border-t border-purple-500/20"
+                              onClick={e => e.stopPropagation()}
+                              data-testid={`clip-confirm-panel-${gi}`}
+                            >
+                              <p className="text-[9px] sm:text-sm text-purple-300 font-medium mb-2">Confirm adding to CLIP catalog:</p>
+                              <div className="flex items-center gap-2 mb-2.5 bg-purple-900/20 border border-purple-500/20 rounded-md px-2.5 py-2">
+                                {pendingClipConfirm.colorRgb && (
+                                  <div className="w-5 h-5 rounded-sm border border-white/20 flex-shrink-0"
+                                    style={{ backgroundColor: `#${pendingClipConfirm.colorRgb}` }} />
+                                )}
+                                <div className="min-w-0">
+                                  <p className="text-xs sm:text-sm font-semibold text-white truncate">{pendingClipConfirm.partName || pendingClipConfirm.partNo}</p>
+                                  <p className="text-[10px] sm:text-xs text-gray-400">
+                                    {pendingClipConfirm.partNo}
+                                    {pendingClipConfirm.colorName && <span className="ml-1.5 text-gray-300">· {pendingClipConfirm.colorName}</span>}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex gap-2">
+                                <button
+                                  type="button"
+                                  data-testid={`clip-confirm-yes-${gi}`}
+                                  disabled={isConfirming}
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    const p = pendingClipConfirm;
+                                    setPendingClipConfirm(null);
+                                    handleConfirmToClip(p.partNo, p.partName, p.confidence, p.colorId, p.cropIndex, p.itemType);
+                                  }}
+                                  className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md bg-purple-600 text-white text-xs sm:text-sm font-semibold disabled:opacity-50"
+                                >
+                                  {isConfirming ? <Loader2 className="w-3 h-3 animate-spin" /> : <ThumbsUp className="w-3 h-3" />}
+                                  Yes, add to CLIP
+                                </button>
+                                <button
+                                  type="button"
+                                  data-testid={`clip-confirm-cancel-${gi}`}
+                                  onClick={e => { e.stopPropagation(); setPendingClipConfirm(null); }}
+                                  className="px-3 py-2 rounded-md border border-gray-600 text-gray-400 text-xs sm:text-sm"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
                           )}
                           {/* Negative verdicts */}
                           <button
