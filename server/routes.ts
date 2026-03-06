@@ -4474,7 +4474,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         };
       }
 
-      const { segmentImage } = await import('./services/segmentClient.js');
+      const { segmentImageWithCandidates } = await import('./services/segmentClient.js');
       const iouBox2 = (a: any, b: any): number => {
         const ix0 = Math.max(a.x, b.x), iy0 = Math.max(a.y, b.y);
         const ix1 = Math.min(a.x + a.w, b.x + b.w), iy1 = Math.min(a.y + a.h, b.y + b.h);
@@ -4483,7 +4483,9 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         return inter / (a.w * a.h + b.w * b.h - inter);
       };
 
-      let allBoxes: { x: number; y: number; w: number; h: number }[];
+      type SegBox = { x: number; y: number; w: number; h: number };
+      let allBoxes: SegBox[] = [];
+      let allCandidates: SegBox[] = [];
 
       // ── Exact same segmentation logic as processBrickanalyzerScan ──────────
       // This ensures the preview shows precisely the boxes that will be used.
@@ -4493,15 +4495,15 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         const pass2 = { ...settings };
         const pass3 = { segmenter: 'contour', minSizePct: 0.02, maxSizePct: 5, blurRadius: 3, cannyLow: 25, cannyHigh: 90, dilateIter: 1 };
         const pass4 = { segmenter: 'contour', minSizePct: 0.02, maxSizePct: 8, blurRadius: 3, cannyLow: 20, cannyHigh: 80, dilateIter: 2, clahe: true };
-        const [b1, b2, b3, b4] = await Promise.all([
-          segmentImage(fileBuffer, pass1 as any),
-          segmentImage(fileBuffer, pass2 as any),
-          segmentImage(fileBuffer, pass3 as any),
-          segmentImage(fileBuffer, pass4 as any),
+        const [r1, r2, r3, r4] = await Promise.all([
+          segmentImageWithCandidates(fileBuffer, pass1 as any),
+          segmentImageWithCandidates(fileBuffer, pass2 as any),
+          segmentImageWithCandidates(fileBuffer, pass3 as any),
+          segmentImageWithCandidates(fileBuffer, pass4 as any),
         ]);
         // IoU 0.25 — matches full scan (less aggressive dedup = more separate boxes)
-        const merged: typeof b1 = [];
-        for (const box of [...b1, ...b2, ...b3, ...b4]) {
+        const merged: SegBox[] = [];
+        for (const box of [...r1.boxes, ...r2.boxes, ...r3.boxes, ...r4.boxes]) {
           if (!merged.some(m => iouBox2(m, box) > 0.25)) merged.push(box);
         }
         // Containment suppression — same rule as full scan
@@ -4515,8 +4517,18 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             return Math.max(0, ix1 - ix0) * Math.max(0, iy1 - iy0) / boxArea > 0.65;
           });
         });
+        // Aggregate candidates across all passes: dedup at IoU 0.20, then filter
+        // against accepted boxes (IoU 0.10) to avoid overlap with confirmed pieces.
+        const rawCands = [...r1.candidates, ...r2.candidates, ...r3.candidates, ...r4.candidates];
+        const dedupCands: SegBox[] = [];
+        for (const c of rawCands) {
+          if (!dedupCands.some(d => iouBox2(d, c) > 0.20)) dedupCands.push(c);
+        }
+        allCandidates = dedupCands.filter(c => !allBoxes.some(b => iouBox2(c, b) > 0.10));
       } else {
-        allBoxes = await segmentImage(fileBuffer, settings as any);
+        const result = await segmentImageWithCandidates(fileBuffer, settings as any);
+        allBoxes      = result.boxes;
+        allCandidates = result.candidates;
 
         // Calibration merge — matches full scan: merge sub-features into one piece boundary,
         // BUT keep separate if 2+ boxes are each large (≥15% in both dims) — distinct pieces.
@@ -4531,11 +4543,18 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             const y2 = Math.max(...allBoxes.map(b => b.y + b.h));
             allBoxes = [{ x: x1, y: y1, w: x2 - x1, h: y2 - y1 }];
           }
+          // No candidates after calibration merge — unambiguous single-piece mode
+          allCandidates = [];
         }
       }
 
       const maxPieces = Number(settings.maxPieces ?? 100);
-      res.json({ boxes: allBoxes.slice(0, maxPieces), imageWidth: imgWidth, imageHeight: imgHeight });
+      res.json({
+        boxes:       allBoxes.slice(0, maxPieces),
+        candidates:  allCandidates,
+        imageWidth:  imgWidth,
+        imageHeight: imgHeight,
+      });
     } catch (err: any) {
       console.error('[Brickanalyzer] Segment preview error:', err.message);
       res.status(500).json({ error: err.message });

@@ -22,6 +22,13 @@ BORDER_MARGIN  = 0.01    # ignore regions whose center is within 1% of edge
 MIN_DIST_PCT   = 0.025   # local max search radius as fraction of shorter side
 PEAK_THRESHOLD = 0.30    # distance transform value a peak must exceed
 
+# ── Candidate (tap-to-promote) thresholds ────────────────────────────────────
+# Contours rejected by the strict filters but within these loose bounds are
+# returned as "candidates" — objects the user can tap to promote in the preview.
+CAND_MIN_AREA_FRAC = 0.003  # 0.3% of image area — anything bigger than noise
+CAND_MAX_AREA_FRAC = 0.70   # 70% — anything smaller than a full-image blob
+CAND_MAX_DIM_FRAC  = 0.92   # 92% of frame width/height
+
 
 # ── SAM Default Config ───────────────────────────────────────────────────────
 SAM_CHECKPOINT_URL  = "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth"
@@ -179,17 +186,18 @@ def _nms_boxes(boxes: list, iou_thresh: float = 0.30) -> list:
     return keep
 
 
-def segment_pieces_contour(rgb: np.ndarray, settings: dict = None) -> list:
+def segment_pieces_contour(rgb: np.ndarray, settings: dict = None):
     s = settings or {}
 
-    min_area_frac = s.get("minSizePct", MIN_AREA_FRAC * 100) / 100
-    max_area_frac = s.get("maxSizePct", MAX_AREA_FRAC * 100) / 100
-    max_dim_frac  = s.get("maxDimFrac", MAX_DIM_FRAC  * 100) / 100
-    blur_radius   = int(s.get("blurRadius",  5))
-    canny_low     = int(s.get("cannyLow",   50))
-    canny_high    = int(s.get("cannyHigh", 150))
-    dilate_iter   = int(s.get("dilateIter",  2))
-    use_clahe     = bool(s.get("clahe",      False))
+    min_area_frac    = s.get("minSizePct", MIN_AREA_FRAC * 100) / 100
+    max_area_frac    = s.get("maxSizePct", MAX_AREA_FRAC * 100) / 100
+    max_dim_frac     = s.get("maxDimFrac", MAX_DIM_FRAC  * 100) / 100
+    blur_radius      = int(s.get("blurRadius",  5))
+    canny_low        = int(s.get("cannyLow",   50))
+    canny_high       = int(s.get("cannyHigh", 150))
+    dilate_iter      = int(s.get("dilateIter",  2))
+    use_clahe        = bool(s.get("clahe",      False))
+    return_candidates = bool(s.get("returnCandidates", False))
 
     H, W = rgb.shape[:2]
     img_area = H * W
@@ -224,21 +232,42 @@ def segment_pieces_contour(rgb: np.ndarray, settings: dict = None) -> list:
     border_px_y = H * BORDER_MARGIN
 
     raw_boxes: list = []
+    candidate_boxes: list = []
     rejected_area = rejected_dim = rejected_border = 0
+
+    # Loose thresholds for candidate collection (tap-to-promote)
+    cand_min_area = img_area * CAND_MIN_AREA_FRAC
+    cand_max_area = img_area * CAND_MAX_AREA_FRAC
+
     for cnt in contours:
         area = float(cv2.contourArea(cnt))
-        if area < min_area or area > max_area:
-            rejected_area += 1
-            continue
         x1, y1, bw, bh = cv2.boundingRect(cnt)
         cx, cy = x1 + bw / 2, y1 + bh / 2
+        center_ok = (cx >= border_px_x and cx <= W - border_px_x and
+                     cy >= border_px_y and cy <= H - border_px_y)
+
+        if area < min_area or area > max_area:
+            rejected_area += 1
+            # Collect as candidate if it passes loose thresholds
+            if (return_candidates and center_ok and
+                    cand_min_area <= area <= cand_max_area and
+                    bw / W <= CAND_MAX_DIM_FRAC and bh / H <= CAND_MAX_DIM_FRAC):
+                candidate_boxes.append({
+                    "x": round(x1 / W * 100, 2), "y": round(y1 / H * 100, 2),
+                    "w": round(bw  / W * 100, 2), "h": round(bh  / H * 100, 2),
+                })
+            continue
         if bw / W > max_dim_frac or bh / H > max_dim_frac:
             rejected_dim += 1
+            if (return_candidates and center_ok and
+                    cand_min_area <= area <= cand_max_area and
+                    bw / W <= CAND_MAX_DIM_FRAC and bh / H <= CAND_MAX_DIM_FRAC):
+                candidate_boxes.append({
+                    "x": round(x1 / W * 100, 2), "y": round(y1 / H * 100, 2),
+                    "w": round(bw  / W * 100, 2), "h": round(bh  / H * 100, 2),
+                })
             continue
-        if cx < border_px_x or cx > W - border_px_x:
-            rejected_border += 1
-            continue
-        if cy < border_px_y or cy > H - border_px_y:
+        if not center_ok:
             rejected_border += 1
             continue
         raw_boxes.append({
@@ -296,6 +325,13 @@ def segment_pieces_contour(rgb: np.ndarray, settings: dict = None) -> list:
     boxes = _nms_boxes(raw_boxes)
 
     print(f"[SegService] Contour {H}×{W} contours={len(contours)} raw={len(raw_boxes)} → {len(boxes)} pieces", flush=True)
+
+    if return_candidates:
+        # Dedup candidates with tighter IoU, then strip any that overlap an accepted box
+        nms_cands = _nms_boxes(candidate_boxes, iou_thresh=0.20)
+        final_cands = [c for c in nms_cands
+                       if not any(_iou_pct(c, b) > 0.10 for b in boxes)]
+        return {"boxes": boxes, "candidates": final_cands}
     return boxes
 
 
@@ -501,16 +537,25 @@ def segment():
         segmenter = settings.get("segmenter", "watershed")
 
         if segmenter == "sam":
-            rgb   = load_image(b64, max_dim=SAM_MAX_DIM)
-            boxes = segment_pieces_sam(rgb, settings)
+            rgb    = load_image(b64, max_dim=SAM_MAX_DIM)
+            result = segment_pieces_sam(rgb, settings)
         elif segmenter == "contour":
-            rgb   = load_image(b64, max_dim=CONTOUR_MAX_DIM)
-            boxes = segment_pieces_contour(rgb, settings)
+            rgb    = load_image(b64, max_dim=CONTOUR_MAX_DIM)
+            result = segment_pieces_contour(rgb, settings)
         else:
-            rgb   = load_image(b64, max_dim=WATERSHED_MAX_DIM)
-            boxes = segment_pieces_watershed(rgb, settings)
+            rgb    = load_image(b64, max_dim=WATERSHED_MAX_DIM)
+            result = segment_pieces_watershed(rgb, settings)
 
-        return jsonify({"boxes": boxes, "count": len(boxes), "segmenter": segmenter})
+        # segment_pieces_contour may return a dict (boxes + candidates) when
+        # returnCandidates=True; other segmenters always return a plain list.
+        if isinstance(result, dict):
+            boxes      = result.get("boxes", [])
+            candidates = result.get("candidates", [])
+        else:
+            boxes      = result
+            candidates = []
+
+        return jsonify({"boxes": boxes, "candidates": candidates, "count": len(boxes), "segmenter": segmenter})
 
     except Exception as e:
         traceback.print_exc()

@@ -72,10 +72,11 @@ interface BrickanalyzerScan {
 type UIState = "idle" | "uploading" | "previewing" | "processing" | "complete" | "failed";
 
 interface PreviewData {
-  boxes: { x: number; y: number; w: number; h: number }[];
-  imageWidth: number;
+  boxes:      { x: number; y: number; w: number; h: number }[];
+  candidates: { x: number; y: number; w: number; h: number }[];
+  imageWidth:  number;
   imageHeight: number;
-  objectUrl: string;
+  objectUrl:   string;
 }
 
 interface ScanSettings {
@@ -216,6 +217,9 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
   });
   const [showSettings, setShowSettings] = useState(false);
   const [previewData, setPreviewData] = useState<PreviewData | null>(null);
+  // Mutable copies of boxes/candidates that the user edits in the preview UI
+  const [previewBoxes, setPreviewBoxes] = useState<{ x: number; y: number; w: number; h: number }[]>([]);
+  const [previewCandidates, setPreviewCandidates] = useState<{ x: number; y: number; w: number; h: number }[]>([]);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [pendingSettings, setPendingSettings] = useState<Record<string, any> | null>(null);
   const [scanMode, setScanMode] = useState<"auto" | "manual">(() => {
@@ -399,10 +403,12 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
         body: previewForm,
       });
       if (!res.ok) throw new Error("Segmentation failed");
-      const { boxes, imageWidth, imageHeight } = await res.json();
+      const { boxes, candidates = [], imageWidth, imageHeight } = await res.json();
       const objectUrl = URL.createObjectURL(file);
       if (previewData?.objectUrl) URL.revokeObjectURL(previewData.objectUrl);
-      setPreviewData({ boxes, imageWidth, imageHeight, objectUrl });
+      setPreviewData({ boxes, candidates, imageWidth, imageHeight, objectUrl });
+      setPreviewBoxes(boxes);
+      setPreviewCandidates(candidates);
       setPendingFile(file);
       setPendingSettings(effectiveSettings);
       setUiState("previewing");
@@ -440,9 +446,12 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
 
   function handleConfirmScan() {
     if (!pendingFile || !pendingSettings) return;
-    const approvedBoxes = previewData?.boxes;
+    // Use the user-edited boxes (may have boxes removed or promoted from candidates)
+    const approvedBoxes = previewBoxes.length > 0 ? previewBoxes : previewData?.boxes;
     if (previewData?.objectUrl) URL.revokeObjectURL(previewData.objectUrl);
     setPreviewData(null);
+    setPreviewBoxes([]);
+    setPreviewCandidates([]);
     // Pass approved boxes so the server uses them exactly — no re-segmentation
     startFullScan(pendingFile, pendingSettings, approvedBoxes);
   }
@@ -450,9 +459,71 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
   function handleCancelPreview() {
     if (previewData?.objectUrl) URL.revokeObjectURL(previewData.objectUrl);
     setPreviewData(null);
+    setPreviewBoxes([]);
+    setPreviewCandidates([]);
     setPendingFile(null);
     setPendingSettings(null);
     setUiState("idle");
+  }
+
+  // IoU helper for candidate filtering after promotion
+  function iouPct(a: { x: number; y: number; w: number; h: number }, b: { x: number; y: number; w: number; h: number }) {
+    const ix0 = Math.max(a.x, b.x), iy0 = Math.max(a.y, b.y);
+    const ix1 = Math.min(a.x + a.w, b.x + b.w), iy1 = Math.min(a.y + a.h, b.y + b.h);
+    const inter = Math.max(0, ix1 - ix0) * Math.max(0, iy1 - iy0);
+    if (inter === 0) return 0;
+    return inter / (a.w * a.h + b.w * b.h - inter);
+  }
+
+  function handlePromoteCandidate(idx: number) {
+    const promoted = previewCandidates[idx];
+    const newBoxes = [...previewBoxes, promoted];
+    // Re-filter remaining candidates: drop any that now overlap the promoted box
+    const newCandidates = previewCandidates
+      .filter((_, i) => i !== idx)
+      .filter(c => !newBoxes.some(b => iouPct(c, b) > 0.10));
+    setPreviewBoxes(newBoxes);
+    setPreviewCandidates(newCandidates);
+  }
+
+  function handleRemoveBox(idx: number) {
+    const removed = previewBoxes[idx];
+    const newBoxes = previewBoxes.filter((_, i) => i !== idx);
+    // Re-instate any candidates that are no longer blocked by remaining boxes
+    const reinstated = (previewData?.candidates ?? []).filter(
+      c => !newBoxes.some(b => iouPct(c, b) > 0.10) &&
+           !previewCandidates.some(pc => iouPct(pc, c) > 0.20) &&
+           iouPct(c, removed) > 0.10
+    );
+    setPreviewBoxes(newBoxes);
+    setPreviewCandidates([...previewCandidates, ...reinstated]);
+  }
+
+  // Tap on image to promote the nearest candidate
+  function handleImageTap(e: React.MouseEvent<HTMLDivElement>) {
+    if (previewCandidates.length === 0) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const tapX = ((e.clientX - rect.left) / rect.width) * 100;
+    const tapY = ((e.clientY - rect.top) / rect.height) * 100;
+    // Find candidate whose box contains the tap point; else find nearest by center distance
+    const containingIdx = previewCandidates.findIndex(
+      c => tapX >= c.x && tapX <= c.x + c.w && tapY >= c.y && tapY <= c.y + c.h
+    );
+    if (containingIdx !== -1) {
+      handlePromoteCandidate(containingIdx);
+      return;
+    }
+    // No direct hit — find nearest center
+    let nearestIdx = -1;
+    let nearestDist = Infinity;
+    previewCandidates.forEach((c, i) => {
+      const cx = c.x + c.w / 2, cy = c.y + c.h / 2;
+      const d = Math.hypot(tapX - cx, tapY - cy);
+      if (d < nearestDist) { nearestDist = d; nearestIdx = i; }
+    });
+    if (nearestIdx !== -1 && nearestDist < 15) {
+      handlePromoteCandidate(nearestIdx);
+    }
   }
 
   // ── Calibration mode state ────────────────────────────────────────────────

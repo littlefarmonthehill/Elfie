@@ -186,6 +186,31 @@ export async function segmentImage(imageBuffer: Buffer, settings?: ScanSettings)
 }
 
 /**
+ * Like segmentImage but also returns "candidate" boxes — contours rejected
+ * by the strict size filters that the user can tap to promote in the preview.
+ */
+export async function segmentImageWithCandidates(
+  imageBuffer: Buffer,
+  settings?: ScanSettings
+): Promise<{ boxes: SegBox[]; candidates: SegBox[] }> {
+  if (!proc) startService();
+  await waitReady();
+
+  const isSam = (settings?.segmenter === 'sam');
+  const timeoutMs = isSam ? 300_000 : 60_000;
+
+  const b64  = imageBuffer.toString('base64');
+  const body = { image: b64, settings: { ...(settings ?? {}), returnCandidates: true } };
+  const resp = await postJson('/segment', body, timeoutMs);
+
+  if (resp.error) throw new Error(`Seg service error: ${resp.error}`);
+  return {
+    boxes:      (resp.boxes      || []) as SegBox[],
+    candidates: (resp.candidates || []) as SegBox[],
+  };
+}
+
+/**
  * Embed a cropped image buffer with CLIP ViT-B/32.
  * Returns a normalized 512-dimensional float array.
  * CLIP model is lazy-loaded on first call (~200ms on CPU after warmup).
