@@ -1904,7 +1904,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                   grp.entries.some(e => e.cropIndex === focusedDetailCropIndex)
                 );
                 if (!focusedGroup) return (
-                  <div className="absolute inset-0 z-50 bg-black/92 flex flex-col" data-testid="heatmap-detail-overlay">
+                  <div className="absolute inset-0 z-50 bg-gray-950 flex flex-col" data-testid="heatmap-detail-overlay">
                     <div className="flex items-center justify-between px-3 py-2 border-b border-gray-700 shrink-0">
                       <span className="text-xs text-gray-400">Unidentified piece</span>
                       <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setFocusedDetailCropIndex(null)} data-testid="button-close-detail-overlay"><X className="w-4 h-4" /></Button>
@@ -1964,7 +1964,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
 
                 return (
                   <div
-                    className="absolute inset-0 z-50 bg-black/93 flex flex-col"
+                    className="absolute inset-0 z-50 bg-gray-950 flex flex-col"
                     data-testid="heatmap-detail-overlay"
                   >
                     {/* Overlay header */}
@@ -1988,7 +1988,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                       {/* Card header row: thumbnail + info */}
                       <div className="flex gap-2.5 px-2.5 py-2">
                         {/* Thumbnail */}
-                        <div className="flex-shrink-0 w-12 h-12 rounded bg-gray-800/80 flex items-center justify-center overflow-hidden">
+                        <div className="flex-shrink-0 w-12 h-12 rounded bg-gray-800 flex items-center justify-center overflow-hidden">
                           {(primarySrc || blPlUrl) ? (
                             <img
                               src={primarySrc || blPlUrl!}
@@ -2062,7 +2062,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                           const colorPct = colorDe != null ? colorConfPct(colorDe) : null;
                           const colorLbl = colorPct != null ? colorConfLabel(colorPct) : null;
                           return (
-                            <div key={ei} className="rounded-lg border border-purple-500/40 bg-purple-900/25 px-2 py-1.5">
+                            <div key={ei} className="rounded-lg border border-purple-500/40 bg-purple-950 px-2 py-1.5">
                               {/* Best Match banner */}
                               <div className="flex items-center gap-1 mb-1 flex-wrap">
                                 <Sparkles className="w-3 h-3 text-purple-400 flex-shrink-0" />
