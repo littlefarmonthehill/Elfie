@@ -252,30 +252,45 @@ def segment_pieces_contour(rgb: np.ndarray, settings: dict = None) -> list:
               f"(limits: area={min_area_frac*100:.2f}%-{max_area_frac*100:.0f}% dim={max_dim_frac*100:.0f}%)", flush=True)
 
     # ── 5. Close-up fallback ──────────────────────────────────────────────────
-    # When all contours are rejected because they are TOO LARGE (rejected_area > 0
-    # or rejected_dim > 0) and only a few contours were found (≤ 3), the image is
-    # almost certainly a close-up single-piece photo where heavy dilation merged all
-    # edge fragments into one big blob.  Rather than returning 0 results, fall back
-    # to the bounding box of the largest contour (by bounding-rect area) as a
-    # best-effort single detection zone.
-    if not raw_boxes and (rejected_area > 0 or rejected_dim > 0) and 0 < len(contours) <= 3:
-        best = max(contours, key=lambda c: cv2.boundingRect(c)[2] * cv2.boundingRect(c)[3])
-        x1, y1, bw, bh = cv2.boundingRect(best)
-        # Expand slightly so we capture the full piece, not just its edge ring
+    # When all contours are rejected because they are TOO LARGE, the image is
+    # either a close-up of a single piece or a photo of multiple large objects on a
+    # clean background.  Rather than returning 0 results, fall back to the bounding
+    # box of each individual contour — giving one detection zone per piece.
+    # Cap at 8 contours to avoid triggering on noisy pile photos.
+    if not raw_boxes and (rejected_area > 0 or rejected_dim > 0) and 0 < len(contours) <= 8:
         pad_x = int(W * 0.03)
         pad_y = int(H * 0.03)
-        x1 = max(x1 - pad_x, 0)
-        y1 = max(y1 - pad_y, 0)
-        bw = min(bw + 2 * pad_x, W - x1)
-        bh = min(bh + 2 * pad_y, H - y1)
-        raw_boxes.append({
-            "x": round(x1 / W * 100, 2),
-            "y": round(y1 / H * 100, 2),
-            "w": round(bw  / W * 100, 2),
-            "h": round(bh  / H * 100, 2),
-        })
-        print(f"[SegService] Close-up fallback: using largest-contour bbox "
-              f"({bw}×{bh}px at {x1},{y1})", flush=True)
+        for cnt in contours:
+            x1, y1, bw, bh = cv2.boundingRect(cnt)
+            # Skip contours that are essentially the full image (background noise)
+            if bw * bh > img_area * 0.95:
+                continue
+            x1 = max(x1 - pad_x, 0)
+            y1 = max(y1 - pad_y, 0)
+            bw = min(bw + 2 * pad_x, W - x1)
+            bh = min(bh + 2 * pad_y, H - y1)
+            raw_boxes.append({
+                "x": round(x1 / W * 100, 2),
+                "y": round(y1 / H * 100, 2),
+                "w": round(bw  / W * 100, 2),
+                "h": round(bh  / H * 100, 2),
+            })
+        # If everything was filtered as full-image noise, fall back to largest contour
+        if not raw_boxes:
+            best = max(contours, key=lambda c: cv2.boundingRect(c)[2] * cv2.boundingRect(c)[3])
+            x1, y1, bw, bh = cv2.boundingRect(best)
+            x1 = max(x1 - pad_x, 0)
+            y1 = max(y1 - pad_y, 0)
+            bw = min(bw + 2 * pad_x, W - x1)
+            bh = min(bh + 2 * pad_y, H - y1)
+            raw_boxes.append({
+                "x": round(x1 / W * 100, 2),
+                "y": round(y1 / H * 100, 2),
+                "w": round(bw  / W * 100, 2),
+                "h": round(bh  / H * 100, 2),
+            })
+        print(f"[SegService] Close-up fallback: {len(raw_boxes)} box(es) from "
+              f"{len(contours)} too-large contour(s)", flush=True)
 
     # ── 6. NMS — remove heavily-overlapping duplicates from the same piece ───
     boxes = _nms_boxes(raw_boxes)

@@ -490,6 +490,8 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
 
   async function handleColorCorrection(partNo: string, partName: string, confidence: string, correctedColorId: number, correctedColorName: string, cropIndex: number | null, itemType: string) {
     const key = `${partNo}__${cropIndex ?? 'x'}`;
+    // Immediate feedback so the user sees which color was recorded before the card auto-dismisses
+    toast({ title: `Color: ${correctedColorName}`, description: `${partNo} — training CLIP…` });
     // Record the SME's corrected color choice
     setColorCorrectedClips(prev => new Map(prev).set(key, { colorId: correctedColorId, colorName: correctedColorName }));
     // Color found + selected → upgrade verdict to correct (right part, color now confirmed)
