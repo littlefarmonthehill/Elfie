@@ -3405,6 +3405,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   async function processBrickanalyzerScan(scanId: number, imageBuffer: Buffer, settings: Record<string, number> = {}, calibration = false, previewBoxes?: { x: number; y: number; w: number; h: number }[]) {
     const { incrementActiveScan, decrementActiveScan } = await import('./services/segmentClient.js');
     incrementActiveScan();
+    const blApiCallsCounter = { count: 0 };
     try {
       const { default: sharp } = await import('sharp');
 
@@ -3969,6 +3970,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           if (piece.partNo && blItemType === 'PART' && !colorId) {
             try {
               const { data: blColorsEarly } = await bricklinkCatalogRequest(`/items/PART/${piece.partNo}/colors`);
+              blApiCallsCounter.count += 1;
               catalogColorsList = Array.isArray(blColorsEarly) ? blColorsEarly : [];
               if (catalogColorsList.length > 0) {
                 const earlyIds = catalogColorsList.map((c: { color_id: number }) => c.color_id);
@@ -4108,7 +4110,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
               if (!calibration) {
                 console.log(`[Brickanalyzer] Fetching live POM (new) for ${piece.partNo} color ${colorId ?? 'any'} type ${blItemType}`);
                 const pgData = await fetchPriceOMagicData(
-                  piece.partNo, blItemType as any, blItemType === 'PART' ? (colorId ?? undefined) : undefined, 'N', premiumPct, pomConfig
+                  piece.partNo, blItemType as any, blItemType === 'PART' ? (colorId ?? undefined) : undefined, 'N', premiumPct, pomConfig, false, undefined, blApiCallsCounter
                 );
                 if (pgData) {
                   marketSoldMaxNew = pgData.soldMaxPrice ? Number(pgData.soldMaxPrice) : null;
@@ -4125,7 +4127,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             } else if (!calibration) {
               console.log(`[Brickanalyzer] Fetching live POM (used) for ${piece.partNo} color ${colorId ?? 'any'} type ${blItemType}`);
               const pgDataUsed = await fetchPriceOMagicData(
-                piece.partNo, blItemType as any, blItemType === 'PART' ? (colorId ?? undefined) : undefined, 'U', premiumPct, pomConfig
+                piece.partNo, blItemType as any, blItemType === 'PART' ? (colorId ?? undefined) : undefined, 'U', premiumPct, pomConfig, false, undefined, blApiCallsCounter
               );
               if (pgDataUsed) {
                 marketSoldMaxUsed = pgDataUsed.soldMaxPrice ? Number(pgDataUsed.soldMaxPrice) : null;
@@ -4153,14 +4155,14 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             const correctColorName = catalogColorMap.get(correctColorId)?.name ?? catalogColorsList[0].color_name ?? '';
             console.log(`[Brickanalyzer] Catalog-color fallback for ${piece.partNo}: retrying POM with colorId=${correctColorId} "${correctColorName}" (was ${colorId ?? 'null'})`);
             try {
-              const fbN = await fetchPriceOMagicData(piece.partNo, blItemType as any, correctColorId, 'N', premiumPct, pomConfig);
+              const fbN = await fetchPriceOMagicData(piece.partNo, blItemType as any, correctColorId, 'N', premiumPct, pomConfig, false, undefined, blApiCallsCounter);
               if (fbN) {
                 marketSoldMaxNew = fbN.soldMaxPrice ? Number(fbN.soldMaxPrice) : null;
                 if (fbN.stockAvgPrice != null && stockAvgPriceN === null) stockAvgPriceN = Number(fbN.stockAvgPrice);
                 if (!thumbnailUrl) thumbnailUrl = fbN.thumbnailUrl || fbN.imageUrl || null;
                 if (!piece.partName && fbN.itemName) piece.partName = fbN.itemName;
               }
-              const fbU = await fetchPriceOMagicData(piece.partNo, blItemType as any, correctColorId, 'U', premiumPct, pomConfig);
+              const fbU = await fetchPriceOMagicData(piece.partNo, blItemType as any, correctColorId, 'U', premiumPct, pomConfig, false, undefined, blApiCallsCounter);
               if (fbU) {
                 marketSoldMaxUsed = fbU.soldMaxPrice ? Number(fbU.soldMaxPrice) : null;
               }
@@ -4188,6 +4190,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             // Only fetch catalog colors if not already populated by early detection block
             if (catalogColorsList.length === 0) {
               const { data: blColors_data } = await bricklinkCatalogRequest(`/items/PART/${piece.partNo}/colors`);
+              blApiCallsCounter.count += 1;
               console.log(`[Brickanalyzer] BL colors for ${piece.partNo}: ${JSON.stringify(blColors_data)?.slice(0, 200)}`);
               catalogColorsList = Array.isArray(blColors_data) ? blColors_data : [];
               if (catalogColorsList.length > 0) {
@@ -4270,7 +4273,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
                   if (lot.colorId == null) continue;
                   if (lot.peakNew !== null || lot.peakUsed !== null) continue; // already cached
                   try {
-                    const liveN = await fetchPriceOMagicData(piece.partNo, blItemType as any, lot.colorId, 'N', premiumPct, pomConfig);
+                    const liveN = await fetchPriceOMagicData(piece.partNo, blItemType as any, lot.colorId, 'N', premiumPct, pomConfig, false, undefined, blApiCallsCounter);
                     if (liveN) {
                       lot.peakNew = liveN.soldMaxPrice ? Number(liveN.soldMaxPrice) : null;
                       // Stock avg as secondary signal when no sold history (guard > 0: BL returns "0.0000" when nobody is selling)
@@ -4278,7 +4281,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
                       if (!thumbnailUrl) thumbnailUrl = liveN.thumbnailUrl || liveN.imageUrl || null;
                       if (!piece.partName && liveN.itemName) piece.partName = liveN.itemName;
                     }
-                    const liveU = await fetchPriceOMagicData(piece.partNo, blItemType as any, lot.colorId, 'U', premiumPct, pomConfig);
+                    const liveU = await fetchPriceOMagicData(piece.partNo, blItemType as any, lot.colorId, 'U', premiumPct, pomConfig, false, undefined, blApiCallsCounter);
                     if (liveU) lot.peakUsed = liveU.soldMaxPrice ? Number(liveU.soldMaxPrice) : null;
                     console.log(`[Brickanalyzer] Lot POM ${piece.partNo}/${lot.colorId} "${lot.colorName}": peakN=${lot.peakNew} peakU=${lot.peakUsed}`);
                   } catch (lotErr: any) {
@@ -4385,6 +4388,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         imgWidth: savedMeta?.width ?? null,
         imgHeight: savedMeta?.height ?? null,
         completedAt: new Date(),
+        blApiCalls: blApiCallsCounter.count,
       }).where(eq(brickanalyzerScans.id, scanId));
 
       console.log(`🔍 Brickanalyzer scan ${scanId} complete: ${deduped.length} pieces, $${totalValue.toFixed(2)} estimated value`);

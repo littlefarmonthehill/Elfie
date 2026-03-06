@@ -1463,7 +1463,8 @@ export async function fetchPriceOMagicData(
   premiumPercentage: number = 15,
   config: PomFormulaConfig = POM_FORMULA_DEFAULTS,
   skipStock: boolean = false,
-  localItemData?: { name?: string | null; imageUrl?: string | null; thumbnailUrl?: string | null; categoryId?: number | null }
+  localItemData?: { name?: string | null; imageUrl?: string | null; thumbnailUrl?: string | null; categoryId?: number | null },
+  apiCounter?: { count: number }
 ): Promise<any> {
   try {
     // Check if we have cached data less than 24 hours old
@@ -1511,6 +1512,7 @@ export async function fetchPriceOMagicData(
     let itemDetails: any = null;
     if (!localItemData) {
       const { data } = await bricklinkCatalogRequest(itemDetailsEndpoint);
+      if (apiCounter) apiCounter.count += 1;
       itemDetails = data;
     }
 
@@ -1527,6 +1529,7 @@ export async function fetchPriceOMagicData(
         stockPriceParams.color_id = colorId.toString();
       }
       const { data } = await bricklinkCatalogRequest(stockPriceEndpoint, stockPriceParams);
+      if (apiCounter) apiCounter.count += 1;
       stockPriceData = data;
     }
 
@@ -1539,6 +1542,7 @@ export async function fetchPriceOMagicData(
       soldPriceParams.color_id = colorId.toString();
     }
     const { data: soldPriceData } = await bricklinkCatalogRequest(stockPriceEndpoint, soldPriceParams);
+    if (apiCounter) apiCounter.count += 1;
 
     // Calculate suggested price with supply adjustment
     // For stock price, use avg (mid-market reference)

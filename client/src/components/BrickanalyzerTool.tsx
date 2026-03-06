@@ -67,6 +67,7 @@ interface BrickanalyzerScan {
   cropCount?: number;
   imgWidth?: number | null;
   imgHeight?: number | null;
+  blApiCalls?: number | null;
 }
 
 type UIState = "idle" | "uploading" | "previewing" | "processing" | "complete" | "failed";
@@ -307,6 +308,8 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
   const [pendingSettings, setPendingSettings] = useState<Record<string, any> | null>(null);
   const [promotedUnknowns, setPromotedUnknowns] = useState<Set<number>>(new Set());
   const [detectingPoint, setDetectingPoint] = useState<{ x: number; y: number } | null>(null);
+  const [drawingRect, setDrawingRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const dragStartRef = useRef<{ x: number; y: number } | null>(null);
   const [scanMode, setScanMode] = useState<"auto" | "manual">(() => {
     try { return (localStorage.getItem(SCAN_MODE_KEY) as "auto" | "manual") || "auto"; } catch { return "auto"; }
   });
@@ -651,6 +654,107 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
         y: Math.min(Math.max(tapY - size / 2, 0), 100 - size),
         w: size, h: size,
       }]);
+    }
+  }
+
+  // ── Draw-to-segment pointer handlers ─────────────────────────────────────
+  function getPointerPct(e: React.PointerEvent<HTMLDivElement>) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    return {
+      x: Math.min(Math.max(((e.clientX - rect.left) / rect.width) * 100, 0), 100),
+      y: Math.min(Math.max(((e.clientY - rect.top) / rect.height) * 100, 0), 100),
+    };
+  }
+
+  function handlePreviewPointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    const pct = getPointerPct(e);
+    dragStartRef.current = pct;
+    setDrawingRect(null);
+    (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
+  }
+
+  function handlePreviewPointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    if (!dragStartRef.current) return;
+    const pct = getPointerPct(e);
+    const x = Math.min(dragStartRef.current.x, pct.x);
+    const y = Math.min(dragStartRef.current.y, pct.y);
+    const w = Math.abs(pct.x - dragStartRef.current.x);
+    const h = Math.abs(pct.y - dragStartRef.current.y);
+    if (w > 1 || h > 1) {
+      setDrawingRect({ x, y, w, h });
+    }
+  }
+
+  async function handlePreviewPointerUp(e: React.PointerEvent<HTMLDivElement>) {
+    const start = dragStartRef.current;
+    dragStartRef.current = null;
+
+    const pct = getPointerPct(e);
+    const dx = Math.abs(pct.x - (start?.x ?? pct.x));
+    const dy = Math.abs(pct.y - (start?.y ?? pct.y));
+    const isDrag = dx > 2 || dy > 2;
+    setDrawingRect(null);
+
+    if (isDrag && start) {
+      const MIN_SIZE = 4;
+      const rx = Math.min(start.x, pct.x);
+      const ry = Math.min(start.y, pct.y);
+      const rw = Math.abs(pct.x - start.x);
+      const rh = Math.abs(pct.y - start.y);
+      const finalRect = {
+        x: Math.max(0, rx),
+        y: Math.max(0, ry),
+        w: Math.max(MIN_SIZE, Math.min(rw, 100 - rx)),
+        h: Math.max(MIN_SIZE, Math.min(rh, 100 - ry)),
+      };
+      setPreviewBoxes(prev => [...prev, finalRect]);
+    } else if (!isDrag && start) {
+      const syntheticX = start.x;
+      const syntheticY = start.y;
+      const hitConfirmed = previewBoxes.some(
+        b => syntheticX >= b.x && syntheticX <= b.x + b.w && syntheticY >= b.y && syntheticY <= b.y + b.h
+      );
+      if (hitConfirmed) return;
+      if (previewCandidates.length > 0) {
+        const containingIdx = previewCandidates.findIndex(
+          c => syntheticX >= c.x && syntheticX <= c.x + c.w && syntheticY >= c.y && syntheticY <= c.y + c.h
+        );
+        if (containingIdx !== -1) { handlePromoteCandidate(containingIdx); return; }
+        let nearestIdx = -1, nearestDist = Infinity;
+        previewCandidates.forEach((c, i) => {
+          const cx = c.x + c.w / 2, cy = c.y + c.h / 2;
+          const d = Math.hypot(syntheticX - cx, syntheticY - cy);
+          if (d < nearestDist) { nearestDist = d; nearestIdx = i; }
+        });
+        if (nearestIdx !== -1 && nearestDist < 15) { handlePromoteCandidate(nearestIdx); return; }
+      }
+      setDetectingPoint({ x: syntheticX, y: syntheticY });
+      let detectedBox: { x: number; y: number; w: number; h: number } | null = null;
+      try {
+        if (pendingFile) {
+          const form = new FormData();
+          form.append("image", pendingFile);
+          form.append("tapX", syntheticX.toString());
+          form.append("tapY", syntheticY.toString());
+          const resp = await fetch("/api/brickanalyzer/detect-at-point", {
+            method: "POST", credentials: "include", body: form,
+          });
+          const data = await resp.json();
+          detectedBox = data.box ?? null;
+        }
+      } catch {}
+      setDetectingPoint(null);
+      if (detectedBox) {
+        setPreviewBoxes(prev => [...prev, detectedBox!]);
+      } else {
+        const size = 16;
+        setPreviewBoxes(prev => [...prev, {
+          x: Math.min(Math.max(syntheticX - size / 2, 0), 100 - size),
+          y: Math.min(Math.max(syntheticY - size / 2, 0), 100 - size),
+          w: size, h: size,
+        }]);
+      }
     }
   }
 
@@ -1326,9 +1430,12 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
 
           {/* Photo with overlaid bounding boxes */}
           <div
-            className="relative w-full rounded-lg overflow-hidden bg-gray-900 border border-gray-700 cursor-crosshair"
+            className="relative w-full rounded-lg overflow-hidden bg-gray-900 border border-gray-700 cursor-crosshair select-none touch-none"
             style={{ aspectRatio: `${previewData.imageWidth} / ${previewData.imageHeight}` }}
-            onClick={handleImageTap}
+            onPointerDown={handlePreviewPointerDown}
+            onPointerMove={handlePreviewPointerMove}
+            onPointerUp={handlePreviewPointerUp}
+            onPointerCancel={() => { dragStartRef.current = null; setDrawingRect(null); }}
             data-testid="preview-image-container"
           >
             <img
@@ -1402,13 +1509,30 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                 </div>
               </div>
             )}
+
+            {/* Draw-to-segment: in-progress rectangle */}
+            {drawingRect && (
+              <div
+                className="absolute pointer-events-none"
+                style={{
+                  left:    `${drawingRect.x}%`,
+                  top:     `${drawingRect.y}%`,
+                  width:   `${drawingRect.w}%`,
+                  height:  `${drawingRect.h}%`,
+                  border:  "2px dashed rgba(251,191,36,0.90)",
+                  borderRadius: "2px",
+                  backgroundColor: "rgba(251,191,36,0.08)",
+                  zIndex:  25,
+                }}
+              />
+            )}
           </div>
 
-          {/* Tap hint — always shown, text adapts based on whether candidates exist */}
+          {/* Tap/drag hint — adapts based on whether candidates exist */}
           <p className="text-xs text-center">
             {previewCandidates.length > 0
-              ? <span className="text-teal-400/80">{previewCandidates.length} possible piece{previewCandidates.length !== 1 ? "s" : ""} found — tap to add</span>
-              : <span className="text-gray-500">Tap anywhere on a missed piece to add a zone</span>
+              ? <span className="text-teal-400/80">{previewCandidates.length} possible piece{previewCandidates.length !== 1 ? "s" : ""} found — tap to add, or drag to draw a zone</span>
+              : <span className="text-gray-500">Tap a missed piece to add a zone, or <span className="text-amber-400/80">drag to draw</span> a custom zone</span>
             }
           </p>
 
@@ -1523,6 +1647,9 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
               <span>{withPriceCount} priced</span>
               {totalValue > 0 && (
                 <span className="text-lego-yellow font-semibold">${totalValue.toFixed(2)} est. value</span>
+              )}
+              {(activeScan?.blApiCalls ?? 0) > 0 && (
+                <span className="text-gray-600" title="BrickLink API calls used for this scan">{activeScan!.blApiCalls} BL calls</span>
               )}
             </div>
             {activeScan && (
