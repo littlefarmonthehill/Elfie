@@ -1698,7 +1698,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
 
           {/* ── Inline heatmap ───────────────────────────────────────────── */}
           {activeScan && (
-            <div className="rounded-lg border border-gray-700 overflow-hidden bg-black" data-testid="inline-heatmap">
+            <div className="relative rounded-lg border border-gray-700 overflow-hidden bg-black" data-testid="inline-heatmap">
               {/* Hint bar */}
               <div className="flex items-center justify-between px-3 py-1.5 border-b border-gray-800">
                 <div className="flex items-center gap-2 text-xs text-gray-400">
@@ -1898,6 +1898,94 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                   })()}
                 </div>
               </div>
+              {/* ── Detail overlay — appears on top of heatmap when a box is tapped ── */}
+              {focusedDetailCropIndex != null && (() => {
+                const focusedGroup = groupedResults.find(grp =>
+                  grp.entries.some(e => e.cropIndex === focusedDetailCropIndex)
+                );
+                const repEntry = focusedGroup?.entries[0];
+                const marketPeak = repEntry ? Math.max(repEntry.marketSoldMaxNew ?? 0, repEntry.marketSoldMaxUsed ?? 0) || null : null;
+                const ourPrice = repEntry ? (repEntry.ourPriceNew || repEntry.ourPriceUsed || null) : null;
+                const displayPrice = marketPeak ?? ourPrice;
+                const confColor = repEntry?.confidence === 'high' ? 'text-green-400' : repEntry?.confidence === 'medium' ? 'text-yellow-400' : 'text-gray-400';
+                return (
+                  <div
+                    className="absolute inset-0 z-50 bg-black/90 flex flex-col"
+                    data-testid="heatmap-detail-overlay"
+                  >
+                    {/* Overlay header */}
+                    <div className="flex items-center justify-between px-3 py-2 border-b border-gray-700 shrink-0">
+                      <span className="text-xs text-gray-400 flex items-center gap-1.5">
+                        <Target className="w-3 h-3 text-teal-400" />
+                        Piece detail
+                      </span>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7"
+                        onClick={() => setFocusedDetailCropIndex(null)}
+                        data-testid="button-close-detail-overlay"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    {/* Overlay body */}
+                    <div className="flex-1 overflow-y-auto p-3 flex flex-col sm:flex-row gap-3 min-h-0">
+                      {/* Crop image */}
+                      <div className="shrink-0 rounded-md overflow-hidden bg-gray-900 border border-gray-700 flex items-center justify-center" style={{ maxWidth: 160, maxHeight: 160 }}>
+                        <img
+                          src={`/api/brickanalyzer/scan/${activeScan.id}/crop/${focusedDetailCropIndex}`}
+                          alt={`Crop ${focusedDetailCropIndex + 1}`}
+                          className="object-contain max-h-40 max-w-full"
+                          data-testid={`focused-crop-image-${focusedDetailCropIndex}`}
+                        />
+                      </div>
+                      {/* Info */}
+                      <div className="flex-1 space-y-2 min-w-0">
+                        {focusedGroup ? (
+                          <>
+                            <div>
+                              <p className="text-sm sm:text-base font-semibold text-white leading-tight truncate">{repEntry?.partName || focusedGroup.partNo}</p>
+                              <p className="text-xs font-mono text-gray-500">{focusedGroup.partNo}</p>
+                            </div>
+                            <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
+                              {repEntry?.colorName && (
+                                <span className="text-gray-300">{repEntry.colorName}</span>
+                              )}
+                              {repEntry?.confidence && (
+                                <span className={`capitalize font-medium ${confColor}`}>{repEntry.confidence} confidence</span>
+                              )}
+                            </div>
+                            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
+                              {displayPrice != null && (
+                                <span className="text-lego-yellow font-semibold">${displayPrice.toFixed(2)} {marketPeak ? 'market peak' : 'our price'}</span>
+                              )}
+                              {(repEntry?.ourQtyNew ?? 0) + (repEntry?.ourQtyUsed ?? 0) > 0 && (
+                                <span className="text-green-400">
+                                  {repEntry!.ourQtyNew > 0 && `${repEntry!.ourQtyNew} new`}
+                                  {repEntry!.ourQtyNew > 0 && repEntry!.ourQtyUsed > 0 && ' · '}
+                                  {repEntry!.ourQtyUsed > 0 && `${repEntry!.ourQtyUsed} used`}
+                                  {' in stock'}
+                                </span>
+                              )}
+                            </div>
+                            {focusedGroup.thumbnailUrl && (
+                              <img
+                                src={focusedGroup.thumbnailUrl}
+                                alt="BL reference"
+                                className="w-12 h-12 object-contain rounded border border-gray-700 bg-gray-900"
+                              />
+                            )}
+                          </>
+                        ) : (
+                          <p className="text-xs text-gray-500 pt-1">Unidentified piece</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Legend */}
               <div className="px-3 py-1.5 border-t border-gray-800 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-gray-500">
                 <div className="flex items-center gap-2.5">
@@ -2028,42 +2116,14 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
             </div>
           ) : (
             <div className="space-y-1.5">
-              {/* ── Focused detail view: back button + large crop image ── */}
-              {focusedDetailCropIndex != null ? (
-                <div className="space-y-2">
-                  <button
-                    onClick={() => setFocusedDetailCropIndex(null)}
-                    className="flex items-center gap-1 text-xs text-gray-400 hover:text-white transition-colors"
-                    data-testid="button-back-to-all-results"
-                  >
-                    <ChevronLeft className="w-3.5 h-3.5" />
-                    All results
-                    <span className="ml-0.5 text-gray-600">
-                      ({groupedResults.filter(g => !dismissedItems.has(`${g.partNo}__${g.entries[0]?.cropIndex ?? 'x'}`)).length})
-                    </span>
-                  </button>
-                  {activeScan && (
-                    <div className="rounded-lg overflow-hidden border border-gray-700 bg-gray-950 flex items-center justify-center">
-                      <img
-                        src={`/api/brickanalyzer/scan/${activeScan.id}/crop/${focusedDetailCropIndex}`}
-                        alt={`Crop ${focusedDetailCropIndex + 1}`}
-                        className="w-full max-h-64 sm:max-h-80 object-contain"
-                        data-testid={`focused-crop-image-${focusedDetailCropIndex}`}
-                      />
-                    </div>
-                  )}
+              {dismissedItems.size > 0 && (
+                <div className="text-[10px] sm:text-sm text-gray-500 px-1">
+                  {dismissedItems.size} removed · {groupedResults.length - dismissedItems.size} showing
                 </div>
-              ) : (
-                dismissedItems.size > 0 && (
-                  <div className="text-[10px] sm:text-sm text-gray-500 px-1">
-                    {dismissedItems.size} removed · {groupedResults.length - dismissedItems.size} showing
-                  </div>
-                )
               )}
               {groupedResults.filter(grp => {
                 const rci = grp.entries[0]?.cropIndex ?? null;
                 if (dismissedItems.has(`${grp.partNo}__${rci ?? 'x'}`)) return false;
-                if (focusedDetailCropIndex != null) return grp.entries.some(e => e.cropIndex === focusedDetailCropIndex);
                 return true;
               }).map((grp, gi) => {
                 const key = grp.partNo || `__unknown_${gi}`;
