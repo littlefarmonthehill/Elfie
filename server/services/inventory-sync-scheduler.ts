@@ -1,9 +1,33 @@
 import { db } from "../db";
-import { appSettings, syncMetadata } from "@shared/schema";
+import { appSettings, syncMetadata, blInventory } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { syncBricklinkData } from "./bricklink";
 import { syncLock } from "./sync-lock";
 import { recordSyncIssue, resolveSchedulerIssues } from "./sync-issue-service";
+
+/**
+ * After each successful inventory sync, embed any items that don't yet have a
+ * CLIP catalog embedding.  Runs entirely in the background — fire-and-forget.
+ * The build skips already-embedded items, so this is cheap on repeat runs.
+ */
+async function triggerClipCatalogUpdate(): Promise<void> {
+  try {
+    const { buildCatalogEmbeddings } = await import('./clip-search.js');
+    const rows = await db.select({ itemNo: blInventory.itemNo, colorId: blInventory.colorId }).from(blInventory);
+    const items = rows.map((r) => ({ itemNo: r.itemNo, colorId: Number(r.colorId), itemType: 'PART' }));
+    if (items.length === 0) return;
+    const result = await buildCatalogEmbeddings(items, (p) => {
+      if (p.done % 100 === 0 && p.done > 0) {
+        console.log(`[CLIP Auto] ${p.done}/${p.total} catalog embeddings built (${p.errors} errors)`);
+      }
+    });
+    if (result.done > 0) {
+      console.log(`[CLIP Auto] Post-sync catalog update complete: ${result.done} new embeddings, ${result.errors} errors`);
+    }
+  } catch (e: any) {
+    console.warn('[CLIP Auto] Post-sync catalog update failed (non-fatal):', e.message);
+  }
+}
 
 const SYNC_ID = 'bricklink_inventory';
 const SYNC_TYPE = 'inventory_sync';
@@ -129,6 +153,10 @@ async function runAutomatedInventorySync() {
 
     retry.count = 0;
     resolveSchedulerIssues(SYNC_TYPE);
+
+    // Fire-and-forget: embed any new items that don't have CLIP catalog embeddings yet.
+    // Skips items already embedded, so this is fast on days with few new items.
+    triggerClipCatalogUpdate();
   } catch (error: any) {
     retry.count++;
     retry.nextAt = Date.now() + retry.count * RETRY_BASE_MS;
