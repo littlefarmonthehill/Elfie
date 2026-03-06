@@ -3402,7 +3402,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
     }
   }
 
-  async function processBrickanalyzerScan(scanId: number, imageBuffer: Buffer, settings: Record<string, number> = {}) {
+  async function processBrickanalyzerScan(scanId: number, imageBuffer: Buffer, settings: Record<string, number> = {}, calibration = false) {
     const { incrementActiveScan, decrementActiveScan } = await import('./services/segmentClient.js');
     incrementActiveScan();
     try {
@@ -3773,7 +3773,8 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           const needsRebrickable = uniquePartNos.filter(p => !cachedMap.has(p.toUpperCase()) && !knownSet.has(p.toUpperCase()));
 
           // ── Check 3: Rebrickable API for remaining unknowns ──
-          if (needsRebrickable.length > 0 && REBRICKABLE_API_KEY) {
+          // Skip during calibration — we only need detection accuracy, not part-number resolution.
+          if (!calibration && needsRebrickable.length > 0 && REBRICKABLE_API_KEY) {
             console.log(`[Brickanalyzer] Resolving ${needsRebrickable.length} unknown LEGO part(s) via Rebrickable: ${needsRebrickable.join(', ')}`);
 
             await Promise.all(needsRebrickable.map(async (legoPartNo) => {
@@ -4074,22 +4075,24 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
                 if (!thumbnailUrl) thumbnailUrl = pgRowsNew[0].thumbnailUrl || pgRowsNew[0].imageUrl || null;
                 if (!piece.partName && pgRowsNew[0].itemName) piece.partName = pgRowsNew[0].itemName;
               }
-              console.log(`[Brickanalyzer] Fetching live POM (new) for ${piece.partNo} color ${colorId ?? 'any'} type ${blItemType}`);
-              const pgData = await fetchPriceOMagicData(
-                piece.partNo, blItemType as any, blItemType === 'PART' ? (colorId ?? undefined) : undefined, 'N', premiumPct, pomConfig
-              );
-              if (pgData) {
-                marketSoldMaxNew = pgData.soldMaxPrice ? Number(pgData.soldMaxPrice) : null;
-                if (pgData.stockAvgPrice != null && Number(pgData.stockAvgPrice) > 0 && stockAvgPriceN === null) stockAvgPriceN = Number(pgData.stockAvgPrice);
-                if (!thumbnailUrl) thumbnailUrl = pgData.thumbnailUrl || pgData.imageUrl || null;
-                if (!piece.partName && pgData.itemName) piece.partName = pgData.itemName;
+              if (!calibration) {
+                console.log(`[Brickanalyzer] Fetching live POM (new) for ${piece.partNo} color ${colorId ?? 'any'} type ${blItemType}`);
+                const pgData = await fetchPriceOMagicData(
+                  piece.partNo, blItemType as any, blItemType === 'PART' ? (colorId ?? undefined) : undefined, 'N', premiumPct, pomConfig
+                );
+                if (pgData) {
+                  marketSoldMaxNew = pgData.soldMaxPrice ? Number(pgData.soldMaxPrice) : null;
+                  if (pgData.stockAvgPrice != null && Number(pgData.stockAvgPrice) > 0 && stockAvgPriceN === null) stockAvgPriceN = Number(pgData.stockAvgPrice);
+                  if (!thumbnailUrl) thumbnailUrl = pgData.thumbnailUrl || pgData.imageUrl || null;
+                  if (!piece.partName && pgData.itemName) piece.partName = pgData.itemName;
+                }
               }
             }
 
             const pgRowsUsed = await getPgRows('U');
             if (pgRowsUsed.length > 0 && pgRowsUsed[0].soldMaxPrice != null) {
               marketSoldMaxUsed = Number(pgRowsUsed[0].soldMaxPrice);
-            } else {
+            } else if (!calibration) {
               console.log(`[Brickanalyzer] Fetching live POM (used) for ${piece.partNo} color ${colorId ?? 'any'} type ${blItemType}`);
               const pgDataUsed = await fetchPriceOMagicData(
                 piece.partNo, blItemType as any, blItemType === 'PART' ? (colorId ?? undefined) : undefined, 'U', premiumPct, pomConfig
@@ -4107,7 +4110,9 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           // Catalog-color fallback: if the detected colorId yielded no market data AND the BL catalog
           // says this printed part only comes in exactly ONE color, re-run POM with the correct color.
           // This fixes printed shields / tiles where Delta-E picks the wrong base color.
+          // Skip entirely during calibration — no price data needed.
           if (
+            !calibration &&
             piece.partNo &&
             blItemType === 'PART' &&
             marketSoldMaxNew === null && marketSoldMaxUsed === null && stockAvgPriceN === null &&
@@ -4462,9 +4467,10 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       if (req.body?.settings) {
         try { settings = JSON.parse(req.body.settings); } catch {}
       }
+      const calibration = req.body?.calibration === 'true';
 
       // Fire and forget — client gets scanId immediately
-      processBrickanalyzerScan(scan.id, req.file.buffer, settings).catch(() => {});
+      processBrickanalyzerScan(scan.id, req.file.buffer, settings, calibration).catch(() => {});
 
       res.json({ scanId: scan.id });
     } catch (err: any) {
