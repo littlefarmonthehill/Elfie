@@ -4482,19 +4482,27 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       };
 
       let allBoxes: { x: number; y: number; w: number; h: number }[];
+
+      // ── Exact same segmentation logic as processBrickanalyzerScan ──────────
+      // This ensures the preview shows precisely the boxes that will be used.
       if (settings.multiPass) {
+        // 4-pass — mirrors the full scan exactly (same passes, same IoU threshold)
         const pass1 = { segmenter: 'contour', minSizePct: 0.40, maxSizePct: 14, blurRadius: 5, cannyLow: 40, cannyHigh: 130, dilateIter: 4 };
         const pass2 = { ...settings };
-        const pass3 = { segmenter: 'contour', minSizePct: 0.02, maxSizePct: 3, blurRadius: 3, cannyLow: 25, cannyHigh: 90, dilateIter: 1 };
-        const [b1, b2, b3] = await Promise.all([
+        const pass3 = { segmenter: 'contour', minSizePct: 0.02, maxSizePct: 5, blurRadius: 3, cannyLow: 25, cannyHigh: 90, dilateIter: 1 };
+        const pass4 = { segmenter: 'contour', minSizePct: 0.02, maxSizePct: 8, blurRadius: 3, cannyLow: 20, cannyHigh: 80, dilateIter: 2, clahe: true };
+        const [b1, b2, b3, b4] = await Promise.all([
           segmentImage(fileBuffer, pass1 as any),
           segmentImage(fileBuffer, pass2 as any),
           segmentImage(fileBuffer, pass3 as any),
+          segmentImage(fileBuffer, pass4 as any),
         ]);
+        // IoU 0.25 — matches full scan (less aggressive dedup = more separate boxes)
         const merged: typeof b1 = [];
-        for (const box of [...b1, ...b2, ...b3]) {
-          if (!merged.some(m => iouBox2(m, box) > 0.35)) merged.push(box);
+        for (const box of [...b1, ...b2, ...b3, ...b4]) {
+          if (!merged.some(m => iouBox2(m, box) > 0.25)) merged.push(box);
         }
+        // Containment suppression — same rule as full scan
         allBoxes = merged.filter((box) => {
           const boxArea = box.w * box.h;
           return !merged.some((other) => {
@@ -4508,14 +4516,19 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       } else {
         allBoxes = await segmentImage(fileBuffer, settings as any);
 
-        // Same calibration merge as the full-scan path — surface details must not become
-        // separate boxes in the preview; they should all merge into one piece boundary.
+        // Calibration merge — matches full scan: merge sub-features into one piece boundary,
+        // BUT keep separate if 2+ boxes are each large (≥15% in both dims) — distinct pieces.
         if (req.body?.calibration === 'true' && allBoxes.length > 1) {
-          const x1 = Math.min(...allBoxes.map(b => b.x));
-          const y1 = Math.min(...allBoxes.map(b => b.y));
-          const x2 = Math.max(...allBoxes.map(b => b.x + b.w));
-          const y2 = Math.max(...allBoxes.map(b => b.y + b.h));
-          allBoxes = [{ x: x1, y: y1, w: x2 - x1, h: y2 - y1 }];
+          const largePieceBoxes = allBoxes.filter(b => b.w >= 15 && b.h >= 15);
+          if (largePieceBoxes.length >= 2) {
+            allBoxes = largePieceBoxes;
+          } else {
+            const x1 = Math.min(...allBoxes.map(b => b.x));
+            const y1 = Math.min(...allBoxes.map(b => b.y));
+            const x2 = Math.max(...allBoxes.map(b => b.x + b.w));
+            const y2 = Math.max(...allBoxes.map(b => b.y + b.h));
+            allBoxes = [{ x: x1, y: y1, w: x2 - x1, h: y2 - y1 }];
+          }
         }
       }
 
