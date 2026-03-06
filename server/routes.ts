@@ -4150,6 +4150,42 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
           } catch (pgErr: any) {
             console.warn(`[Brickanalyzer] POM lookup failed for ${piece.partNo}:`, pgErr.message);
           }
+
+          // Catalog-color fallback: if the detected colorId yielded no market data AND the BL catalog
+          // says this printed part only comes in exactly ONE color, re-run POM with the correct color.
+          // This fixes printed shields / tiles where Delta-E picks the wrong base color.
+          if (
+            piece.partNo &&
+            blItemType === 'PART' &&
+            marketSoldMaxNew === null && marketSoldMaxUsed === null && stockAvgPriceN === null &&
+            catalogColorsList.length === 1 &&
+            catalogColorsList[0].color_id !== colorId
+          ) {
+            const correctColorId = catalogColorsList[0].color_id;
+            const correctColorName = catalogColorMap.get(correctColorId)?.name ?? catalogColorsList[0].color_name ?? '';
+            console.log(`[Brickanalyzer] Catalog-color fallback for ${piece.partNo}: retrying POM with colorId=${correctColorId} "${correctColorName}" (was ${colorId ?? 'null'})`);
+            try {
+              const fbN = await fetchPriceOMagicData(piece.partNo, blItemType as any, correctColorId, 'N', premiumPct, pomConfig);
+              if (fbN) {
+                marketSoldMaxNew = fbN.soldMaxPrice ? Number(fbN.soldMaxPrice) : null;
+                if (fbN.stockAvgPrice != null && stockAvgPriceN === null) stockAvgPriceN = Number(fbN.stockAvgPrice);
+                if (!thumbnailUrl) thumbnailUrl = fbN.thumbnailUrl || fbN.imageUrl || null;
+                if (!piece.partName && fbN.itemName) piece.partName = fbN.itemName;
+              }
+              const fbU = await fetchPriceOMagicData(piece.partNo, blItemType as any, correctColorId, 'U', premiumPct, pomConfig);
+              if (fbU) {
+                marketSoldMaxUsed = fbU.soldMaxPrice ? Number(fbU.soldMaxPrice) : null;
+              }
+              // Only adopt the correct color if it returned actual pricing data
+              if (marketSoldMaxNew !== null || marketSoldMaxUsed !== null || stockAvgPriceN !== null) {
+                colorId = correctColorId;
+                piece.colorName = correctColorName;
+                colorRgb = catalogColorMap.get(correctColorId)?.rgb ?? colorRgb;
+              }
+            } catch (fbErr: any) {
+              console.warn(`[Brickanalyzer] Catalog-color fallback POM failed for ${piece.partNo}:`, fbErr.message);
+            }
+          }
         }
 
         const bestPrice = ourPriceNew ?? ourPriceUsed ?? marketSoldMaxNew ?? marketSoldMaxUsed ?? stockAvgPriceN;
