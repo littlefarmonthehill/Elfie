@@ -168,36 +168,20 @@ const CALIBRATION_ROUNDS = [
 
 const ROUND_GUIDES: Record<1 | 2 | 3 | 4, { headline: string; steps: string[] }> = {
   1: {
-    headline: 'One big part at a time',
-    steps: [
-      'Pick any large, obvious piece — long Technic beam, big slope, door, or window',
-      'Set it alone on white paper or a dark cloth. One piece only — no other parts nearby',
-      'Tap the camera. Rate the result. Then grab a different large part and repeat 5–10 times',
-    ],
+    headline: 'One large part at a time',
+    steps: ['Technic beam, slope, door, or window', 'Alone on a plain surface', 'Tap camera · rate it · repeat 5–10×'],
   },
   2: {
-    headline: 'Find a minifig or specialty part',
-    steps: [
-      'Torso, head, accessory, or a rare printed tile',
-      'Lay it face-up on a plain surface in good light — no harsh shadows on printed faces',
-      'Tap the camera above',
-    ],
+    headline: 'Minifig or specialty part',
+    steps: ['Torso, head, accessory, or printed tile', 'Face-up on a plain surface', 'Tap camera · rate it · try a few'],
   },
   3: {
-    headline: 'Pick any common brick, plate, or tile',
-    steps: [
-      '1×2s, 2×4s, tiles, or plates — your everyday inventory',
-      'Get close — the piece should fill most of the frame, not sit in the center of a wide shot',
-      'Tap the camera above',
-    ],
+    headline: 'Common bricks, plates, or tiles',
+    steps: ['1×2s, 2×4s, tiles, plates — get close', 'Fill the frame · try different colors', 'Tap camera · rate each one'],
   },
   4: {
-    headline: 'Dump a pile of 5–8 random pieces',
-    steps: [
-      'Mixed types, colors, sizes — don\'t sort or arrange them',
-      'Spread them loosely on a plain surface so edges don\'t overlap too much',
-      'Tap the camera and see where the scanner struggles',
-    ],
+    headline: '5–8 mixed pieces in a pile',
+    steps: ['Mix types and colors — don\'t sort', 'Loose on a plain surface', 'Tap camera · see where it struggles'],
   },
 };
 
@@ -696,43 +680,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
             const rdStats = calibStats.byRound.find(r => r.round === calibrateRound)!;
             return (
               <>
-              {/* How calibration works — persistent top banner */}
-              <div className="rounded-lg border border-gray-700/50 bg-gray-900/60 space-y-3 p-3 sm:p-6 mb-3">
-                <p className="text-[11px] sm:text-lg font-semibold text-gray-300">How calibration works</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
-                  <div className="space-y-1.5">
-                    <p className="text-[10px] sm:text-base font-medium text-purple-300">Rating</p>
-                    <ul className="space-y-1">
-                      {[
-                        'Each detected part is rated independently — you\'re not graded on the whole scan at once.',
-                        'Scan a pile and get 5 results? Rate each one. 4 correct + 1 wrong = 4 green, 1 red.',
-                        '"Close" means the right part but wrong color — counts as a miss in accuracy, but helps you spot color confusion patterns.',
-                      ].map((t, i) => (
-                        <li key={i} className="flex items-start gap-1.5 text-[10px] sm:text-base text-gray-400 leading-snug">
-                          <span className="text-purple-500 mt-0.5 flex-shrink-0">·</span>{t}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div className="space-y-1.5">
-                    <p className="text-[10px] sm:text-base font-medium text-amber-300">Shooting tips</p>
-                    <ul className="space-y-1">
-                      {[
-                        'Plain, contrasting background — gray mat, white paper, or dark felt.',
-                        'Bright, diffuse light from above. Avoid harsh shadows and glare on shiny surfaces.',
-                        'Fill 60–80% of the frame with the piece. Too far = poor edge detection.',
-                        'Shoot straight down or at a slight angle. Extreme side angles confuse shape recognition.',
-                      ].map((t, i) => (
-                        <li key={i} className="flex items-start gap-1.5 text-[10px] sm:text-base text-gray-400 leading-snug">
-                          <span className="text-amber-600 mt-0.5 flex-shrink-0">·</span>{t}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              </div>
-
-              <div className={`rounded-lg border ${rd.borderColor} ${rd.bg} space-y-3 p-3 sm:p-8`}>
+              <div className={`rounded-lg border ${rd.borderColor} ${rd.bg} space-y-2 p-3 sm:p-6`}>
                 {/* Round selector */}
                 <div className="flex flex-wrap gap-1.5">
                   {CALIBRATION_ROUNDS.map(r => (
@@ -746,37 +694,18 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                     </button>
                   ))}
                 </div>
-                {/* Guide card (first visit) or score summary (returning) */}
-                {rdStats.total === 0 ? (
-                  /* ── First-time guide ─────────────────────────────── */
-                  <div className="space-y-2">
-                    <p className={`text-xs sm:text-xl font-bold ${rd.color}`}>
-                      {ROUND_GUIDES[rd.round].headline}
-                    </p>
-                    <ol className="space-y-1.5">
+                {/* Guide (no scans yet) or nothing extra (has scans — score below is enough) */}
+                {rdStats.total === 0 && (
+                  <div className="space-y-1">
+                    <p className={`text-xs sm:text-lg font-semibold ${rd.color}`}>{ROUND_GUIDES[rd.round].headline}</p>
+                    <ol className="space-y-0.5">
                       {ROUND_GUIDES[rd.round].steps.map((step, i) => (
-                        <li key={i} className="flex items-start gap-2.5 text-[11px] sm:text-lg text-gray-200 leading-snug">
-                          <span className={`text-[10px] sm:text-base font-bold ${rd.color} w-4 flex-shrink-0 mt-0.5`}>{i + 1}.</span>
+                        <li key={i} className="flex items-start gap-2 text-[11px] sm:text-base text-gray-400">
+                          <span className={`font-bold ${rd.color} flex-shrink-0`}>{i + 1}.</span>
                           {step}
                         </li>
                       ))}
                     </ol>
-                    <p className="text-[10px] sm:text-base text-gray-600 pt-0.5">
-                      More tips: {rd.tips.join(' · ')}
-                    </p>
-                  </div>
-                ) : (
-                  /* ── Returning: goal + tips ────────────────────────── */
-                  <div className="space-y-1.5">
-                    <p className={`text-[11px] sm:text-lg font-semibold ${rd.color}`}>{rd.goal}</p>
-                    <ul className="space-y-0.5">
-                      {rd.tips.map((tip, i) => (
-                        <li key={i} className="flex items-start gap-1.5 text-[10px] sm:text-base text-gray-500">
-                          <Target className="w-3 h-3 sm:w-4 sm:h-4 mt-0.5 flex-shrink-0 text-gray-600" />
-                          {tip}
-                        </li>
-                      ))}
-                    </ul>
                   </div>
                 )}
                 {/* Round progress + overall scorecard access */}
