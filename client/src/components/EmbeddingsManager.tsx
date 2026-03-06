@@ -16,8 +16,6 @@ export function EmbeddingsManager() {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [inventoryBatchSize, setInventoryBatchSize] = useState(30);
   const [orderBatchSize, setOrderBatchSize] = useState(30);
-  const [clipBuildRunning, setClipBuildRunning] = useState(false);
-
   // Get embedding statistics
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['/api/embeddings/stats'],
@@ -157,11 +155,13 @@ export function EmbeddingsManager() {
     },
   });
 
-  // CLIP catalog stats (poll when build is running)
+  // CLIP catalog stats — always poll so UI reflects real server state even after closing/reopening
   const { data: clipStats, refetch: refetchClipStats } = useQuery({
     queryKey: ['/api/brickspotter/catalog-status'],
-    refetchInterval: clipBuildRunning ? 5000 : false,
+    refetchInterval: 5000,
   });
+
+  const clipBuildRunning = !!(clipStats as any)?.buildRunning;
 
   // Start CLIP catalog build
   const { mutate: buildClipCatalog, isPending: startingClipBuild } = useMutation({
@@ -172,15 +172,18 @@ export function EmbeddingsManager() {
         body: JSON.stringify({}),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to start build');
-      return data;
+      if (!response.ok && response.status !== 409) throw new Error(data.error || 'Failed to start build');
+      return { ...data, alreadyRunning: response.status === 409 };
     },
     onSuccess: (data: any) => {
-      setClipBuildRunning(true);
-      toast({
-        title: "Visual Catalog Build Started",
-        description: `Embedding ${data.queued?.toLocaleString()} inventory items in the background. You can close this screen!`,
-      });
+      if (data.alreadyRunning) {
+        toast({ title: "Build Already Running", description: `${data.buildDone?.toLocaleString() ?? 0} of ${data.buildTotal?.toLocaleString() ?? 0} done so far.` });
+      } else {
+        toast({
+          title: "Visual Catalog Build Started",
+          description: `Embedding ${data.queued?.toLocaleString()} inventory items in the background. You can close this screen!`,
+        });
+      }
       refetchClipStats();
     },
     onError: (error: any) => {
@@ -429,34 +432,54 @@ export function EmbeddingsManager() {
         <CardContent className="space-y-3 p-3 pt-0">
           <div className="grid grid-cols-3 gap-2">
             <div className="text-center">
-              <div className="text-xl font-bold" data-testid="text-clip-catalog-count">{(clipStats as any)?.catalog ?? 0}</div>
+              <div className="text-xl font-bold" data-testid="text-clip-catalog-count">{(clipStats as any)?.catalog?.toLocaleString() ?? 0}</div>
               <div className="text-xs text-muted-foreground">Catalog</div>
             </div>
             <div className="text-center">
-              <div className="text-xl font-bold text-green-400" data-testid="text-clip-scan-count">{(clipStats as any)?.scan ?? 0}</div>
+              <div className="text-xl font-bold text-green-400" data-testid="text-clip-scan-count">{(clipStats as any)?.scan?.toLocaleString() ?? 0}</div>
               <div className="text-xs text-muted-foreground">Confirmed</div>
             </div>
             <div className="text-center">
-              <div className="text-xl font-bold" data-testid="text-clip-total-count">{(clipStats as any)?.total ?? 0}</div>
+              <div className="text-xl font-bold" data-testid="text-clip-total-count">{(clipStats as any)?.total?.toLocaleString() ?? 0}</div>
               <div className="text-xs text-muted-foreground">Total</div>
             </div>
           </div>
 
-          {clipBuildRunning && (
-            <Alert className="p-2 bg-blue-500/10 border-blue-500/20">
-              <Loader2 className="h-3 w-3 animate-spin text-blue-400" />
+          {clipBuildRunning && (() => {
+            const done = (clipStats as any)?.buildDone ?? 0;
+            const total = (clipStats as any)?.buildTotal ?? 0;
+            const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+            return (
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-blue-400 flex items-center gap-1">
+                    <Loader2 className="w-3 h-3 animate-spin" /> Building in background…
+                  </span>
+                  <span className="text-xs text-muted-foreground">{done.toLocaleString()} / {total.toLocaleString()}</span>
+                </div>
+                <Progress value={pct} className="h-1.5" />
+                <div className="text-[10px] text-muted-foreground truncate">
+                  {(clipStats as any)?.buildCurrent ? `Part: ${(clipStats as any).buildCurrent}` : 'Starting…'}
+                </div>
+              </div>
+            );
+          })()}
+
+          {!clipBuildRunning && (clipStats as any)?.catalog > 0 && (
+            <div className="flex items-center gap-1 text-xs text-green-400">
+              <CheckCircle2 className="w-3 h-3" />
+              <span>{(clipStats as any).catalog.toLocaleString()} parts embedded — Brick Spotter visual search active</span>
+            </div>
+          )}
+
+          {!clipBuildRunning && (
+            <Alert className="p-2">
+              <AlertCircle className="h-3 w-3" />
               <AlertDescription className="text-xs ml-2">
-                Building in background — {(clipStats as any)?.catalog ?? 0} items done so far
+                Free — runs on the server, takes several hours for a full catalog. Your phone can sleep.
               </AlertDescription>
             </Alert>
           )}
-
-          <Alert className="p-2">
-            <AlertCircle className="h-3 w-3" />
-            <AlertDescription className="text-xs ml-2">
-              Free — runs locally on-device. Takes several hours for a full catalog. Runs on server, phone can sleep.
-            </AlertDescription>
-          </Alert>
 
           <Button
             onClick={() => buildClipCatalog()}
@@ -467,10 +490,12 @@ export function EmbeddingsManager() {
           >
             {startingClipBuild ? (
               <Loader2 className="w-3 h-3 animate-spin" />
+            ) : clipBuildRunning ? (
+              <Loader2 className="w-3 h-3 animate-spin" />
             ) : (
               <Play className="w-3 h-3" />
             )}
-            {clipBuildRunning ? 'Building in Background…' : (clipStats as any)?.catalog > 0 ? 'Continue / Resume Build' : 'Start Visual Catalog Build'}
+            {clipBuildRunning ? 'Build Running…' : (clipStats as any)?.catalog > 0 ? 'Continue / Resume Build' : 'Start Visual Catalog Build'}
           </Button>
         </CardContent>
       </Card>

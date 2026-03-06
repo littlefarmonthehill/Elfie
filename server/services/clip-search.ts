@@ -31,6 +31,13 @@ export interface CatalogBuildProgress {
   errors: number;
 }
 
+// Server-side build tracker so the UI can poll real progress even after reopening Settings
+let _activeBuild: (CatalogBuildProgress & { running: boolean; startedAt: number }) | null = null;
+
+export function getActiveBuild() {
+  return _activeBuild;
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /** Format a float[] as a PostgreSQL vector literal: '[0.1,0.2,...]' */
@@ -128,7 +135,12 @@ export async function buildCatalogEmbeddings(
   onProgress?: (p: CatalogBuildProgress) => void,
   batchSize = 5,
 ): Promise<CatalogBuildProgress> {
+  if (_activeBuild?.running) {
+    console.warn('[CLIP Catalog] Build already running — skipping duplicate request');
+    return { done: 0, total: 0, errors: 0 };
+  }
   const state: CatalogBuildProgress = { done: 0, total: items.length, errors: 0 };
+  _activeBuild = { ...state, running: true, startedAt: Date.now() };
 
   // Load items that already have catalog embeddings
   const existingRows = await db.execute<{ item_no: string; color_id: number }>(sql`
@@ -142,38 +154,45 @@ export async function buildCatalogEmbeddings(
     (it) => !existing.has(`${it.itemNo}:${it.colorId}`)
   );
   state.total = pending.length;
+  if (_activeBuild) _activeBuild.total = pending.length;
 
   if (pending.length === 0) {
+    _activeBuild = { ...state, running: false, startedAt: _activeBuild?.startedAt ?? Date.now() };
     onProgress?.(state);
     return state;
   }
 
-  for (let i = 0; i < pending.length; i += batchSize) {
-    const batch = pending.slice(i, i + batchSize);
-    await Promise.allSettled(
-      batch.map(async (item) => {
-        const url = catalogImageUrl(item.itemNo, item.colorId);
-        try {
-          const embedding = await embedUrl(url);
-          await storeScanEmbedding(
-            item.itemNo,
-            item.colorId,
-            embedding,
-            'catalog',
-            item.itemType ?? 'PART',
-          );
-        } catch (err: any) {
-          // 404/403 = no image on BrickLink CDN for this part/color — silently skip
-          const msg = err?.message ?? '';
-          if (!msg.includes('404') && !msg.includes('image not available') && !msg.includes('403')) {
-            state.errors++;
+  try {
+    for (let i = 0; i < pending.length; i += batchSize) {
+      const batch = pending.slice(i, i + batchSize);
+      await Promise.allSettled(
+        batch.map(async (item) => {
+          const url = catalogImageUrl(item.itemNo, item.colorId);
+          try {
+            const embedding = await embedUrl(url);
+            await storeScanEmbedding(
+              item.itemNo,
+              item.colorId,
+              embedding,
+              'catalog',
+              item.itemType ?? 'PART',
+            );
+          } catch (err: any) {
+            // 404/403 = no image on BrickLink CDN for this part/color — silently skip
+            const msg = err?.message ?? '';
+            if (!msg.includes('404') && !msg.includes('image not available') && !msg.includes('403')) {
+              state.errors++;
+            }
           }
-        }
-      })
-    );
-    state.done += batch.length;
-    state.current = batch[batch.length - 1]?.itemNo;
-    onProgress?.(state);
+        })
+      );
+      state.done += batch.length;
+      state.current = batch[batch.length - 1]?.itemNo;
+      if (_activeBuild) Object.assign(_activeBuild, { done: state.done, current: state.current, errors: state.errors });
+      onProgress?.(state);
+    }
+  } finally {
+    if (_activeBuild) _activeBuild.running = false;
   }
 
   return state;
@@ -185,6 +204,12 @@ export async function getCatalogEmbeddingStats(): Promise<{
   total: number;
   catalog: number;
   scan: number;
+  buildRunning: boolean;
+  buildDone: number;
+  buildTotal: number;
+  buildErrors: number;
+  buildCurrent?: string;
+  buildStartedAt?: number;
 }> {
   const rows = await db.execute<{ source: string; cnt: string }>(sql`
     SELECT source, COUNT(*)::text AS cnt FROM scan_embeddings GROUP BY source
@@ -194,5 +219,15 @@ export async function getCatalogEmbeddingStats(): Promise<{
     if (r.source === 'catalog') catalog = Number(r.cnt);
     else if (r.source === 'scan')    scan    = Number(r.cnt);
   }
-  return { total: catalog + scan, catalog, scan };
+  return {
+    total: catalog + scan,
+    catalog,
+    scan,
+    buildRunning: _activeBuild?.running ?? false,
+    buildDone: _activeBuild?.done ?? 0,
+    buildTotal: _activeBuild?.total ?? 0,
+    buildErrors: _activeBuild?.errors ?? 0,
+    buildCurrent: _activeBuild?.current,
+    buildStartedAt: _activeBuild?.startedAt,
+  };
 }

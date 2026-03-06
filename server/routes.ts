@@ -4658,6 +4658,14 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
   // Body: { limit?: number } — number of inventory items to process (default: all)
   app.post("/api/brickspotter/build-catalog", isApproved, async (req, res) => {
     try {
+      const { buildCatalogEmbeddings, getActiveBuild } = await import('./services/clip-search.js');
+
+      // Guard against concurrent builds
+      const active = getActiveBuild();
+      if (active?.running) {
+        return res.status(409).json({ error: 'Build already in progress', buildDone: active.done, buildTotal: active.total });
+      }
+
       const limit = Number(req.body?.limit) || 0;
       const rows = await db.select({
         itemNo: blInventory.itemNo,
@@ -4670,13 +4678,11 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
         itemType: 'PART',
       }));
 
-      const { buildCatalogEmbeddings } = await import('./services/clip-search.js');
-
       // Run in background — return immediately with count
       res.json({ ok: true, queued: items.length });
 
       buildCatalogEmbeddings(items, (p) => {
-        if (p.done % 50 === 0 || p.done === p.total) {
+        if (p.done % 100 === 0 || p.done === p.total) {
           console.log(`[CLIP Catalog] ${p.done}/${p.total} embedded (${p.errors} errors)`);
         }
       }).then((final) => {
