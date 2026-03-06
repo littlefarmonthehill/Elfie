@@ -19,10 +19,20 @@ let startedAt = 0;
 // Incremented when a Brickanalyzer scan starts processing, decremented when it
 // finishes.  The CLIP catalog build checks this before each batch and yields
 // the Python service to the live scan.
+//
+// COOLDOWN: After a scan ends, catalog build stays paused for another 30 seconds
+// so back-to-back calibration shots don't let the catalog squeeze in between them.
+const SCAN_COOLDOWN_MS = 30_000;
 let _activeScanCount = 0;
+let _lastScanEndedAt  = 0;
 export function incrementActiveScan() { _activeScanCount++; }
-export function decrementActiveScan() { _activeScanCount = Math.max(0, _activeScanCount - 1); }
-export function isScanActive()        { return _activeScanCount > 0; }
+export function decrementActiveScan() {
+  _activeScanCount = Math.max(0, _activeScanCount - 1);
+  if (_activeScanCount === 0) _lastScanEndedAt = Date.now();
+}
+export function isScanActive() {
+  return _activeScanCount > 0 || (Date.now() - _lastScanEndedAt) < SCAN_COOLDOWN_MS;
+}
 
 export function startService() {
   if (proc) return;
