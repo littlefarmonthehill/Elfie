@@ -335,11 +335,11 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
       setScanId(null);
       setUiState("idle");
       setLeftPage(false);
+      setDismissedItems(new Set());
     },
   });
 
   // Auto-dismiss the scan after a verdict is fully recorded (calibration mode).
-  // Called after: CLIP confirmed, Wrong verdict, or "Color not found" selection.
   // A short delay lets the success toast show before the view resets.
   function scheduleAutoDismiss(delayMs = 1500) {
     if (autoDismissTimer.current) clearTimeout(autoDismissTimer.current);
@@ -347,6 +347,18 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
       dismissMutation.mutate();
       autoDismissTimer.current = null;
     }, delayMs);
+  }
+
+  // Mark one item as scored: hide it from the list immediately.
+  // If it was the last unscored item, kick off the full scan dismiss.
+  function markItemScored(verdictKey: string) {
+    setDismissedItems(prev => {
+      const next = new Set(prev);
+      next.add(verdictKey);
+      // Schedule full dismiss once every group is done
+      if (next.size >= groupCountRef.current) scheduleAutoDismiss();
+      return next;
+    });
   }
 
   async function handleFile(file: File) {
@@ -444,6 +456,10 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
     colorId: number | null; colorName: string | null; colorRgb: string | null;
     cropIndex: number; itemType: string;
   } | null>(null);
+  // dismissedItems: keys of items already scored — hidden from list but scan not yet deleted
+  const [dismissedItems, setDismissedItems] = useState<Set<string>>(new Set());
+  // Ref keeps a synchronous count of total groups so handlers can check "all done" without stale closure
+  const groupCountRef = useRef(0);
 
   useEffect(() => {
     try { localStorage.setItem(CALIBRATION_KEY, JSON.stringify({ verdicts, log: calibrationLog })); } catch {}
@@ -491,8 +507,8 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
         partNo, partName, confidence, cropIndex, verdict,
       }]);
     }
-    // Wrong = fully scored immediately — auto-clear so user can scan the next piece
-    if (verdict === 'wrong') scheduleAutoDismiss();
+    // Wrong = fully scored immediately — remove from list (auto-dismiss when all done)
+    if (verdict === 'wrong') markItemScored(`${partNo}__${cropIndex ?? 'x'}`);
   }
 
   async function handleConfirmToClip(partNo: string, partName: string, confidence: string, colorId: number | null, cropIndex: number | null, itemType: string) {
@@ -513,7 +529,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
       if (!res.ok) throw new Error('failed');
       setConfirmedClips(prev => new Set([...prev, key]));
       toast({ title: 'Added to CLIP catalog', description: `${partNo} confirmed. Clearing in a moment…` });
-      scheduleAutoDismiss();
+      markItemScored(key);
     } catch {
       toast({ title: 'Failed to confirm', variant: 'destructive' });
     } finally {
@@ -639,6 +655,8 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
     }
     return Array.from(map.values());
   }, [results]);
+  // Keep ref in sync so scoring handlers can synchronously check "all done"
+  groupCountRef.current = groupedResults.length;
 
   function togglePart(partNo: string) {
     setExpandedParts(prev => {
@@ -1355,7 +1373,15 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
             </div>
           ) : (
             <div className="space-y-1.5">
-              {groupedResults.map((grp, gi) => {
+              {dismissedItems.size > 0 && dismissedItems.size < groupedResults.length && (
+                <div className="text-[10px] sm:text-sm text-gray-500 px-1">
+                  {dismissedItems.size} of {groupedResults.length} scored — {groupedResults.length - dismissedItems.size} remaining
+                </div>
+              )}
+              {groupedResults.filter(grp => {
+                const rci = grp.entries[0]?.cropIndex ?? null;
+                return !dismissedItems.has(`${grp.partNo}__${rci ?? 'x'}`);
+              }).map((grp, gi) => {
                 const key = grp.partNo || `__unknown_${gi}`;
                 const isExpanded = expandedParts.has(key);
                 const totalQtyNew = grp.entries.reduce((s, e) => s + e.ourQtyNew, 0);
@@ -1667,7 +1693,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                                       e.stopPropagation();
                                       setColorCorrectedClips(prev => { const m = new Map(prev); m.delete(correctedKey); return m; });
                                       handleVerdict(grp.partNo, grp.partName, bestConfidence, repCropIndex, 'close');
-                                      scheduleAutoDismiss();
+                                      markItemScored(`${grp.partNo}__${repCropIndex ?? 'x'}`);
                                     }}
                                     className={`flex items-center gap-2 w-full text-left px-2.5 py-2 text-xs sm:text-sm disabled:opacity-40 transition-colors
                                       ${!corrected ? 'bg-yellow-900/40 text-yellow-300 font-semibold' : 'text-gray-400 hover:bg-white/5'}`}
