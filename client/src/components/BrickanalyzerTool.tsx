@@ -412,12 +412,16 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
     }
   }
 
-  async function startFullScan(file: File, effectiveSettings: Record<string, any>) {
+  async function startFullScan(file: File, effectiveSettings: Record<string, any>, approvedBoxes?: { x: number; y: number; w: number; h: number }[]) {
     setUiState("uploading");
     const formData = new FormData();
     formData.append("image", file);
     formData.append("settings", JSON.stringify(effectiveSettings));
     if (calibrateMode) formData.append("calibration", "true");
+    // Pass the user-approved boxes so the server skips re-segmentation
+    if (approvedBoxes && approvedBoxes.length > 0) {
+      formData.append("previewBoxes", JSON.stringify(approvedBoxes));
+    }
     try {
       const res = await fetch("/api/brickanalyzer/scan", {
         method: "POST",
@@ -436,9 +440,11 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
 
   function handleConfirmScan() {
     if (!pendingFile || !pendingSettings) return;
+    const approvedBoxes = previewData?.boxes;
     if (previewData?.objectUrl) URL.revokeObjectURL(previewData.objectUrl);
     setPreviewData(null);
-    startFullScan(pendingFile, pendingSettings);
+    // Pass approved boxes so the server uses them exactly — no re-segmentation
+    startFullScan(pendingFile, pendingSettings, approvedBoxes);
   }
 
   function handleCancelPreview() {

@@ -3402,7 +3402,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
     }
   }
 
-  async function processBrickanalyzerScan(scanId: number, imageBuffer: Buffer, settings: Record<string, number> = {}, calibration = false) {
+  async function processBrickanalyzerScan(scanId: number, imageBuffer: Buffer, settings: Record<string, number> = {}, calibration = false, previewBoxes?: { x: number; y: number; w: number; h: number }[]) {
     const { incrementActiveScan, decrementActiveScan } = await import('./services/segmentClient.js');
     incrementActiveScan();
     try {
@@ -3467,7 +3467,13 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
 
       let allBoxes: { x: number; y: number; w: number; h: number }[];
 
-      if (settings.multiPass) {
+      // If the client passed user-approved preview boxes, use them directly —
+      // skipping re-segmentation ensures the full scan processes exactly the
+      // zones the user reviewed and approved in the preview step.
+      if (previewBoxes && previewBoxes.length > 0) {
+        console.log(`[Brickanalyzer] Using ${previewBoxes.length} user-approved preview boxes (skipping segmentation)`);
+        allBoxes = previewBoxes;
+      } else if (settings.multiPass) {
         console.log('[Brickanalyzer] Step 1: Smart Multi-Pass — running 3 concurrent segmentation passes...');
 
         // Pass 1 — Minifigs / Large pieces only
@@ -4537,8 +4543,14 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       }
       const calibration = req.body?.calibration === 'true';
 
+      // Parse user-approved preview boxes — if present, skip re-segmentation
+      let previewBoxes: { x: number; y: number; w: number; h: number }[] | undefined;
+      if (req.body?.previewBoxes) {
+        try { previewBoxes = JSON.parse(req.body.previewBoxes); } catch {}
+      }
+
       // Fire and forget — client gets scanId immediately
-      processBrickanalyzerScan(scan.id, req.file.buffer, settings, calibration).catch(() => {});
+      processBrickanalyzerScan(scan.id, req.file.buffer, settings, calibration, previewBoxes).catch(() => {});
 
       res.json({ scanId: scan.id });
     } catch (err: any) {
