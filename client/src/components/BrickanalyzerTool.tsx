@@ -1558,11 +1558,13 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
 
                           {/* ── Color correction picker — visible when verdict is Close ── */}
                           {currentVerdict === 'close' && (() => {
-                            const lots = (repEntry.inventoryLots ?? []).filter(l => l.colorRgb && l.colorId != null);
-                            if (lots.length === 0) return null;
+                            // Only require colorId + colorName — colorRgb is optional (used for sort/preview only)
+                            const lots = (repEntry.inventoryLots ?? []).filter(l => l.colorId != null && (l.colorName ?? '').length > 0);
                             const detectedHex = repEntry.colorRgb ?? '';
                             const sorted = [...lots].sort((a, b) =>
-                              colorDeltaE(a.colorRgb!, detectedHex) - colorDeltaE(b.colorRgb!, detectedHex)
+                              (a.colorRgb && b.colorRgb)
+                                ? colorDeltaE(a.colorRgb, detectedHex) - colorDeltaE(b.colorRgb, detectedHex)
+                                : (a.colorName ?? '').localeCompare(b.colorName ?? '')
                             );
                             const correctedKey = `${grp.partNo}__${repCropIndex ?? 'x'}`;
                             const corrected = colorCorrectedClips.get(correctedKey);
@@ -1592,21 +1594,26 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                                   <option value="" disabled>— select color —</option>
                                   <option value="__not_found__">Color not found (keep as Close)</option>
                                   {sorted.map(lot => {
-                                    const dE = colorDeltaE(lot.colorRgb!, detectedHex);
+                                    const dE = lot.colorRgb ? colorDeltaE(lot.colorRgb, detectedHex) : null;
                                     return (
                                       <option key={lot.colorId} value={String(lot.colorId)}>
-                                        {lot.colorName ?? `Color ${lot.colorId}`}  (ΔE {dE.toFixed(0)})
+                                        {lot.colorName ?? `Color ${lot.colorId}`}{dE != null ? `  (ΔE ${dE.toFixed(0)})` : ''}
                                       </option>
                                     );
                                   })}
                                 </select>
-                                {corrected && (
-                                  <div className="flex items-center gap-1.5 mt-1.5">
-                                    <div className="w-4 h-4 rounded-sm border border-white/20 flex-shrink-0"
-                                      style={{ backgroundColor: `#${sorted.find(l => l.colorId === corrected.colorId)?.colorRgb ?? 'ffffff'}` }} />
-                                    <span className="text-[10px] sm:text-xs text-green-300 font-medium">Correct — trained as {corrected.colorName}</span>
-                                  </div>
-                                )}
+                                {corrected && (() => {
+                                  const correctedLot = sorted.find(l => l.colorId === corrected.colorId);
+                                  return (
+                                    <div className="flex items-center gap-1.5 mt-1.5">
+                                      {correctedLot?.colorRgb && (
+                                        <div className="w-4 h-4 rounded-sm border border-white/20 flex-shrink-0"
+                                          style={{ backgroundColor: `#${correctedLot.colorRgb}` }} />
+                                      )}
+                                      <span className="text-[10px] sm:text-xs text-green-300 font-medium">Correct — trained as {corrected.colorName}</span>
+                                    </div>
+                                  );
+                                })()}
                               </div>
                             );
                           })()}
