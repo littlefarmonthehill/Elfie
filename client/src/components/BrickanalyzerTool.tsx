@@ -1572,48 +1572,49 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                               <div className="w-full basis-full mt-1 pt-1.5 border-t border-yellow-500/20" data-testid={`color-picker-${gi}`}>
                                 <p className="text-[9px] sm:text-sm mb-1.5 font-medium">
                                   {corrected
-                                    ? <span className="flex items-center gap-1 text-green-400"><Check className="w-2.5 h-2.5" />Correct — pick a different color to retrain</span>
-                                    : <span className="text-yellow-400/80">Pick the correct color or choose "Color not found":</span>}
+                                    ? <span className="flex items-center gap-1 text-green-400"><Check className="w-2.5 h-2.5" />Correct — tap a different color to retrain</span>
+                                    : <span className="text-yellow-400/80">Tap the correct color:</span>}
                                 </p>
-                                <select
-                                  data-testid={`color-select-${gi}`}
-                                  disabled={isConfirming != null}
-                                  value={corrected ? String(corrected.colorId) : (verdicts[`${grp.partNo}__${repCropIndex ?? 'x'}`] === 'close' && colorCorrectedClips.get(correctedKey) === undefined ? '__not_found__' : '')}
-                                  onChange={e => {
-                                    if (e.target.value === '__not_found__') {
-                                      // Clear any previously chosen color correction, stay as 'close'
+                                <div className="flex flex-col gap-0.5 max-h-40 overflow-y-auto rounded-md border border-yellow-500/20 bg-black/30">
+                                  {/* "Color not found" always first */}
+                                  <button
+                                    type="button"
+                                    data-testid={`color-not-found-${gi}`}
+                                    disabled={isConfirming != null}
+                                    onClick={() => {
                                       setColorCorrectedClips(prev => { const m = new Map(prev); m.delete(correctedKey); return m; });
                                       handleVerdict(grp.partNo, grp.partName, bestConfidence, repCropIndex, 'close');
-                                      return;
-                                    }
-                                    const lot = sorted.find(l => String(l.colorId) === e.target.value);
-                                    if (lot) handleColorCorrection(grp.partNo, grp.partName, bestConfidence, lot.colorId!, lot.colorName ?? String(lot.colorId), repCropIndex, grp.itemType ?? 'PART');
-                                  }}
-                                  className="w-full rounded-md border border-yellow-500/30 bg-black/40 text-white text-xs sm:text-sm px-2 py-1.5 disabled:opacity-40 focus:outline-none focus:ring-1 focus:ring-yellow-500/60"
-                                >
-                                  <option value="" disabled>— select color —</option>
-                                  <option value="__not_found__">Color not found (keep as Close)</option>
+                                    }}
+                                    className={`flex items-center gap-2 w-full text-left px-2.5 py-2 text-xs sm:text-sm disabled:opacity-40 transition-colors
+                                      ${!corrected ? 'bg-yellow-900/40 text-yellow-300 font-semibold' : 'text-gray-400 hover:bg-white/5'}`}
+                                  >
+                                    <span className="w-3 h-3 rounded-sm border border-white/20 bg-gray-600 flex-shrink-0" />
+                                    Color not found
+                                  </button>
                                   {sorted.map(lot => {
+                                    const isSelected = corrected?.colorId === lot.colorId;
                                     const dE = lot.colorRgb ? colorDeltaE(lot.colorRgb, detectedHex) : null;
                                     return (
-                                      <option key={lot.colorId} value={String(lot.colorId)}>
-                                        {lot.colorName ?? `Color ${lot.colorId}`}{dE != null ? `  (ΔE ${dE.toFixed(0)})` : ''}
-                                      </option>
+                                      <button
+                                        type="button"
+                                        key={lot.colorId}
+                                        data-testid={`color-btn-${gi}-${lot.colorId}`}
+                                        disabled={isConfirming != null}
+                                        onClick={() => handleColorCorrection(grp.partNo, grp.partName, bestConfidence, lot.colorId!, lot.colorName ?? String(lot.colorId), repCropIndex, grp.itemType ?? 'PART')}
+                                        className={`flex items-center gap-2 w-full text-left px-2.5 py-2 text-xs sm:text-sm disabled:opacity-40 transition-colors
+                                          ${isSelected ? 'bg-green-900/40 text-green-300 font-semibold' : 'text-gray-200 hover:bg-white/5'}`}
+                                      >
+                                        <span
+                                          className="w-3 h-3 rounded-sm border border-white/20 flex-shrink-0"
+                                          style={{ backgroundColor: lot.colorRgb ? `#${lot.colorRgb}` : '#555' }}
+                                        />
+                                        <span className="flex-1 truncate">{lot.colorName ?? `Color ${lot.colorId}`}</span>
+                                        {dE != null && <span className="text-[10px] text-gray-500 flex-shrink-0">ΔE {dE.toFixed(0)}</span>}
+                                        {isSelected && <Check className="w-3 h-3 text-green-400 flex-shrink-0" />}
+                                      </button>
                                     );
                                   })}
-                                </select>
-                                {corrected && (() => {
-                                  const correctedLot = sorted.find(l => l.colorId === corrected.colorId);
-                                  return (
-                                    <div className="flex items-center gap-1.5 mt-1.5">
-                                      {correctedLot?.colorRgb && (
-                                        <div className="w-4 h-4 rounded-sm border border-white/20 flex-shrink-0"
-                                          style={{ backgroundColor: `#${correctedLot.colorRgb}` }} />
-                                      )}
-                                      <span className="text-[10px] sm:text-xs text-green-300 font-medium">Correct — trained as {corrected.colorName}</span>
-                                    </div>
-                                  );
-                                })()}
+                                </div>
                               </div>
                             );
                           })()}
