@@ -4,6 +4,12 @@ from PIL import Image
 import cv2
 from flask import Flask, request, jsonify
 
+# Import torch + torchvision eagerly at module level so their module-lock
+# state is fully settled before Flask starts handling concurrent requests.
+# Without this, parallel warmup calls (SAM + CLIP) can deadlock each other.
+import torch
+import torchvision
+
 app = Flask(__name__)
 
 
@@ -304,11 +310,109 @@ def segment_pieces_sam(rgb: np.ndarray, settings: dict = None) -> list[dict]:
     return boxes
 
 
+# ── CLIP Image Embedding ─────────────────────────────────────────────────────
+
+_clip_model = None
+_clip_preprocess = None
+
+
+def _ensure_clip_hub() -> str:
+    """Return the path to the local CLIP source directory, downloading if needed."""
+    hub_dir = torch.hub.get_dir()
+    clip_path = os.path.join(hub_dir, "openai_CLIP_main")
+    if os.path.exists(clip_path):
+        return clip_path
+    import zipfile, shutil
+    print("[SegService] Downloading CLIP source (~2MB)...", flush=True)
+    os.makedirs(hub_dir, exist_ok=True)
+    zip_path = os.path.join(hub_dir, "_clip_main.zip")
+    urllib.request.urlretrieve(
+        "https://github.com/openai/CLIP/archive/refs/heads/main.zip", zip_path
+    )
+    with zipfile.ZipFile(zip_path, "r") as zf:
+        zf.extractall(hub_dir)
+    shutil.move(os.path.join(hub_dir, "CLIP-main"), clip_path)
+    os.remove(zip_path)
+    print("[SegService] CLIP source ready.", flush=True)
+    return clip_path
+
+
+def get_clip():
+    """Lazy-load CLIP ViT-B/32. Downloads weights (~338MB) on first call."""
+    global _clip_model, _clip_preprocess
+    if _clip_model is not None:
+        return _clip_model, _clip_preprocess
+    clip_path = _ensure_clip_hub()
+    if clip_path not in sys.path:
+        sys.path.insert(0, clip_path)
+    import clip  # type: ignore
+    print("[SegService] Loading CLIP ViT-B/32 (downloading weights if first run)...", flush=True)
+    _clip_model, _clip_preprocess = clip.load("ViT-B/32", device="cpu")
+    _clip_model.eval()
+    print("[SegService] CLIP model ready (512-dim).", flush=True)
+    return _clip_model, _clip_preprocess
+
+
+def embed_pil_image(pil_img) -> list:
+    """Embed a PIL image with CLIP. Returns a normalized 512-dim float list."""
+    model, preprocess = get_clip()
+    img_tensor = preprocess(pil_img.convert("RGB")).unsqueeze(0)
+    with torch.no_grad():
+        emb = model.encode_image(img_tensor)
+        emb = emb / emb.norm(dim=-1, keepdim=True)
+    return emb[0].tolist()
+
+
 # ── Routes ───────────────────────────────────────────────────────────────────
 
 @app.route("/health", methods=["GET"])
 def health():
     return jsonify({"ok": True})
+
+
+@app.route("/warmup-clip", methods=["POST"])
+def warmup_clip():
+    try:
+        get_clip()
+        return jsonify({"ok": True, "model": "ViT-B/32", "dims": 512})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/embed", methods=["POST"])
+def embed():
+    """Embed a base64-encoded image crop with CLIP. Returns 512-dim float vector."""
+    try:
+        data = request.get_json(force=True)
+        b64 = data.get("image", "")
+        if not b64:
+            return jsonify({"error": "missing image"}), 400
+        img_bytes = base64.b64decode(b64)
+        pil_img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+        embedding = embed_pil_image(pil_img)
+        return jsonify({"embedding": embedding, "dims": len(embedding)})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/embed-url", methods=["POST"])
+def embed_url():
+    """Download an image from a URL and embed it with CLIP."""
+    try:
+        data = request.get_json(force=True)
+        url = data.get("url", "")
+        if not url:
+            return jsonify({"error": "missing url"}), 400
+        with urllib.request.urlopen(url, timeout=10) as resp:
+            img_bytes = resp.read()
+        pil_img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+        embedding = embed_pil_image(pil_img)
+        return jsonify({"embedding": embedding, "dims": len(embedding)})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/warmup-sam", methods=["POST"])

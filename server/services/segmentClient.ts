@@ -160,3 +160,47 @@ export async function segmentImage(imageBuffer: Buffer, settings?: ScanSettings)
   if (resp.error) throw new Error(`Seg service error: ${resp.error}`);
   return (resp.boxes || []) as SegBox[];
 }
+
+/**
+ * Embed a cropped image buffer with CLIP ViT-B/32.
+ * Returns a normalized 512-dimensional float array.
+ * CLIP model is lazy-loaded on first call (~200ms on CPU after warmup).
+ */
+export async function embedCrop(imageBuffer: Buffer): Promise<number[]> {
+  if (!proc) startService();
+  await waitReady();
+  const b64  = imageBuffer.toString('base64');
+  const resp = await postJson('/embed', { image: b64 }, 120_000);
+  if (resp.error) throw new Error(`CLIP embed error: ${resp.error}`);
+  return resp.embedding as number[];
+}
+
+/**
+ * Download an image from a URL and embed it with CLIP ViT-B/32.
+ * Used for batch catalog embedding of BrickLink CDN reference images.
+ */
+export async function embedUrl(url: string): Promise<number[]> {
+  if (!proc) startService();
+  await waitReady();
+  const resp = await postJson('/embed-url', { url }, 120_000);
+  if (resp.error) throw new Error(`CLIP embed-url error: ${resp.error}`);
+  return resp.embedding as number[];
+}
+
+/**
+ * Pre-load CLIP ViT-B/32 into memory. Downloads weights (~338MB) on first call.
+ * Call once at startup so scans don't pay the cold-start penalty.
+ */
+export function warmupClip(): void {
+  (async () => {
+    try {
+      await waitReady();
+      console.log('[SegClient] Pre-warming CLIP ViT-B/32...');
+      const resp = await postJson('/warmup-clip', {}, 900_000); // 15 min — first ever download
+      if (resp.ok) console.log('[SegClient] CLIP model warm and ready (512-dim).');
+      else console.warn('[SegClient] CLIP warmup response:', resp);
+    } catch (e: any) {
+      console.warn('[SegClient] CLIP warmup failed (model will load on first scan):', e.message);
+    }
+  })();
+}

@@ -721,6 +721,29 @@ export const insertSetPartEmbeddingSchema = createInsertSchema(setPartEmbeddings
 export type InsertSetPartEmbedding = z.infer<typeof insertSetPartEmbeddingSchema>;
 export type SetPartEmbedding = typeof setPartEmbeddings.$inferSelect;
 
+// Scan Embeddings — CLIP visual fingerprints for Brick Spotter recognition
+// source='catalog': embedded from BrickLink CDN reference image
+// source='scan':    embedded from a confirmed Brick Spotter crop (higher quality)
+export const scanEmbeddings = pgTable("scan_embeddings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  itemNo: text("item_no").notNull(),
+  itemType: text("item_type").notNull().default('PART'),
+  colorId: integer("color_id"),
+  embedding: vector("embedding", { dimensions: 512 }),
+  source: text("source").notNull().default('catalog'),
+  clipModel: text("clip_model").notNull().default('ViT-B/32'),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  scanEmbPartIdx: index("scan_embeddings_part_idx").on(table.itemNo, table.itemType, table.colorId),
+}));
+
+export const insertScanEmbeddingSchema = createInsertSchema(scanEmbeddings).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertScanEmbedding = z.infer<typeof insertScanEmbeddingSchema>;
+export type ScanEmbedding = typeof scanEmbeddings.$inferSelect;
+
 // Background Embedding Jobs - For async embedding generation
 export const embeddingJobs = pgTable("embedding_jobs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

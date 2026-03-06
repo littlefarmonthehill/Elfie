@@ -10,7 +10,7 @@ import { syncBrickLinkToBrickOwl } from "./services/brickowl";
 import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBackup } from "./services/export";
 import { getProcessedPartImage, processImageFromUrl } from "./services/image-proxy";
 import { db } from "./db";
-import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback } from "@shared/schema";
+import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, scanEmbeddings } from "@shared/schema";
 import { eq, desc, sql, inArray, like, or, and, isNotNull, isNull, ne } from "drizzle-orm";
 import { z } from "zod";
 import multer from "multer";
@@ -3502,7 +3502,8 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       } catch { /* non-fatal */ }
 
       // ── Step 1: Segmentation (single or multi-pass) ──────────────────────
-      const { segmentImage } = await import('./services/segmentClient.js');
+      const { segmentImage, embedCrop } = await import('./services/segmentClient.js');
+      const { findNearestParts } = await import('./services/clip-search.js');
 
       const iouBox = (a: any, b: any): number => {
         const ix0 = Math.max(a.x, b.x), iy0 = Math.max(a.y, b.y);
@@ -3708,12 +3709,24 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
 
           const figsForm  = makeBqForm(cropBuffer);
           const partsForm = makeBqForm(cropBuffer);
-          const [figsRes, partsRes] = await Promise.all([
-            axios.post('https://api.brickognize.com/predict/figs/',  figsForm,  { headers: figsForm.getHeaders(),  timeout: 20000 })
-              .catch((e: any) => { console.warn(`[Brickognize] figs piece ${idx} failed: ${e.message} (HTTP ${e.response?.status ?? 'N/A'})`); return null; }),
-            axios.post('https://api.brickognize.com/predict/parts/', partsForm, { headers: partsForm.getHeaders(), timeout: 20000 })
-              .catch((e: any) => { console.warn(`[Brickognize] parts piece ${idx} failed: ${e.message} (HTTP ${e.response?.status ?? 'N/A'})`); return null; }),
+
+          // Run CLIP embedding + nearest-neighbor search in parallel with Brickognize.
+          // Both hit separate services so there's zero added latency.
+          const [clipMatches, [figsRes, partsRes]] = await Promise.all([
+            embedCrop(cropBuffer)
+              .then((emb) => findNearestParts(emb, 5, 0.60))
+              .catch((e: any) => { console.warn(`[CLIP] piece ${idx} embed failed: ${e.message}`); return []; }),
+            Promise.all([
+              axios.post('https://api.brickognize.com/predict/figs/',  figsForm,  { headers: figsForm.getHeaders(),  timeout: 20000 })
+                .catch((e: any) => { console.warn(`[Brickognize] figs piece ${idx} failed: ${e.message} (HTTP ${e.response?.status ?? 'N/A'})`); return null; }),
+              axios.post('https://api.brickognize.com/predict/parts/', partsForm, { headers: partsForm.getHeaders(), timeout: 20000 })
+                .catch((e: any) => { console.warn(`[Brickognize] parts piece ${idx} failed: ${e.message} (HTTP ${e.response?.status ?? 'N/A'})`); return null; }),
+            ]),
           ]);
+
+          if (clipMatches.length > 0) {
+            console.log(`[CLIP] Piece ${idx}: top match ${clipMatches[0].itemNo} (color ${clipMatches[0].colorId}) sim=${clipMatches[0].similarity.toFixed(3)}`);
+          }
 
           const figTop  = figsRes?.data?.items?.[0]  ?? null;
           const partTop = partsRes?.data?.items?.[0] ?? null;
@@ -3729,7 +3742,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
           const minConfidence = settings.minConfidence ?? 0;
           if (minConfidence > 0 && topItem && topItem.score < minConfidence) {
             console.log(`[Brickanalyzer] Piece ${idx} (${itemType}): ${topItem.id} score=${topItem.score.toFixed(2)} below threshold ${minConfidence.toFixed(2)} — discarded`);
-            return [{ partNo: '', partName: 'Unknown', colorName: '', itemType: 'PART' as const, confidence: 'low' as const, note: `Score ${topItem.score.toFixed(2)} below threshold` }];
+            return [{ partNo: '', partName: 'Unknown', colorName: '', itemType: 'PART' as const, confidence: 'low' as const, note: `Score ${topItem.score.toFixed(2)} below threshold`, clipMatches }];
           }
 
           if (topItem) {
@@ -3745,10 +3758,11 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
               detectedRgb: piece.detectedRgb ?? null,
               cropIndex: idx,
               bboxX: piece.x, bboxY: piece.y, bboxW: piece.w, bboxH: piece.h,
+              clipMatches,
             }];
           }
           console.log(`[Brickanalyzer] Piece ${idx} (${piece.roughName || 'unknown'}): both endpoints empty`);
-          return [{ partNo: '', partName: piece.roughName || 'Unknown', colorName: piece.colorName || '', itemType: 'PART' as const, confidence: 'low', note: 'Brickognize: no match', cropIndex: idx, bboxX: piece.x, bboxY: piece.y, bboxW: piece.w, bboxH: piece.h }];
+          return [{ partNo: '', partName: piece.roughName || 'Unknown', colorName: piece.colorName || '', itemType: 'PART' as const, confidence: 'low', note: 'Brickognize: no match', cropIndex: idx, bboxX: piece.x, bboxY: piece.y, bboxW: piece.w, bboxH: piece.h, clipMatches }];
 
         } catch (err: any) {
           console.warn(`[Brickanalyzer] Piece ${idx} failed:`, err.message);
@@ -4597,6 +4611,79 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
       brickanalyzerImageCache.delete(scanId);
       brickanalyzerImageMeta.delete(scanId);
       res.json({ ok: true });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── CLIP / Brick Spotter management endpoints ─────────────────────────────
+
+  // GET /api/brickspotter/catalog-status — count of scan_embeddings by source
+  app.get("/api/brickspotter/catalog-status", isApproved, async (req, res) => {
+    try {
+      const { getCatalogEmbeddingStats } = await import('./services/clip-search.js');
+      const stats = await getCatalogEmbeddingStats();
+      res.json(stats);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/brickspotter/confirm-embedding — store a confirmed scan crop as a scan embedding
+  app.post("/api/brickspotter/confirm-embedding", isApproved, async (req, res) => {
+    try {
+      const { scanId, cropIndex, itemNo, colorId, itemType } = req.body as {
+        scanId: number; cropIndex: number; itemNo: string; colorId?: number; itemType?: string;
+      };
+      if (!scanId || cropIndex == null || !itemNo) {
+        return res.status(400).json({ error: 'scanId, cropIndex, itemNo required' });
+      }
+      const crops = brickanalyzerCropCache.get(scanId);
+      const cropBuffer = crops?.[cropIndex];
+      if (!cropBuffer) {
+        return res.status(404).json({ error: 'Crop not found in cache (scan may have expired)' });
+      }
+      const { embedCrop: _embedCrop } = await import('./services/segmentClient.js');
+      const { storeScanEmbedding } = await import('./services/clip-search.js');
+      const embedding = await _embedCrop(cropBuffer);
+      await storeScanEmbedding(itemNo, colorId ?? null, embedding, 'scan', itemType ?? 'PART');
+      console.log(`[CLIP] Stored scan embedding for ${itemNo} colorId=${colorId} (scan ${scanId} crop ${cropIndex})`);
+      res.json({ ok: true });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/brickspotter/build-catalog — batch embed BL inventory items using CDN URLs
+  // Body: { limit?: number } — number of inventory items to process (default: all)
+  app.post("/api/brickspotter/build-catalog", isApproved, async (req, res) => {
+    try {
+      const limit = Number(req.body?.limit) || 0;
+      const rows = await db.select({
+        itemNo: blInventory.itemNo,
+        colorId: blInventory.colorId,
+      }).from(blInventory);
+
+      const items = (limit > 0 ? rows.slice(0, limit) : rows).map((r) => ({
+        itemNo: r.itemNo,
+        colorId: Number(r.colorId),
+        itemType: 'PART',
+      }));
+
+      const { buildCatalogEmbeddings } = await import('./services/clip-search.js');
+
+      // Run in background — return immediately with count
+      res.json({ ok: true, queued: items.length });
+
+      buildCatalogEmbeddings(items, (p) => {
+        if (p.done % 50 === 0 || p.done === p.total) {
+          console.log(`[CLIP Catalog] ${p.done}/${p.total} embedded (${p.errors} errors)`);
+        }
+      }).then((final) => {
+        console.log(`[CLIP Catalog] Build complete: ${final.done} embedded, ${final.errors} errors`);
+      }).catch((e) => {
+        console.error('[CLIP Catalog] Build failed:', e.message);
+      });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
