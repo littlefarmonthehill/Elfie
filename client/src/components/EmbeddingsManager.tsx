@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Sparkles, Database, Search, Loader2, CheckCircle2, AlertCircle, Play, Square } from 'lucide-react';
+import { Sparkles, Database, Search, Loader2, CheckCircle2, AlertCircle, Play, Square, Eye } from 'lucide-react';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -16,6 +16,7 @@ export function EmbeddingsManager() {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [inventoryBatchSize, setInventoryBatchSize] = useState(30);
   const [orderBatchSize, setOrderBatchSize] = useState(30);
+  const [clipBuildRunning, setClipBuildRunning] = useState(false);
 
   // Get embedding statistics
   const { data: stats, isLoading: statsLoading } = useQuery({
@@ -153,6 +154,37 @@ export function EmbeddingsManager() {
         description: "Order embedding job has been paused",
       });
       refetchOrdersJob();
+    },
+  });
+
+  // CLIP catalog stats (poll when build is running)
+  const { data: clipStats, refetch: refetchClipStats } = useQuery({
+    queryKey: ['/api/brickspotter/catalog-status'],
+    refetchInterval: clipBuildRunning ? 5000 : false,
+  });
+
+  // Start CLIP catalog build
+  const { mutate: buildClipCatalog, isPending: startingClipBuild } = useMutation({
+    mutationFn: async () => {
+      const response = await fetch('/api/brickspotter/build-catalog', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to start build');
+      return data;
+    },
+    onSuccess: (data: any) => {
+      setClipBuildRunning(true);
+      toast({
+        title: "Visual Catalog Build Started",
+        description: `Embedding ${data.queued?.toLocaleString()} inventory items in the background. You can close this screen!`,
+      });
+      refetchClipStats();
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to Start Build", description: error.message, variant: "destructive" });
     },
   });
 
@@ -380,6 +412,66 @@ export function EmbeddingsManager() {
               </Button>
             )}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* CLIP Visual Catalog */}
+      <Card>
+        <CardHeader className="pb-2 p-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Eye className="w-4 h-4 text-blue-400" />
+            Visual Catalog (Brick Spotter)
+          </CardTitle>
+          <CardDescription className="text-xs">
+            One-time build: embeds your inventory using CLIP vision AI so Brick Spotter can visually recognize parts
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 p-3 pt-0">
+          <div className="grid grid-cols-3 gap-2">
+            <div className="text-center">
+              <div className="text-xl font-bold" data-testid="text-clip-catalog-count">{(clipStats as any)?.catalog ?? 0}</div>
+              <div className="text-xs text-muted-foreground">Catalog</div>
+            </div>
+            <div className="text-center">
+              <div className="text-xl font-bold text-green-400" data-testid="text-clip-scan-count">{(clipStats as any)?.scan ?? 0}</div>
+              <div className="text-xs text-muted-foreground">Confirmed</div>
+            </div>
+            <div className="text-center">
+              <div className="text-xl font-bold" data-testid="text-clip-total-count">{(clipStats as any)?.total ?? 0}</div>
+              <div className="text-xs text-muted-foreground">Total</div>
+            </div>
+          </div>
+
+          {clipBuildRunning && (
+            <Alert className="p-2 bg-blue-500/10 border-blue-500/20">
+              <Loader2 className="h-3 w-3 animate-spin text-blue-400" />
+              <AlertDescription className="text-xs ml-2">
+                Building in background — {(clipStats as any)?.catalog ?? 0} items done so far
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <Alert className="p-2">
+            <AlertCircle className="h-3 w-3" />
+            <AlertDescription className="text-xs ml-2">
+              Free — runs locally on-device. Takes several hours for a full catalog. Runs on server, phone can sleep.
+            </AlertDescription>
+          </Alert>
+
+          <Button
+            onClick={() => buildClipCatalog()}
+            disabled={startingClipBuild || clipBuildRunning}
+            size="sm"
+            className="w-full text-xs gap-1"
+            data-testid="button-build-clip-catalog"
+          >
+            {startingClipBuild ? (
+              <Loader2 className="w-3 h-3 animate-spin" />
+            ) : (
+              <Play className="w-3 h-3" />
+            )}
+            {clipBuildRunning ? 'Building in Background…' : (clipStats as any)?.catalog > 0 ? 'Continue / Resume Build' : 'Start Visual Catalog Build'}
+          </Button>
         </CardContent>
       </Card>
 
