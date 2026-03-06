@@ -387,29 +387,8 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
       ? { ...settings, multiPass: true }
       : { ...settings, multiPass: false };
 
-    // Step 1: Run segmentation preview — show detected zones before committing to Brickognize
-    const previewForm = new FormData();
-    previewForm.append("image", file);
-    previewForm.append("settings", JSON.stringify(effectiveSettings));
-    if (calibrateMode) previewForm.append("calibration", "true");
-    try {
-      const res = await fetch("/api/brickanalyzer/segment", {
-        method: "POST",
-        credentials: "include",
-        body: previewForm,
-      });
-      if (!res.ok) throw new Error("Segmentation failed");
-      const { boxes, imageWidth, imageHeight } = await res.json();
-      const objectUrl = URL.createObjectURL(file);
-      if (previewData?.objectUrl) URL.revokeObjectURL(previewData.objectUrl);
-      setPreviewData({ boxes, imageWidth, imageHeight, objectUrl });
-      setPendingFile(file);
-      setPendingSettings(effectiveSettings);
-      setUiState("previewing");
-    } catch {
-      // If preview fails, fall through to full scan directly
-      await startFullScan(file, effectiveSettings);
-    }
+    // Go directly to the full scan — no preview confirmation step needed
+    await startFullScan(file, effectiveSettings);
   }
 
   async function startFullScan(file: File, effectiveSettings: Record<string, any>) {
