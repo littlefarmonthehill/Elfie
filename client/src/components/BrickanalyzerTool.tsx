@@ -458,6 +458,8 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
     const key = `${partNo}__${cropIndex ?? 'x'}`;
     // Record the SME's corrected color choice
     setColorCorrectedClips(prev => new Map(prev).set(key, { colorId: correctedColorId, colorName: correctedColorName }));
+    // Color found + selected → upgrade verdict to correct (right part, color now confirmed)
+    handleVerdict(partNo, partName, confidence, cropIndex, 'correct');
     // Train CLIP with the corrected colorId
     await handleConfirmToClip(partNo, partName, confidence, correctedColorId, cropIndex, itemType);
   }
@@ -1566,22 +1568,29 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                             const corrected = colorCorrectedClips.get(correctedKey);
                             return (
                               <div className="w-full basis-full mt-1 pt-1.5 border-t border-yellow-500/20" data-testid={`color-picker-${gi}`}>
-                                <p className="text-[9px] sm:text-sm text-yellow-400/80 mb-1.5 font-medium">
+                                <p className="text-[9px] sm:text-sm mb-1.5 font-medium">
                                   {corrected
-                                    ? <span className="flex items-center gap-1"><Check className="w-2.5 h-2.5" />Trained with <span className="font-semibold">{corrected.colorName}</span> — pick again to retrain</span>
-                                    : 'Pick the correct color to train CLIP:'}
+                                    ? <span className="flex items-center gap-1 text-green-400"><Check className="w-2.5 h-2.5" />Correct — pick a different color to retrain</span>
+                                    : <span className="text-yellow-400/80">Pick the correct color or choose "Color not found":</span>}
                                 </p>
                                 <select
                                   data-testid={`color-select-${gi}`}
                                   disabled={isConfirming != null}
-                                  value={corrected?.colorId ?? ''}
+                                  value={corrected ? String(corrected.colorId) : (verdicts[`${grp.partNo}__${repCropIndex ?? 'x'}`] === 'close' && colorCorrectedClips.get(correctedKey) === undefined ? '__not_found__' : '')}
                                   onChange={e => {
+                                    if (e.target.value === '__not_found__') {
+                                      // Clear any previously chosen color correction, stay as 'close'
+                                      setColorCorrectedClips(prev => { const m = new Map(prev); m.delete(correctedKey); return m; });
+                                      handleVerdict(grp.partNo, grp.partName, bestConfidence, repCropIndex, 'close');
+                                      return;
+                                    }
                                     const lot = sorted.find(l => String(l.colorId) === e.target.value);
                                     if (lot) handleColorCorrection(grp.partNo, grp.partName, bestConfidence, lot.colorId!, lot.colorName ?? String(lot.colorId), repCropIndex, grp.itemType ?? 'PART');
                                   }}
                                   className="w-full rounded-md border border-yellow-500/30 bg-black/40 text-white text-xs sm:text-sm px-2 py-1.5 disabled:opacity-40 focus:outline-none focus:ring-1 focus:ring-yellow-500/60"
                                 >
                                   <option value="" disabled>— select color —</option>
+                                  <option value="__not_found__">Color not found (keep as Close)</option>
                                   {sorted.map(lot => {
                                     const dE = colorDeltaE(lot.colorRgb!, detectedHex);
                                     return (
@@ -1595,7 +1604,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                                   <div className="flex items-center gap-1.5 mt-1.5">
                                     <div className="w-4 h-4 rounded-sm border border-white/20 flex-shrink-0"
                                       style={{ backgroundColor: `#${sorted.find(l => l.colorId === corrected.colorId)?.colorRgb ?? 'ffffff'}` }} />
-                                    <span className="text-[10px] sm:text-xs text-yellow-300 font-medium">{corrected.colorName}</span>
+                                    <span className="text-[10px] sm:text-xs text-green-300 font-medium">Correct — trained as {corrected.colorName}</span>
                                   </div>
                                 )}
                               </div>
