@@ -1985,15 +1985,22 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                     </div>
                     {/* Overlay body — scrollable, mirrors the card */}
                     <div className="flex-1 overflow-y-auto min-h-0">
-                      {/* Large crop image at the top */}
-                      <div className="bg-gray-900 flex items-center justify-center border-b border-gray-800">
-                        <img
-                          src={`/api/brickanalyzer/scan/${activeScan.id}/crop/${focusedDetailCropIndex}`}
-                          alt={`Crop ${focusedDetailCropIndex + 1}`}
-                          className="w-full object-contain max-h-48"
-                          data-testid={`focused-crop-image-${focusedDetailCropIndex}`}
-                        />
-                      </div>
+                      {/* Large inventory/catalog image at the top */}
+                      {(primarySrc || blPlUrl) && (
+                        <div className="bg-gray-900 flex items-center justify-center border-b border-gray-800 p-3">
+                          <img
+                            src={primarySrc || blPlUrl!}
+                            alt={focusedGroup.partName}
+                            className="object-contain max-h-48 max-w-full"
+                            onError={(e) => {
+                              const el = e.target as HTMLImageElement;
+                              if (blColorUrl && el.src !== blColorUrl) { el.src = blColorUrl; }
+                              else if (blPlUrl && el.src !== blPlUrl) { el.src = blPlUrl; }
+                              else { (el.parentElement as HTMLElement).style.display = 'none'; }
+                            }}
+                          />
+                        </div>
+                      )}
 
                       {/* Card header row: thumbnail + info */}
                       <div className="flex gap-2.5 px-2.5 py-2">
