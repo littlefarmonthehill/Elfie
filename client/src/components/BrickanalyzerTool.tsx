@@ -358,26 +358,30 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
     },
   });
 
-  // Auto-dismiss the scan after a verdict is fully recorded (calibration mode).
-  // A short delay lets the success toast show before the view resets.
-  function scheduleAutoDismiss(delayMs = 1500) {
-    if (autoDismissTimer.current) clearTimeout(autoDismissTimer.current);
-    autoDismissTimer.current = setTimeout(() => {
-      dismissMutation.mutate();
-      autoDismissTimer.current = null;
-    }, delayMs);
+  // Swipe-dismiss: remove one result card from the visible list.
+  function swipeDismissItem(verdictKey: string) {
+    setDismissedItems(prev => { const n = new Set(prev); n.add(verdictKey); return n; });
   }
 
-  // Mark one item as scored: hide it from the list immediately.
-  // If it was the last unscored item, kick off the full scan dismiss.
-  function markItemScored(verdictKey: string) {
-    setDismissedItems(prev => {
-      const next = new Set(prev);
-      next.add(verdictKey);
-      // Schedule full dismiss once every group is done
-      if (next.size >= groupCountRef.current) scheduleAutoDismiss();
-      return next;
-    });
+  // Per-card swipe tracking (only one card swiped at a time)
+  const swipeRef = useRef<{ key: string; startX: number; currentX: number } | null>(null);
+  const [swipingCard, setSwipingCard] = useState<{ key: string; offset: number } | null>(null);
+
+  function handleCardTouchStart(key: string, clientX: number) {
+    swipeRef.current = { key, startX: clientX, currentX: clientX };
+  }
+  function handleCardTouchMove(key: string, clientX: number) {
+    if (!swipeRef.current || swipeRef.current.key !== key) return;
+    swipeRef.current.currentX = clientX;
+    const offset = Math.max(0, clientX - swipeRef.current.startX);
+    if (offset > 8) setSwipingCard({ key, offset });
+  }
+  function handleCardTouchEnd(key: string) {
+    if (!swipeRef.current || swipeRef.current.key !== key) return;
+    const offset = Math.max(0, swipeRef.current.currentX - swipeRef.current.startX);
+    swipeRef.current = null;
+    setSwipingCard(null);
+    if (offset > 100) swipeDismissItem(key);
   }
 
   async function handleFile(file: File) {
@@ -654,8 +658,6 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
         partNo, partName, confidence, cropIndex, verdict,
       }]);
     }
-    // Wrong = fully scored immediately — remove from list (auto-dismiss when all done)
-    if (verdict === 'wrong') markItemScored(`${partNo}__${cropIndex ?? 'x'}`);
   }
 
   async function handleConfirmToClip(partNo: string, partName: string, confidence: string, colorId: number | null, cropIndex: number | null, itemType: string) {
@@ -675,8 +677,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
       });
       if (!res.ok) throw new Error('failed');
       setConfirmedClips(prev => new Set([...prev, key]));
-      toast({ title: 'Added to CLIP catalog', description: `${partNo} confirmed. Clearing in a moment…` });
-      markItemScored(key);
+      toast({ title: 'Added to CLIP catalog', description: `${partNo} saved as a visual reference.` });
     } catch {
       toast({ title: 'Failed to confirm', variant: 'destructive' });
     } finally {
@@ -847,32 +848,6 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
   return (
     <div className="space-y-4 sm:space-y-12 p-1 sm:p-6">
 
-      {/* ── Scan / Calibrate mode toggle ─────────────────────────────────── */}
-      {(uiState === "idle" || uiState === "complete" || uiState === "failed") && (
-        <div className="flex rounded-lg border border-gray-700 overflow-hidden">
-          <button
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2 sm:py-5 text-xs sm:text-xl font-semibold transition-colors ${!calibrateMode ? "bg-purple-600 text-white" : "text-gray-400 hover:text-gray-300 hover:bg-gray-800/50"}`}
-            onClick={() => setCalibrateMode(false)}
-            data-testid="button-mode-scan"
-          >
-            <ScanSearch className="w-3.5 h-3.5 sm:w-6 sm:h-6" />
-            Scan
-          </button>
-          <button
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2 sm:py-5 text-xs sm:text-xl font-semibold transition-colors border-l border-gray-700 ${calibrateMode ? "bg-amber-600 text-white" : "text-gray-400 hover:text-gray-300 hover:bg-gray-800/50"}`}
-            onClick={() => setCalibrateMode(true)}
-            data-testid="button-mode-calibrate"
-          >
-            <FlaskConical className="w-3.5 h-3.5 sm:w-6 sm:h-6" />
-            Calibrate
-            {calibStats.total > 0 && (
-              <span className={`text-[10px] sm:text-lg font-bold px-1.5 rounded-full ${calibrateMode ? 'bg-amber-800/60 text-amber-200' : 'bg-gray-700 text-gray-300'}`}>
-                {calibStats.total}
-              </span>
-            )}
-          </button>
-        </div>
-      )}
 
       {/* ── Python AI service not ready ──────────────────────────────────── */}
       {!pythonReady && (
@@ -931,8 +906,8 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
             </p>
           </button>
 
-          {/* ── Calibration: round guidance ──────────────────────────── */}
-          {calibrateMode && (() => {
+          {/* placeholder so next diff can find its anchor */}
+          {false && (() => {
             const rd = CALIBRATION_ROUNDS.find(r => r.round === calibrateRound)!;
             const rdStats = calibStats.byRound.find(r => r.round === calibrateRound)!;
             return (
@@ -1485,6 +1460,22 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                 {showCrops ? "Hide Crops" : `View ${activeScan?.cropCount} Crops`}
               </Button>
             )}
+            {/* Calibrate toggle — shown in results, activates verdict icons on each card */}
+            <Button
+              size="sm"
+              variant={calibrateMode ? "default" : "outline"}
+              className={`shrink-0 gap-1.5 ${calibrateMode ? "bg-amber-600 hover:bg-amber-700 border-amber-600" : ""}`}
+              onClick={() => { setCalibrateMode(v => !v); if (!calibrateMode) setShowScorecard(false); }}
+              data-testid="button-mode-calibrate"
+            >
+              <FlaskConical className="w-3.5 h-3.5" />
+              Calibrate
+              {calibrateMode && calibStats.total > 0 && (
+                <span className="text-[10px] font-bold bg-amber-800/60 text-amber-200 px-1.5 rounded-full">
+                  {calibStats.total}
+                </span>
+              )}
+            </Button>
             {calibrateMode && calibStats.total > 0 && (
               <Button
                 size="sm"
@@ -1494,7 +1485,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                 data-testid="button-view-scorecard"
               >
                 <BarChart3 className="w-3.5 h-3.5" />
-                Scorecard
+                {calibStats.total > 0 ? `${Math.round(calibStats.correct / calibStats.total * 100)}%` : 'Scorecard'}
               </Button>
             )}
           </div>
@@ -1612,9 +1603,9 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
             </div>
           ) : (
             <div className="space-y-1.5">
-              {dismissedItems.size > 0 && dismissedItems.size < groupedResults.length && (
+              {dismissedItems.size > 0 && (
                 <div className="text-[10px] sm:text-sm text-gray-500 px-1">
-                  {dismissedItems.size} of {groupedResults.length} scored — {groupedResults.length - dismissedItems.size} remaining
+                  {dismissedItems.size} removed · {groupedResults.length - dismissedItems.size} showing
                 </div>
               )}
               {groupedResults.filter(grp => {
@@ -1668,6 +1659,11 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
 
                 const cardId = `result-${grp.partNo || gi}`;
                 const isHighlighted = highlightedResult === cardId;
+                // Verdict state for this card (for indicator + calibrate bar)
+                const cardVKey = `${grp.partNo || `__unk_${gi}`}__${(repEntry.cropIndex ?? 'x')}`;
+                const cardVerdict = verdicts[cardVKey] ?? null;
+                const swipeKey = cardId;
+                const swipeOffset = swipingCard?.key === swipeKey ? swipingCard.offset : 0;
                 return (
                   <div
                     key={key}
@@ -1678,8 +1674,13 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                       boxShadow: isHighlighted
                         ? '0 0 0 2px rgba(251,191,36,0.6), 0 0 28px 6px rgba(251,191,36,0.35)'
                         : '0 0 12px rgba(168,85,247,0.10)',
-                      transition: 'box-shadow 0.3s ease, border-color 0.3s ease',
+                      transform: swipeOffset > 0 ? `translateX(${swipeOffset}px)` : undefined,
+                      opacity: swipeOffset > 0 ? Math.max(0.25, 1 - swipeOffset / 160) : 1,
+                      transition: swipeOffset > 0 ? 'none' : 'box-shadow 0.3s ease, border-color 0.3s ease, transform 0.2s ease, opacity 0.2s ease',
                     }}
+                    onTouchStart={e => handleCardTouchStart(swipeKey, e.touches[0].clientX)}
+                    onTouchMove={e => { handleCardTouchMove(swipeKey, e.touches[0].clientX); }}
+                    onTouchEnd={() => handleCardTouchEnd(swipeKey)}
                     data-testid={`tile-brickanalyzer-${gi}`}
                   >
                     {/* ── Collapsed header (always visible) ─────────── */}
@@ -1754,6 +1755,17 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                           <ChevronRight
                             className={`w-3.5 h-3.5 sm:w-7 sm:h-7 text-gray-500 flex-shrink-0 transition-transform duration-150 ${isExpanded ? "rotate-90" : ""}`}
                           />
+                          {/* Calibrated indicator — shown when a verdict has been recorded */}
+                          {cardVerdict && (
+                            <span
+                              className={`flex-shrink-0 w-2 h-2 sm:w-3 sm:h-3 rounded-full ${
+                                cardVerdict === 'correct' ? 'bg-green-400' :
+                                cardVerdict === 'close'   ? 'bg-yellow-400' :
+                                                            'bg-red-400'
+                              }`}
+                              title={`Calibration: ${cardVerdict}`}
+                            />
+                          )}
                         </div>
 
                         {/* Part no · qty · confidence · crop count */}
@@ -1781,58 +1793,54 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                       const isConfirmed = confirmedClips.has(clipKey);
                       const isConfirming = confirmingClip === clipKey;
                       return (
-                        <div className="border-t border-amber-500/15 px-2.5 sm:px-8 py-1.5 sm:py-4 flex flex-wrap items-center gap-2" onClick={e => e.stopPropagation()}>
-                          {/* Info tooltip */}
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <button className="text-gray-600 hover:text-gray-400 transition-colors flex-shrink-0" data-testid="button-verdict-info">
-                                <Info className="w-3 h-3 sm:w-5 sm:h-5" />
+                        <div className="border-t border-amber-500/15 px-2.5 sm:px-8 py-1.5 sm:py-3 flex flex-wrap items-center gap-1.5" onClick={e => e.stopPropagation()}>
+                          {/* CLIP (correct) */}
+                          {grp.partNo && repCropIndex != null && (
+                            isConfirmed ? (
+                              <span className="flex items-center gap-1 text-[10px] sm:text-base text-purple-400">
+                                <Check className="w-3 h-3 sm:w-4 sm:h-4" />
+                                <span className="text-[10px]">CLIP</span>
+                              </span>
+                            ) : (
+                              <button
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  setPendingClipConfirm({
+                                    partNo: grp.partNo, partName: grp.partName, confidence: bestConfidence,
+                                    colorId: repEntry.colorId ?? null, colorName: repEntry.colorName ?? null,
+                                    colorRgb: repEntry.colorRgb ?? null,
+                                    cropIndex: repCropIndex, itemType: grp.itemType ?? 'PART',
+                                  });
+                                }}
+                                disabled={isConfirming}
+                                title="Correct — add to CLIP catalog"
+                                className={`flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-full transition-colors disabled:opacity-50 ${currentVerdict === 'correct' ? 'bg-purple-600 text-white' : 'border border-purple-500/50 text-purple-400 hover:bg-purple-900/40'}`}
+                                data-testid={`confirm-clip-${gi}`}
+                              >
+                                {isConfirming ? <Loader2 className="w-3 h-3 animate-spin" /> : <ThumbsUp className="w-3 h-3 sm:w-4 sm:h-4" />}
                               </button>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" className="max-w-xs text-xs sm:text-sm space-y-1.5 p-3">
-                              <p className="font-semibold text-white mb-1">Rate each part independently</p>
-                              <p className="text-gray-400 text-[11px] mb-2">If the scan found multiple pieces, each gets its own rating — you don't need all of them correct.</p>
-                              <div className="flex items-start gap-2">
-                                <ThumbsUp className="w-3 h-3 mt-0.5 text-green-400 flex-shrink-0" />
-                                <span><span className="text-green-400 font-medium">Add to CLIP</span> — Right part, right color. Saves this photo as a visual reference so future scans get smarter.</span>
-                              </div>
-                              <div className="flex items-start gap-2">
-                                <Minus className="w-3 h-3 mt-0.5 text-yellow-400 flex-shrink-0" />
-                                <span><span className="text-yellow-400 font-medium">Close</span> — Right part, wrong color. Pick the correct color from the swatch that appears to train CLIP with the right label.</span>
-                              </div>
-                              <div className="flex items-start gap-2">
-                                <ThumbsDown className="w-3 h-3 mt-0.5 text-red-400 flex-shrink-0" />
-                                <span><span className="text-red-400 font-medium">Wrong</span> — Completely misidentified. Logged as a miss in your scorecard.</span>
-                              </div>
-                            </TooltipContent>
-                          </Tooltip>
-                          {/* Add to CLIP — stages for confirmation first */}
-                          {grp.partNo && repCropIndex != null && !isConfirmed && (
-                            <button
-                              onClick={e => {
-                                e.stopPropagation();
-                                setPendingClipConfirm({
-                                  partNo: grp.partNo, partName: grp.partName, confidence: bestConfidence,
-                                  colorId: repEntry.colorId ?? null,
-                                  colorName: repEntry.colorName ?? null,
-                                  colorRgb: repEntry.colorRgb ?? null,
-                                  cropIndex: repCropIndex, itemType: grp.itemType ?? 'PART',
-                                });
-                              }}
-                              disabled={isConfirming}
-                              className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] sm:text-lg font-semibold transition-colors disabled:opacity-50 ${currentVerdict === 'correct' ? 'bg-purple-600 text-white' : 'border border-purple-500/50 text-purple-400 hover:bg-purple-900/40'}`}
-                              data-testid={`confirm-clip-${gi}`}
-                            >
-                              {isConfirming ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <ThumbsUp className="w-2.5 h-2.5 sm:w-4 sm:h-4" />}
-                              Add to CLIP
-                            </button>
+                            )
                           )}
-                          {isConfirmed && (
-                            <span className="flex items-center gap-1 text-[10px] sm:text-lg text-purple-400 font-medium">
-                              <Check className="w-2.5 h-2.5 sm:w-4 sm:h-4" />
-                              In CLIP catalog
-                            </span>
-                          )}
+                          {/* Close (right part, wrong color) */}
+                          <button
+                            onClick={e => { e.stopPropagation(); handleVerdict(grp.partNo, grp.partName, bestConfidence, repCropIndex, 'close'); }}
+                            title="Close — right part, wrong color"
+                            className={`flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-full transition-colors ${currentVerdict === 'close' ? 'bg-yellow-600 text-white' : 'border border-yellow-600/40 text-yellow-500 hover:bg-yellow-900/40'}`}
+                            data-testid={`verdict-close-${gi}`}
+                          >
+                            <Minus className="w-3 h-3 sm:w-4 sm:h-4" />
+                          </button>
+                          {/* Wrong (misidentified) */}
+                          <button
+                            onClick={e => { e.stopPropagation(); handleVerdict(grp.partNo, grp.partName, bestConfidence, repCropIndex, 'wrong'); }}
+                            title="Wrong — misidentified"
+                            className={`flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-full transition-colors ${currentVerdict === 'wrong' ? 'bg-red-600 text-white' : 'border border-red-600/40 text-red-500 hover:bg-red-900/40'}`}
+                            data-testid={`verdict-wrong-${gi}`}
+                          >
+                            <ThumbsDown className="w-3 h-3 sm:w-4 sm:h-4" />
+                          </button>
+                          {/* Spacer + swipe hint */}
+                          <span className="ml-auto text-[9px] text-gray-600 select-none">swipe → to remove</span>
                           {/* ── CLIP confirmation panel ── */}
                           {pendingClipConfirm?.partNo === grp.partNo && pendingClipConfirm?.cropIndex === repCropIndex && (
                             <div
@@ -1840,64 +1848,43 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                               onClick={e => e.stopPropagation()}
                               data-testid={`clip-confirm-panel-${gi}`}
                             >
-                              <p className="text-[9px] sm:text-sm text-purple-300 font-medium mb-2">Confirm adding to CLIP catalog:</p>
-                              <div className="flex items-center gap-2 mb-2.5 bg-purple-900/20 border border-purple-500/20 rounded-md px-2.5 py-2">
+                              <div className="flex items-center gap-2 mb-2 bg-purple-900/20 border border-purple-500/20 rounded-md px-2.5 py-1.5">
                                 {pendingClipConfirm.colorRgb && (
-                                  <div className="w-5 h-5 rounded-sm border border-white/20 flex-shrink-0"
+                                  <div className="w-4 h-4 rounded-sm border border-white/20 flex-shrink-0"
                                     style={{ backgroundColor: `#${pendingClipConfirm.colorRgb}` }} />
                                 )}
-                                <div className="min-w-0">
-                                  <p className="text-xs sm:text-sm font-semibold text-white truncate">{pendingClipConfirm.partName || pendingClipConfirm.partNo}</p>
-                                  <p className="text-[10px] sm:text-xs text-gray-400">
-                                    {pendingClipConfirm.partNo}
-                                    {pendingClipConfirm.colorName && <span className="ml-1.5 text-gray-300">· {pendingClipConfirm.colorName}</span>}
-                                  </p>
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-[10px] sm:text-xs font-semibold text-white truncate">{pendingClipConfirm.partName || pendingClipConfirm.partNo}</p>
+                                  {pendingClipConfirm.colorName && <p className="text-[9px] sm:text-[10px] text-gray-400">{pendingClipConfirm.colorName}</p>}
                                 </div>
-                              </div>
-                              <div className="flex gap-2">
-                                <button
-                                  type="button"
-                                  data-testid={`clip-confirm-yes-${gi}`}
-                                  disabled={isConfirming}
-                                  onClick={e => {
-                                    e.stopPropagation();
-                                    const p = pendingClipConfirm;
-                                    setPendingClipConfirm(null);
-                                    handleConfirmToClip(p.partNo, p.partName, p.confidence, p.colorId, p.cropIndex, p.itemType);
-                                  }}
-                                  className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md bg-purple-600 text-white text-xs sm:text-sm font-semibold disabled:opacity-50"
-                                >
-                                  {isConfirming ? <Loader2 className="w-3 h-3 animate-spin" /> : <ThumbsUp className="w-3 h-3" />}
-                                  Yes, add to CLIP
-                                </button>
-                                <button
-                                  type="button"
-                                  data-testid={`clip-confirm-cancel-${gi}`}
-                                  onClick={e => { e.stopPropagation(); setPendingClipConfirm(null); }}
-                                  className="px-3 py-2 rounded-md border border-gray-600 text-gray-400 text-xs sm:text-sm"
-                                >
-                                  Cancel
-                                </button>
+                                <div className="flex gap-1.5">
+                                  <button
+                                    type="button"
+                                    data-testid={`clip-confirm-yes-${gi}`}
+                                    disabled={isConfirming}
+                                    onClick={e => {
+                                      e.stopPropagation();
+                                      const p = pendingClipConfirm;
+                                      setPendingClipConfirm(null);
+                                      handleConfirmToClip(p.partNo, p.partName, p.confidence, p.colorId, p.cropIndex, p.itemType);
+                                    }}
+                                    className="flex items-center gap-1 px-2 py-1 rounded-md bg-purple-600 text-white text-[10px] font-semibold disabled:opacity-50"
+                                  >
+                                    {isConfirming ? <Loader2 className="w-3 h-3 animate-spin" /> : <ThumbsUp className="w-3 h-3" />}
+                                    Add
+                                  </button>
+                                  <button
+                                    type="button"
+                                    data-testid={`clip-confirm-cancel-${gi}`}
+                                    onClick={e => { e.stopPropagation(); setPendingClipConfirm(null); }}
+                                    className="px-2 py-1 rounded-md border border-gray-600 text-gray-400 text-[10px]"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
                               </div>
                             </div>
                           )}
-                          {/* Negative verdicts */}
-                          <button
-                            onClick={() => handleVerdict(grp.partNo, grp.partName, bestConfidence, repCropIndex, 'close')}
-                            className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] sm:text-lg font-semibold transition-colors ${currentVerdict === 'close' ? 'bg-yellow-600 text-white' : 'border border-yellow-600/40 text-yellow-500 hover:bg-yellow-900/40'}`}
-                            data-testid={`verdict-close-${gi}`}
-                          >
-                            <Minus className="w-2.5 h-2.5 sm:w-4 sm:h-4" />
-                            Close
-                          </button>
-                          <button
-                            onClick={() => handleVerdict(grp.partNo, grp.partName, bestConfidence, repCropIndex, 'wrong')}
-                            className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] sm:text-lg font-semibold transition-colors ${currentVerdict === 'wrong' ? 'bg-red-600 text-white' : 'border border-red-600/40 text-red-500 hover:bg-red-900/40'}`}
-                            data-testid={`verdict-wrong-${gi}`}
-                          >
-                            <ThumbsDown className="w-2.5 h-2.5 sm:w-4 sm:h-4" />
-                            Wrong
-                          </button>
 
                           {/* ── Color correction picker — visible when verdict is Close ── */}
                           {currentVerdict === 'close' && (() => {
