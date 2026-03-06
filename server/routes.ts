@@ -3476,17 +3476,19 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       } else if (settings.multiPass) {
         console.log('[Brickanalyzer] Step 1: Smart Multi-Pass — running 3 concurrent segmentation passes...');
 
-        // Pass 1 — Minifigs / Large pieces only
-        // High minSizePct ensures only genuine large objects (minifigs) are detected here.
-        // These boxes seed the exclusion zones — keep this threshold strict.
+        // Pass 1 — Large pieces / Minifigs
+        // Catches large LEGO objects (baseplates, big builds, minifigs) that can occupy
+        // 25-55% of the frame.  maxDimFrac:90 prevents the Python default 38% cap from
+        // silently rejecting wide or tall objects.
         const pass1: Record<string, any> = {
           segmenter: 'contour',
-          minSizePct: 0.40,   // only large pieces/minifigs — shields are too small for this pass
-          maxSizePct: 14,     // allow tall minifig bounding boxes
+          minSizePct: 0.40,   // only genuine large objects — ignores tiny surface noise
+          maxSizePct: 55,     // raised from 14 → covers objects filling up to half the frame
+          maxDimFrac: 90,     // raised from Python default 38 → allows wide/tall bounding boxes
           blurRadius: 5,      // moderate blur — smooth noise on large surfaces
           cannyLow: 40,       // moderate edge sensitivity
           cannyHigh: 130,
-          dilateIter: 4,      // close more gaps — minifig outlines have lots of detail
+          dilateIter: 4,      // close more gaps — large piece outlines have lots of detail
         };
 
         // Pass 2 — Standard (user's own settings, unchanged)
@@ -4487,7 +4489,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       // This ensures the preview shows precisely the boxes that will be used.
       if (settings.multiPass) {
         // 4-pass — mirrors the full scan exactly (same passes, same IoU threshold)
-        const pass1 = { segmenter: 'contour', minSizePct: 0.40, maxSizePct: 14, blurRadius: 5, cannyLow: 40, cannyHigh: 130, dilateIter: 4 };
+        const pass1 = { segmenter: 'contour', minSizePct: 0.40, maxSizePct: 55, maxDimFrac: 90, blurRadius: 5, cannyLow: 40, cannyHigh: 130, dilateIter: 4 };
         const pass2 = { ...settings };
         const pass3 = { segmenter: 'contour', minSizePct: 0.02, maxSizePct: 5, blurRadius: 3, cannyLow: 25, cannyHigh: 90, dilateIter: 1 };
         const pass4 = { segmenter: 'contour', minSizePct: 0.02, maxSizePct: 8, blurRadius: 3, cannyLow: 20, cannyHigh: 80, dilateIter: 2, clahe: true };
