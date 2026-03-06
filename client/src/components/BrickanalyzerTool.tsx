@@ -660,6 +660,43 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
             const rd = CALIBRATION_ROUNDS.find(r => r.round === calibrateRound)!;
             const rdStats = calibStats.byRound.find(r => r.round === calibrateRound)!;
             return (
+              <>
+              {/* How calibration works — persistent top banner */}
+              <div className="rounded-lg border border-gray-700/50 bg-gray-900/60 space-y-3 p-3 sm:p-6 mb-3">
+                <p className="text-[11px] sm:text-lg font-semibold text-gray-300">How calibration works</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+                  <div className="space-y-1.5">
+                    <p className="text-[10px] sm:text-base font-medium text-purple-300">Rating</p>
+                    <ul className="space-y-1">
+                      {[
+                        'Each detected part is rated independently — you\'re not graded on the whole scan at once.',
+                        'Scan a pile and get 5 results? Rate each one. 4 correct + 1 wrong = 4 green, 1 red.',
+                        '"Close" means the right part but wrong color — counts as a miss in accuracy, but helps you spot color confusion patterns.',
+                      ].map((t, i) => (
+                        <li key={i} className="flex items-start gap-1.5 text-[10px] sm:text-base text-gray-400 leading-snug">
+                          <span className="text-purple-500 mt-0.5 flex-shrink-0">·</span>{t}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="space-y-1.5">
+                    <p className="text-[10px] sm:text-base font-medium text-amber-300">Shooting tips</p>
+                    <ul className="space-y-1">
+                      {[
+                        'Plain, contrasting background — gray mat, white paper, or dark felt.',
+                        'Bright, diffuse light from above. Avoid harsh shadows and glare on shiny surfaces.',
+                        'Fill 60–80% of the frame with the piece. Too far = poor edge detection.',
+                        'Shoot straight down or at a slight angle. Extreme side angles confuse shape recognition.',
+                      ].map((t, i) => (
+                        <li key={i} className="flex items-start gap-1.5 text-[10px] sm:text-base text-gray-400 leading-snug">
+                          <span className="text-amber-600 mt-0.5 flex-shrink-0">·</span>{t}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
               <div className={`rounded-lg border ${rd.borderColor} ${rd.bg} space-y-3 p-3 sm:p-8`}>
                 {/* Round selector */}
                 <div className="flex flex-wrap gap-1.5">
@@ -755,6 +792,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                   </div>
                 )}
               </div>
+              </>
             );
           })()}
 
@@ -1433,7 +1471,8 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                               </button>
                             </TooltipTrigger>
                             <TooltipContent side="top" className="max-w-xs text-xs sm:text-sm space-y-1.5 p-3">
-                              <p className="font-semibold text-white mb-1">How to rate this result:</p>
+                              <p className="font-semibold text-white mb-1">Rate each part independently</p>
+                              <p className="text-gray-400 text-[11px] mb-2">If the scan found multiple pieces, each gets its own rating — you don't need all of them correct.</p>
                               <div className="flex items-start gap-2">
                                 <ThumbsUp className="w-3 h-3 mt-0.5 text-green-400 flex-shrink-0" />
                                 <span><span className="text-green-400 font-medium">Add to CLIP</span> — Right part, right color. Saves this photo as a visual reference so future scans get smarter.</span>
