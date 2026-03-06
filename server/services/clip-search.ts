@@ -162,8 +162,12 @@ export async function buildCatalogEmbeddings(
             'catalog',
             item.itemType ?? 'PART',
           );
-        } catch {
-          state.errors++;
+        } catch (err: any) {
+          // 404/403 = no image on BrickLink CDN for this part/color — silently skip
+          const msg = err?.message ?? '';
+          if (!msg.includes('404') && !msg.includes('image not available') && !msg.includes('403')) {
+            state.errors++;
+          }
         }
       })
     );

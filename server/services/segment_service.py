@@ -405,8 +405,14 @@ def embed_url():
         url = data.get("url", "")
         if not url:
             return jsonify({"error": "missing url"}), 400
-        with urllib.request.urlopen(url, timeout=10) as resp:
-            img_bytes = resp.read()
+        try:
+            with urllib.request.urlopen(url, timeout=10) as resp:
+                img_bytes = resp.read()
+        except urllib.error.HTTPError as http_err:
+            # Image not found on CDN (404) or access denied (403) — not an error we can fix
+            return jsonify({"error": f"image not available: HTTP {http_err.code}", "code": http_err.code}), 404
+        except urllib.error.URLError as url_err:
+            return jsonify({"error": f"image fetch failed: {url_err.reason}"}), 502
         pil_img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
         embedding = embed_pil_image(pil_img)
         return jsonify({"embedding": embedding, "dims": len(embedding)})

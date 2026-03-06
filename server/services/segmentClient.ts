@@ -8,7 +8,7 @@ import http from 'http';
 
 const SEG_PORT    = 5001;
 const SCRIPT      = path.resolve('./server/services/segment_service.py');
-const COLD_TIMEOUT = 120_000; // 2 min — scipy/cv2 imports are slow on first boot
+const COLD_TIMEOUT = 300_000; // 5 min — production torch+torchvision cold-start can be slow
 const WARM_TIMEOUT =  15_000; // 15 s  — restart after crash
 
 let proc: ChildProcess | null = null;
