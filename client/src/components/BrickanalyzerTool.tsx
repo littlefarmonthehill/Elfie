@@ -1094,6 +1094,17 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
               </p>
             </div>
           )}
+
+          <div className="text-center pt-1">
+            <button
+              className="text-[10px] sm:text-xs text-gray-600 hover:text-red-400 transition-colors underline underline-offset-2"
+              onClick={() => dismissMutation.mutate()}
+              disabled={dismissMutation.isPending}
+              data-testid="button-brickanalyzer-cancel"
+            >
+              {dismissMutation.isPending ? "Cancelling..." : "Cancel scan"}
+            </button>
+          </div>
         </div>
       )}
 

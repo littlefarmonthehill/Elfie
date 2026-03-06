@@ -172,6 +172,15 @@ app.use((req, res, next) => {
           );
       }
       console.log('[Startup] Cleared any stale in_progress sync records');
+
+      // Also mark any brickanalyzer scans that were mid-flight as failed —
+      // they were killed by the restart and will never complete.
+      const { brickanalyzerScans } = await import('@shared/schema');
+      const { eq: drizzleEq } = await import('drizzle-orm');
+      await dbInstance.update(brickanalyzerScans)
+        .set({ status: 'failed', errorMessage: 'Scan interrupted by server restart.', completedAt: new Date() })
+        .where(drizzleEq(brickanalyzerScans.status, 'processing'));
+      console.log('[Startup] Cleared any stale processing brickanalyzer scans');
     } catch (staleErr: any) {
       console.error('[Startup] Could not clear stale sync records (non-fatal):', staleErr.message);
     }
