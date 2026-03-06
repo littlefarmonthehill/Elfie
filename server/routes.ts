@@ -3562,17 +3562,24 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         console.log('[Brickanalyzer] Step 1: Single-pass segmentation...');
         allBoxes = await segmentImage(imageBuffer, settings as any);
 
-        // Calibration is always a single close-up piece.  Surface details (studs, grooves,
-        // text, logos) can each be larger than the minSizePct floor and get detected as
-        // separate regions.  Merge everything into one enclosing box so the crop captures
-        // the whole piece — not just one of its features.
+        // Calibration normally means one close-up piece — surface details (studs, grooves,
+        // text, logos) get detected as separate sub-regions, so we merge them into one box.
+        // Exception: if 2+ boxes are each individually large (≥15% in both dimensions),
+        // they are clearly distinct large pieces in the same frame — keep them separate.
         if (calibration && allBoxes.length > 1) {
-          const x1 = Math.min(...allBoxes.map(b => b.x));
-          const y1 = Math.min(...allBoxes.map(b => b.y));
-          const x2 = Math.max(...allBoxes.map(b => b.x + b.w));
-          const y2 = Math.max(...allBoxes.map(b => b.y + b.h));
-          console.log(`[Brickanalyzer] Calibration: merged ${allBoxes.length} regions into 1 enclosing box`);
-          allBoxes = [{ x: x1, y: y1, w: x2 - x1, h: y2 - y1 }];
+          const largePieceBoxes = allBoxes.filter(b => b.w >= 15 && b.h >= 15);
+          if (largePieceBoxes.length >= 2) {
+            console.log(`[Brickanalyzer] Calibration: ${allBoxes.length} regions — ${largePieceBoxes.length} are large, keeping as separate pieces`);
+            // Use the large boxes only, discard any tiny sub-feature noise
+            allBoxes = largePieceBoxes;
+          } else {
+            const x1 = Math.min(...allBoxes.map(b => b.x));
+            const y1 = Math.min(...allBoxes.map(b => b.y));
+            const x2 = Math.max(...allBoxes.map(b => b.x + b.w));
+            const y2 = Math.max(...allBoxes.map(b => b.y + b.h));
+            console.log(`[Brickanalyzer] Calibration: merged ${allBoxes.length} sub-regions into 1 enclosing box`);
+            allBoxes = [{ x: x1, y: y1, w: x2 - x1, h: y2 - y1 }];
+          }
         }
       }
 
