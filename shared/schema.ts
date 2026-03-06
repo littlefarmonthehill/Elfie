@@ -1,5 +1,5 @@
 import { sql, relations } from "drizzle-orm";
-import { pgTable, text, varchar, integer, decimal, timestamp, boolean, index, jsonb, serial } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, decimal, timestamp, boolean, index, jsonb, serial, date } from "drizzle-orm/pg-core";
 import { vector } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -588,6 +588,56 @@ export const insertPriceGuideCacheSchema = createInsertSchema(priceGuideCache).o
 
 export type InsertPriceGuideCache = z.infer<typeof insertPriceGuideCacheSchema>;
 export type PriceGuideCache = typeof priceGuideCache.$inferSelect;
+
+// Part Price History — append-only snapshots written on every POM sync
+// Preserves market data beyond BrickLink's 6-month rolling window
+export const partPriceHistory = pgTable("part_price_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  itemNo: text("item_no").notNull(),
+  itemType: text("item_type").notNull(),
+  colorId: integer("color_id"),
+  newOrUsed: text("new_or_used").notNull().default('N'),
+  snapshotDate: date("snapshot_date").notNull(),
+
+  // Stock guide — current market listings
+  stockAvgPrice: decimal("stock_avg_price", { precision: 10, scale: 4 }),
+  stockMinPrice: decimal("stock_min_price", { precision: 10, scale: 4 }),
+  stockMaxPrice: decimal("stock_max_price", { precision: 10, scale: 4 }),
+  stockUnitQty: integer("stock_unit_qty"),
+  stockTotalLots: integer("stock_total_lots"),
+  stockQtyAvg: integer("stock_qty_avg"),
+  stockP10: decimal("stock_p10", { precision: 10, scale: 4 }),
+  stockP25: decimal("stock_p25", { precision: 10, scale: 4 }),
+  stockP50: decimal("stock_p50", { precision: 10, scale: 4 }),
+  stockP75: decimal("stock_p75", { precision: 10, scale: 4 }),
+  stockP85: decimal("stock_p85", { precision: 10, scale: 4 }),
+  stockP95: decimal("stock_p95", { precision: 10, scale: 4 }),
+
+  // Sold guide — last 6 months of completed transactions
+  soldAvgPrice: decimal("sold_avg_price", { precision: 10, scale: 4 }),
+  soldMinPrice: decimal("sold_min_price", { precision: 10, scale: 4 }),
+  soldMaxPrice: decimal("sold_max_price", { precision: 10, scale: 4 }),
+  soldUnitQty: integer("sold_unit_qty"),
+  soldTotalLots: integer("sold_total_lots"),
+  soldQtyAvg: integer("sold_qty_avg"),
+  soldP10: decimal("sold_p10", { precision: 10, scale: 4 }),
+  soldP25: decimal("sold_p25", { precision: 10, scale: 4 }),
+  soldP50: decimal("sold_p50", { precision: 10, scale: 4 }),
+  soldP75: decimal("sold_p75", { precision: 10, scale: 4 }),
+  soldP85: decimal("sold_p85", { precision: 10, scale: 4 }),
+  soldP95: decimal("sold_p95", { precision: 10, scale: 4 }),
+
+  fetchedAt: timestamp("fetched_at").defaultNow().notNull(),
+}, (table) => ({
+  partDateIdx: index("part_price_history_part_date_idx").on(table.itemNo, table.itemType, table.colorId, table.newOrUsed, table.snapshotDate),
+}));
+
+export const insertPartPriceHistorySchema = createInsertSchema(partPriceHistory).omit({
+  id: true,
+  fetchedAt: true,
+});
+export type InsertPartPriceHistory = z.infer<typeof insertPartPriceHistorySchema>;
+export type PartPriceHistory = typeof partPriceHistory.$inferSelect;
 
 // Vector Embeddings - For semantic search and AI intelligence
 export const inventoryEmbeddings = pgTable("inventory_embeddings", {
