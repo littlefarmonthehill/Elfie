@@ -4058,6 +4058,16 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             }
           }
 
+          // Build localItemData from what we already know — avoids the item-details BL API call
+          // inside fetchPriceOMagicData (saves 1 call per piece on cache misses).
+          // Brickognize already gave us the name; blInventory already has thumbnail/image URLs.
+          const localPomItemData = {
+            name: piece.partName || activeInvRows[0]?.itemName || null,
+            imageUrl: activeInvRows[0]?.imageUrl || null,
+            thumbnailUrl: activeInvRows[0]?.thumbnailUrl || null,
+            categoryId: null as number | null,
+          };
+
           // 3. Price guide cache — query separately for new and used
           try {
             const pgCols = {
@@ -4110,7 +4120,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
               if (!calibration) {
                 console.log(`[Brickanalyzer] Fetching live POM (new) for ${piece.partNo} color ${colorId ?? 'any'} type ${blItemType}`);
                 const pgData = await fetchPriceOMagicData(
-                  piece.partNo, blItemType as any, blItemType === 'PART' ? (colorId ?? undefined) : undefined, 'N', premiumPct, pomConfig, false, undefined, blApiCallsCounter
+                  piece.partNo, blItemType as any, blItemType === 'PART' ? (colorId ?? undefined) : undefined, 'N', premiumPct, pomConfig, false, localPomItemData, blApiCallsCounter
                 );
                 if (pgData) {
                   marketSoldMaxNew = pgData.soldMaxPrice ? Number(pgData.soldMaxPrice) : null;
@@ -4127,7 +4137,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             } else if (!calibration) {
               console.log(`[Brickanalyzer] Fetching live POM (used) for ${piece.partNo} color ${colorId ?? 'any'} type ${blItemType}`);
               const pgDataUsed = await fetchPriceOMagicData(
-                piece.partNo, blItemType as any, blItemType === 'PART' ? (colorId ?? undefined) : undefined, 'U', premiumPct, pomConfig, false, undefined, blApiCallsCounter
+                piece.partNo, blItemType as any, blItemType === 'PART' ? (colorId ?? undefined) : undefined, 'U', premiumPct, pomConfig, false, localPomItemData, blApiCallsCounter
               );
               if (pgDataUsed) {
                 marketSoldMaxUsed = pgDataUsed.soldMaxPrice ? Number(pgDataUsed.soldMaxPrice) : null;
@@ -4155,14 +4165,14 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             const correctColorName = catalogColorMap.get(correctColorId)?.name ?? catalogColorsList[0].color_name ?? '';
             console.log(`[Brickanalyzer] Catalog-color fallback for ${piece.partNo}: retrying POM with colorId=${correctColorId} "${correctColorName}" (was ${colorId ?? 'null'})`);
             try {
-              const fbN = await fetchPriceOMagicData(piece.partNo, blItemType as any, correctColorId, 'N', premiumPct, pomConfig, false, undefined, blApiCallsCounter);
+              const fbN = await fetchPriceOMagicData(piece.partNo, blItemType as any, correctColorId, 'N', premiumPct, pomConfig, false, localPomItemData, blApiCallsCounter);
               if (fbN) {
                 marketSoldMaxNew = fbN.soldMaxPrice ? Number(fbN.soldMaxPrice) : null;
                 if (fbN.stockAvgPrice != null && stockAvgPriceN === null) stockAvgPriceN = Number(fbN.stockAvgPrice);
                 if (!thumbnailUrl) thumbnailUrl = fbN.thumbnailUrl || fbN.imageUrl || null;
                 if (!piece.partName && fbN.itemName) piece.partName = fbN.itemName;
               }
-              const fbU = await fetchPriceOMagicData(piece.partNo, blItemType as any, correctColorId, 'U', premiumPct, pomConfig, false, undefined, blApiCallsCounter);
+              const fbU = await fetchPriceOMagicData(piece.partNo, blItemType as any, correctColorId, 'U', premiumPct, pomConfig, false, localPomItemData, blApiCallsCounter);
               if (fbU) {
                 marketSoldMaxUsed = fbU.soldMaxPrice ? Number(fbU.soldMaxPrice) : null;
               }
@@ -4273,7 +4283,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
                   if (lot.colorId == null) continue;
                   if (lot.peakNew !== null || lot.peakUsed !== null) continue; // already cached
                   try {
-                    const liveN = await fetchPriceOMagicData(piece.partNo, blItemType as any, lot.colorId, 'N', premiumPct, pomConfig, false, undefined, blApiCallsCounter);
+                    const liveN = await fetchPriceOMagicData(piece.partNo, blItemType as any, lot.colorId, 'N', premiumPct, pomConfig, false, localPomItemData, blApiCallsCounter);
                     if (liveN) {
                       lot.peakNew = liveN.soldMaxPrice ? Number(liveN.soldMaxPrice) : null;
                       // Stock avg as secondary signal when no sold history (guard > 0: BL returns "0.0000" when nobody is selling)
@@ -4281,7 +4291,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
                       if (!thumbnailUrl) thumbnailUrl = liveN.thumbnailUrl || liveN.imageUrl || null;
                       if (!piece.partName && liveN.itemName) piece.partName = liveN.itemName;
                     }
-                    const liveU = await fetchPriceOMagicData(piece.partNo, blItemType as any, lot.colorId, 'U', premiumPct, pomConfig, false, undefined, blApiCallsCounter);
+                    const liveU = await fetchPriceOMagicData(piece.partNo, blItemType as any, lot.colorId, 'U', premiumPct, pomConfig, false, localPomItemData, blApiCallsCounter);
                     if (liveU) lot.peakUsed = liveU.soldMaxPrice ? Number(liveU.soldMaxPrice) : null;
                     console.log(`[Brickanalyzer] Lot POM ${piece.partNo}/${lot.colorId} "${lot.colorName}": peakN=${lot.peakNew} peakU=${lot.peakUsed}`);
                   } catch (lotErr: any) {
