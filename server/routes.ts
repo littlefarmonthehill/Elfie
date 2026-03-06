@@ -3903,6 +3903,8 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
         // Hoisted outside if(piece.partNo) so inventoryLots section below can read them
         let catalogColorMap = new Map<number, { name: string | null; rgb: string | null }>();
         let catalogColorsList: { color_id: number; color_name: string }[] = [];
+        // Stock (current listing) average price — fallback when BL has no sold history
+        let stockAvgPriceN: number | null = null;
 
         if (piece.partNo) {
           // 1. Look up our inventory listings — all conditions for this partNo
@@ -4075,6 +4077,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
           try {
             const pgCols = {
               soldMaxPrice: priceGuideCache.soldMaxPrice,
+              stockAvgPrice: priceGuideCache.stockAvgPrice,
               thumbnailUrl: priceGuideCache.thumbnailUrl,
               imageUrl: priceGuideCache.imageUrl,
               itemName: priceGuideCache.itemName,
@@ -4108,11 +4111,13 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
             // A row with soldMaxPrice=null is a "nothing found" record — still try a fresh fetch.
             if (pgRowsNew.length > 0 && pgRowsNew[0].soldMaxPrice != null) {
               marketSoldMaxNew = Number(pgRowsNew[0].soldMaxPrice);
+              if (pgRowsNew[0].stockAvgPrice != null && stockAvgPriceN === null) stockAvgPriceN = Number(pgRowsNew[0].stockAvgPrice);
               if (!thumbnailUrl) thumbnailUrl = pgRowsNew[0].thumbnailUrl || pgRowsNew[0].imageUrl || null;
               if (!piece.partName && pgRowsNew[0].itemName) piece.partName = pgRowsNew[0].itemName;
             } else {
-              // Pull name/thumb from cache even if price is null (avoids missing part names)
+              // Pull name/thumb/stock from cache even if sold price is null (avoids missing part names)
               if (pgRowsNew.length > 0) {
+                if (pgRowsNew[0].stockAvgPrice != null && stockAvgPriceN === null) stockAvgPriceN = Number(pgRowsNew[0].stockAvgPrice);
                 if (!thumbnailUrl) thumbnailUrl = pgRowsNew[0].thumbnailUrl || pgRowsNew[0].imageUrl || null;
                 if (!piece.partName && pgRowsNew[0].itemName) piece.partName = pgRowsNew[0].itemName;
               }
@@ -4122,6 +4127,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
               );
               if (pgData) {
                 marketSoldMaxNew = pgData.soldMaxPrice ? Number(pgData.soldMaxPrice) : null;
+                if (pgData.stockAvgPrice != null && stockAvgPriceN === null) stockAvgPriceN = Number(pgData.stockAvgPrice);
                 if (!thumbnailUrl) thumbnailUrl = pgData.thumbnailUrl || pgData.imageUrl || null;
                 if (!piece.partName && pgData.itemName) piece.partName = pgData.itemName;
               }
@@ -4146,7 +4152,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
           }
         }
 
-        const bestPrice = ourPriceNew ?? ourPriceUsed ?? marketSoldMaxNew ?? marketSoldMaxUsed;
+        const bestPrice = ourPriceNew ?? ourPriceUsed ?? marketSoldMaxNew ?? marketSoldMaxUsed ?? stockAvgPriceN;
 
         // Build color variants from BrickLink catalog — shows every known color for this part
         // Minifigs don't have color variants, so skip the catalog call for them
@@ -4262,6 +4268,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
           inventoryId,
           marketSoldMaxNew,
           marketSoldMaxUsed,
+          stockAvgPriceN,
           colorRgb,
           thumbnailUrl,
           bestPrice,
@@ -4276,8 +4283,8 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
 
       // Sort by peak price desc
       enriched.sort((a, b) => {
-        const ap = Math.max((a as any).marketSoldMaxNew ?? 0, (a as any).marketSoldMaxUsed ?? 0);
-        const bp = Math.max((b as any).marketSoldMaxNew ?? 0, (b as any).marketSoldMaxUsed ?? 0);
+        const ap = Math.max((a as any).marketSoldMaxNew ?? 0, (a as any).marketSoldMaxUsed ?? 0, (a as any).stockAvgPriceN ?? 0);
+        const bp = Math.max((b as any).marketSoldMaxNew ?? 0, (b as any).marketSoldMaxUsed ?? 0, (b as any).stockAvgPriceN ?? 0);
         return bp - ap;
       });
 

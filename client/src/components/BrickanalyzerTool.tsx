@@ -41,6 +41,7 @@ interface ScanResult {
   inventoryId: number | null;
   marketSoldMaxNew: number | null;
   marketSoldMaxUsed: number | null;
+  stockAvgPriceN?: number | null;
   thumbnailUrl: string | null;
   bestPrice: number | null;
   inventoryLots?: InventoryLot[];
@@ -389,14 +390,14 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
     return [...(activeScan.results as ScanResult[])].sort((a, b) => {
       const cs = rank(b.confidence) - rank(a.confidence);
       if (cs !== 0) return cs;
-      const ap = Math.max(a.marketSoldMaxNew ?? 0, a.marketSoldMaxUsed ?? 0);
-      const bp = Math.max(b.marketSoldMaxNew ?? 0, b.marketSoldMaxUsed ?? 0);
+      const ap = Math.max(a.marketSoldMaxNew ?? 0, a.marketSoldMaxUsed ?? 0, a.stockAvgPriceN ?? 0);
+      const bp = Math.max(b.marketSoldMaxNew ?? 0, b.marketSoldMaxUsed ?? 0, b.stockAvgPriceN ?? 0);
       return bp - ap;
     });
   }, [activeScan?.results, uiState]);
-  const totalValue = results.reduce((s, p) => s + (Math.max(p.marketSoldMaxNew ?? 0, p.marketSoldMaxUsed ?? 0) || p.ourPriceNew || p.ourPriceUsed || 0), 0);
+  const totalValue = results.reduce((s, p) => s + (Math.max(p.marketSoldMaxNew ?? 0, p.marketSoldMaxUsed ?? 0, p.stockAvgPriceN ?? 0) || p.ourPriceNew || p.ourPriceUsed || 0), 0);
   const inStockCount = results.filter(p => p.ourQtyNew > 0 || p.ourQtyUsed > 0).length;
-  const withPriceCount = results.filter(p => p.ourPriceNew !== null || p.ourPriceUsed !== null || p.marketSoldMaxNew !== null).length;
+  const withPriceCount = results.filter(p => p.ourPriceNew !== null || p.ourPriceUsed !== null || p.marketSoldMaxNew !== null || p.stockAvgPriceN != null).length;
 
   // Group results by partNo — preserves sort order of first occurrence
   const groupedResults = useMemo(() => {
@@ -1064,7 +1065,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                         </div>
                         {/* Best Match banners — one per unique detected color */}
                         {detectedColorEntries.map((entry, ei) => {
-                          const peak = Math.max(entry.marketSoldMaxNew ?? 0, entry.marketSoldMaxUsed ?? 0) || null;
+                          const peak = Math.max(entry.marketSoldMaxNew ?? 0, entry.marketSoldMaxUsed ?? 0, entry.stockAvgPriceN ?? 0) || null;
                           const nScore = peak && entry.ourPriceNew && entry.ourPriceNew > 0 ? Number((peak / entry.ourPriceNew).toFixed(2)) : null;
                           const uScore = peak && entry.ourPriceUsed && entry.ourPriceUsed > 0 ? Number((peak / entry.ourPriceUsed).toFixed(2)) : null;
                           const inStock = (entry.ourQtyNew + entry.ourQtyUsed) > 0;
@@ -1259,7 +1260,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
               />
               {(() => {
                 const bboxResults = results.filter(r => r.bboxX != null && r.bboxY != null && r.bboxW != null && r.bboxH != null);
-                const allPrices = bboxResults.map(r => Math.max(r.marketSoldMaxNew ?? 0, r.marketSoldMaxUsed ?? 0, r.ourPriceNew ?? 0, r.ourPriceUsed ?? 0)).filter(p => p > 0);
+                const allPrices = bboxResults.map(r => Math.max(r.marketSoldMaxNew ?? 0, r.marketSoldMaxUsed ?? 0, r.stockAvgPriceN ?? 0, r.ourPriceNew ?? 0, r.ourPriceUsed ?? 0)).filter(p => p > 0);
                 const maxPrice = allPrices.length > 0 ? Math.max(...allPrices) : 0;
                 const hiThresh = maxPrice * 0.60;
                 const midThresh = maxPrice * 0.25;
@@ -1272,10 +1273,10 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                 };
                 return bboxResults.map((r, i) => {
                   const marketPeak = Math.max(r.marketSoldMaxNew ?? 0, r.marketSoldMaxUsed ?? 0) || null;
-                  const peak = Math.max(r.marketSoldMaxNew ?? 0, r.marketSoldMaxUsed ?? 0, r.ourPriceNew ?? 0, r.ourPriceUsed ?? 0);
+                  const peak = Math.max(r.marketSoldMaxNew ?? 0, r.marketSoldMaxUsed ?? 0, r.stockAvgPriceN ?? 0, r.ourPriceNew ?? 0, r.ourPriceUsed ?? 0);
                   // Show market peak price first — the highest sold price on BrickLink is what matters.
-                  // Fall back to our own listing price only when no market data is available.
-                  const displayPrice = marketPeak ?? (r.ourPriceNew || r.ourPriceUsed) ?? null;
+                  // Fall back to stock (current listing) average, then our own listing price.
+                  const displayPrice = marketPeak ?? (r.stockAvgPriceN ?? null) ?? (r.ourPriceNew || r.ourPriceUsed) ?? null;
                   const tier = peak === 0 ? 'none' : peak >= hiThresh ? 'high' : peak >= midThresh ? 'medium' : 'low';
                   const ts = tierStyle[tier];
                   const scrollTarget = `result-${(r.partNo || r.cropIndex) ?? i}`;
