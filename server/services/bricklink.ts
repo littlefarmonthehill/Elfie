@@ -4,7 +4,6 @@ import { eq, gte, sql, inArray, and, gt } from "drizzle-orm";
 import OAuth from "oauth-1.0a";
 import crypto from "crypto";
 import { syncRebrickableSetParts } from "./rebrickable";
-import { scheduleImageFetchForNewItems } from "./rebrickable-images";
 import { syncLock } from "./sync-lock";
 import { batchEmbedInventory, batchEmbedSets } from "./embeddings";
 import { syncBrickLinkToBrickOwl } from "./brickowl";
@@ -583,9 +582,7 @@ export async function syncBricklinkInventory(callComplete = true): Promise<{ add
           colorId: item.color_id,
           itemType: item.item.type,
         }));
-      if (newPartItems.length > 0) {
-        scheduleImageFetchForNewItems(newPartItems);
-      }
+      // Image URLs resolved dynamically via BrickLink CDN — no fetch needed
     }
     
     // For existing items, check if they need updates (quantity or price changes)
@@ -859,29 +856,7 @@ export async function syncBricklinkData(): Promise<BricklinkSyncResult> {
       }
     }
 
-    // Step 5: Kick off Rebrickable image sync in the background (non-blocking).
-    // Images are cosmetic — the sync completes without waiting for API calls.
-    // Stage 1 (SQL copy of known URLs) runs inline; API fetches run fire-and-forget.
-    console.log('🖼️  Step 5/7: Scheduling Rebrickable image sync (background)...');
-    syncProgressTracker.update('Scheduling image sync…', 86);
-    try {
-      const [settings] = await db.select().from(appSettings).limit(1);
-      if (settings?.rebrickableImageSyncEnabled) {
-        const { syncRebrickableImages } = await import('./rebrickable-images');
-        syncRebrickableImages().then(r => {
-          console.log(`🖼️  Background image sync complete: ${r.imagesFetched} fetched, ${r.errors} errors`);
-        }).catch(e => {
-          console.error('🖼️  Background image sync error:', e);
-        });
-        console.log('🖼️  Image sync running in background');
-      } else {
-        console.log('⏭️ Rebrickable image sync disabled in settings');
-      }
-    } catch (error) {
-      console.error('✗ Rebrickable image sync scheduling failed (non-fatal):', error);
-    }
-
-    // Step 5b: Part ID mapping sync — always runs as part of inventory sync.
+    // Step 5: Part ID mapping sync — always runs as part of inventory sync.
     // Processes all unmapped BL part numbers; rate-limited by 1.2s delay per call.
     // First run covers the full inventory; subsequent runs only touch new items.
     try {
