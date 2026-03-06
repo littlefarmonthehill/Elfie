@@ -204,6 +204,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uiState, setUiState] = useState<UIState>("idle");
   const [scanId, setScanId] = useState<number | null>(null);
+  const autoDismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [leftPage, setLeftPage] = useState(false);
   const [baseline, setBaseline] = useState<ScanSettings>(loadBaseline);
   const [settings, setSettings] = useState<ScanSettings>(() => {
@@ -336,6 +337,17 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
       setLeftPage(false);
     },
   });
+
+  // Auto-dismiss the scan after a verdict is fully recorded (calibration mode).
+  // Called after: CLIP confirmed, Wrong verdict, or "Color not found" selection.
+  // A short delay lets the success toast show before the view resets.
+  function scheduleAutoDismiss(delayMs = 1500) {
+    if (autoDismissTimer.current) clearTimeout(autoDismissTimer.current);
+    autoDismissTimer.current = setTimeout(() => {
+      dismissMutation.mutate();
+      autoDismissTimer.current = null;
+    }, delayMs);
+  }
 
   async function handleFile(file: File) {
     if (!file.type.startsWith("image/")) {
@@ -473,6 +485,8 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
         partNo, partName, confidence, cropIndex, verdict,
       }]);
     }
+    // Wrong = fully scored immediately — auto-clear so user can scan the next piece
+    if (verdict === 'wrong') scheduleAutoDismiss();
   }
 
   async function handleConfirmToClip(partNo: string, partName: string, confidence: string, colorId: number | null, cropIndex: number | null, itemType: string) {
@@ -492,7 +506,8 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
       });
       if (!res.ok) throw new Error('failed');
       setConfirmedClips(prev => new Set([...prev, key]));
-      toast({ title: 'Added to CLIP catalog', description: `${partNo} confirmed as a visual reference.` });
+      toast({ title: 'Added to CLIP catalog', description: `${partNo} confirmed. Clearing in a moment…` });
+      scheduleAutoDismiss();
     } catch {
       toast({ title: 'Failed to confirm', variant: 'destructive' });
     } finally {
@@ -1589,6 +1604,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                                       e.stopPropagation();
                                       setColorCorrectedClips(prev => { const m = new Map(prev); m.delete(correctedKey); return m; });
                                       handleVerdict(grp.partNo, grp.partName, bestConfidence, repCropIndex, 'close');
+                                      scheduleAutoDismiss();
                                     }}
                                     className={`flex items-center gap-2 w-full text-left px-2.5 py-2 text-xs sm:text-sm disabled:opacity-40 transition-colors
                                       ${!corrected ? 'bg-yellow-900/40 text-yellow-300 font-semibold' : 'text-gray-400 hover:bg-white/5'}`}
