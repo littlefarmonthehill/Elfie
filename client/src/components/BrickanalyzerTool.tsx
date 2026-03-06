@@ -1203,7 +1203,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
             <div className="flex items-center gap-1.5 flex-1 min-w-0">
               <ScanSearch className="w-4 h-4 sm:w-9 sm:h-9 text-purple-400 shrink-0" />
               <span className="text-sm sm:text-2xl font-medium text-purple-300">
-                {previewData.boxes.length} zone{previewData.boxes.length !== 1 ? "s" : ""} detected
+                {previewBoxes.length} zone{previewBoxes.length !== 1 ? "s" : ""} detected
               </span>
             </div>
             <span className="text-xs sm:text-2xl text-gray-500">Review before identifying</span>
@@ -1211,18 +1211,22 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
 
           {/* Photo with overlaid bounding boxes */}
           <div
-            className="relative w-full rounded-lg overflow-hidden bg-gray-900 border border-gray-700"
+            className={`relative w-full rounded-lg overflow-hidden bg-gray-900 border border-gray-700 ${previewCandidates.length > 0 ? "cursor-crosshair" : ""}`}
             style={{ aspectRatio: `${previewData.imageWidth} / ${previewData.imageHeight}` }}
+            onClick={handleImageTap}
+            data-testid="preview-image-container"
           >
             <img
               src={previewData.objectUrl}
               alt="Scan preview"
-              className="w-full h-full object-contain"
+              className="w-full h-full object-contain pointer-events-none select-none"
             />
-            {previewData.boxes.map((box, i) => (
+
+            {/* Confirmed boxes — purple solid border + number label + X to remove */}
+            {previewBoxes.map((box, i) => (
               <div
-                key={i}
-                className="absolute border-2 border-purple-400/80 rounded-sm pointer-events-none"
+                key={`box-${i}`}
+                className="absolute border-2 border-purple-400/90 rounded-sm"
                 style={{
                   left:   `${box.x}%`,
                   top:    `${box.y}%`,
@@ -1230,12 +1234,49 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                   height: `${box.h}%`,
                 }}
               >
-                <span className="absolute -top-4 left-0 text-[9px] font-mono text-purple-300 bg-gray-900/80 px-0.5 leading-3">
+                {/* Number label */}
+                <span className="absolute -top-4 left-0 text-[9px] font-mono text-purple-300 bg-gray-900/80 px-0.5 leading-3 pointer-events-none select-none">
                   {i + 1}
+                </span>
+                {/* Remove button */}
+                <button
+                  className="absolute -top-3 -right-3 w-5 h-5 rounded-full bg-gray-900 border border-purple-500 flex items-center justify-center text-purple-300 hover:bg-purple-900 hover:text-white transition-colors z-10"
+                  onClick={(e) => { e.stopPropagation(); handleRemoveBox(i); }}
+                  data-testid={`button-remove-box-${i}`}
+                  title="Remove this zone"
+                >
+                  <X className="w-2.5 h-2.5" />
+                </button>
+              </div>
+            ))}
+
+            {/* Candidate boxes — teal dashed border, tap anywhere on image to promote */}
+            {previewCandidates.map((cand, i) => (
+              <div
+                key={`cand-${i}`}
+                className="absolute pointer-events-none"
+                style={{
+                  left:   `${cand.x}%`,
+                  top:    `${cand.y}%`,
+                  width:  `${cand.w}%`,
+                  height: `${cand.h}%`,
+                  border: "2px dashed rgba(45,212,191,0.70)",
+                  borderRadius: "2px",
+                }}
+              >
+                <span className="absolute -top-4 left-0 text-[9px] font-mono text-teal-400 bg-gray-900/80 px-0.5 leading-3 select-none">
+                  tap
                 </span>
               </div>
             ))}
           </div>
+
+          {/* Hint when candidates exist */}
+          {previewCandidates.length > 0 && (
+            <p className="text-xs text-teal-400/80 text-center">
+              {previewCandidates.length} possible piece{previewCandidates.length !== 1 ? "s" : ""} not detected — tap the image to include
+            </p>
+          )}
 
           {/* Action buttons */}
           <div className="flex gap-2">
@@ -1253,10 +1294,10 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
               data-testid="button-preview-confirm"
             >
               <ScanSearch className="w-3.5 h-3.5" />
-              Identify {previewData.boxes.length} piece{previewData.boxes.length !== 1 ? "s" : ""}
+              Identify {previewBoxes.length} piece{previewBoxes.length !== 1 ? "s" : ""}
             </Button>
           </div>
-          {previewData.boxes.length === 0 && (
+          {previewBoxes.length === 0 && (
             <p className="text-xs text-gray-500 text-center">
               No pieces detected. Try adjusting your settings or retaking the photo.
             </p>
