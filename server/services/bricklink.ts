@@ -1489,10 +1489,10 @@ export async function fetchPriceOMagicData(
       return existingCache[0];
     }
 
-    // Fallback: check part_price_history for a recent snapshot (within 7 days).
+    // Fallback: check part_price_history for a recent snapshot (within 5 months).
     // Price-o-Matic writes here every sync run, so this avoids both BL API calls
     // when the scheduled sync has already fetched fresh data recently.
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const fiveMonthsAgo = new Date(Date.now() - 150 * 24 * 60 * 60 * 1000);
     const historyRows = await db
       .select({
         soldMaxPrice: partPriceHistory.soldMaxPrice,
@@ -1513,7 +1513,7 @@ export async function fetchPriceOMagicData(
         eq(partPriceHistory.itemType, itemType),
         colorId ? eq(partPriceHistory.colorId, colorId) : sql`${partPriceHistory.colorId} IS NULL`,
         eq(partPriceHistory.newOrUsed, newOrUsed),
-        gte(partPriceHistory.fetchedAt, sevenDaysAgo),
+        gte(partPriceHistory.fetchedAt, fiveMonthsAgo),
       ))
       .orderBy(desc(partPriceHistory.fetchedAt))
       .limit(1);
