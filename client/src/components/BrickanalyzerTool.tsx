@@ -439,15 +439,15 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
     : null;
 
   return (
-    <div className="space-y-4 p-1">
+    <div className="space-y-4 md:space-y-5 p-1 md:p-3">
 
       {/* ── BrickLink API limit warning ──────────────────────────────────── */}
       {blRateLimit?.blocked && (
-        <div className="flex items-start gap-2.5 bg-red-950/50 border border-red-500/40 rounded-lg px-3 py-2.5">
-          <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+        <div className="flex items-start gap-2.5 bg-red-950/50 border border-red-500/40 rounded-lg px-3 md:px-5 py-2.5 md:py-3.5">
+          <AlertTriangle className="w-4 h-4 md:w-5 md:h-5 text-red-400 shrink-0 mt-0.5" />
           <div className="space-y-0.5 min-w-0">
-            <p className="text-xs font-semibold text-red-300">BrickLink API limit reached</p>
-            <p className="text-xs text-red-400/80 leading-relaxed">
+            <p className="text-xs md:text-sm font-semibold text-red-300">BrickLink API limit reached</p>
+            <p className="text-xs md:text-sm text-red-400/80 leading-relaxed">
               Brick Spotter can still identify pieces, but price lookups and color matching won't work until the limit resets.
               {blResetStr && <span className="text-red-300"> Resets around <strong>{blResetStr}</strong>.</span>}
             </p>
@@ -473,12 +473,12 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
             data-testid="input-brickanalyzer-file"
           />
           <button
-            className="w-full flex flex-col items-center justify-center gap-3 py-16 text-center rounded-xl border border-dashed border-gray-700 hover:border-purple-500/50 hover:bg-purple-950/20 transition-colors cursor-pointer"
+            className="w-full flex flex-col items-center justify-center gap-3 py-16 md:py-28 text-center rounded-xl border border-dashed border-gray-700 hover:border-purple-500/50 hover:bg-purple-950/20 transition-colors cursor-pointer"
             data-testid="button-brickanalyzer-idle-trigger"
             onClick={() => fileInputRef.current?.click()}
           >
-            <Camera className="w-12 h-12 text-gray-500" />
-            <p className="text-sm text-gray-400">
+            <Camera className="w-12 h-12 md:w-20 md:h-20 text-gray-500" />
+            <p className="text-sm md:text-xl text-gray-400">
               Tap to take a photo or pick from your library.
             </p>
           </button>
@@ -489,14 +489,14 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
             {/* Mode toggle row */}
             <div className="flex">
               <button
-                className={`flex-1 py-2.5 text-xs font-semibold transition-colors ${scanMode === "auto" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-gray-300 hover:bg-gray-800/60"}`}
+                className={`flex-1 py-2.5 md:py-3.5 text-xs md:text-sm font-semibold transition-colors ${scanMode === "auto" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-gray-300 hover:bg-gray-800/60"}`}
                 onClick={() => { handleScanModeChange("auto"); setShowSettings(false); }}
                 data-testid="button-scan-mode-auto"
               >
                 Auto
               </button>
               <button
-                className={`flex-1 py-2.5 text-xs font-semibold transition-colors border-l border-gray-700 ${scanMode === "manual" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-gray-300 hover:bg-gray-800/60"}`}
+                className={`flex-1 py-2.5 md:py-3.5 text-xs md:text-sm font-semibold transition-colors border-l border-gray-700 ${scanMode === "manual" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-gray-300 hover:bg-gray-800/60"}`}
                 onClick={() => { handleScanModeChange("manual"); setShowSettings(true); }}
                 data-testid="button-scan-mode-manual"
               >
@@ -506,9 +506,9 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
 
             {/* Auto mode: brief description */}
             {scanMode === "auto" && (
-              <div className="px-3 py-2.5 border-t border-gray-700/60 space-y-1">
-                <p className="text-[11px] text-gray-300 font-medium">Smart 3-pass scan</p>
-                <p className="text-[10px] text-gray-500 leading-relaxed">
+              <div className="px-3 py-2.5 md:px-5 md:py-4 border-t border-gray-700/60 space-y-1">
+                <p className="text-[11px] md:text-sm text-gray-300 font-medium">Smart 3-pass scan</p>
+                <p className="text-[10px] md:text-xs text-gray-500 leading-relaxed">
                   Your Manual settings are used as the core pass. Two additional passes run alongside — one tuned for large pieces and minifigs, one for small/fine pieces. Minifig regions block smaller-piece passes from subdividing them.
                 </p>
               </div>
@@ -521,8 +521,8 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
               onClick={() => setShowSettings(v => !v)}
               data-testid="button-brickanalyzer-settings-toggle"
             >
-              <span className="flex items-center gap-2 text-xs font-medium text-gray-400">
-                <Settings2 className="w-3.5 h-3.5" />
+              <span className="flex items-center gap-2 text-xs md:text-sm font-medium text-gray-400">
+                <Settings2 className="w-3.5 h-3.5 md:w-4 md:h-4" />
                 Scan Settings
               </span>
               <span className="flex items-center gap-2">
@@ -534,7 +534,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
             </button>
 
             {showSettings && (
-              <div className="px-3 pb-3 space-y-4 border-t border-gray-700 pt-3">
+              <div className="px-3 md:px-5 pb-3 md:pb-5 space-y-4 md:space-y-5 border-t border-gray-700 pt-3 md:pt-5">
 
                 {/* ── Contour settings ──────────────────────────────────────── */}
 
@@ -687,9 +687,9 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
 
       {/* ── UPLOADING ───────────────────────────────────────────────────── */}
       {uiState === "uploading" && (
-        <div className="flex flex-col items-center gap-3 py-12">
-          <Loader2 className="w-8 h-8 text-lego-blue animate-spin" />
-          <p className="text-sm text-gray-300">Detecting pieces...</p>
+        <div className="flex flex-col items-center gap-3 py-12 md:py-20">
+          <Loader2 className="w-8 h-8 md:w-14 md:h-14 text-lego-blue animate-spin" />
+          <p className="text-sm md:text-lg text-gray-300">Detecting pieces...</p>
         </div>
       )}
 
@@ -697,14 +697,14 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
       {uiState === "previewing" && previewData && (
         <div className="space-y-3">
           {/* Header bar */}
-          <div className="flex flex-wrap items-center gap-2 bg-gray-800/60 border border-gray-700 rounded-lg px-3 py-2">
+          <div className="flex flex-wrap items-center gap-2 bg-gray-800/60 border border-gray-700 rounded-lg px-3 md:px-5 py-2 md:py-3">
             <div className="flex items-center gap-1.5 flex-1 min-w-0">
-              <ScanSearch className="w-4 h-4 text-purple-400 shrink-0" />
-              <span className="text-sm font-medium text-purple-300">
+              <ScanSearch className="w-4 h-4 md:w-5 md:h-5 text-purple-400 shrink-0" />
+              <span className="text-sm md:text-base font-medium text-purple-300">
                 {previewData.boxes.length} zone{previewData.boxes.length !== 1 ? "s" : ""} detected
               </span>
             </div>
-            <span className="text-xs text-gray-500">Review before identifying</span>
+            <span className="text-xs md:text-sm text-gray-500">Review before identifying</span>
           </div>
 
           {/* Photo with overlaid bounding boxes */}
@@ -765,13 +765,13 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
       {/* ── PROCESSING ──────────────────────────────────────────────────── */}
       {uiState === "processing" && (
         <div className="space-y-4">
-          <div className="flex flex-col items-center gap-3 py-8">
+          <div className="flex flex-col items-center gap-3 py-8 md:py-16">
             <div className="relative">
-              <ScanSearch className="w-10 h-10 text-lego-yellow" />
-              <Loader2 className="w-4 h-4 text-lego-yellow animate-spin absolute -bottom-1 -right-1" />
+              <ScanSearch className="w-10 h-10 md:w-16 md:h-16 text-lego-yellow" />
+              <Loader2 className="w-4 h-4 md:w-6 md:h-6 text-lego-yellow animate-spin absolute -bottom-1 -right-1" />
             </div>
-            <p className="text-sm font-medium text-gray-200">Analyzing your LEGO pieces...</p>
-            <p className="text-xs text-gray-500 text-center max-w-xs">
+            <p className="text-sm md:text-lg font-medium text-gray-200">Analyzing your LEGO pieces...</p>
+            <p className="text-xs md:text-sm text-gray-500 text-center max-w-xs md:max-w-sm">
               AI is identifying each piece and looking up prices. This usually takes 30–90 seconds.
             </p>
           </div>
@@ -804,10 +804,10 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
       {/* ── FAILED ──────────────────────────────────────────────────────── */}
       {uiState === "failed" && (
         <div className="space-y-3">
-          <div className="flex flex-col items-center gap-3 py-8">
-            <X className="w-8 h-8 text-lego-red" />
-            <p className="text-sm text-gray-300">Scan failed</p>
-            <p className="text-xs text-gray-500 text-center">{scan?.errorMessage || "Something went wrong. Please try again."}</p>
+          <div className="flex flex-col items-center gap-3 py-8 md:py-16">
+            <X className="w-8 h-8 md:w-14 md:h-14 text-lego-red" />
+            <p className="text-sm md:text-lg text-gray-300">Scan failed</p>
+            <p className="text-xs md:text-sm text-gray-500 text-center">{scan?.errorMessage || "Something went wrong. Please try again."}</p>
           </div>
           <Button
             variant="outline"
@@ -824,12 +824,12 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
       {uiState === "complete" && (
         <div className="space-y-3">
           {/* Summary bar */}
-          <div className="flex flex-wrap items-center gap-2 bg-gray-800/60 border border-gray-700 rounded-lg px-3 py-2">
+          <div className="flex flex-wrap items-center gap-2 bg-gray-800/60 border border-gray-700 rounded-lg px-3 md:px-5 py-2 md:py-3">
             <div className="flex items-center gap-1.5 flex-1 min-w-0">
-              <CheckCircle className="w-4 h-4 text-green-400 shrink-0" />
-              <span className="text-sm font-medium text-green-300">Scan complete</span>
+              <CheckCircle className="w-4 h-4 md:w-5 md:h-5 text-green-400 shrink-0" />
+              <span className="text-sm md:text-base font-medium text-green-300">Scan complete</span>
             </div>
-            <div className="flex gap-3 text-xs font-mono text-gray-400 flex-wrap">
+            <div className="flex gap-3 text-xs md:text-sm font-mono text-gray-400 flex-wrap">
               <span>{results.length} piece{results.length !== 1 ? "s" : ""} found</span>
               <span>{inStockCount} in your store</span>
               <span>{withPriceCount} priced</span>
@@ -894,7 +894,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
 
           {/* Results — grouped by part number, expandable */}
           {groupedResults.length === 0 ? (
-            <div className="text-center py-8 text-gray-500 text-sm">
+            <div className="text-center py-8 md:py-16 text-gray-500 text-sm md:text-base">
               No pieces could be identified. Try a clearer photo with better lighting.
             </div>
           ) : (
@@ -963,7 +963,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                   >
                     {/* ── Collapsed header (always visible) ─────────── */}
                     <div
-                      className="flex gap-2.5 px-2.5 py-2 cursor-pointer hover-elevate"
+                      className="flex gap-2.5 md:gap-4 px-2.5 md:px-4 py-2 md:py-3 cursor-pointer hover-elevate"
                       onClick={() => togglePart(key)}
                       data-testid={`toggle-part-${gi}`}
                     >
@@ -987,7 +987,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                         const lightboxSrc = primarySrc || blPlUrl;
                         return (
                           <div
-                            className={`flex-shrink-0 w-12 h-12 rounded bg-gray-800/80 flex items-center justify-center overflow-hidden ${lightboxSrc ? 'cursor-pointer hover-elevate' : ''}`}
+                            className={`flex-shrink-0 w-12 h-12 md:w-16 md:h-16 rounded bg-gray-800/80 flex items-center justify-center overflow-hidden ${lightboxSrc ? 'cursor-pointer hover-elevate' : ''}`}
                             onClick={lightboxSrc ? (e) => { e.stopPropagation(); setLightboxImage({ src: lightboxSrc, alt: grp.partName || grp.partNo }); } : undefined}
                             data-testid={`thumbnail-part-${gi}`}
                           >
@@ -1012,11 +1012,11 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                       <div className="flex-1 min-w-0 flex flex-col gap-0.5 justify-center">
                         {/* Part name + BL link + chevron */}
                         <div className="flex items-center gap-1">
-                          <p className="text-xs font-semibold text-white leading-tight flex-1">
+                          <p className="text-xs md:text-sm font-semibold text-white leading-tight flex-1">
                             {grp.partName || "Unknown Part"}
                           </p>
                           {grp.itemType === 'MINIFIG' && (
-                            <span className="text-[9px] font-semibold uppercase tracking-wider text-amber-400 bg-amber-900/40 border border-amber-500/30 rounded px-1 py-0.5 flex-shrink-0">Fig</span>
+                            <span className="text-[9px] md:text-[11px] font-semibold uppercase tracking-wider text-amber-400 bg-amber-900/40 border border-amber-500/30 rounded px-1 py-0.5 flex-shrink-0">Fig</span>
                           )}
                           {grp.partNo && (
                             <a
@@ -1027,25 +1027,25 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                               data-testid={`link-bricklink-${gi}`}
                               onClick={(e) => e.stopPropagation()}
                             >
-                              <ExternalLink className="w-3 h-3" />
+                              <ExternalLink className="w-3 h-3 md:w-4 md:h-4" />
                             </a>
                           )}
                           <ChevronRight
-                            className={`w-3.5 h-3.5 text-gray-500 flex-shrink-0 transition-transform duration-150 ${isExpanded ? "rotate-90" : ""}`}
+                            className={`w-3.5 h-3.5 md:w-4 md:h-4 text-gray-500 flex-shrink-0 transition-transform duration-150 ${isExpanded ? "rotate-90" : ""}`}
                           />
                         </div>
 
                         {/* Part no · qty · confidence · crop count */}
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          {grp.partNo && <span className="font-mono text-[10px] text-gray-300">{grp.partNo}</span>}
+                          {grp.partNo && <span className="font-mono text-[10px] md:text-xs text-gray-300">{grp.partNo}</span>}
                           {stockLabel && (
-                            <span className="text-[10px] text-green-400 font-medium">· {stockLabel}</span>
+                            <span className="text-[10px] md:text-xs text-green-400 font-medium">· {stockLabel}</span>
                           )}
-                          <span className={`text-[10px] font-medium capitalize ${confidenceColor(bestConfidence)}`}>
+                          <span className={`text-[10px] md:text-xs font-medium capitalize ${confidenceColor(bestConfidence)}`}>
                             · {bestConfidence}
                           </span>
                           {grp.entries.length > 1 && (
-                            <span className="text-[10px] text-gray-500">· {grp.entries.length} crops</span>
+                            <span className="text-[10px] md:text-xs text-gray-500">· {grp.entries.length} crops</span>
                           )}
                         </div>
                       </div>
@@ -1053,16 +1053,16 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
 
                     {/* ── Expanded: best match + all color/condition rows ── */}
                     {isExpanded && (
-                      <div className="border-t border-purple-500/10 px-2 py-1.5 space-y-1">
+                      <div className="border-t border-purple-500/10 px-2 md:px-4 py-1.5 md:py-2.5 space-y-1 md:space-y-2">
                         {/* Column headers */}
                         <div className="flex items-center gap-1 px-2 pb-0.5">
                           <div className="flex-1 min-w-0">
-                            <span className="text-[9px] uppercase tracking-wider text-gray-500">{grp.itemType === 'MINIFIG' ? 'Minifigure' : 'Color'}</span>
+                            <span className="text-[9px] md:text-[11px] uppercase tracking-wider text-gray-500">{grp.itemType === 'MINIFIG' ? 'Minifigure' : 'Color'}</span>
                           </div>
-                          <span className="text-[9px] uppercase tracking-wider text-gray-500 w-14 text-right flex-shrink-0">N Cur</span>
-                          <span className="text-[9px] uppercase tracking-wider text-gray-500 w-[58px] text-right flex-shrink-0">N Score</span>
-                          <span className="text-[9px] uppercase tracking-wider text-gray-500 w-14 text-right flex-shrink-0">U Cur</span>
-                          <span className="text-[9px] uppercase tracking-wider text-gray-500 w-[58px] text-right flex-shrink-0">U Score</span>
+                          <span className="text-[9px] md:text-[11px] uppercase tracking-wider text-gray-500 w-14 md:w-20 text-right flex-shrink-0">N Cur</span>
+                          <span className="text-[9px] md:text-[11px] uppercase tracking-wider text-gray-500 w-[58px] md:w-[72px] text-right flex-shrink-0">N Score</span>
+                          <span className="text-[9px] md:text-[11px] uppercase tracking-wider text-gray-500 w-14 md:w-20 text-right flex-shrink-0">U Cur</span>
+                          <span className="text-[9px] md:text-[11px] uppercase tracking-wider text-gray-500 w-[58px] md:w-[72px] text-right flex-shrink-0">U Score</span>
                         </div>
                         {/* Best Match banners — one per unique detected color */}
                         {detectedColorEntries.map((entry, ei) => {
@@ -1071,45 +1071,45 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                           const uScore = peak && entry.ourPriceUsed && entry.ourPriceUsed > 0 ? Number((peak / entry.ourPriceUsed).toFixed(2)) : null;
                           const inStock = (entry.ourQtyNew + entry.ourQtyUsed) > 0;
                           return (
-                            <div key={ei} className="rounded-lg border border-purple-500/40 bg-purple-900/25 px-2 py-1.5">
+                            <div key={ei} className="rounded-lg border border-purple-500/40 bg-purple-900/25 px-2 md:px-3 py-1.5 md:py-2">
                               <div className="flex items-center gap-1 mb-1">
-                                <Sparkles className="w-3 h-3 text-purple-400 flex-shrink-0" />
-                                <span className="text-[9px] uppercase tracking-wider text-purple-400 font-semibold">Best Match</span>
-                                <span className={`ml-1 text-[9px] font-medium capitalize ${confidenceColor(entry.confidence)}`}>
+                                <Sparkles className="w-3 h-3 md:w-3.5 md:h-3.5 text-purple-400 flex-shrink-0" />
+                                <span className="text-[9px] md:text-[11px] uppercase tracking-wider text-purple-400 font-semibold">Best Match</span>
+                                <span className={`ml-1 text-[9px] md:text-[11px] font-medium capitalize ${confidenceColor(entry.confidence)}`}>
                                   · {entry.confidence} confidence
                                 </span>
                                 {entry.cropIndex != null && (
-                                  <span className="ml-auto text-[9px] font-mono text-gray-500 flex-shrink-0">crop #{entry.cropIndex + 1}</span>
+                                  <span className="ml-auto text-[9px] md:text-[11px] font-mono text-gray-500 flex-shrink-0">crop #{entry.cropIndex + 1}</span>
                                 )}
                               </div>
                               <div className="flex items-center gap-1 min-w-0">
                                 <div className="flex flex-col flex-1 min-w-0">
                                   <div className="flex items-center gap-1 min-w-0">
-                                    {inStock && <Check className="w-3 h-3 text-emerald-400 flex-shrink-0" />}
-                                    {inStock && <span className="text-[10px] font-mono text-gray-200 flex-shrink-0">×{entry.ourQtyNew + entry.ourQtyUsed}</span>}
+                                    {inStock && <Check className="w-3 h-3 md:w-3.5 md:h-3.5 text-emerald-400 flex-shrink-0" />}
+                                    {inStock && <span className="text-[10px] md:text-xs font-mono text-gray-200 flex-shrink-0">×{entry.ourQtyNew + entry.ourQtyUsed}</span>}
                                     {grp.itemType !== 'MINIFIG' && (entry.colorRgb ? (
-                                      <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 border border-gray-500" style={{ backgroundColor: `#${entry.colorRgb}` }} />
+                                      <span className="w-2.5 h-2.5 md:w-3 md:h-3 rounded-full flex-shrink-0 border border-gray-500" style={{ backgroundColor: `#${entry.colorRgb}` }} />
                                     ) : (
-                                      <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-gray-600" />
+                                      <span className="w-2.5 h-2.5 md:w-3 md:h-3 rounded-full flex-shrink-0 bg-gray-600" />
                                     ))}
-                                    <span className="text-[10px] text-white font-medium truncate">
+                                    <span className="text-[10px] md:text-xs text-white font-medium truncate">
                                       {grp.itemType === 'MINIFIG' ? (entry.partName || grp.partName) : (entry.colorName || '—')}
                                     </span>
                                   </div>
                                   {peak ? (
-                                    <span className="text-[9px] pl-0.5 text-purple-400">peak ${peak.toFixed(2)}</span>
+                                    <span className="text-[9px] md:text-[11px] pl-0.5 text-purple-400">peak ${peak.toFixed(2)}</span>
                                   ) : null}
                                 </div>
-                                <span className="text-[10px] font-mono text-gray-200 w-14 text-right flex-shrink-0">
+                                <span className="text-[10px] md:text-xs font-mono text-gray-200 w-14 md:w-20 text-right flex-shrink-0">
                                   {entry.ourPriceNew != null ? `$${entry.ourPriceNew.toFixed(2)}` : '—'}
                                 </span>
-                                <span className={`text-[10px] font-mono font-bold w-[58px] text-right flex-shrink-0 ${entryScoreColor(nScore)}`}>
+                                <span className={`text-[10px] md:text-xs font-mono font-bold w-[58px] md:w-[72px] text-right flex-shrink-0 ${entryScoreColor(nScore)}`}>
                                   {nScore != null ? `${nScore}×` : '—'}
                                 </span>
-                                <span className="text-[10px] font-mono text-gray-200 w-14 text-right flex-shrink-0">
+                                <span className="text-[10px] md:text-xs font-mono text-gray-200 w-14 md:w-20 text-right flex-shrink-0">
                                   {entry.ourPriceUsed != null ? `$${entry.ourPriceUsed.toFixed(2)}` : '—'}
                                 </span>
-                                <span className={`text-[10px] font-mono font-bold w-[58px] text-right flex-shrink-0 ${entryScoreColor(uScore)}`}>
+                                <span className={`text-[10px] md:text-xs font-mono font-bold w-[58px] md:w-[72px] text-right flex-shrink-0 ${entryScoreColor(uScore)}`}>
                                   {uScore != null ? `${uScore}×` : '—'}
                                 </span>
                               </div>
@@ -1119,15 +1119,15 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
 
                         {/* All known color variants — matches Best Match column layout */}
                         {otherLots.length > 0 ? (
-                        <div className="space-y-0.5">
+                        <div className="space-y-0.5 md:space-y-1">
                           <div className="flex items-center gap-1 px-2 pb-0.5 pt-1.5">
                             <div className="flex-1 min-w-0">
-                              <span className="text-[9px] uppercase tracking-wider text-gray-500">All known color variants</span>
+                              <span className="text-[9px] md:text-[11px] uppercase tracking-wider text-gray-500">All known color variants</span>
                             </div>
-                            <span className="text-[9px] uppercase tracking-wider text-gray-500 w-14 text-right flex-shrink-0">N Cur</span>
-                            <span className="text-[9px] uppercase tracking-wider text-gray-500 w-[58px] text-right flex-shrink-0">N Score</span>
-                            <span className="text-[9px] uppercase tracking-wider text-gray-500 w-14 text-right flex-shrink-0">U Cur</span>
-                            <span className="text-[9px] uppercase tracking-wider text-gray-500 w-[58px] text-right flex-shrink-0">U Score</span>
+                            <span className="text-[9px] md:text-[11px] uppercase tracking-wider text-gray-500 w-14 md:w-20 text-right flex-shrink-0">N Cur</span>
+                            <span className="text-[9px] md:text-[11px] uppercase tracking-wider text-gray-500 w-[58px] md:w-[72px] text-right flex-shrink-0">N Score</span>
+                            <span className="text-[9px] md:text-[11px] uppercase tracking-wider text-gray-500 w-14 md:w-20 text-right flex-shrink-0">U Cur</span>
+                            <span className="text-[9px] md:text-[11px] uppercase tracking-wider text-gray-500 w-[58px] md:w-[72px] text-right flex-shrink-0">U Score</span>
                           </div>
                           {otherLots.map((lot, li) => {
                             const lotInStock = (lot.qtyNew + lot.qtyUsed) > 0;
@@ -1139,7 +1139,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                             return (
                               <div
                                 key={li}
-                                className="bg-gray-900/50 border border-gray-700/60 rounded-lg px-2 py-1.5"
+                                className="bg-gray-900/50 border border-gray-700/60 rounded-lg px-2 md:px-3 py-1.5 md:py-2"
                                 data-testid={`lot-${gi}-${li}`}
                               >
                                 <div className="flex items-center gap-1.5 min-w-0">
@@ -1147,37 +1147,37 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                                     <img
                                       src={lot.imageUrl}
                                       alt={lot.colorName || ''}
-                                      className="w-6 h-6 object-contain rounded flex-shrink-0 bg-gray-800"
+                                      className="w-6 h-6 md:w-8 md:h-8 object-contain rounded flex-shrink-0 bg-gray-800"
                                       onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
                                     />
                                   ) : (
-                                    <div className="w-6 h-6 flex-shrink-0 rounded bg-gray-800" />
+                                    <div className="w-6 h-6 md:w-8 md:h-8 flex-shrink-0 rounded bg-gray-800" />
                                   )}
                                   <div className="flex flex-col flex-1 min-w-0">
                                     <div className="flex items-center gap-1 min-w-0">
-                                      {lotInStock && <Check className="w-3 h-3 text-emerald-400 flex-shrink-0" />}
-                                      {lotInStock && <span className="text-[10px] font-mono text-gray-200 flex-shrink-0">×{lot.qtyNew + lot.qtyUsed}</span>}
+                                      {lotInStock && <Check className="w-3 h-3 md:w-3.5 md:h-3.5 text-emerald-400 flex-shrink-0" />}
+                                      {lotInStock && <span className="text-[10px] md:text-xs font-mono text-gray-200 flex-shrink-0">×{lot.qtyNew + lot.qtyUsed}</span>}
                                       {lot.colorRgb ? (
-                                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 border border-gray-500" style={{ backgroundColor: `#${lot.colorRgb}` }} />
+                                        <span className="w-2.5 h-2.5 md:w-3 md:h-3 rounded-full flex-shrink-0 border border-gray-500" style={{ backgroundColor: `#${lot.colorRgb}` }} />
                                       ) : (
-                                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-gray-600" />
+                                        <span className="w-2.5 h-2.5 md:w-3 md:h-3 rounded-full flex-shrink-0 bg-gray-600" />
                                       )}
-                                      <span className={`text-[10px] truncate ${lotInStock ? 'text-gray-100' : 'text-gray-400'}`}>{lot.colorName || '—'}</span>
+                                      <span className={`text-[10px] md:text-xs truncate ${lotInStock ? 'text-gray-100' : 'text-gray-400'}`}>{lot.colorName || '—'}</span>
                                     </div>
                                     {lotPeak && (
-                                      <span className="text-[9px] pl-0.5 text-purple-400">peak ${lotPeak.toFixed(2)}</span>
+                                      <span className="text-[9px] md:text-[11px] pl-0.5 text-purple-400">peak ${lotPeak.toFixed(2)}</span>
                                     )}
                                   </div>
-                                  <span className="text-[10px] font-mono text-gray-200 w-14 text-right flex-shrink-0">
+                                  <span className="text-[10px] md:text-xs font-mono text-gray-200 w-14 md:w-20 text-right flex-shrink-0">
                                     {lot.priceNew != null ? `$${lot.priceNew.toFixed(2)}` : '—'}
                                   </span>
-                                  <span className={`text-[10px] font-mono font-bold w-[58px] text-right flex-shrink-0 ${entryScoreColor(lotNScore)}`}>
+                                  <span className={`text-[10px] md:text-xs font-mono font-bold w-[58px] md:w-[72px] text-right flex-shrink-0 ${entryScoreColor(lotNScore)}`}>
                                     {lotNScore != null ? `${lotNScore}×` : '—'}
                                   </span>
-                                  <span className="text-[10px] font-mono text-gray-200 w-14 text-right flex-shrink-0">
+                                  <span className="text-[10px] md:text-xs font-mono text-gray-200 w-14 md:w-20 text-right flex-shrink-0">
                                     {lot.priceUsed != null ? `$${lot.priceUsed.toFixed(2)}` : '—'}
                                   </span>
-                                  <span className={`text-[10px] font-mono font-bold w-[58px] text-right flex-shrink-0 ${entryScoreColor(lotUScore)}`}>
+                                  <span className={`text-[10px] md:text-xs font-mono font-bold w-[58px] md:w-[72px] text-right flex-shrink-0 ${entryScoreColor(lotUScore)}`}>
                                     {lotUScore != null ? `${lotUScore}×` : '—'}
                                   </span>
                                 </div>
