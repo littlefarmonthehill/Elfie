@@ -1571,35 +1571,33 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                                     ? <span className="flex items-center gap-1"><Check className="w-2.5 h-2.5" />Trained with <span className="font-semibold">{corrected.colorName}</span> — pick again to retrain</span>
                                     : 'Pick the correct color to train CLIP:'}
                                 </p>
-                                <div className="flex flex-wrap gap-1">
+                                <select
+                                  data-testid={`color-select-${gi}`}
+                                  disabled={isConfirming != null}
+                                  value={corrected?.colorId ?? ''}
+                                  onChange={e => {
+                                    const lot = sorted.find(l => String(l.colorId) === e.target.value);
+                                    if (lot) handleColorCorrection(grp.partNo, grp.partName, bestConfidence, lot.colorId!, lot.colorName ?? String(lot.colorId), repCropIndex, grp.itemType ?? 'PART');
+                                  }}
+                                  className="w-full rounded-md border border-yellow-500/30 bg-black/40 text-white text-xs sm:text-sm px-2 py-1.5 disabled:opacity-40 focus:outline-none focus:ring-1 focus:ring-yellow-500/60"
+                                >
+                                  <option value="" disabled>— select color —</option>
                                   {sorted.map(lot => {
                                     const dE = colorDeltaE(lot.colorRgb!, detectedHex);
-                                    const isSelected = corrected?.colorId === lot.colorId;
                                     return (
-                                      <Tooltip key={lot.colorId}>
-                                        <TooltipTrigger asChild>
-                                          <button
-                                            onClick={() => handleColorCorrection(grp.partNo, grp.partName, bestConfidence, lot.colorId!, lot.colorName ?? String(lot.colorId), repCropIndex, grp.itemType ?? 'PART')}
-                                            disabled={isConfirming != null}
-                                            data-testid={`color-swatch-${gi}-${lot.colorId}`}
-                                            className={`relative rounded-full transition-all disabled:opacity-40 ${isSelected ? 'ring-2 ring-white ring-offset-1 ring-offset-black scale-110' : 'hover:scale-105 hover:ring-1 hover:ring-white/40 hover:ring-offset-1 hover:ring-offset-black'}`}
-                                            style={{ width: 20, height: 20, backgroundColor: `#${lot.colorRgb}` }}
-                                          >
-                                            {isSelected && (
-                                              <span className="absolute inset-0 flex items-center justify-center">
-                                                <Check className="w-2.5 h-2.5 text-white drop-shadow-[0_0_1px_#000]" />
-                                              </span>
-                                            )}
-                                          </button>
-                                        </TooltipTrigger>
-                                        <TooltipContent side="top" className="text-[10px] px-1.5 py-0.5">
-                                          <span className="font-semibold">{lot.colorName}</span>
-                                          <span className="text-gray-400 ml-1">ΔE {dE.toFixed(0)}</span>
-                                        </TooltipContent>
-                                      </Tooltip>
+                                      <option key={lot.colorId} value={String(lot.colorId)}>
+                                        {lot.colorName ?? `Color ${lot.colorId}`}  (ΔE {dE.toFixed(0)})
+                                      </option>
                                     );
                                   })}
-                                </div>
+                                </select>
+                                {corrected && (
+                                  <div className="flex items-center gap-1.5 mt-1.5">
+                                    <div className="w-4 h-4 rounded-sm border border-white/20 flex-shrink-0"
+                                      style={{ backgroundColor: `#${sorted.find(l => l.colorId === corrected.colorId)?.colorRgb ?? 'ffffff'}` }} />
+                                    <span className="text-[10px] sm:text-xs text-yellow-300 font-medium">{corrected.colorName}</span>
+                                  </div>
+                                )}
                               </div>
                             );
                           })()}
