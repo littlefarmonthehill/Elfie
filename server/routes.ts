@@ -3441,14 +3441,15 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       if (calibration) {
         settings = {
           ...settings,
-          multiPass:  0,    // single pass — no pile-logic needed for a single close-up piece
-          maxSizePct: 99,   // piece can fill virtually the entire frame
-          maxDimFrac: 99,   // bbox can span virtually the full image width/height
-          minSizePct: 2,    // 2% minimum — avoids noise while catching small pieces
-          blurRadius: 3,    // light blur — preserve close-up piece edge detail
-          cannyLow:   20,   // very sensitive — detect subtle edges on smooth LEGO surfaces
-          cannyHigh:  60,   // much lower than pile default (320) — catches low-contrast boundaries
-          dilateIter: 2,    // moderate — closes gaps without merging everything into one blob
+          multiPass:  0,      // single pass — no pile-logic needed for a single close-up piece
+          maxSizePct: 99,     // piece can fill virtually the entire frame
+          maxDimFrac: 99,     // bbox can span virtually the full image width/height
+          minSizePct: 0.5,    // 0.5% minimum — was 2% but that rejected all surface-feature contours
+                              // on close-up shots; 0.5% = ~9600px on 1600×1200, still filters pure noise
+          blurRadius: 3,      // light blur — preserve close-up piece edge detail
+          cannyLow:   20,     // very sensitive — detect subtle edges on smooth LEGO surfaces
+          cannyHigh:  60,     // much lower than pile default (320) — catches low-contrast boundaries
+          dilateIter: 2,      // moderate — closes gaps without merging everything into one blob
         };
         console.log('[Brickanalyzer] Calibration mode: using single-piece segmentation settings');
       }
@@ -3569,6 +3570,13 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       } else {
         console.log('[Brickanalyzer] Step 1: Single-pass segmentation...');
         allBoxes = await segmentImage(imageBuffer, settings as any);
+
+        // Calibration safety net: if no boxes survived the area filter (e.g. all contours
+        // were surface features smaller than the minimum), treat the full frame as the piece.
+        if (calibration && allBoxes.length === 0) {
+          console.log('[Brickanalyzer] Calibration: 0 boxes after segmentation — using full-frame fallback');
+          allBoxes = [{ x: 2, y: 2, w: 96, h: 96 }];
+        }
 
         // Calibration normally means one close-up piece — surface details (studs, grooves,
         // text, logos) get detected as separate sub-regions, so we merge them into one box.
@@ -4466,7 +4474,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           multiPass:  0,
           maxSizePct: 99,
           maxDimFrac: 99,
-          minSizePct: 2,
+          minSizePct: 0.5,  // was 2% — that rejected all surface-feature contours on close-up shots
           blurRadius: 3,    // light blur — preserve close-up piece edge detail
           cannyLow:   20,   // very sensitive — detect subtle edges on smooth LEGO surfaces
           cannyHigh:  60,   // much lower than pile default (320) — catches low-contrast boundaries
