@@ -480,6 +480,20 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
     return Math.sqrt((L1 - L2) ** 2 + (a1 - a2) ** 2 + (b1 - b2) ** 2);
   }
 
+  // Convert Delta-E to a 0-100 color confidence %.
+  // ΔE 0 = perfect match (100%), ΔE 40 = completely different (0%).
+  // Cutoff: anything below 15% (ΔE > 34) is filtered from the color list.
+  const COLOR_CONF_CUTOFF = 15;
+  function colorConfPct(dE: number): number {
+    return Math.round(Math.max(0, 100 - dE * 2.5));
+  }
+  function colorConfLabel(pct: number): { label: string; cls: string } {
+    if (pct >= 80) return { label: 'High', cls: 'text-emerald-400' };
+    if (pct >= 60) return { label: 'Good', cls: 'text-yellow-400' };
+    if (pct >= 40) return { label: 'Fair', cls: 'text-orange-400' };
+    return { label: 'Low', cls: 'text-gray-500' };
+  }
+
   async function handleColorCorrection(partNo: string, partName: string, confidence: string, correctedColorId: number, correctedColorName: string, cropIndex: number | null, itemType: string) {
     const key = `${partNo}__${cropIndex ?? 'x'}`;
     // Immediate feedback so the user sees which color was recorded before the card auto-dismisses
@@ -1726,6 +1740,8 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                                   {sorted.map(lot => {
                                     const isSelected = corrected?.colorId === lot.colorId;
                                     const dE = lot.colorRgb ? colorDeltaE(lot.colorRgb, detectedHex) : null;
+                                    const confPct = dE != null ? colorConfPct(dE) : null;
+                                    const confLbl = confPct != null ? colorConfLabel(confPct) : null;
                                     return (
                                       <button
                                         type="button"
@@ -1744,7 +1760,9 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                                           style={{ backgroundColor: lot.colorRgb ? `#${lot.colorRgb}` : '#555' }}
                                         />
                                         <span className="flex-1 truncate">{lot.colorName ?? `Color ${lot.colorId}`}</span>
-                                        {dE != null && <span className="text-[10px] text-gray-500 flex-shrink-0">ΔE {dE.toFixed(0)}</span>}
+                                        {confPct != null && confLbl != null && (
+                                          <span className={`text-[10px] flex-shrink-0 font-medium ${confLbl.cls}`}>{confPct}%</span>
+                                        )}
                                         {isSelected && <Check className="w-3 h-3 text-green-400 flex-shrink-0" />}
                                       </button>
                                     );
@@ -1778,16 +1796,31 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                           const inStock = (entry.ourQtyNew + entry.ourQtyUsed) > 0;
                           return (
                             <div key={ei} className="rounded-lg border border-purple-500/40 bg-purple-900/25 px-2 sm:px-6 py-1.5 sm:py-4">
-                              <div className="flex items-center gap-1 mb-1">
-                                <Sparkles className="w-3 h-3 sm:w-6 sm:h-6 text-purple-400 flex-shrink-0" />
-                                <span className="text-[9px] sm:text-lg uppercase tracking-wider text-purple-400 font-semibold">Best Match</span>
-                                <span className={`ml-1 text-[9px] sm:text-lg font-medium capitalize ${confidenceColor(entry.confidence)}`}>
-                                  · {entry.confidence} confidence
-                                </span>
-                                {entry.cropIndex != null && (
-                                  <span className="ml-auto text-[9px] sm:text-lg font-mono text-gray-500 flex-shrink-0">crop #{entry.cropIndex + 1}</span>
-                                )}
-                              </div>
+                              {(() => {
+                                const refHex = repEntry.colorRgb ?? '';
+                                const entryHex = entry.colorRgb ?? '';
+                                const colorDe = (refHex && entryHex && refHex !== entryHex)
+                                  ? colorDeltaE(entryHex, refHex) : null;
+                                const colorPct = colorDe != null ? colorConfPct(colorDe) : null;
+                                const colorLbl = colorPct != null ? colorConfLabel(colorPct) : null;
+                                return (
+                                  <div className="flex items-center gap-1 mb-1 flex-wrap">
+                                    <Sparkles className="w-3 h-3 sm:w-6 sm:h-6 text-purple-400 flex-shrink-0" />
+                                    <span className="text-[9px] sm:text-lg uppercase tracking-wider text-purple-400 font-semibold">Best Match</span>
+                                    <span className={`ml-1 text-[9px] sm:text-lg font-medium capitalize ${confidenceColor(entry.confidence)}`}>
+                                      · {entry.confidence} id
+                                    </span>
+                                    {colorPct != null && colorLbl != null && (
+                                      <span className={`text-[9px] sm:text-lg font-medium ${colorLbl.cls}`}>
+                                        · {colorPct}% color match
+                                      </span>
+                                    )}
+                                    {entry.cropIndex != null && (
+                                      <span className="ml-auto text-[9px] sm:text-lg font-mono text-gray-500 flex-shrink-0">crop #{entry.cropIndex + 1}</span>
+                                    )}
+                                  </div>
+                                );
+                              })()}
                               <div className="flex items-center gap-1 min-w-0">
                                 <div className="flex flex-col flex-1 min-w-0">
                                   <div className="flex items-center gap-1 min-w-0">
@@ -1823,74 +1856,107 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                           );
                         })}
 
-                        {/* All known color variants — matches Best Match column layout */}
-                        {otherLots.length > 0 ? (
-                        <div className="space-y-0.5 sm:space-y-3">
-                          <div className="flex items-center gap-1 px-2 pb-0.5 pt-1.5">
-                            <div className="flex-1 min-w-0">
-                              <span className="text-[9px] sm:text-lg uppercase tracking-wider text-gray-500">All known color variants</span>
-                            </div>
-                            <span className="text-[9px] sm:text-lg uppercase tracking-wider text-gray-500 w-14 sm:w-24 text-right flex-shrink-0">N Cur</span>
-                            <span className="text-[9px] sm:text-lg uppercase tracking-wider text-gray-500 w-[58px] sm:w-20 text-right flex-shrink-0">N Score</span>
-                            <span className="text-[9px] sm:text-lg uppercase tracking-wider text-gray-500 w-14 sm:w-24 text-right flex-shrink-0">U Cur</span>
-                            <span className="text-[9px] sm:text-lg uppercase tracking-wider text-gray-500 w-[58px] sm:w-20 text-right flex-shrink-0">U Score</span>
-                          </div>
-                          {otherLots.map((lot, li) => {
-                            const lotInStock = (lot.qtyNew + lot.qtyUsed) > 0;
-                            const lotPeak = Math.max(lot.peakNew ?? 0, lot.peakUsed ?? 0) || null;
-                            const lotNScore = lotPeak && lot.priceNew && lot.priceNew > 0
-                              ? Number((lotPeak / lot.priceNew).toFixed(2)) : null;
-                            const lotUScore = lotPeak && lot.priceUsed && lot.priceUsed > 0
-                              ? Number((lotPeak / lot.priceUsed).toFixed(2)) : null;
-                            return (
-                              <div
-                                key={li}
-                                className="bg-gray-900/50 border border-gray-700/60 rounded-lg px-2 sm:px-6 py-1.5 sm:py-4"
-                                data-testid={`lot-${gi}-${li}`}
-                              >
-                                <div className="flex items-center gap-1.5 min-w-0">
-                                  {lot.imageUrl ? (
-                                    <img
-                                      src={lot.imageUrl}
-                                      alt={lot.colorName || ''}
-                                      className="w-6 h-6 sm:w-14 sm:h-14 object-contain rounded flex-shrink-0 bg-gray-800"
-                                      onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                                    />
-                                  ) : (
-                                    <div className="w-6 h-6 sm:w-14 sm:h-14 flex-shrink-0 rounded bg-gray-800" />
-                                  )}
-                                  <div className="flex flex-col flex-1 min-w-0">
-                                    <div className="flex items-center gap-1 min-w-0">
-                                      {lotInStock && <Check className="w-3 h-3 sm:w-6 sm:h-6 text-emerald-400 flex-shrink-0" />}
-                                      {lotInStock && <span className="text-[10px] sm:text-xl font-mono text-gray-200 flex-shrink-0">×{lot.qtyNew + lot.qtyUsed}</span>}
-                                      {lot.colorRgb ? (
-                                        <span className="w-2.5 h-2.5 sm:w-5 sm:h-5 rounded-full flex-shrink-0 border border-gray-500" style={{ backgroundColor: `#${lot.colorRgb}` }} />
-                                      ) : (
-                                        <span className="w-2.5 h-2.5 sm:w-5 sm:h-5 rounded-full flex-shrink-0 bg-gray-600" />
-                                      )}
-                                      <span className={`text-[10px] sm:text-xl truncate ${lotInStock ? 'text-gray-100' : 'text-gray-400'}`}>{lot.colorName || '—'}</span>
-                                    </div>
-                                    {lotPeak && (
-                                      <span className="text-[9px] sm:text-lg pl-0.5 text-purple-400">peak ${lotPeak.toFixed(2)}</span>
-                                    )}
-                                  </div>
-                                  <span className="text-[10px] sm:text-xl font-mono text-gray-200 w-14 sm:w-24 text-right flex-shrink-0">
-                                    {lot.priceNew != null ? `$${lot.priceNew.toFixed(2)}` : '—'}
-                                  </span>
-                                  <span className={`text-[10px] sm:text-xl font-mono font-bold w-[58px] sm:w-20 text-right flex-shrink-0 ${entryScoreColor(lotNScore)}`}>
-                                    {lotNScore != null ? `${lotNScore}×` : '—'}
-                                  </span>
-                                  <span className="text-[10px] sm:text-xl font-mono text-gray-200 w-14 sm:w-24 text-right flex-shrink-0">
-                                    {lot.priceUsed != null ? `$${lot.priceUsed.toFixed(2)}` : '—'}
-                                  </span>
-                                  <span className={`text-[10px] sm:text-xl font-mono font-bold w-[58px] sm:w-20 text-right flex-shrink-0 ${entryScoreColor(lotUScore)}`}>
-                                    {lotUScore != null ? `${lotUScore}×` : '—'}
-                                  </span>
-                                </div>
+                        {/* All known color variants — sorted + filtered by color confidence */}
+                        {(() => {
+                          const refHex = repEntry.colorRgb ?? '';
+                          // Annotate each lot with its color confidence vs the detected color
+                          const annotated = otherLots.map(lot => {
+                            const dE = (refHex && lot.colorRgb) ? colorDeltaE(lot.colorRgb, refHex) : null;
+                            const pct = dE != null ? colorConfPct(dE) : null;
+                            return { lot, dE, pct };
+                          });
+                          // Sort: highest confidence first; lots without colorRgb go last
+                          const sorted = [...annotated].sort((a, b) => {
+                            if (a.pct != null && b.pct != null) return b.pct - a.pct;
+                            if (a.pct != null) return -1;
+                            if (b.pct != null) return 1;
+                            return 0;
+                          });
+                          // Filter out lots below the cutoff when we have a detected color
+                          const visible = refHex
+                            ? sorted.filter(({ pct }) => pct == null || pct >= COLOR_CONF_CUTOFF)
+                            : sorted;
+                          const hiddenCount = sorted.length - visible.length;
+                          if (visible.length === 0) return null;
+                          return (
+                          <div className="space-y-0.5 sm:space-y-3">
+                            <div className="flex items-center gap-1 px-2 pb-0.5 pt-1.5">
+                              <div className="flex-1 min-w-0 flex items-center gap-1.5">
+                                <span className="text-[9px] sm:text-lg uppercase tracking-wider text-gray-500">Other color variants</span>
+                                {hiddenCount > 0 && (
+                                  <span className="text-[9px] sm:text-sm text-gray-600">({hiddenCount} below cutoff hidden)</span>
+                                )}
                               </div>
-                            );
-                          })}
-                        </div>) : null}
+                              <span className="text-[9px] sm:text-lg uppercase tracking-wider text-gray-500 w-14 sm:w-24 text-right flex-shrink-0">N Cur</span>
+                              <span className="text-[9px] sm:text-lg uppercase tracking-wider text-gray-500 w-[58px] sm:w-20 text-right flex-shrink-0">N Score</span>
+                              <span className="text-[9px] sm:text-lg uppercase tracking-wider text-gray-500 w-14 sm:w-24 text-right flex-shrink-0">U Cur</span>
+                              <span className="text-[9px] sm:text-lg uppercase tracking-wider text-gray-500 w-[58px] sm:w-20 text-right flex-shrink-0">U Score</span>
+                            </div>
+                            {visible.map(({ lot, pct }, li) => {
+                              const lotInStock = (lot.qtyNew + lot.qtyUsed) > 0;
+                              const lotPeak = Math.max(lot.peakNew ?? 0, lot.peakUsed ?? 0) || null;
+                              const lotNScore = lotPeak && lot.priceNew && lot.priceNew > 0
+                                ? Number((lotPeak / lot.priceNew).toFixed(2)) : null;
+                              const lotUScore = lotPeak && lot.priceUsed && lot.priceUsed > 0
+                                ? Number((lotPeak / lot.priceUsed).toFixed(2)) : null;
+                              const confLbl = pct != null ? colorConfLabel(pct) : null;
+                              return (
+                                <div
+                                  key={li}
+                                  className="bg-gray-900/50 border border-gray-700/60 rounded-lg px-2 sm:px-6 py-1.5 sm:py-4"
+                                  data-testid={`lot-${gi}-${li}`}
+                                >
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    {lot.imageUrl ? (
+                                      <img
+                                        src={lot.imageUrl}
+                                        alt={lot.colorName || ''}
+                                        className="w-6 h-6 sm:w-14 sm:h-14 object-contain rounded flex-shrink-0 bg-gray-800"
+                                        onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                      />
+                                    ) : (
+                                      <div className="w-6 h-6 sm:w-14 sm:h-14 flex-shrink-0 rounded bg-gray-800" />
+                                    )}
+                                    <div className="flex flex-col flex-1 min-w-0">
+                                      <div className="flex items-center gap-1 min-w-0">
+                                        {lotInStock && <Check className="w-3 h-3 sm:w-6 sm:h-6 text-emerald-400 flex-shrink-0" />}
+                                        {lotInStock && <span className="text-[10px] sm:text-xl font-mono text-gray-200 flex-shrink-0">×{lot.qtyNew + lot.qtyUsed}</span>}
+                                        {lot.colorRgb ? (
+                                          <span className="w-2.5 h-2.5 sm:w-5 sm:h-5 rounded-full flex-shrink-0 border border-gray-500" style={{ backgroundColor: `#${lot.colorRgb}` }} />
+                                        ) : (
+                                          <span className="w-2.5 h-2.5 sm:w-5 sm:h-5 rounded-full flex-shrink-0 bg-gray-600" />
+                                        )}
+                                        <span className={`text-[10px] sm:text-xl truncate ${lotInStock ? 'text-gray-100' : 'text-gray-400'}`}>{lot.colorName || '—'}</span>
+                                      </div>
+                                      <div className="flex items-center gap-1.5 pl-0.5">
+                                        {lotPeak && (
+                                          <span className="text-[9px] sm:text-lg text-purple-400">peak ${lotPeak.toFixed(2)}</span>
+                                        )}
+                                        {confLbl && pct != null && (
+                                          <span className={`text-[9px] sm:text-lg font-medium ${confLbl.cls}`}>
+                                            {confLbl.label} ({pct}%)
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <span className="text-[10px] sm:text-xl font-mono text-gray-200 w-14 sm:w-24 text-right flex-shrink-0">
+                                      {lot.priceNew != null ? `$${lot.priceNew.toFixed(2)}` : '—'}
+                                    </span>
+                                    <span className={`text-[10px] sm:text-xl font-mono font-bold w-[58px] sm:w-20 text-right flex-shrink-0 ${entryScoreColor(lotNScore)}`}>
+                                      {lotNScore != null ? `${lotNScore}×` : '—'}
+                                    </span>
+                                    <span className="text-[10px] sm:text-xl font-mono text-gray-200 w-14 sm:w-24 text-right flex-shrink-0">
+                                      {lot.priceUsed != null ? `$${lot.priceUsed.toFixed(2)}` : '—'}
+                                    </span>
+                                    <span className={`text-[10px] sm:text-xl font-mono font-bold w-[58px] sm:w-20 text-right flex-shrink-0 ${entryScoreColor(lotUScore)}`}>
+                                      {lotUScore != null ? `${lotUScore}×` : '—'}
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>);
+                        })()}
                       </div>
                     )}
                   </div>
