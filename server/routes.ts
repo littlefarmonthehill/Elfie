@@ -3439,10 +3439,10 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       if (calibration) {
         settings = {
           ...settings,
-          multiPass:  0,    // single pass — no need for 3-pass pile logic with one piece
-          maxSizePct: 80,   // allow a piece that fills up to 80% of the image area
-          maxDimFrac: 90,   // allow a piece whose bbox is up to 90% of frame width/height
-          minSizePct: 0.05, // still ignore noise, but catch tiny pieces
+          multiPass:  0,    // single pass — no pile-logic needed for a single close-up piece
+          maxSizePct: 99,   // piece can fill virtually the entire frame (was 80 → still rejected large fills)
+          maxDimFrac: 99,   // bbox can span virtually the full image width/height
+          minSizePct: 5,    // require ≥5% area — kills dust, hairs, table-texture noise
         };
         console.log('[Brickanalyzer] Calibration mode: using single-piece segmentation settings');
       }
@@ -4430,9 +4430,9 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         settings = {
           ...settings,
           multiPass:  0,
-          maxSizePct: 80,
-          maxDimFrac: 90,
-          minSizePct: 0.05,
+          maxSizePct: 99,
+          maxDimFrac: 99,
+          minSizePct: 5,
         };
       }
 
