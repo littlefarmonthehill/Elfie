@@ -200,6 +200,89 @@ function saveBaselineToStorage(s: ScanSettings) {
   try { localStorage.setItem(BASELINE_KEY, JSON.stringify(s)); } catch {}
 }
 
+function PomPriceRow({ label, value, isMono, highlight }: { label: string; value: string | number | null | undefined; isMono?: boolean; highlight?: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className="text-[10px] text-gray-400">{label}</span>
+      <span className={`text-[10px] font-mono ${highlight ? 'text-purple-300 font-bold' : 'text-gray-200'}`}>
+        {value == null ? '—' : isMono ? String(value) : `$${Number(value).toFixed(2)}`}
+      </span>
+    </div>
+  );
+}
+
+function PomConditionCol({ data, label }: { data: any; label: string }) {
+  if (!data) return <div className="text-gray-500 text-xs text-center py-2">No data</div>;
+  return (
+    <div className="space-y-0.5">
+      <div className="text-[10px] uppercase tracking-wider text-center font-semibold text-gray-300 border-b border-gray-700 pb-1 mb-2">{label}</div>
+      <div className="text-[9px] uppercase tracking-wider text-gray-500 pt-1">Current Listings</div>
+      <PomPriceRow label="Avg" value={data.stockAvgPrice} />
+      <PomPriceRow label="Min" value={data.stockMinPrice} />
+      <PomPriceRow label="Max" value={data.stockMaxPrice} />
+      <PomPriceRow label="Qty / Lots" value={data.stockQuantity != null ? `${data.stockQuantity ?? '—'} / ${data.stockTotalLots ?? '—'}` : null} isMono />
+      <div className="text-[9px] uppercase tracking-wider text-gray-500 pt-2">Sold (6mo)</div>
+      <PomPriceRow label="Avg" value={data.soldAvgPrice} />
+      <PomPriceRow label="Min" value={data.soldMinPrice} />
+      <PomPriceRow label="Max" value={data.soldMaxPrice} />
+      <PomPriceRow label="Qty / Lots" value={data.soldQuantity != null ? `${data.soldQuantity ?? '—'} / ${data.soldTotalLots ?? '—'}` : null} isMono />
+      {data.suggestedPrice != null && (
+        <>
+          <div className="text-[9px] uppercase tracking-wider text-gray-500 pt-2">POM Suggested</div>
+          <PomPriceRow label={`${data.premiumPercentage ?? 15}% premium`} value={data.suggestedPrice} highlight />
+        </>
+      )}
+    </div>
+  );
+}
+
+function PomPriceDialog({ target, onClose }: { target: { partNo: string; itemType: string; colorId: number | null; colorName: string }; onClose: () => void }) {
+  const blType = target.itemType === 'MINIFIG' ? 'MINIFIG' : 'PART';
+  const buildUrl = (cond: 'N' | 'U') => {
+    const p = new URLSearchParams({ new_or_used: cond });
+    if (target.colorId != null) p.set('color_id', String(target.colorId));
+    return `/api/inventory/price-guide/${encodeURIComponent(target.partNo)}/${blType}?${p}`;
+  };
+  const { data: nData, isLoading: nLoading } = useQuery<any>({
+    queryKey: ['pom-detail', target.partNo, blType, target.colorId, 'N'],
+    queryFn: async () => { const r = await fetch(buildUrl('N'), { credentials: 'include' }); if (!r.ok) throw new Error('Failed'); return r.json(); },
+    staleTime: 5 * 60 * 1000,
+  });
+  const { data: uData, isLoading: uLoading } = useQuery<any>({
+    queryKey: ['pom-detail', target.partNo, blType, target.colorId, 'U'],
+    queryFn: async () => { const r = await fetch(buildUrl('U'), { credentials: 'include' }); if (!r.ok) throw new Error('Failed'); return r.json(); },
+    staleTime: 5 * 60 * 1000,
+  });
+  const cachedAt = nData?.fetchedAt ?? uData?.fetchedAt;
+  return (
+    <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
+      <DialogContent className="max-w-xs sm:max-w-sm bg-gray-900 border-gray-700 text-white">
+        <div className="space-y-3">
+          <div className="border-b border-gray-700 pb-2">
+            <div className="text-sm font-bold text-white font-mono">{target.partNo}</div>
+            {target.colorName && <div className="text-xs text-gray-400">{target.colorName}</div>}
+          </div>
+          {(nLoading || uLoading) ? (
+            <div className="flex items-center justify-center py-8 gap-2 text-gray-400 text-sm">
+              <Loader2 className="w-4 h-4 animate-spin" /> Loading…
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              <PomConditionCol data={nData} label="New" />
+              <PomConditionCol data={uData} label="Used" />
+            </div>
+          )}
+          {cachedAt && (
+            <div className="text-[9px] text-gray-600 border-t border-gray-800 pt-1">
+              Cached: {new Date(cachedAt).toLocaleDateString()}
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 const BrickanalyzerTool = forwardRef((_, ref) => {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -597,6 +680,8 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
   const [expandedCardTab, setExpandedCardTab] = useState<Record<string, 'matches' | 'inventory'>>({});
   // Focused crop index for heatmap dialog — highlights one box when opening from card header
   const [heatmapCropFocus, setHeatmapCropFocus] = useState<number | null>(null);
+  // POM price popup target
+  const [pricePopupTarget, setPricePopupTarget] = useState<{ partNo: string; itemType: string; colorId: number | null; colorName: string } | null>(null);
   // Ref keeps a synchronous count of total groups so handlers can check "all done" without stale closure
   const groupCountRef = useRef(0);
 
@@ -2029,7 +2114,11 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                                     </span>
                                   </div>
                                   {peak ? (
-                                    <span className="text-[9px] sm:text-lg pl-0.5 text-purple-400">peak ${peak.toFixed(2)}</span>
+                                    <button
+                                      className="text-[9px] sm:text-lg pl-0.5 text-purple-400 hover:text-purple-300 underline decoration-dotted cursor-pointer bg-transparent border-none p-0"
+                                      onClick={e => { e.stopPropagation(); setPricePopupTarget({ partNo: grp.partNo, itemType: grp.itemType, colorId: entry.colorId ?? null, colorName: entry.colorName || '' }); }}
+                                      title="View full POM pricing"
+                                    >peak ${peak.toFixed(2)}</button>
                                   ) : null}
                                 </div>
                                 <span className="text-[10px] sm:text-xl font-mono text-gray-200 w-14 sm:w-24 text-right flex-shrink-0">
@@ -2123,7 +2212,11 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                                       </div>
                                       <div className="flex items-center gap-1.5 pl-0.5">
                                         {lotPeak && (
-                                          <span className="text-[9px] sm:text-lg text-purple-400">peak ${lotPeak.toFixed(2)}</span>
+                                          <button
+                                            className="text-[9px] sm:text-lg text-purple-400 hover:text-purple-300 underline decoration-dotted cursor-pointer bg-transparent border-none p-0"
+                                            onClick={e => { e.stopPropagation(); setPricePopupTarget({ partNo: grp.partNo, itemType: grp.itemType, colorId: lot.colorId ?? null, colorName: lot.colorName || '' }); }}
+                                            title="View full POM pricing"
+                                          >peak ${lotPeak.toFixed(2)}</button>
                                         )}
                                         {confLbl && pct != null && (
                                           <span className={`text-[9px] sm:text-lg font-medium ${confLbl.cls}`}>
@@ -2179,7 +2272,13 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                                   )}
                                   <div className="flex-1 min-w-0">
                                     <p className="text-[10px] sm:text-sm text-white font-medium truncate">{lot.colorName ?? '—'}</p>
-                                    {peakVal && <p className="text-[9px] sm:text-xs text-purple-400">peak ${peakVal.toFixed(2)}</p>}
+                                    {peakVal && (
+                                      <button
+                                        className="text-[9px] sm:text-xs text-purple-400 hover:text-purple-300 underline decoration-dotted cursor-pointer bg-transparent border-none p-0 text-left"
+                                        onClick={e => { e.stopPropagation(); setPricePopupTarget({ partNo: grp.partNo, itemType: grp.itemType, colorId: lot.colorId ?? null, colorName: lot.colorName ?? '' }); }}
+                                        title="View full POM pricing"
+                                      >peak ${peakVal.toFixed(2)}</button>
+                                    )}
                                   </div>
                                   <div className="text-right flex-shrink-0">
                                     <div className="flex items-center gap-1.5 justify-end">
@@ -2526,6 +2625,14 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
         )}
       </DialogContent>
     </Dialog>
+
+    {/* POM price detail popup */}
+    {pricePopupTarget && (
+      <PomPriceDialog
+        target={pricePopupTarget}
+        onClose={() => setPricePopupTarget(null)}
+      />
+    )}
 
     </div>
   );
