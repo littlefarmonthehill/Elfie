@@ -168,11 +168,11 @@ const CALIBRATION_ROUNDS = [
 
 const ROUND_GUIDES: Record<1 | 2 | 3 | 4, { headline: string; steps: string[] }> = {
   1: {
-    headline: 'Grab something big and obvious',
+    headline: 'One big part at a time',
     steps: [
-      'A long Technic beam, large slope, door, or window works perfectly',
-      'Set it on white paper or a dark cloth — plain background, no clutter around it',
-      'Tap the camera above when you\'re ready',
+      'Pick any large, obvious piece — long Technic beam, big slope, door, or window',
+      'Set it alone on white paper or a dark cloth. One piece only — no other parts nearby',
+      'Tap the camera. Rate the result. Then grab a different large part and repeat 5–10 times',
     ],
   },
   2: {
