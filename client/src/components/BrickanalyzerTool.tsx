@@ -929,6 +929,44 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scanContainerRef = useRef<HTMLDivElement>(null);
 
+  // Overlay catalog image zoom state
+  const [overlayZoom, setOverlayZoom] = useState(1);
+  const [overlayPan, setOverlayPan] = useState({ x: 0, y: 0 });
+  const [overlayDragging, setOverlayDragging] = useState(false);
+  const [overlayDragStart, setOverlayDragStart] = useState({ x: 0, y: 0 });
+  const [overlayPinchDist, setOverlayPinchDist] = useState<number | null>(null);
+  useEffect(() => { setOverlayZoom(1); setOverlayPan({ x: 0, y: 0 }); }, [focusedDetailCropIndex]);
+  function handleOverlayWheel(e: React.WheelEvent) {
+    e.preventDefault();
+    setOverlayZoom(prev => { const next = Math.min(8, Math.max(1, prev - e.deltaY * 0.003)); if (next === 1) setOverlayPan({ x: 0, y: 0 }); return next; });
+  }
+  function handleOverlayMouseDown(e: React.MouseEvent) { if (overlayZoom <= 1) return; e.preventDefault(); setOverlayDragging(true); setOverlayDragStart({ x: e.clientX - overlayPan.x, y: e.clientY - overlayPan.y }); }
+  function handleOverlayMouseMove(e: React.MouseEvent) { if (!overlayDragging) return; setOverlayPan({ x: e.clientX - overlayDragStart.x, y: e.clientY - overlayDragStart.y }); }
+  function handleOverlayMouseUp() { setOverlayDragging(false); }
+  function handleOverlayTouchStart(e: React.TouchEvent) {
+    if (e.touches.length === 2) {
+      const dx = e.touches[1].clientX - e.touches[0].clientX;
+      const dy = e.touches[1].clientY - e.touches[0].clientY;
+      setOverlayPinchDist(Math.sqrt(dx * dx + dy * dy));
+      setOverlayDragging(false);
+    } else if (e.touches.length === 1 && overlayZoom > 1) {
+      setOverlayDragging(true);
+      setOverlayDragStart({ x: e.touches[0].clientX - overlayPan.x, y: e.touches[0].clientY - overlayPan.y });
+    }
+  }
+  function handleOverlayTouchMove(e: React.TouchEvent) {
+    if (e.touches.length === 2 && overlayPinchDist != null) {
+      const dx = e.touches[1].clientX - e.touches[0].clientX;
+      const dy = e.touches[1].clientY - e.touches[0].clientY;
+      const newDist = Math.sqrt(dx * dx + dy * dy);
+      setOverlayZoom(prev => Math.min(8, Math.max(1, prev * (newDist / overlayPinchDist))));
+      setOverlayPinchDist(newDist);
+    } else if (e.touches.length === 1 && overlayDragging) {
+      setOverlayPan({ x: e.touches[0].clientX - overlayDragStart.x, y: e.touches[0].clientY - overlayDragStart.y });
+    }
+  }
+  function handleOverlayTouchEnd() { setOverlayPinchDist(null); setOverlayDragging(false); }
+
   function resetScanZoom() { setScanZoom(1); setScanPan({ x: 0, y: 0 }); }
   function flashResult(id: string) {
     if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
@@ -1985,13 +2023,34 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                     </div>
                     {/* Overlay body — scrollable, mirrors the card */}
                     <div className="flex-1 overflow-y-auto min-h-0">
-                      {/* Large inventory/catalog image at the top */}
+                      {/* Large inventory/catalog image at the top — zoomable */}
                       {(primarySrc || blPlUrl) && (
-                        <div className="bg-gray-900 flex items-center justify-center border-b border-gray-800 p-3">
+                        <div
+                          className="border-b border-gray-800 overflow-hidden bg-gray-900 flex items-center justify-center"
+                          style={{
+                            height: 200,
+                            cursor: overlayZoom > 1 ? (overlayDragging ? 'grabbing' : 'grab') : 'zoom-in',
+                            touchAction: 'none',
+                          }}
+                          onWheel={handleOverlayWheel}
+                          onMouseDown={handleOverlayMouseDown}
+                          onMouseMove={handleOverlayMouseMove}
+                          onMouseUp={handleOverlayMouseUp}
+                          onMouseLeave={handleOverlayMouseUp}
+                          onTouchStart={handleOverlayTouchStart}
+                          onTouchMove={handleOverlayTouchMove}
+                          onTouchEnd={handleOverlayTouchEnd}
+                        >
                           <img
                             src={primarySrc || blPlUrl!}
                             alt={focusedGroup.partName}
-                            className="object-contain max-h-48 max-w-full"
+                            className="object-contain max-h-full max-w-full select-none"
+                            draggable={false}
+                            style={{
+                              transform: `translate(${overlayPan.x}px, ${overlayPan.y}px) scale(${overlayZoom})`,
+                              transformOrigin: 'center center',
+                              transition: overlayDragging ? 'none' : 'transform 0.1s ease-out',
+                            }}
                             onError={(e) => {
                               const el = e.target as HTMLImageElement;
                               if (blColorUrl && el.src !== blColorUrl) { el.src = blColorUrl; }
@@ -1999,6 +2058,18 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                               else { (el.parentElement as HTMLElement).style.display = 'none'; }
                             }}
                           />
+                        </div>
+                      )}
+                      {/* Zoom hint */}
+                      {(primarySrc || blPlUrl) && overlayZoom > 1 && (
+                        <div className="flex items-center justify-between px-3 py-1 bg-gray-900 border-b border-gray-800">
+                          <span className="text-[10px] text-gray-500">Scroll or pinch to zoom · Drag to pan</span>
+                          <button
+                            onClick={() => { setOverlayZoom(1); setOverlayPan({ x: 0, y: 0 }); }}
+                            className="text-[10px] text-gray-400 hover:text-white flex items-center gap-1"
+                          >
+                            <RotateCcw className="w-3 h-3" /> Reset · {Math.round(overlayZoom * 100)}%
+                          </button>
                         </div>
                       )}
 
