@@ -4511,6 +4511,24 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         }
       }
 
+      // ── Junk filter: move suspicious boxes to candidates ────────────────────
+      // Very tiny boxes (area < 20 in %-space ≈ 4.5%×4.5%) or extremely elongated
+      // boxes (aspect ratio < 0.2 or > 5) are almost always surface-texture fragments
+      // or image-edge artifacts, not real LEGO pieces.  Moving them to candidates
+      // means the user must explicitly tap to include them rather than tap-to-remove.
+      const isJunk = (b: SegBox) => {
+        const ar = b.w / Math.max(b.h, 0.01);
+        return ar < 0.20 || ar > 5.0 || b.w * b.h < 20;
+      };
+      const junkBoxes = allBoxes.filter(isJunk);
+      allBoxes = allBoxes.filter(b => !isJunk(b));
+      junkBoxes.forEach(j => {
+        if (!allCandidates.some(c => iouBox2(c, j) > 0.10)) allCandidates.push(j);
+      });
+      if (junkBoxes.length > 0) {
+        console.log(`[Brickanalyzer] Preview junk filter: moved ${junkBoxes.length} suspicious box(es) to candidates`);
+      }
+
       const maxPieces = Number(settings.maxPieces ?? 100);
       res.json({
         boxes:       allBoxes.slice(0, maxPieces),
@@ -4521,6 +4539,67 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
     } catch (err: any) {
       console.error('[Brickanalyzer] Segment preview error:', err.message);
       res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/brickanalyzer/detect-at-point — run segmentation on a crop centered on
+  // a user-tapped point and return the best-fit contour box in full-image %-coordinates.
+  // Used by the preview tap-to-detect feature when no candidate is near the tap.
+  app.post("/api/brickanalyzer/detect-at-point", brickanalyzerUpload.single('image'), isApproved, async (req, res) => {
+    try {
+      if (!req.file) return res.status(400).json({ error: "No image provided" });
+      const tapX = parseFloat(req.body?.tapX ?? '50');
+      const tapY = parseFloat(req.body?.tapY ?? '50');
+
+      const { default: sharp } = await import('sharp');
+      let buf = req.file.buffer;
+      try { buf = await sharp(buf).rotate().toBuffer(); } catch {}
+      const meta = await sharp(buf).metadata();
+      const W = meta.width || 1000, H = meta.height || 1000;
+
+      // Crop a 50%×50% region centered on tap, clamped to image bounds
+      const cropW = Math.round(W * 0.50);
+      const cropH = Math.round(H * 0.50);
+      const cx    = Math.round(tapX / 100 * W);
+      const cy    = Math.round(tapY / 100 * H);
+      const cropLeft = Math.max(0, Math.min(cx - Math.round(cropW / 2), W - cropW));
+      const cropTop  = Math.max(0, Math.min(cy - Math.round(cropH / 2), H - cropH));
+
+      const cropBuf = await sharp(buf)
+        .extract({ left: cropLeft, top: cropTop, width: cropW, height: cropH })
+        .toBuffer();
+
+      const { segmentImage } = await import('./services/segmentClient.js');
+      const cropBoxes = await segmentImage(cropBuf, {
+        segmenter:  'contour',
+        minSizePct: 0.3,   // at least 0.3% of crop area — filters tiny noise
+        maxSizePct: 90,    // piece can fill most of the crop
+        maxDimFrac: 95,
+        blurRadius: 3,
+        cannyLow:   25,
+        cannyHigh:  80,
+        dilateIter: 2,
+      } as any);
+
+      if (!cropBoxes.length) return res.json({ box: null });
+
+      // Pick the box whose center is closest to the crop center (50,50 in %-space)
+      const best = cropBoxes.reduce((a, b) => {
+        const da = Math.hypot((a.x + a.w / 2) - 50, (a.y + a.h / 2) - 50);
+        const db = Math.hypot((b.x + b.w / 2) - 50, (b.y + b.h / 2) - 50);
+        return da <= db ? a : b;
+      });
+
+      // Map from crop %-space back to full-image %-space
+      const fullX = (cropLeft + best.x / 100 * cropW) / W * 100;
+      const fullY = (cropTop  + best.y / 100 * cropH) / H * 100;
+      const fullW = best.w / 100 * cropW / W * 100;
+      const fullH = best.h / 100 * cropH / H * 100;
+
+      res.json({ box: { x: fullX, y: fullY, w: fullW, h: fullH } });
+    } catch (err: any) {
+      console.error('[Brickanalyzer] detect-at-point error:', err.message);
+      res.json({ box: null });
     }
   });
 

@@ -222,6 +222,8 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
   const [previewCandidates, setPreviewCandidates] = useState<{ x: number; y: number; w: number; h: number }[]>([]);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [pendingSettings, setPendingSettings] = useState<Record<string, any> | null>(null);
+  const [promotedUnknowns, setPromotedUnknowns] = useState<Set<number>>(new Set());
+  const [detectingPoint, setDetectingPoint] = useState<{ x: number; y: number } | null>(null);
   const [scanMode, setScanMode] = useState<"auto" | "manual">(() => {
     try { return (localStorage.getItem(SCAN_MODE_KEY) as "auto" | "manual") || "auto"; } catch { return "auto"; }
   });
@@ -446,9 +448,9 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
 
   function handleConfirmScan() {
     if (!pendingFile || !pendingSettings) return;
-    // Use the user-edited boxes (may have boxes removed or promoted from candidates)
     const approvedBoxes = previewBoxes.length > 0 ? previewBoxes : previewData?.boxes;
     if (previewData?.objectUrl) URL.revokeObjectURL(previewData.objectUrl);
+    setPromotedUnknowns(new Set());
     setPreviewData(null);
     setPreviewBoxes([]);
     setPreviewCandidates([]);
@@ -499,8 +501,8 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
     setPreviewCandidates([...previewCandidates, ...reinstated]);
   }
 
-  // Tap on image to promote the nearest candidate, or create a new zone at the tap point.
-  function handleImageTap(e: React.MouseEvent<HTMLDivElement>) {
+  // Tap on image to promote the nearest candidate, or detect+create a new zone at the tap point.
+  async function handleImageTap(e: React.MouseEvent<HTMLDivElement>) {
     const rect = e.currentTarget.getBoundingClientRect();
     const tapX = ((e.clientX - rect.left) / rect.width) * 100;
     const tapY = ((e.clientY - rect.top) / rect.height) * 100;
@@ -534,17 +536,35 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
       }
     }
 
-    // 3. No candidate hit — create a new zone centred on the tap point.
-    //    Default size: 16%×16% of the frame (reasonable for a single LEGO piece).
-    //    Clamp so the box stays fully inside the image.
-    const size = 16;
-    const newBox = {
-      x: Math.min(Math.max(tapX - size / 2, 0), 100 - size),
-      y: Math.min(Math.max(tapY - size / 2, 0), 100 - size),
-      w: size,
-      h: size,
-    };
-    setPreviewBoxes(prev => [...prev, newBox]);
+    // 3. No candidate hit — ask the server to detect a contour at the tap point.
+    //    Falls back to a 16%×16% fixed box if detection fails or returns nothing.
+    setDetectingPoint({ x: tapX, y: tapY });
+    let detectedBox: { x: number; y: number; w: number; h: number } | null = null;
+    try {
+      if (pendingFile) {
+        const form = new FormData();
+        form.append("image", pendingFile);
+        form.append("tapX", tapX.toString());
+        form.append("tapY", tapY.toString());
+        const resp = await fetch("/api/brickanalyzer/detect-at-point", {
+          method: "POST", credentials: "include", body: form,
+        });
+        const data = await resp.json();
+        detectedBox = data.box ?? null;
+      }
+    } catch {}
+    setDetectingPoint(null);
+    if (detectedBox) {
+      setPreviewBoxes(prev => [...prev, detectedBox!]);
+    } else {
+      // Fallback: fixed 16%×16% box
+      const size = 16;
+      setPreviewBoxes(prev => [...prev, {
+        x: Math.min(Math.max(tapX - size / 2, 0), 100 - size),
+        y: Math.min(Math.max(tapY - size / 2, 0), 100 - size),
+        w: size, h: size,
+      }]);
+    }
   }
 
   // ── Calibration mode state ────────────────────────────────────────────────
@@ -752,7 +772,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
   function handleScanTouchEnd() { setPinchDist(null); setIsDragging(false); }
 
   const activeScan = scan ?? latestScan ?? null;
-  const results: ScanResult[] = useMemo(() => {
+  const allScanResults: ScanResult[] = useMemo(() => {
     if (uiState !== "complete" || !activeScan?.results) return [];
     const rank = (c: string) => c === 'high' ? 3 : c === 'medium' ? 2 : 1;
     return [...(activeScan.results as ScanResult[])].sort((a, b) => {
@@ -763,6 +783,16 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
       return bp - ap;
     });
   }, [activeScan?.results, uiState]);
+  // Identified results: show in main list. Unknown results: hidden by default, shown as
+  // teal tappable overlays on the image (user taps to promote into the visible list).
+  const results: ScanResult[] = useMemo(
+    () => allScanResults.filter(r => r.partNo !== '' || promotedUnknowns.has(r.cropIndex ?? -1)),
+    [allScanResults, promotedUnknowns]
+  );
+  const unknownOverlays: ScanResult[] = useMemo(
+    () => allScanResults.filter(r => r.partNo === '' && r.bboxX != null && !promotedUnknowns.has(r.cropIndex ?? -1)),
+    [allScanResults, promotedUnknowns]
+  );
   const totalValue = results.reduce((s, p) => s + (Math.max(p.marketSoldMaxNew ?? 0, p.marketSoldMaxUsed ?? 0, p.stockAvgPriceN ?? 0) || p.ourPriceNew || p.ourPriceUsed || 0), 0);
   const inStockCount = results.filter(p => p.ourQtyNew > 0 || p.ourQtyUsed > 0).length;
   const withPriceCount = results.filter(p => p.ourPriceNew !== null || p.ourPriceUsed !== null || p.marketSoldMaxNew !== null || p.stockAvgPriceN != null).length;
@@ -1290,6 +1320,24 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                 </span>
               </div>
             ))}
+
+            {/* Tap-to-detect loading indicator */}
+            {detectingPoint && (
+              <div
+                className="absolute pointer-events-none"
+                style={{
+                  left:      `${detectingPoint.x}%`,
+                  top:       `${detectingPoint.y}%`,
+                  transform: "translate(-50%, -50%)",
+                  zIndex:    20,
+                }}
+              >
+                <div className="w-10 h-10 rounded-full border-2 border-teal-400 opacity-80 animate-ping" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-3 h-3 rounded-full bg-teal-400 opacity-90" />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Tap hint — always shown, text adapts based on whether candidates exist */}
@@ -2215,60 +2263,105 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                   low:     { fill: 'rgba(250,204,21,0.28)', border: 'rgb(250,204,21)',  label: '#fde68a', badge: 'rgba(120,80,0,0.85)'   },
                   none:    { fill: 'rgba(107,114,128,0.18)', border: 'rgb(107,114,128)', label: '#9ca3af', badge: 'rgba(17,24,39,0.80)'  },
                 };
-                return bboxResults.map((r, i) => {
-                  const marketPeak = Math.max(r.marketSoldMaxNew ?? 0, r.marketSoldMaxUsed ?? 0) || null;
-                  const peak = Math.max(r.marketSoldMaxNew ?? 0, r.marketSoldMaxUsed ?? 0, r.stockAvgPriceN ?? 0, r.ourPriceNew ?? 0, r.ourPriceUsed ?? 0);
-                  // Show market peak price first — the highest sold price on BrickLink is what matters.
-                  // Fall back to stock (current listing) average, then our own listing price.
-                  const displayPrice = marketPeak ?? (r.stockAvgPriceN && r.stockAvgPriceN > 0 ? r.stockAvgPriceN : null) ?? (r.ourPriceNew || r.ourPriceUsed) ?? null;
-                  const tier = peak === 0 ? 'none' : peak >= hiThresh ? 'high' : peak >= midThresh ? 'medium' : 'low';
-                  const ts = tierStyle[tier];
-                  const scrollTarget = `result-${(r.partNo || r.cropIndex) ?? i}`;
-                  return (
-                    <button
-                      key={r.cropIndex ?? i}
-                      onMouseDown={(e) => e.stopPropagation()}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        closeScanPhoto();
-                        setTimeout(() => {
-                          document.getElementById(scrollTarget)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                          flashResult(scrollTarget);
-                        }, 200);
-                      }}
-                      style={{
-                        position: 'absolute',
-                        left:   `${r.bboxX}%`,
-                        top:    `${r.bboxY}%`,
-                        width:  `${r.bboxW}%`,
-                        height: `${r.bboxH}%`,
-                        background: ts.fill,
-                        border: `2px solid ${ts.border}`,
-                        transition: 'filter 0.15s',
-                        overflow: 'visible',
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.filter = 'brightness(1.35)')}
-                      onMouseLeave={(e) => (e.currentTarget.style.filter = '')}
-                      data-testid={`scan-overlay-${r.cropIndex ?? i}`}
-                    >
-                      <span
-                        style={{
-                          background: ts.badge,
-                          color: ts.label,
-                          border: `1px solid ${ts.border}`,
-                          position: 'absolute',
-                          top: 'calc(100% + 2px)',
-                          left: '50%',
-                          transform: 'translateX(-50%)',
-                          zIndex: 20,
+                return (
+                  <>
+                    {bboxResults.map((r, i) => {
+                      const marketPeak = Math.max(r.marketSoldMaxNew ?? 0, r.marketSoldMaxUsed ?? 0) || null;
+                      const peak = Math.max(r.marketSoldMaxNew ?? 0, r.marketSoldMaxUsed ?? 0, r.stockAvgPriceN ?? 0, r.ourPriceNew ?? 0, r.ourPriceUsed ?? 0);
+                      const displayPrice = marketPeak ?? (r.stockAvgPriceN && r.stockAvgPriceN > 0 ? r.stockAvgPriceN : null) ?? (r.ourPriceNew || r.ourPriceUsed) ?? null;
+                      const tier = peak === 0 ? 'none' : peak >= hiThresh ? 'high' : peak >= midThresh ? 'medium' : 'low';
+                      const ts = tierStyle[tier];
+                      const scrollTarget = `result-${(r.partNo || r.cropIndex) ?? i}`;
+                      return (
+                        <button
+                          key={r.cropIndex ?? i}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            closeScanPhoto();
+                            setTimeout(() => {
+                              document.getElementById(scrollTarget)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                              flashResult(scrollTarget);
+                            }, 200);
+                          }}
+                          style={{
+                            position: 'absolute',
+                            left:   `${r.bboxX}%`,
+                            top:    `${r.bboxY}%`,
+                            width:  `${r.bboxW}%`,
+                            height: `${r.bboxH}%`,
+                            background: ts.fill,
+                            border: `2px solid ${ts.border}`,
+                            transition: 'filter 0.15s',
+                            overflow: 'visible',
+                          }}
+                          onMouseEnter={(e) => (e.currentTarget.style.filter = 'brightness(1.35)')}
+                          onMouseLeave={(e) => (e.currentTarget.style.filter = '')}
+                          data-testid={`scan-overlay-${r.cropIndex ?? i}`}
+                        >
+                          <span
+                            style={{
+                              background: ts.badge,
+                              color: ts.label,
+                              border: `1px solid ${ts.border}`,
+                              position: 'absolute',
+                              top: 'calc(100% + 2px)',
+                              left: '50%',
+                              transform: 'translateX(-50%)',
+                              zIndex: 20,
+                            }}
+                            className="text-[10px] font-bold px-1.5 py-0.5 rounded-sm leading-tight whitespace-nowrap shadow-lg"
+                          >
+                            {displayPrice != null ? `$${displayPrice.toFixed(2)}` : '—'}
+                          </span>
+                        </button>
+                      );
+                    })}
+
+                    {/* Unknown overlays — teal dashed, tap to show in results list */}
+                    {unknownOverlays.filter(r => r.bboxX != null).map((r, i) => (
+                      <button
+                        key={`unknown-${r.cropIndex ?? i}`}
+                        title="Unidentified piece — tap to add to results"
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPromotedUnknowns(prev => new Set([...prev, r.cropIndex ?? -1]));
                         }}
-                        className="text-[10px] font-bold px-1.5 py-0.5 rounded-sm leading-tight whitespace-nowrap shadow-lg"
+                        style={{
+                          position: 'absolute',
+                          left:     `${r.bboxX}%`,
+                          top:      `${r.bboxY}%`,
+                          width:    `${r.bboxW}%`,
+                          height:   `${r.bboxH}%`,
+                          background: 'rgba(45,212,191,0.12)',
+                          border:   '2px dashed rgba(45,212,191,0.75)',
+                          transition: 'filter 0.15s',
+                          overflow: 'visible',
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.filter = 'brightness(1.4)')}
+                        onMouseLeave={(e) => (e.currentTarget.style.filter = '')}
+                        data-testid={`scan-unknown-overlay-${r.cropIndex ?? i}`}
                       >
-                        {displayPrice != null ? `$${displayPrice.toFixed(2)}` : '—'}
-                      </span>
-                    </button>
-                  );
-                });
+                        <span
+                          style={{
+                            background: 'rgba(17,78,70,0.85)',
+                            color: '#5eead4',
+                            border: '1px solid rgba(45,212,191,0.70)',
+                            position: 'absolute',
+                            top: 'calc(100% + 2px)',
+                            left: '50%',
+                            transform: 'translateX(-50%)',
+                            zIndex: 20,
+                          }}
+                          className="text-[10px] font-bold px-1.5 py-0.5 rounded-sm leading-tight whitespace-nowrap shadow-lg"
+                        >
+                          ? tap
+                        </span>
+                      </button>
+                    ))}
+                  </>
+                );
               })()}
             </div>
           </div>
@@ -2280,6 +2373,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
             <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: 'rgba(251,146,60,0.55)', border: '1.5px solid rgb(251,146,60)' }} /> Mid</span>
             <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: 'rgba(250,204,21,0.45)', border: '1.5px solid rgb(250,204,21)' }} /> Low</span>
             <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: 'rgba(107,114,128,0.35)', border: '1.5px solid rgb(107,114,128)' }} /> No price</span>
+            <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: 'rgba(45,212,191,0.15)', border: '1.5px dashed rgba(45,212,191,0.75)' }} /> Unknown (tap)</span>
           </div>
           <div className="flex items-center gap-1 ml-auto">
             <ZoomIn className="w-3 h-3" />
