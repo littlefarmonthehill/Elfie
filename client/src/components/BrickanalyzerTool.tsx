@@ -593,6 +593,10 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
   } | null>(null);
   // dismissedItems: keys of items already scored — hidden from list but scan not yet deleted
   const [dismissedItems, setDismissedItems] = useState<Set<string>>(new Set());
+  // Per-card expanded sub-tab: 'matches' | 'inventory'
+  const [expandedCardTab, setExpandedCardTab] = useState<Record<string, 'matches' | 'inventory'>>({});
+  // Focused crop index for heatmap dialog — highlights one box when opening from card header
+  const [heatmapCropFocus, setHeatmapCropFocus] = useState<number | null>(null);
   // Ref keeps a synchronous count of total groups so handlers can check "all done" without stale closure
   const groupCountRef = useRef(0);
 
@@ -1766,6 +1770,21 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                               title={`Calibration: ${cardVerdict}`}
                             />
                           )}
+                          {/* Heatmap indicator — opens photo with this piece highlighted */}
+                          {repEntry.cropIndex != null && (
+                            <button
+                              className="flex-shrink-0 text-gray-600 hover:text-teal-400 transition-colors"
+                              title="View in scan photo"
+                              onClick={e => {
+                                e.stopPropagation();
+                                setHeatmapCropFocus(repEntry.cropIndex!);
+                                setScanPhotoOpen(true);
+                              }}
+                              data-testid={`heatmap-btn-${gi}`}
+                            >
+                              <Target className="w-3 h-3 sm:w-5 sm:h-5" />
+                            </button>
+                          )}
                         </div>
 
                         {/* Part no · qty · confidence · crop count */}
@@ -1793,7 +1812,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                       const isConfirmed = confirmedClips.has(clipKey);
                       const isConfirming = confirmingClip === clipKey;
                       return (
-                        <div className="border-t border-amber-500/15 px-2.5 sm:px-8 py-1.5 sm:py-3 flex flex-wrap items-center gap-1.5" onClick={e => e.stopPropagation()}>
+                        <div className="border-t border-amber-500/15 px-2.5 sm:px-8 py-2 sm:py-3 flex flex-wrap items-center gap-3 sm:gap-3" onClick={e => e.stopPropagation()}>
                           {/* CLIP (correct) */}
                           {grp.partNo && repCropIndex != null && (
                             isConfirmed ? (
@@ -1814,7 +1833,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                                 }}
                                 disabled={isConfirming}
                                 title="Correct — add to CLIP catalog"
-                                className={`flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-full transition-colors disabled:opacity-50 ${currentVerdict === 'correct' ? 'bg-purple-600 text-white' : 'border border-purple-500/50 text-purple-400 hover:bg-purple-900/40'}`}
+                                className={`flex items-center justify-center w-10 h-10 sm:w-10 sm:h-10 rounded-full transition-colors disabled:opacity-50 ${currentVerdict === 'correct' ? 'bg-purple-600 text-white' : 'border border-purple-500/50 text-purple-400 hover:bg-purple-900/40'}`}
                                 data-testid={`confirm-clip-${gi}`}
                               >
                                 {isConfirming ? <Loader2 className="w-3 h-3 animate-spin" /> : <ThumbsUp className="w-3 h-3 sm:w-4 sm:h-4" />}
@@ -1825,66 +1844,22 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                           <button
                             onClick={e => { e.stopPropagation(); handleVerdict(grp.partNo, grp.partName, bestConfidence, repCropIndex, 'close'); }}
                             title="Close — right part, wrong color"
-                            className={`flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-full transition-colors ${currentVerdict === 'close' ? 'bg-yellow-600 text-white' : 'border border-yellow-600/40 text-yellow-500 hover:bg-yellow-900/40'}`}
+                            className={`flex items-center justify-center w-10 h-10 sm:w-10 sm:h-10 rounded-full transition-colors ${currentVerdict === 'close' ? 'bg-yellow-600 text-white' : 'border border-yellow-600/40 text-yellow-500 hover:bg-yellow-900/40'}`}
                             data-testid={`verdict-close-${gi}`}
                           >
-                            <Minus className="w-3 h-3 sm:w-4 sm:h-4" />
+                            <Minus className="w-4 h-4 sm:w-4 sm:h-4" />
                           </button>
                           {/* Wrong (misidentified) */}
                           <button
                             onClick={e => { e.stopPropagation(); handleVerdict(grp.partNo, grp.partName, bestConfidence, repCropIndex, 'wrong'); }}
                             title="Wrong — misidentified"
-                            className={`flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-full transition-colors ${currentVerdict === 'wrong' ? 'bg-red-600 text-white' : 'border border-red-600/40 text-red-500 hover:bg-red-900/40'}`}
+                            className={`flex items-center justify-center w-10 h-10 sm:w-10 sm:h-10 rounded-full transition-colors ${currentVerdict === 'wrong' ? 'bg-red-600 text-white' : 'border border-red-600/40 text-red-500 hover:bg-red-900/40'}`}
                             data-testid={`verdict-wrong-${gi}`}
                           >
-                            <ThumbsDown className="w-3 h-3 sm:w-4 sm:h-4" />
+                            <ThumbsDown className="w-4 h-4 sm:w-4 sm:h-4" />
                           </button>
                           {/* Spacer + swipe hint */}
                           <span className="ml-auto text-[9px] text-gray-600 select-none">swipe → to remove</span>
-                          {/* ── CLIP confirmation panel ── */}
-                          {pendingClipConfirm?.partNo === grp.partNo && pendingClipConfirm?.cropIndex === repCropIndex && (
-                            <div
-                              className="w-full basis-full mt-1 pt-2 border-t border-purple-500/20"
-                              onClick={e => e.stopPropagation()}
-                              data-testid={`clip-confirm-panel-${gi}`}
-                            >
-                              <div className="flex items-center gap-2 mb-2 bg-purple-900/20 border border-purple-500/20 rounded-md px-2.5 py-1.5">
-                                {pendingClipConfirm.colorRgb && (
-                                  <div className="w-4 h-4 rounded-sm border border-white/20 flex-shrink-0"
-                                    style={{ backgroundColor: `#${pendingClipConfirm.colorRgb}` }} />
-                                )}
-                                <div className="min-w-0 flex-1">
-                                  <p className="text-[10px] sm:text-xs font-semibold text-white truncate">{pendingClipConfirm.partName || pendingClipConfirm.partNo}</p>
-                                  {pendingClipConfirm.colorName && <p className="text-[9px] sm:text-[10px] text-gray-400">{pendingClipConfirm.colorName}</p>}
-                                </div>
-                                <div className="flex gap-1.5">
-                                  <button
-                                    type="button"
-                                    data-testid={`clip-confirm-yes-${gi}`}
-                                    disabled={isConfirming}
-                                    onClick={e => {
-                                      e.stopPropagation();
-                                      const p = pendingClipConfirm;
-                                      setPendingClipConfirm(null);
-                                      handleConfirmToClip(p.partNo, p.partName, p.confidence, p.colorId, p.cropIndex, p.itemType);
-                                    }}
-                                    className="flex items-center gap-1 px-2 py-1 rounded-md bg-purple-600 text-white text-[10px] font-semibold disabled:opacity-50"
-                                  >
-                                    {isConfirming ? <Loader2 className="w-3 h-3 animate-spin" /> : <ThumbsUp className="w-3 h-3" />}
-                                    Add
-                                  </button>
-                                  <button
-                                    type="button"
-                                    data-testid={`clip-confirm-cancel-${gi}`}
-                                    onClick={e => { e.stopPropagation(); setPendingClipConfirm(null); }}
-                                    className="px-2 py-1 rounded-md border border-gray-600 text-gray-400 text-[10px]"
-                                  >
-                                    Cancel
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          )}
 
                           {/* ── Color correction picker — visible when verdict is Close ── */}
                           {currentVerdict === 'close' && (() => {
@@ -1971,9 +1946,31 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                       );
                     })()}
 
-                    {/* ── Expanded: best match + all color/condition rows ── */}
+                    {/* ── Expanded: sub-tabs + content ── */}
                     {isExpanded && (
-                      <div className="border-t border-purple-500/10 px-2 sm:px-8 py-1.5 sm:py-5 space-y-1 sm:space-y-5">
+                      <div className="border-t border-purple-500/10">
+                        {/* Sub-tab bar */}
+                        <div className="flex border-b border-purple-500/10 px-2 sm:px-8 pt-1.5 gap-1" onClick={e => e.stopPropagation()}>
+                          {(['matches', 'inventory'] as const).map(tab => {
+                            const activeTab = expandedCardTab[key] ?? 'matches';
+                            return (
+                              <button
+                                key={tab}
+                                onClick={e => { e.stopPropagation(); setExpandedCardTab(prev => ({ ...prev, [key]: tab })); }}
+                                className={`px-3 py-1.5 text-[10px] sm:text-sm font-medium rounded-t-md transition-colors border-b-2 -mb-px ${
+                                  activeTab === tab
+                                    ? 'border-purple-400 text-purple-300'
+                                    : 'border-transparent text-gray-500 hover:text-gray-300'
+                                }`}
+                              >
+                                {tab === 'matches' ? 'Best Matches' : 'My Inventory'}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                      {(expandedCardTab[key] ?? 'matches') === 'matches' && (
+                      <div className="px-2 sm:px-8 py-1.5 sm:py-5 space-y-1 sm:space-y-5">
                         {/* Column headers */}
                         <div className="flex items-center gap-1 px-2 pb-0.5">
                           <div className="flex-1 min-w-0">
@@ -2154,6 +2151,53 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                           </div>);
                         })()}
                       </div>
+                      )}
+
+                      {/* ── My Inventory tab ── */}
+                      {(expandedCardTab[key] ?? 'matches') === 'inventory' && (
+                        <div className="px-2 sm:px-8 py-2 sm:py-5 space-y-1.5">
+                          {(() => {
+                            // Collect all lots across all entries for this group
+                            const allLots = grp.entries.flatMap(e => e.inventoryLots ?? []).filter(l => l.colorId != null);
+                            const inStockLots = allLots.filter(l => (l.qtyNew + l.qtyUsed) > 0);
+                            if (inStockLots.length === 0) {
+                              return (
+                                <div className="flex flex-col items-center gap-2 py-6 text-center">
+                                  <span className="text-gray-600 text-xs sm:text-sm">Not in inventory</span>
+                                  <span className="text-gray-700 text-[10px] sm:text-xs">You don't currently stock this part. Calibrating it still improves scan accuracy for when you do.</span>
+                                </div>
+                              );
+                            }
+                            return inStockLots.map((lot, li) => {
+                              const peakVal = Math.max(lot.peakNew ?? 0, lot.peakUsed ?? 0) || null;
+                              return (
+                                <div key={li} className="flex items-center gap-2 bg-gray-900/50 border border-gray-700/60 rounded-lg px-2 sm:px-4 py-1.5 sm:py-3">
+                                  {lot.colorRgb ? (
+                                    <span className="w-3 h-3 sm:w-5 sm:h-5 rounded-full flex-shrink-0 border border-gray-500" style={{ backgroundColor: `#${lot.colorRgb}` }} />
+                                  ) : (
+                                    <span className="w-3 h-3 sm:w-5 sm:h-5 rounded-full flex-shrink-0 bg-gray-600" />
+                                  )}
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-[10px] sm:text-sm text-white font-medium truncate">{lot.colorName ?? '—'}</p>
+                                    {peakVal && <p className="text-[9px] sm:text-xs text-purple-400">peak ${peakVal.toFixed(2)}</p>}
+                                  </div>
+                                  <div className="text-right flex-shrink-0">
+                                    <div className="flex items-center gap-1.5 justify-end">
+                                      {lot.qtyNew > 0 && <span className="text-[10px] sm:text-sm text-emerald-400 font-mono">×{lot.qtyNew} N</span>}
+                                      {lot.qtyUsed > 0 && <span className="text-[10px] sm:text-sm text-blue-400 font-mono">×{lot.qtyUsed} U</span>}
+                                    </div>
+                                    <div className="flex items-center gap-1.5 justify-end mt-0.5">
+                                      {lot.priceNew != null && <span className="text-[10px] sm:text-xs text-gray-300 font-mono">${lot.priceNew.toFixed(2)} N</span>}
+                                      {lot.priceUsed != null && <span className="text-[10px] sm:text-xs text-gray-400 font-mono">${lot.priceUsed.toFixed(2)} U</span>}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            });
+                          })()}
+                        </div>
+                      )}
+                      </div>
                     )}
                   </div>
                 );
@@ -2185,8 +2229,56 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
         </div>
       )}
 
+    {/* ── CLIP confirmation popup ─────────────────────────────────────── */}
+    <Dialog open={!!pendingClipConfirm} onOpenChange={open => { if (!open) setPendingClipConfirm(null); }}>
+      <DialogContent className="max-w-sm w-full bg-gray-950 border-gray-700 p-5 flex flex-col gap-4">
+        <p className="text-sm font-semibold text-white">Add to CLIP catalog?</p>
+        {pendingClipConfirm && (
+          <>
+            <div className="flex items-center gap-3 bg-purple-900/20 border border-purple-500/20 rounded-md px-3 py-2.5">
+              {pendingClipConfirm.colorRgb && (
+                <div className="w-6 h-6 rounded-sm border border-white/20 flex-shrink-0"
+                  style={{ backgroundColor: `#${pendingClipConfirm.colorRgb}` }} />
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-white truncate">{pendingClipConfirm.partName || pendingClipConfirm.partNo}</p>
+                <p className="text-xs text-gray-400">
+                  {pendingClipConfirm.partNo}
+                  {pendingClipConfirm.colorName && <span className="ml-2 text-gray-300">· {pendingClipConfirm.colorName}</span>}
+                </p>
+              </div>
+            </div>
+            <p className="text-xs text-gray-500">This scan photo will be saved as a visual reference. Future scans that see a similar piece will match it more accurately.</p>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setPendingClipConfirm(null)}
+                data-testid="clip-confirm-cancel-dialog"
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 bg-purple-600 hover:bg-purple-500 text-white"
+                disabled={!!confirmingClip}
+                onClick={() => {
+                  const p = pendingClipConfirm;
+                  setPendingClipConfirm(null);
+                  handleConfirmToClip(p.partNo, p.partName, p.confidence, p.colorId, p.cropIndex, p.itemType);
+                }}
+                data-testid="clip-confirm-yes-dialog"
+              >
+                {confirmingClip ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <ThumbsUp className="w-4 h-4 mr-1" />}
+                Add to CLIP
+              </Button>
+            </div>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+
     {/* ── Scan photo zoom dialog ─────────────────────────────────────── */}
-    <Dialog open={scanPhotoOpen} onOpenChange={(open) => { if (!open) closeScanPhoto(); }}>
+    <Dialog open={scanPhotoOpen} onOpenChange={(open) => { if (!open) { closeScanPhoto(); setHeatmapCropFocus(null); } }}>
       <DialogContent className="max-w-[96vw] w-full p-0 bg-gray-950 border-gray-700 overflow-hidden flex flex-col" style={{ maxHeight: '94vh' }}>
         {/* Header */}
         <div className="flex items-center justify-between px-3 py-2 border-b border-gray-800 shrink-0">
@@ -2266,6 +2358,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                           onClick={(e) => {
                             e.stopPropagation();
                             closeScanPhoto();
+                            setHeatmapCropFocus(null);
                             setTimeout(() => {
                               document.getElementById(scrollTarget)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                               flashResult(scrollTarget);
@@ -2277,8 +2370,9 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                             top:    `${r.bboxY}%`,
                             width:  `${r.bboxW}%`,
                             height: `${r.bboxH}%`,
-                            background: ts.fill,
-                            border: `2px solid ${ts.border}`,
+                            background: heatmapCropFocus === r.cropIndex ? 'rgba(20,184,166,0.30)' : ts.fill,
+                            border: heatmapCropFocus === r.cropIndex ? '3px solid rgb(20,184,166)' : `2px solid ${ts.border}`,
+                            boxShadow: heatmapCropFocus === r.cropIndex ? '0 0 0 3px rgba(20,184,166,0.4), 0 0 20px 4px rgba(20,184,166,0.25)' : undefined,
                             transition: 'filter 0.15s',
                             overflow: 'visible',
                           }}
