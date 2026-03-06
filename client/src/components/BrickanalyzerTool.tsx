@@ -499,31 +499,52 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
     setPreviewCandidates([...previewCandidates, ...reinstated]);
   }
 
-  // Tap on image to promote the nearest candidate
+  // Tap on image to promote the nearest candidate, or create a new zone at the tap point.
   function handleImageTap(e: React.MouseEvent<HTMLDivElement>) {
-    if (previewCandidates.length === 0) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const tapX = ((e.clientX - rect.left) / rect.width) * 100;
     const tapY = ((e.clientY - rect.top) / rect.height) * 100;
-    // Find candidate whose box contains the tap point; else find nearest by center distance
-    const containingIdx = previewCandidates.findIndex(
-      c => tapX >= c.x && tapX <= c.x + c.w && tapY >= c.y && tapY <= c.y + c.h
+
+    // 1. Check if tap lands inside an existing confirmed box — do nothing (user was clicking it)
+    const hitConfirmed = previewBoxes.some(
+      b => tapX >= b.x && tapX <= b.x + b.w && tapY >= b.y && tapY <= b.y + b.h
     );
-    if (containingIdx !== -1) {
-      handlePromoteCandidate(containingIdx);
-      return;
+    if (hitConfirmed) return;
+
+    // 2. Find candidate whose box contains the tap point
+    if (previewCandidates.length > 0) {
+      const containingIdx = previewCandidates.findIndex(
+        c => tapX >= c.x && tapX <= c.x + c.w && tapY >= c.y && tapY <= c.y + c.h
+      );
+      if (containingIdx !== -1) {
+        handlePromoteCandidate(containingIdx);
+        return;
+      }
+      // Find nearest candidate center within 15%
+      let nearestIdx = -1;
+      let nearestDist = Infinity;
+      previewCandidates.forEach((c, i) => {
+        const cx = c.x + c.w / 2, cy = c.y + c.h / 2;
+        const d = Math.hypot(tapX - cx, tapY - cy);
+        if (d < nearestDist) { nearestDist = d; nearestIdx = i; }
+      });
+      if (nearestIdx !== -1 && nearestDist < 15) {
+        handlePromoteCandidate(nearestIdx);
+        return;
+      }
     }
-    // No direct hit — find nearest center
-    let nearestIdx = -1;
-    let nearestDist = Infinity;
-    previewCandidates.forEach((c, i) => {
-      const cx = c.x + c.w / 2, cy = c.y + c.h / 2;
-      const d = Math.hypot(tapX - cx, tapY - cy);
-      if (d < nearestDist) { nearestDist = d; nearestIdx = i; }
-    });
-    if (nearestIdx !== -1 && nearestDist < 15) {
-      handlePromoteCandidate(nearestIdx);
-    }
+
+    // 3. No candidate hit — create a new zone centred on the tap point.
+    //    Default size: 16%×16% of the frame (reasonable for a single LEGO piece).
+    //    Clamp so the box stays fully inside the image.
+    const size = 16;
+    const newBox = {
+      x: Math.min(Math.max(tapX - size / 2, 0), 100 - size),
+      y: Math.min(Math.max(tapY - size / 2, 0), 100 - size),
+      w: size,
+      h: size,
+    };
+    setPreviewBoxes(prev => [...prev, newBox]);
   }
 
   // ── Calibration mode state ────────────────────────────────────────────────
@@ -1211,7 +1232,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
 
           {/* Photo with overlaid bounding boxes */}
           <div
-            className={`relative w-full rounded-lg overflow-hidden bg-gray-900 border border-gray-700 ${previewCandidates.length > 0 ? "cursor-crosshair" : ""}`}
+            className="relative w-full rounded-lg overflow-hidden bg-gray-900 border border-gray-700 cursor-crosshair"
             style={{ aspectRatio: `${previewData.imageWidth} / ${previewData.imageHeight}` }}
             onClick={handleImageTap}
             data-testid="preview-image-container"
@@ -1271,12 +1292,13 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
             ))}
           </div>
 
-          {/* Hint when candidates exist */}
-          {previewCandidates.length > 0 && (
-            <p className="text-xs text-teal-400/80 text-center">
-              {previewCandidates.length} possible piece{previewCandidates.length !== 1 ? "s" : ""} not detected — tap the image to include
-            </p>
-          )}
+          {/* Tap hint — always shown, text adapts based on whether candidates exist */}
+          <p className="text-xs text-center">
+            {previewCandidates.length > 0
+              ? <span className="text-teal-400/80">{previewCandidates.length} possible piece{previewCandidates.length !== 1 ? "s" : ""} found — tap to add</span>
+              : <span className="text-gray-500">Tap anywhere on a missed piece to add a zone</span>
+            }
+          </p>
 
           {/* Action buttons */}
           <div className="flex gap-2">
