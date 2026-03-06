@@ -4639,14 +4639,24 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       }
       const crops = brickanalyzerCropCache.get(scanId);
       const cropBuffer = crops?.[cropIndex];
-      if (!cropBuffer) {
-        return res.status(404).json({ error: 'Crop not found in cache (scan may have expired)' });
-      }
-      const { embedCrop: _embedCrop } = await import('./services/segmentClient.js');
+      const { embedCrop: _embedCrop, embedUrl: _embedUrl } = await import('./services/segmentClient.js');
       const { storeScanEmbedding } = await import('./services/clip-search.js');
-      const embedding = await _embedCrop(cropBuffer);
+      let embedding: number[];
+      if (cropBuffer) {
+        // Preferred path: embed the actual scanned crop
+        embedding = await _embedCrop(cropBuffer);
+        console.log(`[CLIP] Stored scan embedding for ${itemNo} colorId=${colorId} from crop (scan ${scanId} crop ${cropIndex})`);
+      } else if (colorId != null) {
+        // Fallback: crop no longer in memory (server restarted after deployment).
+        // Use the BrickLink CDN reference image — same quality as the catalog builder.
+        const cdnUrl = `https://img.bricklink.com/PN/${colorId}/${itemNo}.png`;
+        console.log(`[CLIP] Crop cache miss — falling back to CDN: ${cdnUrl}`);
+        embedding = await _embedUrl(cdnUrl);
+        console.log(`[CLIP] Stored CDN embedding for ${itemNo} colorId=${colorId} (crop cache expired)`);
+      } else {
+        return res.status(404).json({ error: 'Crop not found in cache (scan may have expired). Retry after a new scan.' });
+      }
       await storeScanEmbedding(itemNo, colorId ?? null, embedding, 'scan', itemType ?? 'PART');
-      console.log(`[CLIP] Stored scan embedding for ${itemNo} colorId=${colorId} (scan ${scanId} crop ${cropIndex})`);
       res.json({ ok: true });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
