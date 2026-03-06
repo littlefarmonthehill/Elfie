@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect, useMemo, forwardRef, useImperativeHandle } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import { Camera, X, CheckCircle, Loader2, ExternalLink, Trash2, ScanSearch, ChevronRight, Sparkles, Check, Grid3X3, Settings2, RotateCcw, ZoomIn, AlertTriangle, ThumbsUp, ThumbsDown, Minus, FlaskConical, BarChart3, RefreshCw, Target } from "lucide-react";
+import { Camera, X, CheckCircle, Loader2, ExternalLink, Trash2, ScanSearch, ChevronRight, Sparkles, Check, Grid3X3, Settings2, RotateCcw, ZoomIn, AlertTriangle, ThumbsUp, ThumbsDown, Minus, FlaskConical, BarChart3, RefreshCw, Target, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 
 export interface BrickanalyzerToolRef {
@@ -1424,6 +1425,29 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                       const isConfirming = confirmingClip === clipKey;
                       return (
                         <div className="border-t border-amber-500/15 px-2.5 sm:px-8 py-1.5 sm:py-4 flex flex-wrap items-center gap-2">
+                          {/* Info tooltip */}
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button className="text-gray-600 hover:text-gray-400 transition-colors flex-shrink-0" data-testid="button-verdict-info">
+                                <Info className="w-3 h-3 sm:w-5 sm:h-5" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-xs text-xs sm:text-sm space-y-1.5 p-3">
+                              <p className="font-semibold text-white mb-1">How to rate this result:</p>
+                              <div className="flex items-start gap-2">
+                                <ThumbsUp className="w-3 h-3 mt-0.5 text-green-400 flex-shrink-0" />
+                                <span><span className="text-green-400 font-medium">Add to CLIP</span> — Right part, right color. Saves this photo as a visual reference so future scans get smarter.</span>
+                              </div>
+                              <div className="flex items-start gap-2">
+                                <Minus className="w-3 h-3 mt-0.5 text-yellow-400 flex-shrink-0" />
+                                <span><span className="text-yellow-400 font-medium">Close</span> — Right part, wrong color. Counts toward your accuracy score but doesn't train the scanner.</span>
+                              </div>
+                              <div className="flex items-start gap-2">
+                                <ThumbsDown className="w-3 h-3 mt-0.5 text-red-400 flex-shrink-0" />
+                                <span><span className="text-red-400 font-medium">Wrong</span> — Completely misidentified. Logged as a miss in your scorecard.</span>
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
                           {/* Add to CLIP — primary single-tap action, auto-records Correct */}
                           {grp.partNo && repCropIndex != null && !isConfirmed && (
                             <button
