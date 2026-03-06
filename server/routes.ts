@@ -3555,6 +3555,19 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       } else {
         console.log('[Brickanalyzer] Step 1: Single-pass segmentation...');
         allBoxes = await segmentImage(imageBuffer, settings as any);
+
+        // Calibration is always a single close-up piece.  Surface details (studs, grooves,
+        // text, logos) can each be larger than the minSizePct floor and get detected as
+        // separate regions.  Merge everything into one enclosing box so the crop captures
+        // the whole piece — not just one of its features.
+        if (calibration && allBoxes.length > 1) {
+          const x1 = Math.min(...allBoxes.map(b => b.x));
+          const y1 = Math.min(...allBoxes.map(b => b.y));
+          const x2 = Math.max(...allBoxes.map(b => b.x + b.w));
+          const y2 = Math.max(...allBoxes.map(b => b.y + b.h));
+          console.log(`[Brickanalyzer] Calibration: merged ${allBoxes.length} regions into 1 enclosing box`);
+          allBoxes = [{ x: x1, y: y1, w: x2 - x1, h: y2 - y1 }];
+        }
       }
 
       const maxPieces = settings.maxPieces ?? 50;
@@ -4471,6 +4484,16 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         });
       } else {
         allBoxes = await segmentImage(fileBuffer, settings as any);
+
+        // Same calibration merge as the full-scan path — surface details must not become
+        // separate boxes in the preview; they should all merge into one piece boundary.
+        if (req.body?.calibration === 'true' && allBoxes.length > 1) {
+          const x1 = Math.min(...allBoxes.map(b => b.x));
+          const y1 = Math.min(...allBoxes.map(b => b.y));
+          const x2 = Math.max(...allBoxes.map(b => b.x + b.w));
+          const y2 = Math.max(...allBoxes.map(b => b.y + b.h));
+          allBoxes = [{ x: x1, y: y1, w: x2 - x1, h: y2 - y1 }];
+        }
       }
 
       const maxPieces = Number(settings.maxPieces ?? 100);
