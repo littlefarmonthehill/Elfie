@@ -238,7 +238,7 @@ function PomConditionCol({ data, label }: { data: any; label: string }) {
   );
 }
 
-function PomPriceDialog({ target, onClose }: { target: { partNo: string; itemType: string; colorId: number | null; colorName: string }; onClose: () => void }) {
+function PomPriceDialog({ target, onClose }: { target: { partNo: string; itemType: string; colorId: number | null; colorName: string; myQtyNew?: number; myPriceNew?: number | null; myQtyUsed?: number; myPriceUsed?: number | null }; onClose: () => void }) {
   const blType = target.itemType === 'MINIFIG' ? 'MINIFIG' : 'PART';
   const buildUrl = (cond: 'N' | 'U') => {
     const p = new URLSearchParams({ new_or_used: cond });
@@ -256,6 +256,9 @@ function PomPriceDialog({ target, onClose }: { target: { partNo: string; itemTyp
     staleTime: 5 * 60 * 1000,
   });
   const cachedAt = nData?.fetchedAt ?? uData?.fetchedAt;
+  const hasMyNew = (target.myQtyNew ?? 0) > 0 || target.myPriceNew != null;
+  const hasMyUsed = (target.myQtyUsed ?? 0) > 0 || target.myPriceUsed != null;
+  const hasMyInventory = hasMyNew || hasMyUsed;
   return (
     <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
       <DialogContent className="max-w-xs sm:max-w-sm bg-gray-900 border-gray-700 text-white">
@@ -272,6 +275,43 @@ function PomPriceDialog({ target, onClose }: { target: { partNo: string; itemTyp
             <div className="grid grid-cols-2 gap-3">
               <PomConditionCol data={nData} label="New" />
               <PomConditionCol data={uData} label="Used" />
+            </div>
+          )}
+          {hasMyInventory && (
+            <div className="border-t border-gray-700 pt-2 space-y-1">
+              <div className="text-[10px] uppercase tracking-wider text-emerald-400 font-semibold">My Prices</div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-0.5">
+                  <div className="text-[10px] text-gray-500 uppercase tracking-wider">New</div>
+                  {hasMyNew ? (
+                    <>
+                      <div className="text-sm font-mono font-bold text-white">
+                        {target.myPriceNew != null ? `$${target.myPriceNew.toFixed(2)}` : '—'}
+                      </div>
+                      <div className="text-[10px] text-gray-400">
+                        ×{target.myQtyNew ?? 0} in stock
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-xs text-gray-600">Not stocked</div>
+                  )}
+                </div>
+                <div className="space-y-0.5">
+                  <div className="text-[10px] text-gray-500 uppercase tracking-wider">Used</div>
+                  {hasMyUsed ? (
+                    <>
+                      <div className="text-sm font-mono font-bold text-white">
+                        {target.myPriceUsed != null ? `$${target.myPriceUsed.toFixed(2)}` : '—'}
+                      </div>
+                      <div className="text-[10px] text-gray-400">
+                        ×{target.myQtyUsed ?? 0} in stock
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-xs text-gray-600">Not stocked</div>
+                  )}
+                </div>
+              </div>
             </div>
           )}
           {cachedAt && (
@@ -811,7 +851,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
   const [focusedDetailCropIndex, setFocusedDetailCropIndex] = useState<number | null>(null);
   const [overlayTab, setOverlayTab] = useState<'matches' | 'inventory'>('matches');
   // POM price popup target
-  const [pricePopupTarget, setPricePopupTarget] = useState<{ partNo: string; itemType: string; colorId: number | null; colorName: string } | null>(null);
+  const [pricePopupTarget, setPricePopupTarget] = useState<{ partNo: string; itemType: string; colorId: number | null; colorName: string; myQtyNew?: number; myPriceNew?: number | null; myQtyUsed?: number; myPriceUsed?: number | null } | null>(null);
   // Ref keeps a synchronous count of total groups so handlers can check "all done" without stale closure
   const groupCountRef = useRef(0);
 
@@ -2235,7 +2275,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                                     {peak ? (
                                       <button
                                         className="text-[9px] pl-0.5 text-purple-400 hover:text-purple-300 underline decoration-dotted cursor-pointer bg-transparent border-none p-0 text-left"
-                                        onClick={e => { e.stopPropagation(); setPricePopupTarget({ partNo: focusedGroup.partNo, itemType: focusedGroup.itemType, colorId: entry.colorId ?? null, colorName: entry.colorName || '' }); }}
+                                        onClick={e => { e.stopPropagation(); setPricePopupTarget({ partNo: focusedGroup.partNo, itemType: focusedGroup.itemType, colorId: entry.colorId ?? null, colorName: entry.colorName || '', myQtyNew: entry.ourQtyNew, myPriceNew: entry.ourPriceNew, myQtyUsed: entry.ourQtyUsed, myPriceUsed: entry.ourPriceUsed }); }}
                                       >
                                         peak ${peak.toFixed(2)}
                                       </button>
@@ -2332,7 +2372,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                                             {lotPeak && (
                                               <button
                                                 className="text-[9px] text-purple-400 hover:text-purple-300 underline decoration-dotted cursor-pointer bg-transparent border-none p-0"
-                                                onClick={e => { e.stopPropagation(); setPricePopupTarget({ partNo: focusedGroup.partNo, itemType: focusedGroup.itemType, colorId: lot.colorId ?? null, colorName: lot.colorName || '' }); }}
+                                                onClick={e => { e.stopPropagation(); setPricePopupTarget({ partNo: focusedGroup.partNo, itemType: focusedGroup.itemType, colorId: lot.colorId ?? null, colorName: lot.colorName || '', myQtyNew: lot.qtyNew, myPriceNew: lot.priceNew, myQtyUsed: lot.qtyUsed, myPriceUsed: lot.priceUsed }); }}
                                                 title="View full POM pricing"
                                               >peak ${lotPeak.toFixed(2)}</button>
                                             )}
@@ -2996,7 +3036,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                                   {peak ? (
                                     <button
                                       className="text-[9px] sm:text-lg pl-0.5 text-purple-400 hover:text-purple-300 underline decoration-dotted cursor-pointer bg-transparent border-none p-0"
-                                      onClick={e => { e.stopPropagation(); setPricePopupTarget({ partNo: grp.partNo, itemType: grp.itemType, colorId: entry.colorId ?? null, colorName: entry.colorName || '' }); }}
+                                      onClick={e => { e.stopPropagation(); setPricePopupTarget({ partNo: grp.partNo, itemType: grp.itemType, colorId: entry.colorId ?? null, colorName: entry.colorName || '', myQtyNew: entry.ourQtyNew, myPriceNew: entry.ourPriceNew, myQtyUsed: entry.ourQtyUsed, myPriceUsed: entry.ourPriceUsed }); }}
                                       title="View full POM pricing"
                                     >peak ${peak.toFixed(2)}</button>
                                   ) : null}
@@ -3094,7 +3134,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                                         {lotPeak && (
                                           <button
                                             className="text-[9px] sm:text-lg text-purple-400 hover:text-purple-300 underline decoration-dotted cursor-pointer bg-transparent border-none p-0"
-                                            onClick={e => { e.stopPropagation(); setPricePopupTarget({ partNo: grp.partNo, itemType: grp.itemType, colorId: lot.colorId ?? null, colorName: lot.colorName || '' }); }}
+                                            onClick={e => { e.stopPropagation(); setPricePopupTarget({ partNo: grp.partNo, itemType: grp.itemType, colorId: lot.colorId ?? null, colorName: lot.colorName || '', myQtyNew: lot.qtyNew, myPriceNew: lot.priceNew, myQtyUsed: lot.qtyUsed, myPriceUsed: lot.priceUsed }); }}
                                             title="View full POM pricing"
                                           >peak ${lotPeak.toFixed(2)}</button>
                                         )}
@@ -3155,7 +3195,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                                     {peakVal && (
                                       <button
                                         className="text-[9px] sm:text-xs text-purple-400 hover:text-purple-300 underline decoration-dotted cursor-pointer bg-transparent border-none p-0 text-left"
-                                        onClick={e => { e.stopPropagation(); setPricePopupTarget({ partNo: grp.partNo, itemType: grp.itemType, colorId: lot.colorId ?? null, colorName: lot.colorName ?? '' }); }}
+                                        onClick={e => { e.stopPropagation(); setPricePopupTarget({ partNo: grp.partNo, itemType: grp.itemType, colorId: lot.colorId ?? null, colorName: lot.colorName ?? '', myQtyNew: lot.qtyNew, myPriceNew: lot.priceNew, myQtyUsed: lot.qtyUsed, myPriceUsed: lot.priceUsed }); }}
                                         title="View full POM pricing"
                                       >peak ${peakVal.toFixed(2)}</button>
                                     )}
