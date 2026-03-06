@@ -1833,16 +1833,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const apiKey = settings?.openaiApiKey || process.env.OPENAI_API_KEY;
-      const model = settings?.selectedModel || 'gpt-4o-mini';
-      
-      if (!apiKey) {
-        return res.status(400).json({
-          error: "OpenAI API key not configured",
-          message: "Please configure your OpenAI API key in Settings.",
-        });
-      }
-
       // Generate or retrieve session ID for conversation continuity
       const sessionId = req.headers['x-session-id'] as string || `session-${Date.now()}`;
       
@@ -2602,8 +2592,6 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       
       try {
         const agentResult = await runAgentLoop({
-          apiKey,
-          model,
           systemPrompt,
           messages,
           maxIterations: 5,
@@ -2619,10 +2607,8 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         let errorMessage = "I'm having trouble processing your request right now.";
         if (agentError.message?.includes('timeout')) {
           errorMessage = "The AI service is taking too long to respond. Please try again.";
-        } else if (agentError.message?.includes('OpenAI')) {
-          errorMessage = "I'm having trouble connecting to the AI service. Please check your OpenAI API key in Settings.";
-        } else if (agentError.message?.includes('API key')) {
-          errorMessage = "Please configure your OpenAI API key in Settings.";
+        } else if (agentError.message?.includes('Anthropic') || agentError.message?.includes('API')) {
+          errorMessage = "I'm having trouble connecting to the AI service. Please try again in a moment.";
         } else if (agentError.message?.includes('Invalid response')) {
           errorMessage = "The AI service returned an unexpected response. Please try again.";
         }
@@ -2895,7 +2881,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         } else if (error.message.includes('timeout') || error.message.includes('ECONNREFUSED')) {
           userMessage = "The request timed out. Please try again.";
         } else if (error.message.includes('API key')) {
-          userMessage = "Please configure your OpenAI API key in Settings.";
+          userMessage = "The AI service is not properly configured. Please contact support.";
         }
       }
       

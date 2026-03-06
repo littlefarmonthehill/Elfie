@@ -1857,73 +1857,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     <Separator className="bg-gray-700" />
 
                     <div className="space-y-2">
-                      <Label htmlFor="openai-api-key" className="text-xs text-gray-400">OpenAI API Key</Label>
-                      <Input
-                        id="openai-api-key"
-                        type="password"
-                        placeholder="sk-proj-..."
-                        value={openaiApiKey}
-                        onChange={(e) => setOpenaiApiKey(e.target.value)}
-                        onBlur={() => {
-                          updateSettingsMutation.mutate({
-                            aiEnabled,
-                            openaiApiKey: openaiApiKey || null,
-                            selectedModel: selectedModel || null,
-                            systemPrompt: systemPrompt || null,
-                          });
-                        }}
-                        className="text-xs font-mono"
-                        data-testid="input-openai-api-key"
-                      />
-                      <p className="text-xs text-gray-500">
-                        Your API key is stored securely. Get one from{" "}
-                        <a 
-                          href="https://platform.openai.com/api-keys" 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="text-purple-400 hover:text-purple-300"
-                        >
-                          OpenAI
-                        </a>
-                      </p>
-                    </div>
-
-                    {availableModels.length > 0 && (
-                      <div className="space-y-2">
-                        <Label htmlFor="ai-model" className="text-xs text-gray-400">Model</Label>
-                        <Select 
-                          value={selectedModel} 
-                          onValueChange={(value) => {
-                            setSelectedModel(value);
-                            updateSettingsMutation.mutate({
-                              aiEnabled,
-                              openaiApiKey: openaiApiKey || null,
-                              selectedModel: value,
-                              systemPrompt: systemPrompt || null,
-                            });
-                          }}
-                        >
-                          <SelectTrigger className="text-xs" data-testid="select-ai-model">
-                            <SelectValue placeholder="Select a model" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availableModels.map((model) => (
-                              <SelectItem key={model.id} value={model.id}>
-                                {model.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-
-                    {loadingModels && (
-                      <p className="text-xs text-gray-400">Loading models...</p>
-                    )}
-
-                    <Separator className="bg-gray-700" />
-
-                    <div className="space-y-2">
                       <Label htmlFor="system-prompt" className="text-xs text-gray-400">System Prompt / Role Instructions</Label>
                       <Textarea
                         id="system-prompt"
@@ -1948,7 +1881,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                     <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3">
                       <p className="text-xs text-purple-300">
-                        <strong>Using OpenAI:</strong> Powered by GPT-4o-mini for chat completions and text-embedding-3-small for semantic search
+                        <strong>Powered by Claude:</strong> E.L.F.I.E. runs on Anthropic Claude Sonnet — no API key required. Semantic search uses OpenAI text-embedding-3-small.
                       </p>
                     </div>
                   </div>
