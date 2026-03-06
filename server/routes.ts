@@ -4424,6 +4424,18 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       let settings: Record<string, any> = {};
       if (req.body?.settings) { try { settings = JSON.parse(req.body.settings); } catch {} }
 
+      // Apply same calibration overrides as the full scan so the preview uses
+      // generous size limits that accommodate close-up single-piece photos.
+      if (req.body?.calibration === 'true') {
+        settings = {
+          ...settings,
+          multiPass:  0,
+          maxSizePct: 80,
+          maxDimFrac: 90,
+          minSizePct: 0.05,
+        };
+      }
+
       const { segmentImage } = await import('./services/segmentClient.js');
       const iouBox2 = (a: any, b: any): number => {
         const ix0 = Math.max(a.x, b.x), iy0 = Math.max(a.y, b.y);

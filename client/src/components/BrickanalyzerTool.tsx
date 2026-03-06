@@ -352,6 +352,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
     const previewForm = new FormData();
     previewForm.append("image", file);
     previewForm.append("settings", JSON.stringify(effectiveSettings));
+    if (calibrateMode) previewForm.append("calibration", "true");
     try {
       const res = await fetch("/api/brickanalyzer/segment", {
         method: "POST",
