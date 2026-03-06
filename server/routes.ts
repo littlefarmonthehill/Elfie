@@ -4111,13 +4111,14 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
             // A row with soldMaxPrice=null is a "nothing found" record — still try a fresh fetch.
             if (pgRowsNew.length > 0 && pgRowsNew[0].soldMaxPrice != null) {
               marketSoldMaxNew = Number(pgRowsNew[0].soldMaxPrice);
-              if (pgRowsNew[0].stockAvgPrice != null && stockAvgPriceN === null) stockAvgPriceN = Number(pgRowsNew[0].stockAvgPrice);
+              if (pgRowsNew[0].stockAvgPrice != null && Number(pgRowsNew[0].stockAvgPrice) > 0 && stockAvgPriceN === null) stockAvgPriceN = Number(pgRowsNew[0].stockAvgPrice);
               if (!thumbnailUrl) thumbnailUrl = pgRowsNew[0].thumbnailUrl || pgRowsNew[0].imageUrl || null;
               if (!piece.partName && pgRowsNew[0].itemName) piece.partName = pgRowsNew[0].itemName;
             } else {
-              // Pull name/thumb/stock from cache even if sold price is null (avoids missing part names)
+              // Pull name/thumb/stock from cache even if sold price is null (avoids missing part names).
+              // Guard stockAvgPrice > 0: BL returns "0.0000" when nobody is selling — treat that as null.
               if (pgRowsNew.length > 0) {
-                if (pgRowsNew[0].stockAvgPrice != null && stockAvgPriceN === null) stockAvgPriceN = Number(pgRowsNew[0].stockAvgPrice);
+                if (pgRowsNew[0].stockAvgPrice != null && Number(pgRowsNew[0].stockAvgPrice) > 0 && stockAvgPriceN === null) stockAvgPriceN = Number(pgRowsNew[0].stockAvgPrice);
                 if (!thumbnailUrl) thumbnailUrl = pgRowsNew[0].thumbnailUrl || pgRowsNew[0].imageUrl || null;
                 if (!piece.partName && pgRowsNew[0].itemName) piece.partName = pgRowsNew[0].itemName;
               }
@@ -4127,7 +4128,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
               );
               if (pgData) {
                 marketSoldMaxNew = pgData.soldMaxPrice ? Number(pgData.soldMaxPrice) : null;
-                if (pgData.stockAvgPrice != null && stockAvgPriceN === null) stockAvgPriceN = Number(pgData.stockAvgPrice);
+                if (pgData.stockAvgPrice != null && Number(pgData.stockAvgPrice) > 0 && stockAvgPriceN === null) stockAvgPriceN = Number(pgData.stockAvgPrice);
                 if (!thumbnailUrl) thumbnailUrl = pgData.thumbnailUrl || pgData.imageUrl || null;
                 if (!piece.partName && pgData.itemName) piece.partName = pgData.itemName;
               }
@@ -4285,8 +4286,8 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
                     const liveN = await fetchPriceOMagicData(piece.partNo, blItemType as any, lot.colorId, 'N', premiumPct, pomConfig);
                     if (liveN) {
                       lot.peakNew = liveN.soldMaxPrice ? Number(liveN.soldMaxPrice) : null;
-                      // Stock avg as secondary signal when no sold history
-                      if (lot.peakNew === null && liveN.stockAvgPrice != null) lot.peakNew = Number(liveN.stockAvgPrice);
+                      // Stock avg as secondary signal when no sold history (guard > 0: BL returns "0.0000" when nobody is selling)
+                      if (lot.peakNew === null && liveN.stockAvgPrice != null && Number(liveN.stockAvgPrice) > 0) lot.peakNew = Number(liveN.stockAvgPrice);
                       if (!thumbnailUrl) thumbnailUrl = liveN.thumbnailUrl || liveN.imageUrl || null;
                       if (!piece.partName && liveN.itemName) piece.partName = liveN.itemName;
                     }

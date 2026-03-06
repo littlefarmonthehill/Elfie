@@ -1553,7 +1553,7 @@ export async function fetchPriceOMagicData(
     // Calculate suggested price with supply adjustment
     // For stock price, use avg (mid-market reference)
     // For sold price, use 85th percentile of actual transactions (more accurate than mean, filters cheap outliers)
-    const stockAvgPrice = stockPriceData?.avg_price ? parseFloat(stockPriceData.avg_price) : null;
+    const stockAvgPrice = (stockPriceData?.avg_price && parseFloat(stockPriceData.avg_price) > 0) ? parseFloat(stockPriceData.avg_price) : null;
     const soldP85Price = computeWeightedPercentile(soldPriceData?.price_detail, 85);
     const soldAvgPrice = soldP85Price ?? (soldPriceData?.avg_price ? parseFloat(soldPriceData.avg_price) : null);
     const stockTotalLots = stockPriceData?.total_lots ? parseInt(stockPriceData.total_lots.toString()) : 0;   // BL seller listing count (scarcity tiers)
@@ -1730,7 +1730,7 @@ export async function searchBricklinkCatalogItem(
     const { data: soldPriceData } = await bricklinkCatalogRequest(stockPriceEndpoint, soldPriceParams);
 
     // Calculate suggested price with supply adjustment
-    const stockAvgPrice = stockPriceData?.avg_price ? parseFloat(stockPriceData.avg_price) : null;
+    const stockAvgPrice = (stockPriceData?.avg_price && parseFloat(stockPriceData.avg_price) > 0) ? parseFloat(stockPriceData.avg_price) : null;
     const soldAvgPrice = soldPriceData?.avg_price ? parseFloat(soldPriceData.avg_price) : null;
     const stockTotalLots = stockPriceData?.unit_quantity ? parseInt(stockPriceData.unit_quantity.toString()) : 0; // Number of lots/listings available
     const suggestedPrice = calculateSuggestedPriceWithSupply(stockAvgPrice, soldAvgPrice, stockTotalLots);

@@ -1287,7 +1287,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                   const peak = Math.max(r.marketSoldMaxNew ?? 0, r.marketSoldMaxUsed ?? 0, r.stockAvgPriceN ?? 0, r.ourPriceNew ?? 0, r.ourPriceUsed ?? 0);
                   // Show market peak price first — the highest sold price on BrickLink is what matters.
                   // Fall back to stock (current listing) average, then our own listing price.
-                  const displayPrice = marketPeak ?? (r.stockAvgPriceN ?? null) ?? (r.ourPriceNew || r.ourPriceUsed) ?? null;
+                  const displayPrice = marketPeak ?? (r.stockAvgPriceN && r.stockAvgPriceN > 0 ? r.stockAvgPriceN : null) ?? (r.ourPriceNew || r.ourPriceUsed) ?? null;
                   const tier = peak === 0 ? 'none' : peak >= hiThresh ? 'high' : peak >= midThresh ? 'medium' : 'low';
                   const ts = tierStyle[tier];
                   const scrollTarget = `result-${(r.partNo || r.cropIndex) ?? i}`;
