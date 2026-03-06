@@ -2330,7 +2330,22 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                 draggable={false}
               />
               {(() => {
-                const bboxResults = results.filter(r => r.bboxX != null && r.bboxY != null && r.bboxW != null && r.bboxH != null);
+                // Build cropIndex → dismissKey lookup from groupedResults (identified parts only)
+                const cropDismissKeyMap = new Map<number, string>();
+                groupedResults.forEach(grp => {
+                  const repCropIndex = grp.entries[0]?.cropIndex ?? null;
+                  const dismissKey = `${grp.partNo}__${repCropIndex ?? 'x'}`;
+                  grp.entries.forEach(e => {
+                    if (e.cropIndex != null) cropDismissKeyMap.set(e.cropIndex, dismissKey);
+                  });
+                });
+                // Filter: exclude results whose group is already dismissed AND exclude unknowns (handled by teal overlay below)
+                const bboxResults = results.filter(r => {
+                  if (r.bboxX == null || r.bboxY == null || r.bboxW == null || r.bboxH == null) return false;
+                  if (!r.partNo) return false; // unknowns handled by teal overlay section
+                  const dk = r.cropIndex != null ? cropDismissKeyMap.get(r.cropIndex) : undefined;
+                  return !dk || !dismissedItems.has(dk);
+                });
                 const allPrices = bboxResults.map(r => Math.max(r.marketSoldMaxNew ?? 0, r.marketSoldMaxUsed ?? 0, r.stockAvgPriceN ?? 0, r.ourPriceNew ?? 0, r.ourPriceUsed ?? 0)).filter(p => p > 0);
                 const maxPrice = allPrices.length > 0 ? Math.max(...allPrices) : 0;
                 const hiThresh = maxPrice * 0.60;
@@ -2351,9 +2366,12 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                       const tier = peak === 0 ? 'none' : peak >= hiThresh ? 'high' : peak >= midThresh ? 'medium' : 'low';
                       const ts = tierStyle[tier];
                       const scrollTarget = `result-${(r.partNo || r.cropIndex) ?? i}`;
+                      const overlayDismissKey = r.cropIndex != null ? cropDismissKeyMap.get(r.cropIndex) : undefined;
                       return (
-                        <button
+                        <div
                           key={r.cropIndex ?? i}
+                          role="button"
+                          tabIndex={0}
                           onMouseDown={(e) => e.stopPropagation()}
                           onClick={(e) => {
                             e.stopPropagation();
@@ -2375,11 +2393,13 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                             boxShadow: heatmapCropFocus === r.cropIndex ? '0 0 0 3px rgba(20,184,166,0.4), 0 0 20px 4px rgba(20,184,166,0.25)' : undefined,
                             transition: 'filter 0.15s',
                             overflow: 'visible',
+                            cursor: 'pointer',
                           }}
-                          onMouseEnter={(e) => (e.currentTarget.style.filter = 'brightness(1.35)')}
-                          onMouseLeave={(e) => (e.currentTarget.style.filter = '')}
+                          onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.filter = 'brightness(1.35)')}
+                          onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.filter = '')}
                           data-testid={`scan-overlay-${r.cropIndex ?? i}`}
                         >
+                          {/* Price badge */}
                           <span
                             style={{
                               background: ts.badge,
@@ -2395,7 +2415,37 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                           >
                             {displayPrice != null ? `$${displayPrice.toFixed(2)}` : '—'}
                           </span>
-                        </button>
+                          {/* Remove button — top-right corner of box */}
+                          {overlayDismissKey && (
+                            <button
+                              onMouseDown={e => e.stopPropagation()}
+                              onClick={e => {
+                                e.stopPropagation();
+                                setDismissedItems(prev => { const n = new Set(prev); n.add(overlayDismissKey); return n; });
+                              }}
+                              title="Remove from results"
+                              style={{
+                                position: 'absolute',
+                                top: -9,
+                                right: -9,
+                                zIndex: 30,
+                                width: 18,
+                                height: 18,
+                                background: 'rgba(0,0,0,0.80)',
+                                border: '1px solid rgba(255,255,255,0.25)',
+                                borderRadius: '50%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                flexShrink: 0,
+                              }}
+                              data-testid={`overlay-remove-${r.cropIndex ?? i}`}
+                            >
+                              <X style={{ width: 10, height: 10, color: 'white' }} />
+                            </button>
+                          )}
+                        </div>
                       );
                     })}
 
