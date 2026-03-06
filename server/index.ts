@@ -8,7 +8,9 @@ import { startOrderSyncScheduler } from "./services/order-sync-scheduler";
 import { startEmbeddingWorker } from "./services/embedding-worker";
 import { startForumSyncScheduler } from "./services/bl-forum-scheduler";
 import { startService as startSegmentService, warmupClip } from "./services/segmentClient";
-import { pool } from "./db";
+import { pool, db } from "./db";
+import { blInventory, scanEmbeddings } from "@shared/schema";
+import { sql as drizzleSqlCount } from "drizzle-orm";
 
 // Suppress Vite's process.exit(1) which fires on any CSS/TS compilation error.
 // By throwing instead, the error surfaces as an uncaughtException (caught below)
@@ -212,8 +214,45 @@ app.use((req, res, next) => {
         console.error('Failed to start forum sync scheduler:', error);
       });
       
-      // Start background embedding worker
-      startEmbeddingWorker();
+      // Start background embedding worker (async — resets any orphaned 'processing' jobs first)
+      startEmbeddingWorker().catch(error => {
+        console.error('Failed to start embedding worker:', error);
+      });
+
+      // Auto-resume CLIP visual catalog build if it was interrupted by a restart
+      setTimeout(async () => {
+        try {
+          const { buildCatalogEmbeddings, getActiveBuild } = await import('./services/clip-search.js');
+          if (getActiveBuild()?.running) return; // already running
+
+          // Count inventory items vs catalog embeddings to see if build is incomplete
+          const [invCount] = await db.select({ count: drizzleSqlCount`count(*)` }).from(blInventory);
+          const [embCount] = await db.select({ count: drizzleSqlCount`count(*)` }).from(scanEmbeddings)
+            .where(drizzleSqlCount`source = 'catalog'`);
+
+          const total = Number((invCount as any).count);
+          const done = Number((embCount as any).count);
+
+          if (total > 0 && done < total) {
+            console.log(`[CLIP Catalog] Auto-resuming build — ${done}/${total} embedded. Queuing remaining ${total - done} items...`);
+            const rows = await db.select({ itemNo: blInventory.itemNo, colorId: blInventory.colorId }).from(blInventory);
+            const items = rows.map(r => ({ itemNo: r.itemNo, colorId: Number(r.colorId), itemType: 'PART' }));
+            buildCatalogEmbeddings(items, (p) => {
+              if (p.done % 100 === 0 || p.done === p.total) {
+                console.log(`[CLIP Catalog] ${p.done}/${p.total} embedded (${p.errors} errors)`);
+              }
+            }).then((final) => {
+              console.log(`[CLIP Catalog] Auto-resume complete: ${final.done} embedded, ${final.errors} errors`);
+            }).catch((e) => {
+              console.error('[CLIP Catalog] Auto-resume failed:', e.message);
+            });
+          } else if (total > 0) {
+            console.log(`[CLIP Catalog] Catalog complete (${done}/${total}) — no resume needed`);
+          }
+        } catch (e: any) {
+          console.error('[CLIP Catalog] Auto-resume check failed (non-fatal):', e.message);
+        }
+      }, 15000); // 15s delay: let segment service warm up first
     });
   } catch (error) {
     console.error("Failed to start server:", error);

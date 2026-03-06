@@ -9,10 +9,25 @@ let workerInterval: NodeJS.Timeout | null = null;
 /**
  * Start the background worker that processes embedding jobs
  */
-export function startEmbeddingWorker() {
+export async function startEmbeddingWorker() {
   if (workerInterval) {
     console.log('⚠️  Embedding worker already running');
     return;
+  }
+
+  // Reset any jobs that were left in 'processing' state by a previous server run.
+  // Without this, restarting the server permanently orphans in-flight jobs.
+  try {
+    const reset = await db
+      .update(embeddingJobs)
+      .set({ status: 'pending' })
+      .where(eq(embeddingJobs.status, 'processing'))
+      .returning({ id: embeddingJobs.id });
+    if (reset.length > 0) {
+      console.log(`🔄 Resumed ${reset.length} embedding job(s) interrupted by last restart`);
+    }
+  } catch (e: any) {
+    console.error('[EmbeddingWorker] Could not reset stuck jobs (non-fatal):', e.message);
   }
 
   console.log('🤖 Embedding worker started');
