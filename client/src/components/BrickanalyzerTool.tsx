@@ -17,6 +17,7 @@ interface InventoryLot {
   colorId: number | null;
   colorName: string | null;
   colorRgb: string | null;
+  imageUrl?: string | null;
   qtyNew: number;
   priceNew: number | null;
   qtyUsed: number;
@@ -1141,7 +1142,17 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                                 className="bg-gray-900/50 border border-gray-700/60 rounded-lg px-2 py-1.5"
                                 data-testid={`lot-${gi}-${li}`}
                               >
-                                <div className="flex items-center gap-1 min-w-0">
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  {lot.imageUrl ? (
+                                    <img
+                                      src={lot.imageUrl}
+                                      alt={lot.colorName || ''}
+                                      className="w-6 h-6 object-contain rounded flex-shrink-0 bg-gray-800"
+                                      onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                    />
+                                  ) : (
+                                    <div className="w-6 h-6 flex-shrink-0 rounded bg-gray-800" />
+                                  )}
                                   <div className="flex flex-col flex-1 min-w-0">
                                     <div className="flex items-center gap-1 min-w-0">
                                       {lotInStock && <Check className="w-3 h-3 text-emerald-400 flex-shrink-0" />}

@@ -4194,7 +4194,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
         // Minifigs don't have color variants, so skip the catalog call for them
         // catalogColorMap / catalogColorsList may already be populated by the early color
         // detection block (2a) above — if so, reuse them to avoid a second BL API call.
-        let inventoryLots: { colorId: number | null; colorName: string | null; colorRgb: string | null; qtyNew: number; priceNew: number | null; qtyUsed: number; priceUsed: number | null }[] = [];
+        let inventoryLots: { colorId: number | null; colorName: string | null; colorRgb: string | null; imageUrl: string | null; qtyNew: number; priceNew: number | null; qtyUsed: number; priceUsed: number | null; peakNew: number | null; peakUsed: number | null }[] = [];
         if (piece.partNo && blItemType === 'PART') {
           try {
             // Only fetch catalog colors if not already populated by early detection block
@@ -4270,8 +4270,49 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
                 const inv = invByColorId.get(c.color_id) ?? { qtyNew: 0, priceNew: null, qtyUsed: 0, priceUsed: null };
                 const col = colorMap.get(c.color_id);
                 const pk = peakByColor.get(c.color_id) ?? { peakNew: null, peakUsed: null };
-                return { colorId: c.color_id, colorName: col?.name ?? null, colorRgb: col?.rgb ?? null, ...inv, ...pk };
+                const imageUrl = `https://img.bricklink.com/PN/${c.color_id}/${piece.partNo}.png`;
+                return { colorId: c.color_id, colorName: col?.name ?? null, colorRgb: col?.rgb ?? null, imageUrl, ...inv, ...pk };
               });
+
+              // For ≤5 catalog color parts: fetch live POM for any lot with no cached peak data.
+              // This is the core of the simplified architecture — all variants get real market prices,
+              // not just the detected color. Printed parts (1 color) are the primary beneficiary.
+              if (catalogColors.length <= 5 && piece.partNo) {
+                for (const lot of inventoryLots) {
+                  if (lot.colorId == null) continue;
+                  if (lot.peakNew !== null || lot.peakUsed !== null) continue; // already cached
+                  try {
+                    const liveN = await fetchPriceOMagicData(piece.partNo, blItemType as any, lot.colorId, 'N', premiumPct, pomConfig);
+                    if (liveN) {
+                      lot.peakNew = liveN.soldMaxPrice ? Number(liveN.soldMaxPrice) : null;
+                      // Stock avg as secondary signal when no sold history
+                      if (lot.peakNew === null && liveN.stockAvgPrice != null) lot.peakNew = Number(liveN.stockAvgPrice);
+                      if (!thumbnailUrl) thumbnailUrl = liveN.thumbnailUrl || liveN.imageUrl || null;
+                      if (!piece.partName && liveN.itemName) piece.partName = liveN.itemName;
+                    }
+                    const liveU = await fetchPriceOMagicData(piece.partNo, blItemType as any, lot.colorId, 'U', premiumPct, pomConfig);
+                    if (liveU) lot.peakUsed = liveU.soldMaxPrice ? Number(liveU.soldMaxPrice) : null;
+                    console.log(`[Brickanalyzer] Lot POM ${piece.partNo}/${lot.colorId} "${lot.colorName}": peakN=${lot.peakNew} peakU=${lot.peakUsed}`);
+                  } catch (lotErr: any) {
+                    console.warn(`[Brickanalyzer] Lot POM failed ${piece.partNo}/${lot.colorId}:`, lotErr.message);
+                  }
+                }
+
+                // Promote best-match lot peak to piece level if piece-level prices are still null.
+                // This handles printed parts where the catalog color was always correct but the
+                // early detection block detected the wrong color (e.g. shield Light Gray → Red).
+                if (marketSoldMaxNew === null && marketSoldMaxUsed === null) {
+                  const bestLot = inventoryLots.find(l => l.colorId === colorId) ?? inventoryLots[0];
+                  if (bestLot) {
+                    if (bestLot.peakNew !== null) { marketSoldMaxNew = bestLot.peakNew; colorId = bestLot.colorId; piece.colorName = bestLot.colorName || piece.colorName; }
+                    if (bestLot.peakUsed !== null) { marketSoldMaxUsed = bestLot.peakUsed; }
+                    if (marketSoldMaxNew !== null || marketSoldMaxUsed !== null) {
+                      colorRgb = catalogColorMap.get(bestLot.colorId ?? -1)?.rgb ?? colorRgb;
+                      console.log(`[Brickanalyzer] Promoted lot peak to piece level: ${piece.partNo}/${bestLot.colorId} "${bestLot.colorName}" N=${marketSoldMaxNew} U=${marketSoldMaxUsed}`);
+                    }
+                  }
+                }
+              }
             }
           } catch (blErr: any) {
             console.warn(`[Brickanalyzer] BL color variants failed for ${piece.partNo}:`, blErr.message);
