@@ -1495,7 +1495,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                       const isConfirmed = confirmedClips.has(clipKey);
                       const isConfirming = confirmingClip === clipKey;
                       return (
-                        <div className="border-t border-amber-500/15 px-2.5 sm:px-8 py-1.5 sm:py-4 flex flex-wrap items-center gap-2">
+                        <div className="border-t border-amber-500/15 px-2.5 sm:px-8 py-1.5 sm:py-4 flex flex-wrap items-center gap-2" onClick={e => e.stopPropagation()}>
                           {/* Info tooltip */}
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -1569,7 +1569,11 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                             const correctedKey = `${grp.partNo}__${repCropIndex ?? 'x'}`;
                             const corrected = colorCorrectedClips.get(correctedKey);
                             return (
-                              <div className="w-full basis-full mt-1 pt-1.5 border-t border-yellow-500/20" data-testid={`color-picker-${gi}`}>
+                              <div
+                                className="w-full basis-full mt-1 pt-1.5 border-t border-yellow-500/20"
+                                data-testid={`color-picker-${gi}`}
+                                onClick={e => e.stopPropagation()}
+                              >
                                 <p className="text-[9px] sm:text-sm mb-1.5 font-medium">
                                   {corrected
                                     ? <span className="flex items-center gap-1 text-green-400"><Check className="w-2.5 h-2.5" />Correct — tap a different color to retrain</span>
@@ -1581,7 +1585,8 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                                     type="button"
                                     data-testid={`color-not-found-${gi}`}
                                     disabled={isConfirming != null}
-                                    onClick={() => {
+                                    onClick={e => {
+                                      e.stopPropagation();
                                       setColorCorrectedClips(prev => { const m = new Map(prev); m.delete(correctedKey); return m; });
                                       handleVerdict(grp.partNo, grp.partName, bestConfidence, repCropIndex, 'close');
                                     }}
@@ -1600,7 +1605,10 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                                         key={lot.colorId}
                                         data-testid={`color-btn-${gi}-${lot.colorId}`}
                                         disabled={isConfirming != null}
-                                        onClick={() => handleColorCorrection(grp.partNo, grp.partName, bestConfidence, lot.colorId!, lot.colorName ?? String(lot.colorId), repCropIndex, grp.itemType ?? 'PART')}
+                                        onClick={e => {
+                                          e.stopPropagation();
+                                          handleColorCorrection(grp.partNo, grp.partName, bestConfidence, lot.colorId!, lot.colorName ?? String(lot.colorId), repCropIndex, grp.itemType ?? 'PART');
+                                        }}
                                         className={`flex items-center gap-2 w-full text-left px-2.5 py-2 text-xs sm:text-sm disabled:opacity-40 transition-colors
                                           ${isSelected ? 'bg-green-900/40 text-green-300 font-semibold' : 'text-gray-200 hover:bg-white/5'}`}
                                       >
