@@ -251,7 +251,33 @@ def segment_pieces_contour(rgb: np.ndarray, settings: dict = None) -> list:
         print(f"[SegService] Contour rejected: area={rejected_area} dim={rejected_dim} border={rejected_border} "
               f"(limits: area={min_area_frac*100:.2f}%-{max_area_frac*100:.0f}% dim={max_dim_frac*100:.0f}%)", flush=True)
 
-    # ── 5. NMS — remove heavily-overlapping duplicates from the same piece ───
+    # ── 5. Close-up fallback ──────────────────────────────────────────────────
+    # When all contours are rejected because they are TOO LARGE (rejected_area > 0
+    # or rejected_dim > 0) and only a few contours were found (≤ 3), the image is
+    # almost certainly a close-up single-piece photo where heavy dilation merged all
+    # edge fragments into one big blob.  Rather than returning 0 results, fall back
+    # to the bounding box of the largest contour (by bounding-rect area) as a
+    # best-effort single detection zone.
+    if not raw_boxes and (rejected_area > 0 or rejected_dim > 0) and 0 < len(contours) <= 3:
+        best = max(contours, key=lambda c: cv2.boundingRect(c)[2] * cv2.boundingRect(c)[3])
+        x1, y1, bw, bh = cv2.boundingRect(best)
+        # Expand slightly so we capture the full piece, not just its edge ring
+        pad_x = int(W * 0.03)
+        pad_y = int(H * 0.03)
+        x1 = max(x1 - pad_x, 0)
+        y1 = max(y1 - pad_y, 0)
+        bw = min(bw + 2 * pad_x, W - x1)
+        bh = min(bh + 2 * pad_y, H - y1)
+        raw_boxes.append({
+            "x": round(x1 / W * 100, 2),
+            "y": round(y1 / H * 100, 2),
+            "w": round(bw  / W * 100, 2),
+            "h": round(bh  / H * 100, 2),
+        })
+        print(f"[SegService] Close-up fallback: using largest-contour bbox "
+              f"({bw}×{bh}px at {x1},{y1})", flush=True)
+
+    # ── 6. NMS — remove heavily-overlapping duplicates from the same piece ───
     boxes = _nms_boxes(raw_boxes)
 
     print(f"[SegService] Contour {H}×{W} contours={len(contours)} raw={len(raw_boxes)} → {len(boxes)} pieces", flush=True)
