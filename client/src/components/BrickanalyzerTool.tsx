@@ -849,7 +849,6 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
   const [heatmapCropFocus, setHeatmapCropFocus] = useState<number | null>(null);
   // Focused detail view — when set, shows crop image + single card instead of full list
   const [focusedDetailCropIndex, setFocusedDetailCropIndex] = useState<number | null>(null);
-  const [overlayTab, setOverlayTab] = useState<'matches' | 'inventory'>('matches');
   // POM price popup target
   const [pricePopupTarget, setPricePopupTarget] = useState<{ partNo: string; itemType: string; colorId: number | null; colorName: string; myQtyNew?: number; myPriceNew?: number | null; myQtyUsed?: number; myPriceUsed?: number | null } | null>(null);
   // Ref keeps a synchronous count of total groups so handlers can check "all done" without stale closure
@@ -998,7 +997,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
   const [overlayDragging, setOverlayDragging] = useState(false);
   const [overlayDragStart, setOverlayDragStart] = useState({ x: 0, y: 0 });
   const [overlayPinchDist, setOverlayPinchDist] = useState<number | null>(null);
-  useEffect(() => { setOverlayZoom(1); setOverlayPan({ x: 0, y: 0 }); setOverlayTab('matches'); }, [focusedDetailCropIndex]);
+  useEffect(() => { setOverlayZoom(1); setOverlayPan({ x: 0, y: 0 }); }, [focusedDetailCropIndex]);
   function handleOverlayWheel(e: React.WheelEvent) {
     e.preventDefault();
     setOverlayZoom(prev => { const next = Math.min(8, Math.max(1, prev - e.deltaY * 0.003)); if (next === 1) setOverlayPan({ x: 0, y: 0 }); return next; });
@@ -2065,404 +2064,308 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
 
                 return (
                   <div
-                    className="fixed inset-0 z-[999] bg-gray-950 flex flex-col"
+                    className="fixed inset-0 z-[999] flex flex-col"
+                    style={{ background: '#0c0c12' }}
                     data-testid="heatmap-detail-overlay"
                   >
-                    {/* Overlay header */}
-                    <div className="flex items-center justify-between px-3 py-1.5 border-b border-gray-700 shrink-0">
-                      <span className="text-[10px] text-gray-500 flex items-center gap-1.5">
-                        <Target className="w-3 h-3 text-teal-400" />
-                        Piece detail
-                      </span>
+                    {/* ── Header bar ─────────────────────────────────────── */}
+                    <div className="flex items-center gap-2 px-3 py-2 shrink-0 border-b border-white/[0.06]">
                       <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7"
+                        size="icon" variant="ghost" className="h-8 w-8 shrink-0"
                         onClick={() => setFocusedDetailCropIndex(null)}
                         data-testid="button-close-detail-overlay"
                       >
                         <X className="w-4 h-4" />
                       </Button>
-                    </div>
-                    {/* Overlay body — scrollable, mirrors the card */}
-                    <div className="flex-1 overflow-y-auto min-h-0">
-                      {/* Large inventory/catalog image at the top — zoomable */}
-                      {(primarySrc || blPlUrl) && (
-                        <div
-                          className="border-b border-gray-800 overflow-hidden bg-gray-900 flex items-center justify-center"
-                          style={{
-                            height: 200,
-                            cursor: overlayZoom > 1 ? (overlayDragging ? 'grabbing' : 'grab') : 'zoom-in',
-                            touchAction: 'none',
-                          }}
-                          onWheel={handleOverlayWheel}
-                          onMouseDown={handleOverlayMouseDown}
-                          onMouseMove={handleOverlayMouseMove}
-                          onMouseUp={handleOverlayMouseUp}
-                          onMouseLeave={handleOverlayMouseUp}
-                          onTouchStart={handleOverlayTouchStart}
-                          onTouchMove={handleOverlayTouchMove}
-                          onTouchEnd={handleOverlayTouchEnd}
-                        >
-                          <img
-                            src={primarySrc || blPlUrl!}
-                            alt={focusedGroup.partName}
-                            className="object-contain max-h-full max-w-full select-none"
-                            draggable={false}
-                            style={{
-                              transform: `translate(${overlayPan.x}px, ${overlayPan.y}px) scale(${overlayZoom})`,
-                              transformOrigin: 'center center',
-                              transition: overlayDragging ? 'none' : 'transform 0.1s ease-out',
-                            }}
-                            onError={(e) => {
-                              const el = e.target as HTMLImageElement;
-                              if (blColorUrl && el.src !== blColorUrl) { el.src = blColorUrl; }
-                              else if (blPlUrl && el.src !== blPlUrl) { el.src = blPlUrl; }
-                              else { (el.parentElement as HTMLElement).style.display = 'none'; }
-                            }}
-                          />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-white truncate leading-snug">
+                          {focusedGroup.partName || 'Unknown Part'}
+                        </p>
+                        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                          {focusedGroup.partNo && (
+                            <span className="font-mono text-[11px] text-gray-400 tracking-tight">{focusedGroup.partNo}</span>
+                          )}
+                          {isMinifig && (
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-amber-400 bg-amber-900/30 border border-amber-500/30 rounded px-1.5 py-0.5">Fig</span>
+                          )}
+                          <span className={`text-[9px] font-bold uppercase tracking-wider rounded px-1.5 py-0.5 ${
+                            overlayBestConf === 'high'
+                              ? 'bg-emerald-900/40 text-emerald-400 border border-emerald-500/25'
+                              : overlayBestConf === 'medium'
+                              ? 'bg-yellow-900/30 text-yellow-400 border border-yellow-500/25'
+                              : 'bg-gray-800 text-gray-400 border border-gray-600/30'
+                          }`}>{overlayBestConf}</span>
+                          {overlayStockLabel && (
+                            <span className="text-[9px] font-semibold text-emerald-400">· {overlayStockLabel}</span>
+                          )}
                         </div>
-                      )}
-                      {/* Zoom hint */}
-                      {(primarySrc || blPlUrl) && overlayZoom > 1 && (
-                        <div className="flex items-center justify-between px-3 py-1 bg-gray-900 border-b border-gray-800">
-                          <span className="text-[10px] text-gray-500">Scroll or pinch to zoom · Drag to pan</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {focusedGroup.partNo && !isMinifig && overlayRepEntry.categoryId != null && MINIFIG_PART_CATEGORY_IDS.has(overlayRepEntry.categoryId) && (
+                          <a
+                            href={`https://www.bricklink.com/catalogItemIn.asp?P=${focusedGroup.partNo}&in=M`}
+                            target="_blank" rel="noopener noreferrer"
+                            className="text-[10px] font-semibold text-amber-400 hover:text-amber-300 px-2 py-1 rounded-md bg-amber-900/20 border border-amber-500/20 whitespace-nowrap"
+                            onClick={e => e.stopPropagation()}
+                            title="See which minifigs contain this part"
+                          >Appears In</a>
+                        )}
+                        {focusedGroup.partNo && (
+                          <a
+                            href={`https://www.bricklink.com/v2/catalog/catalogitem.page?${isMinifig ? 'M' : 'P'}=${focusedGroup.partNo}`}
+                            target="_blank" rel="noopener noreferrer"
+                            className="p-1.5 rounded-md bg-blue-950/30 border border-blue-500/20 text-lego-blue hover:text-blue-300"
+                            onClick={e => e.stopPropagation()} title="View on BrickLink"
+                          ><ExternalLink className="w-3.5 h-3.5" /></a>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* ── Hero image ─────────────────────────────────────── */}
+                    {(primarySrc || blPlUrl) && (
+                      <div
+                        className="relative shrink-0 overflow-hidden bg-black flex items-center justify-center border-b border-white/[0.06]"
+                        style={{
+                          height: 196,
+                          cursor: overlayZoom > 1 ? (overlayDragging ? 'grabbing' : 'grab') : 'zoom-in',
+                          touchAction: 'none',
+                        }}
+                        onWheel={handleOverlayWheel}
+                        onMouseDown={handleOverlayMouseDown} onMouseMove={handleOverlayMouseMove}
+                        onMouseUp={handleOverlayMouseUp} onMouseLeave={handleOverlayMouseUp}
+                        onTouchStart={handleOverlayTouchStart} onTouchMove={handleOverlayTouchMove}
+                        onTouchEnd={handleOverlayTouchEnd}
+                      >
+                        <img
+                          src={primarySrc || blPlUrl!}
+                          alt={focusedGroup.partName}
+                          className="object-contain max-h-full max-w-full select-none"
+                          draggable={false}
+                          style={{
+                            transform: `translate(${overlayPan.x}px,${overlayPan.y}px) scale(${overlayZoom})`,
+                            transformOrigin: 'center center',
+                            transition: overlayDragging ? 'none' : 'transform 0.1s ease-out',
+                          }}
+                          onError={e => {
+                            const el = e.target as HTMLImageElement;
+                            if (blColorUrl && el.src !== blColorUrl) el.src = blColorUrl;
+                            else if (blPlUrl && el.src !== blPlUrl) el.src = blPlUrl;
+                            else (el.parentElement as HTMLElement).style.display = 'none';
+                          }}
+                        />
+                        {overlayZoom > 1 && (
                           <button
                             onClick={() => { setOverlayZoom(1); setOverlayPan({ x: 0, y: 0 }); }}
-                            className="text-[10px] text-gray-400 hover:text-white flex items-center gap-1"
-                          >
-                            <RotateCcw className="w-3 h-3" /> Reset · {Math.round(overlayZoom * 100)}%
-                          </button>
-                        </div>
-                      )}
-
-                      {/* Card header row: thumbnail + info */}
-                      <div className="flex gap-2.5 px-2.5 py-2">
-                        {/* Thumbnail */}
-                        <div className="flex-shrink-0 w-12 h-12 rounded bg-gray-800 flex items-center justify-center overflow-hidden">
-                          {(primarySrc || blPlUrl) ? (
-                            <img
-                              src={primarySrc || blPlUrl!}
-                              alt={focusedGroup.partName}
-                              className="w-full h-full object-contain p-0.5"
-                              onError={(e) => {
-                                const el = e.target as HTMLImageElement;
-                                if (blColorUrl && el.src !== blColorUrl) { el.src = blColorUrl; }
-                                else if (blPlUrl && el.src !== blPlUrl) { el.src = blPlUrl; }
-                                else { el.style.display = 'none'; }
-                              }}
-                            />
-                          ) : <Camera className="w-4 h-4 text-gray-700" />}
-                        </div>
-                        {/* Info */}
-                        <div className="flex-1 min-w-0 flex flex-col gap-0.5 justify-center">
-                          <div className="flex items-center gap-1 flex-wrap">
-                            <p className="text-xs font-semibold text-white leading-tight flex-1 min-w-0 truncate">
-                              {focusedGroup.partName || "Unknown Part"}
-                            </p>
-                            {isMinifig && (
-                              <span className="text-[9px] font-semibold uppercase tracking-wider text-amber-400 bg-amber-900/40 border border-amber-500/30 rounded px-1 py-0.5 flex-shrink-0">Fig</span>
-                            )}
-                            {focusedGroup.partNo && (
-                              <a
-                                href={`https://www.bricklink.com/v2/catalog/catalogitem.page?${isMinifig ? 'M' : 'P'}=${focusedGroup.partNo}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-lego-blue hover:text-blue-300 flex-shrink-0"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <ExternalLink className="w-3 h-3" />
-                              </a>
-                            )}
-                            {focusedGroup.partNo && !isMinifig && overlayRepEntry.categoryId != null && MINIFIG_PART_CATEGORY_IDS.has(overlayRepEntry.categoryId) && (
-                              <a
-                                href={`https://www.bricklink.com/catalogItemIn.asp?P=${focusedGroup.partNo}&in=M`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-[9px] font-semibold text-amber-400 hover:text-amber-300 flex-shrink-0 whitespace-nowrap"
-                                onClick={(e) => e.stopPropagation()}
-                                title="See which minifigures contain this part"
-                              >
-                                Appears In
-                              </a>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            {focusedGroup.partNo && <span className="font-mono text-[10px] text-gray-300">{focusedGroup.partNo}</span>}
-                            {overlayStockLabel && (
-                              <span className="text-[10px] text-green-400 font-medium">· {overlayStockLabel}</span>
-                            )}
-                            <span className={`text-[10px] font-medium capitalize ${confidenceColor(overlayBestConf)}`}>
-                              · {overlayBestConf}
-                            </span>
-                            {focusedGroup.entries.length > 1 && (
-                              <span className="text-[10px] text-gray-500">· {focusedGroup.entries.length} crops</span>
-                            )}
-                          </div>
-                        </div>
+                            className="absolute top-2 right-2 flex items-center gap-1 text-[10px] text-white bg-black/70 hover:bg-black/90 rounded-md px-2 py-1 backdrop-blur-sm"
+                          ><RotateCcw className="w-2.5 h-2.5" />{Math.round(overlayZoom * 100)}%</button>
+                        )}
+                        {overlayZoom === 1 && (
+                          <span className="absolute bottom-1.5 right-2 text-[9px] text-white/30 pointer-events-none select-none">pinch or scroll to zoom</span>
+                        )}
                       </div>
+                    )}
 
-                      {/* Tab bar */}
-                      <div className="border-t border-purple-500/10 flex border-b border-gray-800 px-2 pt-1.5 gap-1">
-                        {(['matches', 'inventory'] as const).map(tab => (
-                          <button
-                            key={tab}
-                            onClick={e => { e.stopPropagation(); setOverlayTab(tab); }}
-                            className={`px-3 py-1.5 text-[10px] font-medium rounded-t-md transition-colors border-b-2 -mb-px ${
-                              overlayTab === tab
-                                ? 'border-purple-400 text-purple-300'
-                                : 'border-transparent text-gray-500 hover:text-gray-300'
-                            }`}
-                          >
-                            {tab === 'matches' ? 'Best Matches' : 'My Inventory'}
-                          </button>
-                        ))}
-                      </div>
+                    {/* ── Scrollable body ────────────────────────────────── */}
+                    <div className="flex-1 overflow-y-auto min-h-0">
 
-                      {/* Best Matches tab */}
-                      {overlayTab === 'matches' && (
-                        <div className="px-2 py-1.5 space-y-1">
-                          <div className="flex items-center gap-1 px-1 pb-0.5">
-                            <div className="flex-1 min-w-0">
-                              <span className="text-[9px] uppercase tracking-wider text-gray-500">{isMinifig ? 'Minifigure' : 'Color'}</span>
-                            </div>
-                            <span className="text-[9px] uppercase tracking-wider text-gray-500 w-14 text-right flex-shrink-0">N Cur</span>
-                            <span className="text-[9px] uppercase tracking-wider text-gray-500 w-14 text-right flex-shrink-0">N Score</span>
-                            <span className="text-[9px] uppercase tracking-wider text-gray-500 w-14 text-right flex-shrink-0">U Cur</span>
-                            <span className="text-[9px] uppercase tracking-wider text-gray-500 w-14 text-right flex-shrink-0">U Score</span>
-                          </div>
-                          {overlayColorEntries.map((entry, ei) => {
-                            const peak = Math.max(entry.marketSoldMaxNew ?? 0, entry.marketSoldMaxUsed ?? 0, entry.stockAvgPriceN ?? 0) || null;
-                            const nScore = peak && entry.ourPriceNew && entry.ourPriceNew > 0 ? Number((peak / entry.ourPriceNew).toFixed(2)) : null;
-                            const uScore = peak && entry.ourPriceUsed && entry.ourPriceUsed > 0 ? Number((peak / entry.ourPriceUsed).toFixed(2)) : null;
-                            const inStock = (entry.ourQtyNew + entry.ourQtyUsed) > 0;
-                            const refHex = overlayRepEntry.colorRgb ?? '';
-                            const entryHex = entry.colorRgb ?? '';
-                            const colorDe = (refHex && entryHex && refHex !== entryHex) ? colorDeltaE(entryHex, refHex) : null;
-                            const colorPct = colorDe != null ? colorConfPct(colorDe) : null;
-                            const colorLbl = colorPct != null ? colorConfLabel(colorPct) : null;
-                            return (
-                              <div key={ei} className="rounded-lg border border-purple-500/40 bg-purple-950 px-2 py-1.5">
-                                <div className="flex items-center gap-1 mb-1 flex-wrap">
-                                  <Sparkles className="w-3 h-3 text-purple-400 flex-shrink-0" />
-                                  <span className="text-[9px] uppercase tracking-wider text-purple-400 font-semibold">Best Match</span>
-                                  <span className={`ml-1 text-[9px] font-medium capitalize ${confidenceColor(entry.confidence)}`}>
-                                    · {entry.confidence} id
+                      {/* ── Best Match blocks (one per detected color) ───── */}
+                      {overlayColorEntries.map((entry, ei) => {
+                        const refHex = overlayRepEntry.colorRgb ?? '';
+                        const entryHex = entry.colorRgb ?? '';
+                        const colorDe = (refHex && entryHex && refHex !== entryHex) ? colorDeltaE(entryHex, refHex) : null;
+                        const colorPct = colorDe != null ? colorConfPct(colorDe) : null;
+                        const colorLbl = colorPct != null ? colorConfLabel(colorPct) : null;
+                        const peak = Math.max(entry.marketSoldMaxNew ?? 0, entry.marketSoldMaxUsed ?? 0, entry.stockAvgPriceN ?? 0) || null;
+                        const nScore = peak && entry.ourPriceNew && entry.ourPriceNew > 0 ? Number((peak / entry.ourPriceNew).toFixed(2)) : null;
+                        const uScore = peak && entry.ourPriceUsed && entry.ourPriceUsed > 0 ? Number((peak / entry.ourPriceUsed).toFixed(2)) : null;
+                        const inStock = (entry.ourQtyNew + entry.ourQtyUsed) > 0;
+                        return (
+                          <div key={ei} className="border-b border-white/[0.06]">
+                            {/* Color identity row */}
+                            <div className="flex items-center gap-3 px-4 pt-4 pb-3">
+                              {!isMinifig && (
+                                entry.colorRgb
+                                  ? <span className="w-7 h-7 rounded-full shrink-0 border-2 border-white/15 shadow-md" style={{ backgroundColor: `#${entry.colorRgb}` }} />
+                                  : <span className="w-7 h-7 rounded-full shrink-0 bg-gray-600 border border-gray-500" />
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[15px] font-semibold text-white leading-tight truncate">
+                                  {isMinifig ? (entry.partName || focusedGroup.partName) : (entry.colorName || 'Unknown color')}
+                                </p>
+                                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                  <span className={`text-[10px] font-semibold uppercase tracking-wide ${confidenceColor(entry.confidence)}`}>
+                                    {entry.confidence} ID confidence
                                   </span>
-                                  {colorPct != null && colorLbl != null && (
-                                    <span className={`text-[9px] font-medium ${colorLbl.cls}`}>
-                                      · {colorPct}% color match
-                                    </span>
+                                  {colorLbl && colorPct != null && (
+                                    <span className={`text-[10px] font-medium ${colorLbl.cls}`}>· {colorPct}% color match</span>
                                   )}
-                                  {entry.cropIndex != null && (
-                                    <span className="ml-auto text-[9px] font-mono text-gray-500 flex-shrink-0">crop #{entry.cropIndex + 1}</span>
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-1 min-w-0">
-                                  <div className="flex flex-col flex-1 min-w-0">
-                                    <div className="flex items-center gap-1 min-w-0">
-                                      {inStock && <Check className="w-3 h-3 text-emerald-400 flex-shrink-0" />}
-                                      {inStock && <span className="text-[10px] font-mono text-gray-200 flex-shrink-0">×{entry.ourQtyNew + entry.ourQtyUsed}</span>}
-                                      {!isMinifig && (entry.colorRgb ? (
-                                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 border border-gray-500" style={{ backgroundColor: `#${entry.colorRgb}` }} />
-                                      ) : (
-                                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-gray-600" />
-                                      ))}
-                                      <span className="text-[10px] text-white font-medium truncate">
-                                        {isMinifig ? (entry.partName || focusedGroup.partName) : (entry.colorName || '—')}
-                                      </span>
-                                    </div>
-                                    {peak ? (
-                                      <button
-                                        className="text-[9px] pl-0.5 text-purple-400 hover:text-purple-300 underline decoration-dotted cursor-pointer bg-transparent border-none p-0 text-left"
-                                        onClick={e => { e.stopPropagation(); setPricePopupTarget({ partNo: focusedGroup.partNo, itemType: focusedGroup.itemType, colorId: entry.colorId ?? null, colorName: entry.colorName || '', myQtyNew: entry.ourQtyNew, myPriceNew: entry.ourPriceNew, myQtyUsed: entry.ourQtyUsed, myPriceUsed: entry.ourPriceUsed }); }}
-                                      >
-                                        peak ${peak.toFixed(2)}
-                                      </button>
-                                    ) : null}
-                                  </div>
-                                  <span className="text-[10px] font-mono text-gray-200 w-14 text-right flex-shrink-0">
-                                    {entry.ourPriceNew != null ? `$${entry.ourPriceNew.toFixed(2)}` : '—'}
-                                  </span>
-                                  <span className={`text-[10px] font-mono font-bold w-14 text-right flex-shrink-0 ${overlayScoreColor(nScore)}`}>
-                                    {nScore != null ? `${nScore}×` : '—'}
-                                  </span>
-                                  <span className="text-[10px] font-mono text-gray-200 w-14 text-right flex-shrink-0">
-                                    {entry.ourPriceUsed != null ? `$${entry.ourPriceUsed.toFixed(2)}` : '—'}
-                                  </span>
-                                  <span className={`text-[10px] font-mono font-bold w-14 text-right flex-shrink-0 ${overlayScoreColor(uScore)}`}>
-                                    {uScore != null ? `${uScore}×` : '—'}
-                                  </span>
                                 </div>
                               </div>
-                            );
-                          })}
-
-                          {/* Other color variants — same confidence-sorted list as the result card */}
-                          {(() => {
-                            const overlayDetectedColorIds = new Set(overlayColorEntries.map(e => e.colorId).filter((id): id is number => id != null));
-                            const overlayOtherLots = (overlayRepEntry.inventoryLots ?? []).filter(lot => lot.colorId == null || !overlayDetectedColorIds.has(lot.colorId));
-                            const refHex = overlayRepEntry.colorRgb ?? '';
-                            const annotated = overlayOtherLots.map(lot => {
-                              const dE = (refHex && lot.colorRgb) ? colorDeltaE(lot.colorRgb, refHex) : null;
-                              const pct = dE != null ? colorConfPct(dE) : null;
-                              return { lot, dE, pct };
-                            });
-                            const sorted = [...annotated].sort((a, b) => {
-                              if (a.pct != null && b.pct != null) return b.pct - a.pct;
-                              if (a.pct != null) return -1;
-                              if (b.pct != null) return 1;
-                              return 0;
-                            });
-                            const visible = refHex
-                              ? sorted.filter(({ pct }) => pct == null || pct >= COLOR_CONF_CUTOFF)
-                              : sorted;
-                            const hiddenCount = sorted.length - visible.length;
-                            if (visible.length === 0) return null;
-                            return (
-                              <div className="space-y-0.5 pt-1">
-                                <div className="flex items-center gap-1 px-1 pb-0.5">
-                                  <div className="flex-1 min-w-0 flex items-center gap-1.5">
-                                    <span className="text-[9px] uppercase tracking-wider text-gray-500">Other color variants</span>
-                                    {hiddenCount > 0 && (
-                                      <span className="text-[9px] text-gray-600">({hiddenCount} below cutoff hidden)</span>
-                                    )}
+                              {inStock && (
+                                <div className="shrink-0 text-right">
+                                  <div className="flex items-center gap-1 justify-end mb-0.5">
+                                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                                    <span className="text-xs font-bold text-emerald-400">In stock</span>
                                   </div>
-                                  <span className="text-[9px] uppercase tracking-wider text-gray-500 w-14 text-right flex-shrink-0">N Cur</span>
-                                  <span className="text-[9px] uppercase tracking-wider text-gray-500 w-14 text-right flex-shrink-0">N Score</span>
-                                  <span className="text-[9px] uppercase tracking-wider text-gray-500 w-14 text-right flex-shrink-0">U Cur</span>
-                                  <span className="text-[9px] uppercase tracking-wider text-gray-500 w-14 text-right flex-shrink-0">U Score</span>
+                                  <span className="text-[10px] text-gray-500 font-mono">
+                                    {[entry.ourQtyNew > 0 ? `${entry.ourQtyNew}N` : null, entry.ourQtyUsed > 0 ? `${entry.ourQtyUsed}U` : null].filter(Boolean).join(' · ')}
+                                  </span>
                                 </div>
-                                {visible.map(({ lot, pct }, li) => {
-                                  const lotInStock = (lot.qtyNew + lot.qtyUsed) > 0;
-                                  const lotPeak = Math.max(lot.peakNew ?? 0, lot.peakUsed ?? 0) || null;
-                                  const lotNScore = lotPeak && lot.priceNew && lot.priceNew > 0
-                                    ? Number((lotPeak / lot.priceNew).toFixed(2)) : null;
-                                  const lotUScore = lotPeak && lot.priceUsed && lot.priceUsed > 0
-                                    ? Number((lotPeak / lot.priceUsed).toFixed(2)) : null;
-                                  const confLbl = pct != null ? colorConfLabel(pct) : null;
-                                  return (
-                                    <div
-                                      key={li}
-                                      className="bg-gray-900/50 border border-gray-700/60 rounded-lg px-2 py-1.5"
-                                    >
-                                      <div className="flex items-center gap-1.5 min-w-0">
-                                        {lot.imageUrl ? (
-                                          <img
-                                            src={lot.imageUrl}
-                                            alt={lot.colorName || ''}
-                                            className="w-6 h-6 object-contain rounded flex-shrink-0 bg-gray-800"
-                                            onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                                          />
-                                        ) : (
-                                          <div className="w-6 h-6 flex-shrink-0 rounded bg-gray-800" />
+                              )}
+                            </div>
+
+                            {/* Pricing grid */}
+                            <div className="grid grid-cols-2 gap-2 px-4 pb-3">
+                              {/* New */}
+                              <div className="rounded-xl bg-white/[0.04] border border-white/[0.06] p-3 space-y-1.5">
+                                <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold">New</p>
+                                <p className="text-2xl font-bold font-mono text-white leading-none tabular-nums">
+                                  {entry.ourPriceNew != null ? `$${entry.ourPriceNew.toFixed(2)}` : <span className="text-gray-600">—</span>}
+                                </p>
+                                {nScore != null && peak != null && (
+                                  <div className="flex items-baseline gap-2 flex-wrap">
+                                    <span className={`text-base font-bold font-mono leading-none ${overlayScoreColor(nScore)}`}>{nScore}×</span>
+                                    <button
+                                      className="text-[10px] text-purple-400 hover:text-purple-200 underline decoration-dotted bg-transparent border-none p-0 leading-none"
+                                      onClick={e => { e.stopPropagation(); setPricePopupTarget({ partNo: focusedGroup.partNo, itemType: focusedGroup.itemType, colorId: entry.colorId ?? null, colorName: entry.colorName || '', myQtyNew: entry.ourQtyNew, myPriceNew: entry.ourPriceNew, myQtyUsed: entry.ourQtyUsed, myPriceUsed: entry.ourPriceUsed }); }}
+                                    >peak ${peak.toFixed(2)}</button>
+                                  </div>
+                                )}
+                                {nScore == null && peak == null && entry.ourPriceNew == null && (
+                                  <p className="text-[10px] text-gray-700">No data</p>
+                                )}
+                              </div>
+                              {/* Used */}
+                              <div className="rounded-xl bg-white/[0.04] border border-white/[0.06] p-3 space-y-1.5">
+                                <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold">Used</p>
+                                <p className="text-2xl font-bold font-mono text-white leading-none tabular-nums">
+                                  {entry.ourPriceUsed != null ? `$${entry.ourPriceUsed.toFixed(2)}` : <span className="text-gray-600">—</span>}
+                                </p>
+                                {uScore != null && peak != null && (
+                                  <div className="flex items-baseline gap-2 flex-wrap">
+                                    <span className={`text-base font-bold font-mono leading-none ${overlayScoreColor(uScore)}`}>{uScore}×</span>
+                                    <button
+                                      className="text-[10px] text-purple-400 hover:text-purple-200 underline decoration-dotted bg-transparent border-none p-0 leading-none"
+                                      onClick={e => { e.stopPropagation(); setPricePopupTarget({ partNo: focusedGroup.partNo, itemType: focusedGroup.itemType, colorId: entry.colorId ?? null, colorName: entry.colorName || '', myQtyNew: entry.ourQtyNew, myPriceNew: entry.ourPriceNew, myQtyUsed: entry.ourQtyUsed, myPriceUsed: entry.ourPriceUsed }); }}
+                                    >peak ${peak.toFixed(2)}</button>
+                                  </div>
+                                )}
+                                {uScore == null && peak == null && entry.ourPriceUsed == null && (
+                                  <p className="text-[10px] text-gray-700">No data</p>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* BL inventory link */}
+                            {inStock && focusedGroup.partNo && (
+                              <div className="px-4 pb-3">
+                                <a
+                                  href={isMinifig
+                                    ? `https://www.bricklink.com/v2/catalog/catalogitem.page?M=${focusedGroup.partNo}#T=I`
+                                    : `https://www.bricklink.com/v2/catalog/catalogitem.page?P=${focusedGroup.partNo}${entry.colorId != null ? `&idColor=${entry.colorId}` : ''}#T=I`}
+                                  target="_blank" rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1.5 text-[11px] text-lego-blue hover:text-blue-300"
+                                  onClick={e => e.stopPropagation()}
+                                ><ExternalLink className="w-3 h-3" />View my BrickLink listing</a>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+
+                      {/* ── Other color variants ──────────────────────────── */}
+                      {(() => {
+                        const detectedColorIds = new Set(overlayColorEntries.map(e => e.colorId).filter((id): id is number => id != null));
+                        const otherLots = (overlayRepEntry.inventoryLots ?? []).filter(lot => lot.colorId == null || !detectedColorIds.has(lot.colorId));
+                        const refHex = overlayRepEntry.colorRgb ?? '';
+                        const annotated = otherLots.map(lot => {
+                          const dE = (refHex && lot.colorRgb) ? colorDeltaE(lot.colorRgb, refHex) : null;
+                          const pct = dE != null ? colorConfPct(dE) : null;
+                          return { lot, dE, pct };
+                        });
+                        const sorted = [...annotated].sort((a, b) => {
+                          if (a.pct != null && b.pct != null) return b.pct - a.pct;
+                          if (a.pct != null) return -1;
+                          if (b.pct != null) return 1;
+                          return 0;
+                        });
+                        const visible = refHex ? sorted.filter(({ pct }) => pct == null || pct >= COLOR_CONF_CUTOFF) : sorted;
+                        const hiddenCount = sorted.length - visible.length;
+                        if (visible.length === 0) return null;
+                        return (
+                          <div className="border-b border-white/[0.06]">
+                            <div className="flex items-center gap-2 px-4 pt-3 pb-2">
+                              <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold flex-1">Other color variants</p>
+                              {hiddenCount > 0 && <span className="text-[9px] text-gray-700">+{hiddenCount} below cutoff</span>}
+                            </div>
+                            <div className="px-3 pb-3 space-y-1.5">
+                              {visible.map(({ lot, pct }, li) => {
+                                const lotInStock = (lot.qtyNew + lot.qtyUsed) > 0;
+                                const lotPeak = Math.max(lot.peakNew ?? 0, lot.peakUsed ?? 0) || null;
+                                const lotNScore = lotPeak && lot.priceNew && lot.priceNew > 0 ? Number((lotPeak / lot.priceNew).toFixed(2)) : null;
+                                const lotUScore = lotPeak && lot.priceUsed && lot.priceUsed > 0 ? Number((lotPeak / lot.priceUsed).toFixed(2)) : null;
+                                const bestScore = lotNScore ?? lotUScore;
+                                const confLbl = pct != null ? colorConfLabel(pct) : null;
+                                return (
+                                  <div
+                                    key={li}
+                                    className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 ${lotInStock ? 'bg-emerald-950/25 border border-emerald-500/10' : 'bg-white/[0.02] border border-white/[0.04]'}`}
+                                  >
+                                    {lot.imageUrl ? (
+                                      <img src={lot.imageUrl} alt={lot.colorName || ''} className="w-8 h-8 object-contain rounded-lg shrink-0 bg-gray-800" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                                    ) : lot.colorRgb ? (
+                                      <span className="w-5 h-5 rounded-full shrink-0 border border-white/20" style={{ backgroundColor: `#${lot.colorRgb}` }} />
+                                    ) : (
+                                      <span className="w-5 h-5 rounded-full shrink-0 bg-gray-600" />
+                                    )}
+                                    <div className="flex-1 min-w-0">
+                                      <p className={`text-xs font-medium truncate ${lotInStock ? 'text-white' : 'text-gray-400'}`}>{lot.colorName || '—'}</p>
+                                      <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                        {confLbl && pct != null && (
+                                          <span className={`text-[9px] ${confLbl.cls}`}>{pct}% color</span>
                                         )}
-                                        <div className="flex flex-col flex-1 min-w-0">
-                                          <div className="flex items-center gap-1 min-w-0">
-                                            {lotInStock && <Check className="w-3 h-3 text-emerald-400 flex-shrink-0" />}
-                                            {lotInStock && <span className="text-[10px] font-mono text-gray-200 flex-shrink-0">×{lot.qtyNew + lot.qtyUsed}</span>}
-                                            {lot.colorRgb ? (
-                                              <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 border border-gray-500" style={{ backgroundColor: `#${lot.colorRgb}` }} />
-                                            ) : (
-                                              <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-gray-600" />
-                                            )}
-                                            <span className={`text-[10px] truncate ${lotInStock ? 'text-gray-100' : 'text-gray-400'}`}>{lot.colorName || '—'}</span>
-                                          </div>
-                                          <div className="flex items-center gap-1.5 pl-0.5">
-                                            {lotPeak && (
-                                              <button
-                                                className="text-[9px] text-purple-400 hover:text-purple-300 underline decoration-dotted cursor-pointer bg-transparent border-none p-0"
-                                                onClick={e => { e.stopPropagation(); setPricePopupTarget({ partNo: focusedGroup.partNo, itemType: focusedGroup.itemType, colorId: lot.colorId ?? null, colorName: lot.colorName || '', myQtyNew: lot.qtyNew, myPriceNew: lot.priceNew, myQtyUsed: lot.qtyUsed, myPriceUsed: lot.priceUsed }); }}
-                                                title="View full POM pricing"
-                                              >peak ${lotPeak.toFixed(2)}</button>
-                                            )}
-                                            {confLbl && pct != null && (
-                                              <span className={`text-[9px] font-medium ${confLbl.cls}`}>
-                                                {confLbl.label} ({pct}%)
-                                              </span>
-                                            )}
-                                          </div>
-                                        </div>
-                                        <span className="text-[10px] font-mono text-gray-200 w-14 text-right flex-shrink-0">
-                                          {lot.priceNew != null ? `$${lot.priceNew.toFixed(2)}` : '—'}
-                                        </span>
-                                        <span className={`text-[10px] font-mono font-bold w-14 text-right flex-shrink-0 ${overlayScoreColor(lotNScore)}`}>
-                                          {lotNScore != null ? `${lotNScore}×` : '—'}
-                                        </span>
-                                        <span className="text-[10px] font-mono text-gray-200 w-14 text-right flex-shrink-0">
-                                          {lot.priceUsed != null ? `$${lot.priceUsed.toFixed(2)}` : '—'}
-                                        </span>
-                                        <span className={`text-[10px] font-mono font-bold w-14 text-right flex-shrink-0 ${overlayScoreColor(lotUScore)}`}>
-                                          {lotUScore != null ? `${lotUScore}×` : '—'}
-                                        </span>
+                                        {lotInStock && (
+                                          <span className="text-[9px] text-emerald-400 font-mono">
+                                            {[lot.qtyNew > 0 ? `×${lot.qtyNew}N` : null, lot.qtyUsed > 0 ? `×${lot.qtyUsed}U` : null].filter(Boolean).join(' ')}
+                                          </span>
+                                        )}
                                       </div>
                                     </div>
-                                  );
-                                })}
-                              </div>
-                            );
-                          })()}
+                                    <div className="text-right shrink-0 space-y-0.5 min-w-[52px]">
+                                      {lot.priceNew != null && (
+                                        <p className="text-xs font-mono font-medium text-white tabular-nums">${lot.priceNew.toFixed(2)} <span className="text-gray-600 text-[9px]">N</span></p>
+                                      )}
+                                      {lot.priceUsed != null && (
+                                        <p className="text-xs font-mono text-gray-400 tabular-nums">${lot.priceUsed.toFixed(2)} <span className="text-gray-600 text-[9px]">U</span></p>
+                                      )}
+                                    </div>
+                                    <div className="text-right shrink-0 min-w-[44px]">
+                                      {bestScore != null && (
+                                        <p className={`text-sm font-bold font-mono leading-none ${overlayScoreColor(bestScore)}`}>{bestScore}×</p>
+                                      )}
+                                      {lotPeak && (
+                                        <button
+                                          className="text-[9px] text-purple-400 hover:text-purple-200 underline decoration-dotted bg-transparent border-none p-0 mt-0.5 leading-none"
+                                          onClick={e => { e.stopPropagation(); setPricePopupTarget({ partNo: focusedGroup.partNo, itemType: focusedGroup.itemType, colorId: lot.colorId ?? null, colorName: lot.colorName || '', myQtyNew: lot.qtyNew, myPriceNew: lot.priceNew, myQtyUsed: lot.qtyUsed, myPriceUsed: lot.priceUsed }); }}
+                                        >pk ${lotPeak.toFixed(2)}</button>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {/* ── Not in inventory note ─────────────────────────── */}
+                      {overlayTotalQtyNew === 0 && overlayTotalQtyUsed === 0 && (
+                        <div className="px-4 py-5 text-center">
+                          <p className="text-xs text-gray-600">Not currently in your inventory</p>
                         </div>
                       )}
 
-                      {/* My Inventory tab */}
-                      {overlayTab === 'inventory' && (
-                        <div className="px-2 py-1.5 space-y-1.5">
-                          {(() => {
-                            const seenColorIds = new Set<string>();
-                            const inStockLots = focusedGroup.entries
-                              .flatMap(e => e.inventoryLots ?? [])
-                              .filter(l => {
-                                if ((l.qtyNew + l.qtyUsed) <= 0) return false;
-                                const k = String(l.colorId ?? 'null');
-                                if (seenColorIds.has(k)) return false;
-                                seenColorIds.add(k);
-                                return true;
-                              });
-                            if (inStockLots.length === 0) {
-                              return (
-                                <div className="flex flex-col items-center gap-2 py-6 text-center">
-                                  <span className="text-gray-600 text-xs">Not in inventory</span>
-                                  <span className="text-gray-700 text-[10px]">You don't currently stock this part.</span>
-                                </div>
-                              );
-                            }
-                            return inStockLots.map((lot, li) => (
-                              <div key={li} className="flex items-center gap-2 bg-gray-900/50 border border-gray-700/60 rounded-lg px-2 py-1.5">
-                                {lot.colorRgb ? (
-                                  <span className="w-3 h-3 rounded-full flex-shrink-0 border border-gray-500" style={{ backgroundColor: `#${lot.colorRgb}` }} />
-                                ) : (
-                                  <span className="w-3 h-3 rounded-full flex-shrink-0 bg-gray-600" />
-                                )}
-                                <span className="text-[10px] text-white font-medium flex-1 truncate">{lot.colorName || '—'}</span>
-                                <div className="flex items-center gap-1 flex-shrink-0">
-                                  {lot.qtyNew > 0 && <span className="text-[10px] text-emerald-400 font-mono">×{lot.qtyNew} N</span>}
-                                  {lot.qtyUsed > 0 && <span className="text-[10px] text-blue-400 font-mono">×{lot.qtyUsed} U</span>}
-                                </div>
-                                <div className="flex items-center gap-1.5 flex-shrink-0">
-                                  {lot.priceNew != null && <span className="text-[10px] text-gray-300 font-mono">${lot.priceNew.toFixed(2)} N</span>}
-                                  {lot.priceUsed != null && <span className="text-[10px] text-gray-400 font-mono">${lot.priceUsed.toFixed(2)} U</span>}
-                                </div>
-                                {focusedGroup.partNo && (
-                                  <a
-                                    href={isMinifig
-                                      ? `https://www.bricklink.com/v2/catalog/catalogitem.page?M=${focusedGroup.partNo}#T=I`
-                                      : `https://www.bricklink.com/v2/catalog/catalogitem.page?P=${focusedGroup.partNo}${lot.colorId != null ? `&idColor=${lot.colorId}` : ''}#T=I`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-lego-blue hover:text-blue-300 flex-shrink-0"
-                                    onClick={e => e.stopPropagation()}
-                                    title="My BrickLink Inventory"
-                                  >
-                                    <ExternalLink className="w-3 h-3" />
-                                  </a>
-                                )}
-                              </div>
-                            ));
-                          })()}
-                        </div>
-                      )}
-
+                      <div className="h-6" />
                     </div>
                   </div>
                 );
