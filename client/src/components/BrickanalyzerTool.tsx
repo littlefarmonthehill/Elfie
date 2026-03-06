@@ -920,7 +920,6 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
   const [expandedParts, setExpandedParts] = useState<Set<string>>(new Set());
   const [showCrops, setShowCrops] = useState(false);
   const [lightboxImage, setLightboxImage] = useState<{ src: string; alt: string } | null>(null);
-  const [scanPhotoOpen, setScanPhotoOpen] = useState(false);
   const [scanZoom, setScanZoom] = useState(1);
   const [scanPan, setScanPan] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
@@ -930,7 +929,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scanContainerRef = useRef<HTMLDivElement>(null);
 
-  function closeScanPhoto() { setScanPhotoOpen(false); setScanZoom(1); setScanPan({ x: 0, y: 0 }); }
+  function resetScanZoom() { setScanZoom(1); setScanPan({ x: 0, y: 0 }); }
   function flashResult(id: string) {
     if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
     setHighlightedResult(id);
@@ -1655,18 +1654,6 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                 <span className="text-gray-600" title="BrickLink API calls used for this scan">{activeScan!.blApiCalls} BL calls</span>
               )}
             </div>
-            {activeScan && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="shrink-0 gap-1.5"
-                onClick={() => setScanPhotoOpen(true)}
-                data-testid="button-view-scan-photo"
-              >
-                <Camera className="w-3.5 h-3.5" />
-                View Photo
-              </Button>
-            )}
             {(activeScan?.cropCount ?? 0) > 0 && (
               <Button
                 size="sm"
@@ -1708,6 +1695,225 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
               </Button>
             )}
           </div>
+
+          {/* ── Inline heatmap ───────────────────────────────────────────── */}
+          {activeScan && (
+            <div className="rounded-lg border border-gray-700 overflow-hidden bg-black" data-testid="inline-heatmap">
+              {/* Hint bar */}
+              <div className="flex items-center justify-between px-3 py-1.5 border-b border-gray-800">
+                <div className="flex items-center gap-2 text-xs text-gray-400">
+                  <Camera className="w-3.5 h-3.5 text-lego-yellow" />
+                  <span>Tap a box to see the piece detail</span>
+                </div>
+                {scanZoom > 1 && (
+                  <div className="flex items-center gap-1">
+                    <Button size="sm" variant="ghost" className="text-xs h-7 gap-1 text-gray-400" onClick={resetScanZoom}>
+                      <RotateCcw className="w-3 h-3" /> Reset
+                    </Button>
+                    <span className="text-[10px] text-gray-600 font-mono w-8 text-right">{Math.round(scanZoom * 100)}%</span>
+                  </div>
+                )}
+              </div>
+              {/* Zoomable image */}
+              <div
+                ref={scanContainerRef}
+                className="overflow-hidden flex items-center justify-center"
+                style={{
+                  maxHeight: '55vh',
+                  cursor: scanZoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default',
+                  touchAction: 'none',
+                }}
+                onWheel={handleScanWheel}
+                onMouseDown={handleScanMouseDown}
+                onMouseMove={handleScanMouseMove}
+                onMouseUp={handleScanMouseUp}
+                onMouseLeave={handleScanMouseUp}
+                onTouchStart={handleScanTouchStart}
+                onTouchMove={handleScanTouchMove}
+                onTouchEnd={handleScanTouchEnd}
+              >
+                <div
+                  style={{
+                    transform: `translate(${scanPan.x}px, ${scanPan.y}px) scale(${scanZoom})`,
+                    transformOrigin: 'center center',
+                    transition: isDragging ? 'none' : 'transform 0.1s ease-out',
+                    position: 'relative',
+                    width: '100%',
+                    aspectRatio: activeScan.imgWidth && activeScan.imgHeight ? `${activeScan.imgWidth}/${activeScan.imgHeight}` : '4/3',
+                    flexShrink: 0,
+                  }}
+                >
+                  <img
+                    src={`/api/brickanalyzer/scan/${activeScan.id}/image`}
+                    alt="Original scan"
+                    className="absolute inset-0 w-full h-full object-fill block select-none"
+                    draggable={false}
+                  />
+                  {(() => {
+                    const cropDismissKeyMap = new Map<number, string>();
+                    groupedResults.forEach(grp => {
+                      const repCropIndex = grp.entries[0]?.cropIndex ?? null;
+                      const dismissKey = `${grp.partNo}__${repCropIndex ?? 'x'}`;
+                      grp.entries.forEach(e => {
+                        if (e.cropIndex != null) cropDismissKeyMap.set(e.cropIndex, dismissKey);
+                      });
+                    });
+                    const bboxResults = results.filter(r => {
+                      if (r.bboxX == null || r.bboxY == null || r.bboxW == null || r.bboxH == null) return false;
+                      if (!r.partNo) return false;
+                      const dk = r.cropIndex != null ? cropDismissKeyMap.get(r.cropIndex) : undefined;
+                      return !dk || !dismissedItems.has(dk);
+                    });
+                    const allPrices = bboxResults.map(r => Math.max(r.marketSoldMaxNew ?? 0, r.marketSoldMaxUsed ?? 0, r.stockAvgPriceN ?? 0, r.ourPriceNew ?? 0, r.ourPriceUsed ?? 0)).filter(p => p > 0);
+                    const maxPrice = allPrices.length > 0 ? Math.max(...allPrices) : 0;
+                    const hiThresh = maxPrice * 0.60;
+                    const midThresh = maxPrice * 0.25;
+                    const tierStyle = {
+                      high:   { fill: 'rgba(239,68,68,0.38)',   border: 'rgb(239,68,68)',    label: '#fca5a5', badge: 'rgba(127,29,29,0.85)'  },
+                      medium: { fill: 'rgba(251,146,60,0.35)',  border: 'rgb(251,146,60)',   label: '#fdba74', badge: 'rgba(124,45,18,0.85)'  },
+                      low:    { fill: 'rgba(250,204,21,0.28)',  border: 'rgb(250,204,21)',   label: '#fde68a', badge: 'rgba(120,80,0,0.85)'   },
+                      none:   { fill: 'rgba(107,114,128,0.18)', border: 'rgb(107,114,128)',  label: '#9ca3af', badge: 'rgba(17,24,39,0.80)'  },
+                    };
+                    return (
+                      <>
+                        {bboxResults.map((r, i) => {
+                          const marketPeak = Math.max(r.marketSoldMaxNew ?? 0, r.marketSoldMaxUsed ?? 0) || null;
+                          const peak = Math.max(r.marketSoldMaxNew ?? 0, r.marketSoldMaxUsed ?? 0, r.stockAvgPriceN ?? 0, r.ourPriceNew ?? 0, r.ourPriceUsed ?? 0);
+                          const displayPrice = marketPeak ?? (r.stockAvgPriceN && r.stockAvgPriceN > 0 ? r.stockAvgPriceN : null) ?? (r.ourPriceNew || r.ourPriceUsed) ?? null;
+                          const tier = peak === 0 ? 'none' : peak >= hiThresh ? 'high' : peak >= midThresh ? 'medium' : 'low';
+                          const ts = tierStyle[tier];
+                          const overlayDismissKey = r.cropIndex != null ? cropDismissKeyMap.get(r.cropIndex) : undefined;
+                          return (
+                            <div
+                              key={r.cropIndex ?? i}
+                              role="button"
+                              tabIndex={0}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setHeatmapCropFocus(null);
+                                setFocusedDetailCropIndex(r.cropIndex ?? null);
+                              }}
+                              style={{
+                                position: 'absolute',
+                                left:   `${r.bboxX}%`,
+                                top:    `${r.bboxY}%`,
+                                width:  `${r.bboxW}%`,
+                                height: `${r.bboxH}%`,
+                                background: heatmapCropFocus === r.cropIndex ? 'rgba(20,184,166,0.30)' : ts.fill,
+                                border: heatmapCropFocus === r.cropIndex ? '3px solid rgb(20,184,166)' : `2px solid ${ts.border}`,
+                                boxShadow: heatmapCropFocus === r.cropIndex ? '0 0 0 3px rgba(20,184,166,0.4), 0 0 20px 4px rgba(20,184,166,0.25)' : undefined,
+                                transition: 'filter 0.15s',
+                                overflow: 'visible',
+                                cursor: 'pointer',
+                              }}
+                              onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.filter = 'brightness(1.35)')}
+                              onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.filter = '')}
+                              data-testid={`scan-overlay-inline-${r.cropIndex ?? i}`}
+                            >
+                              <span
+                                style={{
+                                  background: ts.badge,
+                                  color: ts.label,
+                                  border: `1px solid ${ts.border}`,
+                                  position: 'absolute',
+                                  top: 'calc(100% + 2px)',
+                                  left: '50%',
+                                  transform: 'translateX(-50%)',
+                                  zIndex: 20,
+                                }}
+                                className="text-[10px] font-bold px-1.5 py-0.5 rounded-sm leading-tight whitespace-nowrap shadow-lg"
+                              >
+                                {displayPrice != null ? `$${displayPrice.toFixed(2)}` : '—'}
+                              </span>
+                              {overlayDismissKey && (
+                                <button
+                                  onMouseDown={e => e.stopPropagation()}
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    setDismissedItems(prev => { const n = new Set(prev); n.add(overlayDismissKey); return n; });
+                                  }}
+                                  title="Remove from results"
+                                  style={{
+                                    position: 'absolute',
+                                    top: -9, right: -9, zIndex: 30,
+                                    width: 18, height: 18,
+                                    background: 'rgba(0,0,0,0.80)',
+                                    border: '1px solid rgba(255,255,255,0.25)',
+                                    borderRadius: '50%',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    cursor: 'pointer', flexShrink: 0,
+                                  }}
+                                  data-testid={`overlay-remove-inline-${r.cropIndex ?? i}`}
+                                >
+                                  <X style={{ width: 10, height: 10, color: 'white' }} />
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
+                        {unknownOverlays.filter(r => r.bboxX != null).map((r, i) => (
+                          <button
+                            key={`unknown-inline-${r.cropIndex ?? i}`}
+                            title="Unidentified piece — tap to add to results"
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPromotedUnknowns(prev => new Set([...prev, r.cropIndex ?? -1]));
+                            }}
+                            style={{
+                              position: 'absolute',
+                              left:   `${r.bboxX}%`,
+                              top:    `${r.bboxY}%`,
+                              width:  `${r.bboxW}%`,
+                              height: `${r.bboxH}%`,
+                              background: 'rgba(45,212,191,0.12)',
+                              border: '2px dashed rgba(45,212,191,0.75)',
+                              transition: 'filter 0.15s',
+                              overflow: 'visible',
+                            }}
+                            onMouseEnter={(e) => (e.currentTarget.style.filter = 'brightness(1.4)')}
+                            onMouseLeave={(e) => (e.currentTarget.style.filter = '')}
+                            data-testid={`scan-unknown-overlay-inline-${r.cropIndex ?? i}`}
+                          >
+                            <span
+                              style={{
+                                background: 'rgba(17,78,70,0.85)',
+                                color: '#5eead4',
+                                border: '1px solid rgba(45,212,191,0.70)',
+                                position: 'absolute',
+                                top: 'calc(100% + 2px)',
+                                left: '50%',
+                                transform: 'translateX(-50%)',
+                                zIndex: 20,
+                              }}
+                              className="text-[10px] font-bold px-1.5 py-0.5 rounded-sm leading-tight whitespace-nowrap shadow-lg"
+                            >
+                              ? tap
+                            </span>
+                          </button>
+                        ))}
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+              {/* Legend */}
+              <div className="px-3 py-1.5 border-t border-gray-800 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-gray-500">
+                <div className="flex items-center gap-2.5">
+                  <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: 'rgba(239,68,68,0.6)', border: '1.5px solid rgb(239,68,68)' }} /> High value</span>
+                  <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: 'rgba(251,146,60,0.55)', border: '1.5px solid rgb(251,146,60)' }} /> Mid</span>
+                  <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: 'rgba(250,204,21,0.45)', border: '1.5px solid rgb(250,204,21)' }} /> Low</span>
+                  <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: 'rgba(107,114,128,0.35)', border: '1.5px solid rgb(107,114,128)' }} /> No price</span>
+                  <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: 'rgba(45,212,191,0.15)', border: '1.5px dashed rgba(45,212,191,0.75)' }} /> Unknown (tap)</span>
+                </div>
+                <div className="flex items-center gap-1 ml-auto">
+                  <ZoomIn className="w-3 h-3" />
+                  <span>Scroll or pinch to zoom · Drag to pan</span>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* ── Crops grid ────────────────────────────────────────────────── */}
           {showCrops && activeScan && (activeScan.cropCount ?? 0) > 0 && (
@@ -2018,11 +2224,11 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                           {repEntry.cropIndex != null && (
                             <button
                               className="flex-shrink-0 text-gray-600 hover:text-teal-400 transition-colors"
-                              title="View in scan photo"
+                              title="Highlight in scan photo"
                               onClick={e => {
                                 e.stopPropagation();
-                                setHeatmapCropFocus(repEntry.cropIndex!);
-                                setScanPhotoOpen(true);
+                                setHeatmapCropFocus(heatmapCropFocus === repEntry.cropIndex ? null : repEntry.cropIndex!);
+                                setFocusedDetailCropIndex(null);
                               }}
                               data-testid={`heatmap-btn-${gi}`}
                             >
@@ -2535,239 +2741,6 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
       </DialogContent>
     </Dialog>
 
-    {/* ── Scan photo zoom dialog ─────────────────────────────────────── */}
-    <Dialog open={scanPhotoOpen} onOpenChange={(open) => { if (!open) { closeScanPhoto(); setHeatmapCropFocus(null); } }}>
-      <DialogContent className="max-w-[96vw] w-full p-0 bg-gray-950 border-gray-700 overflow-hidden flex flex-col" style={{ maxHeight: '94vh' }}>
-        {/* Header */}
-        <div className="flex items-center justify-between px-3 py-2 border-b border-gray-800 shrink-0">
-          <div className="flex items-center gap-2 text-xs text-gray-400">
-            <Camera className="w-3.5 h-3.5 text-lego-yellow" />
-            <span>Tap a box to see the piece detail</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            {scanZoom > 1 && (
-              <Button size="sm" variant="ghost" className="text-xs h-7 gap-1 text-gray-400" onClick={() => { setScanZoom(1); setScanPan({ x: 0, y: 0 }); }}>
-                <RotateCcw className="w-3 h-3" /> Reset
-              </Button>
-            )}
-            <span className="text-[10px] text-gray-600 font-mono w-8 text-right">{Math.round(scanZoom * 100)}%</span>
-            <Button size="icon" variant="ghost" onClick={closeScanPhoto} data-testid="button-close-scan-photo"><X className="w-4 h-4" /></Button>
-          </div>
-        </div>
-        {/* Zoomable image area */}
-        {activeScan && (
-          <div
-            ref={scanContainerRef}
-            className="flex-1 overflow-hidden flex items-center justify-center bg-black"
-            style={{ cursor: scanZoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default', touchAction: 'none' }}
-            onWheel={handleScanWheel}
-            onMouseDown={handleScanMouseDown}
-            onMouseMove={handleScanMouseMove}
-            onMouseUp={handleScanMouseUp}
-            onMouseLeave={handleScanMouseUp}
-            onTouchStart={handleScanTouchStart}
-            onTouchMove={handleScanTouchMove}
-            onTouchEnd={handleScanTouchEnd}
-          >
-            <div
-              style={{
-                transform: `translate(${scanPan.x}px, ${scanPan.y}px) scale(${scanZoom})`,
-                transformOrigin: 'center center',
-                transition: isDragging ? 'none' : 'transform 0.1s ease-out',
-                position: 'relative',
-                width: '100%',
-                maxHeight: 'calc(94vh - 52px)',
-                aspectRatio: activeScan.imgWidth && activeScan.imgHeight ? `${activeScan.imgWidth}/${activeScan.imgHeight}` : '4/3',
-                flexShrink: 0,
-              }}
-            >
-              <img
-                src={`/api/brickanalyzer/scan/${activeScan.id}/image`}
-                alt="Original scan"
-                className="absolute inset-0 w-full h-full object-fill block select-none"
-                draggable={false}
-              />
-              {(() => {
-                // Build cropIndex → dismissKey lookup from groupedResults (identified parts only)
-                const cropDismissKeyMap = new Map<number, string>();
-                groupedResults.forEach(grp => {
-                  const repCropIndex = grp.entries[0]?.cropIndex ?? null;
-                  const dismissKey = `${grp.partNo}__${repCropIndex ?? 'x'}`;
-                  grp.entries.forEach(e => {
-                    if (e.cropIndex != null) cropDismissKeyMap.set(e.cropIndex, dismissKey);
-                  });
-                });
-                // Filter: exclude results whose group is already dismissed AND exclude unknowns (handled by teal overlay below)
-                const bboxResults = results.filter(r => {
-                  if (r.bboxX == null || r.bboxY == null || r.bboxW == null || r.bboxH == null) return false;
-                  if (!r.partNo) return false; // unknowns handled by teal overlay section
-                  const dk = r.cropIndex != null ? cropDismissKeyMap.get(r.cropIndex) : undefined;
-                  return !dk || !dismissedItems.has(dk);
-                });
-                const allPrices = bboxResults.map(r => Math.max(r.marketSoldMaxNew ?? 0, r.marketSoldMaxUsed ?? 0, r.stockAvgPriceN ?? 0, r.ourPriceNew ?? 0, r.ourPriceUsed ?? 0)).filter(p => p > 0);
-                const maxPrice = allPrices.length > 0 ? Math.max(...allPrices) : 0;
-                const hiThresh = maxPrice * 0.60;
-                const midThresh = maxPrice * 0.25;
-                // tier → [fill rgba, border rgb, label text color]
-                const tierStyle = {
-                  high:    { fill: 'rgba(239,68,68,0.38)',  border: 'rgb(239,68,68)',   label: '#fca5a5', badge: 'rgba(127,29,29,0.85)'  },
-                  medium:  { fill: 'rgba(251,146,60,0.35)', border: 'rgb(251,146,60)',  label: '#fdba74', badge: 'rgba(124,45,18,0.85)'  },
-                  low:     { fill: 'rgba(250,204,21,0.28)', border: 'rgb(250,204,21)',  label: '#fde68a', badge: 'rgba(120,80,0,0.85)'   },
-                  none:    { fill: 'rgba(107,114,128,0.18)', border: 'rgb(107,114,128)', label: '#9ca3af', badge: 'rgba(17,24,39,0.80)'  },
-                };
-                return (
-                  <>
-                    {bboxResults.map((r, i) => {
-                      const marketPeak = Math.max(r.marketSoldMaxNew ?? 0, r.marketSoldMaxUsed ?? 0) || null;
-                      const peak = Math.max(r.marketSoldMaxNew ?? 0, r.marketSoldMaxUsed ?? 0, r.stockAvgPriceN ?? 0, r.ourPriceNew ?? 0, r.ourPriceUsed ?? 0);
-                      const displayPrice = marketPeak ?? (r.stockAvgPriceN && r.stockAvgPriceN > 0 ? r.stockAvgPriceN : null) ?? (r.ourPriceNew || r.ourPriceUsed) ?? null;
-                      const tier = peak === 0 ? 'none' : peak >= hiThresh ? 'high' : peak >= midThresh ? 'medium' : 'low';
-                      const ts = tierStyle[tier];
-                      const scrollTarget = `result-${(r.partNo || r.cropIndex) ?? i}`;
-                      const overlayDismissKey = r.cropIndex != null ? cropDismissKeyMap.get(r.cropIndex) : undefined;
-                      return (
-                        <div
-                          key={r.cropIndex ?? i}
-                          role="button"
-                          tabIndex={0}
-                          onMouseDown={(e) => e.stopPropagation()}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            closeScanPhoto();
-                            setHeatmapCropFocus(null);
-                            setFocusedDetailCropIndex(r.cropIndex ?? null);
-                          }}
-                          style={{
-                            position: 'absolute',
-                            left:   `${r.bboxX}%`,
-                            top:    `${r.bboxY}%`,
-                            width:  `${r.bboxW}%`,
-                            height: `${r.bboxH}%`,
-                            background: heatmapCropFocus === r.cropIndex ? 'rgba(20,184,166,0.30)' : ts.fill,
-                            border: heatmapCropFocus === r.cropIndex ? '3px solid rgb(20,184,166)' : `2px solid ${ts.border}`,
-                            boxShadow: heatmapCropFocus === r.cropIndex ? '0 0 0 3px rgba(20,184,166,0.4), 0 0 20px 4px rgba(20,184,166,0.25)' : undefined,
-                            transition: 'filter 0.15s',
-                            overflow: 'visible',
-                            cursor: 'pointer',
-                          }}
-                          onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.filter = 'brightness(1.35)')}
-                          onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.filter = '')}
-                          data-testid={`scan-overlay-${r.cropIndex ?? i}`}
-                        >
-                          {/* Price badge */}
-                          <span
-                            style={{
-                              background: ts.badge,
-                              color: ts.label,
-                              border: `1px solid ${ts.border}`,
-                              position: 'absolute',
-                              top: 'calc(100% + 2px)',
-                              left: '50%',
-                              transform: 'translateX(-50%)',
-                              zIndex: 20,
-                            }}
-                            className="text-[10px] font-bold px-1.5 py-0.5 rounded-sm leading-tight whitespace-nowrap shadow-lg"
-                          >
-                            {displayPrice != null ? `$${displayPrice.toFixed(2)}` : '—'}
-                          </span>
-                          {/* Remove button — top-right corner of box */}
-                          {overlayDismissKey && (
-                            <button
-                              onMouseDown={e => e.stopPropagation()}
-                              onClick={e => {
-                                e.stopPropagation();
-                                setDismissedItems(prev => { const n = new Set(prev); n.add(overlayDismissKey); return n; });
-                              }}
-                              title="Remove from results"
-                              style={{
-                                position: 'absolute',
-                                top: -9,
-                                right: -9,
-                                zIndex: 30,
-                                width: 18,
-                                height: 18,
-                                background: 'rgba(0,0,0,0.80)',
-                                border: '1px solid rgba(255,255,255,0.25)',
-                                borderRadius: '50%',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                cursor: 'pointer',
-                                flexShrink: 0,
-                              }}
-                              data-testid={`overlay-remove-${r.cropIndex ?? i}`}
-                            >
-                              <X style={{ width: 10, height: 10, color: 'white' }} />
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
-
-                    {/* Unknown overlays — teal dashed, tap to show in results list */}
-                    {unknownOverlays.filter(r => r.bboxX != null).map((r, i) => (
-                      <button
-                        key={`unknown-${r.cropIndex ?? i}`}
-                        title="Unidentified piece — tap to add to results"
-                        onMouseDown={(e) => e.stopPropagation()}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setPromotedUnknowns(prev => new Set([...prev, r.cropIndex ?? -1]));
-                        }}
-                        style={{
-                          position: 'absolute',
-                          left:     `${r.bboxX}%`,
-                          top:      `${r.bboxY}%`,
-                          width:    `${r.bboxW}%`,
-                          height:   `${r.bboxH}%`,
-                          background: 'rgba(45,212,191,0.12)',
-                          border:   '2px dashed rgba(45,212,191,0.75)',
-                          transition: 'filter 0.15s',
-                          overflow: 'visible',
-                        }}
-                        onMouseEnter={(e) => (e.currentTarget.style.filter = 'brightness(1.4)')}
-                        onMouseLeave={(e) => (e.currentTarget.style.filter = '')}
-                        data-testid={`scan-unknown-overlay-${r.cropIndex ?? i}`}
-                      >
-                        <span
-                          style={{
-                            background: 'rgba(17,78,70,0.85)',
-                            color: '#5eead4',
-                            border: '1px solid rgba(45,212,191,0.70)',
-                            position: 'absolute',
-                            top: 'calc(100% + 2px)',
-                            left: '50%',
-                            transform: 'translateX(-50%)',
-                            zIndex: 20,
-                          }}
-                          className="text-[10px] font-bold px-1.5 py-0.5 rounded-sm leading-tight whitespace-nowrap shadow-lg"
-                        >
-                          ? tap
-                        </span>
-                      </button>
-                    ))}
-                  </>
-                );
-              })()}
-            </div>
-          </div>
-        )}
-        {/* Footer: heat map legend + zoom hint */}
-        <div className="px-3 py-1.5 border-t border-gray-800 shrink-0 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-gray-500">
-          <div className="flex items-center gap-2.5">
-            <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: 'rgba(239,68,68,0.6)', border: '1.5px solid rgb(239,68,68)' }} /> High value</span>
-            <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: 'rgba(251,146,60,0.55)', border: '1.5px solid rgb(251,146,60)' }} /> Mid</span>
-            <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: 'rgba(250,204,21,0.45)', border: '1.5px solid rgb(250,204,21)' }} /> Low</span>
-            <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: 'rgba(107,114,128,0.35)', border: '1.5px solid rgb(107,114,128)' }} /> No price</span>
-            <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: 'rgba(45,212,191,0.15)', border: '1.5px dashed rgba(45,212,191,0.75)' }} /> Unknown (tap)</span>
-          </div>
-          <div className="flex items-center gap-1 ml-auto">
-            <ZoomIn className="w-3 h-3" />
-            <span>Scroll or pinch to zoom · Drag to pan</span>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
 
     {/* Lightbox */}
     <Dialog open={!!lightboxImage} onOpenChange={(open) => { if (!open) setLightboxImage(null); }}>
