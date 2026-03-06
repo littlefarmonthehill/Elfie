@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo, forwardRef, useImperativeHandle } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import { Camera, X, CheckCircle, Loader2, ExternalLink, Trash2, ScanSearch, ChevronRight, Sparkles, Check, Grid3X3, Settings2, RotateCcw, ZoomIn, AlertTriangle, ThumbsUp, ThumbsDown, Minus, FlaskConical, BarChart3, RefreshCw, Target, Info } from "lucide-react";
+import { Camera, X, CheckCircle, Loader2, ExternalLink, Trash2, ScanSearch, ChevronLeft, ChevronRight, Sparkles, Check, Grid3X3, Settings2, RotateCcw, ZoomIn, AlertTriangle, ThumbsUp, ThumbsDown, Minus, FlaskConical, BarChart3, RefreshCw, Target, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -441,6 +441,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
       setUiState("idle");
       setLeftPage(false);
       setDismissedItems(new Set());
+      setFocusedDetailCropIndex(null);
     },
   });
 
@@ -784,6 +785,8 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
   const [expandedCardTab, setExpandedCardTab] = useState<Record<string, 'matches' | 'inventory'>>({});
   // Focused crop index for heatmap dialog — highlights one box when opening from card header
   const [heatmapCropFocus, setHeatmapCropFocus] = useState<number | null>(null);
+  // Focused detail view — when set, shows crop image + single card instead of full list
+  const [focusedDetailCropIndex, setFocusedDetailCropIndex] = useState<number | null>(null);
   // POM price popup target
   const [pricePopupTarget, setPricePopupTarget] = useState<{ partNo: string; itemType: string; colorId: number | null; colorName: string } | null>(null);
   // Ref keeps a synchronous count of total groups so handlers can check "all done" without stale closure
@@ -1819,14 +1822,43 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
             </div>
           ) : (
             <div className="space-y-1.5">
-              {dismissedItems.size > 0 && (
-                <div className="text-[10px] sm:text-sm text-gray-500 px-1">
-                  {dismissedItems.size} removed · {groupedResults.length - dismissedItems.size} showing
+              {/* ── Focused detail view: back button + large crop image ── */}
+              {focusedDetailCropIndex != null ? (
+                <div className="space-y-2">
+                  <button
+                    onClick={() => setFocusedDetailCropIndex(null)}
+                    className="flex items-center gap-1 text-xs text-gray-400 hover:text-white transition-colors"
+                    data-testid="button-back-to-all-results"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                    All results
+                    <span className="ml-0.5 text-gray-600">
+                      ({groupedResults.filter(g => !dismissedItems.has(`${g.partNo}__${g.entries[0]?.cropIndex ?? 'x'}`)).length})
+                    </span>
+                  </button>
+                  {activeScan && (
+                    <div className="rounded-lg overflow-hidden border border-gray-700 bg-gray-950 flex items-center justify-center">
+                      <img
+                        src={`/api/brickanalyzer/scan/${activeScan.id}/crop/${focusedDetailCropIndex}`}
+                        alt={`Crop ${focusedDetailCropIndex + 1}`}
+                        className="w-full max-h-64 sm:max-h-80 object-contain"
+                        data-testid={`focused-crop-image-${focusedDetailCropIndex}`}
+                      />
+                    </div>
+                  )}
                 </div>
+              ) : (
+                dismissedItems.size > 0 && (
+                  <div className="text-[10px] sm:text-sm text-gray-500 px-1">
+                    {dismissedItems.size} removed · {groupedResults.length - dismissedItems.size} showing
+                  </div>
+                )
               )}
               {groupedResults.filter(grp => {
                 const rci = grp.entries[0]?.cropIndex ?? null;
-                return !dismissedItems.has(`${grp.partNo}__${rci ?? 'x'}`);
+                if (dismissedItems.has(`${grp.partNo}__${rci ?? 'x'}`)) return false;
+                if (focusedDetailCropIndex != null) return grp.entries.some(e => e.cropIndex === focusedDetailCropIndex);
+                return true;
               }).map((grp, gi) => {
                 const key = grp.partNo || `__unknown_${gi}`;
                 const isExpanded = expandedParts.has(key);
@@ -2510,7 +2542,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
         <div className="flex items-center justify-between px-3 py-2 border-b border-gray-800 shrink-0">
           <div className="flex items-center gap-2 text-xs text-gray-400">
             <Camera className="w-3.5 h-3.5 text-lego-yellow" />
-            <span>Scan photo — tap a box to jump to that result</span>
+            <span>Tap a box to see the piece detail</span>
           </div>
           <div className="flex items-center gap-1.5">
             {scanZoom > 1 && (
@@ -2603,10 +2635,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                             e.stopPropagation();
                             closeScanPhoto();
                             setHeatmapCropFocus(null);
-                            setTimeout(() => {
-                              document.getElementById(scrollTarget)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                              flashResult(scrollTarget);
-                            }, 200);
+                            setFocusedDetailCropIndex(r.cropIndex ?? null);
                           }}
                           style={{
                             position: 'absolute',
