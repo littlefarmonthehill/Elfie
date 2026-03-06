@@ -3478,6 +3478,14 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
     try {
       const { default: sharp } = await import('sharp');
 
+      // Normalize EXIF orientation — mobile cameras embed rotation in EXIF metadata rather than
+      // physically rotating pixels. sharp.rotate() (no args) reads the EXIF orientation tag,
+      // physically reorients the pixel grid, and strips the tag. This ensures the segment
+      // service, crop extraction, and display image all share the same coordinate space.
+      try {
+        imageBuffer = await sharp(imageBuffer).rotate().toBuffer();
+      } catch { /* leave imageBuffer as-is if normalization fails */ }
+
       // Get image dimensions for coordinate conversion
       const imgMeta = await sharp(imageBuffer).metadata();
       const imgWidth = imgMeta.width || 1000;
@@ -4440,7 +4448,10 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
     try {
       if (!req.file) return res.status(400).json({ error: "No image provided" });
       const { default: sharp } = await import('sharp');
-      const imgMeta = await sharp(req.file.buffer).metadata();
+      // Normalize EXIF orientation so segmentation boxes align with the display image
+      let fileBuffer = req.file.buffer;
+      try { fileBuffer = await sharp(fileBuffer).rotate().toBuffer(); } catch { /* leave as-is */ }
+      const imgMeta = await sharp(fileBuffer).metadata();
       const imgWidth = imgMeta.width || 1000;
       const imgHeight = imgMeta.height || 1000;
       let settings: Record<string, any> = {};
@@ -4461,9 +4472,9 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
         const pass2 = { ...settings };
         const pass3 = { segmenter: 'contour', minSizePct: 0.02, maxSizePct: 3, blurRadius: 3, cannyLow: 25, cannyHigh: 90, dilateIter: 1 };
         const [b1, b2, b3] = await Promise.all([
-          segmentImage(req.file.buffer, pass1 as any),
-          segmentImage(req.file.buffer, pass2 as any),
-          segmentImage(req.file.buffer, pass3 as any),
+          segmentImage(fileBuffer, pass1 as any),
+          segmentImage(fileBuffer, pass2 as any),
+          segmentImage(fileBuffer, pass3 as any),
         ]);
         const merged: typeof b1 = [];
         for (const box of [...b1, ...b2, ...b3]) {
@@ -4480,7 +4491,7 @@ TOOL TIPS: Use search_web for news/trends. Format URLs as markdown links. Be pro
           });
         });
       } else {
-        allBoxes = await segmentImage(req.file.buffer, settings as any);
+        allBoxes = await segmentImage(fileBuffer, settings as any);
       }
 
       const maxPieces = Number(settings.maxPieces ?? 100);
