@@ -3403,6 +3403,8 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   }
 
   async function processBrickanalyzerScan(scanId: number, imageBuffer: Buffer, settings: Record<string, number> = {}) {
+    const { incrementActiveScan, decrementActiveScan } = await import('./services/segmentClient.js');
+    incrementActiveScan();
     try {
       const { default: sharp } = await import('sharp');
 
@@ -4381,6 +4383,8 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         status: 'open',
         metadata: JSON.stringify({ scanId, error: err.message }),
       }).catch(() => {});
+    } finally {
+      decrementActiveScan();
     }
   }
 

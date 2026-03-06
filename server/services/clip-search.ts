@@ -12,7 +12,7 @@
 import { db } from '../db';
 import { scanEmbeddings } from '../../shared/schema';
 import { sql, eq, and } from 'drizzle-orm';
-import { embedUrl } from './segmentClient';
+import { embedUrl, isScanActive } from './segmentClient';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -164,6 +164,10 @@ export async function buildCatalogEmbeddings(
 
   try {
     for (let i = 0; i < pending.length; i += batchSize) {
+      // Yield to live Brickanalyzer scans — pause catalog build while a scan is active
+      while (isScanActive()) {
+        await new Promise(resolve => setTimeout(resolve, 1500));
+      }
       const batch = pending.slice(i, i + batchSize);
       await Promise.allSettled(
         batch.map(async (item) => {

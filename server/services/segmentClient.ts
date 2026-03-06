@@ -15,6 +15,15 @@ let proc: ChildProcess | null = null;
 let ready = false;
 let startedAt = 0;
 
+// ── Scan priority flag ──────────────────────────────────────────────────────
+// Incremented when a Brickanalyzer scan starts processing, decremented when it
+// finishes.  The CLIP catalog build checks this before each batch and yields
+// the Python service to the live scan.
+let _activeScanCount = 0;
+export function incrementActiveScan() { _activeScanCount++; }
+export function decrementActiveScan() { _activeScanCount = Math.max(0, _activeScanCount - 1); }
+export function isScanActive()        { return _activeScanCount > 0; }
+
 export function startService() {
   if (proc) return;
 
