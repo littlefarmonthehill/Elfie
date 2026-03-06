@@ -3543,9 +3543,9 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         console.log(`[Brickanalyzer] Multi-pass merged: ${boxes1.length + boxes2.length + boxes3.length + boxes4.length} total → ${merged.length} unique regions`);
 
         // Containment suppression — "minifig rule":
-        // If a smaller box is >65% contained within a larger box, suppress it.
-        // Pass 1 boxes (minifig/large) are first in the list so they take priority.
-        // This prevents sub-regions from subdividing a minifig detection.
+        // If a smaller box is >85% contained within a larger box, suppress it.
+        // Threshold raised from 65% → 85% so that adjacent small pieces whose bounding
+        // boxes happen to be near a larger detection are NOT wrongly suppressed.
         // A second post-Brickognize zone suppression cleans up any remaining PART boxes
         // that overlap a box ultimately identified as a MINIFIG.
         const containmentFiltered = merged.filter((box) => {
@@ -3557,7 +3557,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             const ix0 = Math.max(box.x, other.x), iy0 = Math.max(box.y, other.y);
             const ix1 = Math.min(box.x + box.w, other.x + other.w), iy1 = Math.min(box.y + box.h, other.y + other.h);
             const inter = Math.max(0, ix1 - ix0) * Math.max(0, iy1 - iy0);
-            return inter / boxArea > 0.65;
+            return inter / boxArea > 0.85; // raised from 0.65 → avoids eating adjacent small pieces
           });
         });
 
@@ -3578,23 +3578,36 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           allBoxes = [{ x: 2, y: 2, w: 96, h: 96 }];
         }
 
-        // Calibration normally means one close-up piece — surface details (studs, grooves,
-        // text, logos) get detected as separate sub-regions, so we merge them into one box.
-        // Exception: if 2+ boxes are each individually large (≥15% in both dimensions),
-        // they are clearly distinct large pieces in the same frame — keep them separate.
+        // Calibration merge: surface details (studs, grooves) get detected as multiple
+        // sub-regions of the same piece and should be merged into one enclosing box.
+        // But if the detected boxes are SPREAD OUT across the frame they are clearly
+        // separate pieces — keep them apart.
+        //
+        // Decision rule: compute the ratio of the enclosing bounding box area to the
+        // sum of individual box areas.
+        //   ≤ 3.0 → boxes are tightly clustered → surface features of one piece → merge
+        //   >  3.0 → boxes are spread out → distinct pieces → keep separate
+        //
+        // Additional exception: 2+ boxes each ≥15% in both dims are always kept separate.
         if (calibration && allBoxes.length > 1) {
+          const x1e = Math.min(...allBoxes.map(b => b.x));
+          const y1e = Math.min(...allBoxes.map(b => b.y));
+          const x2e = Math.max(...allBoxes.map(b => b.x + b.w));
+          const y2e = Math.max(...allBoxes.map(b => b.y + b.h));
+          const enclosingArea = (x2e - x1e) * (y2e - y1e);
+          const sumBoxArea    = allBoxes.reduce((s, b) => s + b.w * b.h, 0);
+          const spreadRatio   = enclosingArea / Math.max(sumBoxArea, 1);
+
           const largePieceBoxes = allBoxes.filter(b => b.w >= 15 && b.h >= 15);
           if (largePieceBoxes.length >= 2) {
             console.log(`[Brickanalyzer] Calibration: ${allBoxes.length} regions — ${largePieceBoxes.length} are large, keeping as separate pieces`);
-            // Use the large boxes only, discard any tiny sub-feature noise
             allBoxes = largePieceBoxes;
+          } else if (spreadRatio > 3.0) {
+            console.log(`[Brickanalyzer] Calibration: boxes spread (enclosing/sum=${spreadRatio.toFixed(1)}×) — keeping ${allBoxes.length} separate pieces`);
+            // Keep allBoxes as-is — separate distinct pieces
           } else {
-            const x1 = Math.min(...allBoxes.map(b => b.x));
-            const y1 = Math.min(...allBoxes.map(b => b.y));
-            const x2 = Math.max(...allBoxes.map(b => b.x + b.w));
-            const y2 = Math.max(...allBoxes.map(b => b.y + b.h));
-            console.log(`[Brickanalyzer] Calibration: merged ${allBoxes.length} sub-regions into 1 enclosing box`);
-            allBoxes = [{ x: x1, y: y1, w: x2 - x1, h: y2 - y1 }];
+            console.log(`[Brickanalyzer] Calibration: merged ${allBoxes.length} sub-regions into 1 enclosing box (spread=${spreadRatio.toFixed(1)}×)`);
+            allBoxes = [{ x: x1e, y: y1e, w: x2e - x1e, h: y2e - y1e }];
           }
         }
       }
@@ -4514,7 +4527,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         for (const box of [...r1.boxes, ...r2.boxes, ...r3.boxes, ...r4.boxes]) {
           if (!merged.some(m => iouBox2(m, box) > 0.25)) merged.push(box);
         }
-        // Containment suppression — same rule as full scan
+        // Containment suppression — same rule as full scan (threshold raised 65%→85%)
         allBoxes = merged.filter((box) => {
           const boxArea = box.w * box.h;
           return !merged.some((other) => {
@@ -4522,7 +4535,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             if (other.w * other.h <= boxArea * 1.5) return false;
             const ix0 = Math.max(box.x, other.x), iy0 = Math.max(box.y, other.y);
             const ix1 = Math.min(box.x + box.w, other.x + other.w), iy1 = Math.min(box.y + box.h, other.y + other.h);
-            return Math.max(0, ix1 - ix0) * Math.max(0, iy1 - iy0) / boxArea > 0.65;
+            return Math.max(0, ix1 - ix0) * Math.max(0, iy1 - iy0) / boxArea > 0.85;
           });
         });
         // Aggregate candidates across all passes: dedup at IoU 0.20, then filter
@@ -4538,21 +4551,27 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         allBoxes      = result.boxes;
         allCandidates = result.candidates;
 
-        // Calibration merge — matches full scan: merge sub-features into one piece boundary,
-        // BUT keep separate if 2+ boxes are each large (≥15% in both dims) — distinct pieces.
+        // Calibration merge — same logic as full scan (spread-ratio based):
+        // Merge when boxes are tightly clustered (surface features of one piece).
+        // Keep separate when boxes are spread out across the frame (distinct pieces).
         if (req.body?.calibration === 'true' && allBoxes.length > 1) {
+          const x1e = Math.min(...allBoxes.map(b => b.x));
+          const y1e = Math.min(...allBoxes.map(b => b.y));
+          const x2e = Math.max(...allBoxes.map(b => b.x + b.w));
+          const y2e = Math.max(...allBoxes.map(b => b.y + b.h));
+          const enclosingArea = (x2e - x1e) * (y2e - y1e);
+          const sumBoxArea    = allBoxes.reduce((s, b) => s + b.w * b.h, 0);
+          const spreadRatio   = enclosingArea / Math.max(sumBoxArea, 1);
           const largePieceBoxes = allBoxes.filter(b => b.w >= 15 && b.h >= 15);
           if (largePieceBoxes.length >= 2) {
             allBoxes = largePieceBoxes;
+            allCandidates = [];
+          } else if (spreadRatio > 3.0) {
+            // Spread out → distinct pieces, keep them as-is; candidates remain
           } else {
-            const x1 = Math.min(...allBoxes.map(b => b.x));
-            const y1 = Math.min(...allBoxes.map(b => b.y));
-            const x2 = Math.max(...allBoxes.map(b => b.x + b.w));
-            const y2 = Math.max(...allBoxes.map(b => b.y + b.h));
-            allBoxes = [{ x: x1, y: y1, w: x2 - x1, h: y2 - y1 }];
+            allBoxes = [{ x: x1e, y: y1e, w: x2e - x1e, h: y2e - y1e }];
+            allCandidates = [];
           }
-          // No candidates after calibration merge — unambiguous single-piece mode
-          allCandidates = [];
         }
       }
 
