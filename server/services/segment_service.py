@@ -72,6 +72,7 @@ def segment_pieces_watershed(rgb: np.ndarray, settings: dict = None) -> list[dic
 
     min_area_frac  = s.get("minSizePct",  MIN_AREA_FRAC  * 100) / 100
     max_area_frac  = s.get("maxSizePct",  MAX_AREA_FRAC  * 100) / 100
+    max_dim_frac   = s.get("maxDimFrac",  MAX_DIM_FRAC   * 100) / 100
     min_dist_pct   = s.get("separation",  MIN_DIST_PCT   * 100) / 100
     peak_threshold = s.get("sensitivity", PEAK_THRESHOLD)
 
@@ -134,7 +135,7 @@ def segment_pieces_watershed(rgb: np.ndarray, settings: dict = None) -> list[dic
         x2, y2 = int(xs.max()), int(ys.max())
         cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
         bw, bh = x2 - x1, y2 - y1
-        if bw / W > MAX_DIM_FRAC or bh / H > MAX_DIM_FRAC:
+        if bw / W > max_dim_frac or bh / H > max_dim_frac:
             continue
         if cx < border_px_x or cx > W - border_px_x:
             continue
@@ -183,6 +184,7 @@ def segment_pieces_contour(rgb: np.ndarray, settings: dict = None) -> list:
 
     min_area_frac = s.get("minSizePct", MIN_AREA_FRAC * 100) / 100
     max_area_frac = s.get("maxSizePct", MAX_AREA_FRAC * 100) / 100
+    max_dim_frac  = s.get("maxDimFrac", MAX_DIM_FRAC  * 100) / 100
     blur_radius   = int(s.get("blurRadius",  5))
     canny_low     = int(s.get("cannyLow",   50))
     canny_high    = int(s.get("cannyHigh", 150))
@@ -228,7 +230,7 @@ def segment_pieces_contour(rgb: np.ndarray, settings: dict = None) -> list:
             continue
         x1, y1, bw, bh = cv2.boundingRect(cnt)
         cx, cy = x1 + bw / 2, y1 + bh / 2
-        if bw / W > MAX_DIM_FRAC or bh / H > MAX_DIM_FRAC:
+        if bw / W > max_dim_frac or bh / H > max_dim_frac:
             continue
         if cx < border_px_x or cx > W - border_px_x:
             continue

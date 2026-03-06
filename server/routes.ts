@@ -3431,6 +3431,22 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         brickanalyzerImageMeta.set(scanId, { width: imgWidth, height: imgHeight });
       } catch { /* non-fatal */ }
 
+      // ── Calibration mode: override segmentation settings for close-up single-piece shots ──
+      // Default pile-scan limits (maxSizePct=6%, maxDimFrac=38%) reject any region larger
+      // than ~6% of the image area or wider/taller than 38% of the frame.  When photographing
+      // one piece close-up it typically fills 30-70% of the image — so those limits filter it
+      // out entirely, returning 0 boxes.  Calibration shots need very permissive thresholds.
+      if (calibration) {
+        settings = {
+          ...settings,
+          multiPass:  0,    // single pass — no need for 3-pass pile logic with one piece
+          maxSizePct: 80,   // allow a piece that fills up to 80% of the image area
+          maxDimFrac: 90,   // allow a piece whose bbox is up to 90% of frame width/height
+          minSizePct: 0.05, // still ignore noise, but catch tiny pieces
+        };
+        console.log('[Brickanalyzer] Calibration mode: using single-piece segmentation settings');
+      }
+
       // ── Step 1: Segmentation (single or multi-pass) ──────────────────────
       const { segmentImage, embedCrop } = await import('./services/segmentClient.js');
       const { findNearestParts } = await import('./services/clip-search.js');
