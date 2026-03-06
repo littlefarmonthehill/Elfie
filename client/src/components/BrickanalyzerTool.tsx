@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo, forwardRef, useImperativeHandle } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import { Camera, X, CheckCircle, Loader2, ExternalLink, Trash2, ScanSearch, ChevronRight, Sparkles, Check, Grid3X3, Settings2, RotateCcw, ZoomIn, AlertTriangle, ThumbsUp, ThumbsDown, Minus, FlaskConical, BarChart3, RefreshCw, Target } from "lucide-react";
+import { Camera, X, CheckCircle, Loader2, ExternalLink, Trash2, ScanSearch, ChevronRight, Sparkles, Check, Grid3X3, Settings2, RotateCcw, ZoomIn, AlertTriangle, ThumbsDown, Minus, FlaskConical, BarChart3, RefreshCw, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -416,9 +416,14 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
     }
   }
 
-  async function handleConfirmToClip(partNo: string, colorId: number | null, cropIndex: number | null, itemType: string) {
+  async function handleConfirmToClip(partNo: string, partName: string, confidence: string, colorId: number | null, cropIndex: number | null, itemType: string) {
     if (!scanId || cropIndex == null) return;
     const key = `${partNo}__${cropIndex}`;
+    // Auto-record correct verdict if not already set
+    const vKey = `${partNo}__${cropIndex ?? 'x'}`;
+    if (!verdicts[vKey]) {
+      handleVerdict(partNo, partName, confidence, cropIndex, 'correct');
+    }
     setConfirmingClip(key);
     try {
       const res = await fetch('/api/brickspotter/confirm-embedding', {
@@ -1411,7 +1416,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
 
                     {/* ── Calibration verdict bar ── */}
                     {calibrateMode && (() => {
-                      const vKey = grp.partNo || `__unk_${gi}`;
+                      const vKey = `${grp.partNo || `__unk_${gi}`}__${(repEntry.cropIndex ?? 'x')}`;
                       const currentVerdict = verdicts[vKey];
                       const repCropIndex = repEntry.cropIndex ?? null;
                       const clipKey = `${grp.partNo}__${repCropIndex}`;
@@ -1419,38 +1424,12 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                       const isConfirming = confirmingClip === clipKey;
                       return (
                         <div className="border-t border-amber-500/15 px-2.5 sm:px-8 py-1.5 sm:py-4 flex flex-wrap items-center gap-2">
-                          <span className="text-[10px] sm:text-lg text-amber-500/70 font-medium flex-shrink-0">Rate this ID:</span>
-                          <div className="flex gap-1 flex-shrink-0">
+                          {/* Add to CLIP — primary single-tap action, auto-records Correct */}
+                          {grp.partNo && repCropIndex != null && !isConfirmed && (
                             <button
-                              onClick={() => handleVerdict(grp.partNo, grp.partName, bestConfidence, repCropIndex, 'correct')}
-                              className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] sm:text-lg font-semibold transition-colors ${currentVerdict === 'correct' ? 'bg-green-600 text-white' : 'border border-green-600/40 text-green-500 hover:bg-green-900/40'}`}
-                              data-testid={`verdict-correct-${gi}`}
-                            >
-                              <ThumbsUp className="w-2.5 h-2.5 sm:w-4 sm:h-4" />
-                              Correct
-                            </button>
-                            <button
-                              onClick={() => handleVerdict(grp.partNo, grp.partName, bestConfidence, repCropIndex, 'close')}
-                              className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] sm:text-lg font-semibold transition-colors ${currentVerdict === 'close' ? 'bg-yellow-600 text-white' : 'border border-yellow-600/40 text-yellow-500 hover:bg-yellow-900/40'}`}
-                              data-testid={`verdict-close-${gi}`}
-                            >
-                              <Minus className="w-2.5 h-2.5 sm:w-4 sm:h-4" />
-                              Close
-                            </button>
-                            <button
-                              onClick={() => handleVerdict(grp.partNo, grp.partName, bestConfidence, repCropIndex, 'wrong')}
-                              className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] sm:text-lg font-semibold transition-colors ${currentVerdict === 'wrong' ? 'bg-red-600 text-white' : 'border border-red-600/40 text-red-500 hover:bg-red-900/40'}`}
-                              data-testid={`verdict-wrong-${gi}`}
-                            >
-                              <ThumbsDown className="w-2.5 h-2.5 sm:w-4 sm:h-4" />
-                              Wrong
-                            </button>
-                          </div>
-                          {currentVerdict === 'correct' && grp.partNo && repCropIndex != null && !isConfirmed && (
-                            <button
-                              onClick={() => handleConfirmToClip(grp.partNo, repEntry.colorId ?? null, repCropIndex, grp.itemType)}
+                              onClick={() => handleConfirmToClip(grp.partNo, grp.partName, bestConfidence, repEntry.colorId ?? null, repCropIndex, grp.itemType)}
                               disabled={isConfirming}
-                              className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] sm:text-lg font-semibold border border-purple-500/40 text-purple-400 hover:bg-purple-900/40 disabled:opacity-50 transition-colors"
+                              className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] sm:text-lg font-semibold transition-colors disabled:opacity-50 ${currentVerdict === 'correct' ? 'bg-purple-600 text-white' : 'border border-purple-500/50 text-purple-400 hover:bg-purple-900/40'}`}
                               data-testid={`confirm-clip-${gi}`}
                             >
                               {isConfirming ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Sparkles className="w-2.5 h-2.5 sm:w-4 sm:h-4" />}
@@ -1463,6 +1442,23 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                               In CLIP catalog
                             </span>
                           )}
+                          {/* Negative verdicts */}
+                          <button
+                            onClick={() => handleVerdict(grp.partNo, grp.partName, bestConfidence, repCropIndex, 'close')}
+                            className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] sm:text-lg font-semibold transition-colors ${currentVerdict === 'close' ? 'bg-yellow-600 text-white' : 'border border-yellow-600/40 text-yellow-500 hover:bg-yellow-900/40'}`}
+                            data-testid={`verdict-close-${gi}`}
+                          >
+                            <Minus className="w-2.5 h-2.5 sm:w-4 sm:h-4" />
+                            Close
+                          </button>
+                          <button
+                            onClick={() => handleVerdict(grp.partNo, grp.partName, bestConfidence, repCropIndex, 'wrong')}
+                            className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] sm:text-lg font-semibold transition-colors ${currentVerdict === 'wrong' ? 'bg-red-600 text-white' : 'border border-red-600/40 text-red-500 hover:bg-red-900/40'}`}
+                            data-testid={`verdict-wrong-${gi}`}
+                          >
+                            <ThumbsDown className="w-2.5 h-2.5 sm:w-4 sm:h-4" />
+                            Wrong
+                          </button>
                         </div>
                       );
                     })()}
