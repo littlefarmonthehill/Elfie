@@ -422,10 +422,43 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
   });
   const [confirmedClips, setConfirmedClips] = useState<Set<string>>(new Set());
   const [confirmingClip, setConfirmingClip] = useState<string | null>(null);
+  // colorCorrectedClips: clipKey → { colorId, colorName } picked by SME
+  const [colorCorrectedClips, setColorCorrectedClips] = useState<Map<string, { colorId: number; colorName: string }>>(new Map());
 
   useEffect(() => {
     try { localStorage.setItem(CALIBRATION_KEY, JSON.stringify({ verdicts, log: calibrationLog })); } catch {}
   }, [verdicts, calibrationLog]);
+
+  // ── Color-diff helpers (CIE76 ΔE, same algorithm as server/routes.ts) ──────
+  function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+    const clean = hex.replace('#', '');
+    if (clean.length !== 6) return null;
+    return { r: parseInt(clean.slice(0, 2), 16), g: parseInt(clean.slice(2, 4), 16), b: parseInt(clean.slice(4, 6), 16) };
+  }
+  function rgbToLab(r: number, g: number, b: number): [number, number, number] {
+    const lin = (c: number) => { const s = c / 255; return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4; };
+    const rl = lin(r), gl = lin(g), bl = lin(b);
+    const x = (rl * 0.4124564 + gl * 0.3575761 + bl * 0.1804375) / 0.95047;
+    const y = (rl * 0.2126729 + gl * 0.7151522 + bl * 0.0721750) / 1.00000;
+    const z = (rl * 0.0193339 + gl * 0.1191920 + bl * 0.9503041) / 1.08883;
+    const f = (t: number) => t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116;
+    return [116 * f(y) - 16, 500 * (f(x) - f(y)), 200 * (f(y) - f(z))];
+  }
+  function colorDeltaE(hex1: string, hex2: string): number {
+    const c1 = hexToRgb(hex1); const c2 = hexToRgb(hex2);
+    if (!c1 || !c2) return 999;
+    const [L1, a1, b1] = rgbToLab(c1.r, c1.g, c1.b);
+    const [L2, a2, b2] = rgbToLab(c2.r, c2.g, c2.b);
+    return Math.sqrt((L1 - L2) ** 2 + (a1 - a2) ** 2 + (b1 - b2) ** 2);
+  }
+
+  async function handleColorCorrection(partNo: string, partName: string, confidence: string, correctedColorId: number, correctedColorName: string, cropIndex: number | null, itemType: string) {
+    const key = `${partNo}__${cropIndex ?? 'x'}`;
+    // Record the SME's corrected color choice
+    setColorCorrectedClips(prev => new Map(prev).set(key, { colorId: correctedColorId, colorName: correctedColorName }));
+    // Train CLIP with the corrected colorId
+    await handleConfirmToClip(partNo, partName, confidence, correctedColorId, cropIndex, itemType);
+  }
 
   function handleVerdict(partNo: string, partName: string, confidence: string, cropIndex: number | null, verdict: 'correct' | 'close' | 'wrong') {
     const key = `${partNo}__${cropIndex ?? 'x'}`;
@@ -1475,7 +1508,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                               </div>
                               <div className="flex items-start gap-2">
                                 <Minus className="w-3 h-3 mt-0.5 text-yellow-400 flex-shrink-0" />
-                                <span><span className="text-yellow-400 font-medium">Close</span> — Right part, wrong color. Counts toward your accuracy score but doesn't train the scanner.</span>
+                                <span><span className="text-yellow-400 font-medium">Close</span> — Right part, wrong color. Pick the correct color from the swatch that appears to train CLIP with the right label.</span>
                               </div>
                               <div className="flex items-start gap-2">
                                 <ThumbsDown className="w-3 h-3 mt-0.5 text-red-400 flex-shrink-0" />
@@ -1518,6 +1551,56 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                             <ThumbsDown className="w-2.5 h-2.5 sm:w-4 sm:h-4" />
                             Wrong
                           </button>
+
+                          {/* ── Color correction picker — visible when verdict is Close ── */}
+                          {currentVerdict === 'close' && (() => {
+                            const lots = (repEntry.inventoryLots ?? []).filter(l => l.colorRgb && l.colorId != null);
+                            if (lots.length === 0) return null;
+                            const detectedHex = repEntry.colorRgb ?? '';
+                            const sorted = [...lots].sort((a, b) =>
+                              colorDeltaE(a.colorRgb!, detectedHex) - colorDeltaE(b.colorRgb!, detectedHex)
+                            );
+                            const correctedKey = `${grp.partNo}__${repCropIndex ?? 'x'}`;
+                            const corrected = colorCorrectedClips.get(correctedKey);
+                            return (
+                              <div className="w-full basis-full mt-1 pt-1.5 border-t border-yellow-500/20" data-testid={`color-picker-${gi}`}>
+                                <p className="text-[9px] sm:text-sm text-yellow-400/80 mb-1.5 font-medium">
+                                  {corrected
+                                    ? <span className="flex items-center gap-1"><Check className="w-2.5 h-2.5" />Trained with <span className="font-semibold">{corrected.colorName}</span> — pick again to retrain</span>
+                                    : 'Pick the correct color to train CLIP:'}
+                                </p>
+                                <div className="flex flex-wrap gap-1">
+                                  {sorted.map(lot => {
+                                    const dE = colorDeltaE(lot.colorRgb!, detectedHex);
+                                    const isSelected = corrected?.colorId === lot.colorId;
+                                    return (
+                                      <Tooltip key={lot.colorId}>
+                                        <TooltipTrigger asChild>
+                                          <button
+                                            onClick={() => handleColorCorrection(grp.partNo, grp.partName, bestConfidence, lot.colorId!, lot.colorName ?? String(lot.colorId), repCropIndex, grp.itemType ?? 'PART')}
+                                            disabled={isConfirming != null}
+                                            data-testid={`color-swatch-${gi}-${lot.colorId}`}
+                                            className={`relative rounded-full transition-all disabled:opacity-40 ${isSelected ? 'ring-2 ring-white ring-offset-1 ring-offset-black scale-110' : 'hover:scale-105 hover:ring-1 hover:ring-white/40 hover:ring-offset-1 hover:ring-offset-black'}`}
+                                            style={{ width: 20, height: 20, backgroundColor: `#${lot.colorRgb}` }}
+                                          >
+                                            {isSelected && (
+                                              <span className="absolute inset-0 flex items-center justify-center">
+                                                <Check className="w-2.5 h-2.5 text-white drop-shadow-[0_0_1px_#000]" />
+                                              </span>
+                                            )}
+                                          </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="top" className="text-[10px] px-1.5 py-0.5">
+                                          <span className="font-semibold">{lot.colorName}</span>
+                                          <span className="text-gray-400 ml-1">ΔE {dE.toFixed(0)}</span>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </div>
                       );
                     })()}
