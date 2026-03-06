@@ -34,6 +34,10 @@ export function isScanActive() {
   return _activeScanCount > 0 || (Date.now() - _lastScanEndedAt) < SCAN_COOLDOWN_MS;
 }
 
+export function isPythonServiceReady(): boolean {
+  return ready;
+}
+
 export function startService() {
   if (proc) return;
 

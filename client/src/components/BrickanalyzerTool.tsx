@@ -310,6 +310,19 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
     refetchInterval: 5 * 60 * 1000,
   });
 
+  const { data: pythonStatus } = useQuery<{ ready: boolean }>({
+    queryKey: ["/api/brickspotter/python-status"],
+    queryFn: async () => {
+      const res = await fetch("/api/brickspotter/python-status", { credentials: "include" });
+      if (!res.ok) return { ready: false };
+      return res.json();
+    },
+    // Poll every 3 s while not ready; once ready, check once a minute (service can restart)
+    refetchInterval: (query) => (query.state.data?.ready ? 60_000 : 3_000),
+    staleTime: 0,
+  });
+  const pythonReady = pythonStatus?.ready ?? false;
+
   // Transition out of "processing" via useEffect — safe, outside render
   useEffect(() => {
     if (!scan) return;
@@ -716,6 +729,21 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
               </span>
             )}
           </button>
+        </div>
+      )}
+
+      {/* ── Python AI service not ready ──────────────────────────────────── */}
+      {!pythonReady && (
+        <div className="flex items-start gap-2.5 bg-amber-950/50 border border-amber-500/40 rounded-lg px-3 sm:px-10 py-2.5 sm:py-7">
+          <div className="shrink-0 mt-0.5">
+            <div className="w-3.5 h-3.5 sm:w-7 sm:h-7 rounded-full border-2 border-amber-400 border-t-transparent animate-spin" />
+          </div>
+          <div className="space-y-0.5 min-w-0">
+            <p className="text-xs sm:text-2xl font-semibold text-amber-300">AI engine starting up</p>
+            <p className="text-xs sm:text-xl text-amber-400/80 leading-relaxed">
+              Photos sent now will go to Brickognize only — contour detection and CLIP visual matching aren't available yet. Usually ready in 15–30 seconds.
+            </p>
+          </div>
         </div>
       )}
 

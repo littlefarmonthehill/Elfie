@@ -4617,6 +4617,12 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
 
   // ── CLIP / Brick Spotter management endpoints ─────────────────────────────
 
+  // GET /api/brickspotter/python-status — whether the Python seg/CLIP service is ready
+  app.get("/api/brickspotter/python-status", isApproved, async (req, res) => {
+    const { isPythonServiceReady } = await import('./services/segmentClient.js');
+    res.json({ ready: isPythonServiceReady() });
+  });
+
   // GET /api/brickspotter/catalog-status — count of scan_embeddings by source
   app.get("/api/brickspotter/catalog-status", isApproved, async (req, res) => {
     try {
