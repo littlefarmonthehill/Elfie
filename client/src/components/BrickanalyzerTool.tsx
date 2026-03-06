@@ -1584,7 +1584,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                                   <button
                                     type="button"
                                     data-testid={`color-not-found-${gi}`}
-                                    disabled={isConfirming != null}
+                                    disabled={isConfirming}
                                     onClick={e => {
                                       e.stopPropagation();
                                       setColorCorrectedClips(prev => { const m = new Map(prev); m.delete(correctedKey); return m; });
@@ -1604,7 +1604,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                                         type="button"
                                         key={lot.colorId}
                                         data-testid={`color-btn-${gi}-${lot.colorId}`}
-                                        disabled={isConfirming != null}
+                                        disabled={isConfirming}
                                         onClick={e => {
                                           e.stopPropagation();
                                           handleColorCorrection(grp.partNo, grp.partName, bestConfidence, lot.colorId!, lot.colorName ?? String(lot.colorId), repCropIndex, grp.itemType ?? 'PART');
