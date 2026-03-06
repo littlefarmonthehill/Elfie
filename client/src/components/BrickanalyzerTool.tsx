@@ -1903,19 +1903,73 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                 const focusedGroup = groupedResults.find(grp =>
                   grp.entries.some(e => e.cropIndex === focusedDetailCropIndex)
                 );
-                const repEntry = focusedGroup?.entries[0];
-                const marketPeak = repEntry ? Math.max(repEntry.marketSoldMaxNew ?? 0, repEntry.marketSoldMaxUsed ?? 0) || null : null;
-                const ourPrice = repEntry ? (repEntry.ourPriceNew || repEntry.ourPriceUsed || null) : null;
-                const displayPrice = marketPeak ?? ourPrice;
-                const confColor = repEntry?.confidence === 'high' ? 'text-green-400' : repEntry?.confidence === 'medium' ? 'text-yellow-400' : 'text-gray-400';
+                if (!focusedGroup) return (
+                  <div className="absolute inset-0 z-50 bg-black/92 flex flex-col" data-testid="heatmap-detail-overlay">
+                    <div className="flex items-center justify-between px-3 py-2 border-b border-gray-700 shrink-0">
+                      <span className="text-xs text-gray-400">Unidentified piece</span>
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setFocusedDetailCropIndex(null)} data-testid="button-close-detail-overlay"><X className="w-4 h-4" /></Button>
+                    </div>
+                    <div className="flex-1 flex items-center justify-center">
+                      <p className="text-xs text-gray-500">No match data available</p>
+                    </div>
+                  </div>
+                );
+
+                const overlayRepEntry = focusedGroup.entries[0];
+                const overlayTotalQtyNew = focusedGroup.entries.reduce((s, e) => s + e.ourQtyNew, 0);
+                const overlayTotalQtyUsed = focusedGroup.entries.reduce((s, e) => s + e.ourQtyUsed, 0);
+                const overlayStockLabel = (() => {
+                  if (overlayTotalQtyNew > 0 && overlayTotalQtyUsed > 0) return `${overlayTotalQtyNew} new · ${overlayTotalQtyUsed} used in stock`;
+                  if (overlayTotalQtyNew > 0) return `${overlayTotalQtyNew} new in stock`;
+                  if (overlayTotalQtyUsed > 0) return `${overlayTotalQtyUsed} used in stock`;
+                  return null;
+                })();
+                const overlayBestConf = focusedGroup.entries.some(e => e.confidence === 'high') ? 'high'
+                  : focusedGroup.entries.some(e => e.confidence === 'medium') ? 'medium' : 'low';
+                const overlayConfRank = (c: 'high' | 'medium' | 'low') => c === 'high' ? 2 : c === 'medium' ? 1 : 0;
+                const overlayColorGroupMap = new Map<string, ScanResult[]>();
+                for (const e of focusedGroup.entries) {
+                  const ck = e.colorId != null ? `id:${e.colorId}` : `name:${e.colorName || '__none__'}`;
+                  if (!overlayColorGroupMap.has(ck)) overlayColorGroupMap.set(ck, []);
+                  overlayColorGroupMap.get(ck)!.push(e);
+                }
+                const overlayColorEntries = Array.from(overlayColorGroupMap.values()).map(group =>
+                  group.reduce((best, e) => {
+                    const bScore = overlayConfRank(best.confidence) * 2 + (best.ourQtyNew + best.ourQtyUsed > 0 ? 1 : 0);
+                    const eScore = overlayConfRank(e.confidence) * 2 + (e.ourQtyNew + e.ourQtyUsed > 0 ? 1 : 0);
+                    return eScore > bScore ? e : best;
+                  }, group[0])
+                );
+                const overlayScoreColor = (s: number | null) => {
+                  if (s === null) return 'text-gray-500';
+                  if (s >= 2.0) return 'text-emerald-400';
+                  if (s >= 1.5) return 'text-orange-400';
+                  if (s >= 1.0) return 'text-yellow-500';
+                  return 'text-gray-400';
+                };
+                const isMinifig = focusedGroup.itemType === 'MINIFIG';
+                const blColorUrl = focusedGroup.partNo
+                  ? isMinifig
+                    ? `https://img.bricklink.com/ItemImage/MN/0/${focusedGroup.partNo}.png`
+                    : `https://img.bricklink.com/ItemImage/PN/${overlayRepEntry.colorId ?? 0}/${focusedGroup.partNo}.png`
+                  : null;
+                const blPlUrl = (focusedGroup.partNo && !isMinifig)
+                  ? `https://img.bricklink.com/ItemImage/PL/${focusedGroup.partNo}.png`
+                  : null;
+                const repImg = focusedGroup.thumbnailUrl;
+                const isRebrickable = repImg?.includes('cdn.rebrickable.com');
+                const primarySrc = isRebrickable
+                  ? `/api/images/proxy?url=${encodeURIComponent(repImg!)}`
+                  : (repImg && repImg.startsWith('https://')) ? repImg : blColorUrl;
+
                 return (
                   <div
-                    className="absolute inset-0 z-50 bg-black/90 flex flex-col"
+                    className="absolute inset-0 z-50 bg-black/93 flex flex-col"
                     data-testid="heatmap-detail-overlay"
                   >
                     {/* Overlay header */}
-                    <div className="flex items-center justify-between px-3 py-2 border-b border-gray-700 shrink-0">
-                      <span className="text-xs text-gray-400 flex items-center gap-1.5">
+                    <div className="flex items-center justify-between px-3 py-1.5 border-b border-gray-700 shrink-0">
+                      <span className="text-[10px] text-gray-500 flex items-center gap-1.5">
                         <Target className="w-3 h-3 text-teal-400" />
                         Piece detail
                       </span>
@@ -1929,57 +1983,142 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                         <X className="w-4 h-4" />
                       </Button>
                     </div>
-                    {/* Overlay body */}
-                    <div className="flex-1 overflow-y-auto p-3 flex flex-col sm:flex-row gap-3 min-h-0">
-                      {/* Crop image */}
-                      <div className="shrink-0 rounded-md overflow-hidden bg-gray-900 border border-gray-700 flex items-center justify-center" style={{ maxWidth: 160, maxHeight: 160 }}>
-                        <img
-                          src={`/api/brickanalyzer/scan/${activeScan.id}/crop/${focusedDetailCropIndex}`}
-                          alt={`Crop ${focusedDetailCropIndex + 1}`}
-                          className="object-contain max-h-40 max-w-full"
-                          data-testid={`focused-crop-image-${focusedDetailCropIndex}`}
-                        />
-                      </div>
-                      {/* Info */}
-                      <div className="flex-1 space-y-2 min-w-0">
-                        {focusedGroup ? (
-                          <>
-                            <div>
-                              <p className="text-sm sm:text-base font-semibold text-white leading-tight truncate">{repEntry?.partName || focusedGroup.partNo}</p>
-                              <p className="text-xs font-mono text-gray-500">{focusedGroup.partNo}</p>
-                            </div>
-                            <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
-                              {repEntry?.colorName && (
-                                <span className="text-gray-300">{repEntry.colorName}</span>
-                              )}
-                              {repEntry?.confidence && (
-                                <span className={`capitalize font-medium ${confColor}`}>{repEntry.confidence} confidence</span>
-                              )}
-                            </div>
-                            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
-                              {displayPrice != null && (
-                                <span className="text-lego-yellow font-semibold">${displayPrice.toFixed(2)} {marketPeak ? 'market peak' : 'our price'}</span>
-                              )}
-                              {(repEntry?.ourQtyNew ?? 0) + (repEntry?.ourQtyUsed ?? 0) > 0 && (
-                                <span className="text-green-400">
-                                  {repEntry!.ourQtyNew > 0 && `${repEntry!.ourQtyNew} new`}
-                                  {repEntry!.ourQtyNew > 0 && repEntry!.ourQtyUsed > 0 && ' · '}
-                                  {repEntry!.ourQtyUsed > 0 && `${repEntry!.ourQtyUsed} used`}
-                                  {' in stock'}
-                                </span>
-                              )}
-                            </div>
-                            {focusedGroup.thumbnailUrl && (
-                              <img
-                                src={focusedGroup.thumbnailUrl}
-                                alt="BL reference"
-                                className="w-12 h-12 object-contain rounded border border-gray-700 bg-gray-900"
-                              />
+                    {/* Overlay body — scrollable, mirrors the card */}
+                    <div className="flex-1 overflow-y-auto min-h-0">
+                      {/* Card header row: thumbnail + info */}
+                      <div className="flex gap-2.5 px-2.5 py-2">
+                        {/* Thumbnail */}
+                        <div className="flex-shrink-0 w-12 h-12 rounded bg-gray-800/80 flex items-center justify-center overflow-hidden">
+                          {(primarySrc || blPlUrl) ? (
+                            <img
+                              src={primarySrc || blPlUrl!}
+                              alt={focusedGroup.partName}
+                              className="w-full h-full object-contain p-0.5"
+                              onError={(e) => {
+                                const el = e.target as HTMLImageElement;
+                                if (blColorUrl && el.src !== blColorUrl) { el.src = blColorUrl; }
+                                else if (blPlUrl && el.src !== blPlUrl) { el.src = blPlUrl; }
+                                else { el.style.display = 'none'; }
+                              }}
+                            />
+                          ) : <Camera className="w-4 h-4 text-gray-700" />}
+                        </div>
+                        {/* Info */}
+                        <div className="flex-1 min-w-0 flex flex-col gap-0.5 justify-center">
+                          <div className="flex items-center gap-1 flex-wrap">
+                            <p className="text-xs font-semibold text-white leading-tight flex-1 min-w-0 truncate">
+                              {focusedGroup.partName || "Unknown Part"}
+                            </p>
+                            {isMinifig && (
+                              <span className="text-[9px] font-semibold uppercase tracking-wider text-amber-400 bg-amber-900/40 border border-amber-500/30 rounded px-1 py-0.5 flex-shrink-0">Fig</span>
                             )}
-                          </>
-                        ) : (
-                          <p className="text-xs text-gray-500 pt-1">Unidentified piece</p>
-                        )}
+                            {focusedGroup.partNo && (
+                              <a
+                                href={`https://www.bricklink.com/v2/catalog/catalogitem.page?${isMinifig ? 'M' : 'P'}=${focusedGroup.partNo}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-lego-blue hover:text-blue-300 flex-shrink-0"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {focusedGroup.partNo && <span className="font-mono text-[10px] text-gray-300">{focusedGroup.partNo}</span>}
+                            {overlayStockLabel && (
+                              <span className="text-[10px] text-green-400 font-medium">· {overlayStockLabel}</span>
+                            )}
+                            <span className={`text-[10px] font-medium capitalize ${confidenceColor(overlayBestConf)}`}>
+                              · {overlayBestConf}
+                            </span>
+                            {focusedGroup.entries.length > 1 && (
+                              <span className="text-[10px] text-gray-500">· {focusedGroup.entries.length} crops</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Best Matches section */}
+                      <div className="border-t border-purple-500/10 px-2 py-1.5 space-y-1">
+                        {/* Column headers */}
+                        <div className="flex items-center gap-1 px-1 pb-0.5">
+                          <div className="flex-1 min-w-0">
+                            <span className="text-[9px] uppercase tracking-wider text-gray-500">{isMinifig ? 'Minifigure' : 'Color'}</span>
+                          </div>
+                          <span className="text-[9px] uppercase tracking-wider text-gray-500 w-14 text-right flex-shrink-0">N Cur</span>
+                          <span className="text-[9px] uppercase tracking-wider text-gray-500 w-14 text-right flex-shrink-0">N Score</span>
+                          <span className="text-[9px] uppercase tracking-wider text-gray-500 w-14 text-right flex-shrink-0">U Cur</span>
+                          <span className="text-[9px] uppercase tracking-wider text-gray-500 w-14 text-right flex-shrink-0">U Score</span>
+                        </div>
+                        {overlayColorEntries.map((entry, ei) => {
+                          const peak = Math.max(entry.marketSoldMaxNew ?? 0, entry.marketSoldMaxUsed ?? 0, entry.stockAvgPriceN ?? 0) || null;
+                          const nScore = peak && entry.ourPriceNew && entry.ourPriceNew > 0 ? Number((peak / entry.ourPriceNew).toFixed(2)) : null;
+                          const uScore = peak && entry.ourPriceUsed && entry.ourPriceUsed > 0 ? Number((peak / entry.ourPriceUsed).toFixed(2)) : null;
+                          const inStock = (entry.ourQtyNew + entry.ourQtyUsed) > 0;
+                          const refHex = overlayRepEntry.colorRgb ?? '';
+                          const entryHex = entry.colorRgb ?? '';
+                          const colorDe = (refHex && entryHex && refHex !== entryHex) ? colorDeltaE(entryHex, refHex) : null;
+                          const colorPct = colorDe != null ? colorConfPct(colorDe) : null;
+                          const colorLbl = colorPct != null ? colorConfLabel(colorPct) : null;
+                          return (
+                            <div key={ei} className="rounded-lg border border-purple-500/40 bg-purple-900/25 px-2 py-1.5">
+                              {/* Best Match banner */}
+                              <div className="flex items-center gap-1 mb-1 flex-wrap">
+                                <Sparkles className="w-3 h-3 text-purple-400 flex-shrink-0" />
+                                <span className="text-[9px] uppercase tracking-wider text-purple-400 font-semibold">Best Match</span>
+                                <span className={`ml-1 text-[9px] font-medium capitalize ${confidenceColor(entry.confidence)}`}>
+                                  · {entry.confidence} id
+                                </span>
+                                {colorPct != null && colorLbl != null && (
+                                  <span className={`text-[9px] font-medium ${colorLbl.cls}`}>
+                                    · {colorPct}% color match
+                                  </span>
+                                )}
+                                {entry.cropIndex != null && (
+                                  <span className="ml-auto text-[9px] font-mono text-gray-500 flex-shrink-0">crop #{entry.cropIndex + 1}</span>
+                                )}
+                              </div>
+                              {/* Color + prices row */}
+                              <div className="flex items-center gap-1 min-w-0">
+                                <div className="flex flex-col flex-1 min-w-0">
+                                  <div className="flex items-center gap-1 min-w-0">
+                                    {inStock && <Check className="w-3 h-3 text-emerald-400 flex-shrink-0" />}
+                                    {inStock && <span className="text-[10px] font-mono text-gray-200 flex-shrink-0">×{entry.ourQtyNew + entry.ourQtyUsed}</span>}
+                                    {!isMinifig && (entry.colorRgb ? (
+                                      <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 border border-gray-500" style={{ backgroundColor: `#${entry.colorRgb}` }} />
+                                    ) : (
+                                      <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-gray-600" />
+                                    ))}
+                                    <span className="text-[10px] text-white font-medium truncate">
+                                      {isMinifig ? (entry.partName || focusedGroup.partName) : (entry.colorName || '—')}
+                                    </span>
+                                  </div>
+                                  {peak ? (
+                                    <button
+                                      className="text-[9px] pl-0.5 text-purple-400 hover:text-purple-300 underline decoration-dotted cursor-pointer bg-transparent border-none p-0 text-left"
+                                      onClick={e => { e.stopPropagation(); setPricePopupTarget({ partNo: focusedGroup.partNo, itemType: focusedGroup.itemType, colorId: entry.colorId ?? null, colorName: entry.colorName || '' }); }}
+                                    >
+                                      peak ${peak.toFixed(2)}
+                                    </button>
+                                  ) : null}
+                                </div>
+                                <span className="text-[10px] font-mono text-gray-200 w-14 text-right flex-shrink-0">
+                                  {entry.ourPriceNew != null ? `$${entry.ourPriceNew.toFixed(2)}` : '—'}
+                                </span>
+                                <span className={`text-[10px] font-mono font-bold w-14 text-right flex-shrink-0 ${overlayScoreColor(nScore)}`}>
+                                  {nScore != null ? `${nScore}×` : '—'}
+                                </span>
+                                <span className="text-[10px] font-mono text-gray-200 w-14 text-right flex-shrink-0">
+                                  {entry.ourPriceUsed != null ? `$${entry.ourPriceUsed.toFixed(2)}` : '—'}
+                                </span>
+                                <span className={`text-[10px] font-mono font-bold w-14 text-right flex-shrink-0 ${overlayScoreColor(uScore)}`}>
+                                  {uScore != null ? `${uScore}×` : '—'}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   </div>
