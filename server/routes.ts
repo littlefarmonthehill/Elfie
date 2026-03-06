@@ -3431,27 +3431,19 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         brickanalyzerImageMeta.set(scanId, { width: imgWidth, height: imgHeight });
       } catch { /* non-fatal */ }
 
-      // ── Calibration mode: override segmentation settings for close-up single-piece shots ──
-      // Default pile-scan settings (cannyHigh=320, blurRadius=7, dilateIter=6) are tuned for
-      // pile scanning — many small bricks with high contrast between them.  For a close-up
-      // of a single piece those thresholds are too aggressive: heavy blur wipes out subtle
-      // piece edges, cannyHigh=320 misses low-contrast boundaries, and dilateIter=6 merges
-      // every edge fragment into one giant blob that then fails the size filters.
-      // Calibration mode uses gentler edge detection so individual piece boundaries survive.
+      // ── Calibration mode: same 4-pass segmentation as scan ─────────────────
+      // Calibration supports multiple pieces in one photo (batch cataloging).
+      // Size limits are relaxed so pieces that fill most of the frame are still detected.
       if (calibration) {
         settings = {
           ...settings,
-          multiPass:  0,      // single pass — no pile-logic needed for a single close-up piece
+          // No multiPass override — calibration now uses the same 4-pass logic as scan
+          // so it can detect and catalog multiple pieces in one photo
           maxSizePct: 99,     // piece can fill virtually the entire frame
           maxDimFrac: 99,     // bbox can span virtually the full image width/height
-          minSizePct: 0.5,    // 0.5% minimum — was 2% but that rejected all surface-feature contours
-                              // on close-up shots; 0.5% = ~9600px on 1600×1200, still filters pure noise
-          blurRadius: 3,      // light blur — preserve close-up piece edge detail
-          cannyLow:   20,     // very sensitive — detect subtle edges on smooth LEGO surfaces
-          cannyHigh:  60,     // much lower than pile default (320) — catches low-contrast boundaries
-          dilateIter: 2,      // moderate — closes gaps without merging everything into one blob
+          minSizePct: 0.5,    // 0.5% minimum — filters pure noise without rejecting small pieces
         };
-        console.log('[Brickanalyzer] Calibration mode: using single-piece segmentation settings');
+        console.log('[Brickanalyzer] Calibration mode: using multi-pass segmentation (same as scan)');
       }
 
       // ── Step 1: Segmentation (single or multi-pass) ──────────────────────
@@ -3571,44 +3563,11 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         console.log('[Brickanalyzer] Step 1: Single-pass segmentation...');
         allBoxes = await segmentImage(imageBuffer, settings as any);
 
-        // Calibration safety net: if no boxes survived the area filter (e.g. all contours
-        // were surface features smaller than the minimum), treat the full frame as the piece.
-        if (calibration && allBoxes.length === 0) {
-          console.log('[Brickanalyzer] Calibration: 0 boxes after segmentation — using full-frame fallback');
+        // Safety net: if nothing survived all passes, show the full frame so the user
+        // can still confirm/dismiss rather than getting a blank result.
+        if (allBoxes.length === 0) {
+          console.log('[Brickanalyzer] 0 boxes after all passes — using full-frame fallback');
           allBoxes = [{ x: 2, y: 2, w: 96, h: 96 }];
-        }
-
-        // Calibration merge: surface details (studs, grooves) get detected as multiple
-        // sub-regions of the same piece and should be merged into one enclosing box.
-        // But if the detected boxes are SPREAD OUT across the frame they are clearly
-        // separate pieces — keep them apart.
-        //
-        // Decision rule: compute the ratio of the enclosing bounding box area to the
-        // sum of individual box areas.
-        //   ≤ 3.0 → boxes are tightly clustered → surface features of one piece → merge
-        //   >  3.0 → boxes are spread out → distinct pieces → keep separate
-        //
-        // Additional exception: 2+ boxes each ≥15% in both dims are always kept separate.
-        if (calibration && allBoxes.length > 1) {
-          const x1e = Math.min(...allBoxes.map(b => b.x));
-          const y1e = Math.min(...allBoxes.map(b => b.y));
-          const x2e = Math.max(...allBoxes.map(b => b.x + b.w));
-          const y2e = Math.max(...allBoxes.map(b => b.y + b.h));
-          const enclosingArea = (x2e - x1e) * (y2e - y1e);
-          const sumBoxArea    = allBoxes.reduce((s, b) => s + b.w * b.h, 0);
-          const spreadRatio   = enclosingArea / Math.max(sumBoxArea, 1);
-
-          const largePieceBoxes = allBoxes.filter(b => b.w >= 15 && b.h >= 15);
-          if (largePieceBoxes.length >= 2) {
-            console.log(`[Brickanalyzer] Calibration: ${allBoxes.length} regions — ${largePieceBoxes.length} are large, keeping as separate pieces`);
-            allBoxes = largePieceBoxes;
-          } else if (spreadRatio > 3.0) {
-            console.log(`[Brickanalyzer] Calibration: boxes spread (enclosing/sum=${spreadRatio.toFixed(1)}×) — keeping ${allBoxes.length} separate pieces`);
-            // Keep allBoxes as-is — separate distinct pieces
-          } else {
-            console.log(`[Brickanalyzer] Calibration: merged ${allBoxes.length} sub-regions into 1 enclosing box (spread=${spreadRatio.toFixed(1)}×)`);
-            allBoxes = [{ x: x1e, y: y1e, w: x2e - x1e, h: y2e - y1e }];
-          }
         }
       }
 
@@ -4479,19 +4438,14 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       let settings: Record<string, any> = {};
       if (req.body?.settings) { try { settings = JSON.parse(req.body.settings); } catch {} }
 
-      // Apply same calibration overrides as the full scan so the preview uses
-      // generous size limits that accommodate close-up single-piece photos.
+      // Apply same calibration overrides as the full scan.
+      // No multiPass override — calibration uses the same 4-pass logic as scan.
       if (req.body?.calibration === 'true') {
         settings = {
           ...settings,
-          multiPass:  0,
           maxSizePct: 99,
           maxDimFrac: 99,
-          minSizePct: 0.5,  // was 2% — that rejected all surface-feature contours on close-up shots
-          blurRadius: 3,    // light blur — preserve close-up piece edge detail
-          cannyLow:   20,   // very sensitive — detect subtle edges on smooth LEGO surfaces
-          cannyHigh:  60,   // much lower than pile default (320) — catches low-contrast boundaries
-          dilateIter: 2,    // moderate — closes gaps without merging everything into one blob
+          minSizePct: 0.5,
         };
       }
 
@@ -4551,27 +4505,9 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         allBoxes      = result.boxes;
         allCandidates = result.candidates;
 
-        // Calibration merge — same logic as full scan (spread-ratio based):
-        // Merge when boxes are tightly clustered (surface features of one piece).
-        // Keep separate when boxes are spread out across the frame (distinct pieces).
-        if (req.body?.calibration === 'true' && allBoxes.length > 1) {
-          const x1e = Math.min(...allBoxes.map(b => b.x));
-          const y1e = Math.min(...allBoxes.map(b => b.y));
-          const x2e = Math.max(...allBoxes.map(b => b.x + b.w));
-          const y2e = Math.max(...allBoxes.map(b => b.y + b.h));
-          const enclosingArea = (x2e - x1e) * (y2e - y1e);
-          const sumBoxArea    = allBoxes.reduce((s, b) => s + b.w * b.h, 0);
-          const spreadRatio   = enclosingArea / Math.max(sumBoxArea, 1);
-          const largePieceBoxes = allBoxes.filter(b => b.w >= 15 && b.h >= 15);
-          if (largePieceBoxes.length >= 2) {
-            allBoxes = largePieceBoxes;
-            allCandidates = [];
-          } else if (spreadRatio > 3.0) {
-            // Spread out → distinct pieces, keep them as-is; candidates remain
-          } else {
-            allBoxes = [{ x: x1e, y: y1e, w: x2e - x1e, h: y2e - y1e }];
-            allCandidates = [];
-          }
+        // Safety net: if nothing detected, show full frame as a fallback box.
+        if (allBoxes.length === 0) {
+          allBoxes = [{ x: 2, y: 2, w: 96, h: 96 }];
         }
       }
 
