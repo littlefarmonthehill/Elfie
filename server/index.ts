@@ -7,7 +7,7 @@ import { startChannelSyncScheduler } from "./services/channel-sync-scheduler";
 import { startOrderSyncScheduler } from "./services/order-sync-scheduler";
 import { startEmbeddingWorker } from "./services/embedding-worker";
 import { startForumSyncScheduler } from "./services/bl-forum-scheduler";
-import { startService as startSegmentService, warmupSam, warmupClip } from "./services/segmentClient";
+import { startService as startSegmentService, warmupClip } from "./services/segmentClient";
 import { pool } from "./db";
 
 // Suppress Vite's process.exit(1) which fires on any CSS/TS compilation error.
@@ -188,10 +188,6 @@ app.use((req, res, next) => {
       // Warm up the Python segmentation service immediately so it's ready
       // before the first Brickanalyzer scan request arrives.
       startSegmentService();
-
-      // Pre-download and load SAM model in the background so the first
-      // SAM scan doesn't have to wait for a 375MB checkpoint download.
-      warmupSam();
 
       // Pre-load CLIP ViT-B/32 so the first Brick Spotter scan doesn't
       // pay the cold-start cost (downloads ~338MB weights once).
