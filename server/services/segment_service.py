@@ -406,7 +406,12 @@ def embed_url():
         if not url:
             return jsonify({"error": "missing url"}), 400
         try:
-            with urllib.request.urlopen(url, timeout=10) as resp:
+            req = urllib.request.Request(url, headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "image/png,image/webp,image/*,*/*",
+                "Referer": "https://www.bricklink.com/",
+            })
+            with urllib.request.urlopen(req, timeout=10) as resp:
                 img_bytes = resp.read()
         except urllib.error.HTTPError as http_err:
             # Image not found on CDN (404) or access denied (403) — not an error we can fix
