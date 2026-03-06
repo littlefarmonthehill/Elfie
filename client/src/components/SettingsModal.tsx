@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { AppSettings, User } from "@shared/schema";
 import { APP_VERSION, APP_NAME } from "@shared/version";
-import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Zap, Info, Layers, Play, Loader2, ChevronDown, ChevronRight, BarChart2, MessageSquarePlus } from "lucide-react";
+import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Zap, Info, Layers, Play, Loader2, ChevronDown, ChevronRight, BarChart2, MessageSquarePlus, Eye, ShoppingCart, Brain, TrendingUp } from "lucide-react";
 import { PomCategoryTiers } from "@/components/PomCategoryTiers";
 import { FeedbackBacklog } from "@/components/FeedbackBacklog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -18,6 +18,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { EmbeddingsManager } from "@/components/EmbeddingsManager";
+import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -167,6 +168,120 @@ function ApiCallSchedule({ buckets, callsLast24h, ceiling, timezone = 'America/C
       {schedule.length === 0 && availableNow >= ceiling && (
         <div className="text-[11px] text-emerald-400 text-center py-1">Full quota available — ready to run anytime.</div>
       )}
+    </div>
+  );
+}
+
+// ── Data Enrichment Summary ───────────────────────────────────────────────
+function EnrichmentSummary() {
+  const { data: stats } = useQuery<any>({
+    queryKey: ['/api/embeddings/stats'],
+    refetchInterval: 8000,
+  });
+  const { data: clip } = useQuery<any>({
+    queryKey: ['/api/brickspotter/catalog-status'],
+    refetchInterval: 8000,
+  });
+
+  const inv   = stats?.inventory  ?? { embedded: 0, total: 0, percentage: '0' };
+  const ord   = stats?.orders     ?? { embedded: 0, total: 0, percentage: '0' };
+  const sets  = stats?.sets       ?? { embedded: 0, total: 0, percentage: '0' };
+  const price = stats?.priceHistory?.snapshots ?? 0;
+  const mem   = stats?.aiMemories?.conversations ?? 0;
+  const clipCount  = clip?.catalog ?? 0;
+  const clipTotal  = inv.total;
+  const clipPct    = clipTotal > 0 ? Math.round((clipCount / clipTotal) * 100) : 0;
+  const clipRunning = clip?.buildRunning ?? false;
+
+  const tiles = [
+    {
+      icon: Package,
+      label: 'Inventory Text',
+      color: 'text-purple-400',
+      bar: true,
+      done: inv.embedded,
+      total: inv.total,
+      pct: parseFloat(inv.percentage),
+    },
+    {
+      icon: ShoppingCart,
+      label: 'Order Text',
+      color: 'text-blue-400',
+      bar: true,
+      done: ord.embedded,
+      total: ord.total,
+      pct: parseFloat(ord.percentage),
+    },
+    {
+      icon: Layers,
+      label: 'Set-Parts',
+      color: 'text-cyan-400',
+      bar: true,
+      done: sets.embedded,
+      total: sets.total,
+      pct: parseFloat(sets.percentage),
+    },
+    {
+      icon: Eye,
+      label: 'Visual Catalog',
+      color: clipRunning ? 'text-blue-400' : 'text-green-400',
+      bar: true,
+      done: clipCount,
+      total: clipTotal,
+      pct: clipPct,
+      spinning: clipRunning,
+    },
+    {
+      icon: TrendingUp,
+      label: 'Price Snapshots',
+      color: 'text-yellow-400',
+      bar: false,
+      count: price,
+    },
+    {
+      icon: Brain,
+      label: 'AI Memories',
+      color: 'text-pink-400',
+      bar: false,
+      count: mem,
+    },
+  ];
+
+  return (
+    <div className="rounded-lg border border-gray-700 bg-gray-800/60 p-3">
+      <h3 className="text-xs font-semibold text-gray-300 mb-3 uppercase tracking-wide">Enrichment Overview</h3>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+        {tiles.map((t) => {
+          const Icon = t.icon;
+          return (
+            <div key={t.label} className="bg-gray-900/60 rounded-md p-2.5 space-y-1.5">
+              <div className="flex items-center gap-1.5">
+                {t.spinning
+                  ? <Loader2 className={`w-3 h-3 animate-spin ${t.color}`} />
+                  : <Icon className={`w-3 h-3 ${t.color}`} />
+                }
+                <span className="text-[10px] text-gray-400 leading-tight">{t.label}</span>
+              </div>
+              {t.bar ? (
+                <>
+                  <div className="flex items-end justify-between gap-1">
+                    <span className={`text-sm font-bold tabular-nums ${t.color}`}>
+                      {t.done.toLocaleString()}
+                    </span>
+                    <span className="text-[10px] text-gray-500">/ {t.total.toLocaleString()}</span>
+                  </div>
+                  <Progress value={t.pct} className="h-1" />
+                  <div className="text-[10px] text-gray-500 text-right">{t.pct.toFixed(0)}%</div>
+                </>
+              ) : (
+                <div className={`text-xl font-bold tabular-nums ${t.color}`}>
+                  {(t.count ?? 0).toLocaleString()}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -1008,7 +1123,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const navigationItems = [
     { id: 'general' as const, label: 'General', icon: Settings },
     { id: 'platforms' as const, label: 'Platforms', icon: Package },
-    { id: 'ai' as const, label: 'AI & Intelligence', icon: Sparkles },
+    { id: 'ai' as const, label: 'Data Enrichment', icon: Sparkles },
     { id: 'automation' as const, label: 'Automation', icon: Clock },
     { id: 'priceomatic' as const, label: 'Price-o-Matic', icon: Zap },
     { id: 'data' as const, label: 'Backup & Clear', icon: Database },
@@ -1711,6 +1826,11 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
             {activeSection === 'ai' && (
               <div className="space-y-4 min-h-[400px]">
               <div className="space-y-4">
+                {/* Enrichment Overview — always at the top */}
+                <EnrichmentSummary />
+
+                <Separator className="bg-gray-700" />
+
                 <div>
                   <h3 className="text-sm font-medium text-gray-300 mb-3">Chat Assistant (E.L.F.I.E.)</h3>
                   <div className="space-y-4">

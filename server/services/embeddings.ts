@@ -558,58 +558,42 @@ export async function batchEmbedSets(setNumbers?: string[]) {
  * Get embedding statistics
  */
 export async function getEmbeddingStats() {
-  const inventoryCount = await db.execute(sql`
-    SELECT COUNT(*) as count FROM inventory_embeddings
-  `);
-  
-  const orderCount = await db.execute(sql`
-    SELECT COUNT(*) as count FROM order_embeddings
-  `);
-  
-  const setPartCount = await db.execute(sql`
-    SELECT COUNT(*) as count FROM set_part_embeddings
-  `);
-  
-  const totalInventory = await db.execute(sql`
-    SELECT COUNT(*) as count FROM bl_inventory
-  `);
-  
-  const totalOrders = await db.execute(sql`
-    SELECT COUNT(*) as count FROM orders
-  `);
-  
-  const totalSets = await db.execute(sql`
-    SELECT COUNT(DISTINCT set_num) as count FROM set_part_relationships
-  `);
-  
-  const invCount = String((inventoryCount.rows[0] as any)?.count || '0');
-  const totalInv = String((totalInventory.rows[0] as any)?.count || '0');
-  const ordCount = String((orderCount.rows[0] as any)?.count || '0');
-  const totalOrd = String((totalOrders.rows[0] as any)?.count || '0');
-  const setCount = String((setPartCount.rows[0] as any)?.count || '0');
-  const totalSet = String((totalSets.rows[0] as any)?.count || '0');
-  
+  const [
+    inventoryCount,
+    orderCount,
+    setPartCount,
+    totalInventory,
+    totalOrders,
+    totalSets,
+    priceSnapshots,
+    aiMemories,
+  ] = await Promise.all([
+    db.execute(sql`SELECT COUNT(*) as count FROM inventory_embeddings`),
+    db.execute(sql`SELECT COUNT(*) as count FROM order_embeddings`),
+    db.execute(sql`SELECT COUNT(*) as count FROM set_part_embeddings`),
+    db.execute(sql`SELECT COUNT(*) as count FROM bl_inventory`),
+    db.execute(sql`SELECT COUNT(*) as count FROM orders`),
+    db.execute(sql`SELECT COUNT(DISTINCT set_num) as count FROM set_part_relationships`),
+    db.execute(sql`SELECT COUNT(*) as count FROM part_price_history`),
+    db.execute(sql`SELECT COUNT(*) as count FROM conversations`),
+  ]);
+
+  const invCount  = parseInt(String((inventoryCount.rows[0]  as any)?.count || '0'));
+  const totalInv  = parseInt(String((totalInventory.rows[0]  as any)?.count || '0'));
+  const ordCount  = parseInt(String((orderCount.rows[0]      as any)?.count || '0'));
+  const totalOrd  = parseInt(String((totalOrders.rows[0]     as any)?.count || '0'));
+  const setCount  = parseInt(String((setPartCount.rows[0]    as any)?.count || '0'));
+  const totalSet  = parseInt(String((totalSets.rows[0]       as any)?.count || '0'));
+  const priceSnap = parseInt(String((priceSnapshots.rows[0]  as any)?.count || '0'));
+  const memories  = parseInt(String((aiMemories.rows[0]      as any)?.count || '0'));
+
+  const pct = (n: number, d: number) => d > 0 ? ((n / d) * 100).toFixed(1) : '0';
+
   return {
-    inventory: {
-      embedded: parseInt(invCount),
-      total: parseInt(totalInv),
-      percentage: parseInt(totalInv) > 0 
-        ? ((parseInt(invCount) / parseInt(totalInv)) * 100).toFixed(1)
-        : '0',
-    },
-    orders: {
-      embedded: parseInt(ordCount),
-      total: parseInt(totalOrd),
-      percentage: parseInt(totalOrd) > 0
-        ? ((parseInt(ordCount) / parseInt(totalOrd)) * 100).toFixed(1)
-        : '0',
-    },
-    sets: {
-      embedded: parseInt(setCount),
-      total: parseInt(totalSet),
-      percentage: parseInt(totalSet) > 0
-        ? ((parseInt(setCount) / parseInt(totalSet)) * 100).toFixed(1)
-        : '0',
-    },
+    inventory: { embedded: invCount, total: totalInv, percentage: pct(invCount, totalInv) },
+    orders:    { embedded: ordCount, total: totalOrd, percentage: pct(ordCount, totalOrd) },
+    sets:      { embedded: setCount, total: totalSet, percentage: pct(setCount, totalSet) },
+    priceHistory: { snapshots: priceSnap },
+    aiMemories:   { conversations: memories },
   };
 }
