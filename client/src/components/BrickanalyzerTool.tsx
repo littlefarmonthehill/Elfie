@@ -787,6 +787,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
   const [heatmapCropFocus, setHeatmapCropFocus] = useState<number | null>(null);
   // Focused detail view — when set, shows crop image + single card instead of full list
   const [focusedDetailCropIndex, setFocusedDetailCropIndex] = useState<number | null>(null);
+  const [overlayTab, setOverlayTab] = useState<'matches' | 'inventory'>('matches');
   // POM price popup target
   const [pricePopupTarget, setPricePopupTarget] = useState<{ partNo: string; itemType: string; colorId: number | null; colorName: string } | null>(null);
   // Ref keeps a synchronous count of total groups so handlers can check "all done" without stale closure
@@ -935,7 +936,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
   const [overlayDragging, setOverlayDragging] = useState(false);
   const [overlayDragStart, setOverlayDragStart] = useState({ x: 0, y: 0 });
   const [overlayPinchDist, setOverlayPinchDist] = useState<number | null>(null);
-  useEffect(() => { setOverlayZoom(1); setOverlayPan({ x: 0, y: 0 }); }, [focusedDetailCropIndex]);
+  useEffect(() => { setOverlayZoom(1); setOverlayPan({ x: 0, y: 0 }); setOverlayTab('matches'); }, [focusedDetailCropIndex]);
   function handleOverlayWheel(e: React.WheelEvent) {
     e.preventDefault();
     setOverlayZoom(prev => { const next = Math.min(8, Math.max(1, prev - e.deltaY * 0.003)); if (next === 1) setOverlayPan({ x: 0, y: 0 }); return next; });
@@ -2127,131 +2128,141 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                         </div>
                       </div>
 
-                      {/* Best Matches section */}
-                      <div className="border-t border-purple-500/10 px-2 py-1.5 space-y-1">
-                        {/* Column headers */}
-                        <div className="flex items-center gap-1 px-1 pb-0.5">
-                          <div className="flex-1 min-w-0">
-                            <span className="text-[9px] uppercase tracking-wider text-gray-500">{isMinifig ? 'Minifigure' : 'Color'}</span>
-                          </div>
-                          <span className="text-[9px] uppercase tracking-wider text-gray-500 w-14 text-right flex-shrink-0">N Cur</span>
-                          <span className="text-[9px] uppercase tracking-wider text-gray-500 w-14 text-right flex-shrink-0">N Score</span>
-                          <span className="text-[9px] uppercase tracking-wider text-gray-500 w-14 text-right flex-shrink-0">U Cur</span>
-                          <span className="text-[9px] uppercase tracking-wider text-gray-500 w-14 text-right flex-shrink-0">U Score</span>
-                        </div>
-                        {overlayColorEntries.map((entry, ei) => {
-                          const peak = Math.max(entry.marketSoldMaxNew ?? 0, entry.marketSoldMaxUsed ?? 0, entry.stockAvgPriceN ?? 0) || null;
-                          const nScore = peak && entry.ourPriceNew && entry.ourPriceNew > 0 ? Number((peak / entry.ourPriceNew).toFixed(2)) : null;
-                          const uScore = peak && entry.ourPriceUsed && entry.ourPriceUsed > 0 ? Number((peak / entry.ourPriceUsed).toFixed(2)) : null;
-                          const inStock = (entry.ourQtyNew + entry.ourQtyUsed) > 0;
-                          const refHex = overlayRepEntry.colorRgb ?? '';
-                          const entryHex = entry.colorRgb ?? '';
-                          const colorDe = (refHex && entryHex && refHex !== entryHex) ? colorDeltaE(entryHex, refHex) : null;
-                          const colorPct = colorDe != null ? colorConfPct(colorDe) : null;
-                          const colorLbl = colorPct != null ? colorConfLabel(colorPct) : null;
-                          return (
-                            <div key={ei} className="rounded-lg border border-purple-500/40 bg-purple-950 px-2 py-1.5">
-                              {/* Best Match banner */}
-                              <div className="flex items-center gap-1 mb-1 flex-wrap">
-                                <Sparkles className="w-3 h-3 text-purple-400 flex-shrink-0" />
-                                <span className="text-[9px] uppercase tracking-wider text-purple-400 font-semibold">Best Match</span>
-                                <span className={`ml-1 text-[9px] font-medium capitalize ${confidenceColor(entry.confidence)}`}>
-                                  · {entry.confidence} id
-                                </span>
-                                {colorPct != null && colorLbl != null && (
-                                  <span className={`text-[9px] font-medium ${colorLbl.cls}`}>
-                                    · {colorPct}% color match
-                                  </span>
-                                )}
-                                {entry.cropIndex != null && (
-                                  <span className="ml-1 text-[9px] font-mono text-gray-500 flex-shrink-0">crop #{entry.cropIndex + 1}</span>
-                                )}
-                                {focusedGroup.partNo && (
-                                  <a
-                                    href={isMinifig
-                                      ? `https://www.bricklink.com/v2/catalog/catalogitem.page?M=${focusedGroup.partNo}`
-                                      : `https://www.bricklink.com/v2/catalog/catalogitem.page?P=${focusedGroup.partNo}${entry.colorId != null ? `&idColor=${entry.colorId}` : ''}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="ml-auto text-lego-blue hover:text-blue-300 flex-shrink-0"
-                                    onClick={e => e.stopPropagation()}
-                                    title="View on BrickLink"
-                                  >
-                                    <ExternalLink className="w-3 h-3" />
-                                  </a>
-                                )}
-                              </div>
-                              {/* Color + prices row */}
-                              <div className="flex items-center gap-1 min-w-0">
-                                <div className="flex flex-col flex-1 min-w-0">
-                                  <div className="flex items-center gap-1 min-w-0">
-                                    {inStock && <Check className="w-3 h-3 text-emerald-400 flex-shrink-0" />}
-                                    {inStock && <span className="text-[10px] font-mono text-gray-200 flex-shrink-0">×{entry.ourQtyNew + entry.ourQtyUsed}</span>}
-                                    {!isMinifig && (entry.colorRgb ? (
-                                      <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 border border-gray-500" style={{ backgroundColor: `#${entry.colorRgb}` }} />
-                                    ) : (
-                                      <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-gray-600" />
-                                    ))}
-                                    <span className="text-[10px] text-white font-medium truncate">
-                                      {isMinifig ? (entry.partName || focusedGroup.partName) : (entry.colorName || '—')}
-                                    </span>
-                                  </div>
-                                  {peak ? (
-                                    <button
-                                      className="text-[9px] pl-0.5 text-purple-400 hover:text-purple-300 underline decoration-dotted cursor-pointer bg-transparent border-none p-0 text-left"
-                                      onClick={e => { e.stopPropagation(); setPricePopupTarget({ partNo: focusedGroup.partNo, itemType: focusedGroup.itemType, colorId: entry.colorId ?? null, colorName: entry.colorName || '' }); }}
-                                    >
-                                      peak ${peak.toFixed(2)}
-                                    </button>
-                                  ) : null}
-                                </div>
-                                <span className="text-[10px] font-mono text-gray-200 w-14 text-right flex-shrink-0">
-                                  {entry.ourPriceNew != null ? `$${entry.ourPriceNew.toFixed(2)}` : '—'}
-                                </span>
-                                <span className={`text-[10px] font-mono font-bold w-14 text-right flex-shrink-0 ${overlayScoreColor(nScore)}`}>
-                                  {nScore != null ? `${nScore}×` : '—'}
-                                </span>
-                                <span className="text-[10px] font-mono text-gray-200 w-14 text-right flex-shrink-0">
-                                  {entry.ourPriceUsed != null ? `$${entry.ourPriceUsed.toFixed(2)}` : '—'}
-                                </span>
-                                <span className={`text-[10px] font-mono font-bold w-14 text-right flex-shrink-0 ${overlayScoreColor(uScore)}`}>
-                                  {uScore != null ? `${uScore}×` : '—'}
-                                </span>
-                              </div>
-                            </div>
-                          );
-                        })}
+                      {/* Tab bar */}
+                      <div className="border-t border-purple-500/10 flex border-b border-gray-800 px-2 pt-1.5 gap-1">
+                        {(['matches', 'inventory'] as const).map(tab => (
+                          <button
+                            key={tab}
+                            onClick={e => { e.stopPropagation(); setOverlayTab(tab); }}
+                            className={`px-3 py-1.5 text-[10px] font-medium rounded-t-md transition-colors border-b-2 -mb-px ${
+                              overlayTab === tab
+                                ? 'border-purple-400 text-purple-300'
+                                : 'border-transparent text-gray-500 hover:text-gray-300'
+                            }`}
+                          >
+                            {tab === 'matches' ? 'Best Matches' : 'My Inventory'}
+                          </button>
+                        ))}
                       </div>
 
-                      {/* My Inventory section */}
-                      {(() => {
-                        const seenColorIds = new Set<string>();
-                        const inStockLots = focusedGroup.entries
-                          .flatMap(e => e.inventoryLots ?? [])
-                          .filter(l => {
-                            if ((l.qtyNew + l.qtyUsed) <= 0) return false;
-                            const k = String(l.colorId ?? 'null');
-                            if (seenColorIds.has(k)) return false;
-                            seenColorIds.add(k);
-                            return true;
-                          });
-                        if (inStockLots.length === 0) return null;
-                        return (
-                          <div className="border-t border-purple-500/10 px-2 py-1.5 space-y-1">
-                            <div className="flex items-center gap-1 px-1 pb-0.5">
-                              <span className="text-[9px] uppercase tracking-wider text-gray-500 flex-1">My Inventory</span>
+                      {/* Best Matches tab */}
+                      {overlayTab === 'matches' && (
+                        <div className="px-2 py-1.5 space-y-1">
+                          <div className="flex items-center gap-1 px-1 pb-0.5">
+                            <div className="flex-1 min-w-0">
+                              <span className="text-[9px] uppercase tracking-wider text-gray-500">{isMinifig ? 'Minifigure' : 'Color'}</span>
                             </div>
-                            {inStockLots.map((lot, li) => (
-                              <div key={li} className="flex items-center gap-1.5 bg-gray-900/50 border border-gray-700/60 rounded-lg px-2 py-1">
+                            <span className="text-[9px] uppercase tracking-wider text-gray-500 w-14 text-right flex-shrink-0">N Cur</span>
+                            <span className="text-[9px] uppercase tracking-wider text-gray-500 w-14 text-right flex-shrink-0">N Score</span>
+                            <span className="text-[9px] uppercase tracking-wider text-gray-500 w-14 text-right flex-shrink-0">U Cur</span>
+                            <span className="text-[9px] uppercase tracking-wider text-gray-500 w-14 text-right flex-shrink-0">U Score</span>
+                          </div>
+                          {overlayColorEntries.map((entry, ei) => {
+                            const peak = Math.max(entry.marketSoldMaxNew ?? 0, entry.marketSoldMaxUsed ?? 0, entry.stockAvgPriceN ?? 0) || null;
+                            const nScore = peak && entry.ourPriceNew && entry.ourPriceNew > 0 ? Number((peak / entry.ourPriceNew).toFixed(2)) : null;
+                            const uScore = peak && entry.ourPriceUsed && entry.ourPriceUsed > 0 ? Number((peak / entry.ourPriceUsed).toFixed(2)) : null;
+                            const inStock = (entry.ourQtyNew + entry.ourQtyUsed) > 0;
+                            const refHex = overlayRepEntry.colorRgb ?? '';
+                            const entryHex = entry.colorRgb ?? '';
+                            const colorDe = (refHex && entryHex && refHex !== entryHex) ? colorDeltaE(entryHex, refHex) : null;
+                            const colorPct = colorDe != null ? colorConfPct(colorDe) : null;
+                            const colorLbl = colorPct != null ? colorConfLabel(colorPct) : null;
+                            return (
+                              <div key={ei} className="rounded-lg border border-purple-500/40 bg-purple-950 px-2 py-1.5">
+                                <div className="flex items-center gap-1 mb-1 flex-wrap">
+                                  <Sparkles className="w-3 h-3 text-purple-400 flex-shrink-0" />
+                                  <span className="text-[9px] uppercase tracking-wider text-purple-400 font-semibold">Best Match</span>
+                                  <span className={`ml-1 text-[9px] font-medium capitalize ${confidenceColor(entry.confidence)}`}>
+                                    · {entry.confidence} id
+                                  </span>
+                                  {colorPct != null && colorLbl != null && (
+                                    <span className={`text-[9px] font-medium ${colorLbl.cls}`}>
+                                      · {colorPct}% color match
+                                    </span>
+                                  )}
+                                  {entry.cropIndex != null && (
+                                    <span className="ml-auto text-[9px] font-mono text-gray-500 flex-shrink-0">crop #{entry.cropIndex + 1}</span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1 min-w-0">
+                                  <div className="flex flex-col flex-1 min-w-0">
+                                    <div className="flex items-center gap-1 min-w-0">
+                                      {inStock && <Check className="w-3 h-3 text-emerald-400 flex-shrink-0" />}
+                                      {inStock && <span className="text-[10px] font-mono text-gray-200 flex-shrink-0">×{entry.ourQtyNew + entry.ourQtyUsed}</span>}
+                                      {!isMinifig && (entry.colorRgb ? (
+                                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 border border-gray-500" style={{ backgroundColor: `#${entry.colorRgb}` }} />
+                                      ) : (
+                                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-gray-600" />
+                                      ))}
+                                      <span className="text-[10px] text-white font-medium truncate">
+                                        {isMinifig ? (entry.partName || focusedGroup.partName) : (entry.colorName || '—')}
+                                      </span>
+                                    </div>
+                                    {peak ? (
+                                      <button
+                                        className="text-[9px] pl-0.5 text-purple-400 hover:text-purple-300 underline decoration-dotted cursor-pointer bg-transparent border-none p-0 text-left"
+                                        onClick={e => { e.stopPropagation(); setPricePopupTarget({ partNo: focusedGroup.partNo, itemType: focusedGroup.itemType, colorId: entry.colorId ?? null, colorName: entry.colorName || '' }); }}
+                                      >
+                                        peak ${peak.toFixed(2)}
+                                      </button>
+                                    ) : null}
+                                  </div>
+                                  <span className="text-[10px] font-mono text-gray-200 w-14 text-right flex-shrink-0">
+                                    {entry.ourPriceNew != null ? `$${entry.ourPriceNew.toFixed(2)}` : '—'}
+                                  </span>
+                                  <span className={`text-[10px] font-mono font-bold w-14 text-right flex-shrink-0 ${overlayScoreColor(nScore)}`}>
+                                    {nScore != null ? `${nScore}×` : '—'}
+                                  </span>
+                                  <span className="text-[10px] font-mono text-gray-200 w-14 text-right flex-shrink-0">
+                                    {entry.ourPriceUsed != null ? `$${entry.ourPriceUsed.toFixed(2)}` : '—'}
+                                  </span>
+                                  <span className={`text-[10px] font-mono font-bold w-14 text-right flex-shrink-0 ${overlayScoreColor(uScore)}`}>
+                                    {uScore != null ? `${uScore}×` : '—'}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* My Inventory tab */}
+                      {overlayTab === 'inventory' && (
+                        <div className="px-2 py-1.5 space-y-1.5">
+                          {(() => {
+                            const seenColorIds = new Set<string>();
+                            const inStockLots = focusedGroup.entries
+                              .flatMap(e => e.inventoryLots ?? [])
+                              .filter(l => {
+                                if ((l.qtyNew + l.qtyUsed) <= 0) return false;
+                                const k = String(l.colorId ?? 'null');
+                                if (seenColorIds.has(k)) return false;
+                                seenColorIds.add(k);
+                                return true;
+                              });
+                            if (inStockLots.length === 0) {
+                              return (
+                                <div className="flex flex-col items-center gap-2 py-6 text-center">
+                                  <span className="text-gray-600 text-xs">Not in inventory</span>
+                                  <span className="text-gray-700 text-[10px]">You don't currently stock this part.</span>
+                                </div>
+                              );
+                            }
+                            return inStockLots.map((lot, li) => (
+                              <div key={li} className="flex items-center gap-2 bg-gray-900/50 border border-gray-700/60 rounded-lg px-2 py-1.5">
                                 {lot.colorRgb ? (
-                                  <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 border border-gray-500" style={{ backgroundColor: `#${lot.colorRgb}` }} />
+                                  <span className="w-3 h-3 rounded-full flex-shrink-0 border border-gray-500" style={{ backgroundColor: `#${lot.colorRgb}` }} />
                                 ) : (
-                                  <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-gray-600" />
+                                  <span className="w-3 h-3 rounded-full flex-shrink-0 bg-gray-600" />
                                 )}
                                 <span className="text-[10px] text-white font-medium flex-1 truncate">{lot.colorName || '—'}</span>
                                 <div className="flex items-center gap-1 flex-shrink-0">
                                   {lot.qtyNew > 0 && <span className="text-[10px] text-emerald-400 font-mono">×{lot.qtyNew} N</span>}
                                   {lot.qtyUsed > 0 && <span className="text-[10px] text-blue-400 font-mono">×{lot.qtyUsed} U</span>}
+                                </div>
+                                <div className="flex items-center gap-1.5 flex-shrink-0">
+                                  {lot.priceNew != null && <span className="text-[10px] text-gray-300 font-mono">${lot.priceNew.toFixed(2)} N</span>}
+                                  {lot.priceUsed != null && <span className="text-[10px] text-gray-400 font-mono">${lot.priceUsed.toFixed(2)} U</span>}
                                 </div>
                                 {focusedGroup.partNo && (
                                   <a
@@ -2268,10 +2279,10 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                                   </a>
                                 )}
                               </div>
-                            ))}
-                          </div>
-                        );
-                      })()}
+                            ));
+                          })()}
+                        </div>
+                      )}
 
                     </div>
                   </div>
