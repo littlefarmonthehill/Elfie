@@ -46,6 +46,7 @@ interface ScanResult {
   stockAvgPriceN?: number | null;
   thumbnailUrl: string | null;
   bestPrice: number | null;
+  categoryId?: number | null;
   inventoryLots?: InventoryLot[];
   cropIndex?: number | null;
   bboxX?: number | null;
@@ -283,6 +284,27 @@ function PomPriceDialog({ target, onClose }: { target: { partNo: string; itemTyp
     </Dialog>
   );
 }
+
+const MINIFIG_PART_CATEGORY_IDS = new Set([
+  20,   // Minifigure, Body Part
+  142,  // Minifigure, Body Wear
+  847,  // Minifigure, Hair
+  238,  // Minifigure, Head
+  606,  // Minifigure, Head, Modified
+  16,   // Minifigure, Headgear
+  636,  // Minifigure, Headgear Accessory
+  484,  // Minifigure, Legs
+  1098, // Minifigure, Legs, Decorated
+  1116, // Minifigure, Legs, Modified
+  1118, // Minifigure, Legs, Modified, Decorated
+  418,  // Minifigure, Shield
+  150,  // Minifigure, Torso
+  485,  // Minifigure, Torso Assembly
+  1097, // Minifigure, Torso Assembly, Decor.
+  18,   // Minifigure, Utensil
+  943,  // Minifigure, Utensil, Decorated
+  19,   // Minifigure, Weapon
+]);
 
 const BrickanalyzerTool = forwardRef((_, ref) => {
   const { toast } = useToast();
@@ -2112,6 +2134,18 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                                 <ExternalLink className="w-3 h-3" />
                               </a>
                             )}
+                            {focusedGroup.partNo && !isMinifig && overlayRepEntry.categoryId != null && MINIFIG_PART_CATEGORY_IDS.has(overlayRepEntry.categoryId) && (
+                              <a
+                                href={`https://www.bricklink.com/catalogItemIn.asp?P=${focusedGroup.partNo}&in=M`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[9px] font-semibold text-amber-400 hover:text-amber-300 flex-shrink-0 whitespace-nowrap"
+                                onClick={(e) => e.stopPropagation()}
+                                title="See which minifigures contain this part"
+                              >
+                                Appears In
+                              </a>
+                            )}
                           </div>
                           <div className="flex items-center gap-1.5 flex-wrap">
                             {focusedGroup.partNo && <span className="font-mono text-[10px] text-gray-300">{focusedGroup.partNo}</span>}
@@ -2567,6 +2601,19 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                               onClick={(e) => e.stopPropagation()}
                             >
                               <ExternalLink className="w-3 h-3 sm:w-7 sm:h-7" />
+                            </a>
+                          )}
+                          {grp.partNo && grp.itemType !== 'MINIFIG' && repEntry.categoryId != null && MINIFIG_PART_CATEGORY_IDS.has(repEntry.categoryId) && (
+                            <a
+                              href={`https://www.bricklink.com/catalogItemIn.asp?P=${grp.partNo}&in=M`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[9px] sm:text-base font-semibold text-amber-400 hover:text-amber-300 flex-shrink-0 whitespace-nowrap"
+                              data-testid={`link-appears-in-${gi}`}
+                              onClick={(e) => e.stopPropagation()}
+                              title="See which minifigures contain this part"
+                            >
+                              Appears In
                             </a>
                           )}
                           <ChevronRight

@@ -3902,6 +3902,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             thumbnailUrl: blInventory.thumbnailUrl,
             imageUrl: blInventory.imageUrl,
             newOrUsed: blInventory.newOrUsed,
+            categoryId: blInventory.categoryId,
           })
           .from(blInventory)
           .where(and(
@@ -4350,6 +4351,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           colorRgb,
           thumbnailUrl,
           bestPrice,
+          categoryId: activeInvRows[0]?.categoryId ?? null,
           inventoryLots,
           cropIndex: piece.cropIndex ?? null,
           bboxX: (piece as any).bboxX ?? null,
