@@ -172,12 +172,12 @@ const ROUND_GUIDES: Record<1 | 2 | 3 | 4, { headline: string; steps: string[] }>
     steps: ['Technic beam, slope, door, or window', 'Alone on a plain surface', 'Tap camera · rate it · repeat 5–10×'],
   },
   2: {
-    headline: 'Minifig or specialty part',
-    steps: ['Torso, head, accessory, or printed tile', 'Face-up on a plain surface', 'Tap camera · rate it · try a few'],
+    headline: 'One minifig or specialty part at a time',
+    steps: ['Torso, head, accessory, or printed tile — one piece only', 'Face-up on a plain surface', 'Tap camera · rate it · swap for another'],
   },
   3: {
-    headline: 'Common bricks, plates, or tiles',
-    steps: ['1×2s, 2×4s, tiles, plates — get close', 'Fill the frame · try different colors', 'Tap camera · rate each one'],
+    headline: 'One common brick, plate, or tile at a time',
+    steps: ['1×2s, 2×4s, tiles, plates — one piece, up close', 'Fill the frame · try different colors across scans', 'Tap camera · rate it · repeat'],
   },
   4: {
     headline: '5–8 mixed pieces in a pile',
