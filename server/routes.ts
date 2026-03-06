@@ -3432,17 +3432,23 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       } catch { /* non-fatal */ }
 
       // ── Calibration mode: override segmentation settings for close-up single-piece shots ──
-      // Default pile-scan limits (maxSizePct=6%, maxDimFrac=38%) reject any region larger
-      // than ~6% of the image area or wider/taller than 38% of the frame.  When photographing
-      // one piece close-up it typically fills 30-70% of the image — so those limits filter it
-      // out entirely, returning 0 boxes.  Calibration shots need very permissive thresholds.
+      // Default pile-scan settings (cannyHigh=320, blurRadius=7, dilateIter=6) are tuned for
+      // pile scanning — many small bricks with high contrast between them.  For a close-up
+      // of a single piece those thresholds are too aggressive: heavy blur wipes out subtle
+      // piece edges, cannyHigh=320 misses low-contrast boundaries, and dilateIter=6 merges
+      // every edge fragment into one giant blob that then fails the size filters.
+      // Calibration mode uses gentler edge detection so individual piece boundaries survive.
       if (calibration) {
         settings = {
           ...settings,
           multiPass:  0,    // single pass — no pile-logic needed for a single close-up piece
-          maxSizePct: 99,   // piece can fill virtually the entire frame (was 80 → still rejected large fills)
+          maxSizePct: 99,   // piece can fill virtually the entire frame
           maxDimFrac: 99,   // bbox can span virtually the full image width/height
-          minSizePct: 5,    // require ≥5% area — kills dust, hairs, table-texture noise
+          minSizePct: 2,    // 2% minimum — avoids noise while catching small pieces
+          blurRadius: 3,    // light blur — preserve close-up piece edge detail
+          cannyLow:   20,   // very sensitive — detect subtle edges on smooth LEGO surfaces
+          cannyHigh:  60,   // much lower than pile default (320) — catches low-contrast boundaries
+          dilateIter: 2,    // moderate — closes gaps without merging everything into one blob
         };
         console.log('[Brickanalyzer] Calibration mode: using single-piece segmentation settings');
       }
@@ -4445,7 +4451,11 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           multiPass:  0,
           maxSizePct: 99,
           maxDimFrac: 99,
-          minSizePct: 5,
+          minSizePct: 2,
+          blurRadius: 3,    // light blur — preserve close-up piece edge detail
+          cannyLow:   20,   // very sensitive — detect subtle edges on smooth LEGO surfaces
+          cannyHigh:  60,   // much lower than pile default (320) — catches low-contrast boundaries
+          dilateIter: 2,    // moderate — closes gaps without merging everything into one blob
         };
       }
 
