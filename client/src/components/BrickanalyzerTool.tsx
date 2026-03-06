@@ -658,6 +658,13 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
   // Keep ref in sync so scoring handlers can synchronously check "all done"
   groupCountRef.current = groupedResults.length;
 
+  // Auto-expand all groups the moment results arrive so "Best Match" is visible immediately
+  useEffect(() => {
+    if (groupedResults.length > 0) {
+      setExpandedParts(new Set(groupedResults.map((g, i) => g.partNo || `__unknown_${i}`)));
+    }
+  }, [groupedResults.length]);
+
   function togglePart(partNo: string) {
     setExpandedParts(prev => {
       const next = new Set(prev);
@@ -1665,11 +1672,17 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                             // Only require colorId + colorName — colorRgb is optional (used for sort/preview only)
                             const lots = (repEntry.inventoryLots ?? []).filter(l => l.colorId != null && (l.colorName ?? '').length > 0);
                             const detectedHex = repEntry.colorRgb ?? '';
-                            const sorted = [...lots].sort((a, b) =>
-                              (a.colorRgb && b.colorRgb)
-                                ? colorDeltaE(a.colorRgb, detectedHex) - colorDeltaE(b.colorRgb, detectedHex)
-                                : (a.colorName ?? '').localeCompare(b.colorName ?? '')
-                            );
+                            // Sort by color distance when a detected color is available.
+                            // Lots without colorRgb get a large penalty so they sort to the bottom.
+                            // When no detected color, sort alphabetically.
+                            const sorted = [...lots].sort((a, b) => {
+                              if (detectedHex) {
+                                const dA = a.colorRgb ? colorDeltaE(a.colorRgb, detectedHex) : 9999;
+                                const dB = b.colorRgb ? colorDeltaE(b.colorRgb, detectedHex) : 9999;
+                                return dA - dB;
+                              }
+                              return (a.colorName ?? '').localeCompare(b.colorName ?? '');
+                            });
                             const correctedKey = `${grp.partNo}__${repCropIndex ?? 'x'}`;
                             const corrected = colorCorrectedClips.get(correctedKey);
                             return (
