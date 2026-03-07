@@ -3957,8 +3957,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       }
 
       // ── Step 1: Segmentation (single or multi-pass) ──────────────────────
-      const { segmentImage, embedCrop } = await import('./services/segmentClient.js');
-      const { findNearestParts } = await import('./services/clip-search.js');
+      const { segmentImage } = await import('./services/segmentClient.js');
 
       const iouBox = (a: any, b: any): number => {
         const ix0 = Math.max(a.x, b.x), iy0 = Math.max(a.y, b.y);
@@ -4197,13 +4196,13 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       // Uses a per-scan map so no state leaks between scans.
       const bqDedupeCache = new Map<string, any[]>();
 
-      // CLIP vs Brickognize accuracy tracking — tallied per scan, logged at the end.
-      // Only counts pieces where CLIP returned at least one match (sim ≥ threshold).
-      const clipAcc = { top1: 0, top5: 0, clipMiss: 0, bqMiss: 0, bothMiss: 0, total: 0 };
+      // CLIP embedding is intentionally NOT run per-piece here.
+      // CLIP inference on CPU takes ~5s per image in the single-threaded Python service.
+      // Batching 4 pieces simultaneously causes Flask to queue them: 5+5+5+5 = 20s per batch.
+      // Brickognize alone takes ~1s per piece and drives all identification + pricing,
+      // so CLIP is deferred to a non-blocking post-scan pass instead.
 
-      // Process pieces in small parallel batches to stay within Brickognize rate limits.
-      // Each piece already calls 2 BQ endpoints in parallel, so BQ_BATCH=4 means
-      // up to 8 simultaneous BQ requests — fast without flooding the API.
+      // Process pieces in small parallel batches — each piece calls 2 BQ endpoints in parallel.
       const BQ_BATCH = 4;
       const identified: any[] = [];
       for (let b = 0; b < pieces.length; b += BQ_BATCH) {
@@ -4231,30 +4230,14 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             const figsForm  = makeBqForm(cropBuffer);
             const partsForm = makeBqForm(cropBuffer);
 
-            const [clipMatches, [figsRes, partsRes]] = await Promise.all([
-              embedCrop(cropBuffer)
-                .then(async (emb) => {
-                  const matches = await findNearestParts(emb, 5, 0.50);
-                  if (matches.length === 0) {
-                    const top1 = await findNearestParts(emb, 1, 0.0).catch(() => []);
-                    if (top1.length > 0) {
-                      console.log(`[CLIP] Piece ${idx}: no match above 0.50 — best sim=${top1[0].similarity.toFixed(3)} (${top1[0].itemNo})`);
-                    }
-                  }
-                  return matches;
-                })
-                .catch((e: any) => { console.warn(`[CLIP] piece ${idx} embed failed: ${e.message}`); return []; }),
-              Promise.all([
-                bqPost('https://api.brickognize.com/predict/figs/',  figsForm, idx)
-                  .catch((e: any) => { console.warn(`[Brickognize] figs piece ${idx} failed: ${e.message} (HTTP ${e.response?.status ?? 'N/A'})`); return null; }),
-                bqPost('https://api.brickognize.com/predict/parts/', partsForm, idx)
-                  .catch((e: any) => { console.warn(`[Brickognize] parts piece ${idx} failed: ${e.message} (HTTP ${e.response?.status ?? 'N/A'})`); return null; }),
-              ]),
+            const [figsRes, partsRes] = await Promise.all([
+              bqPost('https://api.brickognize.com/predict/figs/',  figsForm, idx)
+                .catch((e: any) => { console.warn(`[Brickognize] figs piece ${idx} failed: ${e.message} (HTTP ${e.response?.status ?? 'N/A'})`); return null; }),
+              bqPost('https://api.brickognize.com/predict/parts/', partsForm, idx)
+                .catch((e: any) => { console.warn(`[Brickognize] parts piece ${idx} failed: ${e.message} (HTTP ${e.response?.status ?? 'N/A'})`); return null; }),
             ]);
 
-            if (clipMatches.length > 0) {
-              console.log(`[CLIP] Piece ${idx}: top match ${clipMatches[0].itemNo} (color ${clipMatches[0].colorId}) sim=${clipMatches[0].similarity.toFixed(3)}`);
-            }
+            const clipMatches: any[] = []; // CLIP runs post-scan, not per-piece
 
             const figTop  = figsRes?.data?.items?.[0]  ?? null;
             const partTop = partsRes?.data?.items?.[0] ?? null;
@@ -4262,30 +4245,6 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             const partScore = partTop?.score ?? -1;
             const topItem   = figScore >= partScore ? figTop : partTop;
             const itemType: 'MINIFIG' | 'PART' = figScore >= partScore ? 'MINIFIG' : 'PART';
-
-            if (clipMatches.length > 0 || topItem) {
-              clipAcc.total++;
-              const bqId   = topItem?.id ?? null;
-              const clipId = clipMatches[0]?.itemNo ?? null;
-              const clipSim = clipMatches[0]?.similarity ?? 0;
-              if (!clipId && !bqId) {
-                clipAcc.bothMiss++;
-              } else if (!clipId) {
-                clipAcc.clipMiss++;
-                console.log(`[CLIP vs BQ] Piece ${idx}: CLIP_NO_MATCH — BQ=${bqId} score=${topItem?.score?.toFixed(2)}`);
-              } else if (!bqId) {
-                clipAcc.bqMiss++;
-                console.log(`[CLIP vs BQ] Piece ${idx}: BQ_NO_MATCH — CLIP=${clipId} sim=${clipSim.toFixed(3)}`);
-              } else {
-                const top5ids = clipMatches.map((m: any) => m.itemNo);
-                const agreesTop1 = clipId === bqId;
-                const agreesTop5 = top5ids.includes(bqId);
-                if (agreesTop1) clipAcc.top1++;
-                if (agreesTop5) clipAcc.top5++;
-                const verdict = agreesTop1 ? '✓ TOP1' : agreesTop5 ? '~ TOP5' : '✗ MISS';
-                console.log(`[CLIP vs BQ] Piece ${idx}: ${verdict} — CLIP=${clipId}(sim=${clipSim.toFixed(3)}) BQ=${bqId}(score=${topItem.score.toFixed(2)})`);
-              }
-            }
 
             const minConfidence = settings.minConfidence ?? 0;
             if (minConfidence > 0 && topItem && topItem.score < minConfidence) {
@@ -4342,17 +4301,6 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       }
       const bqElapsed = ((Date.now() - phase2bStart) / 1000).toFixed(1);
       console.log(`[Brickanalyzer] Step 2b complete: ${pieces.length} pieces in ${bqElapsed}s`);
-      if (clipAcc.total > 0) {
-        const evaluated = clipAcc.total - clipAcc.bothMiss;
-        const headToHead = evaluated - clipAcc.clipMiss - clipAcc.bqMiss;
-        const top1Pct  = headToHead > 0 ? Math.round(100 * clipAcc.top1 / headToHead) : 0;
-        const top5Pct  = headToHead > 0 ? Math.round(100 * clipAcc.top5 / headToHead) : 0;
-        console.log(
-          `[CLIP Accuracy] top1=${clipAcc.top1}/${headToHead} (${top1Pct}%)  ` +
-          `top5=${clipAcc.top5}/${headToHead} (${top5Pct}%)  ` +
-          `clip_no_match=${clipAcc.clipMiss}  bq_no_match=${clipAcc.bqMiss}  both_miss=${clipAcc.bothMiss}`
-        );
-      }
 
       // ── Zone suppression: if a MINIFIG and one or more PARTs share the same
       // detection zone (significant bbox overlap), keep only the MINIFIG ──
