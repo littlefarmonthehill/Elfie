@@ -2256,19 +2256,6 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                               </div>
                             </div>
 
-                            {/* BL inventory link */}
-                            {inStock && focusedGroup.partNo && (
-                              <div className="px-4 pb-3">
-                                <a
-                                  href={isMinifig
-                                    ? `https://www.bricklink.com/v2/catalog/catalogitem.page?M=${focusedGroup.partNo}#T=I`
-                                    : `https://www.bricklink.com/v2/catalog/catalogitem.page?P=${focusedGroup.partNo}${entry.colorId != null ? `&idColor=${entry.colorId}` : ''}#T=I`}
-                                  target="_blank" rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1.5 text-[11px] text-lego-blue hover:text-blue-300"
-                                  onClick={e => e.stopPropagation()}
-                                ><ExternalLink className="w-3 h-3" />View my BrickLink listing</a>
-                              </div>
-                            )}
                           </div>
                         );
                       })}
@@ -2289,7 +2276,9 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                           if (b.pct != null) return 1;
                           return 0;
                         });
-                        const visible = refHex ? sorted.filter(({ pct }) => pct == null || pct >= COLOR_CONF_CUTOFF) : sorted;
+                        const visible = refHex
+                          ? sorted.filter(({ lot, pct }) => (lot.qtyNew + lot.qtyUsed) > 0 || pct == null || pct >= COLOR_CONF_CUTOFF)
+                          : sorted;
                         const hiddenCount = sorted.length - visible.length;
                         if (visible.length === 0) return null;
                         return (
@@ -2358,12 +2347,66 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                         );
                       })()}
 
-                      {/* ── Not in inventory note ─────────────────────────── */}
-                      {overlayTotalQtyNew === 0 && overlayTotalQtyUsed === 0 && (
-                        <div className="px-4 py-5 text-center">
-                          <p className="text-xs text-gray-600">Not currently in your inventory</p>
-                        </div>
-                      )}
+                      {/* ── My Inventory ─────────────────────────────────── */}
+                      {(() => {
+                        const seenColorIds = new Set<string>();
+                        const inStockLots = focusedGroup.entries
+                          .flatMap(e => e.inventoryLots ?? [])
+                          .filter(l => {
+                            if ((l.qtyNew + l.qtyUsed) <= 0) return false;
+                            const k = String(l.colorId ?? 'null');
+                            if (seenColorIds.has(k)) return false;
+                            seenColorIds.add(k);
+                            return true;
+                          });
+                        if (inStockLots.length === 0) {
+                          return (
+                            <div className="px-4 py-5 text-center border-t border-white/[0.06]">
+                              <p className="text-xs text-gray-600">Not currently in your inventory</p>
+                            </div>
+                          );
+                        }
+                        return (
+                          <div className="border-t border-white/[0.06]">
+                            <div className="px-4 pt-3 pb-2">
+                              <p className="text-[10px] uppercase tracking-widest text-emerald-500/80 font-semibold">My Inventory</p>
+                            </div>
+                            <div className="px-3 pb-3 space-y-1.5">
+                              {inStockLots.map((lot, li) => (
+                                <div key={li} className="flex items-center gap-3 rounded-xl bg-emerald-950/25 border border-emerald-500/10 px-3 py-2.5">
+                                  {lot.colorRgb ? (
+                                    <span className="w-5 h-5 rounded-full shrink-0 border border-white/20" style={{ backgroundColor: `#${lot.colorRgb}` }} />
+                                  ) : (
+                                    <span className="w-5 h-5 rounded-full shrink-0 bg-gray-600" />
+                                  )}
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-xs font-medium text-white truncate">{lot.colorName || '—'}</p>
+                                    <div className="flex items-center gap-2 mt-0.5">
+                                      {lot.qtyNew > 0 && <span className="text-[10px] text-emerald-400 font-mono">×{lot.qtyNew} new</span>}
+                                      {lot.qtyUsed > 0 && <span className="text-[10px] text-blue-400 font-mono">×{lot.qtyUsed} used</span>}
+                                    </div>
+                                  </div>
+                                  <div className="text-right shrink-0 space-y-0.5">
+                                    {lot.priceNew != null && <p className="text-xs font-mono font-semibold text-white tabular-nums">${lot.priceNew.toFixed(2)} <span className="text-gray-600 text-[9px]">N</span></p>}
+                                    {lot.priceUsed != null && <p className="text-xs font-mono text-gray-400 tabular-nums">${lot.priceUsed.toFixed(2)} <span className="text-gray-600 text-[9px]">U</span></p>}
+                                  </div>
+                                  {focusedGroup.partNo && (
+                                    <a
+                                      href={isMinifig
+                                        ? `https://www.bricklink.com/v2/catalog/catalogitem.page?M=${focusedGroup.partNo}#T=I`
+                                        : `https://www.bricklink.com/v2/catalog/catalogitem.page?P=${focusedGroup.partNo}${lot.colorId != null ? `&idColor=${lot.colorId}` : ''}#T=I`}
+                                      target="_blank" rel="noopener noreferrer"
+                                      className="shrink-0 p-1.5 rounded-lg bg-blue-950/40 border border-blue-500/20 text-lego-blue hover:text-blue-300"
+                                      onClick={e => e.stopPropagation()}
+                                      title="View my BrickLink inventory listing"
+                                    ><ExternalLink className="w-3 h-3" /></a>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
 
                       <div className="h-6" />
                     </div>
