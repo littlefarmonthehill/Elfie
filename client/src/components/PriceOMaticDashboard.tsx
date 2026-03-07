@@ -149,20 +149,25 @@ function SwipeableTile({
     const dx = e.touches[0].clientX - touchStartX.current;
     const dy = e.touches[0].clientY - touchStartY.current;
     if (!swiping && Math.abs(dy) > Math.abs(dx)) return;
-    if (dx > 0) {
+    if (orbitFilter === 'in_orbit' && dx > 0) {
       setSwiping(true);
       setSwipeDelta(Math.min(dx, 160));
       e.preventDefault();
+    } else if (orbitFilter === 'deep_space' && dx < 0) {
+      setSwiping(true);
+      setSwipeDelta(Math.max(dx, -160));
+      e.preventDefault();
     }
-  }, [swiping]);
+  }, [swiping, orbitFilter]);
 
   const onTouchEnd = useCallback(() => {
-    if (swipeDelta >= SWIPE_THRESHOLD) {
+    const absSwipe = Math.abs(swipeDelta);
+    if (absSwipe >= SWIPE_THRESHOLD) {
       setLaunched(true);
       setTimeout(() => {
-        if (orbitFilter === 'in_orbit') {
+        if (orbitFilter === 'in_orbit' && swipeDelta > 0) {
           onSendToDeepSpace(group);
-        } else {
+        } else if (orbitFilter === 'deep_space' && swipeDelta < 0) {
           onBringToOrbit(group.key);
         }
         setLaunched(false);
@@ -177,19 +182,20 @@ function SwipeableTile({
     touchStartY.current = null;
   }, [swipeDelta, group.key, orbitFilter, onSendToDeepSpace, onBringToOrbit]);
 
-  const translateX = launched ? 320 : swipeDelta;
-  const opacity = launched ? 0 : 1 - (swipeDelta / 260);
-  const showLabel = swipeDelta >= SWIPE_THRESHOLD * 0.6;
+  const absSwipeDelta = Math.abs(swipeDelta);
+  const translateX = launched ? (orbitFilter === 'in_orbit' ? 320 : -320) : swipeDelta;
+  const opacity = launched ? 0 : 1 - (absSwipeDelta / 260);
+  const showLabel = absSwipeDelta >= SWIPE_THRESHOLD * 0.6;
 
   return (
     <div className="relative overflow-hidden rounded-lg">
       {/* Swipe reveal background */}
       <div
-        className="absolute inset-0 rounded-lg flex items-center px-4 gap-2"
+        className={`absolute inset-0 rounded-lg flex items-center px-4 gap-2 ${orbitFilter === 'deep_space' ? 'justify-end' : ''}`}
         style={{
           background: orbitFilter === 'in_orbit'
             ? 'linear-gradient(to right, rgba(99,102,241,0.25), rgba(59,130,246,0.1))'
-            : 'linear-gradient(to right, rgba(16,185,129,0.25), rgba(59,130,246,0.1))',
+            : 'linear-gradient(to left, rgba(16,185,129,0.25), rgba(59,130,246,0.1))',
         }}
       >
         {orbitFilter === 'in_orbit' ? (
@@ -427,7 +433,10 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
     });
   };
 
-  const allGroups = getAllGroups();
+  const allGroups = getAllGroups().filter(g => {
+    const totalQty = (g.newLot?.quantity ?? 0) + (g.usedLot?.quantity ?? 0);
+    return totalQty > 0;
+  });
   const allGroupKeySet = new Set(allGroups.map(g => g.key));
   const inOrbitGroups = allGroups.filter(g => !deepSpaceKeys.has(g.key));
   // Deep space: items from current POM analysis PLUS stored fallbacks for items not in current analysis
