@@ -4178,6 +4178,10 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       // Uses a per-scan map so no state leaks between scans.
       const bqDedupeCache = new Map<string, any[]>();
 
+      // CLIP vs Brickognize accuracy tracking — tallied per scan, logged at the end.
+      // Only counts pieces where CLIP returned at least one match (sim ≥ threshold).
+      const clipAcc = { top1: 0, top5: 0, clipMiss: 0, bqMiss: 0, bothMiss: 0, total: 0 };
+
       const identified: any[] = [];
       for (let idx = 0; idx < pieces.length; idx++) {
         const piece = pieces[idx];
@@ -4246,6 +4250,32 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           const topItem   = figScore >= partScore ? figTop : partTop;
           const itemType: 'MINIFIG' | 'PART' = figScore >= partScore ? 'MINIFIG' : 'PART';
 
+          // ── CLIP vs BQ accuracy comparison ────────────────────────────────
+          // Only evaluate when CLIP returned at least one vector match.
+          if (clipMatches.length > 0 || topItem) {
+            clipAcc.total++;
+            const bqId   = topItem?.id ?? null;
+            const clipId = clipMatches[0]?.itemNo ?? null;
+            const clipSim = clipMatches[0]?.similarity ?? 0;
+            if (!clipId && !bqId) {
+              clipAcc.bothMiss++;
+            } else if (!clipId) {
+              clipAcc.clipMiss++;
+              console.log(`[CLIP vs BQ] Piece ${idx}: CLIP_NO_MATCH — BQ=${bqId} score=${topItem?.score?.toFixed(2)}`);
+            } else if (!bqId) {
+              clipAcc.bqMiss++;
+              console.log(`[CLIP vs BQ] Piece ${idx}: BQ_NO_MATCH — CLIP=${clipId} sim=${clipSim.toFixed(3)}`);
+            } else {
+              const top5ids = clipMatches.map((m: any) => m.itemNo);
+              const agreesTop1 = clipId === bqId;
+              const agreesTop5 = top5ids.includes(bqId);
+              if (agreesTop1) clipAcc.top1++;
+              if (agreesTop5) clipAcc.top5++;
+              const verdict = agreesTop1 ? '✓ TOP1' : agreesTop5 ? '~ TOP5' : '✗ MISS';
+              console.log(`[CLIP vs BQ] Piece ${idx}: ${verdict} — CLIP=${clipId}(sim=${clipSim.toFixed(3)}) BQ=${bqId}(score=${topItem.score.toFixed(2)})`);
+            }
+          }
+
           // Apply minimum confidence threshold — 0 means disabled (show everything Brickognize returns)
           const minConfidence = settings.minConfidence ?? 0;
           if (minConfidence > 0 && topItem && topItem.score < minConfidence) {
@@ -4289,6 +4319,17 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         identified.push(...pieceResult);
       }
       console.log(`[Brickanalyzer] Step 2b complete: ${pieces.length} pieces in ${((Date.now() - phase2bStart) / 1000).toFixed(1)}s`);
+      if (clipAcc.total > 0) {
+        const evaluated = clipAcc.total - clipAcc.bothMiss;
+        const headToHead = evaluated - clipAcc.clipMiss - clipAcc.bqMiss;
+        const top1Pct  = headToHead > 0 ? Math.round(100 * clipAcc.top1 / headToHead) : 0;
+        const top5Pct  = headToHead > 0 ? Math.round(100 * clipAcc.top5 / headToHead) : 0;
+        console.log(
+          `[CLIP Accuracy] top1=${clipAcc.top1}/${headToHead} (${top1Pct}%)  ` +
+          `top5=${clipAcc.top5}/${headToHead} (${top5Pct}%)  ` +
+          `clip_no_match=${clipAcc.clipMiss}  bq_no_match=${clipAcc.bqMiss}  both_miss=${clipAcc.bothMiss}`
+        );
+      }
 
       // ── Zone suppression: if a MINIFIG and one or more PARTs share the same
       // detection zone (significant bbox overlap), keep only the MINIFIG ──
