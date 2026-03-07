@@ -184,8 +184,8 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
   if (orgData?.onboardingCompleted) {
     if (!orgData?.address) setupItems.push({ id: 'address', label: 'Add your business address', section: 'general' });
     if (!appSettings?.bricklinkConsumerKey) setupItems.push({ id: 'bricklink', label: 'Connect BrickLink', section: 'platforms' });
-    if (!appSettings?.paypalClientId) setupItems.push({ id: 'paypal', label: 'Connect PayPal', section: 'platforms' });
-    if (!appSettings?.stripeSecretKey) setupItems.push({ id: 'stripe', label: 'Connect Stripe', section: 'platforms' });
+    if (!appSettings?.paypalClientId && !appSettings?.paypalConnectedViaEnv) setupItems.push({ id: 'paypal', label: 'Connect PayPal', section: 'platforms' });
+    if (!appSettings?.stripeSecretKey && !appSettings?.stripeConnectedViaEnv) setupItems.push({ id: 'stripe', label: 'Connect Stripe', section: 'platforms' });
   }
 
   // Get top pricing opportunities (items priced too low, sorted by variance)

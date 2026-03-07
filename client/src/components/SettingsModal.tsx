@@ -2062,7 +2062,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               Pulls PayPal transaction data (refunds, fees) and matches them to orders. Requires a PayPal REST API app with Transaction Search permission.
                             </TooltipContent>
                           </Tooltip>
-                          <div className={`w-1.5 h-1.5 rounded-full ${paypalClientId ? 'bg-green-400' : 'bg-gray-600'}`} />
+                          <div className={`w-1.5 h-1.5 rounded-full ${paypalClientId || (settings as any)?.paypalConnectedViaEnv ? 'bg-green-400' : 'bg-gray-600'}`} />
                         </div>
                       </AccordionTrigger>
                       <AccordionContent>
@@ -2107,7 +2107,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               Pulls Stripe transaction data (refunds, processing fees) and matches them to orders. Use a restricted key with read access to Charges and Refunds.
                             </TooltipContent>
                           </Tooltip>
-                          <div className={`w-1.5 h-1.5 rounded-full ${stripeSecretKey ? 'bg-green-400' : 'bg-gray-600'}`} />
+                          <div className={`w-1.5 h-1.5 rounded-full ${stripeSecretKey || (settings as any)?.stripeConnectedViaEnv ? 'bg-green-400' : 'bg-gray-600'}`} />
                         </div>
                       </AccordionTrigger>
                       <AccordionContent>

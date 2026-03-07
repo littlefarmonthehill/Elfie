@@ -2090,7 +2090,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const orgId = reqOrgId(req);
       const settings = await getOrgSettings(orgId);
-      res.json(settings);
+      // Merge env-var presence so the dashboard correctly reflects connection status
+      // when credentials are stored as environment variables rather than in the DB row.
+      res.json({
+        ...settings,
+        // Boolean flags so the dashboard knows a credential is active via env var even when
+        // the DB field is null. Kept separate so the settings form inputs don't get polluted.
+        paypalConnectedViaEnv: !settings?.paypalClientId && !!process.env.PAYPAL_CLIENT_ID,
+        stripeConnectedViaEnv: !settings?.stripeSecretKey && !!process.env.STRIPE_SECRET_KEY,
+      });
     } catch (error) {
       console.error("Error fetching settings:", error);
       res.status(500).json({ error: "Failed to fetch settings" });
