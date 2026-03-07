@@ -4182,138 +4182,134 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       // Only counts pieces where CLIP returned at least one match (sim ≥ threshold).
       const clipAcc = { top1: 0, top5: 0, clipMiss: 0, bqMiss: 0, bothMiss: 0, total: 0 };
 
-      const identified: any[] = (await Promise.all(pieces.map(async (piece, idx): Promise<any[]> => {
-        const entry = cropData[idx];
-        if (entry.earlyResult) return entry.earlyResult;
-        const cropBuffer = entry.cropBuffer!;
+      // Process pieces in small parallel batches to stay within Brickognize rate limits.
+      // Each piece already calls 2 BQ endpoints in parallel, so BQ_BATCH=4 means
+      // up to 8 simultaneous BQ requests — fast without flooding the API.
+      const BQ_BATCH = 4;
+      const identified: any[] = [];
+      for (let b = 0; b < pieces.length; b += BQ_BATCH) {
+        const batchPieces = pieces.slice(b, b + BQ_BATCH);
+        const batchResults = await Promise.all(batchPieces.map(async (piece, bi): Promise<any[]> => {
+          const idx = b + bi;
+          const entry = cropData[idx];
+          if (entry.earlyResult) return entry.earlyResult;
+          const cropBuffer = entry.cropBuffer!;
 
-        // Hash the raw crop bytes. Identical crops (same piece, same position) skip BQ entirely.
-        const cropHash = createHash('sha256').update(cropBuffer).digest('hex');
-        if (bqDedupeCache.has(cropHash)) {
-          const cached = bqDedupeCache.get(cropHash)!;
-          console.log(`[Brickognize] Piece ${idx}: dedup hit (${cropHash.slice(0, 8)}), reusing result`);
-          return cached.map((r: any) => ({ ...r, cropIndex: idx, bboxX: piece.x, bboxY: piece.y, bboxW: piece.w, bboxH: piece.h }));
-        }
+          const cropHash = createHash('sha256').update(cropBuffer).digest('hex');
+          if (bqDedupeCache.has(cropHash)) {
+            const cached = bqDedupeCache.get(cropHash)!;
+            console.log(`[Brickognize] Piece ${idx}: dedup hit (${cropHash.slice(0, 8)}), reusing result`);
+            return cached.map((r: any) => ({ ...r, cropIndex: idx, bboxX: piece.x, bboxY: piece.y, bboxW: piece.w, bboxH: piece.h }));
+          }
 
-        const pieceStart = Date.now();
-        try {
-          // Send to both Brickognize endpoints in parallel — take whichever returns
-          // the higher confidence score. No pre-classification needed.
-          const makeBqForm = (buf: Buffer) => {
-            const f = new FormData();
-            f.append('query_image', buf, { filename: `piece_${idx}.jpg`, contentType: 'image/jpeg' });
-            return f;
-          };
+          const pieceStart = Date.now();
+          try {
+            const makeBqForm = (buf: Buffer) => {
+              const f = new FormData();
+              f.append('query_image', buf, { filename: `piece_${idx}.jpg`, contentType: 'image/jpeg' });
+              return f;
+            };
+            const figsForm  = makeBqForm(cropBuffer);
+            const partsForm = makeBqForm(cropBuffer);
 
-          const figsForm  = makeBqForm(cropBuffer);
-          const partsForm = makeBqForm(cropBuffer);
-
-          // Run CLIP embedding + Brickognize in parallel — CLIP uses the local Python
-          // service (no rate limiting needed); both BQ endpoints run in parallel for
-          // speed but only for this one piece at a time.
-          const [clipMatches, [figsRes, partsRes]] = await Promise.all([
-            embedCrop(cropBuffer)
-              .then(async (emb) => {
-                const matches = await findNearestParts(emb, 5, 0.50);
-                if (matches.length === 0) {
-                  // Diagnostic: fetch top-1 regardless of threshold to see actual floor
-                  const top1 = await findNearestParts(emb, 1, 0.0).catch(() => []);
-                  if (top1.length > 0) {
-                    console.log(`[CLIP] Piece ${idx}: no match above 0.50 — best sim=${top1[0].similarity.toFixed(3)} (${top1[0].itemNo})`);
+            const [clipMatches, [figsRes, partsRes]] = await Promise.all([
+              embedCrop(cropBuffer)
+                .then(async (emb) => {
+                  const matches = await findNearestParts(emb, 5, 0.50);
+                  if (matches.length === 0) {
+                    const top1 = await findNearestParts(emb, 1, 0.0).catch(() => []);
+                    if (top1.length > 0) {
+                      console.log(`[CLIP] Piece ${idx}: no match above 0.50 — best sim=${top1[0].similarity.toFixed(3)} (${top1[0].itemNo})`);
+                    }
                   }
-                }
-                return matches;
-              })
-              .catch((e: any) => { console.warn(`[CLIP] piece ${idx} embed failed: ${e.message}`); return []; }),
-            Promise.all([
-              bqPost('https://api.brickognize.com/predict/figs/',  figsForm, idx)
-                .catch((e: any) => { console.warn(`[Brickognize] figs piece ${idx} failed: ${e.message} (HTTP ${e.response?.status ?? 'N/A'})`); return null; }),
-              bqPost('https://api.brickognize.com/predict/parts/', partsForm, idx)
-                .catch((e: any) => { console.warn(`[Brickognize] parts piece ${idx} failed: ${e.message} (HTTP ${e.response?.status ?? 'N/A'})`); return null; }),
-            ]),
-          ]);
+                  return matches;
+                })
+                .catch((e: any) => { console.warn(`[CLIP] piece ${idx} embed failed: ${e.message}`); return []; }),
+              Promise.all([
+                bqPost('https://api.brickognize.com/predict/figs/',  figsForm, idx)
+                  .catch((e: any) => { console.warn(`[Brickognize] figs piece ${idx} failed: ${e.message} (HTTP ${e.response?.status ?? 'N/A'})`); return null; }),
+                bqPost('https://api.brickognize.com/predict/parts/', partsForm, idx)
+                  .catch((e: any) => { console.warn(`[Brickognize] parts piece ${idx} failed: ${e.message} (HTTP ${e.response?.status ?? 'N/A'})`); return null; }),
+              ]),
+            ]);
 
-          if (clipMatches.length > 0) {
-            console.log(`[CLIP] Piece ${idx}: top match ${clipMatches[0].itemNo} (color ${clipMatches[0].colorId}) sim=${clipMatches[0].similarity.toFixed(3)}`);
-          }
-
-          const figTop  = figsRes?.data?.items?.[0]  ?? null;
-          const partTop = partsRes?.data?.items?.[0] ?? null;
-
-          // Winner = higher score; break ties in favour of figs (assembled fig
-          // is a more useful result than a component part identification)
-          const figScore  = figTop?.score  ?? -1;
-          const partScore = partTop?.score ?? -1;
-          const topItem   = figScore >= partScore ? figTop : partTop;
-          const itemType: 'MINIFIG' | 'PART' = figScore >= partScore ? 'MINIFIG' : 'PART';
-
-          // ── CLIP vs BQ accuracy comparison ────────────────────────────────
-          // Only evaluate when CLIP returned at least one vector match.
-          if (clipMatches.length > 0 || topItem) {
-            clipAcc.total++;
-            const bqId   = topItem?.id ?? null;
-            const clipId = clipMatches[0]?.itemNo ?? null;
-            const clipSim = clipMatches[0]?.similarity ?? 0;
-            if (!clipId && !bqId) {
-              clipAcc.bothMiss++;
-            } else if (!clipId) {
-              clipAcc.clipMiss++;
-              console.log(`[CLIP vs BQ] Piece ${idx}: CLIP_NO_MATCH — BQ=${bqId} score=${topItem?.score?.toFixed(2)}`);
-            } else if (!bqId) {
-              clipAcc.bqMiss++;
-              console.log(`[CLIP vs BQ] Piece ${idx}: BQ_NO_MATCH — CLIP=${clipId} sim=${clipSim.toFixed(3)}`);
-            } else {
-              const top5ids = clipMatches.map((m: any) => m.itemNo);
-              const agreesTop1 = clipId === bqId;
-              const agreesTop5 = top5ids.includes(bqId);
-              if (agreesTop1) clipAcc.top1++;
-              if (agreesTop5) clipAcc.top5++;
-              const verdict = agreesTop1 ? '✓ TOP1' : agreesTop5 ? '~ TOP5' : '✗ MISS';
-              console.log(`[CLIP vs BQ] Piece ${idx}: ${verdict} — CLIP=${clipId}(sim=${clipSim.toFixed(3)}) BQ=${bqId}(score=${topItem.score.toFixed(2)})`);
+            if (clipMatches.length > 0) {
+              console.log(`[CLIP] Piece ${idx}: top match ${clipMatches[0].itemNo} (color ${clipMatches[0].colorId}) sim=${clipMatches[0].similarity.toFixed(3)}`);
             }
-          }
 
-          // Apply minimum confidence threshold — 0 means disabled (show everything Brickognize returns)
-          const minConfidence = settings.minConfidence ?? 0;
-          if (minConfidence > 0 && topItem && topItem.score < minConfidence) {
-            console.log(`[Brickanalyzer] Piece ${idx} (${itemType}): ${topItem.id} score=${topItem.score.toFixed(2)} below threshold ${minConfidence.toFixed(2)} — discarded`);
-            const result = [{ partNo: '', partName: 'Unknown', colorName: '', itemType: 'PART' as const, confidence: 'low' as const, note: `Score ${topItem.score.toFixed(2)} below threshold`, clipMatches }];
-            bqDedupeCache.set(cropHash, result);
-            return result;
-          }
+            const figTop  = figsRes?.data?.items?.[0]  ?? null;
+            const partTop = partsRes?.data?.items?.[0] ?? null;
+            const figScore  = figTop?.score  ?? -1;
+            const partScore = partTop?.score ?? -1;
+            const topItem   = figScore >= partScore ? figTop : partTop;
+            const itemType: 'MINIFIG' | 'PART' = figScore >= partScore ? 'MINIFIG' : 'PART';
 
-          if (topItem) {
+            if (clipMatches.length > 0 || topItem) {
+              clipAcc.total++;
+              const bqId   = topItem?.id ?? null;
+              const clipId = clipMatches[0]?.itemNo ?? null;
+              const clipSim = clipMatches[0]?.similarity ?? 0;
+              if (!clipId && !bqId) {
+                clipAcc.bothMiss++;
+              } else if (!clipId) {
+                clipAcc.clipMiss++;
+                console.log(`[CLIP vs BQ] Piece ${idx}: CLIP_NO_MATCH — BQ=${bqId} score=${topItem?.score?.toFixed(2)}`);
+              } else if (!bqId) {
+                clipAcc.bqMiss++;
+                console.log(`[CLIP vs BQ] Piece ${idx}: BQ_NO_MATCH — CLIP=${clipId} sim=${clipSim.toFixed(3)}`);
+              } else {
+                const top5ids = clipMatches.map((m: any) => m.itemNo);
+                const agreesTop1 = clipId === bqId;
+                const agreesTop5 = top5ids.includes(bqId);
+                if (agreesTop1) clipAcc.top1++;
+                if (agreesTop5) clipAcc.top5++;
+                const verdict = agreesTop1 ? '✓ TOP1' : agreesTop5 ? '~ TOP5' : '✗ MISS';
+                console.log(`[CLIP vs BQ] Piece ${idx}: ${verdict} — CLIP=${clipId}(sim=${clipSim.toFixed(3)}) BQ=${bqId}(score=${topItem.score.toFixed(2)})`);
+              }
+            }
+
+            const minConfidence = settings.minConfidence ?? 0;
+            if (minConfidence > 0 && topItem && topItem.score < minConfidence) {
+              console.log(`[Brickanalyzer] Piece ${idx} (${itemType}): ${topItem.id} score=${topItem.score.toFixed(2)} below threshold ${minConfidence.toFixed(2)} — discarded`);
+              const result = [{ partNo: '', partName: 'Unknown', colorName: '', itemType: 'PART' as const, confidence: 'low' as const, note: `Score ${topItem.score.toFixed(2)} below threshold`, clipMatches }];
+              bqDedupeCache.set(cropHash, result);
+              return result;
+            }
+
+            if (topItem) {
+              const pieceMs = Date.now() - pieceStart;
+              console.log(`[Brickanalyzer] Piece ${idx} (${itemType}): ${topItem.id} "${topItem.name}" score=${topItem.score.toFixed(2)} [fig=${figScore.toFixed(2)} part=${partScore.toFixed(2)}] — ${pieceMs}ms`);
+              const confidence = topItem.score >= 0.7 ? 'high' : topItem.score >= 0.4 ? 'medium' : 'low';
+              const result = [{
+                partNo: topItem.id || '',
+                partName: topItem.name || piece.roughName || 'Unknown',
+                colorName: itemType === 'MINIFIG' ? '' : (piece.colorName || ''),
+                itemType,
+                confidence,
+                bqScore: Math.round(topItem.score * 100) / 100,
+                note: piece.note || '',
+                detectedRgb: piece.detectedRgb ?? null,
+                cropIndex: idx,
+                bboxX: piece.x, bboxY: piece.y, bboxW: piece.w, bboxH: piece.h,
+                clipMatches,
+              }];
+              bqDedupeCache.set(cropHash, result);
+              return result;
+            }
             const pieceMs = Date.now() - pieceStart;
-            console.log(`[Brickanalyzer] Piece ${idx} (${itemType}): ${topItem.id} "${topItem.name}" score=${topItem.score.toFixed(2)} [fig=${figScore.toFixed(2)} part=${partScore.toFixed(2)}] — ${pieceMs}ms`);
-            const confidence = topItem.score >= 0.7 ? 'high' : topItem.score >= 0.4 ? 'medium' : 'low';
-            const result = [{
-              partNo: topItem.id || '',
-              partName: topItem.name || piece.roughName || 'Unknown',
-              colorName: itemType === 'MINIFIG' ? '' : (piece.colorName || ''),
-              itemType,
-              confidence,
-              bqScore: Math.round(topItem.score * 100) / 100,
-              note: piece.note || '',
-              detectedRgb: piece.detectedRgb ?? null,
-              cropIndex: idx,
-              bboxX: piece.x, bboxY: piece.y, bboxW: piece.w, bboxH: piece.h,
-              clipMatches,
-            }];
-            bqDedupeCache.set(cropHash, result);
-            return result;
-          }
-          const pieceMs = Date.now() - pieceStart;
-          console.log(`[Brickanalyzer] Piece ${idx} (${piece.roughName || 'unknown'}): both endpoints empty — ${pieceMs}ms`);
-          const emptyResult = [{ partNo: '', partName: piece.roughName || 'Unknown', colorName: piece.colorName || '', itemType: 'PART' as const, confidence: 'low', note: 'Brickognize: no match', cropIndex: idx, bboxX: piece.x, bboxY: piece.y, bboxW: piece.w, bboxH: piece.h, clipMatches }];
-          bqDedupeCache.set(cropHash, emptyResult);
-          return emptyResult;
+            console.log(`[Brickanalyzer] Piece ${idx} (${piece.roughName || 'unknown'}): both endpoints empty — ${pieceMs}ms`);
+            const emptyResult = [{ partNo: '', partName: piece.roughName || 'Unknown', colorName: piece.colorName || '', itemType: 'PART' as const, confidence: 'low', note: 'Brickognize: no match', cropIndex: idx, bboxX: piece.x, bboxY: piece.y, bboxW: piece.w, bboxH: piece.h, clipMatches }];
+            bqDedupeCache.set(cropHash, emptyResult);
+            return emptyResult;
 
-        } catch (err: any) {
-          const pieceMs = Date.now() - pieceStart;
-          console.warn(`[Brickanalyzer] Piece ${idx} failed (${pieceMs}ms):`, err.message);
-          return [{ partNo: '', partName: piece.roughName || 'Unknown', colorName: piece.colorName || '', confidence: 'low', note: 'identification error', cropIndex: idx, bboxX: piece.x, bboxY: piece.y, bboxW: piece.w, bboxH: piece.h }];
-        }
-      }))).flat();
+          } catch (err: any) {
+            const pieceMs = Date.now() - pieceStart;
+            console.warn(`[Brickanalyzer] Piece ${idx} failed (${pieceMs}ms):`, err.message);
+            return [{ partNo: '', partName: piece.roughName || 'Unknown', colorName: piece.colorName || '', confidence: 'low', note: 'identification error', cropIndex: idx, bboxX: piece.x, bboxY: piece.y, bboxW: piece.w, bboxH: piece.h }];
+          }
+        }));
+        identified.push(...batchResults.flat());
+      }
       console.log(`[Brickanalyzer] Step 2b complete: ${pieces.length} pieces in ${((Date.now() - phase2bStart) / 1000).toFixed(1)}s`);
       if (clipAcc.total > 0) {
         const evaluated = clipAcc.total - clipAcc.bothMiss;
