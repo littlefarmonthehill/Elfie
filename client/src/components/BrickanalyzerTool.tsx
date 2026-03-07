@@ -2137,13 +2137,9 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
           {/* ── Inline heatmap ───────────────────────────────────────────── */}
           {activeScan && (
             <div className="relative rounded-lg border border-gray-700 overflow-hidden bg-black" data-testid="inline-heatmap">
-              {/* Hint bar */}
-              <div className="flex items-center justify-between gap-2 px-3 py-1.5 border-b border-gray-800 flex-wrap">
-                <div className="flex items-center gap-2 text-xs text-gray-400">
-                  <Camera className="w-3.5 h-3.5 text-lego-yellow" />
-                  <span className="hidden sm:inline">Tap a box to see detail</span>
-                </div>
-                <div className="flex items-center gap-1.5 ml-auto">
+              {/* Filter bar */}
+              <div className="flex items-center justify-end gap-2 px-3 py-1.5 border-b border-gray-800 flex-wrap">
+                <div className="flex items-center gap-1.5">
                   {/* Condition toggle: New | Used */}
                   <div className="flex rounded overflow-hidden border border-gray-700 text-[10px] font-medium shrink-0">
                     {(['new', 'used'] as const).map(c => (
