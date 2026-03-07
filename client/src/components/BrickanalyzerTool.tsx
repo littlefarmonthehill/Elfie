@@ -47,6 +47,8 @@ interface ScanResult {
   marketSoldAvgUsed?: number | null;
   stockAvgPriceN?: number | null;
   stockAvgPriceU?: number | null;
+  stockMaxPriceN?: number | null;
+  stockMaxPriceU?: number | null;
   thumbnailUrl: string | null;
   bestPrice: number | null;
   categoryId?: number | null;
@@ -2243,9 +2245,15 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                     });
                     const heatVal = (r: ScanResult): number => {
                       if (heatmapSource === 'listed') {
-                        return heatmapCondition === 'new'
-                          ? (r.stockAvgPriceN ?? 0)
-                          : (r.stockAvgPriceU ?? 0);
+                        if (heatmapCondition === 'new') {
+                          return heatmapMetric === 'max'
+                            ? (r.stockMaxPriceN ?? 0)
+                            : (r.stockAvgPriceN ?? 0);
+                        } else {
+                          return heatmapMetric === 'max'
+                            ? (r.stockMaxPriceU ?? 0)
+                            : (r.stockAvgPriceU ?? 0);
+                        }
                       }
                       // sold
                       if (heatmapCondition === 'new') {
