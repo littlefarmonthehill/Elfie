@@ -8,7 +8,7 @@ import { startOrderSyncScheduler } from "./services/order-sync-scheduler";
 import { startEmbeddingWorker } from "./services/embedding-worker";
 import { startForumSyncScheduler } from "./services/bl-forum-scheduler";
 import { startService as startSegmentService, warmupClip } from "./services/segmentClient";
-import { pool, db } from "./db";
+import { pool, db, runMigrations } from "./db";
 import { blInventory, scanEmbeddings } from "@shared/schema";
 import { sql as drizzleSqlCount } from "drizzle-orm";
 
@@ -122,6 +122,7 @@ app.use((req, res, next) => {
 
 (async () => {
   try {
+    await runMigrations();
     const server = await registerRoutes(app);
 
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

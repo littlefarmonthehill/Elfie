@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated, isApproved } from "./auth";
+import { setupAuth, isAuthenticated, isApproved, isOrgOwner, getOrgId } from "./auth";
 import { syncBricklinkData, fetchPriceOMagicData, searchBricklinkCatalogItem, syncPriceOMagicCache, requestPomSyncStop, getPomFormulaConfig, calculateSuggestedPriceWithSupply, applyPomFloors, bricklinkCatalogRequest } from "./services/bricklink";
 import { getPomIsRunning, setPomIsRunning } from "./services/pom-scheduler";
 import { syncLock } from "./services/sync-lock";
@@ -10,7 +10,7 @@ import { syncBrickLinkToBrickOwl } from "./services/brickowl";
 import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBackup } from "./services/export";
 import { getProcessedPartImage, processImageFromUrl } from "./services/image-proxy";
 import { db } from "./db";
-import { users, orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, scanEmbeddings } from "@shared/schema";
+import { users, organizations, orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, scanEmbeddings } from "@shared/schema";
 import { eq, desc, sql, inArray, like, or, and, isNotNull, isNull, ne } from "drizzle-orm";
 import { z } from "zod";
 import multer from "multer";
@@ -264,6 +264,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error saving preferences:", error);
       res.status(500).json({ message: "Failed to save preferences" });
+    }
+  });
+
+  // ─── Org routes ────────────────────────────────────────────────────────────
+
+  // GET /api/org — current user's org details
+  app.get('/api/org', isAuthenticated, async (req: any, res) => {
+    try {
+      const orgId = getOrgId(req);
+      if (!orgId) return res.status(404).json({ message: "No organization" });
+      const org = await storage.getOrganization(orgId);
+      if (!org) return res.status(404).json({ message: "Organization not found" });
+      res.json(org);
+    } catch (error) {
+      console.error("Error fetching org:", error);
+      res.status(500).json({ message: "Failed to fetch organization" });
+    }
+  });
+
+  // PATCH /api/org — org owner can update org name
+  app.patch('/api/org', isAuthenticated, isOrgOwner, async (req: any, res) => {
+    try {
+      const orgId = getOrgId(req);
+      if (!orgId) return res.status(404).json({ message: "No organization" });
+      const { name } = req.body;
+      if (!name || typeof name !== 'string' || name.trim().length < 2) {
+        return res.status(400).json({ message: "Name must be at least 2 characters" });
+      }
+      const org = await storage.updateOrganization(orgId, { name: name.trim() });
+      res.json(org);
+    } catch (error) {
+      console.error("Error updating org:", error);
+      res.status(500).json({ message: "Failed to update organization" });
+    }
+  });
+
+  // ─── Admin routes ───────────────────────────────────────────────────────────
+
+  // GET /api/admin/organizations — list all orgs with user count
+  app.get('/api/admin/organizations', isApproved, async (req: any, res) => {
+    try {
+      const user = req.user as any;
+      if (user.role !== 'admin') return res.status(403).json({ message: "Admin access required" });
+      const orgs = await storage.getAllOrganizations();
+      // Attach user counts
+      const counts = await db
+        .select({ orgId: users.orgId, count: sql<number>`count(*)::int` })
+        .from(users)
+        .groupBy(users.orgId);
+      const countMap = new Map(counts.map(r => [r.orgId, r.count]));
+      const result = orgs.map(o => ({ ...o, userCount: countMap.get(o.id) ?? 0 }));
+      res.json(result);
+    } catch (error) {
+      console.error("Error listing orgs:", error);
+      res.status(500).json({ message: "Failed to list organizations" });
+    }
+  });
+
+  // PATCH /api/admin/organizations/:id — admin update plan or deactivate
+  app.patch('/api/admin/organizations/:id', isApproved, async (req: any, res) => {
+    try {
+      const user = req.user as any;
+      if (user.role !== 'admin') return res.status(403).json({ message: "Admin access required" });
+      const { id } = req.params;
+      const update: Record<string, any> = {};
+      if (req.body.plan && ['free', 'pro', 'enterprise'].includes(req.body.plan)) update.plan = req.body.plan;
+      if (typeof req.body.isActive === 'boolean') update.isActive = req.body.isActive;
+      if (req.body.name && typeof req.body.name === 'string') update.name = req.body.name.trim();
+      if (Object.keys(update).length === 0) return res.status(400).json({ message: "No valid fields to update" });
+      const org = await storage.updateOrganization(id, update);
+      if (!org) return res.status(404).json({ message: "Organization not found" });
+      res.json(org);
+    } catch (error) {
+      console.error("Error updating org:", error);
+      res.status(500).json({ message: "Failed to update organization" });
     }
   });
 

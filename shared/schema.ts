@@ -33,6 +33,9 @@ export const users = pgTable("users", {
   heatmapCondition: varchar("heatmap_condition").default('new'),   // 'new' | 'used'
   heatmapSource: varchar("heatmap_source").default('sold'),        // 'sold' | 'listed'
   heatmapMetric: varchar("heatmap_metric").default('max'),         // 'max' | 'avg'
+  // Multi-tenant org membership
+  orgId: varchar("org_id"),                                        // FK → organizations.id
+  orgRole: varchar("org_role").default("owner"),                   // 'owner' | 'admin' | 'member'
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({
@@ -42,6 +45,25 @@ export const insertUserSchema = createInsertSchema(users).omit({
 
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
+
+// ─── Organizations (multi-tenant SaaS) ───────────────────────────────────────
+export const organizations = pgTable("organizations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull(),
+  slug: varchar("slug").unique().notNull(),          // URL-safe lowercase identifier
+  plan: varchar("plan").notNull().default("free"),   // 'free' | 'pro' | 'enterprise'
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertOrganizationSchema = createInsertSchema(organizations).omit({
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertOrganization = z.infer<typeof insertOrganizationSchema>;
+export type Organization = typeof organizations.$inferSelect;
 
 // BrickLink Categories
 export const blCategories = pgTable("bl_categories", {
@@ -117,6 +139,7 @@ export const blInventory = pgTable("bl_inventory", {
   // Rebrickable image URLs (LDraw renders)
   imageUrl: text("image_url"),
   thumbnailUrl: text("thumbnail_url"),
+  orgId: varchar("org_id"),                          // FK → organizations.id
   syncedAt: timestamp("synced_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
@@ -213,6 +236,7 @@ export const orders = pgTable("orders", {
   paypalOrderId: text("paypal_order_id"),   // PayPal Order ID (from T0006 reference type ODR)
   paypalCaptureId: text("paypal_capture_id"), // PayPal Capture ID = T0006 transaction_id; used to query /v2/payments/captures/{id} and match webhooks
   isTest: boolean("is_test").default(false).notNull(), // True for test/return orders — excluded from all dashboards
+  orgId: varchar("org_id"),                            // FK → organizations.id
   syncedAt: timestamp("synced_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -321,6 +345,7 @@ export const shipments = pgTable("shipments", {
   purchasedAt: timestamp("purchased_at"),
   voidedAt: timestamp("voided_at"),
   deliveredAt: timestamp("delivered_at"),
+  orgId: varchar("org_id"),                            // FK → organizations.id
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   eodFormId: integer("eod_form_id"), // FK to eodForms.id — set after SCAN form creation
 });
@@ -340,6 +365,7 @@ export const eodForms = pgTable("eod_forms", {
   formUrl: text("form_url").notNull(),
   scanFormId: text("scan_form_id"), // EasyPost scan form object ID
   shipmentCount: integer("shipment_count").notNull(),
+  orgId: varchar("org_id"),                            // FK → organizations.id
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -375,6 +401,7 @@ export const shipmentsRelations = relations(shipments, ({ one }) => ({
 // App Settings
 export const appSettings = pgTable("app_settings", {
   id: varchar("id").primaryKey().default('default'),
+  orgId: varchar("org_id"),                            // FK → organizations.id
   aiEnabled: boolean("ai_enabled").default(true).notNull(),
   // OpenAI Configuration (used for both chat and embeddings)
   openaiApiKey: text("openai_api_key"),
@@ -470,6 +497,7 @@ export const conversations = pgTable("conversations", {
   role: text("role").notNull(), // 'user' or 'assistant'
   content: text("content").notNull(),
   context: text("context"), // dashboard context
+  orgId: varchar("org_id"),                            // FK → organizations.id
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -487,6 +515,7 @@ export const blApiCalls = pgTable("bl_api_calls", {
   endpoint: text("endpoint").notNull(),
   timestamp: timestamp("timestamp").defaultNow().notNull(),
   success: boolean("success").default(true).notNull(),
+  orgId: varchar("org_id"),                            // FK → organizations.id
 });
 
 export const insertBlApiCallSchema = createInsertSchema(blApiCalls).omit({
@@ -505,6 +534,7 @@ export const syncMetadata = pgTable("sync_metadata", {
   recordsAdded: integer("records_added").default(0),
   recordsUpdated: integer("records_updated").default(0),
   errorMessage: text("error_message"),
+  orgId: varchar("org_id"),                            // FK → organizations.id
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
@@ -530,6 +560,7 @@ export const syncIssues = pgTable("sync_issues", {
   resolvedAt: timestamp("resolved_at"),
   resolvedBy: text("resolved_by"), // User or 'system'
   metadata: text("metadata"), // JSON string for additional context
+  orgId: varchar("org_id"),                            // FK → organizations.id
 });
 
 export const insertSyncIssueSchema = createInsertSchema(syncIssues).omit({
@@ -763,7 +794,7 @@ export const embeddingJobs = pgTable("embedding_jobs", {
   errorMessage: text("error_message"),
   startedAt: timestamp("started_at"),
   completedAt: timestamp("completed_at"),
-  
+  orgId: varchar("org_id"),                            // FK → organizations.id
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
   statusIdx: index("embedding_jobs_status_idx").on(table.status),
@@ -783,6 +814,7 @@ export const whAisles = pgTable("wh_aisles", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
   name: text("name").notNull().unique(), // e.g., "Aisle 1", "A", etc.
   description: text("description"),
+  orgId: varchar("org_id"),                            // FK → organizations.id
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -802,6 +834,7 @@ export const whShelves = pgTable("wh_shelves", {
   aisleId: integer("aisle_id").references(() => whAisles.id, { onDelete: 'cascade' }),
   position: integer("position"), // Optional: ordering within aisle
   description: text("description"),
+  orgId: varchar("org_id"),                            // FK → organizations.id
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -821,6 +854,7 @@ export const whBins = pgTable("wh_bins", {
   shelfId: integer("shelf_id").references(() => whShelves.id, { onDelete: 'cascade' }),
   position: integer("position"), // Optional: ordering on shelf
   description: text("description"),
+  orgId: varchar("org_id"),                            // FK → organizations.id
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -1104,7 +1138,7 @@ export const blForumPosts = pgTable("bl_forum_posts", {
   // Scraping metadata
   lastScrapedAt: timestamp("last_scraped_at").defaultNow().notNull(),
   scrapedContent: boolean("scraped_content").default(false), // Whether full content was scraped
-  
+  orgId: varchar("org_id"),                            // FK → organizations.id
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
@@ -1131,6 +1165,7 @@ export const orderAdjustments = pgTable("order_adjustments", {
   externalTransactionId: text("external_transaction_id"), // PayPal/Stripe transaction ID
   reason: text("reason"), // e.g., "Customer return - item damaged"
   notes: text("notes"),
+  orgId: varchar("org_id"),                            // FK → organizations.id
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -1152,6 +1187,7 @@ export const brickanalyzerScans = pgTable("brickanalyzer_scans", {
   estimatedValue: decimal("estimated_value", { precision: 10, scale: 2 }),
   results: jsonb("results"), // Array of { partNo, partName, colorName, colorId, ourPrice, qty, confidence, note }
   errorMessage: text("error_message"),
+  orgId: varchar("org_id"),                            // FK → organizations.id
   createdAt: timestamp("created_at").defaultNow(),
   completedAt: timestamp("completed_at"),
   imgWidth: integer("img_width"),
@@ -1192,6 +1228,7 @@ export const appFeedback = pgTable("app_feedback", {
   acceptanceCriteria: text("acceptance_criteria"),
   status: text("status").notNull().default('new'), // 'new' | 'in_progress' | 'on_hold' | 'done'
   sourcePage: text("source_page"), // URL path where feedback was submitted
+  orgId: varchar("org_id"),                            // FK → organizations.id
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

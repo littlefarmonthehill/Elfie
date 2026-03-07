@@ -9,6 +9,22 @@ import bcrypt from "bcrypt";
 import { z } from "zod";
 import type { User } from "@shared/schema";
 
+// ─── Org Helpers ─────────────────────────────────────────────────────────────
+export function getOrgId(req: any): string | null {
+  return (req.user as any)?.orgId ?? null;
+}
+
+export const isOrgOwner: RequestHandler = (req, res, next) => {
+  const user = req.user as any;
+  if (!user?.orgId) return res.status(403).json({ message: "No organization" });
+  if (user.orgRole !== 'owner') return res.status(403).json({ message: "Owner access required" });
+  next();
+};
+
+function toSlug(input: string): string {
+  return input.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 28);
+}
+
 const SALT_ROUNDS = 10;
 const APPROVED_ADMINS = ["bhnorby@gmail.com", "caleblauritsen@gmail.com"];
 
@@ -127,6 +143,20 @@ export async function setupAuth(app: Express) {
       const isApproved = APPROVED_ADMINS.includes(email);
       const role = isApproved ? "admin" : "customer";
 
+      // Org assignment: admins join PlanetBrick default org; new users get their own org
+      let orgId: string;
+      let orgRole: string = 'owner';
+      if (isApproved) {
+        orgId = 'org_planetbrick';
+      } else {
+        const baseSlug = toSlug(firstName || email.split('@')[0] || 'store');
+        const suffix = Math.floor(1000 + Math.random() * 9000);
+        const slug = `${baseSlug}${suffix}`;
+        const orgName = firstName ? `${firstName}'s Store` : `${email.split('@')[0]}'s Store`;
+        const newOrg = await storage.createOrganization({ name: orgName, slug, plan: 'free' });
+        orgId = newOrg.id;
+      }
+
       // Create user
       const user = await storage.createUser({
         email,
@@ -135,6 +165,8 @@ export async function setupAuth(app: Express) {
         lastName,
         isApproved,
         role,
+        orgId,
+        orgRole,
       });
 
       // Regenerate session to prevent session fixation
