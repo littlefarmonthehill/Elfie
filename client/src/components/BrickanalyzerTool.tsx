@@ -701,6 +701,18 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
     refetchInterval: uiState === "processing" ? 3000 : false,
   });
 
+  // Lightweight progress polling — 1 s interval during processing only
+  const { data: scanProgress } = useQuery<{ step: string; detail: string; pct: number; active: boolean }>({
+    queryKey: ["/api/brickanalyzer/scan", scanId, "progress"],
+    queryFn: async () => {
+      const res = await fetch(`/api/brickanalyzer/scan/${scanId}/progress`, { credentials: "include" });
+      if (!res.ok) throw new Error("progress fetch failed");
+      return res.json();
+    },
+    enabled: !!scanId && uiState === "processing",
+    refetchInterval: uiState === "processing" ? 1000 : false,
+  });
+
   // BrickLink API call limit — poll every 5 min so banner stays current without hammering
   const { data: blRateLimit } = useQuery<{ allowed: boolean; blocked: boolean; callsLast24h: number; oldestCallTime: string | null; warning?: string }>({
     queryKey: ["/api/bricklink/rate-limit"],
@@ -1989,15 +2001,36 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
       {/* ── PROCESSING ──────────────────────────────────────────────────── */}
       {uiState === "processing" && (
         <div className="space-y-4">
-          <div className="flex flex-col items-center gap-3 py-8 sm:py-16">
+          <div className="flex flex-col items-center gap-3 py-6 sm:py-12">
             <div className="relative">
               <ScanSearch className="w-10 h-10 sm:w-24 sm:h-24 text-lego-yellow" />
               <Loader2 className="w-4 h-4 sm:w-10 sm:h-10 text-lego-yellow animate-spin absolute -bottom-1 -right-1" />
             </div>
-            <p className="text-sm sm:text-2xl font-medium text-gray-200">Analyzing your LEGO pieces...</p>
-            <p className="text-xs sm:text-2xl text-gray-500 text-center max-w-xs sm:max-w-xl">
-              AI is identifying each piece and looking up prices. This usually takes 30–90 seconds.
-            </p>
+            <p className="text-sm sm:text-2xl font-medium text-gray-200">Analyzing your LEGO pieces…</p>
+
+            {/* Progress bar */}
+            <div className="w-full max-w-sm sm:max-w-lg space-y-2 pt-1">
+              <div className="flex items-center justify-between">
+                <span className="text-xs sm:text-sm font-medium text-gray-300 truncate pr-2" data-testid="text-scan-progress-step">
+                  {scanProgress?.step ?? 'Starting…'}
+                </span>
+                <span className="text-xs sm:text-sm font-mono text-gray-500 shrink-0" data-testid="text-scan-progress-pct">
+                  {scanProgress?.pct ?? 0}%
+                </span>
+              </div>
+              <div className="h-2 w-full rounded-full bg-gray-700 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-lego-yellow transition-all duration-500 ease-out"
+                  style={{ width: `${scanProgress?.pct ?? 0}%` }}
+                  data-testid="bar-scan-progress"
+                />
+              </div>
+              {scanProgress?.detail && (
+                <p className="text-[11px] sm:text-xs text-gray-500 truncate" data-testid="text-scan-progress-detail">
+                  {scanProgress.detail}
+                </p>
+              )}
+            </div>
           </div>
 
           {!leftPage ? (
