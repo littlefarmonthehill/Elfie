@@ -3880,6 +3880,8 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         let thumbnailUrl: string | null = null;
         let marketSoldMaxNew: number | null = null;
         let marketSoldMaxUsed: number | null = null;
+        let marketSoldAvgNew: number | null = null;
+        let marketSoldAvgUsed: number | null = null;
         let colorId: number | null = null;
         let colorRgb: string | null = null;
         let activeInvRows: any[] = [];
@@ -4107,6 +4109,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             // A row with soldMaxPrice=null is a "nothing found" record — still try a fresh fetch.
             if (pgRowsNew.length > 0 && pgRowsNew[0].soldMaxPrice != null) {
               marketSoldMaxNew = Number(pgRowsNew[0].soldMaxPrice);
+              if (pgRowsNew[0].soldAvgPrice != null) marketSoldAvgNew = Number(pgRowsNew[0].soldAvgPrice);
               if (pgRowsNew[0].stockAvgPrice != null && Number(pgRowsNew[0].stockAvgPrice) > 0 && stockAvgPriceN === null) stockAvgPriceN = Number(pgRowsNew[0].stockAvgPrice);
               if (!thumbnailUrl) thumbnailUrl = pgRowsNew[0].thumbnailUrl || pgRowsNew[0].imageUrl || null;
               if (!piece.partName && pgRowsNew[0].itemName) piece.partName = pgRowsNew[0].itemName;
@@ -4125,6 +4128,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
                 );
                 if (pgData) {
                   marketSoldMaxNew = pgData.soldMaxPrice ? Number(pgData.soldMaxPrice) : null;
+                  if (pgData.soldAvgPrice != null) marketSoldAvgNew = Number(pgData.soldAvgPrice);
                   if (pgData.stockAvgPrice != null && Number(pgData.stockAvgPrice) > 0 && stockAvgPriceN === null) stockAvgPriceN = Number(pgData.stockAvgPrice);
                   if (!thumbnailUrl) thumbnailUrl = pgData.thumbnailUrl || pgData.imageUrl || null;
                   if (!piece.partName && pgData.itemName) piece.partName = pgData.itemName;
@@ -4135,6 +4139,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             const pgRowsUsed = await getPgRows('U');
             if (pgRowsUsed.length > 0 && pgRowsUsed[0].soldMaxPrice != null) {
               marketSoldMaxUsed = Number(pgRowsUsed[0].soldMaxPrice);
+              if (pgRowsUsed[0].soldAvgPrice != null) marketSoldAvgUsed = Number(pgRowsUsed[0].soldAvgPrice);
             } else if (!calibration) {
               console.log(`[Brickanalyzer] Fetching live POM (used) for ${piece.partNo} color ${colorId ?? 'any'} type ${blItemType}`);
               const pgDataUsed = await fetchPriceOMagicData(
@@ -4142,6 +4147,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
               );
               if (pgDataUsed) {
                 marketSoldMaxUsed = pgDataUsed.soldMaxPrice ? Number(pgDataUsed.soldMaxPrice) : null;
+                if (pgDataUsed.soldAvgPrice != null) marketSoldAvgUsed = Number(pgDataUsed.soldAvgPrice);
                 if (!thumbnailUrl) thumbnailUrl = pgDataUsed.thumbnailUrl || pgDataUsed.imageUrl || null;
                 if (!piece.partName && pgDataUsed.itemName) piece.partName = pgDataUsed.itemName;
               }
@@ -4169,6 +4175,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
               const fbN = await fetchPriceOMagicData(piece.partNo, blItemType as any, correctColorId, 'N', premiumPct, pomConfig, false, localPomItemData, blApiCallsCounter);
               if (fbN) {
                 marketSoldMaxNew = fbN.soldMaxPrice ? Number(fbN.soldMaxPrice) : null;
+                if (fbN.soldAvgPrice != null) marketSoldAvgNew = Number(fbN.soldAvgPrice);
                 if (fbN.stockAvgPrice != null && stockAvgPriceN === null) stockAvgPriceN = Number(fbN.stockAvgPrice);
                 if (!thumbnailUrl) thumbnailUrl = fbN.thumbnailUrl || fbN.imageUrl || null;
                 if (!piece.partName && fbN.itemName) piece.partName = fbN.itemName;
@@ -4176,6 +4183,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
               const fbU = await fetchPriceOMagicData(piece.partNo, blItemType as any, correctColorId, 'U', premiumPct, pomConfig, false, localPomItemData, blApiCallsCounter);
               if (fbU) {
                 marketSoldMaxUsed = fbU.soldMaxPrice ? Number(fbU.soldMaxPrice) : null;
+                if (fbU.soldAvgPrice != null) marketSoldAvgUsed = Number(fbU.soldAvgPrice);
               }
               // Only adopt the correct color if it returned actual pricing data
               if (marketSoldMaxNew !== null || marketSoldMaxUsed !== null || stockAvgPriceN !== null) {
@@ -4347,6 +4355,8 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           inventoryId,
           marketSoldMaxNew,
           marketSoldMaxUsed,
+          marketSoldAvgNew,
+          marketSoldAvgUsed,
           stockAvgPriceN,
           colorRgb,
           thumbnailUrl,
