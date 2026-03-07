@@ -4680,6 +4680,10 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
               itemName: priceGuideCache.itemName,
             };
 
+            // Only treat cache as a hit when data is < 24 h old — stale entries fall through
+            // to fetchPriceOMagicData which makes a fresh BL API call and re-saves.
+            const pgCacheHorizon = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
             const getPgRows = async (cond: 'N' | 'U') => {
               let rows = await db.select(pgCols)
                 .from(priceGuideCache)
@@ -4687,7 +4691,8 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
                   sql`upper(${priceGuideCache.itemNo}) = upper(${piece.partNo})`,
                   eq(priceGuideCache.itemType, blItemType),
                   blItemType === 'PART' && colorId ? eq(priceGuideCache.colorId, colorId) : sql`1=1`,
-                  eq(priceGuideCache.newOrUsed, cond)
+                  eq(priceGuideCache.newOrUsed, cond),
+                  gte(priceGuideCache.fetchedAt, pgCacheHorizon)
                 ))
                 .limit(1);
               if (rows.length === 0) {
@@ -4696,7 +4701,8 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
                   .where(and(
                     sql`upper(${priceGuideCache.itemNo}) = upper(${piece.partNo})`,
                     eq(priceGuideCache.itemType, blItemType),
-                    eq(priceGuideCache.newOrUsed, cond)
+                    eq(priceGuideCache.newOrUsed, cond),
+                    gte(priceGuideCache.fetchedAt, pgCacheHorizon)
                   ))
                   .limit(1);
               }
