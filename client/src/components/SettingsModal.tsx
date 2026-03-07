@@ -1551,11 +1551,12 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
             {/* Platform Connections */}
             {activeSection === 'platforms' && (
-              <div className="space-y-4 min-h-[400px]">
-                <h3 className="text-sm font-medium text-gray-300 mb-3">API Credentials</h3>
-                <p className="text-xs text-gray-400 mb-4">Configure your platform API keys and credentials</p>
-                
-                <Accordion type="single" collapsible className="space-y-2">
+              <div className="space-y-6 min-h-[400px]">
+
+                {/* Selling Channels */}
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-2">Selling Channels</p>
+                  <Accordion type="single" collapsible className="space-y-2">
                   <AccordionItem value="bricklink" className="border border-gray-700 rounded-lg px-4">
                     <AccordionTrigger className="text-sm font-medium text-gray-300 hover:no-underline">
                       BrickLink
@@ -1656,7 +1657,13 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       </div>
                     </AccordionContent>
                   </AccordionItem>
+                  </Accordion>
+                </div>
 
+                {/* Payments */}
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-2">Payments</p>
+                  <Accordion type="single" collapsible className="space-y-2">
                   <AccordionItem value="paypal" className="border border-gray-700 rounded-lg px-4">
                     <AccordionTrigger className="text-sm font-medium text-gray-300 hover:no-underline">
                       PayPal
@@ -1735,7 +1742,13 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       </div>
                     </AccordionContent>
                   </AccordionItem>
+                  </Accordion>
+                </div>
 
+                {/* Shipping */}
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-2">Shipping</p>
+                  <Accordion type="single" collapsible className="space-y-2">
                   <AccordionItem value="easypost" className="border border-gray-700 rounded-lg px-4">
                     <AccordionTrigger className="text-sm font-medium text-gray-300 hover:no-underline">
                       EasyPost
@@ -1905,7 +1918,8 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       </div>
                     </AccordionContent>
                   </AccordionItem>
-                </Accordion>
+                  </Accordion>
+                </div>
               </div>
             )}
 
