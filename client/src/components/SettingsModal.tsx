@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { AppSettings, User, Organization, OrgIntegration } from "@shared/schema";
 import { APP_VERSION, APP_NAME } from "@shared/version";
-import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Info, Layers, Play, Loader2, ChevronDown, ChevronRight, ChevronLeft, BarChart2, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock, LogOut, CreditCard, Share2, PlusSquare } from "lucide-react";
+import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Info, Layers, Play, Loader2, ChevronDown, ChevronRight, ChevronLeft, BarChart2, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock, LogOut, CreditCard, Share2, PlusSquare, ShieldCheck } from "lucide-react";
 import { useInstallPrompt } from "@/hooks/use-install-prompt";
 import { PomCategoryTiers } from "@/components/PomCategoryTiers";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -22,6 +22,7 @@ import { EmbeddingsManager } from "@/components/EmbeddingsManager";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { Link } from "wouter";
 import { TIER_CONFIG, getTierConfig, getEffectiveLimits, checkLimit, formatPrice, type PlanType } from "@shared/tierConfig";
 
 interface SettingsModalProps {
@@ -1172,7 +1173,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     }
   };
 
-  const { isAdmin, user } = useAuth();
+  const { isAdmin, superAdmin, user } = useAuth();
 
   const logoutMutation = useMutation({
     mutationFn: () => apiRequest('POST', '/api/logout'),
@@ -1360,6 +1361,21 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       <ChevronRight className="h-4 w-4 text-gray-600 flex-shrink-0" />
                     </button>
                   ))}
+                  {superAdmin && (
+                    <>
+                      <div className="my-2 mx-4 border-t border-yellow-500/20" />
+                      <Link href="/platform-admin">
+                        <button
+                          className="w-full flex items-center gap-3 px-4 py-3 rounded-md text-sm text-yellow-400 hover:text-yellow-300 hover:bg-yellow-500/10 transition-colors group"
+                          data-testid="link-platform-admin-settings"
+                        >
+                          <ShieldCheck className="h-4 w-4 flex-shrink-0" />
+                          <span className="flex-1 text-left">Platform Admin</span>
+                          <ChevronRight className="h-4 w-4 text-yellow-600 flex-shrink-0" />
+                        </button>
+                      </Link>
+                    </>
+                  )}
                   <div className="my-2 mx-4 border-t border-gray-700/60" />
                   <button
                     onClick={() => logoutMutation.mutate()}
