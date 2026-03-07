@@ -4691,7 +4691,47 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       if (!scan) return res.status(404).json({ error: "Scan not found" });
       const crops = brickanalyzerCropCache.get(scan.id);
       const meta  = brickanalyzerImageMeta.get(scan.id);
-      res.json({ ...scan, cropCount: crops ? crops.filter(Boolean).length : 0, imgWidth: meta?.width ?? scan.imgWidth ?? null, imgHeight: meta?.height ?? scan.imgHeight ?? null });
+
+      // Hydrate any results missing stockAvgPriceN / stockAvgPriceU from the cache
+      // (fields added after older scans were stored)
+      let results = scan.results as any[] | null;
+      if (Array.isArray(results)) {
+        const needsHydration = results.filter(r =>
+          r.partNo && (r.stockAvgPriceN === undefined || r.stockAvgPriceU === undefined)
+        );
+        if (needsHydration.length > 0) {
+          const partNos = [...new Set(needsHydration.map((r: any) => r.partNo as string))];
+          const cacheRows = await db.select({
+            itemNo: priceGuideCache.itemNo,
+            itemType: priceGuideCache.itemType,
+            colorId: priceGuideCache.colorId,
+            newOrUsed: priceGuideCache.newOrUsed,
+            stockAvgPrice: priceGuideCache.stockAvgPrice,
+          })
+          .from(priceGuideCache)
+          .where(sql`upper(${priceGuideCache.itemNo}) IN (${sql.join(partNos.map(p => sql`upper(${p})`), sql`, `)})`);
+
+          const cacheMap = new Map<string, number | null>();
+          for (const row of cacheRows) {
+            const key = `${row.itemNo?.toUpperCase()}|${row.colorId ?? 'null'}|${row.newOrUsed}`;
+            const val = row.stockAvgPrice != null && Number(row.stockAvgPrice) > 0 ? Number(row.stockAvgPrice) : null;
+            cacheMap.set(key, val);
+          }
+
+          results = results.map((r: any) => {
+            if (!r.partNo) return r;
+            const colorKey = r.colorId != null ? String(r.colorId) : 'null';
+            const keyN = `${r.partNo.toUpperCase()}|${colorKey}|N`;
+            const keyU = `${r.partNo.toUpperCase()}|${colorKey}|U`;
+            const updated = { ...r };
+            if (r.stockAvgPriceN === undefined) updated.stockAvgPriceN = cacheMap.get(keyN) ?? null;
+            if (r.stockAvgPriceU === undefined) updated.stockAvgPriceU = cacheMap.get(keyU) ?? null;
+            return updated;
+          });
+        }
+      }
+
+      res.json({ ...scan, results, cropCount: crops ? crops.filter(Boolean).length : 0, imgWidth: meta?.width ?? scan.imgWidth ?? null, imgHeight: meta?.height ?? scan.imgHeight ?? null });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
