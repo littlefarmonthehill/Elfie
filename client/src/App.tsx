@@ -20,22 +20,7 @@ function Router() {
       <Route path="/signup" component={Signup} />
 
       <Route path="/admin">
-        {isLoading ? (
-          <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-lego-red/20">
-            <div className="flex flex-col items-center gap-4">
-              <div className="h-12 w-12 animate-spin rounded-full border-4 border-lego-blue border-t-transparent" />
-              <p className="text-sm text-gray-400">Loading...</p>
-            </div>
-          </div>
-        ) : !isAuthenticated ? (
-          <Redirect to="/login" />
-        ) : !isApproved ? (
-          <Redirect to="/" />
-        ) : isAdmin ? (
-          <Home />
-        ) : (
-          <Redirect to="/login" />
-        )}
+        <Redirect to="/" />
       </Route>
 
       <Route path="/">
@@ -51,7 +36,7 @@ function Router() {
         ) : !isApproved ? (
           <PendingApproval />
         ) : isAdmin ? (
-          <Redirect to="/admin" />
+          <Home />
         ) : (
           <Redirect to="/login" />
         )}
