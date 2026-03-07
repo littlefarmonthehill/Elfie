@@ -366,25 +366,30 @@ function UserManagementSection() {
 
   return (
     <div className="space-y-5 min-h-[400px]">
-      {/* Role legend */}
-      <div>
-        <h3 className="text-sm font-medium text-gray-300 mb-1">Roles</h3>
-        <div className="grid grid-cols-3 gap-2">
-          {Object.entries(ROLE_META).map(([key, meta]) => (
-            <div key={key} className="bg-gray-800/50 border border-gray-700 rounded-md p-2.5">
-              <p className={`text-xs font-medium mb-0.5 ${meta.color}`}>{meta.label}</p>
-              <p className="text-[10px] text-gray-500 leading-snug">{meta.description}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <Separator className="bg-gray-700" />
-
       {/* Team members */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-medium text-gray-300">Team Members</h3>
+          <div className="flex items-center gap-1.5">
+            <h3 className="text-sm font-medium text-gray-300">Team Members</h3>
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className="text-gray-500 hover:text-gray-300 transition-colors" data-testid="button-roles-info">
+                  <Info className="h-3.5 w-3.5" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-72 bg-gray-900 border-gray-700 p-3" side="right">
+                <p className="text-xs font-medium text-gray-300 mb-2">Role Permissions</p>
+                <div className="space-y-2">
+                  {Object.entries(ROLE_META).map(([key, meta]) => (
+                    <div key={key} className="flex items-start gap-2">
+                      <span className={`text-xs font-medium w-16 shrink-0 ${meta.color}`}>{meta.label}</span>
+                      <span className="text-[11px] text-gray-500 leading-snug">{meta.description}</span>
+                    </div>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
           <span className="text-xs text-gray-500">{(users ?? []).length} member{(users ?? []).length !== 1 ? 's' : ''}</span>
         </div>
 
