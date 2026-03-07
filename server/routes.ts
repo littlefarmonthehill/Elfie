@@ -4424,7 +4424,6 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
 
       // Load POM config once
       const pomConfig = await getPomFormulaConfig();
-      const orgId = reqOrgId(req);
       const pomSettings = await getOrgSettings(orgId);
       const premiumPct = pomSettings?.pomBasePremium ?? 15;
 
