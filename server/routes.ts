@@ -4480,6 +4480,13 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         let stockMaxPriceN: number | null = null;
         let stockMaxPriceU: number | null = null;
 
+        let localPomItemData: { name: string | null; imageUrl: string | null; thumbnailUrl: string | null; categoryId: number | null } = {
+          name: piece.partName || null,
+          imageUrl: null,
+          thumbnailUrl: null,
+          categoryId: null,
+        };
+
         if (piece.partNo) {
           // 1. Look up our inventory listings — all conditions for this partNo
           const invRows = await db.select({
@@ -4654,11 +4661,11 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           // Build localItemData from what we already know — avoids the item-details BL API call
           // inside fetchPriceOMagicData (saves 1 call per piece on cache misses).
           // Brickognize already gave us the name; blInventory already has thumbnail/image URLs.
-          const localPomItemData = {
+          localPomItemData = {
             name: piece.partName || activeInvRows[0]?.itemName || null,
             imageUrl: activeInvRows[0]?.imageUrl || null,
             thumbnailUrl: activeInvRows[0]?.thumbnailUrl || null,
-            categoryId: null as number | null,
+            categoryId: null,
           };
 
           // 3. Price guide cache — query separately for new and used
