@@ -1,7 +1,7 @@
 import { Settings, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import elfieRobot from "@assets/PlanetBrick_good_robot_1760672362080.png";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -12,6 +12,10 @@ interface HeaderProps {
 
 export default function Header({ onSettingsClick, onElfieClick }: HeaderProps) {
   const { toast } = useToast();
+
+  const { data: org } = useQuery<any>({
+    queryKey: ['/api/org'],
+  });
 
   // Logout mutation
   const logoutMutation = useMutation({
@@ -58,7 +62,7 @@ export default function Header({ onSettingsClick, onElfieClick }: HeaderProps) {
 
         {/* App Name - Centered */}
         <h1 className="absolute left-1/2 transform -translate-x-1/2 text-base md:text-2xl lg:text-3xl font-bold text-foreground">
-          PlanetBrick
+          {org?.name ?? 'PlanetBrick'}
         </h1>
 
         {/* Settings & Logout - Right */}
