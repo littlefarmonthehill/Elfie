@@ -3,6 +3,13 @@ import autoTable from 'jspdf-autotable';
 import planetLogo from "@assets/PlanetBrick_dotcom_with_planet_and_robot_400_1760672362080.png";
 import { cleanItemName } from "@/lib/item-utils";
 
+// ─── Org branding config ──────────────────────────────────────────────────────
+export interface OrgBranding {
+  name?: string | null;
+  address?: string | null;
+  logoUrl?: string | null;
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type PackingSlipOrder = {
@@ -51,16 +58,23 @@ function channelLabel(order: PackingSlipOrder): string {
   return order.marketplace === 'BrickOwl' ? 'BrickOwl' : 'BrickLink';
 }
 
-async function loadLogoInfo(): Promise<{ dataUrl: string; w: number; h: number } | null> {
+async function loadLogoInfo(orgLogoUrl?: string | null): Promise<{ dataUrl: string; w: number; h: number } | null> {
   try {
-    const response = await fetch(planetLogo);
-    const blob = await response.blob();
-    const dataUrl = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload  = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
+    let dataUrl: string;
+    if (orgLogoUrl) {
+      // org logo is already a base64 data URL — use it directly
+      dataUrl = orgLogoUrl;
+    } else {
+      // fall back to the bundled asset
+      const response = await fetch(planetLogo);
+      const blob = await response.blob();
+      dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload  = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    }
     const img = new Image();
     await new Promise<void>((resolve) => { img.onload = () => resolve(); img.src = dataUrl; });
     return { dataUrl, w: img.naturalWidth, h: img.naturalHeight };
@@ -71,29 +85,7 @@ async function loadLogoInfo(): Promise<{ dataUrl: string; w: number; h: number }
 
 // ─── Main export ─────────────────────────────────────────────────────────────
 
-export async function printPackingSlips(orders: PackingSlipOrder[]) {
-  const doc  = new jsPDF({ unit: 'mm', format: 'letter', orientation: 'portrait' });
-  const logo = await loadLogoInfo();
-  const logoW = logo ? LOGO_H * (logo.w / logo.h) : 0;
-
-  orders.forEach((order, orderIdx) => {
-    if (orderIdx > 0) doc.addPage();
-
-    // Record which doc page this order starts on so we can stamp accurate
-    // "Page X of Y" footers after autotable finishes rendering.
-    const orderStartPage = doc.internal.getNumberOfPages();
-
-    let y = MARGIN;
-
-    // ── PACKING SLIP label bar ───────────────────────────────────────────────
-    const BAR_H = 7;
-    doc.setFillColor(119, 119, 119);
-    doc.rect(MARGIN, y, CONTENT_W, BAR_H, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(9.5);
-    doc.setFont('helvetica', 'bold');
-    doc.text('PACKING SLIP', MARGIN + 3, y + BAR_H - 1.8);
-    y += BAR_H + 4;
+;
 
     // ── Company info (left) + logo (right) ──────────────────────────────────
     const headerTopY = y;
