@@ -294,7 +294,7 @@ const ROLE_META: Record<string, { label: string; description: string; color: str
     color: 'text-purple-400',
   },
   employee: {
-    label: 'Member',
+    label: 'Employee',
     description: 'Standard access — use all core features, cannot manage users or settings',
     color: 'text-blue-400',
   },
@@ -455,7 +455,7 @@ function UserManagementSection() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="employee">Member</SelectItem>
+                      <SelectItem value="employee">Employee</SelectItem>
                       <SelectItem value="customer">Viewer</SelectItem>
                     </SelectContent>
                   </Select>
