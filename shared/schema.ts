@@ -29,6 +29,10 @@ export const users = pgTable("users", {
   role: varchar("role").notNull().default("customer"), // 'customer', 'employee', or 'admin'
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+  // BrickNSpotter heatmap preferences
+  heatmapCondition: varchar("heatmap_condition").default('new'),   // 'new' | 'used'
+  heatmapSource: varchar("heatmap_source").default('sold'),        // 'sold' | 'listed'
+  heatmapMetric: varchar("heatmap_metric").default('max'),         // 'max' | 'avg'
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({

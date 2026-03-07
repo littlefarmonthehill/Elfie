@@ -1093,10 +1093,39 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
   const [expandedCardTab, setExpandedCardTab] = useState<Record<string, 'matches' | 'inventory'>>({});
   // Focused crop index for heatmap dialog — highlights one box when opening from card header
   const [heatmapCropFocus, setHeatmapCropFocus] = useState<number | null>(null);
-  // Heatmap price toggles
+  // Heatmap price toggles — defaults overridden by saved user preferences once loaded
   const [heatmapCondition, setHeatmapCondition] = useState<'new' | 'used'>('new');
   const [heatmapSource, setHeatmapSource] = useState<'sold' | 'listed'>('sold');
   const [heatmapMetric, setHeatmapMetric] = useState<'max' | 'avg'>('max');
+  const heatmapPrefsInitialized = useRef(false);
+  const heatmapSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Load saved preferences from user profile
+  const { data: authUser } = useQuery<{ heatmapCondition?: string; heatmapSource?: string; heatmapMetric?: string }>({
+    queryKey: ['/api/auth/user'],
+    staleTime: Infinity,
+  });
+  useEffect(() => {
+    if (!authUser || heatmapPrefsInitialized.current) return;
+    heatmapPrefsInitialized.current = true;
+    if (authUser.heatmapCondition === 'new' || authUser.heatmapCondition === 'used') setHeatmapCondition(authUser.heatmapCondition);
+    if (authUser.heatmapSource === 'sold' || authUser.heatmapSource === 'listed') setHeatmapSource(authUser.heatmapSource);
+    if (authUser.heatmapMetric === 'max' || authUser.heatmapMetric === 'avg') setHeatmapMetric(authUser.heatmapMetric);
+  }, [authUser]);
+
+  // Auto-save heatmap preferences (debounced 800ms)
+  useEffect(() => {
+    if (!heatmapPrefsInitialized.current) return;
+    if (heatmapSaveTimer.current) clearTimeout(heatmapSaveTimer.current);
+    heatmapSaveTimer.current = setTimeout(() => {
+      fetch('/api/auth/preferences', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ heatmapCondition, heatmapSource, heatmapMetric }),
+      }).catch(() => {});
+    }, 800);
+    return () => { if (heatmapSaveTimer.current) clearTimeout(heatmapSaveTimer.current); };
+  }, [heatmapCondition, heatmapSource, heatmapMetric]);
   // Focused detail view — when set, shows crop image + single card instead of full list
   const [focusedDetailCropIndex, setFocusedDetailCropIndex] = useState<number | null>(null);
   // POM price popup target

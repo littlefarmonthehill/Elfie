@@ -10,7 +10,7 @@ import { syncBrickLinkToBrickOwl } from "./services/brickowl";
 import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBackup } from "./services/export";
 import { getProcessedPartImage, processImageFromUrl } from "./services/image-proxy";
 import { db } from "./db";
-import { orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, scanEmbeddings } from "@shared/schema";
+import { users, orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, scanEmbeddings } from "@shared/schema";
 import { eq, desc, sql, inArray, like, or, and, isNotNull, isNull, ne } from "drizzle-orm";
 import { z } from "zod";
 import multer from "multer";
@@ -245,6 +245,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  // PATCH /api/auth/preferences — save per-user UI preferences
+  app.patch('/api/auth/preferences', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+      const { heatmapCondition, heatmapSource, heatmapMetric } = req.body;
+      const update: Record<string, string> = {};
+      if (heatmapCondition === 'new' || heatmapCondition === 'used') update.heatmapCondition = heatmapCondition;
+      if (heatmapSource === 'sold' || heatmapSource === 'listed') update.heatmapSource = heatmapSource;
+      if (heatmapMetric === 'max' || heatmapMetric === 'avg') update.heatmapMetric = heatmapMetric;
+      if (Object.keys(update).length === 0) return res.json({ success: true });
+      await db.update(users).set({ ...update, updatedAt: new Date() }).where(eq(users.id, userId));
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error saving preferences:", error);
+      res.status(500).json({ message: "Failed to save preferences" });
     }
   });
 
