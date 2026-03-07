@@ -4668,104 +4668,44 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             categoryId: null,
           };
 
-          // 3. Price guide cache — query separately for new and used
-          try {
-            const pgCols = {
-              soldMaxPrice: priceGuideCache.soldMaxPrice,
-              soldAvgPrice: priceGuideCache.soldAvgPrice,
-              stockAvgPrice: priceGuideCache.stockAvgPrice,
-              stockMaxPrice: priceGuideCache.stockMaxPrice,
-              thumbnailUrl: priceGuideCache.thumbnailUrl,
-              imageUrl: priceGuideCache.imageUrl,
-              itemName: priceGuideCache.itemName,
-            };
-
-            // Only treat cache as a hit when data is < 24 h old — stale entries fall through
-            // to fetchPriceOMagicData which makes a fresh BL API call and re-saves.
-            const pgCacheHorizon = new Date(Date.now() - 24 * 60 * 60 * 1000);
-
-            const getPgRows = async (cond: 'N' | 'U') => {
-              let rows = await db.select(pgCols)
-                .from(priceGuideCache)
-                .where(and(
-                  sql`upper(${priceGuideCache.itemNo}) = upper(${piece.partNo})`,
-                  eq(priceGuideCache.itemType, blItemType),
-                  blItemType === 'PART' && colorId ? eq(priceGuideCache.colorId, colorId) : sql`1=1`,
-                  eq(priceGuideCache.newOrUsed, cond),
-                  gte(priceGuideCache.fetchedAt, pgCacheHorizon)
-                ))
-                .limit(1);
-              if (rows.length === 0) {
-                rows = await db.select(pgCols)
-                  .from(priceGuideCache)
-                  .where(and(
-                    sql`upper(${priceGuideCache.itemNo}) = upper(${piece.partNo})`,
-                    eq(priceGuideCache.itemType, blItemType),
-                    eq(priceGuideCache.newOrUsed, cond),
-                    gte(priceGuideCache.fetchedAt, pgCacheHorizon)
-                  ))
-                  .limit(1);
-              }
-              return rows;
-            };
-
-            const pgRowsNew = await getPgRows('N');
-            // Only treat cache as a hit when it has actual price data.
-            // A row with soldMaxPrice=null is a "nothing found" record — still try a fresh fetch.
-            if (pgRowsNew.length > 0 && pgRowsNew[0].soldMaxPrice != null) {
-              marketSoldMaxNew = Number(pgRowsNew[0].soldMaxPrice) || null;
-              if (pgRowsNew[0].soldAvgPrice != null) marketSoldAvgNew = Number(pgRowsNew[0].soldAvgPrice) || null;
-              if (pgRowsNew[0].stockAvgPrice != null && Number(pgRowsNew[0].stockAvgPrice) > 0 && stockAvgPriceN === null) stockAvgPriceN = Number(pgRowsNew[0].stockAvgPrice);
-              if (pgRowsNew[0].stockMaxPrice != null && Number(pgRowsNew[0].stockMaxPrice) > 0 && stockMaxPriceN === null) stockMaxPriceN = Number(pgRowsNew[0].stockMaxPrice);
-              if (!thumbnailUrl) thumbnailUrl = pgRowsNew[0].thumbnailUrl || pgRowsNew[0].imageUrl || null;
-              if (!piece.partName && pgRowsNew[0].itemName) piece.partName = pgRowsNew[0].itemName;
-            } else {
-              // Pull name/thumb/stock from cache even if sold price is null (avoids missing part names).
-              // Guard stockAvgPrice > 0: BL returns "0.0000" when nobody is selling — treat that as null.
-              if (pgRowsNew.length > 0) {
-                if (pgRowsNew[0].stockAvgPrice != null && Number(pgRowsNew[0].stockAvgPrice) > 0 && stockAvgPriceN === null) stockAvgPriceN = Number(pgRowsNew[0].stockAvgPrice);
-                if (pgRowsNew[0].stockMaxPrice != null && Number(pgRowsNew[0].stockMaxPrice) > 0 && stockMaxPriceN === null) stockMaxPriceN = Number(pgRowsNew[0].stockMaxPrice);
-                if (!thumbnailUrl) thumbnailUrl = pgRowsNew[0].thumbnailUrl || pgRowsNew[0].imageUrl || null;
-                if (!piece.partName && pgRowsNew[0].itemName) piece.partName = pgRowsNew[0].itemName;
-              }
-              if (!calibration) {
-                console.log(`[Brickanalyzer] Fetching live POM (new) for ${piece.partNo} color ${colorId ?? 'any'} type ${blItemType}`);
-                const pgData = await fetchPriceOMagicData(
-                  piece.partNo, blItemType as any, blItemType === 'PART' ? (colorId ?? undefined) : undefined, 'N', premiumPct, pomConfig, false, localPomItemData, blApiCallsCounter
-                );
-                if (pgData) {
-                  marketSoldMaxNew = pgData.soldMaxPrice ? Number(pgData.soldMaxPrice) : null;
-                  if (pgData.soldAvgPrice != null) marketSoldAvgNew = Number(pgData.soldAvgPrice) || null;
-                  if (pgData.stockAvgPrice != null && Number(pgData.stockAvgPrice) > 0 && stockAvgPriceN === null) stockAvgPriceN = Number(pgData.stockAvgPrice);
-                  if (pgData.stockMaxPrice != null && Number(pgData.stockMaxPrice) > 0 && stockMaxPriceN === null) stockMaxPriceN = Number(pgData.stockMaxPrice);
-                  if (!thumbnailUrl) thumbnailUrl = pgData.thumbnailUrl || pgData.imageUrl || null;
-                  if (!piece.partName && pgData.itemName) piece.partName = pgData.itemName;
-                }
-              }
-            }
-
-            const pgRowsUsed = await getPgRows('U');
-            if (pgRowsUsed.length > 0 && pgRowsUsed[0].soldMaxPrice != null) {
-              marketSoldMaxUsed = Number(pgRowsUsed[0].soldMaxPrice) || null;
-              if (pgRowsUsed[0].soldAvgPrice != null) marketSoldAvgUsed = Number(pgRowsUsed[0].soldAvgPrice) || null;
-              if (pgRowsUsed[0].stockAvgPrice != null && Number(pgRowsUsed[0].stockAvgPrice) > 0) stockAvgPriceU = Number(pgRowsUsed[0].stockAvgPrice);
-              if (pgRowsUsed[0].stockMaxPrice != null && Number(pgRowsUsed[0].stockMaxPrice) > 0) stockMaxPriceU = Number(pgRowsUsed[0].stockMaxPrice);
-            } else if (!calibration) {
-              console.log(`[Brickanalyzer] Fetching live POM (used) for ${piece.partNo} color ${colorId ?? 'any'} type ${blItemType}`);
-              const pgDataUsed = await fetchPriceOMagicData(
-                piece.partNo, blItemType as any, blItemType === 'PART' ? (colorId ?? undefined) : undefined, 'U', premiumPct, pomConfig, false, localPomItemData, blApiCallsCounter
+          // 3. BrickLink price guide — always real-time for each identified piece (no cache bypass).
+          // forceRefresh=true skips the POM 6-month cache so we get live stock + sold data on every scan.
+          // Results are written to priceGuideCache + partPriceHistory inside fetchPriceOMagicData.
+          if (!calibration) {
+            try {
+              console.log(`[Brickanalyzer] Live BL fetch (new) for ${piece.partNo} color ${colorId ?? 'any'} type ${blItemType}`);
+              const pgDataN = await fetchPriceOMagicData(
+                piece.partNo, blItemType as any, blItemType === 'PART' ? (colorId ?? undefined) : undefined,
+                'N', premiumPct, pomConfig, false, localPomItemData, blApiCallsCounter, orgId, true
               );
-              if (pgDataUsed) {
-                marketSoldMaxUsed = pgDataUsed.soldMaxPrice ? Number(pgDataUsed.soldMaxPrice) : null;
-                if (pgDataUsed.soldAvgPrice != null) marketSoldAvgUsed = Number(pgDataUsed.soldAvgPrice) || null;
-                if (pgDataUsed.stockAvgPrice != null && Number(pgDataUsed.stockAvgPrice) > 0) stockAvgPriceU = Number(pgDataUsed.stockAvgPrice);
-                if (pgDataUsed.stockMaxPrice != null && Number(pgDataUsed.stockMaxPrice) > 0) stockMaxPriceU = Number(pgDataUsed.stockMaxPrice);
-                if (!thumbnailUrl) thumbnailUrl = pgDataUsed.thumbnailUrl || pgDataUsed.imageUrl || null;
-                if (!piece.partName && pgDataUsed.itemName) piece.partName = pgDataUsed.itemName;
+              if (pgDataN) {
+                marketSoldMaxNew = pgDataN.soldMaxPrice ? Number(pgDataN.soldMaxPrice) : null;
+                if (pgDataN.soldAvgPrice != null) marketSoldAvgNew = Number(pgDataN.soldAvgPrice) || null;
+                if (pgDataN.stockAvgPrice != null && Number(pgDataN.stockAvgPrice) > 0 && stockAvgPriceN === null) stockAvgPriceN = Number(pgDataN.stockAvgPrice);
+                if (pgDataN.stockMaxPrice != null && Number(pgDataN.stockMaxPrice) > 0 && stockMaxPriceN === null) stockMaxPriceN = Number(pgDataN.stockMaxPrice);
+                if (!thumbnailUrl) thumbnailUrl = pgDataN.thumbnailUrl || pgDataN.imageUrl || null;
+                if (!piece.partName && pgDataN.itemName) piece.partName = pgDataN.itemName;
               }
+            } catch (pgErrN: any) {
+              console.warn(`[Brickanalyzer] Live BL fetch (new) failed for ${piece.partNo}:`, pgErrN.message);
             }
-          } catch (pgErr: any) {
-            console.warn(`[Brickanalyzer] POM lookup failed for ${piece.partNo}:`, pgErr.message);
+            try {
+              console.log(`[Brickanalyzer] Live BL fetch (used) for ${piece.partNo} color ${colorId ?? 'any'} type ${blItemType}`);
+              const pgDataU = await fetchPriceOMagicData(
+                piece.partNo, blItemType as any, blItemType === 'PART' ? (colorId ?? undefined) : undefined,
+                'U', premiumPct, pomConfig, false, localPomItemData, blApiCallsCounter, orgId, true
+              );
+              if (pgDataU) {
+                marketSoldMaxUsed = pgDataU.soldMaxPrice ? Number(pgDataU.soldMaxPrice) : null;
+                if (pgDataU.soldAvgPrice != null) marketSoldAvgUsed = Number(pgDataU.soldAvgPrice) || null;
+                if (pgDataU.stockAvgPrice != null && Number(pgDataU.stockAvgPrice) > 0) stockAvgPriceU = Number(pgDataU.stockAvgPrice);
+                if (pgDataU.stockMaxPrice != null && Number(pgDataU.stockMaxPrice) > 0) stockMaxPriceU = Number(pgDataU.stockMaxPrice);
+                if (!thumbnailUrl) thumbnailUrl = pgDataU.thumbnailUrl || pgDataU.imageUrl || null;
+                if (!piece.partName && pgDataU.itemName) piece.partName = pgDataU.itemName;
+              }
+            } catch (pgErrU: any) {
+              console.warn(`[Brickanalyzer] Live BL fetch (used) failed for ${piece.partNo}:`, pgErrU.message);
+            }
           }
 
           // Catalog-color fallback: if the detected colorId yielded no market data AND the BL catalog
@@ -4784,7 +4724,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             const correctColorName = catalogColorMap.get(correctColorId)?.name ?? catalogColorsList[0].color_name ?? '';
             console.log(`[Brickanalyzer] Catalog-color fallback for ${piece.partNo}: retrying POM with colorId=${correctColorId} "${correctColorName}" (was ${colorId ?? 'null'})`);
             try {
-              const fbN = await fetchPriceOMagicData(piece.partNo, blItemType as any, correctColorId, 'N', premiumPct, pomConfig, false, localPomItemData, blApiCallsCounter);
+              const fbN = await fetchPriceOMagicData(piece.partNo, blItemType as any, correctColorId, 'N', premiumPct, pomConfig, false, localPomItemData, blApiCallsCounter, orgId, true);
               if (fbN) {
                 marketSoldMaxNew = fbN.soldMaxPrice ? Number(fbN.soldMaxPrice) : null;
                 if (fbN.soldAvgPrice != null) marketSoldAvgNew = Number(fbN.soldAvgPrice) || null;
@@ -4793,7 +4733,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
                 if (!thumbnailUrl) thumbnailUrl = fbN.thumbnailUrl || fbN.imageUrl || null;
                 if (!piece.partName && fbN.itemName) piece.partName = fbN.itemName;
               }
-              const fbU = await fetchPriceOMagicData(piece.partNo, blItemType as any, correctColorId, 'U', premiumPct, pomConfig, false, localPomItemData, blApiCallsCounter);
+              const fbU = await fetchPriceOMagicData(piece.partNo, blItemType as any, correctColorId, 'U', premiumPct, pomConfig, false, localPomItemData, blApiCallsCounter, orgId, true);
               if (fbU) {
                 marketSoldMaxUsed = fbU.soldMaxPrice ? Number(fbU.soldMaxPrice) : null;
                 if (fbU.soldAvgPrice != null) marketSoldAvgUsed = Number(fbU.soldAvgPrice) || null;

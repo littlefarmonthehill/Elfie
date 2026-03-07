@@ -1470,29 +1470,31 @@ export async function fetchPriceOMagicData(
   skipStock: boolean = false,
   localItemData?: { name?: string | null; imageUrl?: string | null; thumbnailUrl?: string | null; categoryId?: number | null },
   apiCounter?: { count: number },
-  orgId: string = 'org_planetbrick'
+  orgId: string = 'org_planetbrick',
+  forceRefresh: boolean = false
 ): Promise<any> {
   try {
-    // Check if we have cached data less than 24 hours old
-    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    
-    const existingCache = await db
-      .select()
-      .from(priceGuideCache)
-      .where(
-        and(
-          sql`upper(${priceGuideCache.itemNo}) = upper(${itemNo})`,
-          eq(priceGuideCache.itemType, itemType),
-          colorId ? eq(priceGuideCache.colorId, colorId) : sql`${priceGuideCache.colorId} IS NULL`,
-          eq(priceGuideCache.newOrUsed, newOrUsed),
-          gte(priceGuideCache.fetchedAt, twentyFourHoursAgo)
+    // POM uses a 6-month cache window — price data doesn't need to be fresher than that for bulk sync.
+    // Pass forceRefresh=true (BrickSpotter) to skip the cache and always call the BL API live.
+    if (!forceRefresh) {
+      const sixMonthsAgo = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000);
+      const existingCache = await db
+        .select()
+        .from(priceGuideCache)
+        .where(
+          and(
+            sql`upper(${priceGuideCache.itemNo}) = upper(${itemNo})`,
+            eq(priceGuideCache.itemType, itemType),
+            colorId ? eq(priceGuideCache.colorId, colorId) : sql`${priceGuideCache.colorId} IS NULL`,
+            eq(priceGuideCache.newOrUsed, newOrUsed),
+            gte(priceGuideCache.fetchedAt, sixMonthsAgo)
+          )
         )
-      )
-      .limit(1);
-    
-    if (existingCache.length > 0) {
-      console.log(`[Price-o-Matic] Using cached data for ${itemType}/${itemNo}${colorId ? `/${colorId}` : ''}/${newOrUsed}`);
-      return existingCache[0];
+        .limit(1);
+      if (existingCache.length > 0) {
+        console.log(`[Price-o-Matic] Using cached data for ${itemType}/${itemNo}${colorId ? `/${colorId}` : ''}/${newOrUsed}`);
+        return existingCache[0];
+      }
     }
 
     console.log(`[Price-o-Matic] Fetching fresh data for ${itemType}/${itemNo}${colorId ? `/${colorId}` : ''}/${newOrUsed}`);
