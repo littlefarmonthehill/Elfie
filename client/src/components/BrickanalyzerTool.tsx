@@ -241,10 +241,26 @@ function PomConditionCol({ data, label }: { data: any; label: string }) {
 function OverlayPricingPanel({ partNo, itemType, colorEntries }: {
   partNo: string;
   itemType: string;
-  colorEntries: Array<{ colorId?: number | null; colorName?: string | null; colorRgb?: string | null }>;
+  colorEntries: Array<{
+    colorId?: number | null;
+    colorName?: string | null;
+    colorRgb?: string | null;
+    ourPriceNew?: number | null;
+    ourPriceUsed?: number | null;
+    ourQtyNew?: number;
+    ourQtyUsed?: number;
+    marketSoldMaxNew?: number | null;
+    marketSoldMaxUsed?: number | null;
+    stockAvgPriceN?: number | null;
+  }>;
 }) {
   const [idx, setIdx] = useState(0);
   const entry = colorEntries[Math.min(idx, colorEntries.length - 1)];
+  const scoreColor = (s: number) => s >= 2.0 ? 'text-emerald-400' : s >= 1.5 ? 'text-orange-400' : s >= 1.0 ? 'text-yellow-500' : 'text-gray-400';
+  const peak = Math.max(entry?.marketSoldMaxNew ?? 0, entry?.marketSoldMaxUsed ?? 0, entry?.stockAvgPriceN ?? 0) || null;
+  const nScore = peak && entry?.ourPriceNew && entry.ourPriceNew > 0 ? Number((peak / entry.ourPriceNew).toFixed(2)) : null;
+  const uScore = peak && entry?.ourPriceUsed && entry.ourPriceUsed > 0 ? Number((peak / entry.ourPriceUsed).toFixed(2)) : null;
+  const hasMyPrices = entry?.ourPriceNew != null || entry?.ourPriceUsed != null;
   const blType = itemType === 'MINIFIG' ? 'MINIFIG' : 'PART';
   const buildUrl = (cond: 'N' | 'U') => {
     const p = new URLSearchParams({ new_or_used: cond });
@@ -283,6 +299,31 @@ function OverlayPricingPanel({ partNo, itemType, colorEntries }: {
           ))}
         </div>
       )}
+      {/* ── My Listing ────────────────────────────────────── */}
+      {hasMyPrices && (
+        <div className="px-4 pt-3 pb-1 shrink-0">
+          <p className="text-[9px] uppercase tracking-widest text-gray-500 font-semibold mb-2">My Listing</p>
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { label: 'New', price: entry?.ourPriceNew, qty: entry?.ourQtyNew, score: nScore },
+              { label: 'Used', price: entry?.ourPriceUsed, qty: entry?.ourQtyUsed, score: uScore },
+            ].map(({ label, price, qty, score }) => (
+              <div key={label} className="rounded-xl bg-white/[0.04] border border-white/[0.06] p-3 space-y-1">
+                <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold">{label}</p>
+                <p className="text-2xl font-bold font-mono text-white leading-none tabular-nums">
+                  {price != null ? `$${price.toFixed(2)}` : <span className="text-gray-600">—</span>}
+                </p>
+                <div className="flex items-baseline gap-2 flex-wrap">
+                  {score != null && <span className={`text-base font-bold font-mono leading-none ${scoreColor(score)}`}>{score}×</span>}
+                  {peak != null && <span className="text-[10px] text-purple-400 font-mono">peak ${peak.toFixed(2)}</span>}
+                  {qty != null && qty > 0 && <span className="text-[10px] text-gray-500 font-mono">×{qty}</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {loading ? (
         <div className="flex items-center justify-center py-12 gap-2 text-gray-400 text-sm">
           <Loader2 className="w-4 h-4 animate-spin" /> Loading…
@@ -2299,9 +2340,6 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                         const colorDe = (refHex && entryHex && refHex !== entryHex) ? colorDeltaE(entryHex, refHex) : null;
                         const colorPct = colorDe != null ? colorConfPct(colorDe) : null;
                         const colorLbl = colorPct != null ? colorConfLabel(colorPct) : null;
-                        const peak = Math.max(entry.marketSoldMaxNew ?? 0, entry.marketSoldMaxUsed ?? 0, entry.stockAvgPriceN ?? 0) || null;
-                        const nScore = peak && entry.ourPriceNew && entry.ourPriceNew > 0 ? Number((peak / entry.ourPriceNew).toFixed(2)) : null;
-                        const uScore = peak && entry.ourPriceUsed && entry.ourPriceUsed > 0 ? Number((peak / entry.ourPriceUsed).toFixed(2)) : null;
                         const inStock = (entry.ourQtyNew + entry.ourQtyUsed) > 0;
                         return (
                           <div key={ei} className="border-b border-white/[0.06]">
@@ -2336,42 +2374,6 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                                   </span>
                                 </div>
                               )}
-                            </div>
-
-                            {/* Pricing grid */}
-                            <div className="grid grid-cols-2 gap-2 px-4 pb-3">
-                              {/* New */}
-                              <div className="rounded-xl bg-white/[0.04] border border-white/[0.06] p-3 space-y-1.5">
-                                <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold">New</p>
-                                <p className="text-2xl font-bold font-mono text-white leading-none tabular-nums">
-                                  {entry.ourPriceNew != null ? `$${entry.ourPriceNew.toFixed(2)}` : <span className="text-gray-600">—</span>}
-                                </p>
-                                {nScore != null && (
-                                  <div className="flex items-baseline gap-2 flex-wrap">
-                                    <span className={`text-base font-bold font-mono leading-none ${overlayScoreColor(nScore)}`}>{nScore}×</span>
-                                    {peak != null && <span className="text-[10px] text-purple-400 font-mono">peak ${peak.toFixed(2)}</span>}
-                                  </div>
-                                )}
-                                {nScore == null && peak == null && entry.ourPriceNew == null && (
-                                  <p className="text-[10px] text-gray-700">No data</p>
-                                )}
-                              </div>
-                              {/* Used */}
-                              <div className="rounded-xl bg-white/[0.04] border border-white/[0.06] p-3 space-y-1.5">
-                                <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold">Used</p>
-                                <p className="text-2xl font-bold font-mono text-white leading-none tabular-nums">
-                                  {entry.ourPriceUsed != null ? `$${entry.ourPriceUsed.toFixed(2)}` : <span className="text-gray-600">—</span>}
-                                </p>
-                                {uScore != null && (
-                                  <div className="flex items-baseline gap-2 flex-wrap">
-                                    <span className={`text-base font-bold font-mono leading-none ${overlayScoreColor(uScore)}`}>{uScore}×</span>
-                                    {peak != null && <span className="text-[10px] text-purple-400 font-mono">peak ${peak.toFixed(2)}</span>}
-                                  </div>
-                                )}
-                                {uScore == null && peak == null && entry.ourPriceUsed == null && (
-                                  <p className="text-[10px] text-gray-700">No data</p>
-                                )}
-                              </div>
                             </div>
 
                             {/* ── How did I do? ─────────────────────────────── */}
