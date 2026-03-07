@@ -2726,7 +2726,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                           return 0;
                         });
                         const visible = refHex
-                          ? sorted.filter(({ lot, pct }) => (lot.qtyNew + lot.qtyUsed) > 0 || pct == null || pct >= COLOR_CONF_CUTOFF)
+                          ? sorted.filter(({ lot, pct }) => pct == null || pct >= COLOR_CONF_CUTOFF)
                           : sorted;
                         const hiddenCount = sorted.length - visible.length;
                         if (visible.length === 0) return null;
