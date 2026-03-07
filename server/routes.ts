@@ -4228,7 +4228,17 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           // CLIP runs against the local Python service so no rate limiting needed.
           const [clipMatches, [figsRes, partsRes]] = await Promise.all([
             embedCrop(cropBuffer)
-              .then((emb) => findNearestParts(emb, 5, 0.60))
+              .then(async (emb) => {
+                const matches = await findNearestParts(emb, 5, 0.50);
+                if (matches.length === 0) {
+                  // Diagnostic: fetch top-1 regardless of threshold to see actual floor
+                  const top1 = await findNearestParts(emb, 1, 0.0).catch(() => []);
+                  if (top1.length > 0) {
+                    console.log(`[CLIP] Piece ${idx}: no match above 0.50 — best sim=${top1[0].similarity.toFixed(3)} (${top1[0].itemNo})`);
+                  }
+                }
+                return matches;
+              })
               .catch((e: any) => { console.warn(`[CLIP] piece ${idx} embed failed: ${e.message}`); return []; }),
             Promise.all([
               bqRateLimit(() => bqPost('https://api.brickognize.com/predict/figs/',  figsForm, idx))
