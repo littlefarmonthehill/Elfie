@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { CheckCircle2, ArrowRight, Building2, Link, CreditCard, Sparkles } from "lucide-react";
+import { CheckCircle2, ArrowRight, Building2, Link, CreditCard, Sparkles, Smartphone, Share2, PlusSquare } from "lucide-react";
 import type { Organization } from "@shared/schema";
+import { useInstallPrompt } from "@/hooks/use-install-prompt";
 
 interface Props {
   org: Organization;
@@ -21,6 +22,7 @@ const STEPS = [
 
 export default function OnboardingWizard({ org, onComplete }: Props) {
   const [step, setStep] = useState(1);
+  const { status: installStatus, promptInstall } = useInstallPrompt();
 
   // Step 1 — Company Info
   const [name, setName] = useState(org.name || "");
@@ -288,6 +290,41 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
                   Your account is configured. The dashboard will show any remaining setup items as action items so you can finish up at your own pace.
                 </p>
               </div>
+
+              {/* Add to Home Screen prompt */}
+              {installStatus !== 'installed' && installStatus !== 'unsupported' && (
+                <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 mb-2 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Smartphone className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                    <p className="text-xs font-medium text-gray-300">Add PlanetBrick to your home screen</p>
+                  </div>
+                  {installStatus === 'promptable' ? (
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-[11px] text-gray-500">Get one-tap access from any device.</p>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={async () => { await promptInstall(); }}
+                        data-testid="button-onboard-install"
+                      >
+                        Add now
+                      </Button>
+                    </div>
+                  ) : installStatus === 'ios' ? (
+                    <ol className="space-y-1 pl-1">
+                      <li className="flex items-start gap-2 text-[11px] text-gray-400">
+                        <span className="flex-shrink-0 w-4 h-4 rounded-full bg-gray-700 flex items-center justify-center text-[9px] font-bold text-gray-300 mt-0.5">1</span>
+                        <span>Tap <Share2 className="inline w-3 h-3 mb-0.5" /> Share at the bottom of Safari</span>
+                      </li>
+                      <li className="flex items-start gap-2 text-[11px] text-gray-400">
+                        <span className="flex-shrink-0 w-4 h-4 rounded-full bg-gray-700 flex items-center justify-center text-[9px] font-bold text-gray-300 mt-0.5">2</span>
+                        <span>Tap <PlusSquare className="inline w-3 h-3 mb-0.5" /> <strong className="text-gray-300">Add to Home Screen</strong>, then <strong className="text-gray-300">Add</strong></span>
+                      </li>
+                    </ol>
+                  ) : null}
+                </div>
+              )}
+
               <div className="flex justify-center pt-2">
                 <Button onClick={handleFinish} disabled={isSaving} size="lg" data-testid="button-onboard-finish">
                   {isSaving ? "Finishing…" : "Go to dashboard"}

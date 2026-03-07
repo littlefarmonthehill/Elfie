@@ -3,7 +3,8 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { AppSettings, User, Organization, OrgIntegration } from "@shared/schema";
 import { APP_VERSION, APP_NAME } from "@shared/version";
-import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Info, Layers, Play, Loader2, ChevronDown, ChevronRight, ChevronLeft, BarChart2, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock, LogOut, CreditCard } from "lucide-react";
+import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Info, Layers, Play, Loader2, ChevronDown, ChevronRight, ChevronLeft, BarChart2, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock, LogOut, CreditCard, Share2, PlusSquare } from "lucide-react";
+import { useInstallPrompt } from "@/hooks/use-install-prompt";
 import { PomCategoryTiers } from "@/components/PomCategoryTiers";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -586,6 +587,7 @@ function SyncStatusLine({ entry }: { entry: SyncStatusEntry }) {
 
 export default function SettingsModal({ open, onClose, initialSection }: SettingsModalProps) {
   const { toast } = useToast();
+  const { status: installStatus, promptInstall } = useInstallPrompt();
   const [clearDataDialog, setClearDataDialog] = useState<'inventory' | 'orders' | null>(null);
   const [cleanupRunning, setCleanupRunning] = useState(false);
   const [restoreWizardOpen, setRestoreWizardOpen] = useState(false);
@@ -1541,6 +1543,74 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       ? 'E.L.F.I.E. will search your inventory, orders, and catalog data without AI analysis.'
                       : 'E.L.F.I.E. uses full AI capabilities including price insights, demand analysis, and intelligent recommendations.'}
                   </p>
+                </div>
+              </div>
+
+              {/* Add to Home Screen */}
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium text-gray-300">Install App</h3>
+                <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 space-y-2">
+                  {installStatus === 'installed' ? (
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-green-400 flex-shrink-0" />
+                      <div>
+                        <p className="text-xs font-medium text-gray-300">App is installed</p>
+                        <p className="text-[10px] text-gray-500">PlanetBrick is already on your home screen.</p>
+                      </div>
+                    </div>
+                  ) : installStatus === 'promptable' ? (
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <Smartphone className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                        <div>
+                          <p className="text-xs font-medium text-gray-300">Add to Home Screen</p>
+                          <p className="text-[10px] text-gray-500">Install PlanetBrick for quick access.</p>
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={async () => {
+                          const outcome = await promptInstall();
+                          if (outcome === 'accepted') {
+                            toast({ title: 'App installed', description: 'PlanetBrick has been added to your home screen.' });
+                          }
+                        }}
+                        data-testid="button-install-app"
+                      >
+                        Install
+                      </Button>
+                    </div>
+                  ) : installStatus === 'ios' ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Smartphone className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                        <p className="text-xs font-medium text-gray-300">Add to Home Screen</p>
+                      </div>
+                      <ol className="space-y-1.5 pl-1">
+                        <li className="flex items-start gap-2 text-[11px] text-gray-400">
+                          <span className="flex-shrink-0 w-4 h-4 rounded-full bg-gray-700 flex items-center justify-center text-[9px] font-bold text-gray-300 mt-0.5">1</span>
+                          <span>Tap the <Share2 className="inline w-3 h-3 mb-0.5" /> Share button at the bottom of Safari</span>
+                        </li>
+                        <li className="flex items-start gap-2 text-[11px] text-gray-400">
+                          <span className="flex-shrink-0 w-4 h-4 rounded-full bg-gray-700 flex items-center justify-center text-[9px] font-bold text-gray-300 mt-0.5">2</span>
+                          <span>Scroll down and tap <PlusSquare className="inline w-3 h-3 mb-0.5" /> <strong className="text-gray-300">Add to Home Screen</strong></span>
+                        </li>
+                        <li className="flex items-start gap-2 text-[11px] text-gray-400">
+                          <span className="flex-shrink-0 w-4 h-4 rounded-full bg-gray-700 flex items-center justify-center text-[9px] font-bold text-gray-300 mt-0.5">3</span>
+                          <span>Tap <strong className="text-gray-300">Add</strong> in the top right corner</span>
+                        </li>
+                      </ol>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <Smartphone className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                      <div>
+                        <p className="text-xs font-medium text-gray-300">Add to Home Screen</p>
+                        <p className="text-[10px] text-gray-500">Use your browser's menu to add PlanetBrick to your home screen or desktop for quick access.</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
