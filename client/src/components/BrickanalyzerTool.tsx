@@ -2018,35 +2018,6 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
             )}
           </div>
 
-          {/* Step history log */}
-          {stepHistory.length > 0 && (
-            <div className="bg-gray-900/60 border border-gray-800 rounded-lg px-3 py-2 space-y-0.5 max-h-40 overflow-y-auto" data-testid="list-scan-step-history">
-              {stepHistory.map((entry, i) => (
-                <div key={i} className="flex items-center justify-between gap-2 text-[11px]">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="text-green-500 shrink-0">✓</span>
-                    <span className="text-gray-400 truncate">{entry.step}</span>
-                  </div>
-                  <span className="text-gray-600 font-mono tabular-nums shrink-0">{entry.elapsedS}s</span>
-                </div>
-              ))}
-              {/* Current active step */}
-              {scanProgress?.active && scanProgress.step && (
-                <div className="flex items-center justify-between gap-2 text-[11px]">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <Loader2 className="w-2.5 h-2.5 text-lego-yellow animate-spin shrink-0" />
-                    <span className="text-gray-200 truncate font-medium">{scanProgress.step}</span>
-                  </div>
-                  {scanProgress.stepAt && (
-                    <span className="text-lego-yellow font-mono tabular-nums shrink-0">
-                      {((tickNow - scanProgress.stepAt) / 1000).toFixed(0)}s…
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
           {!leftPage ? (
             <div className="bg-gray-800/60 border border-gray-700 rounded-lg p-3 space-y-2">
               <p className="text-xs text-gray-400 text-center">
