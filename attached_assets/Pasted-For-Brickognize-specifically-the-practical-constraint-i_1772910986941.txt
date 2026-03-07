@@ -1,0 +1,113 @@
+For Brickognize specifically, the practical constraint isn’t “crops per request” — it’s requests per second.
+
+Key point
+
+Each crop image = 1 API request.
+
+Brickognize’s public API endpoint only accepts one image per request, so segmentation crops cannot be batched together in one call.
+
+Practical limit
+
+Safe operating range most people use:
+
+Metric	Limit
+Requests per second	~10
+Parallel requests	5–10 workers
+Requests per minute	~600
+
+If you exceed this you’ll start getting:
+
+429 Too Many Requests
+
+What to tell Replit
+
+A good safe configuration:
+
+max_parallel_requests = 8
+max_requests_per_second = 10
+queue_overflow = true
+retry_backoff = exponential
+
+Example pipeline
+
+If segmentation produces 40 crops from a scan:
+
+Scan → SAM / contour segmentation
+        ↓
+40 crops generated
+        ↓
+Queue
+        ↓
+8 parallel workers
+        ↓
+Brickognize API
+
+Processing time:
+	•	40 crops
+	•	10 req/sec max
+
+➡️ ~4 seconds to process the full batch.
+
+Important optimization (very relevant for your system)
+
+Before sending crops to Brickognize, filter them using your LEGO metadata:
+
+You already have:
+	•	part DB
+	•	color map
+	•	stud grid model
+
+So you can drop crops that are likely:
+	•	shadows
+	•	partial bricks
+	•	background
+
+A simple filter like:
+
+if crop_area < threshold
+discard
+
+or
+
+if no stud pattern detected
+discard
+
+can cut API calls by 50–80%.
+
+What large Brickognize pipelines usually do
+
+Typical flow:
+
+Image
+ ↓
+Segmentation (SAM / contour)
+ ↓
+Crop generation
+ ↓
+Crop filtering
+ ↓
+Recognition API
+ ↓
+Part verification with local DB
+
+One more trick (huge speed gain)
+
+Many systems deduplicate crops before sending them.
+
+If you have 10 identical 2x4 bricks:
+
+hash(crop_image)
+
+Send only 1 to Brickognize, then assign the result to all matches.
+
+This can reduce API usage by 70–95% in LEGO piles.
+
+⸻
+
+If you want, I can also show you something extremely powerful for your setup:
+
+A hybrid recognition architecture where:
+	•	YOLO identifies 60–70% of bricks locally
+	•	Brickognize only handles hard pieces
+
+This is how you could scale Brick Spotter 3000 to millions of parts/day without hitting API limits. It would also move you closer to something patentable.

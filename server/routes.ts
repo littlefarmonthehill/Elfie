@@ -1,3 +1,4 @@
+import { createHash } from "crypto";
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
@@ -4148,9 +4149,9 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       // Phase 2b — Send all ready crops to Brickognize.
       // BQ_CONCURRENCY controls how many pieces are in-flight simultaneously.
       // Each piece fires 2 BQ requests (figs + parts) + 1 CLIP call in parallel,
-      // so BQ_CONCURRENCY=4 means up to 8 simultaneous Brickognize requests.
+      // so BQ_CONCURRENCY=5 = 10 simultaneous Brickognize requests (~10 req/sec max).
       console.log('[Brickanalyzer] Step 2b: Sending crops to Brickognize...');
-      const BQ_CONCURRENCY = 4;
+      const BQ_CONCURRENCY = 5;
       function makeBqLimiter(concurrency: number) {
         let active = 0;
         const waitQueue: Array<() => void> = [];
@@ -4170,10 +4171,42 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       }
       const bqLimit = makeBqLimiter(BQ_CONCURRENCY);
 
+      // Retry a Brickognize POST with exponential backoff on 429 (rate limit).
+      // Drops the request only after 3 retries.
+      async function bqPost(url: string, form: FormData, pieceIdx: number): Promise<any> {
+        let delay = 1000;
+        for (let attempt = 0; attempt <= 3; attempt++) {
+          try {
+            return await axios.post(url, form, { headers: form.getHeaders(), timeout: 20000 });
+          } catch (e: any) {
+            if (e.response?.status === 429 && attempt < 3) {
+              console.warn(`[Brickognize] 429 rate-limit piece ${pieceIdx}, retry ${attempt + 1}/3 in ${delay}ms`);
+              await new Promise(r => setTimeout(r, delay));
+              delay *= 2;
+            } else {
+              throw e;
+            }
+          }
+        }
+      }
+
+      // Deduplication: if two crops have identical bytes (same piece photographed twice
+      // at identical position/lighting), skip the second BQ call and reuse the result.
+      // Uses a per-scan map so no state leaks between scans.
+      const bqDedupeCache = new Map<string, any[]>();
+
       const identified: any[] = (await Promise.all(pieces.map(async (piece: any, idx: number) => {
         const entry = cropData[idx];
         if (entry.earlyResult) return entry.earlyResult;
         const cropBuffer = entry.cropBuffer!;
+
+        // Hash the raw crop bytes. Identical crops (same piece, same position) skip BQ entirely.
+        const cropHash = createHash('sha256').update(cropBuffer).digest('hex');
+        if (bqDedupeCache.has(cropHash)) {
+          const cached = bqDedupeCache.get(cropHash)!;
+          console.log(`[Brickognize] Piece ${idx}: dedup hit (${cropHash.slice(0, 8)}), reusing result`);
+          return cached.map((r: any) => ({ ...r, cropIndex: idx, bboxX: piece.x, bboxY: piece.y, bboxW: piece.w, bboxH: piece.h }));
+        }
 
         return bqLimit(async () => {
           try {
@@ -4195,9 +4228,9 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
                 .then((emb) => findNearestParts(emb, 5, 0.60))
                 .catch((e: any) => { console.warn(`[CLIP] piece ${idx} embed failed: ${e.message}`); return []; }),
               Promise.all([
-                axios.post('https://api.brickognize.com/predict/figs/',  figsForm,  { headers: figsForm.getHeaders(),  timeout: 20000 })
+                bqPost('https://api.brickognize.com/predict/figs/',  figsForm, idx)
                   .catch((e: any) => { console.warn(`[Brickognize] figs piece ${idx} failed: ${e.message} (HTTP ${e.response?.status ?? 'N/A'})`); return null; }),
-                axios.post('https://api.brickognize.com/predict/parts/', partsForm, { headers: partsForm.getHeaders(), timeout: 20000 })
+                bqPost('https://api.brickognize.com/predict/parts/', partsForm, idx)
                   .catch((e: any) => { console.warn(`[Brickognize] parts piece ${idx} failed: ${e.message} (HTTP ${e.response?.status ?? 'N/A'})`); return null; }),
               ]),
             ]);
@@ -4220,13 +4253,15 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             const minConfidence = settings.minConfidence ?? 0;
             if (minConfidence > 0 && topItem && topItem.score < minConfidence) {
               console.log(`[Brickanalyzer] Piece ${idx} (${itemType}): ${topItem.id} score=${topItem.score.toFixed(2)} below threshold ${minConfidence.toFixed(2)} — discarded`);
-              return [{ partNo: '', partName: 'Unknown', colorName: '', itemType: 'PART' as const, confidence: 'low' as const, note: `Score ${topItem.score.toFixed(2)} below threshold`, clipMatches }];
+              const result = [{ partNo: '', partName: 'Unknown', colorName: '', itemType: 'PART' as const, confidence: 'low' as const, note: `Score ${topItem.score.toFixed(2)} below threshold`, clipMatches }];
+              bqDedupeCache.set(cropHash, result);
+              return result;
             }
 
             if (topItem) {
               console.log(`[Brickanalyzer] Piece ${idx} (${itemType}): ${topItem.id} "${topItem.name}" score=${topItem.score.toFixed(2)} [fig=${figScore.toFixed(2)} part=${partScore.toFixed(2)}]`);
               const confidence = topItem.score >= 0.7 ? 'high' : topItem.score >= 0.4 ? 'medium' : 'low';
-              return [{
+              const result = [{
                 partNo: topItem.id || '',
                 partName: topItem.name || piece.roughName || 'Unknown',
                 colorName: itemType === 'MINIFIG' ? '' : (piece.colorName || ''),
@@ -4238,9 +4273,13 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
                 bboxX: piece.x, bboxY: piece.y, bboxW: piece.w, bboxH: piece.h,
                 clipMatches,
               }];
+              bqDedupeCache.set(cropHash, result);
+              return result;
             }
             console.log(`[Brickanalyzer] Piece ${idx} (${piece.roughName || 'unknown'}): both endpoints empty`);
-            return [{ partNo: '', partName: piece.roughName || 'Unknown', colorName: piece.colorName || '', itemType: 'PART' as const, confidence: 'low', note: 'Brickognize: no match', cropIndex: idx, bboxX: piece.x, bboxY: piece.y, bboxW: piece.w, bboxH: piece.h, clipMatches }];
+            const emptyResult = [{ partNo: '', partName: piece.roughName || 'Unknown', colorName: piece.colorName || '', itemType: 'PART' as const, confidence: 'low', note: 'Brickognize: no match', cropIndex: idx, bboxX: piece.x, bboxY: piece.y, bboxW: piece.w, bboxH: piece.h, clipMatches }];
+            bqDedupeCache.set(cropHash, emptyResult);
+            return emptyResult;
 
           } catch (err: any) {
             console.warn(`[Brickanalyzer] Piece ${idx} failed:`, err.message);
