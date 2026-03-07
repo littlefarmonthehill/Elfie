@@ -406,63 +406,69 @@ function OverlayPricingPanel({ partNo, itemType, colorEntries }: {
             )}
 
             {/* ── Suggested + My Prices ────────────────────── */}
-            {(hasSuggested || hasMyPrices) && (
-              <div className="rounded-xl overflow-hidden border border-white/[0.08] bg-white/[0.03]">
-                {/* Suggested prices row */}
-                {hasSuggested && (
-                  <div className="px-3 py-2.5 border-b border-white/[0.06]">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-1.5">
-                        <Sparkles className="w-3 h-3 text-emerald-400" />
-                        <span className="text-[9px] uppercase tracking-widest text-emerald-400 font-bold">POM Suggested · {pct}% premium</span>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      {[{ label: 'New', val: nData?.suggestedPrice, col: 'text-blue-300' }, { label: 'Used', val: uData?.suggestedPrice, col: 'text-orange-300' }].map(({ label, val, col }) => (
-                        <div key={label} className="rounded-lg bg-emerald-950/30 border border-emerald-500/20 px-3 py-2">
-                          <div className={`text-[9px] uppercase font-bold mb-0.5 ${col}`}>{label}</div>
-                          <div className="text-[17px] font-bold font-mono text-emerald-400 tabular-nums leading-none">
-                            {val != null ? `$${Number(val).toFixed(2)}` : <span className="text-gray-600 text-sm">—</span>}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+            {(hasSuggested || hasMyPrices) && (() => {
+              const BotRow = ({ icon, label, nVal, uVal, nSub, uSub, rowClass, valClass }: {
+                icon: React.ReactNode; label: string;
+                nVal: string; uVal: string;
+                nSub?: string; uSub?: string;
+                rowClass?: string; valClass?: string;
+              }) => (
+                <div className={`grid grid-cols-[1fr_66px_66px] border-b border-white/[0.04] last:border-0 ${rowClass ?? ''}`}>
+                  <div className="px-3 py-2 flex items-center gap-1.5 text-[11px] font-semibold">
+                    {icon}
+                    <span>{label}</span>
                   </div>
-                )}
-                {/* My inventory prices */}
-                {hasMyPrices && (() => {
-                  const myCards = [
-                    { label: 'New', price: entry?.ourPriceNew, qty: entry?.ourQtyNew, score: nScore, col: 'text-blue-300' },
-                    { label: 'Used', price: entry?.ourPriceUsed, qty: entry?.ourQtyUsed, score: uScore, col: 'text-orange-300' },
-                  ].filter(c => c.price != null || (c.qty != null && c.qty > 0));
-                  if (myCards.length === 0) return null;
-                  return (
-                    <div className="px-3 py-2.5">
-                      <div className="flex items-center gap-1.5 mb-2">
-                        <Target className="w-3 h-3 text-purple-400" />
-                        <span className="text-[9px] uppercase tracking-widest text-purple-400 font-bold">My Inventory</span>
-                      </div>
-                      <div className={`grid gap-2 ${myCards.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
-                        {myCards.map(({ label, price, qty, score, col }) => (
-                          <div key={label} className="rounded-lg bg-purple-950/30 border border-purple-500/20 px-3 py-2">
-                            <div className={`text-[9px] uppercase font-bold mb-0.5 ${col}`}>{label}</div>
-                            <div className="text-[17px] font-bold font-mono text-white tabular-nums leading-none">
-                              {price != null ? `$${price.toFixed(2)}` : <span className="text-gray-600 text-sm">—</span>}
-                            </div>
-                            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                              {score != null && (
-                                <span className={`text-[11px] font-bold font-mono ${scoreColor(score)}`}>{score}×</span>
-                              )}
-                              {qty != null && qty > 0 && <span className="text-[10px] text-gray-500 font-mono">×{qty}</span>}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })()}
-              </div>
-            )}
+                  <div className={`w-[66px] px-1.5 py-2 text-center border-l border-white/[0.06]`}>
+                    <div className={`text-[11px] font-mono font-semibold tabular-nums ${valClass ?? 'text-white'}`}>{nVal}</div>
+                    {nSub && <div className="text-[9px] text-gray-600 font-mono">{nSub}</div>}
+                  </div>
+                  <div className={`w-[66px] px-1.5 py-2 text-center border-l border-white/[0.06]`}>
+                    <div className={`text-[11px] font-mono font-semibold tabular-nums ${valClass ?? 'text-white'}`}>{uVal}</div>
+                    {uSub && <div className="text-[9px] text-gray-600 font-mono">{uSub}</div>}
+                  </div>
+                </div>
+              );
+              return (
+                <div className="rounded-xl overflow-hidden border border-white/[0.08]">
+                  {/* Col headers aligned to New/Used */}
+                  <div className="grid grid-cols-[1fr_66px_66px] bg-white/[0.04] border-b border-white/[0.08]">
+                    <div className="px-3 py-1.5" />
+                    <div className="w-[66px] px-1.5 py-1.5 text-center text-[9px] uppercase font-bold text-blue-300 border-l border-white/[0.06]">New</div>
+                    <div className="w-[66px] px-1.5 py-1.5 text-center text-[9px] uppercase font-bold text-orange-300 border-l border-white/[0.06]">Used</div>
+                  </div>
+                  {hasSuggested && (
+                    <BotRow
+                      icon={<Sparkles className="w-3 h-3 text-emerald-400 shrink-0" />}
+                      label={`Suggested (${pct}%)`}
+                      nVal={nData?.suggestedPrice != null ? `$${Number(nData.suggestedPrice).toFixed(2)}` : '—'}
+                      uVal={uData?.suggestedPrice != null ? `$${Number(uData.suggestedPrice).toFixed(2)}` : '—'}
+                      rowClass="bg-emerald-950/20"
+                      valClass="text-emerald-400"
+                    />
+                  )}
+                  {hasMyPrices && (() => {
+                    const nP = entry?.ourPriceNew; const uP = entry?.ourPriceUsed;
+                    const nQ = entry?.ourQtyNew;   const uQ = entry?.ourQtyUsed;
+                    const hasSomething = nP != null || uP != null || (nQ && nQ > 0) || (uQ && uQ > 0);
+                    if (!hasSomething) return null;
+                    const nSub = [nScore != null ? `${nScore}×` : null, nQ && nQ > 0 ? `×${nQ}` : null].filter(Boolean).join(' ');
+                    const uSub = [uScore != null ? `${uScore}×` : null, uQ && uQ > 0 ? `×${uQ}` : null].filter(Boolean).join(' ');
+                    return (
+                      <BotRow
+                        icon={<Target className="w-3 h-3 text-purple-400 shrink-0" />}
+                        label="My Inventory"
+                        nVal={nP != null ? `$${nP.toFixed(2)}` : '—'}
+                        uVal={uP != null ? `$${uP.toFixed(2)}` : '—'}
+                        nSub={nSub || undefined}
+                        uSub={uSub || undefined}
+                        rowClass="bg-purple-950/20"
+                        valClass="text-purple-200"
+                      />
+                    );
+                  })()}
+                </div>
+              );
+            })()}
           </div>
         );
       })()}
