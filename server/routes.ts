@@ -5381,6 +5381,50 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
     }
   });
 
+  // POST /api/brickanalyzer/scan/:id/retry — re-run a failed scan using cached image.
+  // Returns 410 if the image is no longer in memory (server restarted since failure).
+  app.post("/api/brickanalyzer/scan/:id/retry", isApproved, async (req: any, res) => {
+    try {
+      const scanId = Number(req.params.id);
+      const orgId  = reqOrgId(req);
+
+      const [scan] = await db.select().from(brickanalyzerScans)
+        .where(eq(brickanalyzerScans.id, scanId));
+      if (!scan) return res.status(404).json({ error: 'Scan not found' });
+      if (scan.status === 'processing') return res.status(409).json({ error: 'Scan already running' });
+
+      const cachedImage = brickanalyzerImageCache.get(scanId);
+      if (!cachedImage) {
+        return res.status(410).json({
+          error: 'Image no longer cached — server was restarted since this scan failed. Please upload the image again.',
+          needsReupload: true,
+        });
+      }
+
+      // Reset scan to processing, then re-run asynchronously
+      await db.update(brickanalyzerScans).set({
+        status: 'processing',
+        errorMessage: null,
+        totalPieces: null,
+        identifiedPieces: null,
+        results: null,
+        completedAt: null,
+      }).where(eq(brickanalyzerScans.id, scanId));
+
+      // Clear stale crop cache so segmentation re-runs cleanly
+      brickanalyzerCropCache.delete(scanId);
+
+      res.json({ ok: true, scanId, message: 'Retry started' });
+
+      // Re-run asynchronously with the cached image
+      processBrickanalyzerScan(scanId, cachedImage, {}, false, undefined, orgId).catch((e) => {
+        console.error(`[Brickanalyzer] Retry of scan ${scanId} failed:`, e.message);
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // ── CLIP / Brick Spotter management endpoints ─────────────────────────────
 
   // GET /api/brickspotter/python-status — whether the Python seg/CLIP service is ready

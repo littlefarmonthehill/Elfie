@@ -753,6 +753,45 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
     },
   });
 
+  // Retry a failed scan using the server-cached image (no re-upload needed if cache is warm).
+  // Falls back to prompting a new upload if the server was restarted since the failure.
+  const retryMutation = useMutation({
+    mutationFn: async () => {
+      if (!scanId) throw new Error("No scan to retry");
+      const res = await fetch(`/api/brickanalyzer/scan/${scanId}/retry`, {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        if (res.status === 410) {
+          // Image evicted from cache — need fresh upload
+          return { needsReupload: true };
+        }
+        throw new Error(data.error || "Retry failed");
+      }
+      return data;
+    },
+    onSuccess: (data: any) => {
+      if (data?.needsReupload) {
+        toast({
+          title: "Image no longer available",
+          description: "The server was restarted since this scan failed. Please upload the image again.",
+          variant: "destructive",
+        });
+        setScanId(null);
+        setUiState("idle");
+        return;
+      }
+      // Retry started — switch back to processing state and poll
+      setUiState("processing");
+      queryClient.invalidateQueries({ queryKey: ["/api/brickanalyzer/scans/latest"] });
+    },
+    onError: (err: any) => {
+      toast({ title: "Retry failed", description: err.message, variant: "destructive" });
+    },
+  });
+
   // Swipe-dismiss: remove one result card from the visible list.
   function swipeDismissItem(verdictKey: string) {
     setDismissedItems(prev => { const n = new Set(prev); n.add(verdictKey); return n; });
@@ -2005,14 +2044,29 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
             <p className="text-sm sm:text-2xl text-gray-300">Scan failed</p>
             <p className="text-xs sm:text-2xl text-gray-500 text-center">{scan?.errorMessage || "Something went wrong. Please try again."}</p>
           </div>
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={() => { setUiState("idle"); setScanId(null); }}
-            data-testid="button-brickanalyzer-retry"
-          >
-            Try Again
-          </Button>
+          <div className="flex flex-col gap-2">
+            <Button
+              variant="default"
+              className="w-full"
+              onClick={() => retryMutation.mutate()}
+              disabled={retryMutation.isPending}
+              data-testid="button-brickanalyzer-retry-cached"
+            >
+              {retryMutation.isPending ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Retrying…</>
+              ) : (
+                <><RefreshCw className="w-4 h-4 mr-2" />Retry Scan</>
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => { setUiState("idle"); setScanId(null); }}
+              data-testid="button-brickanalyzer-new-scan"
+            >
+              Upload New Image
+            </Button>
+          </div>
         </div>
       )}
 

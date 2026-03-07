@@ -174,9 +174,11 @@ export async function segmentImage(imageBuffer: Buffer, settings?: ScanSettings)
   if (!proc) startService();
   await waitReady();
 
-  // SAM needs much more time: model load + inference on CPU can take 2–3 minutes
+  // SAM needs much more time: model load + inference on CPU can take 2–3 minutes.
+  // Watershed is normally fast but production CPU can be slow on large/complex images —
+  // increased from 60s to 120s to avoid premature timeout on bigger scans.
   const isSam = (settings?.segmenter === 'sam');
-  const timeoutMs = isSam ? 300_000 : 60_000; // 5 min for SAM, 1 min for watershed
+  const timeoutMs = isSam ? 300_000 : 120_000; // 5 min for SAM, 2 min for watershed
 
   const b64  = imageBuffer.toString('base64');
   const resp = await postJson('/segment', { image: b64, settings: settings ?? {} }, timeoutMs);
@@ -197,7 +199,7 @@ export async function segmentImageWithCandidates(
   await waitReady();
 
   const isSam = (settings?.segmenter === 'sam');
-  const timeoutMs = isSam ? 300_000 : 60_000;
+  const timeoutMs = isSam ? 300_000 : 120_000;
 
   const b64  = imageBuffer.toString('base64');
   const body = { image: b64, settings: { ...(settings ?? {}), returnCandidates: true } };
