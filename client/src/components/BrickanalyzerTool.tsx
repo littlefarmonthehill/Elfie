@@ -2267,31 +2267,25 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                     const hiThresh = maxPrice * 0.60;
                     const midThresh = maxPrice * 0.25;
                     const tierStyle = {
-                      high:   {
-                        fill: 'rgba(239,68,68,0.06)',
-                        border: 'rgba(239,68,68,0.95)',
-                        glow: '0 0 12px 4px rgba(239,68,68,0.65), 0 0 4px 1px rgba(239,68,68,0.9), inset 0 0 10px 2px rgba(239,68,68,0.22)',
-                        label: '#fca5a5', badge: 'rgba(127,29,29,0.92)',
-                      },
-                      medium: {
-                        fill: 'rgba(251,146,60,0.05)',
-                        border: 'rgba(251,146,60,0.95)',
-                        glow: '0 0 10px 3px rgba(251,146,60,0.55), 0 0 3px 1px rgba(251,146,60,0.85), inset 0 0 8px 2px rgba(251,146,60,0.18)',
-                        label: '#fdba74', badge: 'rgba(124,45,18,0.92)',
-                      },
-                      low:    {
-                        fill: 'rgba(250,204,21,0.04)',
-                        border: 'rgba(250,204,21,0.9)',
-                        glow: '0 0 8px 2px rgba(250,204,21,0.45), 0 0 3px 1px rgba(250,204,21,0.75), inset 0 0 6px 2px rgba(250,204,21,0.14)',
-                        label: '#fde68a', badge: 'rgba(120,80,0,0.92)',
-                      },
-                      none:   {
-                        fill: 'transparent',
-                        border: 'rgba(107,114,128,0.40)',
-                        glow: 'none',
-                        label: '#6b7280', badge: 'rgba(17,24,39,0.80)',
-                      },
+                      high:   { corner: 'rgb(239,68,68)',    label: '#fca5a5', badge: 'rgba(127,29,29,0.92)'  },
+                      medium: { corner: 'rgb(251,146,60)',   label: '#fdba74', badge: 'rgba(124,45,18,0.92)'  },
+                      low:    { corner: 'rgb(250,204,21)',   label: '#fde68a', badge: 'rgba(120,80,0,0.92)'   },
+                      none:   { corner: 'rgba(156,163,175,0.55)', label: '#6b7280', badge: 'rgba(17,24,39,0.80)' },
                     };
+                    // Corner bracket arm length (px). Short arms = clean, non-blocking look.
+                    const ARM = 10;
+                    const THK = 2.5;
+                    const mkCorner = (color: string, top?: 0|'auto', bottom?: 0|'auto', left?: 0|'auto', right?: 0|'auto') => ({
+                      position: 'absolute' as const,
+                      top, bottom, left, right,
+                      width: ARM, height: ARM,
+                      borderTop:    top    === 0 ? `${THK}px solid ${color}` : undefined,
+                      borderBottom: bottom === 0 ? `${THK}px solid ${color}` : undefined,
+                      borderLeft:   left   === 0 ? `${THK}px solid ${color}` : undefined,
+                      borderRight:  right  === 0 ? `${THK}px solid ${color}` : undefined,
+                      filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.85)) drop-shadow(0 0 1px rgba(0,0,0,1))',
+                      pointerEvents: 'none' as const,
+                    });
                     return (
                       <>
                         {bboxResults.map((r, i) => {
@@ -2317,28 +2311,39 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                                 top:    `${r.bboxY}%`,
                                 width:  `${r.bboxW}%`,
                                 height: `${r.bboxH}%`,
-                                background: heatmapCropFocus === r.cropIndex ? 'rgba(20,184,166,0.08)' : ts.fill,
-                                border: heatmapCropFocus === r.cropIndex ? '2px solid rgba(20,184,166,0.95)' : `2px solid ${ts.border}`,
-                                boxShadow: heatmapCropFocus === r.cropIndex
-                                  ? '0 0 14px 5px rgba(20,184,166,0.65), 0 0 4px 1px rgba(20,184,166,0.9), inset 0 0 10px 2px rgba(20,184,166,0.22)'
-                                  : (tier !== 'none' ? ts.glow : 'none'),
-                                transition: 'box-shadow 0.15s, filter 0.15s',
+                                background: heatmapCropFocus === r.cropIndex ? 'rgba(20,184,166,0.10)' : 'transparent',
+                                border: 'none',
+                                transition: 'background 0.15s',
                                 overflow: 'visible',
                                 cursor: 'pointer',
                               }}
                               onMouseEnter={(e) => {
-                                (e.currentTarget as HTMLElement).style.filter = 'brightness(1.4) saturate(1.2)';
+                                (e.currentTarget as HTMLElement).style.background = heatmapCropFocus === r.cropIndex
+                                  ? 'rgba(20,184,166,0.18)'
+                                  : 'rgba(255,255,255,0.04)';
                               }}
                               onMouseLeave={(e) => {
-                                (e.currentTarget as HTMLElement).style.filter = '';
+                                (e.currentTarget as HTMLElement).style.background = heatmapCropFocus === r.cropIndex
+                                  ? 'rgba(20,184,166,0.10)'
+                                  : 'transparent';
                               }}
                               data-testid={`scan-overlay-inline-${r.cropIndex ?? i}`}
                             >
+                              {/* Corner brackets */}
+                              {(() => {
+                                const c = heatmapCropFocus === r.cropIndex ? 'rgb(20,184,166)' : ts.corner;
+                                return (<>
+                                  <span style={mkCorner(c, 0, 'auto', 0, 'auto')} />
+                                  <span style={mkCorner(c, 0, 'auto', 'auto', 0)} />
+                                  <span style={mkCorner(c, 'auto', 0, 0, 'auto')} />
+                                  <span style={mkCorner(c, 'auto', 0, 'auto', 0)} />
+                                </>);
+                              })()}
                               <span
                                 style={{
                                   background: ts.badge,
                                   color: ts.label,
-                                  border: `1px solid ${ts.border}`,
+                                  border: `1px solid ${ts.corner}`,
                                   position: 'absolute',
                                   top: 'calc(100% + 2px)',
                                   left: '50%',
