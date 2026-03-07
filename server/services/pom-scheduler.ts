@@ -1,9 +1,11 @@
 import { db } from "../db";
 import { appSettings, syncMetadata } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { syncPriceOMagicCache } from "./bricklink";
 import { syncLock } from "./sync-lock";
 import { recordSyncIssue, resolveSchedulerIssues } from "./sync-issue-service";
+
+const ORG_ID = 'org_planetbrick';
 
 const SYNC_TYPE = 'priceomatic_sync';
 const MAX_RETRIES = 5;
@@ -33,12 +35,12 @@ async function checkAndRunPomSync() {
   try {
     let settingsRow: any;
     try {
-      [settingsRow] = await db.select().from(appSettings).limit(1);
+      [settingsRow] = await db.select().from(appSettings).where(eq(appSettings.orgId, ORG_ID)).limit(1);
     } catch (connErr: any) {
       if (connErr.message?.includes('Connection terminated') || connErr.code === 'ECONNRESET') {
         console.log('[POM] DB connection blip, retrying in 3s...');
         await new Promise(r => setTimeout(r, 3000));
-        [settingsRow] = await db.select().from(appSettings).limit(1);
+        [settingsRow] = await db.select().from(appSettings).where(eq(appSettings.orgId, ORG_ID)).limit(1);
       } else throw connErr;
     }
     const settings = settingsRow;
@@ -56,7 +58,7 @@ async function checkAndRunPomSync() {
     const scheduledTotalMinutes = parseInt(schedH) * 60 + parseInt(schedM);
     if (currentTotalMinutes < scheduledTotalMinutes) return;
 
-    const [meta] = await db.select().from(syncMetadata).where(eq(syncMetadata.id, 'priceomatic_cache')).limit(1);
+    const [meta] = await db.select().from(syncMetadata).where(and(eq(syncMetadata.orgId, ORG_ID), eq(syncMetadata.id, 'priceomatic_cache'))).limit(1);
     const lastRunTs = meta?.lastSyncTime ? new Date(meta.lastSyncTime).getTime() : 0;
 
     if (meta?.lastSyncStatus === 'error') {
@@ -112,6 +114,7 @@ async function runScheduledPomSync(batchSize: number) {
     lastSyncTime: new Date(),
     recordsAdded: 0,
     recordsUpdated: 0,
+    orgId: ORG_ID,
   }).onConflictDoUpdate({
     target: syncMetadata.id,
     set: { lastSyncStatus: 'in_progress', lastSyncTime: new Date(), updatedAt: new Date() },
@@ -128,6 +131,7 @@ async function runScheduledPomSync(batchSize: number) {
       recordsAdded: 0,
       recordsUpdated: result.itemsUpdated,
       errorMessage: result.stopReason || null,
+      orgId: ORG_ID,
     }).onConflictDoUpdate({
       target: syncMetadata.id,
       set: {
@@ -158,6 +162,7 @@ async function runScheduledPomSync(batchSize: number) {
       recordsAdded: 0,
       recordsUpdated: 0,
       errorMessage: error.message,
+      orgId: ORG_ID,
     }).onConflictDoUpdate({
       target: syncMetadata.id,
       set: { lastSyncStatus: 'error', updatedAt: new Date(), errorMessage: error.message },

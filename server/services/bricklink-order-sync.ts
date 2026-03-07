@@ -6,6 +6,8 @@ import { bricklinkRequest } from "./bricklink";
 import { mapPlatformStatus } from "../config/order-status-mapping";
 import { adjustInventoryForOrder } from "./inventory-adjustment";
 
+const ORG_ID = 'org_planetbrick';
+
 /**
  * Fetch a single BrickLink inventory lot by ID and upsert it into the local db.
  * Called when an order item references a lot that doesn't exist locally yet —
@@ -44,6 +46,7 @@ async function fetchAndCacheMissingLot(inventoryId: number): Promise<boolean> {
       tierQuantity1: data.tier_quantity1 ? Number(data.tier_quantity1) : null,
       tierQuantity2: data.tier_quantity2 ? Number(data.tier_quantity2) : null,
       tierQuantity3: data.tier_quantity3 ? Number(data.tier_quantity3) : null,
+      orgId: ORG_ID,
     };
 
     await db.insert(blInventory).values(lotData)
@@ -141,7 +144,7 @@ export async function syncBrickLinkOrders(
       const existingOrders = await db
         .select({ id: orders.id, orderStatus: orders.orderStatus })
         .from(orders)
-        .where(sql`${orders.id} LIKE 'bl-%'`);
+        .where(and(eq(orders.orgId, ORG_ID), sql`${orders.id} LIKE 'bl-%'`));
       
       const existingMap = new Map(existingOrders.map(o => [o.id, o.orderStatus]));
       
@@ -186,6 +189,7 @@ export async function syncBrickLinkOrders(
       recordsAdded: result.ordersAdded,
       recordsUpdated: result.ordersUpdated,
       errorMessage: null,
+      orgId: ORG_ID,
     }).onConflictDoUpdate({
       target: syncMetadata.id,
       set: {
@@ -215,6 +219,7 @@ export async function syncBrickLinkOrders(
       lastSyncTime: new Date(),
       lastSyncStatus: 'failed',
       errorMessage: error.message,
+      orgId: ORG_ID,
     }).onConflictDoUpdate({
       target: syncMetadata.id,
       set: {
@@ -364,7 +369,7 @@ async function processBrickLinkOrder(
     }
   } else {
     // Insert new order
-    await db.insert(orders).values([orderData]);
+    await db.insert(orders).values([{ ...orderData, orgId: ORG_ID }]);
     result.ordersAdded++;
   }
   

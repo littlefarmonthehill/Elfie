@@ -1,9 +1,11 @@
 import { db } from "../db";
 import { appSettings, syncMetadata, blInventory } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { syncBricklinkData } from "./bricklink";
 import { syncLock } from "./sync-lock";
 import { recordSyncIssue, resolveSchedulerIssues } from "./sync-issue-service";
+
+const ORG_ID = 'org_planetbrick';
 
 /**
  * After each successful inventory sync, embed any items that don't yet have a
@@ -46,12 +48,12 @@ async function checkAndRunInventorySync() {
   try {
     let settingsRow: any;
     try {
-      [settingsRow] = await db.select().from(appSettings).limit(1);
+      [settingsRow] = await db.select().from(appSettings).where(eq(appSettings.orgId, ORG_ID)).limit(1);
     } catch (connErr: any) {
       if (connErr.message?.includes('Connection terminated') || connErr.code === 'ECONNRESET') {
         console.log('[Inventory] DB connection blip, retrying in 3s...');
         await new Promise(r => setTimeout(r, 3000));
-        [settingsRow] = await db.select().from(appSettings).limit(1);
+        [settingsRow] = await db.select().from(appSettings).where(eq(appSettings.orgId, ORG_ID)).limit(1);
       } else throw connErr;
     }
     const settings = settingsRow;
@@ -70,7 +72,7 @@ async function checkAndRunInventorySync() {
     if (currentTotalMinutes < scheduledTotalMinutes) return;
 
     // Fetch last run metadata
-    const [meta] = await db.select().from(syncMetadata).where(eq(syncMetadata.id, SYNC_ID)).limit(1);
+    const [meta] = await db.select().from(syncMetadata).where(and(eq(syncMetadata.orgId, ORG_ID), eq(syncMetadata.id, SYNC_ID))).limit(1);
     const lastRunTs = meta?.lastSyncTime ? new Date(meta.lastSyncTime).getTime() : 0;
 
     if (meta?.lastSyncStatus === 'error') {
@@ -118,13 +120,14 @@ async function runAutomatedInventorySync() {
     lastSyncTime: new Date(),
     recordsAdded: 0,
     recordsUpdated: 0,
+    orgId: ORG_ID,
   }).onConflictDoUpdate({
     target: syncMetadata.id,
     set: { lastSyncStatus: 'in_progress', lastSyncTime: new Date(), updatedAt: new Date() },
   });
 
   try {
-    const result = await syncBricklinkData();
+    const result = await syncBricklinkData(ORG_ID);
 
     console.log(`\n✨ Automated inventory sync complete!`);
     console.log(`  📦 Categories: ${result.categoriesAdded} added, ${result.categoriesUpdated} updated`);
@@ -140,6 +143,7 @@ async function runAutomatedInventorySync() {
       recordsAdded: result.inventoryAdded ?? 0,
       recordsUpdated: result.inventoryUpdated ?? 0,
       errorMessage: null,
+      orgId: ORG_ID,
     }).onConflictDoUpdate({
       target: syncMetadata.id,
       set: {
@@ -175,6 +179,7 @@ async function runAutomatedInventorySync() {
       recordsAdded: 0,
       recordsUpdated: 0,
       errorMessage: error.message,
+      orgId: ORG_ID,
     }).onConflictDoUpdate({
       target: syncMetadata.id,
       set: { lastSyncStatus: 'error', updatedAt: new Date(), errorMessage: error.message },

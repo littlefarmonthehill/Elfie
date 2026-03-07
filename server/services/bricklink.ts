@@ -494,7 +494,7 @@ function buildBricklinkImageUrl(itemType: string, colorId: number | null, itemNo
   }
 }
 
-export async function syncBricklinkInventory(callComplete = true): Promise<{ added: number; updated: number; apiCalls: number }> {
+export async function syncBricklinkInventory(callComplete = true, orgId: string = 'org_planetbrick'): Promise<{ added: number; updated: number; apiCalls: number }> {
   try {
     const { syncProgressTracker } = await import('./sync-progress');
     if (callComplete) syncProgressTracker.start();
@@ -516,8 +516,8 @@ export async function syncBricklinkInventory(callComplete = true): Promise<{ add
 
     console.log(`First item sample:`, JSON.stringify(items[0]).substring(0, 200));
     
-    // Get all existing inventory IDs in one query for comparison
-    const existingItems = await db.select({ id: blInventory.id }).from(blInventory);
+    // Get all existing inventory IDs for this org in one query for comparison
+    const existingItems = await db.select({ id: blInventory.id }).from(blInventory).where(eq(blInventory.orgId, orgId));
     const existingIds = new Set(existingItems.map(item => item.id));
     
     // Separate items into new and existing - explicitly convert inventory_id to number for comparison
@@ -566,6 +566,7 @@ export async function syncBricklinkInventory(callComplete = true): Promise<{ add
           tierQuantity2: item.tier_quantity2 || null,
           tierQuantity3: item.tier_quantity3 || null,
           myWeight: item.my_weight || null,
+          orgId,
         }));
         
         await db.insert(blInventory).values(values);
@@ -601,7 +602,7 @@ export async function syncBricklinkInventory(callComplete = true): Promise<{ add
         
         const batchDetails = await db.select()
           .from(blInventory)
-          .where(inArray(blInventory.id, batchIds));
+          .where(and(eq(blInventory.orgId, orgId), inArray(blInventory.id, batchIds)));
         
         existingDetails.push(...batchDetails);
         const progress = Math.round((existingDetails.length / existingItemsToCheck.length) * 100);
@@ -703,7 +704,7 @@ export async function syncBricklinkInventory(callComplete = true): Promise<{ add
               myWeight: item.my_weight || null,
               updatedAt: new Date() 
             })
-            .where(eq(blInventory.id, Number(item.inventory_id)));
+            .where(and(eq(blInventory.orgId, orgId), eq(blInventory.id, Number(item.inventory_id))));
           updated++;
         }
         
@@ -797,7 +798,7 @@ async function syncBricklinkInventoryByStatus(): Promise<{ added: number; update
   }
 }
 
-export async function syncBricklinkData(): Promise<BricklinkSyncResult> {
+export async function syncBricklinkData(orgId: string = 'org_planetbrick'): Promise<BricklinkSyncResult> {
   
   // Acquire inventory sync lock to prevent order sync conflicts
   const lockAcquired = await syncLock.acquireInventoryLock();
@@ -819,7 +820,7 @@ export async function syncBricklinkData(): Promise<BricklinkSyncResult> {
     const categoriesResult = await syncBricklinkCategories();
     const colorsResult = await syncBricklinkColors();
     // Pass callComplete=false so the tracker stays 'syncing' — we complete it at the very end
-    const inventoryResult = await syncBricklinkInventory(false);
+    const inventoryResult = await syncBricklinkInventory(false, orgId);
     
     // Step 2: Sync Rebrickable set-part relationships (tracker: 70–80%)
     console.log('🧩 Step 2/7: Syncing Rebrickable set-part relationships...');

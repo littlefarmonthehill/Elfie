@@ -6325,7 +6325,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   app.post("/api/sync/bricklink/inventory", isApproved, async (req: any, res) => {
     try {
       const orgId = reqOrgId(req);
-      const result = await syncBricklinkData();
+      const result = await syncBricklinkData(orgId);
       res.json({
         success: true,
         data: result,

@@ -8,9 +8,11 @@
 
 import { db } from '../db';
 import { appSettings, syncMetadata } from '@shared/schema';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { syncBrickLinkForum } from './bl-forum-scraper';
 import { recordSyncIssue, resolveSchedulerIssues } from './sync-issue-service';
+
+const ORG_ID = 'org_planetbrick';
 
 const SYNC_ID = 'forum_sync';
 const SYNC_TYPE = 'forum_sync';
@@ -29,7 +31,7 @@ export async function startForumSyncScheduler() {
 
 async function checkAndRunSync() {
   try {
-    const [settings] = await db.select().from(appSettings).limit(1);
+    const [settings] = await db.select().from(appSettings).where(eq(appSettings.orgId, ORG_ID)).limit(1);
 
     if (!settings?.forumSyncEnabled) return;
 
@@ -38,7 +40,7 @@ async function checkAndRunSync() {
     const [meta] = await db
       .select()
       .from(syncMetadata)
-      .where(eq(syncMetadata.id, SYNC_ID))
+      .where(and(eq(syncMetadata.orgId, ORG_ID), eq(syncMetadata.id, SYNC_ID)))
       .limit(1);
 
     const lastRun = meta?.lastSyncTime ? new Date(meta.lastSyncTime).getTime() : 0;
@@ -64,6 +66,7 @@ async function runForumSync() {
     lastSyncTime: new Date(),
     recordsAdded: 0,
     recordsUpdated: 0,
+    orgId: ORG_ID,
   }).onConflictDoUpdate({
     target: syncMetadata.id,
     set: { lastSyncStatus: 'in_progress', lastSyncTime: new Date(), updatedAt: new Date() },
@@ -84,6 +87,7 @@ async function runForumSync() {
         recordsAdded: result.postsSaved ?? 0,
         recordsUpdated: 0,
         errorMessage: null,
+        orgId: ORG_ID,
       }).onConflictDoUpdate({
         target: syncMetadata.id,
         set: {
@@ -105,6 +109,7 @@ async function runForumSync() {
         recordsAdded: 0,
         recordsUpdated: 0,
         errorMessage: result.error ?? 'Unknown error',
+        orgId: ORG_ID,
       }).onConflictDoUpdate({
         target: syncMetadata.id,
         set: { lastSyncStatus: 'error', updatedAt: new Date(), errorMessage: result.error ?? 'Unknown error' },
@@ -129,6 +134,7 @@ async function runForumSync() {
       recordsAdded: 0,
       recordsUpdated: 0,
       errorMessage: error.message,
+      orgId: ORG_ID,
     }).onConflictDoUpdate({
       target: syncMetadata.id,
       set: { lastSyncStatus: 'error', updatedAt: new Date(), errorMessage: error.message },
