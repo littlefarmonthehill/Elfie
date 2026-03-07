@@ -4182,10 +4182,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       // Only counts pieces where CLIP returned at least one match (sim ≥ threshold).
       const clipAcc = { top1: 0, top5: 0, clipMiss: 0, bqMiss: 0, bothMiss: 0, total: 0 };
 
-      const identified: any[] = [];
-      for (let idx = 0; idx < pieces.length; idx++) {
-        const piece = pieces[idx];
-        const pieceResult = await (async (): Promise<any[]> => {
+      const identified: any[] = (await Promise.all(pieces.map(async (piece, idx): Promise<any[]> => {
         const entry = cropData[idx];
         if (entry.earlyResult) return entry.earlyResult;
         const cropBuffer = entry.cropBuffer!;
@@ -4295,6 +4292,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
               colorName: itemType === 'MINIFIG' ? '' : (piece.colorName || ''),
               itemType,
               confidence,
+              bqScore: Math.round(topItem.score * 100) / 100,
               note: piece.note || '',
               detectedRgb: piece.detectedRgb ?? null,
               cropIndex: idx,
@@ -4315,9 +4313,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           console.warn(`[Brickanalyzer] Piece ${idx} failed (${pieceMs}ms):`, err.message);
           return [{ partNo: '', partName: piece.roughName || 'Unknown', colorName: piece.colorName || '', confidence: 'low', note: 'identification error', cropIndex: idx, bboxX: piece.x, bboxY: piece.y, bboxW: piece.w, bboxH: piece.h }];
         }
-        })();
-        identified.push(...pieceResult);
-      }
+      }))).flat();
       console.log(`[Brickanalyzer] Step 2b complete: ${pieces.length} pieces in ${((Date.now() - phase2bStart) / 1000).toFixed(1)}s`);
       if (clipAcc.total > 0) {
         const evaluated = clipAcc.total - clipAcc.bothMiss;

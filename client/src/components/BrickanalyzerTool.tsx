@@ -35,6 +35,7 @@ interface ScanResult {
   colorId: number | null;
   colorRgb: string | null;
   confidence: "high" | "medium" | "low";
+  bqScore?: number | null;
   note: string;
   ourPriceNew: number | null;
   ourQtyNew: number;
@@ -1911,9 +1912,6 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                   borderRadius: "2px",
                 }}
               >
-                <span className="absolute -top-4 left-0 text-[9px] font-mono text-teal-400 bg-gray-900/80 px-0.5 leading-3 select-none">
-                  tap
-                </span>
               </div>
             ))}
 
@@ -2418,7 +2416,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                               }}
                               className="text-[10px] font-bold px-1.5 py-0.5 rounded-sm leading-tight whitespace-nowrap shadow-lg"
                             >
-                              ? tap
+                              ?
                             </span>
                           </button>
                         ))}
@@ -2524,6 +2522,11 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                               ? 'bg-yellow-900/30 text-yellow-400 border border-yellow-500/25'
                               : 'bg-gray-800 text-gray-400 border border-gray-600/30'
                           }`}>{overlayBestConf}</span>
+                          {overlayRepEntry.bqScore != null && (
+                            <span className="text-[9px] font-mono text-gray-400 bg-gray-800/60 border border-gray-600/30 rounded px-1.5 py-0.5" title="Brickognize match score">
+                              {Math.round(overlayRepEntry.bqScore * 100)}%
+                            </span>
+                          )}
                           {overlayStockLabel && (
                             <span className="text-[9px] font-semibold text-emerald-400">· {overlayStockLabel}</span>
                           )}
