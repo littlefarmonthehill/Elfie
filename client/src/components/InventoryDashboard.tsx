@@ -69,7 +69,7 @@ interface InventoryDashboardProps {
   onItemClick?: (type: 'order' | 'inventory', id: number | string, initialTab?: string) => void;
   activeDrawer: 'priceomatic' | 'warehouse' | 'platformsync' | 'brickanalyzer' | null;
   onDrawerChange: (drawer: 'priceomatic' | 'warehouse' | 'platformsync' | 'brickanalyzer' | null) => void;
-  onOpenSettings?: (section?: 'general' | 'platforms' | 'ai' | 'automation' | 'priceomatic' | 'listomatc' | 'data' | 'users') => void;
+  onOpenSettings?: (section?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'users') => void;
 }
 
 export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawerChange, onOpenSettings }: InventoryDashboardProps) {

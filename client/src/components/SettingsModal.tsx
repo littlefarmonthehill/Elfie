@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { AppSettings, User, Organization, OrgIntegration } from "@shared/schema";
 import { APP_VERSION, APP_NAME } from "@shared/version";
-import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Info, Layers, Play, Loader2, ChevronDown, ChevronRight, BarChart2, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock } from "lucide-react";
+import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Info, Layers, Play, Loader2, ChevronDown, ChevronRight, ChevronLeft, BarChart2, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock } from "lucide-react";
 import { PomCategoryTiers } from "@/components/PomCategoryTiers";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -706,7 +706,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const [pomHighSupplyThreshold, setPomHighSupplyThreshold] = useState(10000); // BL stock qty = "full supply"
   const [pomHighSupplyPenalty, setPomHighSupplyPenalty] = useState(40);  // supply weight 0–100
 
-  const [activeSection, setActiveSection] = useState<'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'users'>(initialSection ?? 'general');
+  const [activeSection, setActiveSection] = useState<'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'users' | null>(initialSection ?? null);
 
   const { data: settings } = useQuery<AppSettings>({
     queryKey: ['/api/settings'],
@@ -1241,39 +1241,50 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     <>
       <Dialog open={open} onOpenChange={onClose}>
         <DialogContent
-          className="sm:max-w-[800px] bg-gray-900 border-gray-700 p-0"
+          className={`${activeSection === null ? 'sm:max-w-[420px]' : 'sm:max-w-[800px]'} bg-gray-900 border-gray-700 p-0`}
           style={{ maxHeight: 'calc(96dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom))' }}
         >
           <div
-            className="flex flex-col sm:flex-row h-full"
+            className="flex flex-col h-full"
             style={{ maxHeight: 'calc(96dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom))' }}
           >
-            {/* Left Navigation */}
-            <div className="sm:w-48 border-b sm:border-b-0 sm:border-r border-gray-700 bg-gray-800/50">
-              <DialogHeader className="p-4 sm:p-6">
-                <DialogTitle className="text-base font-semibold">Settings</DialogTitle>
+            {/* Header */}
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-700 flex-shrink-0">
+              {activeSection !== null && (
+                <button
+                  onClick={() => setActiveSection(null)}
+                  className="text-gray-400 hover:text-gray-200 transition-colors flex-shrink-0 -ml-1 p-1 rounded"
+                  data-testid="button-settings-back"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+              )}
+              <DialogHeader className="flex-1 p-0">
+                <DialogTitle className="text-base font-semibold">
+                  {activeSection === null ? 'Settings' : navigationItems.find(i => i.id === activeSection)?.label ?? 'Settings'}
+                </DialogTitle>
               </DialogHeader>
-              <nav className="flex sm:flex-col gap-1 p-2 sm:p-3 overflow-x-auto sm:overflow-visible">
-                {navigationItems.map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => setActiveSection(item.id)}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-md text-xs whitespace-nowrap sm:whitespace-normal transition-colors ${
-                      activeSection === item.id
-                        ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
-                        : 'text-gray-400 hover:text-gray-300 hover:bg-gray-700/50'
-                    }`}
-                    data-testid={`nav-${item.id}`}
-                  >
-                    <item.icon className="h-4 w-4 flex-shrink-0" />
-                    <span className="hidden sm:inline">{item.label}</span>
-                  </button>
-                ))}
-              </nav>
             </div>
 
-            {/* Right Content Area */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto">
+              {activeSection === null ? (
+                <nav className="p-2">
+                  {navigationItems.map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => setActiveSection(item.id)}
+                      className="w-full flex items-center gap-3 px-4 py-3 rounded-md text-sm text-gray-300 hover:text-white hover:bg-gray-700/50 transition-colors group"
+                      data-testid={`nav-${item.id}`}
+                    >
+                      <item.icon className="h-4 w-4 text-gray-400 flex-shrink-0 group-hover:text-gray-200 transition-colors" />
+                      <span className="flex-1 text-left">{item.label}</span>
+                      <ChevronRight className="h-4 w-4 text-gray-600 flex-shrink-0" />
+                    </button>
+                  ))}
+                </nav>
+              ) : (
+                <div className="p-4 sm:p-6">
 
             {/* General Settings */}
             {activeSection === 'general' && (
@@ -3487,6 +3498,8 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
             {activeSection === 'users' && (
               <UserManagementSection />
             )}
+                </div>
+              )}
             </div>
           </div>
           

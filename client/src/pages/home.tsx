@@ -30,7 +30,7 @@ export default function Home() {
   const { data: org } = useQuery<Organization>({ queryKey: ['/api/org'] });
   const [activeDashboard, setActiveDashboard] = useState<DashboardType>('dashboard');
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settingsInitialSection, setSettingsInitialSection] = useState<'general' | 'platforms' | 'ai' | 'automation' | 'priceomatic' | 'data' | 'users'>('general');
+  const [settingsInitialSection, setSettingsInitialSection] = useState<'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'users' | null>(null);
   const [salesPeriod, setSalesPeriod] = useState<'mtd' | 'ytd' | '1y' | '5y'>('ytd');
   const [dateRange, setDateRange] = useState<DateRangeValue>('mtd');
   const [chatOpen, setChatOpen] = useState(false);
@@ -314,7 +314,7 @@ export default function Home() {
   const renderDashboard = () => {
     switch (activeDashboard) {
       case 'inventory':
-        return <InventoryDashboard onItemClick={handleDashboardItemClick} activeDrawer={activeInventoryDrawer} onDrawerChange={setActiveInventoryDrawer} onOpenSettings={(section) => { setSettingsInitialSection(section ?? 'listomatc'); setSettingsOpen(true); }} />;
+        return <InventoryDashboard onItemClick={handleDashboardItemClick} activeDrawer={activeInventoryDrawer} onDrawerChange={setActiveInventoryDrawer} onOpenSettings={(section) => { setSettingsInitialSection(section ?? null); setSettingsOpen(true); }} />;
       case 'orders':
         return <OrdersDashboard onItemClick={handleDashboardItemClick} activeDrawer={activeOrdersDrawer} onDrawerChange={setActiveOrdersDrawer} />;
       case 'sales':
@@ -914,7 +914,7 @@ export default function Home() {
         />
       )}
 
-      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} initialSection={settingsInitialSection} />
+      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} initialSection={settingsInitialSection ?? undefined} />
       
       {/* Detail modal - positioned lower-left in landscape mode */}
       <div className={detailModal.open ? 'landscape:fixed landscape:bottom-4 landscape:left-4 landscape:w-[45%] landscape:max-h-[60vh]' : ''}>
