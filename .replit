@@ -8,7 +8,7 @@ packages = ["freetype", "lcms2", "libimagequant", "libjpeg", "libjpeg_turbo", "l
 
 [deployment]
 deploymentTarget = "autoscale"
-build = ["npm", "run", "build"]
+build = ["sh", "-c", "npm run db:push && npm run build"]
 run = ["npm", "run", "start"]
 
 [[ports]]

@@ -32,39 +32,75 @@ setInterval(() => {
 
 export const db = drizzle(pool, { schema });
 
-// ─── Phase-1 Multi-Tenant Migration ──────────────────────────────────────────
-// All statements use IF NOT EXISTS / IF NOT NULL guards — safe to re-run.
+// ─── Multi-Tenant Migration ───────────────────────────────────────────────────
+// All statements use IF NOT EXISTS / WHERE IS NULL guards — safe to re-run on
+// every server start. Order matters: tables before columns before data stamps.
 export async function runMigrations() {
   const client = await pool.connect();
   try {
-    console.log('[Migration] Running Phase-1 org migrations…');
+    console.log('[Migration] Running startup migrations…');
 
-    // 1. Create organizations table
+    // ── Phase-1: Organizations table ─────────────────────────────────────────
+    // Create with minimal required columns — db:push fills the rest.
     await client.query(`
       CREATE TABLE IF NOT EXISTS organizations (
-        id        VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
-        name      VARCHAR NOT NULL,
-        slug      VARCHAR UNIQUE NOT NULL,
-        plan      VARCHAR NOT NULL DEFAULT 'free',
-        is_active BOOLEAN NOT NULL DEFAULT true,
-        created_at TIMESTAMP DEFAULT NOW() NOT NULL,
-        updated_at TIMESTAMP DEFAULT NOW() NOT NULL
+        id          VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        name        VARCHAR NOT NULL,
+        slug        VARCHAR UNIQUE NOT NULL,
+        plan        VARCHAR NOT NULL DEFAULT 'foundation',
+        is_active   BOOLEAN NOT NULL DEFAULT true,
+        created_at  TIMESTAMP DEFAULT NOW() NOT NULL,
+        updated_at  TIMESTAMP DEFAULT NOW() NOT NULL
       )
     `);
 
-    // 2. Seed default PlanetBrick org (idempotent)
+    // Belt-and-suspenders: add billing/limit columns that db:push would add.
+    // Safe no-ops if they already exist.
+    await client.query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS address TEXT`);
+    await client.query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS phone VARCHAR(50)`);
+    await client.query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS website VARCHAR(255)`);
+    await client.query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS logo_url TEXT`);
+    await client.query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS onboarding_completed BOOLEAN NOT NULL DEFAULT false`);
+    await client.query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR`);
+    await client.query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS stripe_subscription_id VARCHAR`);
+    await client.query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS subscription_status VARCHAR NOT NULL DEFAULT 'trial'`);
+    await client.query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS subscription_interval VARCHAR NOT NULL DEFAULT 'monthly'`);
+    await client.query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS brickspotter_scans_this_month INTEGER NOT NULL DEFAULT 0`);
+    await client.query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS brickspotter_scans_reset_date TIMESTAMP NOT NULL DEFAULT NOW()`);
+    await client.query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS seat_limit_override INTEGER`);
+    await client.query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS brickspotter_limit_override INTEGER`);
+    await client.query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS automation_limit_override INTEGER`);
+
+    // Seed the default PlanetBrick org. Use UPDATE on conflict so a previously
+    // inserted 'pro' plan (old value) gets corrected to 'foundation'.
     await client.query(`
       INSERT INTO organizations (id, name, slug, plan)
-      VALUES ('org_planetbrick', 'PlanetBrick', 'planetbrick', 'pro')
-      ON CONFLICT (id) DO NOTHING
+      VALUES ('org_planetbrick', 'PlanetBrick', 'planetbrick', 'foundation')
+      ON CONFLICT (id) DO UPDATE SET
+        plan = CASE WHEN organizations.plan IN ('pro', 'free') THEN 'foundation' ELSE organizations.plan END
     `);
 
-    // 3. Add org columns to users
+    console.log('[Migration] Phase-1 (organizations) complete.');
+
+    // ── Phase-2: Users org columns ───────────────────────────────────────────
     await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS org_id VARCHAR`);
     await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS org_role VARCHAR DEFAULT 'owner'`);
-    await client.query(`UPDATE users SET org_id = 'org_planetbrick' WHERE org_id IS NULL`);
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS super_admin BOOLEAN NOT NULL DEFAULT false`);
 
-    // 4. Add org_id to all operational tables (additive only — nullable)
+    // Stamp any unassigned users into the default org as owners.
+    await client.query(`UPDATE users SET org_id   = 'org_planetbrick' WHERE org_id   IS NULL`);
+    await client.query(`UPDATE users SET org_role = 'owner'           WHERE org_role IS NULL`);
+
+    // Ensure platform super-admins are flagged — idempotent.
+    await client.query(`
+      UPDATE users SET super_admin = true
+      WHERE email IN ('bhnorby@gmail.com', 'caleblauritsen@gmail.com')
+    `);
+
+    console.log('[Migration] Phase-2 (users) complete.');
+
+    // ── Phase-3: org_id on all operational tables ────────────────────────────
+    // Additive only — nullable column, then stamp existing NULL rows.
     const tables = [
       'bl_inventory', 'orders', 'app_settings', 'conversations',
       'brickanalyzer_scans', 'sync_metadata', 'sync_issues', 'bl_api_calls',
@@ -76,34 +112,33 @@ export async function runMigrations() {
       await client.query(`UPDATE ${table} SET org_id = 'org_planetbrick' WHERE org_id IS NULL`);
     }
 
-    console.log('[Migration] Phase-1 org migrations complete.');
+    console.log('[Migration] Phase-3 (operational tables) complete.');
 
-    // ── Phase-5: Per-Org Credentials ──────────────────────────────────────────
-    // Add PayPal credential fields to app_settings
+    // ── Phase-4: Per-org credentials (app_settings + org_integrations) ───────
     await client.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS paypal_client_id TEXT`);
     await client.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS paypal_client_secret TEXT`);
     await client.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS paypal_environment TEXT NOT NULL DEFAULT 'live'`);
 
-    // Create org_integrations table (selling channels: BrickOwl, eBay, Amazon, Stripe, etc.)
     await client.query(`
       CREATE TABLE IF NOT EXISTS org_integrations (
-        id           SERIAL PRIMARY KEY,
-        org_id       VARCHAR NOT NULL,
-        channel      VARCHAR NOT NULL,
-        display_name TEXT,
-        credentials  JSONB NOT NULL DEFAULT '{}',
-        is_connected BOOLEAN NOT NULL DEFAULT false,
+        id             SERIAL PRIMARY KEY,
+        org_id         VARCHAR NOT NULL,
+        channel        VARCHAR NOT NULL,
+        display_name   TEXT,
+        credentials    JSONB NOT NULL DEFAULT '{}',
+        is_connected   BOOLEAN NOT NULL DEFAULT false,
         last_tested_at TIMESTAMP,
-        created_at   TIMESTAMP NOT NULL DEFAULT NOW(),
-        updated_at   TIMESTAMP NOT NULL DEFAULT NOW(),
+        created_at     TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at     TIMESTAMP NOT NULL DEFAULT NOW(),
         UNIQUE (org_id, channel)
       )
     `);
 
-    console.log('[Migration] Phase-5 credential migrations complete.');
+    console.log('[Migration] Phase-4 (credentials) complete.');
+    console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {
-    console.error('[Migration] Error during Phase-1 migration:', err.message);
+    console.error('[Migration] Error during startup migration:', err.message);
     throw err;
   } finally {
     client.release();
