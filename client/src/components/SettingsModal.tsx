@@ -706,6 +706,8 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const [pomHighSupplyThreshold, setPomHighSupplyThreshold] = useState(10000); // BL stock qty = "full supply"
   const [pomHighSupplyPenalty, setPomHighSupplyPenalty] = useState(40);  // supply weight 0–100
 
+  const [elfieMode, setElfieMode] = useState<'search' | 'ai'>('search');
+
   const [activeSection, setActiveSection] = useState<'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'users' | null>(initialSection ?? null);
 
   const { data: settings } = useQuery<AppSettings>({
@@ -893,6 +895,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
       setPomTrendingBonus(settings.pomTrendingBonus ?? 60);
       setPomHighSupplyThreshold(settings.pomHighSupplyThreshold ?? 10000);
       setPomHighSupplyPenalty(settings.pomHighSupplyPenalty ?? 40);
+      setElfieMode((settings.elfieMode as 'search' | 'ai') ?? 'search');
 
       // Fetch models
       fetchModels();
@@ -1241,12 +1244,11 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     <>
       <Dialog open={open} onOpenChange={onClose}>
         <DialogContent
-          className={`${activeSection === null ? 'sm:max-w-[420px]' : 'sm:max-w-[800px]'} bg-gray-900 border-gray-700 p-0`}
-          style={{ maxHeight: 'calc(96dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom))' }}
+          className="sm:max-w-[640px] bg-gray-900 border-gray-700 p-0"
+          style={{ height: 'min(640px, calc(96dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom)))' }}
         >
           <div
             className="flex flex-col h-full"
-            style={{ maxHeight: 'calc(96dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom))' }}
           >
             {/* Header */}
             <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-700 flex-shrink-0">
@@ -1445,6 +1447,36 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     </SelectContent>
                   </Select>
                   <p className="text-[10px] text-gray-500">Used by all schedulers (POM, Inventory Sync)</p>
+                </div>
+              </div>
+
+              {/* E.L.F.I.E. Mode */}
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium text-gray-300">E.L.F.I.E. Mode</h3>
+                <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 space-y-3">
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => { setElfieMode('search'); updateSettingsMutation.mutate({ elfieMode: 'search' }); }}
+                      className={`flex-1 flex flex-col items-center gap-1 px-3 py-2.5 rounded-md border text-xs transition-colors ${elfieMode === 'search' ? 'bg-purple-500/20 border-purple-500/40 text-purple-300' : 'bg-gray-700/40 border-gray-600 text-gray-400 hover:text-gray-300 hover:bg-gray-700/60'}`}
+                      data-testid="button-elfie-mode-search"
+                    >
+                      <span className="font-semibold">Search Mode</span>
+                      <span className="text-[10px] text-center opacity-70">Keyword &amp; tool search only</span>
+                    </button>
+                    <button
+                      onClick={() => { setElfieMode('ai'); updateSettingsMutation.mutate({ elfieMode: 'ai' }); }}
+                      className={`flex-1 flex flex-col items-center gap-1 px-3 py-2.5 rounded-md border text-xs transition-colors ${elfieMode === 'ai' ? 'bg-purple-500/20 border-purple-500/40 text-purple-300' : 'bg-gray-700/40 border-gray-600 text-gray-400 hover:text-gray-300 hover:bg-gray-700/60'}`}
+                      data-testid="button-elfie-mode-ai"
+                    >
+                      <span className="font-semibold">AI Mode</span>
+                      <span className="text-[10px] text-center opacity-70">Data enrichment &amp; intelligence</span>
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-gray-500">
+                    {elfieMode === 'search'
+                      ? 'E.L.F.I.E. will search your inventory, orders, and catalog data without AI analysis.'
+                      : 'E.L.F.I.E. uses full AI capabilities including price insights, demand analysis, and intelligent recommendations.'}
+                  </p>
                 </div>
               </div>
 

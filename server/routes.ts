@@ -2088,7 +2088,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/chat", isApproved, async (req, res) => {
     const chatStartTime = Date.now();
     try {
-      const { messages, context } = req.body;
+      const { messages, context, elfieMode } = req.body;
       
       console.log('📨 Received request body:', JSON.stringify({ 
         messagesCount: messages?.length, 
@@ -2865,9 +2865,13 @@ For strategic questions, chain tools: check throughput → pull price guide → 
 
 When search_web is relevant, use it. Format all URLs as markdown links.`;
 
-      const systemPrompt = settings?.systemPrompt 
-        ? `${settings.systemPrompt}\n\nCurrent context: ${context}\n${databaseContext}\n\n${enhancedDefaultPrompt}` 
-        : `${enhancedDefaultPrompt}\n\nCurrent context: ${context}\n${databaseContext}`;
+      const searchModePrompt = `You are E.L.F.I.E. (Expert LEGO Fulfillment & Inventory Engine) operating in Search Mode. Your role is to search and retrieve data from the PlanetBrick database — inventory, orders, catalog items, and business records. You find and present information clearly and accurately. Do not provide market analysis, pricing recommendations, or speculative insights. Stick to factual data retrieval, filtering, and summarizing what is in the database. Current context: ${context}\n${databaseContext}`;
+
+      const systemPrompt = elfieMode === 'search'
+        ? searchModePrompt
+        : (settings?.systemPrompt 
+          ? `${settings.systemPrompt}\n\nCurrent context: ${context}\n${databaseContext}\n\n${enhancedDefaultPrompt}` 
+          : `${enhancedDefaultPrompt}\n\nCurrent context: ${context}\n${databaseContext}`);
 
       console.log(`⏱️ Pre-query phase took ${Date.now() - chatStartTime}ms`);
       

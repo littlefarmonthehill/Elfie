@@ -491,6 +491,8 @@ export const appSettings = pgTable("app_settings", {
   lomSubcategoryScore: integer("lom_subcategory_score").default(50).notNull(), // Phase 2 — Subcategory
   lomFinalsortScore: integer("lom_finalsort_score").default(75).notNull(),     // Phase 3 — Final Sort
   lomListingScore: integer("lom_listing_score").default(100).notNull(),        // Phase 4 — Listing (flagged cats get 2x)
+  // E.L.F.I.E. Mode: 'search' = keyword/tool search only, 'ai' = full AI with data enrichment
+  elfieMode: text("elfie_mode").default('search').notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

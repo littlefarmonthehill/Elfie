@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, Bot, RefreshCcw, ChevronUp, ChevronDown, Minimize2, Maximize2, ExternalLink, X, Camera, Image, Sparkles } from "lucide-react";
+import { Send, Bot, RefreshCcw, ChevronUp, ChevronDown, Minimize2, Maximize2, ExternalLink, X, Camera, Image, Sparkles, Search, Brain } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -7,6 +7,8 @@ import { InventoryGroup } from "@/components/InventoryGroup";
 import { OrderGroup } from "@/components/OrderGroup";
 import { ForumDiscussionsGroup } from "@/components/ForumDiscussionsGroup";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
+import type { AppSettings } from "@shared/schema";
 import elfieRobot from "@assets/PlanetBrick_good_robot_1760672362080.png";
 
 interface ChatMessage {
@@ -510,6 +512,9 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
     button: 'bg-purple-600 hover:bg-purple-700',
     promptBg: 'bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30',
   };
+  const { data: appSettings } = useQuery<AppSettings>({ queryKey: ['/api/settings'] });
+  const elfieMode = (appSettings?.elfieMode as 'search' | 'ai') ?? 'search';
+
   // Initialize or retrieve session ID for conversation continuity
   const [sessionId, setSessionId] = useState<string>(() => {
     const stored = localStorage.getItem('elfie-session-id');
@@ -613,6 +618,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
             content: m.content,
           })),
           context: dashboardContext,
+          elfieMode,
         }),
       });
 
@@ -919,7 +925,12 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
             />
             <span className="text-sm md:text-lg lg:text-xl font-bold text-purple-300">E.L.F.I.E.</span>
           </div>
-          <span className="text-xs md:text-sm lg:text-base text-gray-400">AI Assistant</span>
+          <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border ${elfieMode === 'ai' ? 'bg-purple-500/20 border-purple-500/30 text-purple-300' : 'bg-gray-700/60 border-gray-600 text-gray-400'}`}
+            data-testid="badge-elfie-mode"
+          >
+            {elfieMode === 'ai' ? <Brain className="w-3 h-3" /> : <Search className="w-3 h-3" />}
+            <span>{elfieMode === 'ai' ? 'AI Mode' : 'Search Mode'}</span>
+          </div>
         </div>
         {onToggleMinimize && (
           <Button
