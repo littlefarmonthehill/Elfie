@@ -337,62 +337,72 @@ function OverlayPricingPanel({ partNo, itemType, colorEntries }: {
         const fmt = (v: any) => v != null && Number(v) > 0 ? `$${Number(v).toFixed(2)}` : '—';
         const fmtNum = (v: any) => v != null ? String(v) : '—';
 
-        const PriceRow = ({ label, nVal, uVal, mono }: { label: string; nVal: any; uVal: any; mono?: boolean }) => (
-          <div className="grid grid-cols-[1fr_auto_auto] border-b border-white/[0.03]">
-            <div className="px-3 py-1.5 text-[11px] text-gray-500">{label}</div>
-            <div className="w-[82px] px-2 py-1.5 text-center text-[11px] font-mono text-white tabular-nums border-l border-white/[0.04]">
-              {mono ? fmtNum(nVal) : fmt(nVal)}
-            </div>
-            <div className="w-[82px] px-2 py-1.5 text-center text-[11px] font-mono text-white tabular-nums border-l border-white/[0.04]">
-              {mono ? fmtNum(uVal) : fmt(uVal)}
-            </div>
+        const COL = 'w-[62px]';
+        const cellBase = `${COL} px-1.5 py-1.5 text-center text-[11px] font-mono tabular-nums border-l border-white/[0.05]`;
+
+        const DataRow = ({ label, sN, sU, lN, lU, mono, highlight }: {
+          label: string; sN: any; sU: any; lN: any; lU: any; mono?: boolean; highlight?: boolean;
+        }) => (
+          <div className={`grid grid-cols-[1fr_auto_auto_auto_auto] border-b border-white/[0.03] ${highlight ? 'bg-white/[0.03]' : ''}`}>
+            <div className={`px-3 py-1.5 text-[11px] ${highlight ? 'text-green-400 font-semibold' : 'text-gray-500'}`}>{label}</div>
+            <div className={`${cellBase} ${highlight ? 'text-green-300' : 'text-white'}`}>{mono ? fmtNum(sN) : fmt(sN)}</div>
+            <div className={`${cellBase} ${highlight ? 'text-green-300' : 'text-white'}`}>{mono ? fmtNum(sU) : fmt(sU)}</div>
+            <div className={`${cellBase} ${highlight ? 'text-green-300' : 'text-gray-300'}`}>{mono ? fmtNum(lN) : fmt(lN)}</div>
+            <div className={`${cellBase} ${highlight ? 'text-green-300' : 'text-gray-300'}`}>{mono ? fmtNum(lU) : fmt(lU)}</div>
           </div>
         );
 
         const hasSoldDist = nData?.soldP10 || nData?.soldP25 || nData?.soldP85 || uData?.soldP10 || uData?.soldP85;
-        const allPcts: Array<{ label: string; nVal: string | null; uVal: string | null; highlight: boolean }> = [
-          { label: 'P10', nVal: nData?.soldP10 ?? null, uVal: uData?.soldP10 ?? null, highlight: false },
-          { label: 'P25', nVal: nData?.soldP25 ?? null, uVal: uData?.soldP25 ?? null, highlight: false },
-          { label: 'P50', nVal: nData?.soldP50 ?? null, uVal: uData?.soldP50 ?? null, highlight: false },
-          { label: 'P75', nVal: nData?.soldP75 ?? null, uVal: uData?.soldP75 ?? null, highlight: false },
-          { label: 'P85', nVal: nData?.soldP85 ?? null, uVal: uData?.soldP85 ?? null, highlight: true },
-          { label: 'P95', nVal: nData?.soldP95 ?? null, uVal: uData?.soldP95 ?? null, highlight: false },
-        ].filter(r => r.nVal || r.uVal);
+        const allPcts = [
+          { label: 'P10', sN: nData?.soldP10, sU: uData?.soldP10, highlight: false },
+          { label: 'P25', sN: nData?.soldP25, sU: uData?.soldP25, highlight: false },
+          { label: 'P50', sN: nData?.soldP50, sU: uData?.soldP50, highlight: false },
+          { label: 'P75', sN: nData?.soldP75, sU: uData?.soldP75, highlight: false },
+          { label: 'P85 ←', sN: nData?.soldP85, sU: uData?.soldP85, highlight: true },
+          { label: 'P95', sN: nData?.soldP95, sU: uData?.soldP95, highlight: false },
+        ].filter(r => r.sN || r.sU);
 
         const hasSuggested = nData?.suggestedPrice != null || uData?.suggestedPrice != null;
 
         return (
           <div className="px-4 pt-2 pb-4 space-y-2.5">
-            {/* Current Listings */}
+            {/* Main pricing table */}
             <div className="rounded-xl bg-white/[0.04] border border-white/[0.06] overflow-hidden">
-              <div className="grid grid-cols-[1fr_auto_auto] border-b border-white/[0.08]">
-                <div className="px-3 py-2 text-[9px] uppercase tracking-widest text-gray-500 font-semibold">Current Listings</div>
-                <div className="w-[82px] px-2 py-2 text-center text-[10px] uppercase font-semibold text-blue-400 border-l border-white/[0.06]">New</div>
-                <div className="w-[82px] px-2 py-2 text-center text-[10px] uppercase font-semibold text-orange-400 border-l border-white/[0.06]">Used</div>
+              {/* Super-header: SOLD | LISTED */}
+              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] border-b border-white/[0.08]">
+                <div />
+                <div className="col-span-2 py-1.5 text-center text-[9px] uppercase tracking-widest font-semibold text-amber-400/80 border-l border-white/[0.06]">
+                  Sold (6mo)
+                </div>
+                <div className="col-span-2 py-1.5 text-center text-[9px] uppercase tracking-widest font-semibold text-sky-400/80 border-l border-white/[0.06]">
+                  Listed
+                </div>
               </div>
-              <PriceRow label="Avg" nVal={nData?.stockAvgPrice} uVal={uData?.stockAvgPrice} />
-              <PriceRow label="Min" nVal={nData?.stockMinPrice} uVal={uData?.stockMinPrice} />
-              <PriceRow label="Max" nVal={nData?.stockMaxPrice} uVal={uData?.stockMaxPrice} />
-              <PriceRow label="Total units" nVal={nData?.stockTotalLots} uVal={uData?.stockTotalLots} mono />
-              <PriceRow label="Avg qty/lot" nVal={nData?.stockQuantity} uVal={uData?.stockQuantity} mono />
-            </div>
-
-            {/* Sold (6mo) */}
-            <div className="rounded-xl bg-white/[0.04] border border-white/[0.06] overflow-hidden">
-              <div className="grid grid-cols-[1fr_auto_auto] border-b border-white/[0.08]">
-                <div className="px-3 py-2 text-[9px] uppercase tracking-widest text-gray-500 font-semibold">Sold (6mo)</div>
-                <div className="w-[82px] px-2 py-2 text-center text-[10px] uppercase font-semibold text-blue-400 border-l border-white/[0.06]">New</div>
-                <div className="w-[82px] px-2 py-2 text-center text-[10px] uppercase font-semibold text-orange-400 border-l border-white/[0.06]">Used</div>
+              {/* Sub-header: New | Used | New | Used */}
+              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] border-b border-white/[0.08]">
+                <div className="px-3 py-1 text-[9px] uppercase tracking-widest text-gray-600 font-semibold" />
+                <div className={`${cellBase} text-[9px] uppercase text-blue-400 font-semibold py-1`}>New</div>
+                <div className={`${cellBase} text-[9px] uppercase text-orange-400 font-semibold py-1`}>Used</div>
+                <div className={`${cellBase} text-[9px] uppercase text-blue-400 font-semibold py-1`}>New</div>
+                <div className={`${cellBase} text-[9px] uppercase text-orange-400 font-semibold py-1`}>Used</div>
               </div>
-              <PriceRow label="Avg (P85)" nVal={nData?.soldAvgPrice} uVal={uData?.soldAvgPrice} />
-              <PriceRow label="Min" nVal={nData?.soldMinPrice} uVal={uData?.soldMinPrice} />
-              <PriceRow label="Max" nVal={nData?.soldMaxPrice} uVal={uData?.soldMaxPrice} />
-              <PriceRow label="Units sold" nVal={nData?.soldTotalLots} uVal={uData?.soldTotalLots} mono />
-              <PriceRow label="Avg qty/lot" nVal={nData?.soldQuantity} uVal={uData?.soldQuantity} mono />
+              {/* Data rows */}
+              <DataRow label="Avg" sN={nData?.soldAvgPrice} sU={uData?.soldAvgPrice} lN={nData?.stockAvgPrice} lU={uData?.stockAvgPrice} />
+              <DataRow label="Min" sN={nData?.soldMinPrice} sU={uData?.soldMinPrice} lN={nData?.stockMinPrice} lU={uData?.stockMinPrice} />
+              <DataRow label="Max" sN={nData?.soldMaxPrice} sU={uData?.soldMaxPrice} lN={nData?.stockMaxPrice} lU={uData?.stockMaxPrice} />
+              <DataRow label="Units" sN={nData?.soldTotalLots} sU={uData?.soldTotalLots} lN={nData?.stockTotalLots} lU={uData?.stockTotalLots} mono />
+              <DataRow label="Avg/lot" sN={nData?.soldQuantity} sU={uData?.soldQuantity} lN={nData?.stockQuantity} lU={uData?.stockQuantity} mono />
+              {hasSuggested && (
+                <DataRow
+                  label={`${nData?.premiumPercentage ?? uData?.premiumPercentage ?? 15}% sugg.`}
+                  sN={nData?.suggestedPrice} sU={uData?.suggestedPrice}
+                  lN={null} lU={null}
+                />
+              )}
               {hasSoldDist && (
                 <button
                   onClick={() => setShowDist(v => !v)}
-                  className="w-full flex items-center justify-between px-3 py-1.5 text-[10px] text-gray-500 hover:text-gray-300 border-t border-white/[0.04] transition-colors"
+                  className="w-full flex items-center justify-between px-3 py-1.5 text-[10px] text-gray-600 hover:text-gray-300 border-t border-white/[0.04] transition-colors"
                   data-testid="button-toggle-sold-dist"
                 >
                   <span>{showDist ? 'Hide distribution' : 'Show distribution'}</span>
@@ -401,50 +411,25 @@ function OverlayPricingPanel({ partNo, itemType, colorEntries }: {
               )}
             </div>
 
-            {/* Price Distribution — collapsible */}
+            {/* Sold distribution — collapsible */}
             {showDist && allPcts.length > 0 && (
               <div className="rounded-xl bg-white/[0.02] border border-white/[0.05] overflow-hidden">
                 <div className="grid grid-cols-[1fr_auto_auto] border-b border-white/[0.06]">
                   <div className="px-3 py-2 text-[9px] uppercase tracking-widest text-gray-500 font-semibold">Sold Distribution</div>
-                  <div className="w-[82px] px-2 py-2 text-center text-[10px] uppercase font-semibold text-blue-400 border-l border-white/[0.05]">New</div>
-                  <div className="w-[82px] px-2 py-2 text-center text-[10px] uppercase font-semibold text-orange-400 border-l border-white/[0.05]">Used</div>
+                  <div className={`${COL} px-1.5 py-2 text-center text-[9px] uppercase font-semibold text-blue-400 border-l border-white/[0.05]`}>New</div>
+                  <div className={`${COL} px-1.5 py-2 text-center text-[9px] uppercase font-semibold text-orange-400 border-l border-white/[0.05]`}>Used</div>
                 </div>
                 {allPcts.map(row => (
                   <div key={row.label} className={`grid grid-cols-[1fr_auto_auto] border-b border-white/[0.03] ${row.highlight ? 'bg-white/[0.03]' : ''}`}>
-                    <div className={`px-3 py-1.5 text-[11px] font-mono ${row.highlight ? 'text-green-400 font-bold' : 'text-gray-500'}`}>
-                      {row.label}{row.highlight && <span className="text-[9px] text-green-400/60 ml-1">← avg</span>}
+                    <div className={`px-3 py-1.5 text-[11px] font-mono ${row.highlight ? 'text-green-400 font-bold' : 'text-gray-500'}`}>{row.label}</div>
+                    <div className={`${COL} px-1.5 py-1.5 text-center text-[11px] font-mono tabular-nums border-l border-white/[0.04] ${row.highlight ? 'text-green-300' : 'text-gray-400'}`}>
+                      {row.sN ? `$${Number(row.sN).toFixed(2)}` : '—'}
                     </div>
-                    <div className={`w-[82px] px-2 py-1.5 text-center text-[11px] font-mono tabular-nums border-l border-white/[0.04] ${row.highlight ? 'text-green-300' : 'text-gray-400'}`}>
-                      {row.nVal ? `$${Number(row.nVal).toFixed(2)}` : '—'}
-                    </div>
-                    <div className={`w-[82px] px-2 py-1.5 text-center text-[11px] font-mono tabular-nums border-l border-white/[0.04] ${row.highlight ? 'text-green-300' : 'text-gray-400'}`}>
-                      {row.uVal ? `$${Number(row.uVal).toFixed(2)}` : '—'}
+                    <div className={`${COL} px-1.5 py-1.5 text-center text-[11px] font-mono tabular-nums border-l border-white/[0.04] ${row.highlight ? 'text-green-300' : 'text-gray-400'}`}>
+                      {row.sU ? `$${Number(row.sU).toFixed(2)}` : '—'}
                     </div>
                   </div>
                 ))}
-                <div className="px-3 py-1.5 text-[9px] text-gray-700">Computed from BL sold transactions · last sync</div>
-              </div>
-            )}
-
-            {/* POM Suggested */}
-            {hasSuggested && (
-              <div className="rounded-xl bg-white/[0.04] border border-white/[0.06] overflow-hidden">
-                <div className="grid grid-cols-[1fr_auto_auto] border-b border-white/[0.08]">
-                  <div className="px-3 py-2 text-[9px] uppercase tracking-widest text-emerald-500/80 font-semibold">POM Suggested</div>
-                  <div className="w-[82px] px-2 py-2 text-center text-[10px] uppercase font-semibold text-blue-400 border-l border-white/[0.06]">New</div>
-                  <div className="w-[82px] px-2 py-2 text-center text-[10px] uppercase font-semibold text-orange-400 border-l border-white/[0.06]">Used</div>
-                </div>
-                <div className="grid grid-cols-[1fr_auto_auto]">
-                  <div className="px-3 py-1.5 text-[11px] text-gray-500">
-                    {nData?.premiumPercentage ?? uData?.premiumPercentage ?? 15}% premium
-                  </div>
-                  <div className="w-[82px] px-2 py-1.5 text-center text-[11px] font-mono font-semibold text-emerald-400 tabular-nums border-l border-white/[0.04]">
-                    {nData?.suggestedPrice != null ? `$${Number(nData.suggestedPrice).toFixed(2)}` : '—'}
-                  </div>
-                  <div className="w-[82px] px-2 py-1.5 text-center text-[11px] font-mono font-semibold text-emerald-400 tabular-nums border-l border-white/[0.04]">
-                    {uData?.suggestedPrice != null ? `$${Number(uData.suggestedPrice).toFixed(2)}` : '—'}
-                  </div>
-                </div>
               </div>
             )}
           </div>
