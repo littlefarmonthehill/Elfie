@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo, forwardRef, useImperativeHandle } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import { Camera, X, CheckCircle, Loader2, ExternalLink, Trash2, ScanSearch, ChevronLeft, ChevronRight, Sparkles, Check, Grid3X3, Settings2, RotateCcw, ZoomIn, AlertTriangle, ThumbsUp, ThumbsDown, Minus, FlaskConical, BarChart3, RefreshCw, Target, Info } from "lucide-react";
+import { Camera, X, CheckCircle, Loader2, ExternalLink, Trash2, ScanSearch, ChevronLeft, ChevronRight, Sparkles, Check, Grid3X3, Settings2, RotateCcw, ZoomIn, AlertTriangle, ThumbsUp, ThumbsDown, Minus, FlaskConical, BarChart3, RefreshCw, Target, Info, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -255,6 +255,7 @@ function OverlayPricingPanel({ partNo, itemType, colorEntries }: {
   }>;
 }) {
   const [idx, setIdx] = useState(0);
+  const [showDist, setShowDist] = useState(false);
   const entry = colorEntries[Math.min(idx, colorEntries.length - 1)];
   const scoreColor = (s: number) => s >= 2.0 ? 'text-emerald-400' : s >= 1.5 ? 'text-orange-400' : s >= 1.0 ? 'text-yellow-500' : 'text-gray-400';
   const peak = Math.max(entry?.marketSoldMaxNew ?? 0, entry?.marketSoldMaxUsed ?? 0, entry?.stockAvgPriceN ?? 0) || null;
@@ -332,43 +333,123 @@ function OverlayPricingPanel({ partNo, itemType, colorEntries }: {
         <div className="flex items-center justify-center py-12 gap-2 text-gray-400 text-sm">
           <Loader2 className="w-4 h-4 animate-spin" /> Loading…
         </div>
-      ) : (
-        <div className="grid grid-cols-2 gap-3 px-4 pt-3 pb-4">
-          {[{ data: nData, label: 'New' }, { data: uData, label: 'Used' }].map(({ data, label }) => (
-            <div key={label} className="rounded-xl bg-white/[0.04] border border-white/[0.06] p-2.5 space-y-1.5">
-              <p className="text-[10px] uppercase tracking-widest font-semibold text-gray-300 border-b border-white/[0.08] pb-1">{label}</p>
-              {!data ? (
-                <p className="text-xs text-gray-600 text-center py-1">No data</p>
-              ) : (
-                <>
-                  <div>
-                    <p className="text-[9px] uppercase tracking-wider text-gray-500 mb-0.5">Current Listings</p>
-                    {[['Avg', data.stockAvgPrice], ['Min', data.stockMinPrice], ['Max', data.stockMaxPrice]].map(([l, v]) => (
-                      v != null && <div key={String(l)} className="flex justify-between text-[11px] leading-snug"><span className="text-gray-500">{l}</span><span className="font-mono text-white tabular-nums">${Number(v).toFixed(2)}</span></div>
-                    ))}
-                    {data.stockQuantity != null && <div className="flex justify-between text-[11px] leading-snug"><span className="text-gray-500">Qty / Lots</span><span className="font-mono text-gray-300 tabular-nums">{data.stockQuantity} / {data.stockTotalLots ?? '—'}</span></div>}
-                  </div>
-                  <div>
-                    <p className="text-[9px] uppercase tracking-wider text-gray-500 mb-0.5">Sold (6mo)</p>
-                    {[['Avg', data.soldAvgPrice], ['Min', data.soldMinPrice], ['Max', data.soldMaxPrice]].map(([l, v]) => (
-                      v != null && <div key={String(l)} className="flex justify-between text-[11px] leading-snug"><span className="text-gray-500">{l}</span><span className="font-mono text-white tabular-nums">${Number(v).toFixed(2)}</span></div>
-                    ))}
-                    {data.soldQuantity != null && <div className="flex justify-between text-[11px] leading-snug"><span className="text-gray-500">Qty / Lots</span><span className="font-mono text-gray-300 tabular-nums">{data.soldQuantity} / {data.soldTotalLots ?? '—'}</span></div>}
-                  </div>
-                  {data.suggestedPrice != null && (
-                    <div className="pt-0.5 border-t border-white/[0.06]">
-                      <div className="flex justify-between text-[11px]">
-                        <span className="text-gray-500">{data.premiumPercentage ?? 15}% suggested</span>
-                        <span className="font-mono font-semibold text-emerald-400 tabular-nums">${Number(data.suggestedPrice).toFixed(2)}</span>
-                      </div>
-                    </div>
-                  )}
-                </>
+      ) : (() => {
+        const fmt = (v: any) => v != null && Number(v) > 0 ? `$${Number(v).toFixed(2)}` : '—';
+        const fmtNum = (v: any) => v != null ? String(v) : '—';
+
+        const PriceRow = ({ label, nVal, uVal, mono }: { label: string; nVal: any; uVal: any; mono?: boolean }) => (
+          <div className="grid grid-cols-[1fr_auto_auto] border-b border-white/[0.03]">
+            <div className="px-3 py-1.5 text-[11px] text-gray-500">{label}</div>
+            <div className="w-[82px] px-2 py-1.5 text-center text-[11px] font-mono text-white tabular-nums border-l border-white/[0.04]">
+              {mono ? fmtNum(nVal) : fmt(nVal)}
+            </div>
+            <div className="w-[82px] px-2 py-1.5 text-center text-[11px] font-mono text-white tabular-nums border-l border-white/[0.04]">
+              {mono ? fmtNum(uVal) : fmt(uVal)}
+            </div>
+          </div>
+        );
+
+        const hasSoldDist = nData?.soldP10 || nData?.soldP25 || nData?.soldP85 || uData?.soldP10 || uData?.soldP85;
+        const allPcts: Array<{ label: string; nVal: string | null; uVal: string | null; highlight: boolean }> = [
+          { label: 'P10', nVal: nData?.soldP10 ?? null, uVal: uData?.soldP10 ?? null, highlight: false },
+          { label: 'P25', nVal: nData?.soldP25 ?? null, uVal: uData?.soldP25 ?? null, highlight: false },
+          { label: 'P50', nVal: nData?.soldP50 ?? null, uVal: uData?.soldP50 ?? null, highlight: false },
+          { label: 'P75', nVal: nData?.soldP75 ?? null, uVal: uData?.soldP75 ?? null, highlight: false },
+          { label: 'P85', nVal: nData?.soldP85 ?? null, uVal: uData?.soldP85 ?? null, highlight: true },
+          { label: 'P95', nVal: nData?.soldP95 ?? null, uVal: uData?.soldP95 ?? null, highlight: false },
+        ].filter(r => r.nVal || r.uVal);
+
+        const hasSuggested = nData?.suggestedPrice != null || uData?.suggestedPrice != null;
+
+        return (
+          <div className="px-4 pt-2 pb-4 space-y-2.5">
+            {/* Current Listings */}
+            <div className="rounded-xl bg-white/[0.04] border border-white/[0.06] overflow-hidden">
+              <div className="grid grid-cols-[1fr_auto_auto] border-b border-white/[0.08]">
+                <div className="px-3 py-2 text-[9px] uppercase tracking-widest text-gray-500 font-semibold">Current Listings</div>
+                <div className="w-[82px] px-2 py-2 text-center text-[10px] uppercase font-semibold text-blue-400 border-l border-white/[0.06]">New</div>
+                <div className="w-[82px] px-2 py-2 text-center text-[10px] uppercase font-semibold text-orange-400 border-l border-white/[0.06]">Used</div>
+              </div>
+              <PriceRow label="Avg" nVal={nData?.stockAvgPrice} uVal={uData?.stockAvgPrice} />
+              <PriceRow label="Min" nVal={nData?.stockMinPrice} uVal={uData?.stockMinPrice} />
+              <PriceRow label="Max" nVal={nData?.stockMaxPrice} uVal={uData?.stockMaxPrice} />
+              <PriceRow label="Total units" nVal={nData?.stockTotalLots} uVal={uData?.stockTotalLots} mono />
+              <PriceRow label="Avg qty/lot" nVal={nData?.stockQuantity} uVal={uData?.stockQuantity} mono />
+            </div>
+
+            {/* Sold (6mo) */}
+            <div className="rounded-xl bg-white/[0.04] border border-white/[0.06] overflow-hidden">
+              <div className="grid grid-cols-[1fr_auto_auto] border-b border-white/[0.08]">
+                <div className="px-3 py-2 text-[9px] uppercase tracking-widest text-gray-500 font-semibold">Sold (6mo)</div>
+                <div className="w-[82px] px-2 py-2 text-center text-[10px] uppercase font-semibold text-blue-400 border-l border-white/[0.06]">New</div>
+                <div className="w-[82px] px-2 py-2 text-center text-[10px] uppercase font-semibold text-orange-400 border-l border-white/[0.06]">Used</div>
+              </div>
+              <PriceRow label="Avg (P85)" nVal={nData?.soldAvgPrice} uVal={uData?.soldAvgPrice} />
+              <PriceRow label="Min" nVal={nData?.soldMinPrice} uVal={uData?.soldMinPrice} />
+              <PriceRow label="Max" nVal={nData?.soldMaxPrice} uVal={uData?.soldMaxPrice} />
+              <PriceRow label="Units sold" nVal={nData?.soldTotalLots} uVal={uData?.soldTotalLots} mono />
+              <PriceRow label="Avg qty/lot" nVal={nData?.soldQuantity} uVal={uData?.soldQuantity} mono />
+              {hasSoldDist && (
+                <button
+                  onClick={() => setShowDist(v => !v)}
+                  className="w-full flex items-center justify-between px-3 py-1.5 text-[10px] text-gray-500 hover:text-gray-300 border-t border-white/[0.04] transition-colors"
+                  data-testid="button-toggle-sold-dist"
+                >
+                  <span>{showDist ? 'Hide distribution' : 'Show distribution'}</span>
+                  {showDist ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                </button>
               )}
             </div>
-          ))}
-        </div>
-      )}
+
+            {/* Price Distribution — collapsible */}
+            {showDist && allPcts.length > 0 && (
+              <div className="rounded-xl bg-white/[0.02] border border-white/[0.05] overflow-hidden">
+                <div className="grid grid-cols-[1fr_auto_auto] border-b border-white/[0.06]">
+                  <div className="px-3 py-2 text-[9px] uppercase tracking-widest text-gray-500 font-semibold">Sold Distribution</div>
+                  <div className="w-[82px] px-2 py-2 text-center text-[10px] uppercase font-semibold text-blue-400 border-l border-white/[0.05]">New</div>
+                  <div className="w-[82px] px-2 py-2 text-center text-[10px] uppercase font-semibold text-orange-400 border-l border-white/[0.05]">Used</div>
+                </div>
+                {allPcts.map(row => (
+                  <div key={row.label} className={`grid grid-cols-[1fr_auto_auto] border-b border-white/[0.03] ${row.highlight ? 'bg-white/[0.03]' : ''}`}>
+                    <div className={`px-3 py-1.5 text-[11px] font-mono ${row.highlight ? 'text-green-400 font-bold' : 'text-gray-500'}`}>
+                      {row.label}{row.highlight && <span className="text-[9px] text-green-400/60 ml-1">← avg</span>}
+                    </div>
+                    <div className={`w-[82px] px-2 py-1.5 text-center text-[11px] font-mono tabular-nums border-l border-white/[0.04] ${row.highlight ? 'text-green-300' : 'text-gray-400'}`}>
+                      {row.nVal ? `$${Number(row.nVal).toFixed(2)}` : '—'}
+                    </div>
+                    <div className={`w-[82px] px-2 py-1.5 text-center text-[11px] font-mono tabular-nums border-l border-white/[0.04] ${row.highlight ? 'text-green-300' : 'text-gray-400'}`}>
+                      {row.uVal ? `$${Number(row.uVal).toFixed(2)}` : '—'}
+                    </div>
+                  </div>
+                ))}
+                <div className="px-3 py-1.5 text-[9px] text-gray-700">Computed from BL sold transactions · last sync</div>
+              </div>
+            )}
+
+            {/* POM Suggested */}
+            {hasSuggested && (
+              <div className="rounded-xl bg-white/[0.04] border border-white/[0.06] overflow-hidden">
+                <div className="grid grid-cols-[1fr_auto_auto] border-b border-white/[0.08]">
+                  <div className="px-3 py-2 text-[9px] uppercase tracking-widest text-emerald-500/80 font-semibold">POM Suggested</div>
+                  <div className="w-[82px] px-2 py-2 text-center text-[10px] uppercase font-semibold text-blue-400 border-l border-white/[0.06]">New</div>
+                  <div className="w-[82px] px-2 py-2 text-center text-[10px] uppercase font-semibold text-orange-400 border-l border-white/[0.06]">Used</div>
+                </div>
+                <div className="grid grid-cols-[1fr_auto_auto]">
+                  <div className="px-3 py-1.5 text-[11px] text-gray-500">
+                    {nData?.premiumPercentage ?? uData?.premiumPercentage ?? 15}% premium
+                  </div>
+                  <div className="w-[82px] px-2 py-1.5 text-center text-[11px] font-mono font-semibold text-emerald-400 tabular-nums border-l border-white/[0.04]">
+                    {nData?.suggestedPrice != null ? `$${Number(nData.suggestedPrice).toFixed(2)}` : '—'}
+                  </div>
+                  <div className="w-[82px] px-2 py-1.5 text-center text-[11px] font-mono font-semibold text-emerald-400 tabular-nums border-l border-white/[0.04]">
+                    {uData?.suggestedPrice != null ? `$${Number(uData.suggestedPrice).toFixed(2)}` : '—'}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
       {cachedAt && (
         <div className="px-4 pb-3 text-[9px] text-gray-700">
           Cached: {new Date(cachedAt).toLocaleDateString()}
