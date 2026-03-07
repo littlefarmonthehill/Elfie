@@ -2111,7 +2111,6 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
               )}
             </div>
           )}
-        </div>
 
           {!leftPage ? (
             <div className="bg-gray-800/60 border border-gray-700 rounded-lg p-3 space-y-2">
