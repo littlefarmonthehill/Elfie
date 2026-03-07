@@ -1,9 +1,7 @@
-import { Settings, LogOut } from "lucide-react";
+import { Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import elfieRobot from "@assets/PlanetBrick_good_robot_1760672362080.png";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
 
 interface HeaderProps {
   onSettingsClick: () => void;
@@ -11,24 +9,8 @@ interface HeaderProps {
 }
 
 export default function Header({ onSettingsClick, onElfieClick }: HeaderProps) {
-  const { toast } = useToast();
-
   const { data: org } = useQuery<any>({
     queryKey: ['/api/org'],
-  });
-
-  // Logout mutation
-  const logoutMutation = useMutation({
-    mutationFn: () => apiRequest('POST', '/api/logout'),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
-      toast({
-        title: "Logged out",
-        description: "You have been logged out successfully",
-      });
-      // Redirect to login page
-      window.location.href = '/login';
-    },
   });
 
   return (
@@ -65,19 +47,8 @@ export default function Header({ onSettingsClick, onElfieClick }: HeaderProps) {
           {org?.name ?? 'PlanetBrick'}
         </h1>
 
-        {/* Settings & Logout - Right */}
+        {/* Settings - Right */}
         <div className="flex items-center gap-2">
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={() => logoutMutation.mutate()}
-            disabled={logoutMutation.isPending}
-            data-testid="button-logout"
-            className="md:h-12 md:w-12 lg:h-14 lg:w-14"
-            title="Logout"
-          >
-            <LogOut className="h-4 w-4 md:h-6 md:w-6 lg:h-7 lg:w-7" />
-          </Button>
           <Button
             size="icon"
             variant="ghost"

@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { AppSettings, User, Organization, OrgIntegration } from "@shared/schema";
 import { APP_VERSION, APP_NAME } from "@shared/version";
-import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Info, Layers, Play, Loader2, ChevronDown, ChevronRight, ChevronLeft, BarChart2, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock } from "lucide-react";
+import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Info, Layers, Play, Loader2, ChevronDown, ChevronRight, ChevronLeft, BarChart2, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock, LogOut } from "lucide-react";
 import { PomCategoryTiers } from "@/components/PomCategoryTiers";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -1127,6 +1127,14 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
   const { isAdmin, user } = useAuth();
 
+  const logoutMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/logout'),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
+      window.location.href = '/login';
+    },
+  });
+
   // Org profile state
   const { data: org } = useQuery<Organization>({
     queryKey: ['/api/org'],
@@ -1284,6 +1292,16 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       <ChevronRight className="h-4 w-4 text-gray-600 flex-shrink-0" />
                     </button>
                   ))}
+                  <div className="my-2 mx-4 border-t border-gray-700/60" />
+                  <button
+                    onClick={() => logoutMutation.mutate()}
+                    disabled={logoutMutation.isPending}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-md text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors group"
+                    data-testid="button-logout"
+                  >
+                    <LogOut className="h-4 w-4 flex-shrink-0" />
+                    <span className="flex-1 text-left">Sign Out</span>
+                  </button>
                 </nav>
               ) : (
                 <div className="p-4 sm:p-6">
