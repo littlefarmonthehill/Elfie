@@ -4149,11 +4149,13 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       // Phase 2b — Send all ready crops to Brickognize.
       // BQ_CONCURRENCY controls how many pieces are in-flight simultaneously.
       // Each piece fires 2 BQ requests (figs + parts) + 1 CLIP call in parallel.
-      // BQ calls take 2–5 s each, so with 10 concurrent pieces the peak request
-      // rate is ~4–10 req/sec — within Brickognize's stated 10 req/sec ceiling.
+      // BQ calls take 3–5 s each; with 20 concurrent pieces the peak rate is
+      // ~8–13 req/sec — right at Brickognize's 10 req/sec ceiling.  The built-in
+      // 429 backoff (1 s → 2 s → 4 s) self-regulates any momentary spikes, so
+      // scans of ≤20 pieces complete in a single parallel wave.
       const phase2bStart = Date.now();
-      console.log(`[Brickanalyzer] Step 2b: Sending ${pieces.length} crops to Brickognize (concurrency=10)...`);
-      const BQ_CONCURRENCY = 10;
+      console.log(`[Brickanalyzer] Step 2b: Sending ${pieces.length} crops to Brickognize (concurrency=20)...`);
+      const BQ_CONCURRENCY = 20;
       function makeBqLimiter(concurrency: number) {
         let active = 0;
         const waitQueue: Array<() => void> = [];
