@@ -4674,6 +4674,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
               soldMaxPrice: priceGuideCache.soldMaxPrice,
               soldAvgPrice: priceGuideCache.soldAvgPrice,
               stockAvgPrice: priceGuideCache.stockAvgPrice,
+              stockMaxPrice: priceGuideCache.stockMaxPrice,
               thumbnailUrl: priceGuideCache.thumbnailUrl,
               imageUrl: priceGuideCache.imageUrl,
               itemName: priceGuideCache.itemName,
@@ -5331,7 +5332,8 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         const needsHydration = results.filter(r =>
           r.partNo && (
             r.stockAvgPriceN === undefined || r.stockAvgPriceU === undefined ||
-            r.stockMaxPriceN === undefined || r.stockMaxPriceU === undefined
+            r.stockMaxPriceN === undefined || r.stockMaxPriceN === null ||
+            r.stockMaxPriceU === undefined || r.stockMaxPriceU === null
           )
         );
         if (needsHydration.length > 0) {
@@ -5363,8 +5365,8 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             const updated = { ...r };
             if (r.stockAvgPriceN === undefined) updated.stockAvgPriceN = avgMap.get(keyN) ?? null;
             if (r.stockAvgPriceU === undefined) updated.stockAvgPriceU = avgMap.get(keyU) ?? null;
-            if (r.stockMaxPriceN === undefined) updated.stockMaxPriceN = maxMap.get(keyN) ?? null;
-            if (r.stockMaxPriceU === undefined) updated.stockMaxPriceU = maxMap.get(keyU) ?? null;
+            if (r.stockMaxPriceN === undefined || r.stockMaxPriceN === null) updated.stockMaxPriceN = maxMap.get(keyN) ?? null;
+            if (r.stockMaxPriceU === undefined || r.stockMaxPriceU === null) updated.stockMaxPriceU = maxMap.get(keyU) ?? null;
             return updated;
           });
         }
