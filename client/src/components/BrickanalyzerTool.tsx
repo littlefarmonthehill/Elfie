@@ -1907,12 +1907,8 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
 
           {/* Photo with overlaid bounding boxes */}
           <div
-            className="relative w-full rounded-lg overflow-hidden bg-gray-900 border border-gray-700 cursor-crosshair select-none touch-none"
+            className="relative w-full rounded-lg overflow-hidden bg-gray-900 border border-gray-700"
             style={{ aspectRatio: `${previewData.imageWidth} / ${previewData.imageHeight}` }}
-            onPointerDown={handlePreviewPointerDown}
-            onPointerMove={handlePreviewPointerMove}
-            onPointerUp={handlePreviewPointerUp}
-            onPointerCancel={() => { dragStartRef.current = null; setDrawingRect(null); }}
             data-testid="preview-image-container"
           >
             <img
@@ -1921,11 +1917,11 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
               className="w-full h-full object-contain pointer-events-none select-none"
             />
 
-            {/* Confirmed boxes — purple solid border + number label + X to remove */}
+            {/* Confirmed boxes — purple solid border + number label */}
             {previewBoxes.map((box, i) => (
               <div
                 key={`box-${i}`}
-                className="absolute border-2 border-purple-400/90 rounded-sm"
+                className="absolute border-2 border-purple-400/90 rounded-sm pointer-events-none"
                 style={{
                   left:   `${box.x}%`,
                   top:    `${box.y}%`,
@@ -1933,80 +1929,19 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                   height: `${box.h}%`,
                 }}
               >
-                {/* Number label */}
                 <span className="absolute -top-4 left-0 text-[9px] font-mono text-purple-300 bg-gray-900/80 px-0.5 leading-3 pointer-events-none select-none">
                   {i + 1}
                 </span>
-                {/* Remove button */}
-                <button
-                  className="absolute -top-3 -right-3 w-5 h-5 rounded-full bg-gray-900 border border-purple-500 flex items-center justify-center text-purple-300 hover:bg-purple-900 hover:text-white transition-colors z-10"
-                  onClick={(e) => { e.stopPropagation(); handleRemoveBox(i); }}
-                  data-testid={`button-remove-box-${i}`}
-                  title="Remove this zone"
-                >
-                  <X className="w-2.5 h-2.5" />
-                </button>
               </div>
             ))}
 
-            {/* Candidate boxes — teal dashed border, tap anywhere on image to promote */}
-            {previewCandidates.map((cand, i) => (
-              <div
-                key={`cand-${i}`}
-                className="absolute pointer-events-none"
-                style={{
-                  left:   `${cand.x}%`,
-                  top:    `${cand.y}%`,
-                  width:  `${cand.w}%`,
-                  height: `${cand.h}%`,
-                  border: "2px dashed rgba(45,212,191,0.70)",
-                  borderRadius: "2px",
-                }}
-              >
-              </div>
-            ))}
-
-            {/* Tap-to-detect loading indicator */}
-            {detectingPoint && (
-              <div
-                className="absolute pointer-events-none"
-                style={{
-                  left:      `${detectingPoint.x}%`,
-                  top:       `${detectingPoint.y}%`,
-                  transform: "translate(-50%, -50%)",
-                  zIndex:    20,
-                }}
-              >
-                <div className="w-10 h-10 rounded-full border-2 border-teal-400 opacity-80 animate-ping" />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-3 h-3 rounded-full bg-teal-400 opacity-90" />
-                </div>
-              </div>
-            )}
-
-            {/* Draw-to-segment: in-progress rectangle */}
-            {drawingRect && (
-              <div
-                className="absolute pointer-events-none"
-                style={{
-                  left:    `${drawingRect.x}%`,
-                  top:     `${drawingRect.y}%`,
-                  width:   `${drawingRect.w}%`,
-                  height:  `${drawingRect.h}%`,
-                  border:  "2px dashed rgba(251,191,36,0.90)",
-                  borderRadius: "2px",
-                  backgroundColor: "rgba(251,191,36,0.08)",
-                  zIndex:  25,
-                }}
-              />
-            )}
           </div>
 
-          {/* Tap/drag hint — adapts based on whether candidates exist */}
+          {/* Zone count hint */}
           <p className="text-xs text-center">
             {previewCandidates.length > 0
-              ? <span className="text-teal-400/80">{previewCandidates.length} possible piece{previewCandidates.length !== 1 ? "s" : ""} found — tap to add, or drag to draw a zone</span>
-              : <span className="text-gray-500">Tap a missed piece to add a zone, or <span className="text-amber-400/80">drag to draw</span> a custom zone</span>
+              ? <span className="text-teal-400/80">{previewCandidates.length} possible piece{previewCandidates.length !== 1 ? "s" : ""} detected</span>
+              : <span className="text-gray-500">Zones detected — ready to identify</span>
             }
           </p>
 
@@ -2289,39 +2224,16 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                       </button>
                     ))}
                   </div>
-                  {scanZoom > 1 && (
-                    <div className="flex items-center gap-1">
-                      <Button size="sm" variant="ghost" className="text-xs h-7 gap-1 text-gray-400" onClick={resetScanZoom}>
-                        <RotateCcw className="w-3 h-3" /> Reset
-                      </Button>
-                      <span className="text-[10px] text-gray-600 font-mono w-8 text-right">{Math.round(scanZoom * 100)}%</span>
-                    </div>
-                  )}
                 </div>
               </div>
-              {/* Zoomable image */}
+              {/* Scan image */}
               <div
                 ref={scanContainerRef}
                 className="overflow-hidden flex items-center justify-center"
-                style={{
-                  maxHeight: '55vh',
-                  cursor: scanZoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default',
-                  touchAction: 'none',
-                }}
-                onWheel={handleScanWheel}
-                onMouseDown={handleScanMouseDown}
-                onMouseMove={handleScanMouseMove}
-                onMouseUp={handleScanMouseUp}
-                onMouseLeave={handleScanMouseUp}
-                onTouchStart={handleScanTouchStart}
-                onTouchMove={handleScanTouchMove}
-                onTouchEnd={handleScanTouchEnd}
+                style={{ maxHeight: '55vh' }}
               >
                 <div
                   style={{
-                    transform: `translate(${scanPan.x}px, ${scanPan.y}px) scale(${scanZoom})`,
-                    transformOrigin: 'center center',
-                    transition: isDragging ? 'none' : 'transform 0.1s ease-out',
                     position: 'relative',
                     width: '100%',
                     aspectRatio: activeScan.imgWidth && activeScan.imgHeight ? `${activeScan.imgWidth}/${activeScan.imgHeight}` : '4/3',
@@ -2669,27 +2581,13 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                     {(primarySrc || blPlUrl) && (
                       <div
                         className="relative shrink-0 overflow-hidden bg-black flex items-center justify-center border-b border-white/[0.06]"
-                        style={{
-                          height: 196,
-                          cursor: overlayZoom > 1 ? (overlayDragging ? 'grabbing' : 'grab') : 'zoom-in',
-                          touchAction: 'none',
-                        }}
-                        onWheel={handleOverlayWheel}
-                        onMouseDown={handleOverlayMouseDown} onMouseMove={handleOverlayMouseMove}
-                        onMouseUp={handleOverlayMouseUp} onMouseLeave={handleOverlayMouseUp}
-                        onTouchStart={handleOverlayTouchStart} onTouchMove={handleOverlayTouchMove}
-                        onTouchEnd={handleOverlayTouchEnd}
+                        style={{ height: 196 }}
                       >
                         <img
                           src={primarySrc || blPlUrl!}
                           alt={focusedGroup.partName}
                           className="object-contain max-h-full max-w-full select-none"
                           draggable={false}
-                          style={{
-                            transform: `translate(${overlayPan.x}px,${overlayPan.y}px) scale(${overlayZoom})`,
-                            transformOrigin: 'center center',
-                            transition: overlayDragging ? 'none' : 'transform 0.1s ease-out',
-                          }}
                           onError={e => {
                             const el = e.target as HTMLImageElement;
                             if (blColorUrl && el.src !== blColorUrl) el.src = blColorUrl;
@@ -2697,15 +2595,6 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                             else (el.parentElement as HTMLElement).style.display = 'none';
                           }}
                         />
-                        {overlayZoom > 1 && (
-                          <button
-                            onClick={() => { setOverlayZoom(1); setOverlayPan({ x: 0, y: 0 }); }}
-                            className="absolute top-2 right-2 flex items-center gap-1 text-[10px] text-white bg-black/70 hover:bg-black/90 rounded-md px-2 py-1 backdrop-blur-sm"
-                          ><RotateCcw className="w-2.5 h-2.5" />{Math.round(overlayZoom * 100)}%</button>
-                        )}
-                        {overlayZoom === 1 && (
-                          <span className="absolute bottom-1.5 right-2 text-[9px] text-white/30 pointer-events-none select-none">pinch or scroll to zoom</span>
-                        )}
                       </div>
                     )}
 
