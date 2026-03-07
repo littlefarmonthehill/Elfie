@@ -1161,6 +1161,19 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     },
   });
 
+  const [deleteOrgDialogOpen, setDeleteOrgDialogOpen] = useState(false);
+  const [deleteConfirmName, setDeleteConfirmName] = useState('');
+
+  const deleteOrgMutation = useMutation({
+    mutationFn: () => apiRequest('DELETE', '/api/org'),
+    onSuccess: () => {
+      window.location.href = '/';
+    },
+    onError: (err: any) => {
+      toast({ title: 'Error', description: err.message || 'Failed to delete company', variant: 'destructive' });
+    },
+  });
+
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) logoUploadMutation.mutate(file);
@@ -1406,6 +1419,84 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   <p className="text-[10px] text-gray-500">Used by all schedulers (POM, Inventory Sync)</p>
                 </div>
               </div>
+
+              {/* Danger Zone */}
+              <div className="space-y-2 border border-red-900/40 rounded-lg p-3 bg-red-950/10">
+                <div className="flex items-center gap-2 mb-1">
+                  <AlertTriangle className="w-3.5 h-3.5 text-red-400" />
+                  <h3 className="text-xs font-semibold text-red-400 uppercase tracking-wide">Danger Zone</h3>
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-xs text-gray-300 font-medium">Delete this company</p>
+                    <p className="text-[10px] text-gray-500 mt-0.5">Permanently removes all data — orders, inventory, settings, and all users. This cannot be undone.</p>
+                  </div>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => { setDeleteConfirmName(''); setDeleteOrgDialogOpen(true); }}
+                    data-testid="button-delete-company"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                    Delete
+                  </Button>
+                </div>
+              </div>
+
+              {/* Delete Company confirmation dialog */}
+              <Dialog open={deleteOrgDialogOpen} onOpenChange={setDeleteOrgDialogOpen}>
+                <DialogContent className="max-w-md" aria-describedby="delete-org-desc">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2 text-red-400">
+                      <AlertTriangle className="w-4 h-4" />
+                      Delete company
+                    </DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 py-1" id="delete-org-desc">
+                    <p className="text-sm text-gray-300">
+                      This will permanently delete <span className="font-semibold text-white">{org?.name}</span> and all associated data — orders, inventory, settings, integrations, and every user in this organization.
+                    </p>
+                    <div className="bg-red-950/30 border border-red-900/40 rounded-md p-3 text-xs text-red-300">
+                      This action is irreversible. There is no way to recover your data after deletion.
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-gray-400">
+                        Type <span className="font-mono font-semibold text-white">{org?.name}</span> to confirm
+                      </Label>
+                      <Input
+                        value={deleteConfirmName}
+                        onChange={(e) => setDeleteConfirmName(e.target.value)}
+                        placeholder={org?.name ?? 'Company name'}
+                        className="bg-gray-900 border-gray-700 text-sm"
+                        data-testid="input-delete-confirm"
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2 pt-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setDeleteOrgDialogOpen(false)}
+                        data-testid="button-delete-cancel"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => deleteOrgMutation.mutate()}
+                        disabled={deleteConfirmName !== org?.name || deleteOrgMutation.isPending}
+                        data-testid="button-delete-confirm"
+                      >
+                        {deleteOrgMutation.isPending ? (
+                          <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Deleting…</>
+                        ) : (
+                          <><Trash2 className="w-3.5 h-3.5 mr-1.5" />Delete company</>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
 
               </div>
             )}

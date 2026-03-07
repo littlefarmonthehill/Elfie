@@ -366,6 +366,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // DELETE /api/org — permanently delete the org and all its data (owner only)
+  app.delete('/api/org', isAuthenticated, isOrgOwner, async (req: any, res) => {
+    try {
+      const orgId = getOrgId(req);
+      if (!orgId) return res.status(404).json({ message: "No organization" });
+      await storage.deleteOrganization(orgId);
+      // Destroy the session so the user is logged out
+      req.logout?.(() => {});
+      req.session?.destroy?.(() => {});
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting organization:", error);
+      res.status(500).json({ message: "Failed to delete organization" });
+    }
+  });
+
   // ─── Admin routes ───────────────────────────────────────────────────────────
 
   // GET /api/admin/organizations — list all orgs with user count

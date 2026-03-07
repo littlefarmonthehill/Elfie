@@ -1,13 +1,35 @@
 import {
   users,
   organizations,
+  blInventory,
+  orders,
+  shipments,
+  eodForms,
+  appSettings,
+  conversations,
+  blApiCalls,
+  syncMetadata,
+  syncIssues,
+  embeddingJobs,
+  whAisles,
+  whShelves,
+  whBins,
+  inventoryLocations,
+  blForumPosts,
+  orderAdjustments,
+  brickanalyzerScans,
+  appFeedback,
+  orgIntegrations,
+  orderDetails,
+  inventoryEmbeddings,
+  orderEmbeddings,
   type User,
   type UpsertUser,
   type Organization,
   type InsertOrganization,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 
 // Interface for storage operations
 export interface IStorage {
@@ -26,6 +48,7 @@ export interface IStorage {
   getOrganizationBySlug(slug: string): Promise<Organization | undefined>;
   getAllOrganizations(): Promise<Organization[]>;
   updateOrganization(id: string, data: Partial<InsertOrganization>): Promise<Organization | undefined>;
+  deleteOrganization(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -168,6 +191,52 @@ export class DatabaseStorage implements IStorage {
       .where(eq(organizations.id, id))
       .returning();
     return org;
+  }
+
+  async deleteOrganization(id: string): Promise<void> {
+    // Cascade delete all org-scoped data in correct dependency order
+
+    // 1. Child tables that reference parent-org tables without DB cascade
+    const orgOrderIds = db.select({ id: orders.id }).from(orders).where(eq(orders.orgId, id));
+    const orgInventoryIds = db.select({ id: blInventory.id }).from(blInventory).where(eq(blInventory.orgId, id));
+
+    await db.delete(orderEmbeddings).where(inArray(orderEmbeddings.orderId, orgOrderIds));
+    await db.delete(inventoryEmbeddings).where(inArray(inventoryEmbeddings.inventoryId, orgInventoryIds));
+
+    // 2. orderDetails (and picklistItems cascade from orderDetails)
+    const orgOrderDetailIds = db.select({ id: orderDetails.id }).from(orderDetails)
+      .innerJoin(orders, eq(orderDetails.orderId, orders.id))
+      .where(eq(orders.orgId, id));
+    await db.delete(orderDetails).where(inArray(orderDetails.id, orgOrderDetailIds));
+
+    // 3. All directly org-scoped tables
+    await db.delete(orderAdjustments).where(eq(orderAdjustments.orgId, id));
+    await db.delete(shipments).where(eq(shipments.orgId, id));
+    await db.delete(eodForms).where(eq(eodForms.orgId, id));
+    await db.delete(blForumPosts).where(eq(blForumPosts.orgId, id));
+    await db.delete(brickanalyzerScans).where(eq(brickanalyzerScans.orgId, id));
+    await db.delete(appFeedback).where(eq(appFeedback.orgId, id));
+    await db.delete(embeddingJobs).where(eq(embeddingJobs.orgId, id));
+    await db.delete(syncIssues).where(eq(syncIssues.orgId, id));
+    await db.delete(syncMetadata).where(eq(syncMetadata.orgId, id));
+    await db.delete(blApiCalls).where(eq(blApiCalls.orgId, id));
+    await db.delete(conversations).where(eq(conversations.orgId, id));
+    await db.delete(orgIntegrations).where(eq(orgIntegrations.orgId, id));
+    await db.delete(appSettings).where(eq(appSettings.orgId, id));
+
+    // 4. Warehouse hierarchy (bins → shelves → aisles after inventoryLocations)
+    await db.delete(inventoryLocations).where(eq(inventoryLocations.orgId, id));
+    await db.delete(whBins).where(eq(whBins.orgId, id));
+    await db.delete(whShelves).where(eq(whShelves.orgId, id));
+    await db.delete(whAisles).where(eq(whAisles.orgId, id));
+
+    // 5. Core inventory and orders
+    await db.delete(blInventory).where(eq(blInventory.orgId, id));
+    await db.delete(orders).where(eq(orders.orgId, id));
+
+    // 6. Users in this org, then the org itself
+    await db.delete(users).where(eq(users.orgId, id));
+    await db.delete(organizations).where(eq(organizations.id, id));
   }
 }
 
