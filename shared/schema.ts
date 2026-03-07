@@ -74,6 +74,8 @@ export const organizations = pgTable("organizations", {
   seatLimitOverride: integer("seat_limit_override"),
   brickspotterLimitOverride: integer("brickspotter_limit_override"),
   automationLimitOverride: integer("automation_limit_override"),
+  // BL API call limit override — null = platform default (5000/24h). Only settable by super admins.
+  blApiCallLimitOverride: integer("bl_api_call_limit_override"),
 });
 
 export const insertOrganizationSchema = createInsertSchema(organizations).omit({

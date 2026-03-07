@@ -10,8 +10,8 @@ import { syncBrickLinkToBrickOwl } from "./services/brickowl";
 import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBackup } from "./services/export";
 import { getProcessedPartImage, processImageFromUrl } from "./services/image-proxy";
 import { db } from "./db";
-import { users, organizations, orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, scanEmbeddings, orgIntegrations } from "@shared/schema";
-import { eq, desc, sql, inArray, like, or, and, isNotNull, isNull, ne, count } from "drizzle-orm";
+import { users, organizations, orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, scanEmbeddings, orgIntegrations, blApiCalls } from "@shared/schema";
+import { eq, desc, sql, inArray, like, or, and, isNotNull, isNull, ne, count, gte } from "drizzle-orm";
 import { z } from "zod";
 import multer from "multer";
 import FormData from "form-data";
@@ -374,22 +374,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // PATCH /api/admin/organizations/:id/overrides — set seat/scan/automation overrides
+  // PATCH /api/admin/organizations/:id/overrides — set seat/scan/automation/bl-api overrides
   app.patch('/api/admin/organizations/:id/overrides', isSuperAdmin, async (req, res) => {
     try {
       const { id } = req.params;
-      const { seatLimitOverride, brickspotterLimitOverride, automationLimitOverride } = req.body;
+      const { seatLimitOverride, brickspotterLimitOverride, automationLimitOverride, blApiCallLimitOverride } = req.body;
       
       const updates: any = { updatedAt: new Date() };
       if (seatLimitOverride !== undefined) updates.seatLimitOverride = seatLimitOverride;
       if (brickspotterLimitOverride !== undefined) updates.brickspotterLimitOverride = brickspotterLimitOverride;
       if (automationLimitOverride !== undefined) updates.automationLimitOverride = automationLimitOverride;
+      if (blApiCallLimitOverride !== undefined) updates.blApiCallLimitOverride = blApiCallLimitOverride;
 
       const [updated] = await db.update(organizations).set(updates).where(eq(organizations.id, id)).returning();
       res.json(updated);
     } catch (error) {
       console.error("Error updating overrides:", error);
       res.status(500).json({ message: "Failed to update overrides" });
+    }
+  });
+
+  // GET /api/admin/organizations/:id/bl-api-usage — per-org BL API call count last 24h
+  app.get('/api/admin/organizations/:id/bl-api-usage', isSuperAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const [row] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(blApiCalls)
+        .where(and(eq(blApiCalls.orgId, id), gte(blApiCalls.timestamp, twentyFourHoursAgo)));
+      res.json({ orgId: id, callsLast24h: Number(row?.count) || 0 });
+    } catch (error) {
+      console.error("Error fetching BL API usage:", error);
+      res.status(500).json({ message: "Failed to fetch BL API usage" });
     }
   });
 
@@ -6693,8 +6710,9 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   // Rate Limit Status
   app.get("/api/bricklink/rate-limit", isApproved, async (req, res) => {
     try {
+      const orgId = reqOrgId(req);
       const { checkRateLimit } = await import("./services/bricklink");
-      const status = await checkRateLimit();
+      const status = await checkRateLimit(orgId);
       res.json(status);
     } catch (error) {
       console.error("Error checking rate limit:", error);
@@ -7408,7 +7426,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
 
       const { checkRateLimit, getPomSyncProgress } = await import("./services/bricklink");
       const { getPomIsRunning } = await import("./services/pom-scheduler");
-      const rateLimit = await checkRateLimit();
+      const rateLimit = await checkRateLimit(orgId);
       const liveProgress = getPomSyncProgress();
 
       // If the DB shows in_progress but no sync is actually running in memory,

@@ -44,6 +44,7 @@ const overrideSchema = z.object({
   seatLimitOverride: z.coerce.number().nullable(),
   brickspotterLimitOverride: z.coerce.number().nullable(),
   automationLimitOverride: z.coerce.number().nullable(),
+  blApiCallLimitOverride: z.coerce.number().nullable(),
 });
 
 type OverrideFormValues = z.infer<typeof overrideSchema>;
@@ -60,6 +61,7 @@ function EditOverridesDialog({ org }: { org: OrgWithUsage }) {
       seatLimitOverride: org.seatLimitOverride,
       brickspotterLimitOverride: org.brickspotterLimitOverride,
       automationLimitOverride: org.automationLimitOverride,
+      blApiCallLimitOverride: org.blApiCallLimitOverride,
     },
   });
 
@@ -119,6 +121,18 @@ function EditOverridesDialog({ org }: { org: OrgWithUsage }) {
                   <FormLabel>Automation Limit Override (null for default)</FormLabel>
                   <FormControl>
                     <Input {...field} value={field.value ?? ""} type="number" data-testid="input-automation-override" />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="blApiCallLimitOverride"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>BL API Calls / 24h Override (null = platform default 5000, -1 = unlimited)</FormLabel>
+                  <FormControl>
+                    <Input {...field} value={field.value ?? ""} type="number" data-testid="input-bl-api-override" />
                   </FormControl>
                 </FormItem>
               )}

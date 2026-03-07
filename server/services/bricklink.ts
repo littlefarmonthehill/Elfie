@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { blCategories, blColors, blInventory, blApiCalls, appSettings, priceGuideCache, partPriceHistory, setPartRelationships, orderDetails, orders } from "@shared/schema";
+import { blCategories, blColors, blInventory, blApiCalls, appSettings, priceGuideCache, partPriceHistory, setPartRelationships, orderDetails, orders, organizations } from "@shared/schema";
 import { eq, gte, sql, inArray, and, gt, desc } from "drizzle-orm";
 import OAuth from "oauth-1.0a";
 import crypto from "crypto";
@@ -41,24 +41,29 @@ export interface RateLimitStatus {
 // Clean token values - remove any non-alphanumeric characters that may have been added
 const cleanToken = (value: string) => value.replace(/[^A-Z0-9]/gi, '');
 
-// Cached call ceiling — read from app_settings.pom_api_call_limit, refreshed every 5 minutes
-let _ceilingCache: { value: number; fetchedAt: number } | null = null;
-async function getCallCeiling(): Promise<number> {
-  if (_ceilingCache && Date.now() - _ceilingCache.fetchedAt < 5 * 60 * 1000) {
-    return _ceilingCache.value;
-  }
+// Platform default for BL API calls per rolling 24-hour window
+const BL_API_CALLS_PER_DAY_DEFAULT = 5000;
+const BL_API_CALLS_WARN_AT = 4000;
+
+// Resolve the effective call ceiling for an org.
+// Flagship plan = unlimited (-1). Otherwise uses blApiCallLimitOverride or platform default.
+async function getOrgCallCeiling(orgId: string): Promise<number> {
   try {
-    const [row] = await db.select({ blApiCallLimit: appSettings.blApiCallLimit }).from(appSettings).limit(1);
-    const value = row?.blApiCallLimit ?? 4900;
-    _ceilingCache = { value, fetchedAt: Date.now() };
-    return value;
+    const [org] = await db
+      .select({ plan: organizations.plan, blApiCallLimitOverride: organizations.blApiCallLimitOverride })
+      .from(organizations)
+      .where(eq(organizations.id, orgId))
+      .limit(1);
+    if (org?.plan === 'flagship') return -1;
+    if (org?.blApiCallLimitOverride != null) return org.blApiCallLimitOverride;
   } catch {
-    return 4500;
+    // fall through to default on error
   }
+  return BL_API_CALLS_PER_DAY_DEFAULT;
 }
 
-// Check rate limit status for the last 24 hours
-export async function checkRateLimit(): Promise<RateLimitStatus> {
+// Check rate limit status for the last 24 hours — scoped to a single org
+export async function checkRateLimit(orgId: string = 'org_planetbrick'): Promise<RateLimitStatus> {
   const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
   
   const recentCalls = await db
@@ -68,38 +73,41 @@ export async function checkRateLimit(): Promise<RateLimitStatus> {
       newest: sql<Date | null>`max(${blApiCalls.timestamp})`,
     })
     .from(blApiCalls)
-    .where(gte(blApiCalls.timestamp, twentyFourHoursAgo));
+    .where(and(eq(blApiCalls.orgId, orgId), gte(blApiCalls.timestamp, twentyFourHoursAgo)));
   
   const callsLast24h = Number(recentCalls[0]?.count) || 0;
   const oldestCallTime = recentCalls[0]?.oldest ?? null;
   const newestCallTime = recentCalls[0]?.newest ?? null;
 
-  // Build 24 hourly buckets (oldest first) — use epoch seconds to avoid timezone string issues
+  // Build 24 hourly buckets (oldest first)
   const hourlyRows = await db
     .select({
       hourEpoch: sql<string>`EXTRACT(EPOCH FROM date_trunc('hour', ${blApiCalls.timestamp}))::bigint`,
       calls: sql<number>`count(*)`,
     })
     .from(blApiCalls)
-    .where(gte(blApiCalls.timestamp, twentyFourHoursAgo))
+    .where(and(eq(blApiCalls.orgId, orgId), gte(blApiCalls.timestamp, twentyFourHoursAgo)))
     .groupBy(sql`date_trunc('hour', ${blApiCalls.timestamp})`)
     .orderBy(sql`date_trunc('hour', ${blApiCalls.timestamp})`);
 
-  // Map keyed by epoch-ms for reliable hour matching
   const hourlyMap = new Map(hourlyRows.map(r => [Number(r.hourEpoch) * 1000, Number(r.calls)]));
   const hourlyBuckets: RateLimitHourBucket[] = [];
   for (let i = 23; i >= 0; i--) {
     const slotStartMs = Math.floor(Date.now() / 3600000) * 3600000 - i * 3600000;
-    const slotStart = new Date(slotStartMs);
     hourlyBuckets.push({
-      hourStart: slotStart.toISOString(),
+      hourStart: new Date(slotStartMs).toISOString(),
       rollsOffAt: new Date(slotStartMs + 24 * 60 * 60 * 1000).toISOString(),
       calls: hourlyMap.get(slotStartMs) ?? 0,
     });
   }
 
-  // Block when the user-configured ceiling is reached (default 4500 if not set)
-  const callCeiling = await getCallCeiling();
+  const callCeiling = await getOrgCallCeiling(orgId);
+
+  // Flagship / unlimited orgs are never blocked
+  if (callCeiling === -1) {
+    return { allowed: true, callsLast24h, oldestCallTime, newestCallTime, hourlyBuckets };
+  }
+
   if (callsLast24h >= callCeiling) {
     return {
       allowed: false,
@@ -108,36 +116,30 @@ export async function checkRateLimit(): Promise<RateLimitStatus> {
       oldestCallTime,
       newestCallTime,
       hourlyBuckets,
-      warning: `API limit reached: ${callsLast24h}/${callCeiling} calls in 24 hours. Please wait before syncing again.`,
+      warning: `BL API limit reached: ${callsLast24h}/${callCeiling} calls in 24 hours. Please wait before syncing again.`,
     };
   }
   
-  // Warn at 2500 calls
-  if (callsLast24h >= 2500) {
+  if (callsLast24h >= BL_API_CALLS_WARN_AT) {
     return {
       allowed: true,
       callsLast24h,
       oldestCallTime,
       newestCallTime,
       hourlyBuckets,
-      warning: `API usage warning: ${callsLast24h}/5000 calls in 24 hours. Approaching rate limit.`,
+      warning: `BL API usage warning: ${callsLast24h}/${callCeiling} calls in 24 hours. Approaching limit.`,
     };
   }
   
-  return {
-    allowed: true,
-    callsLast24h,
-    oldestCallTime,
-    newestCallTime,
-    hourlyBuckets,
-  };
+  return { allowed: true, callsLast24h, oldestCallTime, newestCallTime, hourlyBuckets };
 }
 
-// Track an API call
-async function trackApiCall(endpoint: string, success: boolean = true): Promise<void> {
+// Track a BL API call with org attribution
+async function trackApiCall(endpoint: string, success: boolean = true, orgId: string = 'org_planetbrick'): Promise<void> {
   await db.insert(blApiCalls).values({
     endpoint,
     success,
+    orgId,
   });
 }
 
@@ -155,8 +157,8 @@ export async function bricklinkRequest(endpoint: string, queryParams?: Record<st
     throw new Error('BrickLink credentials not configured. Please add them in Settings.');
   }
 
-  // Check rate limit before making request
-  const rateLimit = await checkRateLimit();
+  // Check rate limit before making request (per-org)
+  const rateLimit = await checkRateLimit(orgId);
   if (!rateLimit.allowed) {
     throw new Error(rateLimit.warning || 'API rate limit exceeded');
   }
@@ -233,7 +235,7 @@ export async function bricklinkRequest(endpoint: string, queryParams?: Record<st
     return { data: json.data, apiCalls: 1 };
   } finally {
     // Track the API call exactly once, regardless of success or failure
-    await trackApiCall(endpoint, success);
+    await trackApiCall(endpoint, success, orgId);
   }
 }
 
@@ -251,8 +253,8 @@ async function bricklinkPutRequest(endpoint: string, body: any, orgId: string = 
     throw new Error('BrickLink credentials not configured. Please add them in Settings.');
   }
 
-  // Check rate limit before making request
-  const rateLimit = await checkRateLimit();
+  // Check rate limit before making request (per-org)
+  const rateLimit = await checkRateLimit(orgId);
   if (!rateLimit.allowed) {
     throw new Error(rateLimit.warning || 'API rate limit exceeded');
   }
@@ -302,7 +304,7 @@ async function bricklinkPutRequest(endpoint: string, body: any, orgId: string = 
     success = true;
     return { data: json.data, apiCalls: 1 };
   } finally {
-    await trackApiCall(endpoint, success);
+    await trackApiCall(endpoint, success, orgId);
   }
 }
 
@@ -811,8 +813,8 @@ export async function syncBricklinkData(orgId: string = 'org_planetbrick'): Prom
   const { syncProgressTracker } = await import('./sync-progress');
 
   try {
-    // Check rate limit before starting sync
-    const rateLimit = await checkRateLimit();
+    // Check rate limit before starting sync (per-org)
+    const rateLimit = await checkRateLimit(orgId);
     
     console.log('\n🔄 Starting comprehensive inventory sync...');
     syncProgressTracker.start();
@@ -943,8 +945,8 @@ export async function bricklinkCatalogRequest(endpoint: string, queryParams?: Re
     throw new Error('BrickLink credentials not configured. Please add them in Settings.');
   }
 
-  // Check rate limit
-  const rateLimit = await checkRateLimit();
+  // Check rate limit (per-org)
+  const rateLimit = await checkRateLimit(orgId);
   if (!rateLimit.allowed) {
     throw new Error(rateLimit.warning || 'API rate limit exceeded');
   }
@@ -1002,7 +1004,7 @@ export async function bricklinkCatalogRequest(endpoint: string, queryParams?: Re
     success = true;
     return { data: json.data, apiCalls: 1 };
   } finally {
-    await trackApiCall(endpoint, success);
+    await trackApiCall(endpoint, success, orgId);
   }
 }
 
@@ -1247,8 +1249,8 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = 'o
   let stopReason: string | undefined;
 
   try {
-    // Get initial rate limit status
-    const initialRateLimit = await checkRateLimit();
+    // Get initial rate limit status (per-org)
+    const initialRateLimit = await checkRateLimit(orgId);
     pomSyncProgress = { active: true, itemsProcessed: 0, itemsTotal: 0, apiCallsAtStart: initialRateLimit.callsLast24h };
     if (!initialRateLimit.allowed) {
       return {
@@ -1388,7 +1390,7 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = 'o
 
         // Check rate limit before each batch (every 10 items) to avoid hitting hard limit
         if (itemsUpdated % 10 === 0) {
-          const currentRateLimit = await checkRateLimit();
+          const currentRateLimit = await checkRateLimit(orgId);
           
           // Stop at configured ceiling to preserve quota
           if (currentRateLimit.callsLast24h >= apiCallCeiling) {
