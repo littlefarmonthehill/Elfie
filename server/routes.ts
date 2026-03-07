@@ -4173,15 +4173,15 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       console.log(`[Brickanalyzer] Step 2b: Sending ${pieces.length} crops to Brickognize (sequential)...`);
 
       // Retry a Brickognize POST with exponential backoff on 429 (rate limit).
-      // Drops the request only after 3 retries.
+      // 8s per-request timeout + max 2 retries (1s + 2s backoff) = worst case ~11s per endpoint.
       async function bqPost(url: string, form: FormData, pieceIdx: number): Promise<any> {
         let delay = 1000;
-        for (let attempt = 0; attempt <= 3; attempt++) {
+        for (let attempt = 0; attempt <= 2; attempt++) {
           try {
-            return await axios.post(url, form, { headers: form.getHeaders(), timeout: 20000 });
+            return await axios.post(url, form, { headers: form.getHeaders(), timeout: 8000 });
           } catch (e: any) {
-            if (e.response?.status === 429 && attempt < 3) {
-              console.warn(`[Brickognize] 429 rate-limit piece ${pieceIdx}, retry ${attempt + 1}/3 in ${delay}ms`);
+            if (e.response?.status === 429 && attempt < 2) {
+              console.warn(`[Brickognize] 429 rate-limit piece ${pieceIdx}, retry ${attempt + 1}/2 in ${delay}ms`);
               await new Promise(r => setTimeout(r, delay));
               delay *= 2;
             } else {
@@ -4202,8 +4202,10 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       // Brickognize alone takes ~1s per piece and drives all identification + pricing,
       // so CLIP is deferred to a non-blocking post-scan pass instead.
 
-      // Process pieces in small parallel batches — each piece calls 2 BQ endpoints in parallel.
-      const BQ_BATCH = 4;
+      // Process pieces sequentially — each piece sends figs + parts in parallel (2 simultaneous
+      // requests). Processing one piece at a time avoids Brickognize 429 rate-limits that
+      // occur when BQ_BATCH=4 floods the API with 8 concurrent uploads per batch.
+      const BQ_BATCH = 1;
       const identified: any[] = [];
       for (let b = 0; b < pieces.length; b += BQ_BATCH) {
         const batchPieces = pieces.slice(b, b + BQ_BATCH);
