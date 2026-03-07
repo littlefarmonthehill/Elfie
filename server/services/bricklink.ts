@@ -142,9 +142,9 @@ async function trackApiCall(endpoint: string, success: boolean = true): Promise<
 }
 
 // Make a BrickLink API request with rate limiting (GET)
-export async function bricklinkRequest(endpoint: string, queryParams?: Record<string, string>): Promise<{ data: any; apiCalls: number }> {
-  // Get credentials from database settings (with fallback to env vars)
-  const [settings] = await db.select().from(appSettings).limit(1);
+export async function bricklinkRequest(endpoint: string, queryParams?: Record<string, string>, orgId: string = 'org_planetbrick'): Promise<{ data: any; apiCalls: number }> {
+  // Get credentials from database settings (with fallback to env vars), scoped to org
+  const [settings] = await db.select().from(appSettings).where(eq(appSettings.orgId, orgId)).limit(1);
   
   const consumerKey = settings?.bricklinkConsumerKey || process.env.BRICKLINK_CONSUMER_KEY || '';
   const consumerSecret = settings?.bricklinkConsumerSecret || process.env.BRICKLINK_CONSUMER_SECRET || '';
@@ -238,9 +238,9 @@ export async function bricklinkRequest(endpoint: string, queryParams?: Record<st
 }
 
 // Make a BrickLink API PUT request (for updating inventory)
-async function bricklinkPutRequest(endpoint: string, body: any): Promise<{ data: any; apiCalls: number }> {
-  // Get credentials from database settings (with fallback to env vars)
-  const [settings] = await db.select().from(appSettings).limit(1);
+async function bricklinkPutRequest(endpoint: string, body: any, orgId: string = 'org_planetbrick'): Promise<{ data: any; apiCalls: number }> {
+  // Get credentials from database settings (with fallback to env vars), scoped to org
+  const [settings] = await db.select().from(appSettings).where(eq(appSettings.orgId, orgId)).limit(1);
   
   const consumerKey = settings?.bricklinkConsumerKey || process.env.BRICKLINK_CONSUMER_KEY || '';
   const consumerSecret = settings?.bricklinkConsumerSecret || process.env.BRICKLINK_CONSUMER_SECRET || '';
@@ -316,7 +316,8 @@ async function bricklinkPutRequest(endpoint: string, body: any): Promise<{ data:
  */
 export async function adjustBrickLinkInventoryDelta(
   inventoryId: number,
-  delta: number
+  delta: number,
+  orgId: string = 'org_planetbrick'
 ): Promise<{ success: boolean; error?: string }> {
   try {
     if (delta === 0) return { success: true };
@@ -325,7 +326,7 @@ export async function adjustBrickLinkInventoryDelta(
     
     await bricklinkPutRequest(`/inventories/${inventoryId}`, {
       quantity: deltaStr,
-    });
+    }, orgId);
     
     console.log(`✓ BrickLink: Adjusted inventory ${inventoryId} by ${deltaStr}`);
     return { success: true };
@@ -354,12 +355,13 @@ export async function updateBrickLinkInventoryQuantity(
  */
 export async function updateBrickLinkInventoryItem(
   inventoryId: number,
-  updates: Record<string, any>
+  updates: Record<string, any>,
+  orgId: string = 'org_planetbrick'
 ): Promise<{ success: boolean; error?: string }> {
   try {
     console.log(`Updating BrickLink inventory ${inventoryId} with:`, updates);
     
-    await bricklinkPutRequest(`/inventories/${inventoryId}`, updates);
+    await bricklinkPutRequest(`/inventories/${inventoryId}`, updates, orgId);
     
     console.log(`✓ BrickLink: Updated inventory ${inventoryId}`);
     return { success: true };
@@ -369,9 +371,9 @@ export async function updateBrickLinkInventoryItem(
   }
 }
 
-export async function syncBricklinkCategories(): Promise<{ added: number; updated: number; apiCalls: number }> {
+export async function syncBricklinkCategories(orgId: string = 'org_planetbrick'): Promise<{ added: number; updated: number; apiCalls: number }> {
   try {
-    const { data: responseData, apiCalls } = await bricklinkRequest('/categories');
+    const { data: responseData, apiCalls } = await bricklinkRequest('/categories', undefined, orgId);
     
     // BrickLink API returns data directly as an array
     const categories = Array.isArray(responseData) ? responseData : [];
@@ -419,9 +421,9 @@ export async function syncBricklinkCategories(): Promise<{ added: number; update
   }
 }
 
-export async function syncBricklinkColors(): Promise<{ added: number; updated: number; apiCalls: number }> {
+export async function syncBricklinkColors(orgId: string = 'org_planetbrick'): Promise<{ added: number; updated: number; apiCalls: number }> {
   try {
-    const { data: responseData, apiCalls } = await bricklinkRequest('/colors');
+    const { data: responseData, apiCalls } = await bricklinkRequest('/colors', undefined, orgId);
     
     // BrickLink API returns data directly as an array
     const colors = Array.isArray(responseData) ? responseData : [];
@@ -503,7 +505,7 @@ export async function syncBricklinkInventory(callComplete = true, orgId: string 
     syncProgressTracker.update('Downloading inventory from BrickLink...', 10);
     
     // Fetch all inventory without status filters - BrickLink will return everything
-    const { data: responseData, apiCalls } = await bricklinkRequest('/inventories');
+    const { data: responseData, apiCalls } = await bricklinkRequest('/inventories', undefined, orgId);
     
     const items = Array.isArray(responseData) ? responseData : [];
     console.log(`✓ Downloaded ${items.length} items from BrickLink`);
@@ -731,7 +733,7 @@ export async function syncBricklinkInventory(callComplete = true, orgId: string 
 }
 
 // OLD VERSION WITH STATUS FILTERS - KEPT FOR REFERENCE
-async function syncBricklinkInventoryByStatus(): Promise<{ added: number; updated: number; apiCalls: number }> {
+async function syncBricklinkInventoryByStatus(orgId: string = 'org_planetbrick'): Promise<{ added: number; updated: number; apiCalls: number }> {
   try {
     let added = 0;
     let updated = 0;
@@ -747,7 +749,7 @@ async function syncBricklinkInventoryByStatus(): Promise<{ added: number; update
       console.log(`Fetching inventory with status: ${status}`);
       
       try {
-        const { data: responseData, apiCalls } = await bricklinkRequest('/inventories', { status });
+        const { data: responseData, apiCalls } = await bricklinkRequest('/inventories', { status }, orgId);
         totalApiCalls += apiCalls;
         
         const items = Array.isArray(responseData) ? responseData : [];
@@ -817,8 +819,8 @@ export async function syncBricklinkData(orgId: string = 'org_planetbrick'): Prom
 
     // Step 1: Sync in order: categories, colors, inventory (tracker: 0–70%)
     console.log('📦 Step 1/7: Syncing BrickLink data...');
-    const categoriesResult = await syncBricklinkCategories();
-    const colorsResult = await syncBricklinkColors();
+    const categoriesResult = await syncBricklinkCategories(orgId);
+    const colorsResult = await syncBricklinkColors(orgId);
     // Pass callComplete=false so the tracker stays 'syncing' — we complete it at the very end
     const inventoryResult = await syncBricklinkInventory(false, orgId);
     
@@ -915,8 +917,8 @@ export async function syncBricklinkData(orgId: string = 'org_planetbrick'): Prom
 // ====== PRICE-O-MAGIC FUNCTIONS ======
 
 // Make a BrickLink Catalog API request (different base URL)
-export async function bricklinkCatalogRequest(endpoint: string, queryParams?: Record<string, string>): Promise<{ data: any; apiCalls: number }> {
-  const [settings] = await db.select().from(appSettings).limit(1);
+export async function bricklinkCatalogRequest(endpoint: string, queryParams?: Record<string, string>, orgId: string = 'org_planetbrick'): Promise<{ data: any; apiCalls: number }> {
+  const [settings] = await db.select().from(appSettings).where(eq(appSettings.orgId, orgId)).limit(1);
   
   console.log('[Price-o-Matic Debug] Settings loaded:', {
     hasSettings: !!settings,
@@ -1218,7 +1220,7 @@ export function getPomSyncProgress() { return { ...pomSyncProgress }; }
 
 // Fetch and cache Price-o-Matic data for an item
 // Sync Price-o-Matic data for up to N inventory items (default from settings)
-export async function syncPriceOMagicCache(maxItems?: number): Promise<{
+export async function syncPriceOMagicCache(maxItems?: number, orgId: string = 'org_planetbrick'): Promise<{
   itemsUpdated: number;
   itemsSkipped: number;
   apiCallsUsed: number;
@@ -1230,7 +1232,7 @@ export async function syncPriceOMagicCache(maxItems?: number): Promise<{
   const [pomSettings] = await db.select({
     pomBatchSize: appSettings.pomBatchSize,
     pomApiCallLimit: appSettings.pomApiCallLimit,
-  }).from(appSettings).limit(1);
+  }).from(appSettings).where(eq(appSettings.orgId, orgId)).limit(1);
 
   const effectiveMaxItems = maxItems ?? pomSettings?.pomBatchSize ?? 1500;
   const apiCallCeiling = pomSettings?.pomApiCallLimit ?? 4500;
@@ -1465,7 +1467,8 @@ export async function fetchPriceOMagicData(
   config: PomFormulaConfig = POM_FORMULA_DEFAULTS,
   skipStock: boolean = false,
   localItemData?: { name?: string | null; imageUrl?: string | null; thumbnailUrl?: string | null; categoryId?: number | null },
-  apiCounter?: { count: number }
+  apiCounter?: { count: number },
+  orgId: string = 'org_planetbrick'
 ): Promise<any> {
   try {
     // Check if we have cached data less than 24 hours old
@@ -1568,7 +1571,7 @@ export async function fetchPriceOMagicData(
     const itemDetailsEndpoint = `/items/${apiItemType}/${itemNo}`;
     let itemDetails: any = null;
     if (!localItemData) {
-      const { data } = await bricklinkCatalogRequest(itemDetailsEndpoint);
+      const { data } = await bricklinkCatalogRequest(itemDetailsEndpoint, undefined, orgId);
       if (apiCounter) apiCounter.count += 1;
       itemDetails = data;
     }
@@ -1585,7 +1588,7 @@ export async function fetchPriceOMagicData(
       if (colorId) {
         stockPriceParams.color_id = colorId.toString();
       }
-      const { data } = await bricklinkCatalogRequest(stockPriceEndpoint, stockPriceParams);
+      const { data } = await bricklinkCatalogRequest(stockPriceEndpoint, stockPriceParams, orgId);
       if (apiCounter) apiCounter.count += 1;
       stockPriceData = data;
     }
@@ -1598,7 +1601,7 @@ export async function fetchPriceOMagicData(
     if (colorId) {
       soldPriceParams.color_id = colorId.toString();
     }
-    const { data: soldPriceData } = await bricklinkCatalogRequest(stockPriceEndpoint, soldPriceParams);
+    const { data: soldPriceData } = await bricklinkCatalogRequest(stockPriceEndpoint, soldPriceParams, orgId);
     if (apiCounter) apiCounter.count += 1;
 
     // Calculate suggested price with supply adjustment
@@ -1796,13 +1799,14 @@ export async function fetchPriceOMagicData(
 // Search BrickLink catalog for an item with pricing data
 export async function searchBricklinkCatalogItem(
   itemNo: string,
-  itemType: string = 'PART'
+  itemType: string = 'PART',
+  orgId: string = 'org_planetbrick'
 ): Promise<any> {
   try {
     console.log(`[BrickLink Catalog Search] Searching for ${itemType}/${itemNo}`);
     
     // Fetch item details from catalog
-    const { data: itemDetails } = await bricklinkCatalogRequest(`/items/${itemType}/${itemNo}`);
+    const { data: itemDetails } = await bricklinkCatalogRequest(`/items/${itemType}/${itemNo}`, undefined, orgId);
     
     if (!itemDetails) {
       throw new Error('Item not found in BrickLink catalog');
@@ -1811,11 +1815,11 @@ export async function searchBricklinkCatalogItem(
     // Fetch price guide data - stock
     const stockPriceParams: Record<string, string> = { guide_type: 'stock', new_or_used: 'N' };
     const stockPriceEndpoint = `/items/${itemType}/${itemNo}/price`;
-    const { data: stockPriceData } = await bricklinkCatalogRequest(stockPriceEndpoint, stockPriceParams);
+    const { data: stockPriceData } = await bricklinkCatalogRequest(stockPriceEndpoint, stockPriceParams, orgId);
 
     // Fetch price guide data - sold
     const soldPriceParams: Record<string, string> = { guide_type: 'sold', new_or_used: 'N' };
-    const { data: soldPriceData } = await bricklinkCatalogRequest(stockPriceEndpoint, soldPriceParams);
+    const { data: soldPriceData } = await bricklinkCatalogRequest(stockPriceEndpoint, soldPriceParams, orgId);
 
     // Calculate suggested price with supply adjustment
     const stockAvgPrice = (stockPriceData?.avg_price && parseFloat(stockPriceData.avg_price) > 0) ? parseFloat(stockPriceData.avg_price) : null;

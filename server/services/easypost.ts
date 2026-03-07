@@ -283,13 +283,14 @@ export class EasyPostShippingVendor implements IShippingVendor {
 /**
  * Factory function to get the configured shipping vendor
  */
-export async function getShippingVendor(apiKey?: string): Promise<IShippingVendor> {
+export async function getShippingVendor(apiKey?: string, orgId: string = 'org_planetbrick'): Promise<IShippingVendor> {
   // If no API key provided, try to get from settings
   if (!apiKey) {
     const { db } = await import('../db');
     const { appSettings } = await import('@shared/schema');
+    const { eq } = await import('drizzle-orm');
     
-    const [settings] = await db.select().from(appSettings).limit(1);
+    const [settings] = await db.select().from(appSettings).where(eq(appSettings.orgId, orgId)).limit(1);
     
     // Use the selected key mode from settings (defaults to 'test' for safety)
     const keyMode = settings?.easypostKeyMode || 'test';

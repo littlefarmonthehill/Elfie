@@ -77,6 +77,31 @@ export async function runMigrations() {
     }
 
     console.log('[Migration] Phase-1 org migrations complete.');
+
+    // ── Phase-5: Per-Org Credentials ──────────────────────────────────────────
+    // Add PayPal credential fields to app_settings
+    await client.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS paypal_client_id TEXT`);
+    await client.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS paypal_client_secret TEXT`);
+    await client.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS paypal_environment TEXT NOT NULL DEFAULT 'live'`);
+
+    // Create org_integrations table (selling channels: BrickOwl, eBay, Amazon, Stripe, etc.)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS org_integrations (
+        id           SERIAL PRIMARY KEY,
+        org_id       VARCHAR NOT NULL,
+        channel      VARCHAR NOT NULL,
+        display_name TEXT,
+        credentials  JSONB NOT NULL DEFAULT '{}',
+        is_connected BOOLEAN NOT NULL DEFAULT false,
+        last_tested_at TIMESTAMP,
+        created_at   TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at   TIMESTAMP NOT NULL DEFAULT NOW(),
+        UNIQUE (org_id, channel)
+      )
+    `);
+
+    console.log('[Migration] Phase-5 credential migrations complete.');
+
   } catch (err: any) {
     console.error('[Migration] Error during Phase-1 migration:', err.message);
     throw err;

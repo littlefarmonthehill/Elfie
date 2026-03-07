@@ -19,7 +19,7 @@
  */
 
 import { db } from '../db';
-import { orders, orderAdjustments } from '../../shared/schema';
+import { orders, orderAdjustments, appSettings } from '../../shared/schema';
 import { eq, and, gte, isNotNull, isNull, desc } from 'drizzle-orm';
 
 const PAYPAL_API_BASE = 'https://api-m.paypal.com';
@@ -27,14 +27,26 @@ const PAYPAL_API_BASE = 'https://api-m.paypal.com';
 // ─── Access token (broad scope — no scope restriction so all app perms apply) ──
 
 interface CachedToken { token: string; expiresAt: number }
-let _cachedToken: CachedToken | null = null;
+const _cachedTokens = new Map<string, CachedToken>();
 
-async function getAccessToken(): Promise<string> {
-  if (_cachedToken && Date.now() < _cachedToken.expiresAt - 60_000) return _cachedToken.token;
-  const id = process.env.PAYPAL_CLIENT_ID;
-  const secret = process.env.PAYPAL_CLIENT_SECRET;
-  if (!id || !secret) throw new Error('PAYPAL_CLIENT_ID or PAYPAL_CLIENT_SECRET not configured');
-  const res = await fetch(`${PAYPAL_API_BASE}/v1/oauth2/token`, {
+async function getAccessToken(orgId: string = 'org_planetbrick'): Promise<string> {
+  const cached = _cachedTokens.get(orgId);
+  if (cached && Date.now() < cached.expiresAt - 60_000) return cached.token;
+
+  // Read credentials from DB (org-scoped), fall back to env vars
+  const [settings] = await db.select({
+    paypalClientId: appSettings.paypalClientId,
+    paypalClientSecret: appSettings.paypalClientSecret,
+    paypalEnvironment: appSettings.paypalEnvironment,
+  }).from(appSettings).where(eq(appSettings.orgId, orgId)).limit(1);
+
+  const id = settings?.paypalClientId || process.env.PAYPAL_CLIENT_ID;
+  const secret = settings?.paypalClientSecret || process.env.PAYPAL_CLIENT_SECRET;
+  const environment = settings?.paypalEnvironment || 'live';
+  const apiBase = environment === 'sandbox' ? 'https://api-m.sandbox.paypal.com' : PAYPAL_API_BASE;
+
+  if (!id || !secret) throw new Error('PayPal credentials not configured. Please add them in Settings → Platforms.');
+  const res = await fetch(`${apiBase}/v1/oauth2/token`, {
     method: 'POST',
     headers: {
       Authorization: `Basic ${Buffer.from(`${id}:${secret}`).toString('base64')}`,
@@ -44,8 +56,8 @@ async function getAccessToken(): Promise<string> {
   });
   const data: any = await res.json();
   if (!data.access_token) throw new Error(`PayPal token error: ${JSON.stringify(data)}`);
-  _cachedToken = { token: data.access_token, expiresAt: Date.now() + data.expires_in * 1000 };
-  return _cachedToken.token;
+  _cachedTokens.set(orgId, { token: data.access_token, expiresAt: Date.now() + data.expires_in * 1000 });
+  return data.access_token;
 }
 
 // ─── Payments API: query a capture ───────────────────────────────────────────

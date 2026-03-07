@@ -10,7 +10,7 @@ import { syncBrickLinkToBrickOwl } from "./services/brickowl";
 import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBackup } from "./services/export";
 import { getProcessedPartImage, processImageFromUrl } from "./services/image-proxy";
 import { db } from "./db";
-import { users, organizations, orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, scanEmbeddings } from "@shared/schema";
+import { users, organizations, orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, scanEmbeddings, orgIntegrations } from "@shared/schema";
 import { eq, desc, sql, inArray, like, or, and, isNotNull, isNull, ne } from "drizzle-orm";
 import { z } from "zod";
 import multer from "multer";
@@ -1639,7 +1639,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { sinceDays = 90, force = false } = req.body;
       const { syncPayPalTransactions } = await import('./services/paypal-sync');
-      const result = await syncPayPalTransactions(sinceDays, force);
+      const result = await syncPayPalTransactions(sinceDays, force, reqOrgId(req));
       console.log(`✅ PayPal sync: ${result.refundsMatched} refunds, ${result.feesMatched} fees matched${force ? ' (forced re-sync)' : ''}`);
       res.json(result);
     } catch (error: any) {
@@ -1653,7 +1653,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { fetchAllPayPalTransactions } = await import('./services/paypal-sync');
       const sinceDays = req.query.days ? Number(req.query.days) : 30;
-      const transactions = await fetchAllPayPalTransactions(sinceDays);
+      const transactions = await fetchAllPayPalTransactions(sinceDays, reqOrgId(req));
       const refunds = transactions.filter(t => {
         const code = t.transaction_info?.transaction_event_code || '';
         return ['T1107','T1108','T2105','T1106'].includes(code);
@@ -1846,6 +1846,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating settings:", error);
       res.status(500).json({ error: "Failed to update settings" });
+    }
+  });
+
+  // Org Integrations (selling channels: BrickOwl, eBay, Amazon, etc.)
+  app.get("/api/org/integrations", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const integrations = await db.select().from(orgIntegrations).where(eq(orgIntegrations.orgId, orgId));
+      const sanitized = integrations.map(i => ({
+        ...i,
+        credentials: Object.fromEntries(
+          Object.entries((i.credentials as Record<string, string>) || {}).map(([k, v]) => [k, v ? '••••••' : ''])
+        ),
+      }));
+      res.json(sanitized);
+    } catch (error: any) {
+      console.error("Error fetching org integrations:", error);
+      res.status(500).json({ error: "Failed to fetch integrations" });
+    }
+  });
+
+  app.put("/api/org/integrations/:channel", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const channel = req.params.channel as string;
+      const { credentials, isConnected, displayName } = req.body as {
+        credentials?: Record<string, string>;
+        isConnected?: boolean;
+        displayName?: string;
+      };
+
+      const [row] = await db
+        .insert(orgIntegrations)
+        .values({
+          orgId,
+          channel,
+          displayName: displayName ?? channel,
+          credentials: credentials ?? {},
+          isConnected: isConnected ?? false,
+        })
+        .onConflictDoUpdate({
+          target: [orgIntegrations.orgId, orgIntegrations.channel],
+          set: {
+            ...(credentials !== undefined && { credentials }),
+            ...(isConnected !== undefined && { isConnected }),
+            ...(displayName !== undefined && { displayName }),
+            updatedAt: sql`NOW()`,
+          },
+        })
+        .returning();
+
+      res.json({ success: true, id: row.id, channel: row.channel });
+    } catch (error: any) {
+      console.error("Error upserting org integration:", error);
+      res.status(500).json({ error: "Failed to save integration" });
+    }
+  });
+
+  app.delete("/api/org/integrations/:channel", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const channel = req.params.channel as string;
+      await db.delete(orgIntegrations).where(
+        and(eq(orgIntegrations.orgId, orgId), eq(orgIntegrations.channel, channel))
+      );
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error deleting org integration:", error);
+      res.status(500).json({ error: "Failed to delete integration" });
     }
   });
 
@@ -6358,7 +6427,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
     try {
       const orgId = reqOrgId(req);
       const { bricklinkRequest } = await import('./services/bricklink');
-      const { data: blLiveData } = await bricklinkRequest('/inventories');
+      const { data: blLiveData } = await bricklinkRequest('/inventories', undefined, orgId);
       const blLiveItems: any[] = Array.isArray(blLiveData) ? blLiveData : [];
 
       const localItems = await db.select().from(blInventory).where(eq(blInventory.orgId, orgId));

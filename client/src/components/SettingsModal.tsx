@@ -661,6 +661,11 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   // BrickOwl Settings
   const [brickowlApiKey, setBrickowlApiKey] = useState("");
 
+  // PayPal Settings
+  const [paypalClientId, setPaypalClientId] = useState("");
+  const [paypalClientSecret, setPaypalClientSecret] = useState("");
+  const [paypalEnvironment, setPaypalEnvironment] = useState<'sandbox' | 'live'>('live');
+
   // EasyPost Settings
   const [easypostApiKey, setEasypostApiKey] = useState("");
   const [easypostTestApiKey, setEasypostTestApiKey] = useState("");
@@ -816,6 +821,9 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
       setBricklinkTokenValue(settings.bricklinkTokenValue || "");
       setBricklinkTokenSecret(settings.bricklinkTokenSecret || "");
       setBrickowlApiKey(settings.brickowlApiKey || "");
+      setPaypalClientId(settings.paypalClientId || "");
+      setPaypalClientSecret(settings.paypalClientSecret || "");
+      setPaypalEnvironment((settings.paypalEnvironment as 'sandbox' | 'live') || 'live');
       setEasypostApiKey(settings.easypostApiKey || "");
       setEasypostTestApiKey(settings.easypostTestApiKey || "");
       setEasypostKeyMode((settings.easypostKeyMode as 'test' | 'production') || 'test');
@@ -1643,6 +1651,85 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             onChange={(e) => setBrickowlApiKey(e.target.value)}
                             onBlur={() => updateSettingsMutation.mutate({ brickowlApiKey: brickowlApiKey || null })}
                             data-testid="input-brickowl-key"
+                          />
+                        </div>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  <AccordionItem value="paypal" className="border border-gray-700 rounded-lg px-4">
+                    <AccordionTrigger className="text-sm font-medium text-gray-300 hover:no-underline">
+                      PayPal
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="space-y-3 pt-2">
+                        <p className="text-xs text-gray-500">
+                          Used to pull PayPal transaction data (refunds, fees) and match them to orders. Requires a PayPal REST API app with Transaction Search permission.
+                        </p>
+                        <div className="space-y-2 pb-2 border-b border-gray-700">
+                          <Label className="text-xs text-gray-400">Environment</Label>
+                          <div className="flex gap-4">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="radio"
+                                name="paypal-env"
+                                value="live"
+                                checked={paypalEnvironment === 'live'}
+                                onChange={() => {
+                                  setPaypalEnvironment('live');
+                                  updateSettingsMutation.mutate({ paypalEnvironment: 'live' });
+                                }}
+                                className="text-purple-500 focus:ring-purple-500"
+                                data-testid="radio-paypal-live"
+                              />
+                              <span className="text-xs text-gray-300">Live</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="radio"
+                                name="paypal-env"
+                                value="sandbox"
+                                checked={paypalEnvironment === 'sandbox'}
+                                onChange={() => {
+                                  setPaypalEnvironment('sandbox');
+                                  updateSettingsMutation.mutate({ paypalEnvironment: 'sandbox' });
+                                }}
+                                className="text-purple-500 focus:ring-purple-500"
+                                data-testid="radio-paypal-sandbox"
+                              />
+                              <span className="text-xs text-gray-300">Sandbox</span>
+                            </label>
+                          </div>
+                          {paypalEnvironment === 'sandbox' && (
+                            <p className="text-xs text-yellow-500/80 mt-1">Sandbox mode — test credentials only</p>
+                          )}
+                          {paypalEnvironment === 'live' && (
+                            <p className="text-xs text-green-500/80 mt-1">Live mode — real PayPal transactions</p>
+                          )}
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="paypal-client-id" className="text-xs text-gray-400">Client ID</Label>
+                          <Input
+                            id="paypal-client-id"
+                            placeholder="Enter PayPal Client ID"
+                            className="text-xs"
+                            value={paypalClientId}
+                            onChange={(e) => setPaypalClientId(e.target.value)}
+                            onBlur={() => updateSettingsMutation.mutate({ paypalClientId: paypalClientId || null })}
+                            data-testid="input-paypal-client-id"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="paypal-client-secret" className="text-xs text-gray-400">Client Secret</Label>
+                          <Input
+                            id="paypal-client-secret"
+                            type="password"
+                            placeholder="Enter PayPal Client Secret"
+                            className="text-xs"
+                            value={paypalClientSecret}
+                            onChange={(e) => setPaypalClientSecret(e.target.value)}
+                            onBlur={() => updateSettingsMutation.mutate({ paypalClientSecret: paypalClientSecret || null })}
+                            data-testid="input-paypal-client-secret"
                           />
                         </div>
                       </div>

@@ -415,6 +415,10 @@ export const appSettings = pgTable("app_settings", {
   easypostApiKey: text("easypost_api_key"),
   easypostTestApiKey: text("easypost_test_api_key"),
   easypostKeyMode: text("easypost_key_mode").default('test').notNull(), // 'test' or 'production'
+  // PayPal Credentials (used for transaction sync + refund matching)
+  paypalClientId: text("paypal_client_id"),
+  paypalClientSecret: text("paypal_client_secret"),
+  paypalEnvironment: text("paypal_environment").default('live').notNull(), // 'sandbox' or 'live'
   // International Shipping / Customs
   customsSigner: text("customs_signer"),           // Name to sign customs declarations
   blIossNumber: text("bl_ioss_number"),            // BrickLink EU IOSS number
@@ -1242,3 +1246,27 @@ export const insertAppFeedbackSchema = createInsertSchema(appFeedback).omit({
 
 export type InsertAppFeedback = z.infer<typeof insertAppFeedbackSchema>;
 export type AppFeedback = typeof appFeedback.$inferSelect;
+
+// ── Per-Org Selling Channel Integrations ──────────────────────────────────────
+// Stores credentials for BrickOwl, eBay, Amazon, Stripe, and any future channel.
+// Each (orgId, channel) pair is unique. Credentials are stored as JSONB.
+export const orgIntegrations = pgTable("org_integrations", {
+  id: serial("id").primaryKey(),
+  orgId: varchar("org_id").notNull(),
+  channel: varchar("channel").notNull(), // 'brickowl' | 'ebay' | 'amazon' | 'stripe'
+  displayName: text("display_name"),     // Human-readable label, e.g. "My eBay Store"
+  credentials: jsonb("credentials").notNull().default({}),
+  isConnected: boolean("is_connected").default(false).notNull(),
+  lastTestedAt: timestamp("last_tested_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertOrgIntegrationSchema = createInsertSchema(orgIntegrations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertOrgIntegration = z.infer<typeof insertOrgIntegrationSchema>;
+export type OrgIntegration = typeof orgIntegrations.$inferSelect;

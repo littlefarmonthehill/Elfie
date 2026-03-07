@@ -1,5 +1,5 @@
 import { db } from '../db';
-import { orders, orderAdjustments } from '@shared/schema';
+import { orders, orderAdjustments, appSettings } from '@shared/schema';
 import { eq, and, gte } from 'drizzle-orm';
 
 const PAYPAL_API_BASE = 'https://api-m.paypal.com';
@@ -94,22 +94,37 @@ interface FeeSyncResult {
   errors: string[];
 }
 
-let cachedToken: { token: string; expiresAt: number } | null = null;
+const cachedTokens = new Map<string, { token: string; expiresAt: number }>();
 
-export function clearPayPalTokenCache() {
-  cachedToken = null;
+export function clearPayPalTokenCache(orgId?: string) {
+  if (orgId) {
+    cachedTokens.delete(orgId);
+  } else {
+    cachedTokens.clear();
+  }
 }
 
-async function getAccessToken(): Promise<string> {
-  if (cachedToken && Date.now() < cachedToken.expiresAt - 60000) {
-    return cachedToken.token;
+async function getAccessToken(orgId: string = 'org_planetbrick'): Promise<string> {
+  const cached = cachedTokens.get(orgId);
+  if (cached && Date.now() < cached.expiresAt - 60000) {
+    return cached.token;
   }
 
-  const clientId = process.env.PAYPAL_CLIENT_ID;
-  const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
-  if (!clientId || !clientSecret) throw new Error('PAYPAL_CLIENT_ID or PAYPAL_CLIENT_SECRET not configured');
+  // Read credentials from appSettings (org-scoped), fall back to env vars
+  const [settings] = await db.select({
+    paypalClientId: appSettings.paypalClientId,
+    paypalClientSecret: appSettings.paypalClientSecret,
+    paypalEnvironment: appSettings.paypalEnvironment,
+  }).from(appSettings).where(eq(appSettings.orgId, orgId)).limit(1);
 
-  const response = await fetch(`${PAYPAL_API_BASE}/v1/oauth2/token`, {
+  const clientId = settings?.paypalClientId || process.env.PAYPAL_CLIENT_ID;
+  const clientSecret = settings?.paypalClientSecret || process.env.PAYPAL_CLIENT_SECRET;
+  const environment = settings?.paypalEnvironment || 'live';
+  const apiBase = environment === 'sandbox' ? 'https://api-m.sandbox.paypal.com' : PAYPAL_API_BASE;
+
+  if (!clientId || !clientSecret) throw new Error('PayPal credentials not configured. Please add them in Settings → Platforms.');
+
+  const response = await fetch(`${apiBase}/v1/oauth2/token`, {
     method: 'POST',
     headers: {
       'Authorization': `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
@@ -121,16 +136,16 @@ async function getAccessToken(): Promise<string> {
   const data: PayPalAccessToken = await response.json();
   if (!data.access_token) throw new Error('Failed to obtain PayPal access token');
 
-  cachedToken = {
+  cachedTokens.set(orgId, {
     token: data.access_token,
     expiresAt: Date.now() + data.expires_in * 1000,
-  };
+  });
 
-  return cachedToken.token;
+  return data.access_token;
 }
 
-async function fetchTransactions(startDate: Date, endDate: Date): Promise<PayPalTransaction[]> {
-  const token = await getAccessToken();
+async function fetchTransactions(startDate: Date, endDate: Date, orgId: string = 'org_planetbrick'): Promise<PayPalTransaction[]> {
+  const token = await getAccessToken(orgId);
   const transactions: PayPalTransaction[] = [];
   let page = 1;
   let totalPages = 1;
@@ -168,7 +183,7 @@ async function fetchTransactions(startDate: Date, endDate: Date): Promise<PayPal
  * Fetch all PayPal transactions for the past `sinceDays` days.
  * PayPal's API has a 31-day window limit, so we split into 31-day chunks.
  */
-export async function fetchAllPayPalTransactions(sinceDays: number): Promise<PayPalTransaction[]> {
+export async function fetchAllPayPalTransactions(sinceDays: number, orgId: string = 'org_planetbrick'): Promise<PayPalTransaction[]> {
   const endDate = new Date();
   const startDate = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000);
 
@@ -178,7 +193,7 @@ export async function fetchAllPayPalTransactions(sinceDays: number): Promise<Pay
   let chunkStart = new Date(startDate);
   while (chunkStart < endDate) {
     const chunkEnd = new Date(Math.min(chunkStart.getTime() + chunkMs, endDate.getTime()));
-    const chunk = await fetchTransactions(chunkStart, chunkEnd);
+    const chunk = await fetchTransactions(chunkStart, chunkEnd, orgId);
     allTransactions.push(...chunk);
     chunkStart = new Date(chunkEnd.getTime() + 1000);
   }
@@ -232,7 +247,7 @@ function normalizeOrderRef(s: string): string {
  * Sync PayPal refund transactions to order_adjustments.
  * Mirrors the Stripe pattern exactly: fetch → deduplicate → match → insert.
  */
-export async function syncPayPalRefunds(sinceDays = 90, forceResync = false): Promise<RefundSyncResult> {
+export async function syncPayPalRefunds(sinceDays = 90, forceResync = false, orgId: string = 'org_planetbrick'): Promise<RefundSyncResult> {
   const result: RefundSyncResult = {
     refundsChecked: 0,
     matched: 0,
@@ -251,7 +266,7 @@ export async function syncPayPalRefunds(sinceDays = 90, forceResync = false): Pr
     console.log('🗑️ PayPal force-resync: cleared existing PayPal refund adjustments');
   }
 
-  const allTransactions = await fetchAllPayPalTransactions(sinceDays);
+  const allTransactions = await fetchAllPayPalTransactions(sinceDays, orgId);
   console.log(`🅿️ PayPal: fetched ${allTransactions.length} total transactions (last ${sinceDays} days)`);
 
   // Log breakdown of event codes for diagnostics
@@ -479,7 +494,7 @@ export async function syncPayPalRefunds(sinceDays = 90, forceResync = false): Pr
  * Sync PayPal transaction fees (from completed sales) to order_adjustments.
  * Mirrors the Stripe fee sync pattern exactly.
  */
-export async function syncPayPalFees(sinceDays = 90): Promise<FeeSyncResult> {
+export async function syncPayPalFees(sinceDays = 90, orgId: string = 'org_planetbrick'): Promise<FeeSyncResult> {
   const result: FeeSyncResult = {
     transactionsChecked: 0,
     matched: 0,
@@ -488,7 +503,7 @@ export async function syncPayPalFees(sinceDays = 90): Promise<FeeSyncResult> {
     errors: [],
   };
 
-  const allTransactions = await fetchAllPayPalTransactions(sinceDays);
+  const allTransactions = await fetchAllPayPalTransactions(sinceDays, orgId);
 
   const saleTxns = allTransactions.filter(t =>
     SALE_EVENT_CODES.has(t.transaction_info.transaction_event_code) &&
@@ -583,10 +598,10 @@ export async function syncPayPalFees(sinceDays = 90): Promise<FeeSyncResult> {
  * Run both PayPal refund sync and fee sync.
  * This is the function called from the API route.
  */
-export async function syncPayPalTransactions(sinceDays = 90, forceResync = false): Promise<PayPalSyncResult> {
+export async function syncPayPalTransactions(sinceDays = 90, forceResync = false, orgId: string = 'org_planetbrick'): Promise<PayPalSyncResult> {
   const [refundResult, feeResult] = await Promise.all([
-    syncPayPalRefunds(sinceDays, forceResync),
-    syncPayPalFees(sinceDays),
+    syncPayPalRefunds(sinceDays, forceResync, orgId),
+    syncPayPalFees(sinceDays, orgId),
   ]);
 
   return {
