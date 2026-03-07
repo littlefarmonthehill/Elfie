@@ -57,6 +57,7 @@ export const organizations = pgTable("organizations", {
   phone: varchar("phone", { length: 50 }),
   website: varchar("website", { length: 255 }),
   logoUrl: text("logo_url"),
+  onboardingCompleted: boolean("onboarding_completed").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

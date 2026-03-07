@@ -35,10 +35,8 @@ function Router() {
           <Redirect to="/login" />
         ) : !isApproved ? (
           <PendingApproval />
-        ) : isAdmin ? (
-          <Home />
         ) : (
-          <Redirect to="/login" />
+          <Home />
         )}
       </Route>
 

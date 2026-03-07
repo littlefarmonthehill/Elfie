@@ -315,7 +315,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const orgId = getOrgId(req);
       if (!orgId) return res.status(404).json({ message: "No organization" });
-      const { name, address, phone, website } = req.body;
+      const { name, address, phone, website, onboardingCompleted } = req.body;
       if (name !== undefined && (typeof name !== 'string' || name.trim().length < 2)) {
         return res.status(400).json({ message: "Name must be at least 2 characters" });
       }
@@ -324,6 +324,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (address !== undefined) updates.address = address || null;
       if (phone !== undefined) updates.phone = phone || null;
       if (website !== undefined) updates.website = website || null;
+      if (onboardingCompleted !== undefined) updates.onboardingCompleted = !!onboardingCompleted;
       const org = await storage.updateOrganization(orgId, updates);
       res.json(org);
     } catch (error) {

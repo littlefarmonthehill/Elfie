@@ -3,6 +3,10 @@ import { Package, ClipboardList, RefreshCw, ExternalLink, X } from "lucide-react
 import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useAdminScaling } from "@/hooks/useAdminScaling";
+import { useAuth } from "@/hooks/useAuth";
+import OnboardingWizard from "@/components/OnboardingWizard";
+import { queryClient } from "@/lib/queryClient";
+import type { Organization } from "@shared/schema";
 import Header from "@/components/Header";
 import DashboardNav, { DashboardType } from "@/components/DashboardNav";
 import SettingsModal from "@/components/SettingsModal";
@@ -22,6 +26,8 @@ import { ElfieCharacter } from "@/components/ElfieCharacter";
 export default function Home() {
   useAdminScaling();
   const { toast } = useToast();
+  const { user } = useAuth();
+  const { data: org } = useQuery<Organization>({ queryKey: ['/api/org'] });
   const [activeDashboard, setActiveDashboard] = useState<DashboardType>('dashboard');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsInitialSection, setSettingsInitialSection] = useState<'general' | 'platforms' | 'ai' | 'automation' | 'priceomatic' | 'data' | 'users'>('general');
@@ -316,7 +322,7 @@ export default function Home() {
       case 'marketing':
         return <MarketingDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} />;
       default:
-        return <GeneralDashboard onItemClick={handleDashboardItemClick} onOpenFulfillment={() => { setActiveDashboard('orders'); setActiveOrdersDrawer('fulfillment'); }} onOpenBrickanalyzer={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('brickanalyzer'); }} />;
+        return <GeneralDashboard onItemClick={handleDashboardItemClick} onOpenFulfillment={() => { setActiveDashboard('orders'); setActiveOrdersDrawer('fulfillment'); }} onOpenBrickanalyzer={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('brickanalyzer'); }} onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }} />;
     }
   };
 
@@ -900,6 +906,14 @@ export default function Home() {
         </SheetContent>
       </Sheet>
       
+      {/* Onboarding wizard — shown to org owners who haven't completed setup */}
+      {!user?.isAdmin && user?.orgRole === 'owner' && org && !org.onboardingCompleted && (
+        <OnboardingWizard
+          org={org}
+          onComplete={() => queryClient.invalidateQueries({ queryKey: ['/api/org'] })}
+        />
+      )}
+
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} initialSection={settingsInitialSection} />
       
       {/* Detail modal - positioned lower-left in landscape mode */}

@@ -1,7 +1,7 @@
 import MetricCard from "./MetricCard";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import { TrendingDown, AlertCircle, TrendingUp, ShoppingCart, RefreshCw, XCircle, ScanSearch, CheckCircle, Loader2 } from "lucide-react";
+import { TrendingDown, AlertCircle, TrendingUp, ShoppingCart, RefreshCw, XCircle, ScanSearch, CheckCircle, Loader2, Settings } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import DashboardNotifications from "./DashboardNotifications";
@@ -57,9 +57,10 @@ interface GeneralDashboardProps {
   onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
   onOpenFulfillment?: () => void;
   onOpenBrickanalyzer?: () => void;
+  onOpenSettings?: (section: 'general' | 'platforms') => void;
 }
 
-export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpenBrickanalyzer }: GeneralDashboardProps) {
+export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpenBrickanalyzer, onOpenSettings }: GeneralDashboardProps) {
   // Fetch dashboard stats (all-time)
   const { data: stats } = useQuery<DashboardStats>({
     queryKey: ['/api/dashboard/stats'],
@@ -167,6 +168,26 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
   });
   const syncErrors = recentErrorsData?.errors ?? [];
 
+  // Setup action items — fetch org and settings to detect missing core config
+  const { data: orgData } = useQuery<{ address: string | null; phone: string | null; onboardingCompleted: boolean }>({
+    queryKey: ['/api/org'],
+  });
+  const { data: appSettings } = useQuery<{
+    bricklinkConsumerKey?: string | null;
+    paypalClientId?: string | null;
+    stripeSecretKey?: string | null;
+  }>({
+    queryKey: ['/api/settings'],
+  });
+
+  const setupItems: Array<{ id: string; label: string; section: 'general' | 'platforms' }> = [];
+  if (orgData?.onboardingCompleted) {
+    if (!orgData?.address) setupItems.push({ id: 'address', label: 'Add your business address', section: 'general' });
+    if (!appSettings?.bricklinkConsumerKey) setupItems.push({ id: 'bricklink', label: 'Connect BrickLink', section: 'platforms' });
+    if (!appSettings?.paypalClientId) setupItems.push({ id: 'paypal', label: 'Connect PayPal', section: 'platforms' });
+    if (!appSettings?.stripeSecretKey) setupItems.push({ id: 'stripe', label: 'Connect Stripe', section: 'platforms' });
+  }
+
   // Get top pricing opportunities (items priced too low, sorted by variance)
   const pricingOpportunities = pricingInsights?.data?.tooLow
     ?.sort((a, b) => Math.abs(b.variance) - Math.abs(a.variance))
@@ -210,6 +231,25 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
           </div>
 
           <div className="space-y-1">
+            {setupItems.length > 0 && (
+              <div className="mb-2 space-y-1" data-testid="section-setup-items">
+                {setupItems.map((item) => (
+                  <div
+                    key={item.id}
+                    onClick={() => onOpenSettings?.(item.section)}
+                    className="flex items-center justify-between rounded px-2 py-2 hover-elevate cursor-pointer border border-lego-blue/20 bg-lego-blue/5"
+                    data-testid={`action-setup-${item.id}`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Settings className="w-3.5 h-3.5 md:w-4 md:h-4 text-lego-blue" />
+                      <span className="text-xs md:text-sm text-gray-200">{item.label}</span>
+                    </div>
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-lego-blue">Setup</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {pendingCount > 0 && (
               <div
                 onClick={onOpenFulfillment}
