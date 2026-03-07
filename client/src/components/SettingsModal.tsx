@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { AppSettings, User } from "@shared/schema";
+import type { AppSettings, User, Organization } from "@shared/schema";
 import { APP_VERSION, APP_NAME } from "@shared/version";
 import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Zap, Info, Layers, Play, Loader2, ChevronDown, ChevronRight, BarChart2, MessageSquarePlus, Eye, ShoppingCart, Brain, TrendingUp } from "lucide-react";
 import { PomCategoryTiers } from "@/components/PomCategoryTiers";
@@ -1097,7 +1097,38 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     }
   };
 
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
+
+  // Org profile state
+  const { data: org } = useQuery<Organization>({
+    queryKey: ['/api/org'],
+    enabled: open,
+  });
+  const [orgName, setOrgName] = useState('');
+  const [orgAddress, setOrgAddress] = useState('');
+  const [orgPhone, setOrgPhone] = useState('');
+  const [orgWebsite, setOrgWebsite] = useState('');
+
+  useEffect(() => {
+    if (org) {
+      setOrgName(org.name ?? '');
+      setOrgAddress(org.address ?? '');
+      setOrgPhone(org.phone ?? '');
+      setOrgWebsite(org.website ?? '');
+    }
+  }, [org]);
+
+  const updateOrgMutation = useMutation({
+    mutationFn: (data: { name?: string; address?: string; phone?: string; website?: string }) =>
+      apiRequest('PATCH', '/api/org', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/org'] });
+      toast({ title: 'Organization updated', description: 'Your organization profile has been saved.' });
+    },
+    onError: (err: any) => {
+      toast({ title: 'Error', description: err.message || 'Failed to update organization', variant: 'destructive' });
+    },
+  });
 
   // Manual sync state for Automation tab
   const [syncingInventory, setSyncingInventory] = useState(false);
@@ -1129,7 +1160,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   }
 
   const navigationItems = [
-    { id: 'general' as const, label: 'General', icon: Settings },
+    { id: 'general' as const, label: 'Organization', icon: Settings },
     { id: 'platforms' as const, label: 'Platforms', icon: Package },
     { id: 'ai' as const, label: 'Data Enrichment', icon: Sparkles },
     { id: 'automation' as const, label: 'Automation', icon: Clock },
@@ -1180,88 +1211,80 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
             {/* General Settings */}
             {activeSection === 'general' && (
               <div className="space-y-4 min-h-[400px]">
+              {/* Organization Profile */}
               <div className="space-y-3">
-                <h3 className="text-sm font-medium text-gray-300">General Settings</h3>
-                
-                {/* Version Display */}
-                <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs font-medium text-gray-300">{APP_NAME}</p>
-                      <p className="text-[10px] text-gray-500">Version {APP_VERSION}</p>
-                    </div>
-                    <div className="flex items-center gap-1 text-[10px] text-gray-500">
-                      <CheckCircle2 className="h-3 w-3 text-green-400" />
-                      <span>Up to date</span>
-                    </div>
-                  </div>
+                <h3 className="text-sm font-medium text-gray-300">Organization Profile</h3>
+
+                {/* Org ID (read-only) */}
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] text-gray-400">Organization ID</Label>
+                  <Input
+                    value={org?.id ?? user?.orgId ?? ''}
+                    readOnly
+                    className="bg-gray-900/50 border-gray-600 text-xs h-8 text-gray-400 cursor-default"
+                    data-testid="input-org-id"
+                  />
+                  <p className="text-[10px] text-gray-500">Read-only identifier for your organization</p>
                 </div>
-                
-                {/* Account Security - Password Change */}
-                <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Shield className="h-4 w-4 text-purple-400" />
-                    <h4 className="text-xs font-medium text-gray-300">Change Password</h4>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="currentPassword" className="text-[10px] text-gray-400">
-                        Current Password
-                      </Label>
-                      <Input
-                        id="currentPassword"
-                        type="password"
-                        value={currentPassword}
-                        onChange={(e) => setCurrentPassword(e.target.value)}
-                        className="bg-gray-900/50 border-gray-600 text-xs h-8"
-                        placeholder="••••••••"
-                        data-testid="input-currentPassword"
-                      />
-                    </div>
-                    
-                    <div className="space-y-1.5">
-                      <Label htmlFor="newPassword" className="text-[10px] text-gray-400">
-                        New Password
-                      </Label>
-                      <Input
-                        id="newPassword"
-                        type="password"
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        className="bg-gray-900/50 border-gray-600 text-xs h-8"
-                        placeholder="••••••••"
-                        data-testid="input-newPassword"
-                      />
-                    </div>
-                    
-                    <div className="space-y-1.5">
-                      <Label htmlFor="confirmPassword" className="text-[10px] text-gray-400">
-                        Confirm New Password
-                      </Label>
-                      <Input
-                        id="confirmPassword"
-                        type="password"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        className="bg-gray-900/50 border-gray-600 text-xs h-8"
-                        placeholder="••••••••"
-                        data-testid="input-confirmNewPassword"
-                      />
-                    </div>
-                    
-                    <Button
-                      size="sm"
-                      onClick={handlePasswordChange}
-                      disabled={changePasswordMutation.isPending || !currentPassword || !newPassword || !confirmPassword}
-                      className="w-full text-xs"
-                      data-testid="button-changePassword"
-                    >
-                      {changePasswordMutation.isPending ? 'Changing...' : 'Change Password'}
-                    </Button>
-                  </div>
+
+                {/* Company Name */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="org-name" className="text-xs text-gray-400">Company Name</Label>
+                  <Input
+                    id="org-name"
+                    value={orgName}
+                    onChange={(e) => setOrgName(e.target.value)}
+                    onBlur={() => { if (orgName.trim().length >= 2) updateOrgMutation.mutate({ name: orgName }); }}
+                    className="bg-gray-900/50 border-gray-600 text-xs h-8"
+                    placeholder="Your company name"
+                    data-testid="input-org-name"
+                  />
                 </div>
-                
+
+                {/* Address */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="org-address" className="text-xs text-gray-400">Address</Label>
+                  <Textarea
+                    id="org-address"
+                    value={orgAddress}
+                    onChange={(e) => setOrgAddress(e.target.value)}
+                    onBlur={() => updateOrgMutation.mutate({ address: orgAddress })}
+                    className="bg-gray-900/50 border-gray-600 text-xs resize-none"
+                    placeholder="Street, City, State, ZIP"
+                    rows={2}
+                    data-testid="input-org-address"
+                  />
+                </div>
+
+                {/* Phone */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="org-phone" className="text-xs text-gray-400">Phone</Label>
+                  <Input
+                    id="org-phone"
+                    value={orgPhone}
+                    onChange={(e) => setOrgPhone(e.target.value)}
+                    onBlur={() => updateOrgMutation.mutate({ phone: orgPhone })}
+                    className="bg-gray-900/50 border-gray-600 text-xs h-8"
+                    placeholder="+1 (555) 555-5555"
+                    data-testid="input-org-phone"
+                  />
+                </div>
+
+                {/* Website */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="org-website" className="text-xs text-gray-400">Website</Label>
+                  <Input
+                    id="org-website"
+                    value={orgWebsite}
+                    onChange={(e) => setOrgWebsite(e.target.value)}
+                    onBlur={() => updateOrgMutation.mutate({ website: orgWebsite })}
+                    className="bg-gray-900/50 border-gray-600 text-xs h-8"
+                    placeholder="https://example.com"
+                    data-testid="input-org-website"
+                  />
+                </div>
+
+                {/* Timezone */}
                 <div className="space-y-2">
                   <Label htmlFor="timezone" className="text-xs text-gray-400">Time Zone</Label>
                   <Select
@@ -1292,260 +1315,86 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
               <Separator className="bg-gray-700" />
 
-              {/* Data Export (CSV) */}
-              <div>
-                <h3 className="text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
-                  <Download className="h-4 w-4 text-green-400" />
-                  Data Export (CSV)
-                </h3>
-                <p className="text-xs text-gray-400 mb-3">Export your business data as CSV files for analysis or record-keeping</p>
-                
-                <Accordion type="single" collapsible className="space-y-2">
-                  {/* Core Business Data */}
-                  <AccordionItem value="core" className="bg-gray-800 border border-gray-700 rounded-lg px-3">
-                    <AccordionTrigger className="text-xs font-medium text-gray-300 py-2.5 hover:no-underline">
-                      <div className="flex items-center gap-2">
-                        <HardDrive className="h-3.5 w-3.5 text-purple-400" />
-                        Core Business Data
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="pb-3 space-y-2">
-                      <div className="grid grid-cols-2 gap-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="text-xs"
-                          onClick={() => handleExport('inventory', 'csv')}
-                          data-testid="button-export-inventory-csv"
-                        >
-                          <Download className="h-3 w-3 mr-1" />
-                          Inventory CSV
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="text-xs"
-                          onClick={() => handleExport('orders', 'csv')}
-                          data-testid="button-export-orders-csv"
-                        >
-                          <Download className="h-3 w-3 mr-1" />
-                          Orders CSV
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="text-xs"
-                          data-testid="button-export-warehouse-csv"
-                        >
-                          <Download className="h-3 w-3 mr-1" />
-                          Warehouse CSV
-                        </Button>
-                      </div>
-                      <p className="text-[10px] md:text-sm text-gray-500 mt-2">
-                        Your inventory quantities, orders, and warehouse locations
-                      </p>
-                    </AccordionContent>
-                  </AccordionItem>
-
-                  {/* Platform Catalog Data */}
-                  <AccordionItem value="catalog" className="bg-gray-800 border border-gray-700 rounded-lg px-3">
-                    <AccordionTrigger className="text-xs font-medium text-gray-300 py-2.5 hover:no-underline">
-                      <div className="flex items-center gap-2">
-                        <Database className="h-3.5 w-3.5 text-blue-400" />
-                        Platform Catalog Data
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="pb-3 space-y-2">
-                      <div className="grid grid-cols-2 gap-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="text-xs"
-                          data-testid="button-export-catalog-csv"
-                        >
-                          <Download className="h-3 w-3 mr-1" />
-                          BrickLink Catalog
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="text-xs"
-                          data-testid="button-export-sets-csv"
-                        >
-                          <Download className="h-3 w-3 mr-1" />
-                          Set-Part Data
-                        </Button>
-                      </div>
-                      <p className="text-[10px] md:text-sm text-gray-500 mt-2">
-                        External catalog data (can be re-fetched from BrickLink/Rebrickable)
-                      </p>
-                    </AccordionContent>
-                  </AccordionItem>
-
-                  {/* AI & Analytics */}
-                  <AccordionItem value="ai" className="bg-gray-800 border border-gray-700 rounded-lg px-3">
-                    <AccordionTrigger className="text-xs font-medium text-gray-300 py-2.5 hover:no-underline">
-                      <div className="flex items-center gap-2">
-                        <Sparkles className="h-3.5 w-3.5 text-violet-400" />
-                        AI & Analytics Data
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="pb-3 space-y-2">
-                      <div className="grid grid-cols-2 gap-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="text-xs"
-                          data-testid="button-export-embeddings"
-                        >
-                          <Download className="h-3 w-3 mr-1" />
-                          AI Embeddings
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="text-xs"
-                          data-testid="button-export-analytics"
-                        >
-                          <Download className="h-3 w-3 mr-1" />
-                          Analytics Cache
-                        </Button>
-                      </div>
-                      <p className="text-[10px] md:text-sm text-gray-500 mt-2">
-                        Derived data (can be regenerated, but expensive)
-                      </p>
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
-                <p className="text-[10px] md:text-sm text-yellow-400 mt-3 flex items-start gap-1">
-                  <AlertTriangle className="h-3 w-3 flex-shrink-0 mt-0.5" />
-                  <span>Note: CSV files are for analysis only and are NOT considered backups. Use the Backup & Clear tab for restore capabilities.</span>
-                </p>
+              {/* Account Security - Password Change */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-medium text-gray-300">Account Security</h3>
+                <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Shield className="h-4 w-4 text-purple-400" />
+                    <h4 className="text-xs font-medium text-gray-300">Change Password</h4>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="currentPassword" className="text-[10px] text-gray-400">
+                        Current Password
+                      </Label>
+                      <Input
+                        id="currentPassword"
+                        type="password"
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
+                        className="bg-gray-900/50 border-gray-600 text-xs h-8"
+                        placeholder="••••••••"
+                        data-testid="input-currentPassword"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="newPassword" className="text-[10px] text-gray-400">
+                        New Password
+                      </Label>
+                      <Input
+                        id="newPassword"
+                        type="password"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        className="bg-gray-900/50 border-gray-600 text-xs h-8"
+                        placeholder="••••••••"
+                        data-testid="input-newPassword"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="confirmPassword" className="text-[10px] text-gray-400">
+                        Confirm New Password
+                      </Label>
+                      <Input
+                        id="confirmPassword"
+                        type="password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        className="bg-gray-900/50 border-gray-600 text-xs h-8"
+                        placeholder="••••••••"
+                        data-testid="input-confirmNewPassword"
+                      />
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={handlePasswordChange}
+                      disabled={changePasswordMutation.isPending || !currentPassword || !newPassword || !confirmPassword}
+                      className="w-full text-xs"
+                      data-testid="button-changePassword"
+                    >
+                      {changePasswordMutation.isPending ? 'Changing...' : 'Change Password'}
+                    </Button>
+                  </div>
+                </div>
               </div>
 
               <Separator className="bg-gray-700" />
 
-              {/* Cache & Storage */}
-              <div>
-                <h3 className="text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
-                  <Smartphone className="h-4 w-4 text-blue-400" />
-                  Cache & Storage
-                </h3>
-                <p className="text-xs text-gray-400 mb-3">Clear app cache and stored data to fix issues or free up space</p>
-
-                {(() => {
-                  const deviceInfo = getDeviceInfo();
-                  
-                  return (
-                    <div className="space-y-3">
-                      {/* Device Info */}
-                      <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Smartphone className="h-4 w-4 text-blue-400" />
-                          <span className="text-xs font-medium text-gray-300">Device Info</span>
-                        </div>
-                        <div className="space-y-1 text-[11px] text-gray-400">
-                          <p>Device: <span className="text-gray-300">{deviceInfo.deviceType}</span></p>
-                          <p>Browser: <span className="text-gray-300">{deviceInfo.browserType}</span></p>
-                          <p>Mode: <span className="text-gray-300">{deviceInfo.isPWA ? 'PWA (Installed)' : 'Browser'}</span></p>
-                        </div>
-                      </div>
-
-                      {/* Clear App Cache Button */}
-                      <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
-                        <Button
-                          onClick={handleClearAppCache}
-                          variant="outline"
-                          size="sm"
-                          className="w-full text-xs bg-blue-600 hover:bg-blue-700 border-blue-500"
-                          data-testid="button-clear-cache"
-                        >
-                          <RefreshCw className="h-3 w-3 mr-2" />
-                          Clear App Cache & Data
-                        </Button>
-                        <p className="text-[10px] text-blue-300 mt-2">
-                          Clears localStorage, sessionStorage, and service worker cache. Your session will be preserved.
-                        </p>
-                      </div>
-
-                      {/* Device-Specific Instructions */}
-                      {deviceInfo.isIOS && (
-                        <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3">
-                          <h4 className="text-xs font-medium text-purple-300 mb-2">iOS/iPadOS Manual Cache Clear</h4>
-                          <p className="text-[10px] text-gray-400 mb-2">
-                            If issues persist after using the button above, follow these steps:
-                          </p>
-                          <ol className="text-[10px] text-gray-400 space-y-1 list-decimal list-inside">
-                            {deviceInfo.isPWA ? (
-                              <>
-                                <li>Close this PWA completely</li>
-                                <li>Open Safari and go to Settings</li>
-                                <li>Scroll down to "Safari" → "Advanced"</li>
-                                <li>Tap "Website Data"</li>
-                                <li>Search for "planetbrick" or "replit"</li>
-                                <li>Swipe left and tap "Delete"</li>
-                                <li>Re-open the PWA from your home screen</li>
-                              </>
-                            ) : (
-                              <>
-                                <li>Open Safari Settings</li>
-                                <li>Go to "Safari" → "Advanced" → "Website Data"</li>
-                                <li>Search for "planetbrick" or the current site</li>
-                                <li>Swipe left and delete</li>
-                                <li>Reload this page</li>
-                              </>
-                            )}
-                          </ol>
-                        </div>
-                      )}
-
-                      {deviceInfo.deviceType === 'Android' && (
-                        <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
-                          <h4 className="text-xs font-medium text-green-300 mb-2">Android Manual Cache Clear</h4>
-                          <p className="text-[10px] text-gray-400 mb-2">
-                            If issues persist:
-                          </p>
-                          <ol className="text-[10px] text-gray-400 space-y-1 list-decimal list-inside">
-                            {deviceInfo.isPWA ? (
-                              <>
-                                <li>Go to Settings → Apps</li>
-                                <li>Find "PlanetBrick" in app list</li>
-                                <li>Tap "Storage"</li>
-                                <li>Tap "Clear Cache" and "Clear Data"</li>
-                                <li>Re-open the app</li>
-                              </>
-                            ) : (
-                              <>
-                                <li>Open {deviceInfo.browserType} settings</li>
-                                <li>Go to Privacy → Clear browsing data</li>
-                                <li>Select "Cached images and files"</li>
-                                <li>Select "Site settings" or "Cookies"</li>
-                                <li>Clear data and reload</li>
-                              </>
-                            )}
-                          </ol>
-                        </div>
-                      )}
-
-                      {!deviceInfo.isIOS && deviceInfo.deviceType !== 'Android' && (
-                        <div className="bg-gray-700/50 border border-gray-600 rounded-lg p-3">
-                          <h4 className="text-xs font-medium text-gray-300 mb-2">Desktop Cache Clear</h4>
-                          <p className="text-[10px] text-gray-400 mb-2">
-                            If issues persist, use browser developer tools:
-                          </p>
-                          <ul className="text-[10px] text-gray-400 space-y-1 list-disc list-inside">
-                            <li>Press F12 to open DevTools</li>
-                            <li>Go to "Application" or "Storage" tab</li>
-                            <li>Clear all storage (localStorage, sessionStorage, Cache)</li>
-                            <li>Unregister Service Workers</li>
-                            <li>Reload the page</li>
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
+              {/* App Version */}
+              <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-gray-300">{APP_NAME}</p>
+                    <p className="text-[10px] text-gray-500">Version {APP_VERSION}</p>
+                  </div>
+                  <div className="flex items-center gap-1 text-[10px] text-gray-500">
+                    <CheckCircle2 className="h-3 w-3 text-green-400" />
+                    <span>Up to date</span>
+                  </div>
+                </div>
               </div>
+
               </div>
             )}
 
@@ -2941,6 +2790,141 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
             {/* Backup & Clear Data */}
             {activeSection === 'data' && (
               <div className="space-y-4 min-h-[400px]">
+
+                {/* Data Export (CSV) */}
+                <div>
+                  <h3 className="text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
+                    <Download className="h-4 w-4 text-green-400" />
+                    Data Export (CSV)
+                  </h3>
+                  <p className="text-xs text-gray-400 mb-3">Export your business data as CSV files for analysis or record-keeping</p>
+
+                  <Accordion type="single" collapsible className="space-y-2">
+                    {/* Core Business Data */}
+                    <AccordionItem value="core" className="bg-gray-800 border border-gray-700 rounded-lg px-3">
+                      <AccordionTrigger className="text-xs font-medium text-gray-300 py-2.5 hover:no-underline">
+                        <div className="flex items-center gap-2">
+                          <HardDrive className="h-3.5 w-3.5 text-purple-400" />
+                          Core Business Data
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="pb-3 space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs"
+                            onClick={() => handleExport('inventory', 'csv')}
+                            data-testid="button-export-inventory-csv"
+                          >
+                            <Download className="h-3 w-3 mr-1" />
+                            Inventory CSV
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs"
+                            onClick={() => handleExport('orders', 'csv')}
+                            data-testid="button-export-orders-csv"
+                          >
+                            <Download className="h-3 w-3 mr-1" />
+                            Orders CSV
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs"
+                            data-testid="button-export-warehouse-csv"
+                          >
+                            <Download className="h-3 w-3 mr-1" />
+                            Warehouse CSV
+                          </Button>
+                        </div>
+                        <p className="text-[10px] md:text-sm text-gray-500 mt-2">
+                          Your inventory quantities, orders, and warehouse locations
+                        </p>
+                      </AccordionContent>
+                    </AccordionItem>
+
+                    {/* Platform Catalog Data */}
+                    <AccordionItem value="catalog" className="bg-gray-800 border border-gray-700 rounded-lg px-3">
+                      <AccordionTrigger className="text-xs font-medium text-gray-300 py-2.5 hover:no-underline">
+                        <div className="flex items-center gap-2">
+                          <Database className="h-3.5 w-3.5 text-blue-400" />
+                          Platform Catalog Data
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="pb-3 space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs"
+                            data-testid="button-export-catalog-csv"
+                          >
+                            <Download className="h-3 w-3 mr-1" />
+                            BrickLink Catalog
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs"
+                            data-testid="button-export-sets-csv"
+                          >
+                            <Download className="h-3 w-3 mr-1" />
+                            Set-Part Data
+                          </Button>
+                        </div>
+                        <p className="text-[10px] md:text-sm text-gray-500 mt-2">
+                          External catalog data (can be re-fetched from BrickLink/Rebrickable)
+                        </p>
+                      </AccordionContent>
+                    </AccordionItem>
+
+                    {/* AI & Analytics */}
+                    <AccordionItem value="ai" className="bg-gray-800 border border-gray-700 rounded-lg px-3">
+                      <AccordionTrigger className="text-xs font-medium text-gray-300 py-2.5 hover:no-underline">
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="h-3.5 w-3.5 text-violet-400" />
+                          AI & Analytics Data
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="pb-3 space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs"
+                            data-testid="button-export-embeddings"
+                          >
+                            <Download className="h-3 w-3 mr-1" />
+                            AI Embeddings
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs"
+                            data-testid="button-export-analytics"
+                          >
+                            <Download className="h-3 w-3 mr-1" />
+                            Analytics Cache
+                          </Button>
+                        </div>
+                        <p className="text-[10px] md:text-sm text-gray-500 mt-2">
+                          Derived data (can be regenerated, but expensive)
+                        </p>
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
+
+                  <p className="text-[10px] md:text-sm text-yellow-400 mt-3 flex items-start gap-1">
+                    <AlertTriangle className="h-3 w-3 flex-shrink-0 mt-0.5" />
+                    <span>Note: CSV files are for analysis only and are NOT considered backups. Use the section below for restore capabilities.</span>
+                  </p>
+                </div>
+
+                <Separator className="bg-gray-700" />
+
                 {/* Database Backup Status */}
                 <div className="bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/30 rounded-lg p-4">
                   <div className="flex items-start justify-between mb-3">

@@ -53,6 +53,9 @@ export const organizations = pgTable("organizations", {
   slug: varchar("slug").unique().notNull(),          // URL-safe lowercase identifier
   plan: varchar("plan").notNull().default("free"),   // 'free' | 'pro' | 'enterprise'
   isActive: boolean("is_active").notNull().default(true),
+  address: text("address"),
+  phone: varchar("phone", { length: 50 }),
+  website: varchar("website", { length: 255 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
