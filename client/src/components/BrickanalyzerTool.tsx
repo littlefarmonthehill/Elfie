@@ -1134,9 +1134,10 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
   const [overlayDragging, setOverlayDragging] = useState(false);
   const [overlayTab, setOverlayTab] = useState<'matches' | 'pricing' | 'inventory'>('matches');
   const [overlayCalibration, setOverlayCalibration] = useState<Record<number, 'correct' | 'close' | 'wrong'>>({});
+  const [overlayCalibrationColorIdx, setOverlayCalibrationColorIdx] = useState<Record<number, number>>({});
   const [overlayDragStart, setOverlayDragStart] = useState({ x: 0, y: 0 });
   const [overlayPinchDist, setOverlayPinchDist] = useState<number | null>(null);
-  useEffect(() => { setOverlayZoom(1); setOverlayPan({ x: 0, y: 0 }); setOverlayTab('matches'); setOverlayCalibration({}); }, [focusedDetailCropIndex]);
+  useEffect(() => { setOverlayZoom(1); setOverlayPan({ x: 0, y: 0 }); setOverlayTab('matches'); setOverlayCalibration({}); setOverlayCalibrationColorIdx({}); }, [focusedDetailCropIndex]);
   function handleOverlayWheel(e: React.WheelEvent) {
     e.preventDefault();
     setOverlayZoom(prev => { const next = Math.min(8, Math.max(1, prev - e.deltaY * 0.003)); if (next === 1) setOverlayPan({ x: 0, y: 0 }); return next; });
@@ -2389,7 +2390,12 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                                   return (
                                     <button
                                       key={key}
-                                      onClick={e => { e.stopPropagation(); setOverlayCalibration(prev => ({ ...prev, [ei]: active ? undefined as any : key })); }}
+                                      onClick={e => {
+                                        e.stopPropagation();
+                                        const next = active ? undefined as any : key;
+                                        setOverlayCalibration(prev => ({ ...prev, [ei]: next }));
+                                        if (next !== 'close') setOverlayCalibrationColorIdx(prev => { const n = { ...prev }; delete n[ei]; return n; });
+                                      }}
                                       className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border text-[10px] font-semibold transition-colors ${
                                         active
                                           ? `${activeColor} ${activeBg} border`
@@ -2402,6 +2408,35 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                                   );
                                 })}
                               </div>
+
+                              {/* Color picker — shown when "Close" is selected */}
+                              {overlayCalibration[ei] === 'close' && (
+                                <div className="mt-3">
+                                  <p className="text-[9px] uppercase tracking-widest text-gray-500 font-semibold mb-2">What color is it actually?</p>
+                                  <div className="flex flex-wrap gap-2">
+                                    {overlayColorEntries.map((ce, ci) => {
+                                      const selected = overlayCalibrationColorIdx[ei] === ci;
+                                      return (
+                                        <button
+                                          key={ci}
+                                          onClick={e => { e.stopPropagation(); setOverlayCalibrationColorIdx(prev => ({ ...prev, [ei]: selected ? undefined as any : ci })); }}
+                                          className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium border transition-colors ${
+                                            selected
+                                              ? 'bg-white/10 border-white/25 text-white'
+                                              : 'bg-transparent border-white/[0.08] text-gray-400 hover:text-gray-200 hover:border-white/15'
+                                          }`}
+                                        >
+                                          {ce.colorRgb && (
+                                            <span className="w-3 h-3 rounded-full shrink-0 border border-white/20" style={{ backgroundColor: `#${ce.colorRgb}` }} />
+                                          )}
+                                          {ce.colorName || `Color ${ci + 1}`}
+                                          {ci === ei && <span className="text-[9px] text-gray-600 ml-0.5">(detected)</span>}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
                             </div>
 
                           </div>
