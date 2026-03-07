@@ -1274,12 +1274,12 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
   const [overlayZoom, setOverlayZoom] = useState(1);
   const [overlayPan, setOverlayPan] = useState({ x: 0, y: 0 });
   const [overlayDragging, setOverlayDragging] = useState(false);
-  const [overlayTab, setOverlayTab] = useState<'matches' | 'pricing' | 'inventory'>('matches');
+  const [overlayTab, setOverlayTab] = useState<'matches' | 'pricing' | 'inventory'>('pricing');
   const [overlayCalibration, setOverlayCalibration] = useState<Record<number, 'correct' | 'close' | 'wrong'>>({});
   const [overlayCalibrationColorIdx, setOverlayCalibrationColorIdx] = useState<Record<number, number>>({});
   const [overlayDragStart, setOverlayDragStart] = useState({ x: 0, y: 0 });
   const [overlayPinchDist, setOverlayPinchDist] = useState<number | null>(null);
-  useEffect(() => { setOverlayZoom(1); setOverlayPan({ x: 0, y: 0 }); setOverlayTab('matches'); setOverlayCalibration({}); setOverlayCalibrationColorIdx({}); }, [focusedDetailCropIndex]);
+  useEffect(() => { setOverlayZoom(1); setOverlayPan({ x: 0, y: 0 }); setOverlayTab('pricing'); setOverlayCalibration({}); setOverlayCalibrationColorIdx({}); }, [focusedDetailCropIndex]);
   function handleOverlayWheel(e: React.WheelEvent) {
     e.preventDefault();
     setOverlayZoom(prev => { const next = Math.min(8, Math.max(1, prev - e.deltaY * 0.003)); if (next === 1) setOverlayPan({ x: 0, y: 0 }); return next; });

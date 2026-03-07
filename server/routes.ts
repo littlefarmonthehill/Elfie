@@ -4148,10 +4148,12 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
 
       // Phase 2b — Send all ready crops to Brickognize.
       // BQ_CONCURRENCY controls how many pieces are in-flight simultaneously.
-      // Each piece fires 2 BQ requests (figs + parts) + 1 CLIP call in parallel,
-      // so BQ_CONCURRENCY=5 = 10 simultaneous Brickognize requests (~10 req/sec max).
-      console.log('[Brickanalyzer] Step 2b: Sending crops to Brickognize...');
-      const BQ_CONCURRENCY = 5;
+      // Each piece fires 2 BQ requests (figs + parts) + 1 CLIP call in parallel.
+      // BQ calls take 2–5 s each, so with 10 concurrent pieces the peak request
+      // rate is ~4–10 req/sec — within Brickognize's stated 10 req/sec ceiling.
+      const phase2bStart = Date.now();
+      console.log(`[Brickanalyzer] Step 2b: Sending ${pieces.length} crops to Brickognize (concurrency=10)...`);
+      const BQ_CONCURRENCY = 10;
       function makeBqLimiter(concurrency: number) {
         let active = 0;
         const waitQueue: Array<() => void> = [];
@@ -4208,6 +4210,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           return cached.map((r: any) => ({ ...r, cropIndex: idx, bboxX: piece.x, bboxY: piece.y, bboxW: piece.w, bboxH: piece.h }));
         }
 
+        const pieceStart = Date.now();
         return bqLimit(async () => {
           try {
             // Send to both Brickognize endpoints in parallel — take whichever returns
@@ -4259,7 +4262,8 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             }
 
             if (topItem) {
-              console.log(`[Brickanalyzer] Piece ${idx} (${itemType}): ${topItem.id} "${topItem.name}" score=${topItem.score.toFixed(2)} [fig=${figScore.toFixed(2)} part=${partScore.toFixed(2)}]`);
+              const pieceMs = Date.now() - pieceStart;
+              console.log(`[Brickanalyzer] Piece ${idx} (${itemType}): ${topItem.id} "${topItem.name}" score=${topItem.score.toFixed(2)} [fig=${figScore.toFixed(2)} part=${partScore.toFixed(2)}] — ${pieceMs}ms`);
               const confidence = topItem.score >= 0.7 ? 'high' : topItem.score >= 0.4 ? 'medium' : 'low';
               const result = [{
                 partNo: topItem.id || '',
@@ -4276,17 +4280,20 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
               bqDedupeCache.set(cropHash, result);
               return result;
             }
-            console.log(`[Brickanalyzer] Piece ${idx} (${piece.roughName || 'unknown'}): both endpoints empty`);
+            const pieceMs = Date.now() - pieceStart;
+            console.log(`[Brickanalyzer] Piece ${idx} (${piece.roughName || 'unknown'}): both endpoints empty — ${pieceMs}ms`);
             const emptyResult = [{ partNo: '', partName: piece.roughName || 'Unknown', colorName: piece.colorName || '', itemType: 'PART' as const, confidence: 'low', note: 'Brickognize: no match', cropIndex: idx, bboxX: piece.x, bboxY: piece.y, bboxW: piece.w, bboxH: piece.h, clipMatches }];
             bqDedupeCache.set(cropHash, emptyResult);
             return emptyResult;
 
           } catch (err: any) {
-            console.warn(`[Brickanalyzer] Piece ${idx} failed:`, err.message);
+            const pieceMs = Date.now() - pieceStart;
+            console.warn(`[Brickanalyzer] Piece ${idx} failed (${pieceMs}ms):`, err.message);
             return [{ partNo: '', partName: piece.roughName || 'Unknown', colorName: piece.colorName || '', confidence: 'low', note: 'identification error', cropIndex: idx, bboxX: piece.x, bboxY: piece.y, bboxW: piece.w, bboxH: piece.h }];
           }
         });
       }))).flat();
+      console.log(`[Brickanalyzer] Step 2b complete: ${pieces.length} pieces in ${((Date.now() - phase2bStart) / 1000).toFixed(1)}s`);
 
       // ── Zone suppression: if a MINIFIG and one or more PARTs share the same
       // detection zone (significant bbox overlap), keep only the MINIFIG ──
