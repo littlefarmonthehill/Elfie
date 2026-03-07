@@ -1414,6 +1414,41 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
             {activeSection === 'platforms' && (
               <div className="space-y-6 min-h-[400px]">
 
+                {/* Core Setup Strip */}
+                {(() => {
+                  const cores = [
+                    { label: 'BrickLink', sub: 'Inventory', configured: !!bricklinkConsumerKey },
+                    { label: 'PayPal', sub: 'Payments', configured: !!paypalClientId },
+                    { label: 'Stripe', sub: 'Payments', configured: !!stripeSecretKey },
+                  ];
+                  const configuredCount = cores.filter(c => c.configured).length;
+                  const allDone = configuredCount === 3;
+                  return (
+                    <div className="border border-gray-700 rounded-lg px-4 py-3 bg-gray-800/40">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Core Setup</span>
+                        <span className={`text-[10px] font-medium ${allDone ? 'text-green-400' : 'text-gray-500'}`}>
+                          {configuredCount} of 3 configured
+                        </span>
+                      </div>
+                      <div className="flex items-center">
+                        {cores.map((core, i) => (
+                          <div key={core.label} className="flex items-center flex-1">
+                            <div className="flex flex-col items-center gap-1 flex-1">
+                              <div className={`w-2.5 h-2.5 rounded-full border-2 transition-colors ${core.configured ? 'bg-green-400 border-green-400' : 'bg-transparent border-gray-600'}`} />
+                              <span className={`text-[11px] font-medium ${core.configured ? 'text-gray-200' : 'text-gray-500'}`}>{core.label}</span>
+                              <span className="text-[9px] text-gray-600 uppercase tracking-wide">{core.sub}</span>
+                            </div>
+                            {i < cores.length - 1 && (
+                              <div className={`h-px flex-1 mx-1 mb-4 transition-colors ${cores[i].configured && cores[i + 1].configured ? 'bg-green-500/40' : 'bg-gray-700'}`} />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 {/* Selling Channels */}
                 <div>
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-2">Selling Channels</p>
