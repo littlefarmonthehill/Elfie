@@ -1,6 +1,5 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import planetLogo from "@assets/PlanetBrick_dotcom_with_planet_and_robot_400_1760672362080.png";
 import { cleanItemName } from "@/lib/item-utils";
 
 // ─── Org branding config ──────────────────────────────────────────────────────
@@ -65,15 +64,7 @@ async function loadLogoInfo(orgLogoUrl?: string | null): Promise<{ dataUrl: stri
       // org logo is already a base64 data URL — use it directly
       dataUrl = orgLogoUrl;
     } else {
-      // fall back to the bundled asset
-      const response = await fetch(planetLogo);
-      const blob = await response.blob();
-      dataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload  = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
+      return null;
     }
     const img = new Image();
     await new Promise<void>((resolve) => { img.onload = () => resolve(); img.src = dataUrl; });
@@ -93,8 +84,8 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
     logoW = (logo.w / logo.h) * LOGO_H;
   }
 
-  const companyName = org?.name || 'PlanetBrick.com';
-  const companyAddress = org?.address || 'PO Box 202\nLanesboro, MN 55949';
+  const companyName = org?.name || 'Your Company';
+  const companyAddress = org?.address || 'Configure your address in Settings';
   const addressLines = companyAddress.split('\n').map(l => l.trim()).filter(Boolean);
 
   orders.forEach((order, idx) => {

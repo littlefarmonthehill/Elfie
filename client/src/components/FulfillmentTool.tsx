@@ -242,7 +242,7 @@ export default function FulfillmentTool() {
   });
 
   const { data: org } = useQuery<any>({
-    queryKey: ['/api/organization'],
+    queryKey: ['/api/org'],
   });
 
   // EOD-eligible EasyPost shipments (purchased, not yet on any SCAN form)

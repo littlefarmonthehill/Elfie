@@ -79,7 +79,7 @@ export default function ShippedOrdersTool() {
   });
 
   const { data: org } = useQuery<any>({
-    queryKey: ['/api/organization'],
+    queryKey: ['/api/org'],
   });
 
   const { data: shippedOrders, isLoading } = useQuery<ShippedOrder[]>({
