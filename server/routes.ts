@@ -332,6 +332,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // POST /api/org/logo — upload org logo (stored as base64 data URL)
+  const logoUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 * 1024 * 1024 } });
+  app.post('/api/org/logo', isAuthenticated, logoUpload.single('logo'), async (req: any, res) => {
+    try {
+      const orgId = getOrgId(req);
+      if (!orgId) return res.status(404).json({ message: "No organization" });
+      if (!req.file) return res.status(400).json({ message: "No file provided" });
+      if (!req.file.mimetype.startsWith('image/')) {
+        return res.status(400).json({ message: "Only image files are allowed" });
+      }
+      const base64 = req.file.buffer.toString('base64');
+      const logoUrl = `data:${req.file.mimetype};base64,${base64}`;
+      const org = await storage.updateOrganization(orgId, { logoUrl });
+      res.json({ logoUrl: org?.logoUrl });
+    } catch (error) {
+      console.error("Error uploading logo:", error);
+      res.status(500).json({ message: "Failed to upload logo" });
+    }
+  });
+
+  // DELETE /api/org/logo — remove org logo
+  app.delete('/api/org/logo', isAuthenticated, isOrgOwner, async (req: any, res) => {
+    try {
+      const orgId = getOrgId(req);
+      if (!orgId) return res.status(404).json({ message: "No organization" });
+      await storage.updateOrganization(orgId, { logoUrl: null });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting logo:", error);
+      res.status(500).json({ message: "Failed to delete logo" });
+    }
+  });
+
   // ─── Admin routes ───────────────────────────────────────────────────────────
 
   // GET /api/admin/organizations — list all orgs with user count

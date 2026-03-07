@@ -56,6 +56,7 @@ export const organizations = pgTable("organizations", {
   address: text("address"),
   phone: varchar("phone", { length: 50 }),
   website: varchar("website", { length: 255 }),
+  logoUrl: text("logo_url"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

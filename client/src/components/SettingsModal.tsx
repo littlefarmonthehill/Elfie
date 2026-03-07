@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { AppSettings, User, Organization } from "@shared/schema";
 import { APP_VERSION, APP_NAME } from "@shared/version";
-import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Zap, Info, Layers, Play, Loader2, ChevronDown, ChevronRight, BarChart2, MessageSquarePlus, Eye, ShoppingCart, Brain, TrendingUp } from "lucide-react";
+import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Zap, Info, Layers, Play, Loader2, ChevronDown, ChevronRight, BarChart2, MessageSquarePlus, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon } from "lucide-react";
 import { PomCategoryTiers } from "@/components/PomCategoryTiers";
 import { FeedbackBacklog } from "@/components/FeedbackBacklog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -1130,6 +1130,37 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     },
   });
 
+  const logoUploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('logo', file);
+      const res = await fetch('/api/org/logo', { method: 'POST', body: formData, credentials: 'include' });
+      if (!res.ok) { const t = await res.text(); throw new Error(t); }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/org'] });
+      toast({ title: 'Logo updated' });
+    },
+    onError: (err: any) => {
+      toast({ title: 'Upload failed', description: err.message || 'Failed to upload logo', variant: 'destructive' });
+    },
+  });
+
+  const removeLogoMutation = useMutation({
+    mutationFn: () => apiRequest('DELETE', '/api/org/logo'),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/org'] });
+      toast({ title: 'Logo removed' });
+    },
+  });
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) logoUploadMutation.mutate(file);
+    e.target.value = '';
+  };
+
   // Manual sync state for Automation tab
   const [syncingInventory, setSyncingInventory] = useState(false);
   const [syncingOrders, setSyncingOrders] = useState(false);
@@ -1211,21 +1242,78 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
             {/* General Settings */}
             {activeSection === 'general' && (
               <div className="space-y-4 min-h-[400px]">
-              {/* Organization Profile */}
+
+              {/* Header card: logo + version + org ID */}
+              <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3">
+                <div className="flex items-center gap-3">
+                  {/* Logo upload area */}
+                  <div className="relative flex-shrink-0">
+                    <div className="w-16 h-16 rounded-lg bg-gray-700 border border-gray-600 overflow-hidden flex items-center justify-center">
+                      {logoUploadMutation.isPending ? (
+                        <Loader2 className="h-5 w-5 text-gray-400 animate-spin" />
+                      ) : org?.logoUrl ? (
+                        <img src={org.logoUrl} alt="Org logo" className="w-full h-full object-cover" />
+                      ) : (
+                        <ImageIcon className="h-6 w-6 text-gray-500" />
+                      )}
+                    </div>
+                    <button
+                      onClick={() => document.getElementById('logo-upload')?.click()}
+                      className="absolute -bottom-1.5 -right-1.5 bg-gray-600 border border-gray-500 rounded-full p-1 cursor-pointer hover:bg-gray-500"
+                      title="Upload logo"
+                      data-testid="button-upload-logo"
+                    >
+                      <Upload className="h-2.5 w-2.5 text-gray-300" />
+                    </button>
+                    <input
+                      id="logo-upload"
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleLogoUpload}
+                      data-testid="input-logo-upload"
+                    />
+                  </div>
+
+                  {/* App info + org ID */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div>
+                        <p className="text-xs font-medium text-gray-300">{APP_NAME}</p>
+                        <p className="text-[10px] text-gray-500">Version {APP_VERSION}</p>
+                      </div>
+                      <div className="flex items-center gap-1 text-[10px] text-gray-500">
+                        <CheckCircle2 className="h-3 w-3 text-green-400" />
+                        <span>Up to date</span>
+                      </div>
+                    </div>
+                    <div className="mt-2 pt-2 border-t border-gray-700/60">
+                      <p className="text-[10px] text-gray-500 mb-0.5">Organization ID</p>
+                      <p className="text-[10px] font-mono text-gray-400 truncate" data-testid="text-org-id">
+                        {org?.id ?? user?.orgId ?? '—'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                {org?.logoUrl && (
+                  <div className="flex justify-end mt-2 pt-2 border-t border-gray-700/60">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeLogoMutation.mutate()}
+                      disabled={removeLogoMutation.isPending}
+                      className="text-[10px] text-red-400 h-6 px-2"
+                      data-testid="button-remove-logo"
+                    >
+                      Remove logo
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {/* Organization profile fields */}
               <div className="space-y-3">
                 <h3 className="text-sm font-medium text-gray-300">Organization Profile</h3>
-
-                {/* Org ID (read-only) */}
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] text-gray-400">Organization ID</Label>
-                  <Input
-                    value={org?.id ?? user?.orgId ?? ''}
-                    readOnly
-                    className="bg-gray-900/50 border-gray-600 text-xs h-8 text-gray-400 cursor-default"
-                    data-testid="input-org-id"
-                  />
-                  <p className="text-[10px] text-gray-500">Read-only identifier for your organization</p>
-                </div>
 
                 {/* Company Name */}
                 <div className="space-y-1.5">
@@ -1310,88 +1398,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     </SelectContent>
                   </Select>
                   <p className="text-[10px] text-gray-500">Used by all schedulers (POM, Inventory Sync)</p>
-                </div>
-              </div>
-
-              <Separator className="bg-gray-700" />
-
-              {/* Account Security - Password Change */}
-              <div className="space-y-3">
-                <h3 className="text-sm font-medium text-gray-300">Account Security</h3>
-                <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Shield className="h-4 w-4 text-purple-400" />
-                    <h4 className="text-xs font-medium text-gray-300">Change Password</h4>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="currentPassword" className="text-[10px] text-gray-400">
-                        Current Password
-                      </Label>
-                      <Input
-                        id="currentPassword"
-                        type="password"
-                        value={currentPassword}
-                        onChange={(e) => setCurrentPassword(e.target.value)}
-                        className="bg-gray-900/50 border-gray-600 text-xs h-8"
-                        placeholder="••••••••"
-                        data-testid="input-currentPassword"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="newPassword" className="text-[10px] text-gray-400">
-                        New Password
-                      </Label>
-                      <Input
-                        id="newPassword"
-                        type="password"
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        className="bg-gray-900/50 border-gray-600 text-xs h-8"
-                        placeholder="••••••••"
-                        data-testid="input-newPassword"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="confirmPassword" className="text-[10px] text-gray-400">
-                        Confirm New Password
-                      </Label>
-                      <Input
-                        id="confirmPassword"
-                        type="password"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        className="bg-gray-900/50 border-gray-600 text-xs h-8"
-                        placeholder="••••••••"
-                        data-testid="input-confirmNewPassword"
-                      />
-                    </div>
-                    <Button
-                      size="sm"
-                      onClick={handlePasswordChange}
-                      disabled={changePasswordMutation.isPending || !currentPassword || !newPassword || !confirmPassword}
-                      className="w-full text-xs"
-                      data-testid="button-changePassword"
-                    >
-                      {changePasswordMutation.isPending ? 'Changing...' : 'Change Password'}
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
-              <Separator className="bg-gray-700" />
-
-              {/* App Version */}
-              <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-medium text-gray-300">{APP_NAME}</p>
-                    <p className="text-[10px] text-gray-500">Version {APP_VERSION}</p>
-                  </div>
-                  <div className="flex items-center gap-1 text-[10px] text-gray-500">
-                    <CheckCircle2 className="h-3 w-3 text-green-400" />
-                    <span>Up to date</span>
-                  </div>
                 </div>
               </div>
 
@@ -3169,8 +3175,74 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
             )}
 
             {/* User Management (Admin Only) */}
-            {activeSection === 'users' && isAdmin && (
-              <UserManagementSection />
+            {activeSection === 'users' && (
+              <div className="space-y-4 min-h-[400px]">
+                {/* Account Security - visible to all users */}
+                <div className="space-y-3">
+                  <h3 className="text-sm font-medium text-gray-300">Account Security</h3>
+                  <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Shield className="h-4 w-4 text-purple-400" />
+                      <h4 className="text-xs font-medium text-gray-300">Change Password</h4>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="currentPassword" className="text-[10px] text-gray-400">Current Password</Label>
+                        <Input
+                          id="currentPassword"
+                          type="password"
+                          value={currentPassword}
+                          onChange={(e) => setCurrentPassword(e.target.value)}
+                          className="bg-gray-900/50 border-gray-600 text-xs h-8"
+                          placeholder="••••••••"
+                          data-testid="input-currentPassword"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="newPassword" className="text-[10px] text-gray-400">New Password</Label>
+                        <Input
+                          id="newPassword"
+                          type="password"
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          className="bg-gray-900/50 border-gray-600 text-xs h-8"
+                          placeholder="••••••••"
+                          data-testid="input-newPassword"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="confirmPassword" className="text-[10px] text-gray-400">Confirm New Password</Label>
+                        <Input
+                          id="confirmPassword"
+                          type="password"
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          className="bg-gray-900/50 border-gray-600 text-xs h-8"
+                          placeholder="••••••••"
+                          data-testid="input-confirmNewPassword"
+                        />
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={handlePasswordChange}
+                        disabled={changePasswordMutation.isPending || !currentPassword || !newPassword || !confirmPassword}
+                        className="w-full text-xs"
+                        data-testid="button-changePassword"
+                      >
+                        {changePasswordMutation.isPending ? 'Changing...' : 'Change Password'}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* User Management - admins only */}
+                {isAdmin && (
+                  <>
+                    <Separator className="bg-gray-700" />
+                    <UserManagementSection />
+                  </>
+                )}
+              </div>
             )}
             </div>
           </div>
