@@ -2223,6 +2223,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                     alt="Original scan"
                     className="absolute inset-0 w-full h-full object-fill block select-none"
                     draggable={false}
+                    style={{ filter: 'brightness(0.55)' }}
                   />
                   {(() => {
                     const cropDismissKeyMap = new Map<number, string>();
