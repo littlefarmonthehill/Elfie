@@ -17,6 +17,7 @@ import { Switch } from "@/components/ui/switch";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { EmbeddingsManager } from "@/components/EmbeddingsManager";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
@@ -1419,7 +1420,18 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   <Accordion type="single" collapsible className="space-y-2">
                   <AccordionItem value="bricklink" className="border border-gray-700 rounded-lg px-4">
                     <AccordionTrigger className="text-sm font-medium text-gray-300 hover:no-underline">
-                      BrickLink
+                      <div className="flex items-center gap-2">
+                        BrickLink
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border bg-blue-500/10 text-blue-400 border-blue-500/20">Read only</span>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="w-3 h-3 text-gray-500 shrink-0" onClick={(e) => e.stopPropagation()} />
+                          </TooltipTrigger>
+                          <TooltipContent side="right" className="max-w-xs text-xs">
+                            BrickLink is the source of truth for inventory. Data flows one way — into this platform. Inventory is never written back to BrickLink.
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
                     </AccordionTrigger>
                     <AccordionContent>
                       <div className="space-y-3 pt-2">
@@ -1497,7 +1509,18 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                   <AccordionItem value="brickowl" className="border border-gray-700 rounded-lg px-4">
                     <AccordionTrigger className="text-sm font-medium text-gray-300 hover:no-underline">
-                      BrickOwl
+                      <div className="flex items-center gap-2">
+                        BrickOwl
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border bg-amber-500/10 text-amber-400 border-amber-500/20">Read + Write</span>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="w-3 h-3 text-gray-500 shrink-0" onClick={(e) => e.stopPropagation()} />
+                          </TooltipTrigger>
+                          <TooltipContent side="right" className="max-w-xs text-xs">
+                            Orders and inventory are pulled from BrickOwl. Inventory updates (quantities and prices) are also pushed back out to keep BrickOwl in sync.
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
                     </AccordionTrigger>
                     <AccordionContent>
                       <div className="space-y-3 pt-2">
@@ -1526,13 +1549,21 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   <Accordion type="single" collapsible className="space-y-2">
                   <AccordionItem value="paypal" className="border border-gray-700 rounded-lg px-4">
                     <AccordionTrigger className="text-sm font-medium text-gray-300 hover:no-underline">
-                      PayPal
+                      <div className="flex items-center gap-2">
+                        PayPal
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border bg-blue-500/10 text-blue-400 border-blue-500/20">Read only</span>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="w-3 h-3 text-gray-500 shrink-0" onClick={(e) => e.stopPropagation()} />
+                          </TooltipTrigger>
+                          <TooltipContent side="right" className="max-w-xs text-xs">
+                            Pulls PayPal transaction data (refunds, fees) and matches them to orders. Requires a PayPal REST API app with Transaction Search permission.
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
                     </AccordionTrigger>
                     <AccordionContent>
                       <div className="space-y-3 pt-2">
-                        <p className="text-xs text-gray-500">
-                          Used to pull PayPal transaction data (refunds, fees) and match them to orders. Requires a PayPal REST API app with Transaction Search permission.
-                        </p>
                         <div className="space-y-2 pb-2 border-b border-gray-700">
                           <Label className="text-xs text-gray-400">Environment</Label>
                           <div className="flex gap-4">
@@ -1604,13 +1635,21 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   </AccordionItem>
                   <AccordionItem value="stripe" className="border border-gray-700 rounded-lg px-4">
                     <AccordionTrigger className="text-sm font-medium text-gray-300 hover:no-underline">
-                      Stripe
+                      <div className="flex items-center gap-2">
+                        Stripe
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border bg-blue-500/10 text-blue-400 border-blue-500/20">Read only</span>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="w-3 h-3 text-gray-500 shrink-0" onClick={(e) => e.stopPropagation()} />
+                          </TooltipTrigger>
+                          <TooltipContent side="right" className="max-w-xs text-xs">
+                            Pulls Stripe transaction data (refunds, processing fees) and matches them to orders. Use a restricted key with read access to Charges and Refunds.
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
                     </AccordionTrigger>
                     <AccordionContent>
                       <div className="space-y-3 pt-2">
-                        <p className="text-xs text-gray-500">
-                          Used to pull Stripe transaction data (refunds, processing fees) and match them to orders. Use a restricted key with read access to Charges and Refunds.
-                        </p>
                         <div className="space-y-2 pb-2 border-b border-gray-700">
                           <Label className="text-xs text-gray-400">Environment</Label>
                           <div className="flex gap-4">
@@ -1677,7 +1716,18 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   <Accordion type="single" collapsible className="space-y-2">
                   <AccordionItem value="easypost" className="border border-gray-700 rounded-lg px-4">
                     <AccordionTrigger className="text-sm font-medium text-gray-300 hover:no-underline">
-                      EasyPost
+                      <div className="flex items-center gap-2">
+                        EasyPost
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border bg-amber-500/10 text-amber-400 border-amber-500/20">Read + Write</span>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="w-3 h-3 text-gray-500 shrink-0" onClick={(e) => e.stopPropagation()} />
+                          </TooltipTrigger>
+                          <TooltipContent side="right" className="max-w-xs text-xs">
+                            Used to purchase shipping labels and track packages. Labels are created from within the platform and shipment status is tracked automatically.
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
                     </AccordionTrigger>
                     <AccordionContent>
                       <div className="space-y-3 pt-2">
