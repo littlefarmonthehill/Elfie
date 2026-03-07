@@ -4580,6 +4580,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           try {
             const pgCols = {
               soldMaxPrice: priceGuideCache.soldMaxPrice,
+              soldAvgPrice: priceGuideCache.soldAvgPrice,
               stockAvgPrice: priceGuideCache.stockAvgPrice,
               thumbnailUrl: priceGuideCache.thumbnailUrl,
               imageUrl: priceGuideCache.imageUrl,

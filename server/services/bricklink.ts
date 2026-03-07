@@ -1495,62 +1495,6 @@ export async function fetchPriceOMagicData(
       return existingCache[0];
     }
 
-    // Fallback: check part_price_history for a recent snapshot (within 5 months).
-    // Price-o-Matic writes here every sync run, so this avoids both BL API calls
-    // when the scheduled sync has already fetched fresh data recently.
-    const fiveMonthsAgo = new Date(Date.now() - 150 * 24 * 60 * 60 * 1000);
-    const historyRows = await db
-      .select({
-        soldMaxPrice: partPriceHistory.soldMaxPrice,
-        soldAvgPrice: partPriceHistory.soldAvgPrice,
-        soldMinPrice: partPriceHistory.soldMinPrice,
-        soldUnitQty:  partPriceHistory.soldUnitQty,
-        soldTotalLots: partPriceHistory.soldTotalLots,
-        stockAvgPrice: partPriceHistory.stockAvgPrice,
-        stockMinPrice: partPriceHistory.stockMinPrice,
-        stockMaxPrice: partPriceHistory.stockMaxPrice,
-        stockUnitQty:  partPriceHistory.stockUnitQty,
-        stockTotalLots: partPriceHistory.stockTotalLots,
-        snapshotDate:  partPriceHistory.snapshotDate,
-      })
-      .from(partPriceHistory)
-      .where(and(
-        sql`upper(${partPriceHistory.itemNo}) = upper(${itemNo})`,
-        eq(partPriceHistory.itemType, itemType),
-        colorId ? eq(partPriceHistory.colorId, colorId) : sql`${partPriceHistory.colorId} IS NULL`,
-        eq(partPriceHistory.newOrUsed, newOrUsed),
-        gte(partPriceHistory.fetchedAt, fiveMonthsAgo),
-      ))
-      .orderBy(desc(partPriceHistory.fetchedAt))
-      .limit(1);
-
-    if (historyRows.length > 0) {
-      const h = historyRows[0];
-      console.log(`[Price-o-Matic] Using price history for ${itemType}/${itemNo}${colorId ? `/${colorId}` : ''}/${newOrUsed} (snapshot: ${h.snapshotDate})`);
-      // Return a shape compatible with priceGuideCache so all callers work unchanged.
-      // Item details (name/thumb) are filled from localItemData if provided — no BL calls needed.
-      return {
-        itemNo,
-        itemType,
-        colorId: colorId || null,
-        newOrUsed,
-        itemName:     localItemData?.name      || null,
-        imageUrl:     localItemData?.imageUrl  || null,
-        thumbnailUrl: localItemData?.thumbnailUrl || null,
-        soldMaxPrice: h.soldMaxPrice,
-        soldAvgPrice: h.soldAvgPrice,
-        soldMinPrice: h.soldMinPrice,
-        soldTotalLots: h.soldTotalLots,
-        stockAvgPrice: h.stockAvgPrice,
-        stockMinPrice: h.stockMinPrice,
-        stockMaxPrice: h.stockMaxPrice,
-        stockTotalLots: h.stockTotalLots,
-        suggestedPrice: null,
-        // Signal to callers that this came from the history table (not a fresh BL fetch)
-        fromPriceHistory: true,
-      };
-    }
-
     console.log(`[Price-o-Matic] Fetching fresh data for ${itemType}/${itemNo}${colorId ? `/${colorId}` : ''}/${newOrUsed}`);
 
     // Convert item type code to BrickLink API format (P -> PART, M -> MINIFIG, etc.)
