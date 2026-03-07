@@ -27,10 +27,10 @@ import { TIER_CONFIG, getTierConfig, getEffectiveLimits, checkLimit, formatPrice
 interface SettingsModalProps {
   open: boolean;
   onClose: () => void;
-  initialSection?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'users' | 'billing';
+  initialSection?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'users' | 'billing';
 }
 
-type ActiveSection = 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'users' | 'billing' | null;
+type ActiveSection = 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'users' | 'billing' | null;
 
 // ── API Call Schedule Chart ────────────────────────────────────────────────
 function ApiCallSchedule({ buckets, callsLast24h, ceiling, timezone = 'America/Chicago' }: {
@@ -1311,7 +1311,8 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     { id: 'platforms' as const, label: 'Platforms', icon: Layers },
     ...(isAdmin ? [{ id: 'users' as const, label: 'Team & Roles', icon: Users }] : []),
     { id: 'automation' as const, label: 'Automation', icon: Play },
-    { id: 'data' as const, label: 'Data Enrichment', icon: Database },
+    { id: 'enrichment' as const, label: 'Data Enrichment', icon: Database },
+    { id: 'data' as const, label: 'Data Maintenance', icon: HardDrive },
     { id: 'ai' as const, label: 'E.L.F.I.E.', icon: Brain },
   ];
 
@@ -2540,11 +2541,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
             {activeSection === 'ai' && (
               <div className="space-y-4 min-h-[400px]">
               <div className="space-y-4">
-                {/* Enrichment Overview — always at the top */}
-                <EnrichmentSummary />
-
-                <Separator className="bg-gray-700" />
-
                 <div>
                   <h3 className="text-sm font-medium text-gray-300 mb-3">Chat Assistant (E.L.F.I.E.)</h3>
                   <div className="space-y-4">
@@ -2599,14 +2595,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       </p>
                     </div>
                   </div>
-                </div>
-
-                <Separator className="bg-gray-700" />
-
-                {/* Semantic Search & Embeddings */}
-                <div>
-                  <h3 className="text-sm font-medium text-gray-300 mb-3">Semantic Search & Embeddings</h3>
-                  <EmbeddingsManager />
                 </div>
 
                 <Separator className="bg-gray-700" />
@@ -3562,7 +3550,23 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
             )}
 
 
-            {/* Backup & Clear Data */}
+            {activeSection === 'enrichment' && (
+              <div className="space-y-4 min-h-[400px]">
+
+                {/* Enrichment Overview */}
+                <EnrichmentSummary />
+
+                <Separator className="bg-gray-700" />
+
+                {/* Semantic Search & Embeddings */}
+                <div>
+                  <h3 className="text-sm font-medium text-gray-300 mb-3">Semantic Search & Embeddings</h3>
+                  <EmbeddingsManager />
+                </div>
+
+              </div>
+            )}
+
             {activeSection === 'data' && (
               <div className="space-y-4 min-h-[400px]">
 
