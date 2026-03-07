@@ -1,4 +1,4 @@
-export type PlanType = 'foundation' | 'core';
+export type PlanType = 'foundation' | 'core' | 'flagship';
 
 export interface TierLimits {
   seats: number;
@@ -34,6 +34,32 @@ export interface TierConfig {
 }
 
 export const TIER_CONFIG: Record<PlanType, TierConfig> = {
+  flagship: {
+    id: 'flagship',
+    name: 'Flagship',
+    tagline: 'House account — unlimited everything',
+    limits: {
+      seats: -1,
+      brickspotterScansPerMonth: -1,
+      automationRules: -1,
+      orderHistoryDays: -1,
+    },
+    features: {
+      brickOwl: true,
+      elfieAiMode: true,
+      priceOMatic: true,
+      easypostAutomation: true,
+      dataEnrichmentImages: true,
+      dataEnrichmentSemantic: true,
+      fullDataEnrichment: true,
+      paymentSync: true,
+    },
+    pricing: {
+      monthly: 0,
+      annual: 0,
+      annualMonthly: 0,
+    },
+  },
   foundation: {
     id: 'foundation',
     name: 'Foundation',

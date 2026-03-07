@@ -71,13 +71,13 @@ export async function runMigrations() {
     await client.query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS brickspotter_limit_override INTEGER`);
     await client.query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS automation_limit_override INTEGER`);
 
-    // Seed the default PlanetBrick org. Use UPDATE on conflict so a previously
-    // inserted 'pro' plan (old value) gets corrected to 'foundation'.
+    // Seed the default PlanetBrick org. Use UPDATE on conflict so any legacy
+    // plan value ('pro', 'free', 'foundation') gets corrected to 'flagship'.
     await client.query(`
       INSERT INTO organizations (id, name, slug, plan)
-      VALUES ('org_planetbrick', 'PlanetBrick', 'planetbrick', 'foundation')
+      VALUES ('org_planetbrick', 'PlanetBrick', 'planetbrick', 'flagship')
       ON CONFLICT (id) DO UPDATE SET
-        plan = CASE WHEN organizations.plan IN ('pro', 'free') THEN 'foundation' ELSE organizations.plan END
+        plan = CASE WHEN organizations.plan IN ('pro', 'free', 'foundation') THEN 'flagship' ELSE organizations.plan END
     `);
 
     console.log('[Migration] Phase-1 (organizations) complete.');

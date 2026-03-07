@@ -1722,66 +1722,83 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                 {/* Current Plan Card */}
                 <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-300">Current Plan</h3>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-lg font-bold text-white capitalize">{org?.plan ?? 'Foundation'}</span>
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium uppercase tracking-wider ${
-                          org?.subscriptionStatus === 'active' ? 'bg-green-500/10 text-green-400 border border-green-500/20' :
-                          org?.subscriptionStatus === 'trial' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
-                          'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                        }`}>
-                          {org?.subscriptionStatus ?? 'Trial'}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs text-gray-500 mb-1">
-                        {org?.plan === 'foundation' ? 'Upgrade Billing' : 'Billing Interval'}
-                      </p>
-                      {org?.plan === 'foundation' ? (
-                        <div className="flex items-center gap-1 text-xs">
-                          <button
-                            onClick={() => setBillingInterval('monthly')}
-                            className={`px-2 py-0.5 rounded text-xs ${billingInterval === 'monthly' ? 'bg-gray-600 text-white' : 'text-gray-500 hover:text-gray-300'}`}
-                            data-testid="button-billing-monthly"
-                          >Monthly</button>
-                          <button
-                            onClick={() => setBillingInterval('annual')}
-                            className={`px-2 py-0.5 rounded text-xs ${billingInterval === 'annual' ? 'bg-gray-600 text-white' : 'text-gray-500 hover:text-gray-300'}`}
-                            data-testid="button-billing-annual"
-                          >Annual <span className="text-green-400">−17%</span></button>
+                  {org?.plan === 'flagship' ? (
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-sm font-medium text-gray-300">Current Plan</h3>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-lg font-bold text-white">Flagship</span>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full font-medium uppercase tracking-wider bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                            House Account
+                          </span>
                         </div>
-                      ) : (
-                        <p className="text-sm font-medium text-gray-300 capitalize">{org?.subscriptionInterval ?? 'Monthly'}</p>
-                      )}
+                      </div>
+                      <p className="text-xs text-gray-500">Unlimited — no billing required</p>
                     </div>
-                  </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="text-sm font-medium text-gray-300">Current Plan</h3>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-lg font-bold text-white capitalize">{org?.plan ?? 'Foundation'}</span>
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium uppercase tracking-wider ${
+                              org?.subscriptionStatus === 'active' ? 'bg-green-500/10 text-green-400 border border-green-500/20' :
+                              org?.subscriptionStatus === 'trial' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
+                              'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                            }`}>
+                              {org?.subscriptionStatus ?? 'Trial'}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-gray-500 mb-1">
+                            {org?.plan === 'foundation' ? 'Upgrade Billing' : 'Billing Interval'}
+                          </p>
+                          {org?.plan === 'foundation' ? (
+                            <div className="flex items-center gap-1 text-xs">
+                              <button
+                                onClick={() => setBillingInterval('monthly')}
+                                className={`px-2 py-0.5 rounded text-xs ${billingInterval === 'monthly' ? 'bg-gray-600 text-white' : 'text-gray-500 hover:text-gray-300'}`}
+                                data-testid="button-billing-monthly"
+                              >Monthly</button>
+                              <button
+                                onClick={() => setBillingInterval('annual')}
+                                className={`px-2 py-0.5 rounded text-xs ${billingInterval === 'annual' ? 'bg-gray-600 text-white' : 'text-gray-500 hover:text-gray-300'}`}
+                                data-testid="button-billing-annual"
+                              >Annual <span className="text-green-400">−17%</span></button>
+                            </div>
+                          ) : (
+                            <p className="text-sm font-medium text-gray-300 capitalize">{org?.subscriptionInterval ?? 'Monthly'}</p>
+                          )}
+                        </div>
+                      </div>
 
-                  <div className="flex gap-3">
-                    {org?.plan === 'foundation' ? (
-                      <Button 
-                        className="flex-1 bg-purple-600"
-                        onClick={() => checkoutMutation.mutate({ plan: 'core', interval: billingInterval })}
-                        disabled={checkoutMutation.isPending}
-                        data-testid="button-upgrade-core"
-                      >
-                        <Sparkles className="w-4 h-4 mr-2" />
-                        {checkoutMutation.isPending ? 'Redirecting...' : 'Upgrade to Core'}
-                      </Button>
-                    ) : (
-                      <Button 
-                        variant="outline" 
-                        className="flex-1 border-gray-600"
-                        onClick={() => portalMutation.mutate()}
-                        disabled={portalMutation.isPending}
-                        data-testid="button-manage-subscription"
-                      >
-                        {portalMutation.isPending ? 'Opening...' : 'Manage Subscription'}
-                      </Button>
-                    )}
-                  </div>
+                      <div className="flex gap-3">
+                        {org?.plan === 'foundation' ? (
+                          <Button 
+                            className="flex-1 bg-purple-600"
+                            onClick={() => checkoutMutation.mutate({ plan: 'core', interval: billingInterval })}
+                            disabled={checkoutMutation.isPending}
+                            data-testid="button-upgrade-core"
+                          >
+                            <Sparkles className="w-4 h-4 mr-2" />
+                            {checkoutMutation.isPending ? 'Redirecting...' : 'Upgrade to Core'}
+                          </Button>
+                        ) : (
+                          <Button 
+                            variant="outline" 
+                            className="flex-1 border-gray-600"
+                            onClick={() => portalMutation.mutate()}
+                            disabled={portalMutation.isPending}
+                            data-testid="button-manage-subscription"
+                          >
+                            {portalMutation.isPending ? 'Opening...' : 'Manage Subscription'}
+                          </Button>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 {/* Usage Meters */}
@@ -1815,11 +1832,11 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           Team Seats
                         </span>
                         <span className="font-mono text-gray-300">
-                          {users?.length ?? 0} / {effectiveLimits.seats}
+                          {users?.length ?? 0} / {effectiveLimits.seats === -1 ? '∞' : effectiveLimits.seats}
                         </span>
                       </div>
                       <Progress 
-                        value={Math.min(((users?.length ?? 0) / effectiveLimits.seats) * 100, 100)} 
+                        value={effectiveLimits.seats === -1 ? 0 : Math.min(((users?.length ?? 0) / effectiveLimits.seats) * 100, 100)} 
                         className="h-1.5"
                       />
                       <p className="text-[10px] text-gray-500">Manage seats in Team & Roles</p>
