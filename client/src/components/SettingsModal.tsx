@@ -1320,7 +1320,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     <>
       <Dialog open={open} onOpenChange={onClose}>
         <DialogContent
-          className="sm:max-w-[640px] bg-gray-900 border-gray-700 p-0"
+          className="sm:max-w-[640px] bg-gray-900 border-gray-700 p-0 overflow-hidden"
           style={{ height: 'min(640px, calc(96dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom)))' }}
         >
           <div
