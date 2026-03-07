@@ -1095,7 +1095,8 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
   const [heatmapCropFocus, setHeatmapCropFocus] = useState<number | null>(null);
   // Heatmap price toggles
   const [heatmapCondition, setHeatmapCondition] = useState<'new' | 'used'>('new');
-  const [heatmapMetric, setHeatmapMetric] = useState<'max' | 'avg' | 'listed'>('max');
+  const [heatmapSource, setHeatmapSource] = useState<'sold' | 'listed'>('sold');
+  const [heatmapMetric, setHeatmapMetric] = useState<'max' | 'avg'>('max');
   // Focused detail view — when set, shows crop image + single card instead of full list
   const [focusedDetailCropIndex, setFocusedDetailCropIndex] = useState<number | null>(null);
   // POM price popup target
@@ -2058,29 +2059,42 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                   <span className="hidden sm:inline">Tap a box to see detail</span>
                 </div>
                 <div className="flex items-center gap-1.5 ml-auto">
-                  {/* Condition toggle */}
+                  {/* Condition toggle: New | Used */}
                   <div className="flex rounded overflow-hidden border border-gray-700 text-[10px] font-medium shrink-0">
                     {(['new', 'used'] as const).map(c => (
                       <button
                         key={c}
                         data-testid={`heatmap-cond-${c}`}
                         onClick={() => setHeatmapCondition(c)}
-                        className={`px-2 py-0.5 transition-colors capitalize ${heatmapCondition === c ? 'bg-gray-600 text-white' : 'text-gray-500 hover:text-gray-300 bg-transparent'}`}
+                        className={`px-2 py-0.5 transition-colors ${heatmapCondition === c ? 'bg-gray-600 text-white' : 'text-gray-500 hover:text-gray-300 bg-transparent'}`}
                       >
                         {c === 'new' ? 'New' : 'Used'}
                       </button>
                     ))}
                   </div>
-                  {/* Metric toggle */}
+                  {/* Source toggle: Sold | Listed */}
                   <div className="flex rounded overflow-hidden border border-gray-700 text-[10px] font-medium shrink-0">
-                    {(['max', 'avg', 'listed'] as const).map(m => (
+                    {(['sold', 'listed'] as const).map(s => (
+                      <button
+                        key={s}
+                        data-testid={`heatmap-source-${s}`}
+                        onClick={() => setHeatmapSource(s)}
+                        className={`px-2 py-0.5 transition-colors ${heatmapSource === s ? 'bg-gray-600 text-white' : 'text-gray-500 hover:text-gray-300 bg-transparent'}`}
+                      >
+                        {s === 'sold' ? 'Sold' : 'Listed'}
+                      </button>
+                    ))}
+                  </div>
+                  {/* Metric toggle: Max | Avg */}
+                  <div className="flex rounded overflow-hidden border border-gray-700 text-[10px] font-medium shrink-0">
+                    {(['max', 'avg'] as const).map(m => (
                       <button
                         key={m}
                         data-testid={`heatmap-metric-${m}`}
                         onClick={() => setHeatmapMetric(m)}
-                        className={`px-2 py-0.5 transition-colors capitalize ${heatmapMetric === m ? 'bg-gray-600 text-white' : 'text-gray-500 hover:text-gray-300 bg-transparent'}`}
+                        className={`px-2 py-0.5 transition-colors ${heatmapMetric === m ? 'bg-gray-600 text-white' : 'text-gray-500 hover:text-gray-300 bg-transparent'}`}
                       >
-                        {m === 'max' ? 'Max' : m === 'avg' ? 'Avg' : 'Listed'}
+                        {m === 'max' ? 'Max' : 'Avg'}
                       </button>
                     ))}
                   </div>
@@ -2145,14 +2159,20 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                       return !dk || !dismissedItems.has(dk);
                     });
                     const heatVal = (r: ScanResult): number => {
+                      if (heatmapSource === 'listed') {
+                        return heatmapCondition === 'new'
+                          ? (r.stockAvgPriceN ?? 0)
+                          : (r.stockAvgPriceU ?? 0);
+                      }
+                      // sold
                       if (heatmapCondition === 'new') {
-                        if (heatmapMetric === 'max')    return r.marketSoldMaxNew ?? r.stockAvgPriceN ?? 0;
-                        if (heatmapMetric === 'avg')    return r.marketSoldAvgNew ?? r.marketSoldMaxNew ?? r.stockAvgPriceN ?? 0;
-                        return r.stockAvgPriceN ?? 0; // listed
+                        return heatmapMetric === 'max'
+                          ? (r.marketSoldMaxNew ?? 0)
+                          : (r.marketSoldAvgNew ?? r.marketSoldMaxNew ?? 0);
                       } else {
-                        if (heatmapMetric === 'max')    return r.marketSoldMaxUsed ?? 0;
-                        if (heatmapMetric === 'avg')    return r.marketSoldAvgUsed ?? r.marketSoldMaxUsed ?? 0;
-                        return r.stockAvgPriceU ?? 0; // listed
+                        return heatmapMetric === 'max'
+                          ? (r.marketSoldMaxUsed ?? 0)
+                          : (r.marketSoldAvgUsed ?? r.marketSoldMaxUsed ?? 0);
                       }
                     };
                     const allPrices = bboxResults.map(r => heatVal(r)).filter(p => p > 0);
