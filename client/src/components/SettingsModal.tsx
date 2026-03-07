@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { AppSettings, User, Organization, OrgIntegration } from "@shared/schema";
 import { APP_VERSION, APP_NAME } from "@shared/version";
-import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Zap, Info, Layers, Play, Loader2, ChevronDown, ChevronRight, BarChart2, MessageSquarePlus, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock } from "lucide-react";
+import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Info, Layers, Play, Loader2, ChevronDown, ChevronRight, BarChart2, MessageSquarePlus, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock } from "lucide-react";
 import { PomCategoryTiers } from "@/components/PomCategoryTiers";
 import { FeedbackBacklog } from "@/components/FeedbackBacklog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -26,7 +26,7 @@ import { useAuth } from "@/hooks/useAuth";
 interface SettingsModalProps {
   open: boolean;
   onClose: () => void;
-  initialSection?: 'general' | 'platforms' | 'ai' | 'automation' | 'priceomatic' | 'data' | 'users' | 'feedback';
+  initialSection?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'users' | 'feedback';
 }
 
 // ── API Call Schedule Chart ────────────────────────────────────────────────
@@ -706,7 +706,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const [pomHighSupplyThreshold, setPomHighSupplyThreshold] = useState(10000); // BL stock qty = "full supply"
   const [pomHighSupplyPenalty, setPomHighSupplyPenalty] = useState(40);  // supply weight 0–100
 
-  const [activeSection, setActiveSection] = useState<'general' | 'platforms' | 'ai' | 'automation' | 'priceomatic' | 'data' | 'users' | 'feedback'>(initialSection ?? 'general');
+  const [activeSection, setActiveSection] = useState<'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'users' | 'feedback'>(initialSection ?? 'general');
 
   const { data: settings } = useQuery<AppSettings>({
     queryKey: ['/api/settings'],
@@ -1234,7 +1234,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     ...(isAdmin ? [{ id: 'users' as const, label: 'Team & Roles', icon: Users }] : []),
     { id: 'automation' as const, label: 'Automation', icon: Clock },
     { id: 'ai' as const, label: 'Data Enrichment', icon: Sparkles },
-    { id: 'priceomatic' as const, label: 'Price-o-Matic', icon: Zap },
     { id: 'data' as const, label: 'Backup & Clear', icon: Database },
     { id: 'feedback' as const, label: 'Feedback', icon: MessageSquarePlus },
   ];
@@ -2168,6 +2167,616 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   <h3 className="text-sm font-medium text-gray-300 mb-3">Semantic Search & Embeddings</h3>
                   <EmbeddingsManager />
                 </div>
+
+                <Separator className="bg-gray-700" />
+
+                {/* Price-o-Matic */}
+                <div>
+                  <h3 className="text-sm font-medium text-gray-300 mb-3">Price-o-Matic</h3>
+
+                  {/* Auto Sync Scheduler */}
+                  <div className="space-y-3 my-4">
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <Label className="text-xs font-medium text-gray-300">Price-o-Matic Auto Sync</Label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                <Info className="w-3 h-3" />
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent side="bottom" className="w-72 text-xs bg-gray-900 border-gray-700 p-3 space-y-1.5">
+                              <p className="font-semibold text-gray-200">Price-o-Matic Auto Sync</p>
+                              <p className="text-gray-400">Fetches avg listed price, avg sold price, and lot count from BrickLink for each inventory item, then computes a suggested price using your formula. Items are processed in priority order by category tier (T1 → T4).</p>
+                              <p className="text-gray-500">Runs on its own independent schedule. Uses 3 BrickLink API calls per lot. Stops automatically at your daily API ceiling.</p>
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                        <p className="text-[10px] md:text-sm text-gray-500 mt-0.5">Runs independently on its own schedule</p>
+                        <SyncStatusLine entry={syncStatuses?.priceomatic ?? null} />
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          disabled={syncingPom}
+                          onClick={() => runManualSync('/api/sync/priceomatic', setSyncingPom, 'Price-o-Matic')}
+                          title="Run Price-o-Matic sync now"
+                          data-testid="button-run-pom-sync"
+                        >
+                          {syncingPom ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                        </Button>
+                        <Switch
+                          checked={pomScheduleEnabled}
+                          onCheckedChange={(checked) => {
+                            setPomScheduleEnabled(checked);
+                            updateSettingsMutation.mutate({ pomScheduleEnabled: checked });
+                          }}
+                          data-testid="switch-pom-schedule"
+                        />
+                      </div>
+                    </div>
+
+                    {pomScheduleEnabled && (
+                      <div className="ml-4 space-y-3">
+                        <div className="flex items-center gap-4">
+                          <div className="space-y-1">
+                            <Label htmlFor="pom-sync-time" className="text-xs text-gray-400">Sync Time</Label>
+                            <Input
+                              id="pom-sync-time"
+                              type="time"
+                              value={pomSyncTime}
+                              onChange={(e) => setPomSyncTime(e.target.value)}
+                              onBlur={() => updateSettingsMutation.mutate({ pomSyncTime })}
+                              className="text-xs w-32"
+                              data-testid="input-pom-sync-time"
+                            />
+                            <p className="text-[10px] text-gray-500">Local timezone</p>
+                          </div>
+                          <div className="space-y-1">
+                            <Label htmlFor="pom-schedule-batch" className="text-xs text-gray-400">Lots per run</Label>
+                            <Input
+                              id="pom-schedule-batch"
+                              type="number"
+                              min={100}
+                              max={5000}
+                              step={100}
+                              value={pomScheduleBatchSize}
+                              onChange={(e) => setPomScheduleBatchSize(parseInt(e.target.value) || 100)}
+                              onBlur={() => updateSettingsMutation.mutate({ pomScheduleBatchSize })}
+                              className="text-xs w-28 text-right"
+                              data-testid="input-pom-schedule-batch"
+                            />
+                            <p className="text-[10px] text-gray-500">= {pomScheduleBatchSize} API calls</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Sync Limits — always visible, not tied to scheduler toggle */}
+                    <div className="ml-4 space-y-2 pt-2 border-t border-gray-700/40">
+                      <p className="text-[10px] text-gray-500">BrickLink allows 5,000 API calls/day. Price-o-Matic uses 3 calls per lot.</p>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <Label className="text-xs text-gray-400">Manual sync batch size</Label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                <Info className="w-3 h-3" />
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent side="bottom" className="w-60 text-xs bg-gray-900 border-gray-700 p-3">
+                              Max lots to process when you hit the play button above to run a sync manually.
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Input type="number" min={100} max={5000} step={100} value={pomBatchSize} onChange={(e) => setPomBatchSize(parseInt(e.target.value) || 100)} onBlur={() => updateSettingsMutation.mutate({ pomBatchSize })} className="text-xs w-24 text-right" data-testid="input-pom-batch-size" />
+                          <span className="text-[10px] text-gray-500 w-16">lots / run</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <Label className="text-xs text-gray-400">Max API calls per 24h</Label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                <Info className="w-3 h-3" />
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent side="bottom" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
+                              Price-o-Matic stops once this many BrickLink API calls have been used in the last 24 hours. Hard limit is 5,000/day. Recommended: 3,000–4,000.
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Input type="number" min={500} max={5000} step={100} value={pomApiCallLimit} onChange={(e) => setPomApiCallLimit(parseInt(e.target.value) || 500)} onBlur={() => updateSettingsMutation.mutate({ pomApiCallLimit })} className="text-xs w-24 text-right" data-testid="input-pom-api-limit" />
+                          <span className="text-[10px] text-gray-500 w-14">/ 5,000</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Separator className="bg-gray-700" />
+
+                  {/* Pricing collapsible */}
+                  <div>
+                    <button
+                      onClick={() => setPomPricingOpen(!pomPricingOpen)}
+                      className="w-full flex items-center justify-between gap-2 py-2 mb-3 border-b border-gray-600/60 hover:border-gray-500/60 transition-colors group"
+                      data-testid="button-pom-pricing-toggle"
+                    >
+                      <span className="text-sm font-semibold text-gray-200 uppercase tracking-wider">Pricing</span>
+                      {pomPricingOpen ? <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" /> : <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" />}
+                    </button>
+                    {pomPricingOpen && (
+                      <div className="space-y-4">
+
+                        {/* Base Premium */}
+                        <div className="rounded-md border border-gray-700/60 overflow-hidden">
+                          <div className="bg-gray-800/50 px-4 py-2.5 flex items-center gap-1.5 border-b border-gray-700/40">
+                            <h4 className="text-xs font-semibold text-gray-200 uppercase tracking-wider">Base Premium</h4>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                  <Info className="w-3.5 h-3.5" />
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                                The minimum % markup above BrickLink's average price every item receives. Avg price = midpoint of avg listed and avg sold. Scarcity bonuses stack on top of this.
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+                          <div className="px-4 divide-y divide-gray-700/30">
+                            <div className="flex items-center justify-between py-3">
+                              <div className="flex items-center gap-1.5">
+                                <Label className="text-sm text-gray-200">Parts Premium</Label>
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                      <Info className="w-3.5 h-3.5" />
+                                    </button>
+                                  </PopoverTrigger>
+                                  <PopoverContent side="bottom" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
+                                    Applied to all standard parts. Suggested = avg_price × (1 + base% + scarcity%). Being too high pushes above market; too low leaves margin on the table.
+                                  </PopoverContent>
+                                </Popover>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Input type="number" min={0} max={100} value={pomBasePremium} onChange={(e) => setPomBasePremium(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomBasePremium })} className="text-sm w-20 text-right" data-testid="input-pom-base-premium" />
+                                <span className="text-xs text-gray-400 w-5">%</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between py-3">
+                              <div className="flex items-center gap-1.5">
+                                <Label className="text-sm text-gray-200">Minifigure Premium</Label>
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                      <Info className="w-3.5 h-3.5" />
+                                    </button>
+                                  </PopoverTrigger>
+                                  <PopoverContent side="bottom" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
+                                    Minifigures use a separate premium because they already command elevated prices relative to cost. Setting this too high on high-value figs risks losing buyers to competitors.
+                                  </PopoverContent>
+                                </Popover>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Input type="number" min={0} max={100} value={pomMinifigPremium} onChange={(e) => setPomMinifigPremium(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomMinifigPremium })} className="text-sm w-20 text-right" data-testid="input-pom-minifig-premium" />
+                                <span className="text-xs text-gray-400 w-5">%</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Scarcity Bonuses */}
+                        <div className="rounded-md border border-gray-700/60 overflow-hidden">
+                          <div className="bg-gray-800/50 px-4 py-2.5 flex items-center gap-1.5 border-b border-gray-700/40">
+                            <h4 className="text-xs font-semibold text-gray-200 uppercase tracking-wider">Scarcity Bonuses</h4>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                  <Info className="w-3.5 h-3.5" />
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                                When fewer sellers list a part on BrickLink, you can charge more. Each tier adds a bonus % on top of your base premium. Items above the highest threshold get base premium only — no bonus.
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+                          <div className="px-4">
+                            <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-2 border-b border-gray-700/40">
+                              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Supply Level</span>
+                              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider text-right">Under</span>
+                              <span className="w-6"></span>
+                              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider text-right">Bonus</span>
+                              <span className="w-4"></span>
+                            </div>
+                            <div className="divide-y divide-gray-700/30">
+                              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-3">
+                                <span className="text-sm font-medium text-orange-300">Very Low</span>
+                                <Input type="number" min={1} value={pomScarcityThreshold1} onChange={(e) => setPomScarcityThreshold1(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityThreshold1 })} className="text-sm w-20 text-right" data-testid="input-pom-threshold1" />
+                                <span className="text-xs text-gray-300">lots</span>
+                                <Input type="number" min={0} max={200} value={pomScarcityBonus1} onChange={(e) => setPomScarcityBonus1(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityBonus1 })} className="text-sm w-20 text-right" data-testid="input-pom-bonus1" />
+                                <span className="text-xs text-gray-400">%</span>
+                              </div>
+                              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-3">
+                                <span className="text-sm font-medium text-yellow-300">Low</span>
+                                <Input type="number" min={1} value={pomScarcityThreshold2} onChange={(e) => setPomScarcityThreshold2(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityThreshold2 })} className="text-sm w-20 text-right" data-testid="input-pom-threshold2" />
+                                <span className="text-xs text-gray-300">lots</span>
+                                <Input type="number" min={0} max={200} value={pomScarcityBonus2} onChange={(e) => setPomScarcityBonus2(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityBonus2 })} className="text-sm w-20 text-right" data-testid="input-pom-bonus2" />
+                                <span className="text-xs text-gray-400">%</span>
+                              </div>
+                              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-3">
+                                <span className="text-sm font-medium text-blue-300">Medium</span>
+                                <Input type="number" min={1} value={pomScarcityThreshold3} onChange={(e) => setPomScarcityThreshold3(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityThreshold3 })} className="text-sm w-20 text-right" data-testid="input-pom-threshold3" />
+                                <span className="text-xs text-gray-300">lots</span>
+                                <Input type="number" min={0} max={200} value={pomScarcityBonus3} onChange={(e) => setPomScarcityBonus3(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityBonus3 })} className="text-sm w-20 text-right" data-testid="input-pom-bonus3" />
+                                <span className="text-xs text-gray-400">%</span>
+                              </div>
+                              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-3">
+                                <span className="text-sm font-medium text-gray-300">High</span>
+                                <span className="text-sm text-gray-400 text-right">{pomScarcityThreshold3}+</span>
+                                <span className="text-xs text-gray-400">lots</span>
+                                <span className="text-sm text-gray-400 w-20 text-right">—</span>
+                                <span className="text-xs text-gray-400">%</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Formula Preview */}
+                        <div className="bg-gray-900/60 rounded-md border border-gray-700/40 px-4 py-3">
+                          <div className="flex items-center gap-1.5 mb-2.5">
+                            <h4 className="text-[10px] font-semibold text-gray-300 uppercase tracking-wider">Formula Preview</h4>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                  <Info className="w-3 h-3" />
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                                Shows the suggested price for a $0.10 part at each supply level using your current settings. Adjust the premiums and bonuses above to see results update instantly.
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+                          <div className="space-y-1.5 font-mono text-xs">
+                            {[
+                              { label: 'Very Low (30 lots)', color: 'text-orange-300', premium: pomBasePremium + pomScarcityBonus1 },
+                              { label: 'Low (100 lots)', color: 'text-yellow-300', premium: pomBasePremium + pomScarcityBonus2 },
+                              { label: 'Medium (350 lots)', color: 'text-blue-300', premium: pomBasePremium + pomScarcityBonus3 },
+                              { label: 'High (600 lots)', color: 'text-gray-500', premium: pomBasePremium },
+                            ].map(({ label, color, premium }) => (
+                              <div key={label} className="flex items-center justify-between">
+                                <span className={color}>{label}</span>
+                                <span className="text-green-400 font-semibold">${(0.10 * (1 + premium / 100)).toFixed(3)}</span>
+                              </div>
+                            ))}
+                            <div className="border-t border-gray-700/50 pt-1.5 mt-0.5">
+                              <span className="text-gray-400">Base input: $0.10 avg price</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Price Floors */}
+                        <div className="rounded-md border border-gray-700/60 overflow-hidden">
+                          <div className="bg-gray-800/50 px-4 py-2.5 flex items-center gap-1.5 border-b border-gray-700/40">
+                            <h4 className="text-xs font-semibold text-gray-200 uppercase tracking-wider">Price Floors</h4>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                  <Info className="w-3.5 h-3.5" />
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                                Safety net applied after the market formula. Final price = max(market_price, cost_floor, min_price). Cost floor only applies to items with a recorded cost (my_cost).
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+                          <div className="px-4 divide-y divide-gray-700/30">
+                            <div className="flex items-center justify-between py-3">
+                              <div className="flex items-center gap-1.5">
+                                <Label className="text-sm text-gray-200">Cost Floor</Label>
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                      <Info className="w-3.5 h-3.5" />
+                                    </button>
+                                  </PopoverTrigger>
+                                  <PopoverContent side="bottom" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
+                                    Minimum margin above your recorded cost (my_cost). At 25%, the suggested price never goes below cost × 1.25. Set to 0 to disable.
+                                  </PopoverContent>
+                                </Popover>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Input type="number" min="0" max="200" value={pomCostFloorPct} onChange={(e) => setPomCostFloorPct(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomCostFloorPct })} className="text-sm w-20 text-right" data-testid="input-pom-cost-floor" />
+                                <span className="text-xs text-gray-400 w-16">% above cost</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between py-3">
+                              <div className="flex items-center gap-1.5">
+                                <Label className="text-sm text-gray-200">Minimum Price</Label>
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                      <Info className="w-3.5 h-3.5" />
+                                    </button>
+                                  </PopoverTrigger>
+                                  <PopoverContent side="bottom" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
+                                    No item will be suggested below this price regardless of market data or cost. Useful for covering platform fees on micro-priced parts. Default $0.02.
+                                  </PopoverContent>
+                                </Popover>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm text-gray-400">$</span>
+                                <Input type="number" min="0" step="0.01" value={pomMinPrice} onChange={(e) => setPomMinPrice(parseFloat(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomMinPrice: pomMinPrice.toString() })} className="text-sm w-20 text-right" data-testid="input-pom-min-price" />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Market Dynamics */}
+                        <div className="rounded-md border border-gray-700/60 overflow-hidden">
+                          <div className="bg-gray-800/50 px-4 py-2.5 flex items-center justify-between border-b border-gray-700/40">
+                            <div className="flex items-center gap-1.5">
+                              <h4 className="text-xs font-semibold text-gray-200 uppercase tracking-wider">Market Dynamics</h4>
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                    <Info className="w-3.5 h-3.5" />
+                                  </button>
+                                </PopoverTrigger>
+                                <PopoverContent side="bottom" className="w-80 text-xs bg-gray-900 border-gray-700 p-3 space-y-1.5">
+                                  <p>Adjusts suggested prices using live BrickLink market data — no local order history involved.</p>
+                                  <p><span className="text-blue-300 font-medium">Demand signal:</span> total pieces sold globally on BrickLink (from the sold price guide). High sales volume relative to your demand threshold boosts the price.</p>
+                                  <p><span className="text-orange-300 font-medium">Supply signal:</span> total pieces currently listed for sale globally. High availability relative to your supply threshold lowers the price.</p>
+                                  <p>The two signals are weighted and combined: <span className="font-mono text-gray-300">adj = maxAdj × (demandRatio × demandWeight% − supplyRatio × supplyWeight%)</span></p>
+                                </PopoverContent>
+                              </Popover>
+                            </div>
+                            <Switch
+                              checked={pomTrendingEnabled}
+                              onCheckedChange={(v) => { setPomTrendingEnabled(v); updateSettingsMutation.mutate({ pomTrendingEnabled: v }); }}
+                              data-testid="switch-pom-trending"
+                            />
+                          </div>
+                          <div className={`px-4 divide-y divide-gray-700/30 ${!pomTrendingEnabled ? 'opacity-40 pointer-events-none' : ''}`}>
+                            <div className="flex items-center justify-between py-3">
+                              <div className="flex items-center gap-1.5">
+                                <Label className="text-sm text-gray-300">Max adjustment</Label>
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                      <Info className="w-3.5 h-3.5" />
+                                    </button>
+                                  </PopoverTrigger>
+                                  <PopoverContent side="bottom" className="w-60 text-xs bg-gray-900 border-gray-700 p-3">
+                                    The maximum percentage the market dynamics formula can move a price — either up (high demand) or down (high supply). Demand and supply weights further scale within this cap.
+                                  </PopoverContent>
+                                </Popover>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Input type="number" min={1} max={50} value={pomTrendingDays} onChange={(e) => setPomTrendingDays(parseInt(e.target.value) || 15)} onBlur={() => updateSettingsMutation.mutate({ pomTrendingDays })} className="text-sm w-20 text-right" data-testid="input-pom-market-max-adj" disabled={!pomTrendingEnabled} />
+                                <span className="text-xs text-gray-400 w-8">%</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between py-3">
+                              <div className="flex items-center gap-1.5">
+                                <Label className="text-sm text-blue-300">Demand threshold</Label>
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                      <Info className="w-3.5 h-3.5" />
+                                    </button>
+                                  </PopoverTrigger>
+                                  <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                                    Total pieces sold globally on BrickLink that represents "fully demanded." An item at or above this level gets the full demand bonus. Below it, the bonus is proportionally reduced.
+                                  </PopoverContent>
+                                </Popover>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Input type="number" min={1} step={100} value={pomTrendingThreshold} onChange={(e) => setPomTrendingThreshold(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomTrendingThreshold })} className="text-sm w-24 text-right" data-testid="input-pom-trending-threshold" disabled={!pomTrendingEnabled} />
+                                <span className="text-xs text-gray-400 w-14">units sold</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between py-3">
+                              <div className="flex items-center gap-1.5">
+                                <Label className="text-sm text-blue-300">Demand weight</Label>
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                      <Info className="w-3.5 h-3.5" />
+                                    </button>
+                                  </PopoverTrigger>
+                                  <PopoverContent side="bottom" className="w-60 text-xs bg-gray-900 border-gray-700 p-3">
+                                    How much of the max adjustment the demand signal can contribute. At 60 with max 15%, a fully-demanded item adds up to 9% (15 × 0.6).
+                                  </PopoverContent>
+                                </Popover>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Input type="number" min={0} max={100} value={pomTrendingBonus} onChange={(e) => setPomTrendingBonus(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomTrendingBonus })} className="text-sm w-20 text-right" data-testid="input-pom-trending-bonus" disabled={!pomTrendingEnabled} />
+                                <span className="text-xs text-gray-400 w-8">%</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between py-3">
+                              <div className="flex items-center gap-1.5">
+                                <Label className="text-sm text-orange-300">Supply threshold</Label>
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                      <Info className="w-3.5 h-3.5" />
+                                    </button>
+                                  </PopoverTrigger>
+                                  <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                                    Total pieces currently listed for sale on BrickLink globally that represents "fully supplied." Common commodity parts often have 50,000+ pieces globally — set this to match your market context.
+                                  </PopoverContent>
+                                </Popover>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Input type="number" min={100} step={1000} value={pomHighSupplyThreshold} onChange={(e) => setPomHighSupplyThreshold(parseInt(e.target.value) || 100)} onBlur={() => updateSettingsMutation.mutate({ pomHighSupplyThreshold })} className="text-sm w-24 text-right" data-testid="input-pom-high-supply-threshold" disabled={!pomTrendingEnabled} />
+                                <span className="text-xs text-gray-400 w-12">pieces</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between py-3">
+                              <div className="flex items-center gap-1.5">
+                                <Label className="text-sm text-orange-300">Supply weight</Label>
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                      <Info className="w-3.5 h-3.5" />
+                                    </button>
+                                  </PopoverTrigger>
+                                  <PopoverContent side="bottom" className="w-60 text-xs bg-gray-900 border-gray-700 p-3">
+                                    How much of the max adjustment the supply signal can subtract. At 40 with max 15%, a fully-supplied item removes up to 6% (15 × 0.4).
+                                  </PopoverContent>
+                                </Popover>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Input type="number" min={0} max={100} value={pomHighSupplyPenalty} onChange={(e) => setPomHighSupplyPenalty(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomHighSupplyPenalty })} className="text-sm w-20 text-right" data-testid="input-pom-high-supply-penalty" disabled={!pomTrendingEnabled} />
+                                <span className="text-xs text-gray-400 w-8">%</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Flag Thresholds */}
+                        <div className="rounded-md border border-gray-700/60 overflow-hidden">
+                          <div className="bg-gray-800/50 px-4 py-2.5 flex items-center gap-1.5 border-b border-gray-700/40">
+                            <h4 className="text-xs font-semibold text-gray-200 uppercase tracking-wider">Flag Thresholds</h4>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                  <Info className="w-3.5 h-3.5" />
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                                Controls which items appear in the Price-o-Matic dashboard as needing attention. Items outside these bands are flagged — not automatically repriced. You decide whether to act on each flag.
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+                          <div className="px-4 divide-y divide-gray-700/30">
+                            <div className="flex items-center justify-between py-3">
+                              <div className="flex items-center gap-1.5">
+                                <Label className="text-sm text-red-300">Too High Flag</Label>
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                      <Info className="w-3.5 h-3.5" />
+                                    </button>
+                                  </PopoverTrigger>
+                                  <PopoverContent side="bottom" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
+                                    Items priced this far above the suggested price appear in the "Too High" tab. Buyers will likely find cheaper options elsewhere, reducing your sell-through rate.
+                                  </PopoverContent>
+                                </Popover>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-gray-300">more than</span>
+                                <Input type="number" min={1} max={200} value={pomTooHighThreshold} onChange={(e) => setPomTooHighThreshold(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomTooHighThreshold })} className="text-sm w-20 text-right" data-testid="input-pom-too-high" />
+                                <span className="text-xs text-gray-400 w-14">% above</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between py-3">
+                              <div className="flex items-center gap-1.5">
+                                <Label className="text-sm text-yellow-300">Too Low Flag</Label>
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                      <Info className="w-3.5 h-3.5" />
+                                    </button>
+                                  </PopoverTrigger>
+                                  <PopoverContent side="bottom" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
+                                    Items priced this far below the suggested price appear in the "Too Low" tab. You're leaving margin on the table — buyers didn't need that discount.
+                                  </PopoverContent>
+                                </Popover>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-gray-300">more than</span>
+                                <Input type="number" min={1} max={200} value={pomTooLowThreshold} onChange={(e) => setPomTooLowThreshold(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomTooLowThreshold })} className="text-sm w-20 text-right" data-testid="input-pom-too-low" />
+                                <span className="text-xs text-gray-400 w-14">% below</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Scoring collapsible */}
+                  <div>
+                    <button
+                      onClick={() => setPomScoringOpen(!pomScoringOpen)}
+                      className="w-full flex items-center justify-between gap-2 py-2 mb-3 border-b border-gray-600/60 hover:border-gray-500/60 transition-colors group"
+                      data-testid="button-pom-scoring-toggle"
+                    >
+                      <span className="text-sm font-semibold text-gray-200 uppercase tracking-wider">Scoring</span>
+                      {pomScoringOpen ? <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" /> : <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" />}
+                    </button>
+                    {pomScoringOpen && (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Layers className="h-4 w-4 text-gray-400" />
+                          <p className="text-xs text-gray-400">Assign categories to refresh tiers. T1 = daily, T2 = 3 days, T3 = weekly, T4 = monthly.</p>
+                        </div>
+                        <PomCategoryTiers />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Clear Cache */}
+                  <div className="bg-red-500/5 border border-red-500/20 rounded-md px-4 py-3">
+                    <div className="flex items-center justify-between gap-4 flex-wrap">
+                      <div className="flex items-center gap-1.5">
+                        <Label className="text-sm font-medium text-red-300">Clear Price Guide Cache</Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                              <Info className="w-3.5 h-3.5" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                            Deletes all stored price guide data and resets sync history. Use when starting fresh with new formula settings. The next sync rebuilds from scratch. No inventory data is affected.
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                      <Button variant="outline" size="sm" onClick={() => setShowClearPomDialog(true)} className="border-red-500/40 text-red-400 hover:text-red-300 shrink-0" data-testid="button-clear-pom-cache">
+                        <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                        Clear Cache
+                      </Button>
+                    </div>
+                  </div>
+
+                  <AlertDialog open={showClearPomDialog} onOpenChange={setShowClearPomDialog}>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Clear Price Guide Cache?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will permanently delete all stored Price-o-Matic price guide data and reset the sync history. The next sync run will start fresh and rebuild from scratch using your current formula settings.
+                          <br /><br />
+                          This cannot be undone, but no inventory data is affected — only the pricing cache.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => clearPomCacheMutation.mutate()}
+                          className="bg-red-600 hover:bg-red-700"
+                          data-testid="button-confirm-clear-pom"
+                        >
+                          {clearPomCacheMutation.isPending ? "Clearing..." : "Yes, Clear Cache"}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+
+                  <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
+                    <p className="text-xs text-blue-300">
+                      <strong>How it works:</strong> Price-o-Matic pulls avg listed price, avg sold price, and lot count from BrickLink for each item, then applies your formula above to compute a suggested price. Items more than {pomTooHighThreshold}% above or {pomTooLowThreshold}% below that suggested price are flagged in the dashboard.
+                    </p>
+                  </div>
+
+                </div>
               </div>
               </div>
             )}
@@ -2489,132 +3098,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       </div>
                     </div>
 
-                    <Separator className="bg-gray-700" />
-
-                    {/* Price-o-Matic Standalone Scheduler */}
-                    <div className="space-y-3 my-4">
-                      <div className="flex items-center justify-between gap-2">
-                        <div>
-                          <div className="flex items-center gap-1.5">
-                            <Label className="text-xs font-medium text-gray-300">Price-o-Matic Auto Sync</Label>
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
-                                  <Info className="w-3 h-3" />
-                                </button>
-                              </PopoverTrigger>
-                              <PopoverContent side="bottom" className="w-72 text-xs bg-gray-900 border-gray-700 p-3 space-y-1.5">
-                                <p className="font-semibold text-gray-200">Price-o-Matic Auto Sync</p>
-                                <p className="text-gray-400">Fetches avg listed price, avg sold price, and lot count from BrickLink for each inventory item, then computes a suggested price using your formula. Items are processed in priority order by category tier (T1 → T4).</p>
-                                <p className="text-gray-500">Runs on its own independent schedule. Uses 3 BrickLink API calls per lot. Stops automatically at your daily API ceiling.</p>
-                              </PopoverContent>
-                            </Popover>
-                          </div>
-                          <p className="text-[10px] md:text-sm text-gray-500 mt-0.5">Runs independently on its own schedule</p>
-                          <SyncStatusLine entry={syncStatuses?.priceomatic ?? null} />
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            disabled={syncingPom}
-                            onClick={() => runManualSync('/api/sync/priceomatic', setSyncingPom, 'Price-o-Matic')}
-                            title="Run Price-o-Matic sync now"
-                            data-testid="button-run-pom-sync"
-                          >
-                            {syncingPom ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-                          </Button>
-                          <Switch
-                            checked={pomScheduleEnabled}
-                            onCheckedChange={(checked) => {
-                              setPomScheduleEnabled(checked);
-                              updateSettingsMutation.mutate({ pomScheduleEnabled: checked });
-                            }}
-                            data-testid="switch-pom-schedule"
-                          />
-                        </div>
-                      </div>
-
-                      {pomScheduleEnabled && (
-                        <div className="ml-4 space-y-3">
-                          <div className="flex items-center gap-4">
-                            <div className="space-y-1">
-                              <Label htmlFor="pom-sync-time" className="text-xs text-gray-400">Sync Time</Label>
-                              <Input
-                                id="pom-sync-time"
-                                type="time"
-                                value={pomSyncTime}
-                                onChange={(e) => setPomSyncTime(e.target.value)}
-                                onBlur={() => updateSettingsMutation.mutate({ pomSyncTime })}
-                                className="text-xs w-32"
-                                data-testid="input-pom-sync-time"
-                              />
-                              <p className="text-[10px] text-gray-500">Local timezone</p>
-                            </div>
-                            <div className="space-y-1">
-                              <Label htmlFor="pom-schedule-batch" className="text-xs text-gray-400">Lots per run</Label>
-                              <Input
-                                id="pom-schedule-batch"
-                                type="number"
-                                min={100}
-                                max={5000}
-                                step={100}
-                                value={pomScheduleBatchSize}
-                                onChange={(e) => setPomScheduleBatchSize(parseInt(e.target.value) || 100)}
-                                onBlur={() => updateSettingsMutation.mutate({ pomScheduleBatchSize })}
-                                className="text-xs w-28 text-right"
-                                data-testid="input-pom-schedule-batch"
-                              />
-                              <p className="text-[10px] text-gray-500">= {pomScheduleBatchSize} API calls</p>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Sync Limits — always visible, not tied to scheduler toggle */}
-                      <div className="ml-4 space-y-2 pt-2 border-t border-gray-700/40">
-                        <p className="text-[10px] text-gray-500">BrickLink allows 5,000 API calls/day. Price-o-Matic uses 3 calls per lot.</p>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1.5">
-                            <Label className="text-xs text-gray-400">Manual sync batch size</Label>
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
-                                  <Info className="w-3 h-3" />
-                                </button>
-                              </PopoverTrigger>
-                              <PopoverContent side="bottom" className="w-60 text-xs bg-gray-900 border-gray-700 p-3">
-                                Max lots to process when you hit the play button above to run a sync manually.
-                              </PopoverContent>
-                            </Popover>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Input type="number" min={100} max={5000} step={100} value={pomBatchSize} onChange={(e) => setPomBatchSize(parseInt(e.target.value) || 100)} onBlur={() => updateSettingsMutation.mutate({ pomBatchSize })} className="text-xs w-24 text-right" data-testid="input-pom-batch-size" />
-                            <span className="text-[10px] text-gray-500 w-16">lots / run</span>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1.5">
-                            <Label className="text-xs text-gray-400">Max API calls per 24h</Label>
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
-                                  <Info className="w-3 h-3" />
-                                </button>
-                              </PopoverTrigger>
-                              <PopoverContent side="bottom" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
-                                Price-o-Matic stops once this many BrickLink API calls have been used in the last 24 hours. Hard limit is 5,000/day. Recommended: 3,000–4,000.
-                              </PopoverContent>
-                            </Popover>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Input type="number" min={500} max={5000} step={100} value={pomApiCallLimit} onChange={(e) => setPomApiCallLimit(parseInt(e.target.value) || 500)} onBlur={() => updateSettingsMutation.mutate({ pomApiCallLimit })} className="text-xs w-24 text-right" data-testid="input-pom-api-limit" />
-                            <span className="text-[10px] text-gray-500 w-14">/ 5,000</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
                     <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3 mt-4">
                       <p className="text-xs text-purple-300">
                         <strong>Note:</strong> All automation respects BrickLink's 5,000 API calls/day limit. Syncs will automatically pause when approaching the limit.
@@ -2625,488 +3108,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
               </div>
             )}
 
-            {/* Price-o-Matic Formula Settings */}
-            {activeSection === 'priceomatic' && (
-              <div className="space-y-4 min-h-[400px]">
-
-                {/* Pricing collapsible */}
-                <div>
-                  <button
-                    onClick={() => setPomPricingOpen(!pomPricingOpen)}
-                    className="w-full flex items-center justify-between gap-2 py-2 mb-3 border-b border-gray-600/60 hover:border-gray-500/60 transition-colors group"
-                    data-testid="button-pom-pricing-toggle"
-                  >
-                    <span className="text-sm font-semibold text-gray-200 uppercase tracking-wider">Pricing</span>
-                    {pomPricingOpen ? <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" /> : <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" />}
-                  </button>
-                  {pomPricingOpen && (
-                    <div className="space-y-4">
-
-                {/* Base Premium */}
-                <div className="rounded-md border border-gray-700/60 overflow-hidden">
-                  <div className="bg-gray-800/50 px-4 py-2.5 flex items-center gap-1.5 border-b border-gray-700/40">
-                    <h4 className="text-xs font-semibold text-gray-200 uppercase tracking-wider">Base Premium</h4>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
-                          <Info className="w-3.5 h-3.5" />
-                        </button>
-                      </PopoverTrigger>
-                      <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
-                        The minimum % markup above BrickLink's average price every item receives. Avg price = midpoint of avg listed and avg sold. Scarcity bonuses stack on top of this.
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                  <div className="px-4 divide-y divide-gray-700/30">
-                    <div className="flex items-center justify-between py-3">
-                      <div className="flex items-center gap-1.5">
-                        <Label className="text-sm text-gray-200">Parts Premium</Label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
-                              <Info className="w-3.5 h-3.5" />
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent side="bottom" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
-                            Applied to all standard parts. Suggested = avg_price × (1 + base% + scarcity%). Being too high pushes above market; too low leaves margin on the table.
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Input type="number" min={0} max={100} value={pomBasePremium} onChange={(e) => setPomBasePremium(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomBasePremium })} className="text-sm w-20 text-right" data-testid="input-pom-base-premium" />
-                        <span className="text-xs text-gray-400 w-5">%</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between py-3">
-                      <div className="flex items-center gap-1.5">
-                        <Label className="text-sm text-gray-200">Minifigure Premium</Label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
-                              <Info className="w-3.5 h-3.5" />
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent side="bottom" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
-                            Minifigures use a separate premium because they already command elevated prices relative to cost. Setting this too high on high-value figs risks losing buyers to competitors.
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Input type="number" min={0} max={100} value={pomMinifigPremium} onChange={(e) => setPomMinifigPremium(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomMinifigPremium })} className="text-sm w-20 text-right" data-testid="input-pom-minifig-premium" />
-                        <span className="text-xs text-gray-400 w-5">%</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Scarcity Bonuses */}
-                <div className="rounded-md border border-gray-700/60 overflow-hidden">
-                  <div className="bg-gray-800/50 px-4 py-2.5 flex items-center gap-1.5 border-b border-gray-700/40">
-                    <h4 className="text-xs font-semibold text-gray-200 uppercase tracking-wider">Scarcity Bonuses</h4>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
-                          <Info className="w-3.5 h-3.5" />
-                        </button>
-                      </PopoverTrigger>
-                      <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
-                        When fewer sellers list a part on BrickLink, you can charge more. Each tier adds a bonus % on top of your base premium. Items above the highest threshold get base premium only — no bonus.
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                  <div className="px-4">
-                    <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-2 border-b border-gray-700/40">
-                      <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Supply Level</span>
-                      <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider text-right">Under</span>
-                      <span className="w-6"></span>
-                      <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider text-right">Bonus</span>
-                      <span className="w-4"></span>
-                    </div>
-                    <div className="divide-y divide-gray-700/30">
-                      <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-3">
-                        <span className="text-sm font-medium text-orange-300">Very Low</span>
-                        <Input type="number" min={1} value={pomScarcityThreshold1} onChange={(e) => setPomScarcityThreshold1(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityThreshold1 })} className="text-sm w-20 text-right" data-testid="input-pom-threshold1" />
-                        <span className="text-xs text-gray-300">lots</span>
-                        <Input type="number" min={0} max={200} value={pomScarcityBonus1} onChange={(e) => setPomScarcityBonus1(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityBonus1 })} className="text-sm w-20 text-right" data-testid="input-pom-bonus1" />
-                        <span className="text-xs text-gray-400">%</span>
-                      </div>
-                      <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-3">
-                        <span className="text-sm font-medium text-yellow-300">Low</span>
-                        <Input type="number" min={1} value={pomScarcityThreshold2} onChange={(e) => setPomScarcityThreshold2(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityThreshold2 })} className="text-sm w-20 text-right" data-testid="input-pom-threshold2" />
-                        <span className="text-xs text-gray-300">lots</span>
-                        <Input type="number" min={0} max={200} value={pomScarcityBonus2} onChange={(e) => setPomScarcityBonus2(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityBonus2 })} className="text-sm w-20 text-right" data-testid="input-pom-bonus2" />
-                        <span className="text-xs text-gray-400">%</span>
-                      </div>
-                      <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-3">
-                        <span className="text-sm font-medium text-blue-300">Medium</span>
-                        <Input type="number" min={1} value={pomScarcityThreshold3} onChange={(e) => setPomScarcityThreshold3(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityThreshold3 })} className="text-sm w-20 text-right" data-testid="input-pom-threshold3" />
-                        <span className="text-xs text-gray-300">lots</span>
-                        <Input type="number" min={0} max={200} value={pomScarcityBonus3} onChange={(e) => setPomScarcityBonus3(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityBonus3 })} className="text-sm w-20 text-right" data-testid="input-pom-bonus3" />
-                        <span className="text-xs text-gray-400">%</span>
-                      </div>
-                      <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-3">
-                        <span className="text-sm font-medium text-gray-300">High</span>
-                        <span className="text-sm text-gray-400 text-right">{pomScarcityThreshold3}+</span>
-                        <span className="text-xs text-gray-400">lots</span>
-                        <span className="text-sm text-gray-400 w-20 text-right">—</span>
-                        <span className="text-xs text-gray-400">%</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Formula Preview */}
-                <div className="bg-gray-900/60 rounded-md border border-gray-700/40 px-4 py-3">
-                  <div className="flex items-center gap-1.5 mb-2.5">
-                    <h4 className="text-[10px] font-semibold text-gray-300 uppercase tracking-wider">Formula Preview</h4>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
-                          <Info className="w-3 h-3" />
-                        </button>
-                      </PopoverTrigger>
-                      <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
-                        Shows the suggested price for a $0.10 part at each supply level using your current settings. Adjust the premiums and bonuses above to see results update instantly.
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                  <div className="space-y-1.5 font-mono text-xs">
-                    {[
-                      { label: 'Very Low (30 lots)', color: 'text-orange-300', premium: pomBasePremium + pomScarcityBonus1 },
-                      { label: 'Low (100 lots)', color: 'text-yellow-300', premium: pomBasePremium + pomScarcityBonus2 },
-                      { label: 'Medium (350 lots)', color: 'text-blue-300', premium: pomBasePremium + pomScarcityBonus3 },
-                      { label: 'High (600 lots)', color: 'text-gray-500', premium: pomBasePremium },
-                    ].map(({ label, color, premium }) => (
-                      <div key={label} className="flex items-center justify-between">
-                        <span className={color}>{label}</span>
-                        <span className="text-green-400 font-semibold">${(0.10 * (1 + premium / 100)).toFixed(3)}</span>
-                      </div>
-                    ))}
-                    <div className="border-t border-gray-700/50 pt-1.5 mt-0.5">
-                      <span className="text-gray-400">Base input: $0.10 avg price</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Price Floors */}
-                <div className="rounded-md border border-gray-700/60 overflow-hidden">
-                  <div className="bg-gray-800/50 px-4 py-2.5 flex items-center gap-1.5 border-b border-gray-700/40">
-                    <h4 className="text-xs font-semibold text-gray-200 uppercase tracking-wider">Price Floors</h4>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
-                          <Info className="w-3.5 h-3.5" />
-                        </button>
-                      </PopoverTrigger>
-                      <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
-                        Safety net applied after the market formula. Final price = max(market_price, cost_floor, min_price). Cost floor only applies to items with a recorded cost (my_cost).
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                  <div className="px-4 divide-y divide-gray-700/30">
-                    <div className="flex items-center justify-between py-3">
-                      <div className="flex items-center gap-1.5">
-                        <Label className="text-sm text-gray-200">Cost Floor</Label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
-                              <Info className="w-3.5 h-3.5" />
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent side="bottom" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
-                            Minimum margin above your recorded cost (my_cost). At 25%, the suggested price never goes below cost × 1.25. Set to 0 to disable.
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Input type="number" min="0" max="200" value={pomCostFloorPct} onChange={(e) => setPomCostFloorPct(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomCostFloorPct })} className="text-sm w-20 text-right" data-testid="input-pom-cost-floor" />
-                        <span className="text-xs text-gray-400 w-16">% above cost</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between py-3">
-                      <div className="flex items-center gap-1.5">
-                        <Label className="text-sm text-gray-200">Minimum Price</Label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
-                              <Info className="w-3.5 h-3.5" />
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent side="bottom" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
-                            No item will be suggested below this price regardless of market data or cost. Useful for covering platform fees on micro-priced parts. Default $0.02.
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-gray-400">$</span>
-                        <Input type="number" min="0" step="0.01" value={pomMinPrice} onChange={(e) => setPomMinPrice(parseFloat(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomMinPrice: pomMinPrice.toString() })} className="text-sm w-20 text-right" data-testid="input-pom-min-price" />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Market Dynamics */}
-                <div className="rounded-md border border-gray-700/60 overflow-hidden">
-                  <div className="bg-gray-800/50 px-4 py-2.5 flex items-center justify-between border-b border-gray-700/40">
-                    <div className="flex items-center gap-1.5">
-                      <h4 className="text-xs font-semibold text-gray-200 uppercase tracking-wider">Market Dynamics</h4>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
-                            <Info className="w-3.5 h-3.5" />
-                          </button>
-                        </PopoverTrigger>
-                        <PopoverContent side="bottom" className="w-80 text-xs bg-gray-900 border-gray-700 p-3 space-y-1.5">
-                          <p>Adjusts suggested prices using live BrickLink market data — no local order history involved.</p>
-                          <p><span className="text-blue-300 font-medium">Demand signal:</span> total pieces sold globally on BrickLink (from the sold price guide). High sales volume relative to your demand threshold boosts the price.</p>
-                          <p><span className="text-orange-300 font-medium">Supply signal:</span> total pieces currently listed for sale globally. High availability relative to your supply threshold lowers the price.</p>
-                          <p>The two signals are weighted and combined: <span className="font-mono text-gray-300">adj = maxAdj × (demandRatio × demandWeight% − supplyRatio × supplyWeight%)</span></p>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                    <Switch
-                      checked={pomTrendingEnabled}
-                      onCheckedChange={(v) => { setPomTrendingEnabled(v); updateSettingsMutation.mutate({ pomTrendingEnabled: v }); }}
-                      data-testid="switch-pom-trending"
-                    />
-                  </div>
-                  <div className={`px-4 divide-y divide-gray-700/30 ${!pomTrendingEnabled ? 'opacity-40 pointer-events-none' : ''}`}>
-                    <div className="flex items-center justify-between py-3">
-                      <div className="flex items-center gap-1.5">
-                        <Label className="text-sm text-gray-300">Max adjustment</Label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
-                              <Info className="w-3.5 h-3.5" />
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent side="bottom" className="w-60 text-xs bg-gray-900 border-gray-700 p-3">
-                            The maximum percentage the market dynamics formula can move a price — either up (high demand) or down (high supply). Demand and supply weights further scale within this cap.
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Input type="number" min={1} max={50} value={pomTrendingDays} onChange={(e) => setPomTrendingDays(parseInt(e.target.value) || 15)} onBlur={() => updateSettingsMutation.mutate({ pomTrendingDays })} className="text-sm w-20 text-right" data-testid="input-pom-market-max-adj" disabled={!pomTrendingEnabled} />
-                        <span className="text-xs text-gray-400 w-8">%</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between py-3">
-                      <div className="flex items-center gap-1.5">
-                        <Label className="text-sm text-blue-300">Demand threshold</Label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
-                              <Info className="w-3.5 h-3.5" />
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
-                            Total pieces sold globally on BrickLink that represents "fully demanded." An item at or above this level gets the full demand bonus. Below it, the bonus is proportionally reduced.
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Input type="number" min={1} step={100} value={pomTrendingThreshold} onChange={(e) => setPomTrendingThreshold(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomTrendingThreshold })} className="text-sm w-24 text-right" data-testid="input-pom-trending-threshold" disabled={!pomTrendingEnabled} />
-                        <span className="text-xs text-gray-400 w-14">units sold</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between py-3">
-                      <div className="flex items-center gap-1.5">
-                        <Label className="text-sm text-blue-300">Demand weight</Label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
-                              <Info className="w-3.5 h-3.5" />
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent side="bottom" className="w-60 text-xs bg-gray-900 border-gray-700 p-3">
-                            How much of the max adjustment the demand signal can contribute. At 60 with max 15%, a fully-demanded item adds up to 9% (15 × 0.6).
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Input type="number" min={0} max={100} value={pomTrendingBonus} onChange={(e) => setPomTrendingBonus(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomTrendingBonus })} className="text-sm w-20 text-right" data-testid="input-pom-trending-bonus" disabled={!pomTrendingEnabled} />
-                        <span className="text-xs text-gray-400 w-8">%</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between py-3">
-                      <div className="flex items-center gap-1.5">
-                        <Label className="text-sm text-orange-300">Supply threshold</Label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
-                              <Info className="w-3.5 h-3.5" />
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
-                            Total pieces currently listed for sale on BrickLink globally that represents "fully supplied." Common commodity parts often have 50,000+ pieces globally — set this to match your market context.
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Input type="number" min={100} step={1000} value={pomHighSupplyThreshold} onChange={(e) => setPomHighSupplyThreshold(parseInt(e.target.value) || 100)} onBlur={() => updateSettingsMutation.mutate({ pomHighSupplyThreshold })} className="text-sm w-24 text-right" data-testid="input-pom-high-supply-threshold" disabled={!pomTrendingEnabled} />
-                        <span className="text-xs text-gray-400 w-12">pieces</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between py-3">
-                      <div className="flex items-center gap-1.5">
-                        <Label className="text-sm text-orange-300">Supply weight</Label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
-                              <Info className="w-3.5 h-3.5" />
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent side="bottom" className="w-60 text-xs bg-gray-900 border-gray-700 p-3">
-                            How much of the max adjustment the supply signal can subtract. At 40 with max 15%, a fully-supplied item removes up to 6% (15 × 0.4).
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Input type="number" min={0} max={100} value={pomHighSupplyPenalty} onChange={(e) => setPomHighSupplyPenalty(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomHighSupplyPenalty })} className="text-sm w-20 text-right" data-testid="input-pom-high-supply-penalty" disabled={!pomTrendingEnabled} />
-                        <span className="text-xs text-gray-400 w-8">%</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Flag Thresholds */}
-                <div className="rounded-md border border-gray-700/60 overflow-hidden">
-                  <div className="bg-gray-800/50 px-4 py-2.5 flex items-center gap-1.5 border-b border-gray-700/40">
-                    <h4 className="text-xs font-semibold text-gray-200 uppercase tracking-wider">Flag Thresholds</h4>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
-                          <Info className="w-3.5 h-3.5" />
-                        </button>
-                      </PopoverTrigger>
-                      <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
-                        Controls which items appear in the Price-o-Matic dashboard as needing attention. Items outside these bands are flagged — not automatically repriced. You decide whether to act on each flag.
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                  <div className="px-4 divide-y divide-gray-700/30">
-                    <div className="flex items-center justify-between py-3">
-                      <div className="flex items-center gap-1.5">
-                        <Label className="text-sm text-red-300">Too High Flag</Label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
-                              <Info className="w-3.5 h-3.5" />
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent side="bottom" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
-                            Items priced this far above the suggested price appear in the "Too High" tab. Buyers will likely find cheaper options elsewhere, reducing your sell-through rate.
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-300">more than</span>
-                        <Input type="number" min={1} max={200} value={pomTooHighThreshold} onChange={(e) => setPomTooHighThreshold(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomTooHighThreshold })} className="text-sm w-20 text-right" data-testid="input-pom-too-high" />
-                        <span className="text-xs text-gray-400 w-14">% above</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between py-3">
-                      <div className="flex items-center gap-1.5">
-                        <Label className="text-sm text-yellow-300">Too Low Flag</Label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
-                              <Info className="w-3.5 h-3.5" />
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent side="bottom" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
-                            Items priced this far below the suggested price appear in the "Too Low" tab. You're leaving margin on the table — buyers didn't need that discount.
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-300">more than</span>
-                        <Input type="number" min={1} max={200} value={pomTooLowThreshold} onChange={(e) => setPomTooLowThreshold(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomTooLowThreshold })} className="text-sm w-20 text-right" data-testid="input-pom-too-low" />
-                        <span className="text-xs text-gray-400 w-14">% below</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                    </div>
-                  )}
-                </div>
-
-                {/* Scoring collapsible */}
-                <div>
-                  <button
-                    onClick={() => setPomScoringOpen(!pomScoringOpen)}
-                    className="w-full flex items-center justify-between gap-2 py-2 mb-3 border-b border-gray-600/60 hover:border-gray-500/60 transition-colors group"
-                    data-testid="button-pom-scoring-toggle"
-                  >
-                    <span className="text-sm font-semibold text-gray-200 uppercase tracking-wider">Scoring</span>
-                    {pomScoringOpen ? <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" /> : <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" />}
-                  </button>
-                  {pomScoringOpen && (
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <Layers className="h-4 w-4 text-gray-400" />
-                        <p className="text-xs text-gray-400">Assign categories to refresh tiers. T1 = daily, T2 = 3 days, T3 = weekly, T4 = monthly.</p>
-                      </div>
-                      <PomCategoryTiers />
-                    </div>
-                  )}
-                </div>
-
-                {/* Clear Cache */}
-                <div className="bg-red-500/5 border border-red-500/20 rounded-md px-4 py-3">
-                  <div className="flex items-center justify-between gap-4 flex-wrap">
-                    <div className="flex items-center gap-1.5">
-                      <Label className="text-sm font-medium text-red-300">Clear Price Guide Cache</Label>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
-                            <Info className="w-3.5 h-3.5" />
-                          </button>
-                        </PopoverTrigger>
-                        <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
-                          Deletes all stored price guide data and resets sync history. Use when starting fresh with new formula settings. The next sync rebuilds from scratch. No inventory data is affected.
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                    <Button variant="outline" size="sm" onClick={() => setShowClearPomDialog(true)} className="border-red-500/40 text-red-400 hover:text-red-300 shrink-0" data-testid="button-clear-pom-cache">
-                      <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-                      Clear Cache
-                    </Button>
-                  </div>
-                </div>
-
-                <AlertDialog open={showClearPomDialog} onOpenChange={setShowClearPomDialog}>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Clear Price Guide Cache?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This will permanently delete all stored Price-o-Matic price guide data and reset the sync history. The next sync run will start fresh and rebuild from scratch using your current formula settings.
-                        <br /><br />
-                        This cannot be undone, but no inventory data is affected — only the pricing cache.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={() => clearPomCacheMutation.mutate()}
-                        className="bg-red-600 hover:bg-red-700"
-                        data-testid="button-confirm-clear-pom"
-                      >
-                        {clearPomCacheMutation.isPending ? "Clearing..." : "Yes, Clear Cache"}
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-
-                <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
-                  <p className="text-xs text-blue-300">
-                    <strong>How it works:</strong> Price-o-Matic pulls avg listed price, avg sold price, and lot count from BrickLink for each item, then applies your formula above to compute a suggested price. Items more than {pomTooHighThreshold}% above or {pomTooLowThreshold}% below that suggested price are flagged in the dashboard.
-                  </p>
-                </div>
-
-              </div>
-            )}
 
             {/* Backup & Clear Data */}
             {activeSection === 'data' && (
