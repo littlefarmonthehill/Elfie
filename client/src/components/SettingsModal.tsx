@@ -3,9 +3,8 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { AppSettings, User, Organization, OrgIntegration } from "@shared/schema";
 import { APP_VERSION, APP_NAME } from "@shared/version";
-import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Info, Layers, Play, Loader2, ChevronDown, ChevronRight, BarChart2, MessageSquarePlus, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock } from "lucide-react";
+import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Info, Layers, Play, Loader2, ChevronDown, ChevronRight, BarChart2, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock } from "lucide-react";
 import { PomCategoryTiers } from "@/components/PomCategoryTiers";
-import { FeedbackBacklog } from "@/components/FeedbackBacklog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,7 +25,7 @@ import { useAuth } from "@/hooks/useAuth";
 interface SettingsModalProps {
   open: boolean;
   onClose: () => void;
-  initialSection?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'users' | 'feedback';
+  initialSection?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'users';
 }
 
 // ── API Call Schedule Chart ────────────────────────────────────────────────
@@ -658,7 +657,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const [editIntDisplayName, setEditIntDisplayName] = useState('');
   const [editIntApiKey, setEditIntApiKey] = useState('');
   const [deleteIntId, setDeleteIntId] = useState<number | null>(null);
-  const [removePrimaryDialog, setRemovePrimaryDialog] = useState<'brickowl' | 'easypost' | null>(null);
+  const [removePrimaryDialog, setRemovePrimaryDialog] = useState<'brickowl' | null>(null);
   // International Shipping / Customs
   const [customsSigner, setCustomsSigner] = useState("");
   const [blIossNumber, setBlIossNumber] = useState("");
@@ -677,6 +676,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const [rebrickableImageSyncEnabled, setRebrickableImageSyncEnabled] = useState(true);
   const [channelSyncEnabled, setChannelSyncEnabled] = useState(false);
   const [channelSyncTime, setChannelSyncTime] = useState("03:00");
+  const [channelDetailsExpanded, setChannelDetailsExpanded] = useState(false);
   const [ordersSyncEnabled, setOrdersSyncEnabled] = useState(false);
   const [ordersSyncFrequency, setOrdersSyncFrequency] = useState(15);
   const [ordersSyncFrequencyStr, setOrdersSyncFrequencyStr] = useState("15");
@@ -706,7 +706,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const [pomHighSupplyThreshold, setPomHighSupplyThreshold] = useState(10000); // BL stock qty = "full supply"
   const [pomHighSupplyPenalty, setPomHighSupplyPenalty] = useState(40);  // supply weight 0–100
 
-  const [activeSection, setActiveSection] = useState<'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'users' | 'feedback'>(initialSection ?? 'general');
+  const [activeSection, setActiveSection] = useState<'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'users'>(initialSection ?? 'general');
 
   const { data: settings } = useQuery<AppSettings>({
     queryKey: ['/api/settings'],
@@ -1235,7 +1235,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     { id: 'automation' as const, label: 'Automation', icon: Clock },
     { id: 'ai' as const, label: 'Data Enrichment', icon: Sparkles },
     { id: 'data' as const, label: 'Backup & Clear', icon: Database },
-    { id: 'feedback' as const, label: 'Feedback', icon: MessageSquarePlus },
   ];
 
   return (
@@ -1959,11 +1958,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               </div>
                               <p className="text-[11px] text-gray-600">Find IOSS/VAT numbers in your BrickLink and BrickOwl seller dashboards under Tax Settings.</p>
                             </div>
-                            <div className="pt-2 border-t border-gray-700 flex justify-end">
-                              <Button variant="ghost" size="sm" className="text-xs gap-1 text-red-400/80 hover:text-red-400" data-testid="button-remove-easypost" onClick={() => setRemovePrimaryDialog('easypost')}>
-                                <Trash2 className="w-3 h-3" /> Remove
-                              </Button>
-                            </div>
                           </div>
                         </AccordionContent>
                       </AccordionItem>
@@ -2065,25 +2059,17 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                 <AlertDialog open={!!removePrimaryDialog} onOpenChange={(open) => { if (!open) setRemovePrimaryDialog(null); }}>
                   <AlertDialogContent className="bg-gray-900 border border-gray-700">
                     <AlertDialogHeader>
-                      <AlertDialogTitle className="text-gray-100">
-                        Remove {removePrimaryDialog === 'brickowl' ? 'BrickOwl' : 'EasyPost'}
-                      </AlertDialogTitle>
+                      <AlertDialogTitle className="text-gray-100">Remove BrickOwl</AlertDialogTitle>
                       <AlertDialogDescription className="text-gray-400">
-                        This will clear all {removePrimaryDialog === 'brickowl' ? 'BrickOwl' : 'EasyPost'} credentials. You can re-enter them at any time.
+                        This will clear all BrickOwl credentials. You can re-enter them at any time.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel className="bg-transparent border-gray-600 text-gray-300 hover:bg-gray-800" data-testid="button-cancel-remove-primary">Cancel</AlertDialogCancel>
                       <AlertDialogAction className="bg-red-600 hover:bg-red-700 text-white" data-testid="button-confirm-remove-primary"
                         onClick={() => {
-                          if (removePrimaryDialog === 'brickowl') {
-                            setBrickowlApiKey('');
-                            updateSettingsMutation.mutate({ brickowlApiKey: null });
-                          } else if (removePrimaryDialog === 'easypost') {
-                            setEasypostApiKey('');
-                            setEasypostTestApiKey('');
-                            updateSettingsMutation.mutate({ easypostApiKey: null, easypostTestApiKey: null });
-                          }
+                          setBrickowlApiKey('');
+                          updateSettingsMutation.mutate({ brickowlApiKey: null });
                           setRemovePrimaryDialog(null);
                         }}>
                         Remove
@@ -3038,59 +3024,71 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         </div>
                       )}
 
-                      {/* BrickOwl Store Info */}
-                      <div className="mt-3 bg-gray-800/60 border border-blue-500/20 rounded-lg p-3 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <p className="text-xs font-semibold text-blue-300">BrickOwl Store</p>
-                          {brickOwlTarget?.enabled && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              disabled={channelSyncMutation.isPending}
-                              onClick={() => channelSyncMutation.mutate()}
-                              className="text-xs h-6 px-2 text-blue-400"
-                              data-testid="button-channel-sync-bo"
-                            >
-                              {channelSyncMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3 mr-1" />}
-                              Sync
-                            </Button>
-                          )}
-                        </div>
-                        {platformSyncLoading ? (
-                          <div className="flex gap-4">
-                            <span className="inline-block bg-gray-700 h-3 w-20 rounded animate-pulse" />
-                            <span className="inline-block bg-gray-700 h-3 w-20 rounded animate-pulse" />
-                          </div>
-                        ) : !brickOwlTarget?.enabled ? (
-                          <p className="text-[10px] text-gray-500">Not configured — add BrickOwl API key in Platform Connections</p>
-                        ) : (
-                          <div className="space-y-2">
-                            <div className="grid grid-cols-3 gap-2">
-                              <div>
-                                <p className="text-[10px] text-gray-500">Lots</p>
-                                <p className="text-xs font-bold text-white font-mono">{brickOwlTarget.stats.totalLots?.toLocaleString() ?? '—'}</p>
-                              </div>
-                              <div>
-                                <p className="text-[10px] text-gray-500">Parts</p>
-                                <p className="text-xs font-bold text-white font-mono">{brickOwlTarget.stats.totalParts?.toLocaleString() ?? '—'}</p>
-                              </div>
-                              <div>
-                                <p className="text-[10px] text-gray-500">Last Synced</p>
-                                <p className="text-[10px] text-gray-400">{brickOwlTarget.stats.lastSyncedAt ? new Date(brickOwlTarget.stats.lastSyncedAt).toLocaleString() : 'Never'}</p>
-                              </div>
+                      {/* Channel Names — collapsible */}
+                      <div className="mt-3">
+                        <button
+                          onClick={() => setChannelDetailsExpanded(!channelDetailsExpanded)}
+                          className="w-full flex items-center justify-between gap-2 py-1.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider hover:text-gray-300 transition-colors"
+                          data-testid="button-channel-details-toggle"
+                        >
+                          <span>Channels</span>
+                          {channelDetailsExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                        </button>
+                        {channelDetailsExpanded && (
+                          <div className="bg-gray-800/60 border border-blue-500/20 rounded-lg p-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <p className="text-xs font-semibold text-blue-300">BrickOwl Store</p>
+                              {brickOwlTarget?.enabled && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  disabled={channelSyncMutation.isPending}
+                                  onClick={() => channelSyncMutation.mutate()}
+                                  className="text-xs h-6 px-2 text-blue-400"
+                                  data-testid="button-channel-sync-bo"
+                                >
+                                  {channelSyncMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3 mr-1" />}
+                                  Sync
+                                </Button>
+                              )}
                             </div>
-                            {(brickOwlTarget.discrepancies.missingLots > 0 || brickOwlTarget.discrepancies.priceDifferences > 0 || brickOwlTarget.discrepancies.quantityDifferences > 0) && (
-                              <div className="bg-orange-500/10 border border-orange-500/20 rounded p-2">
-                                <div className="flex items-center gap-1 mb-1">
-                                  <AlertTriangle className="w-3 h-3 text-orange-400" />
-                                  <p className="text-[10px] font-semibold text-orange-400">Discrepancies</p>
+                            {platformSyncLoading ? (
+                              <div className="flex gap-4">
+                                <span className="inline-block bg-gray-700 h-3 w-20 rounded animate-pulse" />
+                                <span className="inline-block bg-gray-700 h-3 w-20 rounded animate-pulse" />
+                              </div>
+                            ) : !brickOwlTarget?.enabled ? (
+                              <p className="text-[10px] text-gray-500">Not configured — add BrickOwl API key in Platform Connections</p>
+                            ) : (
+                              <div className="space-y-2">
+                                <div className="grid grid-cols-3 gap-2">
+                                  <div>
+                                    <p className="text-[10px] text-gray-500">Lots</p>
+                                    <p className="text-xs font-bold text-white font-mono">{brickOwlTarget.stats.totalLots?.toLocaleString() ?? '—'}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-[10px] text-gray-500">Parts</p>
+                                    <p className="text-xs font-bold text-white font-mono">{brickOwlTarget.stats.totalParts?.toLocaleString() ?? '—'}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-[10px] text-gray-500">Last Synced</p>
+                                    <p className="text-[10px] text-gray-400">{brickOwlTarget.stats.lastSyncedAt ? new Date(brickOwlTarget.stats.lastSyncedAt).toLocaleString() : 'Never'}</p>
+                                  </div>
                                 </div>
-                                <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-gray-300">
-                                  {brickOwlTarget.discrepancies.missingLots > 0 && <span><span className="text-orange-400 font-bold">{brickOwlTarget.discrepancies.missingLots}</span> missing lots</span>}
-                                  {brickOwlTarget.discrepancies.priceDifferences > 0 && <span><span className="text-orange-400 font-bold">{brickOwlTarget.discrepancies.priceDifferences}</span> price diffs</span>}
-                                  {brickOwlTarget.discrepancies.quantityDifferences > 0 && <span><span className="text-orange-400 font-bold">{brickOwlTarget.discrepancies.quantityDifferences}</span> qty diffs</span>}
-                                  {brickOwlTarget.discrepancies.remarksDifferences > 0 && <span><span className="text-orange-400 font-bold">{brickOwlTarget.discrepancies.remarksDifferences}</span> remarks diffs</span>}
-                                </div>
+                                {(brickOwlTarget.discrepancies.missingLots > 0 || brickOwlTarget.discrepancies.priceDifferences > 0 || brickOwlTarget.discrepancies.quantityDifferences > 0) && (
+                                  <div className="bg-orange-500/10 border border-orange-500/20 rounded p-2">
+                                    <div className="flex items-center gap-1 mb-1">
+                                      <AlertTriangle className="w-3 h-3 text-orange-400" />
+                                      <p className="text-[10px] font-semibold text-orange-400">Discrepancies</p>
+                                    </div>
+                                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-gray-300">
+                                      {brickOwlTarget.discrepancies.missingLots > 0 && <span><span className="text-orange-400 font-bold">{brickOwlTarget.discrepancies.missingLots}</span> missing lots</span>}
+                                      {brickOwlTarget.discrepancies.priceDifferences > 0 && <span><span className="text-orange-400 font-bold">{brickOwlTarget.discrepancies.priceDifferences}</span> price diffs</span>}
+                                      {brickOwlTarget.discrepancies.quantityDifferences > 0 && <span><span className="text-orange-400 font-bold">{brickOwlTarget.discrepancies.quantityDifferences}</span> qty diffs</span>}
+                                      {brickOwlTarget.discrepancies.remarksDifferences > 0 && <span><span className="text-orange-400 font-bold">{brickOwlTarget.discrepancies.remarksDifferences}</span> remarks diffs</span>}
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
@@ -3483,11 +3481,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   </div>
                 </div>
               </div>
-            )}
-
-            {/* Feedback Backlog */}
-            {activeSection === 'feedback' && (
-              <FeedbackBacklog />
             )}
 
             {/* Team & Roles (Admin Only) */}
