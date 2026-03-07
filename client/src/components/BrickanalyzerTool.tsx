@@ -2251,11 +2251,11 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                       if (heatmapCondition === 'new') {
                         return heatmapMetric === 'max'
                           ? (r.marketSoldMaxNew ?? 0)
-                          : (r.marketSoldAvgNew ?? r.marketSoldMaxNew ?? 0);
+                          : ((r.marketSoldAvgNew ?? r.marketSoldMaxNew) ?? 0);
                       } else {
                         return heatmapMetric === 'max'
                           ? (r.marketSoldMaxUsed ?? 0)
-                          : (r.marketSoldAvgUsed ?? r.marketSoldMaxUsed ?? 0);
+                          : ((r.marketSoldAvgUsed ?? r.marketSoldMaxUsed) ?? 0);
                       }
                     };
                     const allPrices = bboxResults.map(r => heatVal(r)).filter(p => p > 0);
