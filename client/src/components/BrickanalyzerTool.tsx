@@ -702,7 +702,8 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
   });
 
   // Lightweight progress polling — 1 s interval during processing only
-  const { data: scanProgress } = useQuery<{ step: string; detail: string; pct: number; active: boolean }>({
+  type ScanProgressData = { step: string; detail: string; pct: number; startedAt: number | null; stepAt: number | null; now: number; active: boolean };
+  const { data: scanProgress } = useQuery<ScanProgressData>({
     queryKey: ["/api/brickanalyzer/scan", scanId, "progress"],
     queryFn: async () => {
       const res = await fetch(`/api/brickanalyzer/scan/${scanId}/progress`, { credentials: "include" });
@@ -712,6 +713,44 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
     enabled: !!scanId && uiState === "processing",
     refetchInterval: uiState === "processing" ? 1000 : false,
   });
+
+  // Step-history log — accumulate completed steps with their durations
+  type StepHistoryEntry = { step: string; detail: string; elapsedS: string };
+  const [stepHistory, setStepHistory] = useState<StepHistoryEntry[]>([]);
+  const prevStepRef = useRef<string>('');
+  const prevStepAtRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!scanProgress?.active) return;
+    const current = scanProgress.step;
+    const currentStepAt = scanProgress.stepAt;
+    if (current !== prevStepRef.current && prevStepRef.current) {
+      const elapsed = prevStepAtRef.current && currentStepAt
+        ? ((currentStepAt - prevStepAtRef.current) / 1000).toFixed(1)
+        : '…';
+      setStepHistory(h => [...h, { step: prevStepRef.current, detail: '', elapsedS: elapsed }]);
+    }
+    if (current !== prevStepRef.current) {
+      prevStepRef.current = current;
+      prevStepAtRef.current = currentStepAt ?? null;
+    }
+  }, [scanProgress?.step, scanProgress?.stepAt, scanProgress?.active]);
+
+  // Reset history when a new scan starts
+  useEffect(() => {
+    if (uiState === 'processing') {
+      setStepHistory([]);
+      prevStepRef.current = '';
+      prevStepAtRef.current = null;
+    }
+  }, [uiState, scanId]);
+
+  // Live tick for elapsed timer
+  const [tickNow, setTickNow] = useState(Date.now());
+  useEffect(() => {
+    if (uiState !== 'processing') return;
+    const t = setInterval(() => setTickNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [uiState]);
 
   // BrickLink API call limit — poll every 5 min so banner stays current without hammering
   const { data: blRateLimit } = useQuery<{ allowed: boolean; blocked: boolean; callsLast24h: number; oldestCallTime: string | null; warning?: string }>({
@@ -2000,38 +2039,79 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
 
       {/* ── PROCESSING ──────────────────────────────────────────────────── */}
       {uiState === "processing" && (
-        <div className="space-y-4">
-          <div className="flex flex-col items-center gap-3 py-6 sm:py-12">
+        <div className="space-y-3">
+          {/* Header */}
+          <div className="flex flex-col items-center gap-2 pt-5 pb-2">
             <div className="relative">
-              <ScanSearch className="w-10 h-10 sm:w-24 sm:h-24 text-lego-yellow" />
-              <Loader2 className="w-4 h-4 sm:w-10 sm:h-10 text-lego-yellow animate-spin absolute -bottom-1 -right-1" />
+              <ScanSearch className="w-8 h-8 sm:w-14 sm:h-14 text-lego-yellow" />
+              <Loader2 className="w-3 h-3 sm:w-6 sm:h-6 text-lego-yellow animate-spin absolute -bottom-0.5 -right-0.5" />
             </div>
-            <p className="text-sm sm:text-2xl font-medium text-gray-200">Analyzing your LEGO pieces…</p>
-
-            {/* Progress bar */}
-            <div className="w-full max-w-sm sm:max-w-lg space-y-2 pt-1">
-              <div className="flex items-center justify-between">
-                <span className="text-xs sm:text-sm font-medium text-gray-300 truncate pr-2" data-testid="text-scan-progress-step">
-                  {scanProgress?.step ?? 'Starting…'}
+            <div className="flex items-center gap-2">
+              <p className="text-sm sm:text-lg font-medium text-gray-200">Analyzing your LEGO pieces…</p>
+              {scanProgress?.startedAt && (
+                <span className="text-xs font-mono text-gray-500 tabular-nums" data-testid="text-scan-total-elapsed">
+                  {((tickNow - scanProgress.startedAt) / 1000).toFixed(0)}s
                 </span>
-                <span className="text-xs sm:text-sm font-mono text-gray-500 shrink-0" data-testid="text-scan-progress-pct">
-                  {scanProgress?.pct ?? 0}%
-                </span>
-              </div>
-              <div className="h-2 w-full rounded-full bg-gray-700 overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-lego-yellow transition-all duration-500 ease-out"
-                  style={{ width: `${scanProgress?.pct ?? 0}%` }}
-                  data-testid="bar-scan-progress"
-                />
-              </div>
-              {scanProgress?.detail && (
-                <p className="text-[11px] sm:text-xs text-gray-500 truncate" data-testid="text-scan-progress-detail">
-                  {scanProgress.detail}
-                </p>
               )}
             </div>
           </div>
+
+          {/* Progress bar */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs sm:text-sm font-semibold text-gray-200 truncate" data-testid="text-scan-progress-step">
+                {scanProgress?.step ?? 'Starting…'}
+              </span>
+              <span className="text-xs font-mono text-lego-yellow shrink-0" data-testid="text-scan-progress-pct">
+                {scanProgress?.pct ?? 0}%
+              </span>
+            </div>
+            <div className="h-2 w-full rounded-full bg-gray-700 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-lego-yellow transition-all duration-500 ease-out"
+                style={{ width: `${scanProgress?.pct ?? 0}%` }}
+                data-testid="bar-scan-progress"
+              />
+            </div>
+            {scanProgress?.detail && (
+              <p className="text-[11px] sm:text-xs text-gray-400 truncate" data-testid="text-scan-progress-detail">
+                {scanProgress.detail}
+                {scanProgress.stepAt && (
+                  <span className="text-gray-600 ml-1">· {((tickNow - scanProgress.stepAt) / 1000).toFixed(0)}s</span>
+                )}
+              </p>
+            )}
+          </div>
+
+          {/* Step history log */}
+          {stepHistory.length > 0 && (
+            <div className="bg-gray-900/60 border border-gray-800 rounded-lg px-3 py-2 space-y-0.5 max-h-40 overflow-y-auto" data-testid="list-scan-step-history">
+              {stepHistory.map((entry, i) => (
+                <div key={i} className="flex items-center justify-between gap-2 text-[11px]">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="text-green-500 shrink-0">✓</span>
+                    <span className="text-gray-400 truncate">{entry.step}</span>
+                  </div>
+                  <span className="text-gray-600 font-mono tabular-nums shrink-0">{entry.elapsedS}s</span>
+                </div>
+              ))}
+              {/* Current active step */}
+              {scanProgress?.active && scanProgress.step && (
+                <div className="flex items-center justify-between gap-2 text-[11px]">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <Loader2 className="w-2.5 h-2.5 text-lego-yellow animate-spin shrink-0" />
+                    <span className="text-gray-200 truncate font-medium">{scanProgress.step}</span>
+                  </div>
+                  {scanProgress.stepAt && (
+                    <span className="text-lego-yellow font-mono tabular-nums shrink-0">
+                      {((tickNow - scanProgress.stepAt) / 1000).toFixed(0)}s…
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
           {!leftPage ? (
             <div className="bg-gray-800/60 border border-gray-700 rounded-lg p-3 space-y-2">

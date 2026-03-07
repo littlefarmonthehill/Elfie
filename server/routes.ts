@@ -3842,7 +3842,11 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   const brickanalyzerCropCache    = new Map<number, Buffer[]>();
   const brickanalyzerImageCache   = new Map<number, Buffer>();
   const brickanalyzerImageMeta    = new Map<number, { width: number; height: number }>();
-  const brickanalyzerProgressMap  = new Map<number, { step: string; detail: string; pct: number }>();
+  const brickanalyzerProgressMap  = new Map<number, { step: string; detail: string; pct: number; startedAt: number; stepAt: number }>();
+  const setProgress = (id: number, step: string, detail: string, pct: number) => {
+    const existing = brickanalyzerProgressMap.get(id);
+    brickanalyzerProgressMap.set(id, { step, detail, pct, startedAt: existing?.startedAt ?? Date.now(), stepAt: Date.now() });
+  };
 
   // Sample the dominant non-background color from a crop and return its raw RGB.
   // Color-to-BrickLink-name resolution is deferred to the enrichment stage, where
@@ -3924,8 +3928,8 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       const imgWidth = imgMeta.width || 1000;
       const imgHeight = imgMeta.height || 1000;
 
-      // Initialise progress
-      brickanalyzerProgressMap.set(scanId, { step: 'Segmenting image', detail: 'Detecting piece outlines…', pct: 5 });
+      // Initialise progress inside the processing task
+      setProgress(scanId, 'Loading image', 'Decoding and resizing…', 4);
 
       // Cache a resized version of the original image for the film-strip overlay
       try {
@@ -3971,9 +3975,11 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       // zones the user reviewed and approved in the preview step.
       if (previewBoxes && previewBoxes.length > 0) {
         console.log(`[Brickanalyzer] Using ${previewBoxes.length} user-approved preview boxes (skipping segmentation)`);
+        setProgress(scanId, 'Using preview boxes', `${previewBoxes.length} region${previewBoxes.length !== 1 ? 's' : ''} from your selection`, 15);
         allBoxes = previewBoxes;
       } else if (settings.multiPass) {
         console.log('[Brickanalyzer] Step 1: Smart Multi-Pass — running 3 concurrent segmentation passes...');
+        setProgress(scanId, 'Segmenting image', 'Running 4 concurrent detection passes…', 6);
 
         // Pass 1 — Large pieces / Minifigs
         // Catches large LEGO objects (baseplates, big builds, minifigs) that can occupy
@@ -4038,7 +4044,9 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           if (!merged.some(m => iouBox(m, box) > 0.25)) merged.push(box);
         }
 
-        console.log(`[Brickanalyzer] Multi-pass merged: ${boxes1.length + boxes2.length + boxes3.length + boxes4.length} total → ${merged.length} unique regions`);
+        const totalBoxes = boxes1.length + boxes2.length + boxes3.length + boxes4.length;
+        console.log(`[Brickanalyzer] Multi-pass merged: ${totalBoxes} total → ${merged.length} unique regions`);
+        setProgress(scanId, 'Merging detections', `${totalBoxes} raw detections → ${merged.length} unique regions`, 12);
 
         // Containment suppression — "minifig rule":
         // If a smaller box is >85% contained within a larger box, suppress it.
@@ -4061,12 +4069,14 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
 
         if (containmentFiltered.length < merged.length) {
           console.log(`[Brickanalyzer] Containment suppression: removed ${merged.length - containmentFiltered.length} sub-regions → ${containmentFiltered.length} final boxes`);
+          setProgress(scanId, 'Filtering sub-regions', `${merged.length} → ${containmentFiltered.length} after containment check`, 13);
         }
 
         allBoxes = containmentFiltered;
 
       } else {
         console.log('[Brickanalyzer] Step 1: Single-pass segmentation...');
+        setProgress(scanId, 'Segmenting image', 'Single-pass contour detection…', 6);
         allBoxes = await segmentImage(imageBuffer, settings as any);
 
         // Safety net: if nothing survived all passes, show the full frame so the user
@@ -4084,7 +4094,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       }
 
       console.log(`[Brickanalyzer] Step 1 complete: ${clampedBoxes.length} pieces detected`);
-      brickanalyzerProgressMap.set(scanId, { step: 'Pieces detected', detail: `Found ${clampedBoxes.length} piece${clampedBoxes.length !== 1 ? 's' : ''} — building crops…`, pct: 15 });
+      setProgress(scanId, 'Pieces detected', `Found ${clampedBoxes.length} piece${clampedBoxes.length !== 1 ? 's' : ''} — building crops…`, 15);
       const pieces: any[] = clampedBoxes.map(b => ({
         ...b, colorName: '', roughName: '', confidence: 'medium', note: '',
       }));
@@ -4113,6 +4123,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       // Sharp extracts and color sampling are CPU/disk-bound with no external rate limits,
       // so running them all at once is safe and removes crop latency from the BQ critical path.
       console.log('[Brickanalyzer] Step 2a: Building all crops in parallel...');
+      setProgress(scanId, 'Building crops', `Cropping ${pieces.length} piece region${pieces.length !== 1 ? 's' : ''} from image…`, 18);
       if (!brickanalyzerCropCache.has(scanId)) brickanalyzerCropCache.set(scanId, []);
       type CropEntry = { cropBuffer: Buffer; earlyResult?: undefined } | { cropBuffer: null; earlyResult: any[] };
       const cropData: CropEntry[] = await Promise.all(
@@ -4156,6 +4167,9 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       // requests internally, leading to 429s → exponential backoff → 20 s timeouts.
       // Sequential ensures at most 2 active BQ requests at any moment (figs + parts
       // for the current piece), so each piece gets a fast, clean response.
+      const earlyResultCount = cropData.filter((c: any) => c.earlyResult).length;
+      setProgress(scanId, 'Crops ready', `${pieces.length} crops built${earlyResultCount > 0 ? ` (${earlyResultCount} skipped — too small)` : ''} — sending to AI…`, 19);
+
       const phase2bStart = Date.now();
       console.log(`[Brickanalyzer] Step 2b: Sending ${pieces.length} crops to Brickognize (sequential)...`);
 
@@ -4314,18 +4328,20 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           }
         }));
         identified.push(...batchResults.flat());
-        // Update progress after each batch — show the last identified name in this batch
+        // Update progress after each batch — show the last identified name and elapsed time
         const doneCount = Math.min(b + BQ_BATCH, pieces.length);
-        const lastNames = batchResults.flat().map((r: any) => r.partName).filter(Boolean);
+        const lastNames = batchResults.flat().map((r: any) => r.partName).filter((n: string) => n && n !== 'Unknown');
         const lastName  = lastNames[lastNames.length - 1] ?? '';
+        const elapsedS  = ((Date.now() - phase2bStart) / 1000).toFixed(1);
         const pct = 20 + Math.round((doneCount / pieces.length) * 58);
-        brickanalyzerProgressMap.set(scanId, {
-          step: `Analyzing piece ${doneCount} of ${pieces.length}`,
-          detail: lastName || 'Identifying…',
+        setProgress(scanId,
+          `Identifying piece ${doneCount} of ${pieces.length}`,
+          `${lastName || 'Waiting for result…'} · ${elapsedS}s elapsed`,
           pct,
-        });
+        );
       }
-      console.log(`[Brickanalyzer] Step 2b complete: ${pieces.length} pieces in ${((Date.now() - phase2bStart) / 1000).toFixed(1)}s`);
+      const bqElapsed = ((Date.now() - phase2bStart) / 1000).toFixed(1);
+      console.log(`[Brickanalyzer] Step 2b complete: ${pieces.length} pieces in ${bqElapsed}s`);
       if (clipAcc.total > 0) {
         const evaluated = clipAcc.total - clipAcc.bothMiss;
         const headToHead = evaluated - clipAcc.clipMiss - clipAcc.bqMiss;
@@ -4383,6 +4399,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       const filteredIdentified = suppressedCropIndexes.size > 0
         ? identified.filter((p: any) => !suppressedCropIndexes.has(p.cropIndex))
         : identified;
+      setProgress(scanId, 'AI identification done', `${filteredIdentified.length} of ${identified.length} piece${identified.length !== 1 ? 's' : ''} identified in ${bqElapsed}s — resolving part IDs…`, 79);
 
       // ── Step 2b: Resolve LEGO part numbers → BrickLink part numbers via Rebrickable ──
       // Also capture Rebrickable part images as a fallback for when we have no thumbnail.
@@ -4478,7 +4495,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       const premiumPct = pomSettings?.pomBasePremium ?? 15;
 
       // Progress: enrichment phase
-      brickanalyzerProgressMap.set(scanId, { step: 'Looking up prices', detail: `Fetching market data for ${filteredIdentified.length} piece${filteredIdentified.length !== 1 ? 's' : ''}…`, pct: 80 });
+      setProgress(scanId, 'Looking up prices', `Fetching market data for ${filteredIdentified.length} piece${filteredIdentified.length !== 1 ? 's' : ''}…`, 80);
       let enrichDone = 0;
 
       // For each identified part: inventory lookup + POM price + image
@@ -4969,11 +4986,11 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         }
 
         const enrichIdx = ++enrichDone;
-        brickanalyzerProgressMap.set(scanId, {
-          step: 'Looking up prices',
-          detail: `Piece ${enrichIdx} of ${filteredIdentified.length}${piece.partName ? ` — ${piece.partName}` : ''}`,
-          pct: 80 + Math.round(enrichIdx / filteredIdentified.length * 17),
-        });
+        setProgress(scanId,
+          'Looking up prices',
+          `Piece ${enrichIdx} of ${filteredIdentified.length}${piece.partNo ? ` · ${piece.partNo}` : ''}${piece.partName && piece.partName !== 'Unknown Part' ? ` — ${piece.partName}` : ''}`,
+          80 + Math.round(enrichIdx / filteredIdentified.length * 17),
+        );
 
         return {
           partNo: piece.partNo || '',
@@ -5037,6 +5054,8 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       const totalValue = deduped.reduce((sum, p) => sum + (p.ourPriceNew ?? p.ourPriceUsed ?? p.marketSoldMaxNew ?? 0), 0);
       const identifiedWithPrice = deduped.filter(p => p.ourPriceNew !== null || p.ourPriceUsed !== null || p.marketSoldMaxNew !== null).length;
 
+      setProgress(scanId, 'Saving results', `${deduped.length} piece${deduped.length !== 1 ? 's' : ''} · est. $${totalValue.toFixed(2)}`, 98);
+
       const cropCount = brickanalyzerCropCache.get(scanId)?.filter(Boolean).length ?? 0;
       const savedMeta = brickanalyzerImageMeta.get(scanId);
       await db.update(brickanalyzerScans).set({
@@ -5051,7 +5070,8 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         blApiCalls: blApiCallsCounter.count,
       }).where(eq(brickanalyzerScans.id, scanId));
 
-      brickanalyzerProgressMap.delete(scanId);
+      setProgress(scanId, 'Complete', `${deduped.length} piece${deduped.length !== 1 ? 's' : ''} identified · $${totalValue.toFixed(2)} est. value`, 100);
+      setTimeout(() => brickanalyzerProgressMap.delete(scanId), 8000);
       console.log(`🔍 Brickanalyzer scan ${scanId} complete: ${deduped.length} pieces, $${totalValue.toFixed(2)} estimated value`);
 
       if (deduped.length === 0 && pieces.length > 0) {
@@ -5314,6 +5334,9 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         try { previewBoxes = JSON.parse(req.body.previewBoxes); } catch {}
       }
 
+      // Seed the progress map before the client even makes its first poll
+      brickanalyzerProgressMap.set(scan.id, { step: 'Queued', detail: 'Waiting to start…', pct: 2, startedAt: Date.now(), stepAt: Date.now() });
+
       // Fire and forget — client gets scanId immediately
       processBrickanalyzerScan(scan.id, req.file.buffer, settings, calibration, previewBoxes, orgId).catch(() => {});
 
@@ -5349,9 +5372,9 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       const scanId = Number(req.params.id);
       const prog = brickanalyzerProgressMap.get(scanId);
       if (!prog) {
-        return res.json({ step: 'Processing…', detail: '', pct: 0, active: false });
+        return res.json({ step: 'Processing…', detail: '', pct: 0, startedAt: null, stepAt: null, active: false });
       }
-      return res.json({ ...prog, active: true });
+      return res.json({ ...prog, now: Date.now(), active: true });
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
     }
