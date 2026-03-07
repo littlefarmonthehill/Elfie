@@ -6,33 +6,19 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useServiceWorker } from "@/hooks/use-service-worker";
 import { useAuth } from "@/hooks/useAuth";
 import Home from "@/pages/home";
-import Landing from "@/pages/landing";
-import Shop from "@/pages/shop";
-import Events from "@/pages/events";
-import Deals from "@/pages/deals";
-import Community from "@/pages/community";
-import Search from "@/pages/search";
 import Login from "@/pages/login";
 import Signup from "@/pages/signup";
 import PendingApproval from "@/pages/pending-approval";
 import NotFound from "@/pages/not-found";
 
-// Email/Password Authentication with Role-Based Routing
 function Router() {
   const { isAuthenticated, isApproved, isLoading, isAdmin } = useAuth();
 
   return (
     <Switch>
-      {/* Public routes - anyone can access (render immediately without waiting for auth) */}
-      <Route path="/showroom" component={Shop} />
-      <Route path="/events" component={Events} />
-      <Route path="/deals" component={Deals} />
-      <Route path="/community" component={Community} />
-      <Route path="/search" component={Search} />
       <Route path="/login" component={Login} />
       <Route path="/signup" component={Signup} />
 
-      {/* Protected routes - require authentication and approval (no admin role required) */}
       <Route path="/admin">
         {isLoading ? (
           <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-lego-red/20">
@@ -48,16 +34,10 @@ function Router() {
         ) : isAdmin ? (
           <Home />
         ) : (
-          <Redirect to="/showroom" />
+          <Redirect to="/login" />
         )}
       </Route>
 
-      {/* Landing page - public */}
-      <Route path="/home">
-        <Landing />
-      </Route>
-
-      {/* Root route - redirect to showroom as the new home page */}
       <Route path="/">
         {isLoading ? (
           <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-lego-red/20">
@@ -67,13 +47,13 @@ function Router() {
             </div>
           </div>
         ) : !isAuthenticated ? (
-          <Redirect to="/showroom" />
+          <Redirect to="/login" />
         ) : !isApproved ? (
           <PendingApproval />
         ) : isAdmin ? (
           <Redirect to="/admin" />
         ) : (
-          <Redirect to="/showroom" />
+          <Redirect to="/login" />
         )}
       </Route>
 
