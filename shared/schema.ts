@@ -1261,7 +1261,8 @@ export type AppFeedback = typeof appFeedback.$inferSelect;
 export const orgIntegrations = pgTable("org_integrations", {
   id: serial("id").primaryKey(),
   orgId: varchar("org_id").notNull(),
-  channel: varchar("channel").notNull(), // 'brickowl' | 'ebay' | 'amazon' | 'stripe'
+  channel: varchar("channel").notNull(), // 'brickowl' | 'ebay' | 'amazon' | 'easypost' | 'shipstation' etc.
+  type: varchar("type").notNull().default('sales_channel'), // 'sales_channel' | 'shipping'
   displayName: text("display_name"),     // Human-readable label, e.g. "My eBay Store"
   credentials: jsonb("credentials").notNull().default({}),
   isConnected: boolean("is_connected").default(false).notNull(),

@@ -1925,49 +1925,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/org/integrations/:channel", isApproved, async (req: any, res) => {
+  app.post("/api/org/integrations", isApproved, async (req: any, res) => {
     try {
       const orgId = reqOrgId(req);
-      const channel = req.params.channel as string;
-      const { credentials, isConnected, displayName } = req.body as {
+      const { channel, type, displayName, credentials, isConnected } = req.body as {
+        channel: string;
+        type: 'sales_channel' | 'shipping' | 'payment';
+        displayName?: string;
         credentials?: Record<string, string>;
         isConnected?: boolean;
-        displayName?: string;
       };
-
+      if (!channel || !type) return res.status(400).json({ error: "channel and type are required" });
       const [row] = await db
         .insert(orgIntegrations)
         .values({
           orgId,
           channel,
+          type,
           displayName: displayName ?? channel,
           credentials: credentials ?? {},
           isConnected: isConnected ?? false,
         })
-        .onConflictDoUpdate({
-          target: [orgIntegrations.orgId, orgIntegrations.channel],
-          set: {
-            ...(credentials !== undefined && { credentials }),
-            ...(isConnected !== undefined && { isConnected }),
-            ...(displayName !== undefined && { displayName }),
-            updatedAt: sql`NOW()`,
-          },
-        })
         .returning();
-
-      res.json({ success: true, id: row.id, channel: row.channel });
+      res.json({ success: true, integration: row });
     } catch (error: any) {
-      console.error("Error upserting org integration:", error);
-      res.status(500).json({ error: "Failed to save integration" });
+      console.error("Error creating org integration:", error);
+      res.status(500).json({ error: "Failed to create integration" });
     }
   });
 
-  app.delete("/api/org/integrations/:channel", isApproved, async (req: any, res) => {
+  app.patch("/api/org/integrations/:id", isApproved, async (req: any, res) => {
     try {
       const orgId = reqOrgId(req);
-      const channel = req.params.channel as string;
+      const id = parseInt(req.params.id, 10);
+      if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+      const { credentials, isConnected, displayName } = req.body as {
+        credentials?: Record<string, string>;
+        isConnected?: boolean;
+        displayName?: string;
+      };
+      const [row] = await db
+        .update(orgIntegrations)
+        .set({
+          ...(credentials !== undefined && { credentials }),
+          ...(isConnected !== undefined && { isConnected }),
+          ...(displayName !== undefined && { displayName }),
+          updatedAt: sql`NOW()`,
+        })
+        .where(and(eq(orgIntegrations.id, id), eq(orgIntegrations.orgId, orgId)))
+        .returning();
+      if (!row) return res.status(404).json({ error: "Integration not found" });
+      res.json({ success: true, integration: row });
+    } catch (error: any) {
+      console.error("Error updating org integration:", error);
+      res.status(500).json({ error: "Failed to update integration" });
+    }
+  });
+
+  app.delete("/api/org/integrations/:id", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const id = parseInt(req.params.id, 10);
+      if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
       await db.delete(orgIntegrations).where(
-        and(eq(orgIntegrations.orgId, orgId), eq(orgIntegrations.channel, channel))
+        and(eq(orgIntegrations.id, id), eq(orgIntegrations.orgId, orgId))
       );
       res.json({ success: true });
     } catch (error: any) {

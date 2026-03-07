@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { AppSettings, User, Organization } from "@shared/schema";
+import type { AppSettings, User, Organization, OrgIntegration } from "@shared/schema";
 import { APP_VERSION, APP_NAME } from "@shared/version";
-import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Zap, Info, Layers, Play, Loader2, ChevronDown, ChevronRight, BarChart2, MessageSquarePlus, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon } from "lucide-react";
+import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Zap, Info, Layers, Play, Loader2, ChevronDown, ChevronRight, BarChart2, MessageSquarePlus, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock } from "lucide-react";
 import { PomCategoryTiers } from "@/components/PomCategoryTiers";
 import { FeedbackBacklog } from "@/components/FeedbackBacklog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -674,6 +674,17 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const [easypostApiKey, setEasypostApiKey] = useState("");
   const [easypostTestApiKey, setEasypostTestApiKey] = useState("");
   const [easypostKeyMode, setEasypostKeyMode] = useState<'test' | 'production'>('test');
+
+  // Org Integrations State
+  const [addIntegrationType, setAddIntegrationType] = useState<'sales_channel' | 'shipping' | 'payment' | null>(null);
+  const [addIntChannel, setAddIntChannel] = useState('');
+  const [addIntDisplayName, setAddIntDisplayName] = useState('');
+  const [addIntApiKey, setAddIntApiKey] = useState('');
+  const [editingIntId, setEditingIntId] = useState<number | null>(null);
+  const [editIntDisplayName, setEditIntDisplayName] = useState('');
+  const [editIntApiKey, setEditIntApiKey] = useState('');
+  const [deleteIntId, setDeleteIntId] = useState<number | null>(null);
+  const [removePrimaryDialog, setRemovePrimaryDialog] = useState<'brickowl' | 'easypost' | null>(null);
   // International Shipping / Customs
   const [customsSigner, setCustomsSigner] = useState("");
   const [blIossNumber, setBlIossNumber] = useState("");
@@ -770,6 +781,40 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const channelSyncMutation = useMutation({
     mutationFn: () => apiRequest('POST', '/api/platform-sync/sync', { platform: 'BrickOwl', limit: 10 }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['/api/platform-sync/status'] }); },
+  });
+
+  const { data: orgIntegrationsList = [] } = useQuery<OrgIntegration[]>({
+    queryKey: ['/api/org/integrations'],
+    enabled: open && activeSection === 'platforms',
+  });
+
+  const createIntegrationMutation = useMutation({
+    mutationFn: (data: { channel: string; type: 'sales_channel' | 'shipping' | 'payment'; displayName: string; credentials: Record<string, string> }) =>
+      apiRequest('POST', '/api/org/integrations', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/org/integrations'] });
+      setAddIntegrationType(null);
+      setAddIntChannel('');
+      setAddIntDisplayName('');
+      setAddIntApiKey('');
+    },
+  });
+
+  const updateIntegrationMutation = useMutation({
+    mutationFn: ({ id, ...data }: { id: number; displayName?: string; credentials?: Record<string, string> }) =>
+      apiRequest('PATCH', `/api/org/integrations/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/org/integrations'] });
+      setEditingIntId(null);
+    },
+  });
+
+  const deleteIntegrationMutation = useMutation({
+    mutationFn: (id: number) => apiRequest('DELETE', `/api/org/integrations/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/org/integrations'] });
+      setDeleteIntId(null);
+    },
   });
 
   const { data: backupsData, isLoading: backupsLoading } = useQuery<{
@@ -1505,523 +1550,575 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
             {activeSection === 'platforms' && (
               <div className="space-y-6 min-h-[400px]">
 
-                {/* Core Setup Strip */}
-                {(() => {
-                  const cores = [
-                    { label: 'BrickLink', sub: 'Inventory', configured: !!bricklinkConsumerKey },
-                    { label: 'PayPal', sub: 'Payments', configured: !!paypalClientId },
-                    { label: 'Stripe', sub: 'Payments', configured: !!stripeSecretKey },
-                  ];
-                  const configuredCount = cores.filter(c => c.configured).length;
-                  const allDone = configuredCount === 3;
-                  return (
-                    <div className="border border-gray-700 rounded-lg px-4 py-3 bg-gray-800/40">
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Core Setup</span>
-                        <span className={`text-[10px] font-medium ${allDone ? 'text-green-400' : 'text-gray-500'}`}>
-                          {configuredCount} of 3 configured
-                        </span>
-                      </div>
-                      <div className="flex items-center">
-                        {cores.map((core, i) => (
-                          <div key={core.label} className="flex items-center flex-1">
-                            <div className="flex flex-col items-center gap-1 flex-1">
-                              <div className={`w-2.5 h-2.5 rounded-full border-2 transition-colors ${core.configured ? 'bg-green-400 border-green-400' : 'bg-transparent border-gray-600'}`} />
-                              <span className={`text-[11px] font-medium ${core.configured ? 'text-gray-200' : 'text-gray-500'}`}>{core.label}</span>
-                              <span className="text-[9px] text-gray-600 uppercase tracking-wide">{core.sub}</span>
+                {/* ── CORE INTEGRATIONS ──────────────────────────────────────── */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Core Integrations</p>
+                    <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border bg-gray-800/60 text-gray-500 border-gray-700">
+                      <Lock className="w-2.5 h-2.5" /> Required
+                    </span>
+                  </div>
+                  <Accordion type="single" collapsible className="space-y-2">
+                    <AccordionItem value="bricklink" className="border border-gray-700 rounded-lg px-4">
+                      <AccordionTrigger className="text-sm font-medium text-gray-300 hover:no-underline">
+                        <div className="flex items-center gap-2">
+                          BrickLink
+                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border bg-blue-500/10 text-blue-400 border-blue-500/20">Read only</span>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="w-3 h-3 text-gray-500 shrink-0" onClick={(e) => e.stopPropagation()} />
+                            </TooltipTrigger>
+                            <TooltipContent side="right" className="max-w-xs text-xs">
+                              BrickLink is the source of truth for inventory. Data flows one way — into this platform. Inventory is never written back to BrickLink.
+                            </TooltipContent>
+                          </Tooltip>
+                          <div className={`w-1.5 h-1.5 rounded-full ${bricklinkConsumerKey ? 'bg-green-400' : 'bg-gray-600'}`} />
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <div className="space-y-3 pt-2">
+                          <div className="space-y-2">
+                            <Label htmlFor="bricklink-key" className="text-xs text-gray-400">Consumer Key</Label>
+                            <Input id="bricklink-key" placeholder="Enter BrickLink Consumer Key" className="text-xs" value={bricklinkConsumerKey} onChange={(e) => setBricklinkConsumerKey(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ bricklinkConsumerKey: bricklinkConsumerKey || null, bricklinkConsumerSecret: bricklinkConsumerSecret || null, bricklinkTokenValue: bricklinkTokenValue || null, bricklinkTokenSecret: bricklinkTokenSecret || null })} data-testid="input-bricklink-key" />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="bricklink-secret" className="text-xs text-gray-400">Consumer Secret</Label>
+                            <Input id="bricklink-secret" type="password" placeholder="Enter BrickLink Consumer Secret" className="text-xs" value={bricklinkConsumerSecret} onChange={(e) => setBricklinkConsumerSecret(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ bricklinkConsumerKey: bricklinkConsumerKey || null, bricklinkConsumerSecret: bricklinkConsumerSecret || null, bricklinkTokenValue: bricklinkTokenValue || null, bricklinkTokenSecret: bricklinkTokenSecret || null })} data-testid="input-bricklink-secret" />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="bricklink-token" className="text-xs text-gray-400">Token Value</Label>
+                            <Input id="bricklink-token" placeholder="Enter BrickLink Token Value" className="text-xs" value={bricklinkTokenValue} onChange={(e) => setBricklinkTokenValue(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ bricklinkConsumerKey: bricklinkConsumerKey || null, bricklinkConsumerSecret: bricklinkConsumerSecret || null, bricklinkTokenValue: bricklinkTokenValue || null, bricklinkTokenSecret: bricklinkTokenSecret || null })} data-testid="input-bricklink-token" />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="bricklink-token-secret" className="text-xs text-gray-400">Token Secret</Label>
+                            <Input id="bricklink-token-secret" type="password" placeholder="Enter BrickLink Token Secret" className="text-xs" value={bricklinkTokenSecret} onChange={(e) => setBricklinkTokenSecret(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ bricklinkConsumerKey: bricklinkConsumerKey || null, bricklinkConsumerSecret: bricklinkConsumerSecret || null, bricklinkTokenValue: bricklinkTokenValue || null, bricklinkTokenSecret: bricklinkTokenSecret || null })} data-testid="input-bricklink-token-secret" />
+                          </div>
+                          <div className="space-y-1 pt-2 border-t border-gray-700">
+                            <Label className="text-xs text-gray-400">Overall Daily API Limit</Label>
+                            <p className="text-[10px] text-gray-500">Hard stop for all BrickLink API calls app-wide (syncs, Brick Spotter, etc.). BrickLink's hard cap is 5,000/day.</p>
+                            <div className="flex items-center gap-2">
+                              <Input type="number" min={500} max={5000} step={100} value={blApiCallLimit} onChange={(e) => setBlApiCallLimit(parseInt(e.target.value) || 500)} onBlur={() => updateSettingsMutation.mutate({ blApiCallLimit })} className="text-xs w-24 text-right" data-testid="input-bl-api-limit" />
+                              <span className="text-[10px] text-gray-500">/ 5,000</span>
                             </div>
-                            {i < cores.length - 1 && (
-                              <div className={`h-px flex-1 mx-1 mb-4 transition-colors ${cores[i].configured && cores[i + 1].configured ? 'bg-green-500/40' : 'bg-gray-700'}`} />
-                            )}
                           </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })()}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
 
-                {/* Selling Channels */}
+                    <AccordionItem value="paypal" className="border border-gray-700 rounded-lg px-4">
+                      <AccordionTrigger className="text-sm font-medium text-gray-300 hover:no-underline">
+                        <div className="flex items-center gap-2">
+                          PayPal
+                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border bg-blue-500/10 text-blue-400 border-blue-500/20">Read only</span>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="w-3 h-3 text-gray-500 shrink-0" onClick={(e) => e.stopPropagation()} />
+                            </TooltipTrigger>
+                            <TooltipContent side="right" className="max-w-xs text-xs">
+                              Pulls PayPal transaction data (refunds, fees) and matches them to orders. Requires a PayPal REST API app with Transaction Search permission.
+                            </TooltipContent>
+                          </Tooltip>
+                          <div className={`w-1.5 h-1.5 rounded-full ${paypalClientId ? 'bg-green-400' : 'bg-gray-600'}`} />
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <div className="space-y-3 pt-2">
+                          <div className="space-y-2 pb-2 border-b border-gray-700">
+                            <Label className="text-xs text-gray-400">Environment</Label>
+                            <div className="flex gap-4">
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="paypal-env" value="live" checked={paypalEnvironment === 'live'} onChange={() => { setPaypalEnvironment('live'); updateSettingsMutation.mutate({ paypalEnvironment: 'live' }); }} className="text-purple-500 focus:ring-purple-500" data-testid="radio-paypal-live" />
+                                <span className="text-xs text-gray-300">Live</span>
+                              </label>
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="paypal-env" value="sandbox" checked={paypalEnvironment === 'sandbox'} onChange={() => { setPaypalEnvironment('sandbox'); updateSettingsMutation.mutate({ paypalEnvironment: 'sandbox' }); }} className="text-purple-500 focus:ring-purple-500" data-testid="radio-paypal-sandbox" />
+                                <span className="text-xs text-gray-300">Sandbox</span>
+                              </label>
+                            </div>
+                            {paypalEnvironment === 'sandbox' && <p className="text-xs text-yellow-500/80 mt-1">Sandbox mode — test credentials only</p>}
+                            {paypalEnvironment === 'live' && <p className="text-xs text-green-500/80 mt-1">Live mode — real PayPal transactions</p>}
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="paypal-client-id" className="text-xs text-gray-400">Client ID</Label>
+                            <Input id="paypal-client-id" placeholder="Enter PayPal Client ID" className="text-xs" value={paypalClientId} onChange={(e) => setPaypalClientId(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ paypalClientId: paypalClientId || null })} data-testid="input-paypal-client-id" />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="paypal-client-secret" className="text-xs text-gray-400">Client Secret</Label>
+                            <Input id="paypal-client-secret" type="password" placeholder="Enter PayPal Client Secret" className="text-xs" value={paypalClientSecret} onChange={(e) => setPaypalClientSecret(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ paypalClientSecret: paypalClientSecret || null })} data-testid="input-paypal-client-secret" />
+                          </div>
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+
+                    <AccordionItem value="stripe" className="border border-gray-700 rounded-lg px-4">
+                      <AccordionTrigger className="text-sm font-medium text-gray-300 hover:no-underline">
+                        <div className="flex items-center gap-2">
+                          Stripe
+                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border bg-blue-500/10 text-blue-400 border-blue-500/20">Read only</span>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="w-3 h-3 text-gray-500 shrink-0" onClick={(e) => e.stopPropagation()} />
+                            </TooltipTrigger>
+                            <TooltipContent side="right" className="max-w-xs text-xs">
+                              Pulls Stripe transaction data (refunds, processing fees) and matches them to orders. Use a restricted key with read access to Charges and Refunds.
+                            </TooltipContent>
+                          </Tooltip>
+                          <div className={`w-1.5 h-1.5 rounded-full ${stripeSecretKey ? 'bg-green-400' : 'bg-gray-600'}`} />
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <div className="space-y-3 pt-2">
+                          <div className="space-y-2 pb-2 border-b border-gray-700">
+                            <Label className="text-xs text-gray-400">Environment</Label>
+                            <div className="flex gap-4">
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="stripe-env" value="live" checked={stripeEnvironment === 'live'} onChange={() => { setStripeEnvironment('live'); updateSettingsMutation.mutate({ stripeEnvironment: 'live' }); }} className="text-purple-500 focus:ring-purple-500" data-testid="radio-stripe-live" />
+                                <span className="text-xs text-gray-300">Live</span>
+                              </label>
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="stripe-env" value="test" checked={stripeEnvironment === 'test'} onChange={() => { setStripeEnvironment('test'); updateSettingsMutation.mutate({ stripeEnvironment: 'test' }); }} className="text-purple-500 focus:ring-purple-500" data-testid="radio-stripe-test" />
+                                <span className="text-xs text-gray-300">Test</span>
+                              </label>
+                            </div>
+                            {stripeEnvironment === 'test' && <p className="text-xs text-yellow-500/80 mt-1">Test mode — use a <code className="font-mono">sk_test_</code> key</p>}
+                            {stripeEnvironment === 'live' && <p className="text-xs text-green-500/80 mt-1">Live mode — use a <code className="font-mono">sk_live_</code> or restricted key</p>}
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="stripe-secret-key" className="text-xs text-gray-400">Secret Key</Label>
+                            <Input id="stripe-secret-key" type="password" placeholder={stripeEnvironment === 'test' ? 'sk_test_...' : 'sk_live_... or rk_live_...'} className="text-xs" value={stripeSecretKey} onChange={(e) => setStripeSecretKey(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ stripeSecretKey: stripeSecretKey || null })} data-testid="input-stripe-secret-key" />
+                          </div>
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
+                </div>
+
+                {/* ── SALES CHANNELS ─────────────────────────────────────────── */}
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-2">Selling Channels</p>
-                  <Accordion type="single" collapsible className="space-y-2">
-                  <AccordionItem value="bricklink" className="border border-gray-700 rounded-lg px-4">
-                    <AccordionTrigger className="text-sm font-medium text-gray-300 hover:no-underline">
-                      <div className="flex items-center gap-2">
-                        BrickLink
-                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border bg-blue-500/10 text-blue-400 border-blue-500/20">Read only</span>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Info className="w-3 h-3 text-gray-500 shrink-0" onClick={(e) => e.stopPropagation()} />
-                          </TooltipTrigger>
-                          <TooltipContent side="right" className="max-w-xs text-xs">
-                            BrickLink is the source of truth for inventory. Data flows one way — into this platform. Inventory is never written back to BrickLink.
-                          </TooltipContent>
-                        </Tooltip>
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <div className="space-y-3 pt-2">
-                        <div className="space-y-2">
-                          <Label htmlFor="bricklink-key" className="text-xs text-gray-400">Consumer Key</Label>
-                          <Input
-                            id="bricklink-key"
-                            placeholder="Enter BrickLink Consumer Key"
-                            className="text-xs"
-                            value={bricklinkConsumerKey}
-                            onChange={(e) => setBricklinkConsumerKey(e.target.value)}
-                            onBlur={() => updateSettingsMutation.mutate({ bricklinkConsumerKey: bricklinkConsumerKey || null, bricklinkConsumerSecret: bricklinkConsumerSecret || null, bricklinkTokenValue: bricklinkTokenValue || null, bricklinkTokenSecret: bricklinkTokenSecret || null })}
-                            data-testid="input-bricklink-key"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="bricklink-secret" className="text-xs text-gray-400">Consumer Secret</Label>
-                          <Input
-                            id="bricklink-secret"
-                            type="password"
-                            placeholder="Enter BrickLink Consumer Secret"
-                            className="text-xs"
-                            value={bricklinkConsumerSecret}
-                            onChange={(e) => setBricklinkConsumerSecret(e.target.value)}
-                            onBlur={() => updateSettingsMutation.mutate({ bricklinkConsumerKey: bricklinkConsumerKey || null, bricklinkConsumerSecret: bricklinkConsumerSecret || null, bricklinkTokenValue: bricklinkTokenValue || null, bricklinkTokenSecret: bricklinkTokenSecret || null })}
-                            data-testid="input-bricklink-secret"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="bricklink-token" className="text-xs text-gray-400">Token Value</Label>
-                          <Input
-                            id="bricklink-token"
-                            placeholder="Enter BrickLink Token Value"
-                            className="text-xs"
-                            value={bricklinkTokenValue}
-                            onChange={(e) => setBricklinkTokenValue(e.target.value)}
-                            onBlur={() => updateSettingsMutation.mutate({ bricklinkConsumerKey: bricklinkConsumerKey || null, bricklinkConsumerSecret: bricklinkConsumerSecret || null, bricklinkTokenValue: bricklinkTokenValue || null, bricklinkTokenSecret: bricklinkTokenSecret || null })}
-                            data-testid="input-bricklink-token"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="bricklink-token-secret" className="text-xs text-gray-400">Token Secret</Label>
-                          <Input
-                            id="bricklink-token-secret"
-                            type="password"
-                            placeholder="Enter BrickLink Token Secret"
-                            className="text-xs"
-                            value={bricklinkTokenSecret}
-                            onChange={(e) => setBricklinkTokenSecret(e.target.value)}
-                            onBlur={() => updateSettingsMutation.mutate({ bricklinkConsumerKey: bricklinkConsumerKey || null, bricklinkConsumerSecret: bricklinkConsumerSecret || null, bricklinkTokenValue: bricklinkTokenValue || null, bricklinkTokenSecret: bricklinkTokenSecret || null })}
-                            data-testid="input-bricklink-token-secret"
-                          />
-                        </div>
-                        <div className="space-y-1 pt-2 border-t border-gray-700">
-                          <Label className="text-xs text-gray-400">Overall Daily API Limit</Label>
-                          <p className="text-[10px] text-gray-500">Hard stop for all BrickLink API calls app-wide (syncs, Brick Spotter, etc.). BrickLink's hard cap is 5,000/day.</p>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Sales Channels</p>
+                    <Button size="sm" variant="ghost" className="h-7 text-xs gap-1 text-gray-400"
+                      data-testid="button-add-sales-channel"
+                      onClick={() => { setAddIntegrationType('sales_channel'); setAddIntChannel('ebay'); setAddIntDisplayName('eBay'); setAddIntApiKey(''); }}>
+                      <Plus className="w-3 h-3" /> Add Channel
+                    </Button>
+                  </div>
+                  <div className="space-y-2">
+                    <Accordion type="single" collapsible>
+                      <AccordionItem value="brickowl" className="border border-gray-700 rounded-lg px-4">
+                        <AccordionTrigger className="text-sm font-medium text-gray-300 hover:no-underline">
                           <div className="flex items-center gap-2">
-                            <Input
-                              type="number"
-                              min={500}
-                              max={5000}
-                              step={100}
-                              value={blApiCallLimit}
-                              onChange={(e) => setBlApiCallLimit(parseInt(e.target.value) || 500)}
-                              onBlur={() => updateSettingsMutation.mutate({ blApiCallLimit })}
-                              className="text-xs w-24 text-right"
-                              data-testid="input-bl-api-limit"
-                            />
-                            <span className="text-[10px] text-gray-500">/ 5,000</span>
+                            BrickOwl
+                            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border bg-amber-500/10 text-amber-400 border-amber-500/20">Read + Write</span>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Info className="w-3 h-3 text-gray-500 shrink-0" onClick={(e) => e.stopPropagation()} />
+                              </TooltipTrigger>
+                              <TooltipContent side="right" className="max-w-xs text-xs">
+                                Orders and inventory are pulled from BrickOwl. Inventory updates are also pushed back to keep BrickOwl in sync.
+                              </TooltipContent>
+                            </Tooltip>
+                            <div className={`w-1.5 h-1.5 rounded-full ${brickowlApiKey ? 'bg-green-400' : 'bg-gray-600'}`} />
                           </div>
-                        </div>
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <div className="space-y-3 pt-2">
+                            <div className="space-y-2">
+                              <Label htmlFor="brickowl-key" className="text-xs text-gray-400">API Key</Label>
+                              <Input id="brickowl-key" type="password" placeholder="Enter BrickOwl API Key" className="text-xs" value={brickowlApiKey} onChange={(e) => setBrickowlApiKey(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ brickowlApiKey: brickowlApiKey || null })} data-testid="input-brickowl-key" />
+                            </div>
+                            <div className="pt-2 border-t border-gray-700 flex justify-end">
+                              <Button variant="ghost" size="sm" className="text-xs gap-1 text-red-400/80 hover:text-red-400" data-testid="button-remove-brickowl" onClick={() => setRemovePrimaryDialog('brickowl')}>
+                                <Trash2 className="w-3 h-3" /> Remove
+                              </Button>
+                            </div>
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    </Accordion>
 
-                  <AccordionItem value="brickowl" className="border border-gray-700 rounded-lg px-4">
-                    <AccordionTrigger className="text-sm font-medium text-gray-300 hover:no-underline">
-                      <div className="flex items-center gap-2">
-                        BrickOwl
-                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border bg-amber-500/10 text-amber-400 border-amber-500/20">Read + Write</span>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Info className="w-3 h-3 text-gray-500 shrink-0" onClick={(e) => e.stopPropagation()} />
-                          </TooltipTrigger>
-                          <TooltipContent side="right" className="max-w-xs text-xs">
-                            Orders and inventory are pulled from BrickOwl. Inventory updates (quantities and prices) are also pushed back out to keep BrickOwl in sync.
-                          </TooltipContent>
-                        </Tooltip>
+                    {orgIntegrationsList.filter(i => i.type === 'sales_channel').map(integration => (
+                      <div key={integration.id} className="border border-gray-700 rounded-lg" data-testid={`card-sales-channel-${integration.id}`}>
+                        {editingIntId === integration.id ? (
+                          <div className="px-4 py-3 space-y-3">
+                            <p className="text-xs font-medium text-gray-300">Edit {integration.displayName}</p>
+                            <div className="space-y-2">
+                              <Label className="text-xs text-gray-400">Display Name</Label>
+                              <Input className="text-xs" value={editIntDisplayName} onChange={(e) => setEditIntDisplayName(e.target.value)} data-testid="input-edit-display-name" />
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs text-gray-400">API Key <span className="text-gray-600 font-normal">(leave blank to keep existing)</span></Label>
+                              <Input type="password" className="text-xs" placeholder="Enter new API key or leave blank" value={editIntApiKey} onChange={(e) => setEditIntApiKey(e.target.value)} data-testid="input-edit-api-key" />
+                            </div>
+                            <div className="flex gap-2">
+                              <Button size="sm" className="text-xs" disabled={updateIntegrationMutation.isPending} onClick={() => updateIntegrationMutation.mutate({ id: integration.id, displayName: editIntDisplayName, ...(editIntApiKey ? { credentials: { apiKey: editIntApiKey } } : {}) })} data-testid="button-save-edit">
+                                {updateIntegrationMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Save'}
+                              </Button>
+                              <Button size="sm" variant="ghost" className="text-xs" onClick={() => setEditingIntId(null)} data-testid="button-cancel-edit">Cancel</Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="px-4 py-3 flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="text-sm font-medium text-gray-300 truncate">{integration.displayName || integration.channel}</span>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded border bg-gray-800 text-gray-500 border-gray-700 shrink-0">{integration.channel}</span>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <Button size="icon" variant="ghost" className="h-7 w-7" data-testid={`button-edit-integration-${integration.id}`} onClick={() => { setEditingIntId(integration.id); setEditIntDisplayName(integration.displayName || ''); setEditIntApiKey(''); }}>
+                                <Pencil className="w-3 h-3" />
+                              </Button>
+                              <Button size="icon" variant="ghost" className="h-7 w-7 text-red-400/70 hover:text-red-400" data-testid={`button-delete-integration-${integration.id}`} onClick={() => setDeleteIntId(integration.id)}>
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <div className="space-y-3 pt-2">
+                    ))}
+
+                    {addIntegrationType === 'sales_channel' && (
+                      <div className="border border-dashed border-gray-600 rounded-lg px-4 py-3 space-y-3 bg-gray-800/20">
+                        <p className="text-xs font-medium text-gray-300">Add Sales Channel</p>
                         <div className="space-y-2">
-                          <Label htmlFor="brickowl-key" className="text-xs text-gray-400">API Key</Label>
-                          <Input
-                            id="brickowl-key"
-                            type="password"
-                            placeholder="Enter BrickOwl API Key"
-                            className="text-xs"
-                            value={brickowlApiKey}
-                            onChange={(e) => setBrickowlApiKey(e.target.value)}
-                            onBlur={() => updateSettingsMutation.mutate({ brickowlApiKey: brickowlApiKey || null })}
-                            data-testid="input-brickowl-key"
-                          />
+                          <Label className="text-xs text-gray-400">Platform</Label>
+                          <Select value={addIntChannel} onValueChange={(v) => { setAddIntChannel(v); const n: Record<string,string> = { brickowl: 'BrickOwl', ebay: 'eBay', amazon: 'Amazon', etsy: 'Etsy', shopify: 'Shopify', other: 'Other' }; setAddIntDisplayName(n[v] || ''); }}>
+                            <SelectTrigger className="text-xs h-8" data-testid="select-add-sales-channel"><SelectValue placeholder="Select platform..." /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="brickowl">BrickOwl</SelectItem>
+                              <SelectItem value="ebay">eBay</SelectItem>
+                              <SelectItem value="amazon">Amazon</SelectItem>
+                              <SelectItem value="etsy">Etsy</SelectItem>
+                              <SelectItem value="shopify">Shopify</SelectItem>
+                              <SelectItem value="other">Other</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs text-gray-400">Display Name</Label>
+                          <Input className="text-xs" placeholder="e.g. My eBay Store" value={addIntDisplayName} onChange={(e) => setAddIntDisplayName(e.target.value)} data-testid="input-add-display-name" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs text-gray-400">API Key</Label>
+                          <Input type="password" className="text-xs" placeholder="Enter API key" value={addIntApiKey} onChange={(e) => setAddIntApiKey(e.target.value)} data-testid="input-add-api-key" />
+                        </div>
+                        <div className="flex gap-2">
+                          <Button size="sm" className="text-xs" disabled={!addIntChannel || !addIntDisplayName || createIntegrationMutation.isPending} onClick={() => createIntegrationMutation.mutate({ channel: addIntChannel, type: 'sales_channel', displayName: addIntDisplayName, credentials: { apiKey: addIntApiKey } })} data-testid="button-save-add-integration">
+                            {createIntegrationMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Add'}
+                          </Button>
+                          <Button size="sm" variant="ghost" className="text-xs" onClick={() => setAddIntegrationType(null)} data-testid="button-cancel-add-integration">Cancel</Button>
                         </div>
                       </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                  </Accordion>
+                    )}
+                  </div>
                 </div>
 
-                {/* Payments */}
+                {/* ── ADDITIONAL PAYMENT VENDORS ──────────────────────────────── */}
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-2">Payments</p>
-                  <Accordion type="single" collapsible className="space-y-2">
-                  <AccordionItem value="paypal" className="border border-gray-700 rounded-lg px-4">
-                    <AccordionTrigger className="text-sm font-medium text-gray-300 hover:no-underline">
-                      <div className="flex items-center gap-2">
-                        PayPal
-                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border bg-blue-500/10 text-blue-400 border-blue-500/20">Read only</span>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Info className="w-3 h-3 text-gray-500 shrink-0" onClick={(e) => e.stopPropagation()} />
-                          </TooltipTrigger>
-                          <TooltipContent side="right" className="max-w-xs text-xs">
-                            Pulls PayPal transaction data (refunds, fees) and matches them to orders. Requires a PayPal REST API app with Transaction Search permission.
-                          </TooltipContent>
-                        </Tooltip>
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <div className="space-y-3 pt-2">
-                        <div className="space-y-2 pb-2 border-b border-gray-700">
-                          <Label className="text-xs text-gray-400">Environment</Label>
-                          <div className="flex gap-4">
-                            <label className="flex items-center gap-2 cursor-pointer">
-                              <input
-                                type="radio"
-                                name="paypal-env"
-                                value="live"
-                                checked={paypalEnvironment === 'live'}
-                                onChange={() => {
-                                  setPaypalEnvironment('live');
-                                  updateSettingsMutation.mutate({ paypalEnvironment: 'live' });
-                                }}
-                                className="text-purple-500 focus:ring-purple-500"
-                                data-testid="radio-paypal-live"
-                              />
-                              <span className="text-xs text-gray-300">Live</span>
-                            </label>
-                            <label className="flex items-center gap-2 cursor-pointer">
-                              <input
-                                type="radio"
-                                name="paypal-env"
-                                value="sandbox"
-                                checked={paypalEnvironment === 'sandbox'}
-                                onChange={() => {
-                                  setPaypalEnvironment('sandbox');
-                                  updateSettingsMutation.mutate({ paypalEnvironment: 'sandbox' });
-                                }}
-                                className="text-purple-500 focus:ring-purple-500"
-                                data-testid="radio-paypal-sandbox"
-                              />
-                              <span className="text-xs text-gray-300">Sandbox</span>
-                            </label>
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Additional Payment Vendors</p>
+                      <p className="text-[10px] text-gray-600 mt-0.5">PayPal and Stripe are configured in Core Integrations above</p>
+                    </div>
+                    <Button size="sm" variant="ghost" className="h-7 text-xs gap-1 text-gray-400 shrink-0 self-start"
+                      data-testid="button-add-payment-vendor"
+                      onClick={() => { setAddIntegrationType('payment'); setAddIntChannel('square'); setAddIntDisplayName('Square'); setAddIntApiKey(''); }}>
+                      <Plus className="w-3 h-3" /> Add Vendor
+                    </Button>
+                  </div>
+                  <div className="space-y-2">
+                    {orgIntegrationsList.filter(i => i.type === 'payment').length === 0 && addIntegrationType !== 'payment' && (
+                      <p className="text-[11px] text-gray-600 border border-gray-700/50 rounded-lg px-4 py-3">No additional payment vendors configured.</p>
+                    )}
+                    {orgIntegrationsList.filter(i => i.type === 'payment').map(integration => (
+                      <div key={integration.id} className="border border-gray-700 rounded-lg" data-testid={`card-payment-vendor-${integration.id}`}>
+                        {editingIntId === integration.id ? (
+                          <div className="px-4 py-3 space-y-3">
+                            <p className="text-xs font-medium text-gray-300">Edit {integration.displayName}</p>
+                            <div className="space-y-2">
+                              <Label className="text-xs text-gray-400">Display Name</Label>
+                              <Input className="text-xs" value={editIntDisplayName} onChange={(e) => setEditIntDisplayName(e.target.value)} data-testid="input-edit-display-name" />
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs text-gray-400">API Key <span className="text-gray-600 font-normal">(leave blank to keep existing)</span></Label>
+                              <Input type="password" className="text-xs" placeholder="Enter new API key or leave blank" value={editIntApiKey} onChange={(e) => setEditIntApiKey(e.target.value)} data-testid="input-edit-api-key" />
+                            </div>
+                            <div className="flex gap-2">
+                              <Button size="sm" className="text-xs" disabled={updateIntegrationMutation.isPending} onClick={() => updateIntegrationMutation.mutate({ id: integration.id, displayName: editIntDisplayName, ...(editIntApiKey ? { credentials: { apiKey: editIntApiKey } } : {}) })} data-testid="button-save-edit">
+                                {updateIntegrationMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Save'}
+                              </Button>
+                              <Button size="sm" variant="ghost" className="text-xs" onClick={() => setEditingIntId(null)} data-testid="button-cancel-edit">Cancel</Button>
+                            </div>
                           </div>
-                          {paypalEnvironment === 'sandbox' && (
-                            <p className="text-xs text-yellow-500/80 mt-1">Sandbox mode — test credentials only</p>
-                          )}
-                          {paypalEnvironment === 'live' && (
-                            <p className="text-xs text-green-500/80 mt-1">Live mode — real PayPal transactions</p>
-                          )}
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="paypal-client-id" className="text-xs text-gray-400">Client ID</Label>
-                          <Input
-                            id="paypal-client-id"
-                            placeholder="Enter PayPal Client ID"
-                            className="text-xs"
-                            value={paypalClientId}
-                            onChange={(e) => setPaypalClientId(e.target.value)}
-                            onBlur={() => updateSettingsMutation.mutate({ paypalClientId: paypalClientId || null })}
-                            data-testid="input-paypal-client-id"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="paypal-client-secret" className="text-xs text-gray-400">Client Secret</Label>
-                          <Input
-                            id="paypal-client-secret"
-                            type="password"
-                            placeholder="Enter PayPal Client Secret"
-                            className="text-xs"
-                            value={paypalClientSecret}
-                            onChange={(e) => setPaypalClientSecret(e.target.value)}
-                            onBlur={() => updateSettingsMutation.mutate({ paypalClientSecret: paypalClientSecret || null })}
-                            data-testid="input-paypal-client-secret"
-                          />
-                        </div>
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                  <AccordionItem value="stripe" className="border border-gray-700 rounded-lg px-4">
-                    <AccordionTrigger className="text-sm font-medium text-gray-300 hover:no-underline">
-                      <div className="flex items-center gap-2">
-                        Stripe
-                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border bg-blue-500/10 text-blue-400 border-blue-500/20">Read only</span>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Info className="w-3 h-3 text-gray-500 shrink-0" onClick={(e) => e.stopPropagation()} />
-                          </TooltipTrigger>
-                          <TooltipContent side="right" className="max-w-xs text-xs">
-                            Pulls Stripe transaction data (refunds, processing fees) and matches them to orders. Use a restricted key with read access to Charges and Refunds.
-                          </TooltipContent>
-                        </Tooltip>
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <div className="space-y-3 pt-2">
-                        <div className="space-y-2 pb-2 border-b border-gray-700">
-                          <Label className="text-xs text-gray-400">Environment</Label>
-                          <div className="flex gap-4">
-                            <label className="flex items-center gap-2 cursor-pointer">
-                              <input
-                                type="radio"
-                                name="stripe-env"
-                                value="live"
-                                checked={stripeEnvironment === 'live'}
-                                onChange={() => {
-                                  setStripeEnvironment('live');
-                                  updateSettingsMutation.mutate({ stripeEnvironment: 'live' });
-                                }}
-                                className="text-purple-500 focus:ring-purple-500"
-                                data-testid="radio-stripe-live"
-                              />
-                              <span className="text-xs text-gray-300">Live</span>
-                            </label>
-                            <label className="flex items-center gap-2 cursor-pointer">
-                              <input
-                                type="radio"
-                                name="stripe-env"
-                                value="test"
-                                checked={stripeEnvironment === 'test'}
-                                onChange={() => {
-                                  setStripeEnvironment('test');
-                                  updateSettingsMutation.mutate({ stripeEnvironment: 'test' });
-                                }}
-                                className="text-purple-500 focus:ring-purple-500"
-                                data-testid="radio-stripe-test"
-                              />
-                              <span className="text-xs text-gray-300">Test</span>
-                            </label>
+                        ) : (
+                          <div className="px-4 py-3 flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="text-sm font-medium text-gray-300 truncate">{integration.displayName || integration.channel}</span>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded border bg-gray-800 text-gray-500 border-gray-700 shrink-0">{integration.channel}</span>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <Button size="icon" variant="ghost" className="h-7 w-7" data-testid={`button-edit-integration-${integration.id}`} onClick={() => { setEditingIntId(integration.id); setEditIntDisplayName(integration.displayName || ''); setEditIntApiKey(''); }}>
+                                <Pencil className="w-3 h-3" />
+                              </Button>
+                              <Button size="icon" variant="ghost" className="h-7 w-7 text-red-400/70 hover:text-red-400" data-testid={`button-delete-integration-${integration.id}`} onClick={() => setDeleteIntId(integration.id)}>
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                            </div>
                           </div>
-                          {stripeEnvironment === 'test' && (
-                            <p className="text-xs text-yellow-500/80 mt-1">Test mode — use a <code className="font-mono">sk_test_</code> key</p>
-                          )}
-                          {stripeEnvironment === 'live' && (
-                            <p className="text-xs text-green-500/80 mt-1">Live mode — use a <code className="font-mono">sk_live_</code> or restricted key</p>
-                          )}
+                        )}
+                      </div>
+                    ))}
+                    {addIntegrationType === 'payment' && (
+                      <div className="border border-dashed border-gray-600 rounded-lg px-4 py-3 space-y-3 bg-gray-800/20">
+                        <p className="text-xs font-medium text-gray-300">Add Payment Vendor</p>
+                        <div className="space-y-2">
+                          <Label className="text-xs text-gray-400">Platform</Label>
+                          <Select value={addIntChannel} onValueChange={(v) => { setAddIntChannel(v); const n: Record<string,string> = { square: 'Square', venmo: 'Venmo', zelle: 'Zelle', cashapp: 'Cash App', authorize_net: 'Authorize.net', braintree: 'Braintree', other: 'Other' }; setAddIntDisplayName(n[v] || ''); }}>
+                            <SelectTrigger className="text-xs h-8" data-testid="select-add-payment-vendor"><SelectValue placeholder="Select platform..." /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="square">Square</SelectItem>
+                              <SelectItem value="venmo">Venmo</SelectItem>
+                              <SelectItem value="zelle">Zelle</SelectItem>
+                              <SelectItem value="cashapp">Cash App</SelectItem>
+                              <SelectItem value="authorize_net">Authorize.net</SelectItem>
+                              <SelectItem value="braintree">Braintree</SelectItem>
+                              <SelectItem value="other">Other</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="stripe-secret-key" className="text-xs text-gray-400">Secret Key</Label>
-                          <Input
-                            id="stripe-secret-key"
-                            type="password"
-                            placeholder={stripeEnvironment === 'test' ? 'sk_test_...' : 'sk_live_... or rk_live_...'}
-                            className="text-xs"
-                            value={stripeSecretKey}
-                            onChange={(e) => setStripeSecretKey(e.target.value)}
-                            onBlur={() => updateSettingsMutation.mutate({ stripeSecretKey: stripeSecretKey || null })}
-                            data-testid="input-stripe-secret-key"
-                          />
+                          <Label className="text-xs text-gray-400">Display Name</Label>
+                          <Input className="text-xs" placeholder="e.g. Square Payments" value={addIntDisplayName} onChange={(e) => setAddIntDisplayName(e.target.value)} data-testid="input-add-display-name" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs text-gray-400">API Key</Label>
+                          <Input type="password" className="text-xs" placeholder="Enter API key" value={addIntApiKey} onChange={(e) => setAddIntApiKey(e.target.value)} data-testid="input-add-api-key" />
+                        </div>
+                        <div className="flex gap-2">
+                          <Button size="sm" className="text-xs" disabled={!addIntChannel || !addIntDisplayName || createIntegrationMutation.isPending} onClick={() => createIntegrationMutation.mutate({ channel: addIntChannel, type: 'payment', displayName: addIntDisplayName, credentials: { apiKey: addIntApiKey } })} data-testid="button-save-add-integration">
+                            {createIntegrationMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Add'}
+                          </Button>
+                          <Button size="sm" variant="ghost" className="text-xs" onClick={() => setAddIntegrationType(null)} data-testid="button-cancel-add-integration">Cancel</Button>
                         </div>
                       </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                  </Accordion>
+                    )}
+                  </div>
                 </div>
 
-                {/* Shipping */}
+                {/* ── SHIPPING VENDORS ────────────────────────────────────────── */}
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-2">Shipping</p>
-                  <Accordion type="single" collapsible className="space-y-2">
-                  <AccordionItem value="easypost" className="border border-gray-700 rounded-lg px-4">
-                    <AccordionTrigger className="text-sm font-medium text-gray-300 hover:no-underline">
-                      <div className="flex items-center gap-2">
-                        EasyPost
-                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border bg-amber-500/10 text-amber-400 border-amber-500/20">Read + Write</span>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Info className="w-3 h-3 text-gray-500 shrink-0" onClick={(e) => e.stopPropagation()} />
-                          </TooltipTrigger>
-                          <TooltipContent side="right" className="max-w-xs text-xs">
-                            Used to purchase shipping labels and track packages. Labels are created from within the platform and shipment status is tracked automatically.
-                          </TooltipContent>
-                        </Tooltip>
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <div className="space-y-3 pt-2">
-                    {/* Key Mode Selector */}
-                    <div className="space-y-2 pb-2 border-b border-gray-700">
-                      <Label className="text-xs text-gray-400">Active API Key</Label>
-                      <div className="flex gap-4">
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="radio"
-                            name="easypost-mode"
-                            value="test"
-                            checked={easypostKeyMode === 'test'}
-                            onChange={(e) => {
-                              setEasypostKeyMode('test');
-                              updateSettingsMutation.mutate({
-                                easypostKeyMode: 'test',
-                              });
-                            }}
-                            className="text-purple-500 focus:ring-purple-500"
-                            data-testid="radio-easypost-test"
-                          />
-                          <span className="text-xs text-gray-300">Test</span>
-                        </label>
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="radio"
-                            name="easypost-mode"
-                            value="production"
-                            checked={easypostKeyMode === 'production'}
-                            onChange={(e) => {
-                              setEasypostKeyMode('production');
-                              updateSettingsMutation.mutate({
-                                easypostKeyMode: 'production',
-                              });
-                            }}
-                            className="text-purple-500 focus:ring-purple-500"
-                            data-testid="radio-easypost-production"
-                          />
-                          <span className="text-xs text-gray-300">Production</span>
-                        </label>
-                      </div>
-                      {easypostKeyMode === 'test' && (
-                        <p className="text-xs text-yellow-500/80 mt-1">
-                          ⚠️ Test mode - labels will use test tracking numbers
-                        </p>
-                      )}
-                      {easypostKeyMode === 'production' && (
-                        <p className="text-xs text-green-500/80 mt-1">
-                          ✓ Production mode - real shipping labels will be created
-                        </p>
-                      )}
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="easypost-key" className="text-xs text-gray-400">Production API Key</Label>
-                      <Input
-                        id="easypost-key"
-                        type="password"
-                        placeholder="Enter EasyPost Production API Key"
-                        className="text-xs"
-                        value={easypostApiKey}
-                        onChange={(e) => setEasypostApiKey(e.target.value)}
-                        onBlur={() => {
-                          updateSettingsMutation.mutate({
-                            easypostApiKey: easypostApiKey || null,
-                          });
-                        }}
-                        data-testid="input-easypost-key"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="easypost-test-key" className="text-xs text-gray-400">Test API Key</Label>
-                      <Input
-                        id="easypost-test-key"
-                        type="password"
-                        placeholder="Enter EasyPost Test API Key"
-                        className="text-xs"
-                        value={easypostTestApiKey}
-                        onChange={(e) => setEasypostTestApiKey(e.target.value)}
-                        onBlur={() => {
-                          updateSettingsMutation.mutate({
-                            easypostTestApiKey: easypostTestApiKey || null,
-                          });
-                        }}
-                        data-testid="input-easypost-test-key"
-                      />
-                    </div>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Shipping Vendors</p>
+                    <Button size="sm" variant="ghost" className="h-7 text-xs gap-1 text-gray-400"
+                      data-testid="button-add-shipping-vendor"
+                      onClick={() => { setAddIntegrationType('shipping'); setAddIntChannel('shipstation'); setAddIntDisplayName('ShipStation'); setAddIntApiKey(''); }}>
+                      <Plus className="w-3 h-3" /> Add Vendor
+                    </Button>
+                  </div>
+                  <div className="space-y-2">
+                    <Accordion type="single" collapsible>
+                      <AccordionItem value="easypost" className="border border-gray-700 rounded-lg px-4">
+                        <AccordionTrigger className="text-sm font-medium text-gray-300 hover:no-underline">
+                          <div className="flex items-center gap-2">
+                            EasyPost
+                            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border bg-amber-500/10 text-amber-400 border-amber-500/20">Read + Write</span>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Info className="w-3 h-3 text-gray-500 shrink-0" onClick={(e) => e.stopPropagation()} />
+                              </TooltipTrigger>
+                              <TooltipContent side="right" className="max-w-xs text-xs">
+                                Used to purchase shipping labels and track packages. Labels are created from within the platform and shipment status is tracked automatically.
+                              </TooltipContent>
+                            </Tooltip>
+                            <div className={`w-1.5 h-1.5 rounded-full ${easypostApiKey || easypostTestApiKey ? 'bg-green-400' : 'bg-gray-600'}`} />
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <div className="space-y-3 pt-2">
+                            <div className="space-y-2 pb-2 border-b border-gray-700">
+                              <Label className="text-xs text-gray-400">Active API Key</Label>
+                              <div className="flex gap-4">
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                  <input type="radio" name="easypost-mode" value="test" checked={easypostKeyMode === 'test'} onChange={() => { setEasypostKeyMode('test'); updateSettingsMutation.mutate({ easypostKeyMode: 'test' }); }} className="text-purple-500 focus:ring-purple-500" data-testid="radio-easypost-test" />
+                                  <span className="text-xs text-gray-300">Test</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                  <input type="radio" name="easypost-mode" value="production" checked={easypostKeyMode === 'production'} onChange={() => { setEasypostKeyMode('production'); updateSettingsMutation.mutate({ easypostKeyMode: 'production' }); }} className="text-purple-500 focus:ring-purple-500" data-testid="radio-easypost-production" />
+                                  <span className="text-xs text-gray-300">Production</span>
+                                </label>
+                              </div>
+                              {easypostKeyMode === 'test' && <p className="text-xs text-yellow-500/80 mt-1">Test mode — labels will use test tracking numbers</p>}
+                              {easypostKeyMode === 'production' && <p className="text-xs text-green-500/80 mt-1">Production mode — real shipping labels will be created</p>}
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="easypost-key" className="text-xs text-gray-400">Production API Key</Label>
+                              <Input id="easypost-key" type="password" placeholder="Enter EasyPost Production API Key" className="text-xs" value={easypostApiKey} onChange={(e) => setEasypostApiKey(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ easypostApiKey: easypostApiKey || null })} data-testid="input-easypost-key" />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="easypost-test-key" className="text-xs text-gray-400">Test API Key</Label>
+                              <Input id="easypost-test-key" type="password" placeholder="Enter EasyPost Test API Key" className="text-xs" value={easypostTestApiKey} onChange={(e) => setEasypostTestApiKey(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ easypostTestApiKey: easypostTestApiKey || null })} data-testid="input-easypost-test-key" />
+                            </div>
+                            <div className="pt-3 border-t border-gray-700 space-y-3">
+                              <div>
+                                <p className="text-xs font-semibold text-gray-300 mb-0.5">International Shipping</p>
+                                <p className="text-[11px] text-gray-500">Customs declarations are auto-generated for international orders. Fill in tax IDs to prevent buyers from being double-charged VAT/GST.</p>
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor="customs-signer" className="text-xs text-gray-400">Customs Signer Name <span className="text-red-400">*</span></Label>
+                                <Input id="customs-signer" type="text" placeholder="Full name of person certifying customs forms" className="text-xs" value={customsSigner} onChange={(e) => setCustomsSigner(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ customsSigner: customsSigner || null })} data-testid="input-customs-signer" />
+                              </div>
+                              <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-2">
+                                  <Label htmlFor="bl-ioss" className="text-xs text-gray-400">BrickLink EU IOSS #</Label>
+                                  <Input id="bl-ioss" type="text" placeholder="IM..." className="text-xs font-mono" value={blIossNumber} onChange={(e) => setBlIossNumber(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ blIossNumber: blIossNumber || null })} data-testid="input-bl-ioss" />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label htmlFor="bo-ioss" className="text-xs text-gray-400">BrickOwl EU IOSS #</Label>
+                                  <Input id="bo-ioss" type="text" placeholder="IM..." className="text-xs font-mono" value={boIossNumber} onChange={(e) => setBoIossNumber(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ boIossNumber: boIossNumber || null })} data-testid="input-bo-ioss" />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label htmlFor="bl-uk-vat" className="text-xs text-gray-400">BrickLink UK VAT #</Label>
+                                  <Input id="bl-uk-vat" type="text" placeholder="GB..." className="text-xs font-mono" value={blUkVatNumber} onChange={(e) => setBlUkVatNumber(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ blUkVatNumber: blUkVatNumber || null })} data-testid="input-bl-uk-vat" />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label htmlFor="bo-uk-vat" className="text-xs text-gray-400">BrickOwl UK VAT #</Label>
+                                  <Input id="bo-uk-vat" type="text" placeholder="GB..." className="text-xs font-mono" value={boUkVatNumber} onChange={(e) => setBoUkVatNumber(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ boUkVatNumber: boUkVatNumber || null })} data-testid="input-bo-uk-vat" />
+                                </div>
+                              </div>
+                              <p className="text-[11px] text-gray-600">Find IOSS/VAT numbers in your BrickLink and BrickOwl seller dashboards under Tax Settings.</p>
+                            </div>
+                            <div className="pt-2 border-t border-gray-700 flex justify-end">
+                              <Button variant="ghost" size="sm" className="text-xs gap-1 text-red-400/80 hover:text-red-400" data-testid="button-remove-easypost" onClick={() => setRemovePrimaryDialog('easypost')}>
+                                <Trash2 className="w-3 h-3" /> Remove
+                              </Button>
+                            </div>
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    </Accordion>
 
-                    {/* International Shipping / Customs */}
-                    <div className="pt-3 border-t border-gray-700 space-y-3">
-                      <div>
-                        <p className="text-xs font-semibold text-gray-300 mb-0.5">International Shipping</p>
-                        <p className="text-[11px] text-gray-500">Customs declarations are auto-generated for international orders. Fill in tax IDs to prevent buyers from being double-charged VAT/GST.</p>
+                    {orgIntegrationsList.filter(i => i.type === 'shipping').map(integration => (
+                      <div key={integration.id} className="border border-gray-700 rounded-lg" data-testid={`card-shipping-vendor-${integration.id}`}>
+                        {editingIntId === integration.id ? (
+                          <div className="px-4 py-3 space-y-3">
+                            <p className="text-xs font-medium text-gray-300">Edit {integration.displayName}</p>
+                            <div className="space-y-2">
+                              <Label className="text-xs text-gray-400">Display Name</Label>
+                              <Input className="text-xs" value={editIntDisplayName} onChange={(e) => setEditIntDisplayName(e.target.value)} data-testid="input-edit-display-name" />
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs text-gray-400">API Key <span className="text-gray-600 font-normal">(leave blank to keep existing)</span></Label>
+                              <Input type="password" className="text-xs" placeholder="Enter new API key or leave blank" value={editIntApiKey} onChange={(e) => setEditIntApiKey(e.target.value)} data-testid="input-edit-api-key" />
+                            </div>
+                            <div className="flex gap-2">
+                              <Button size="sm" className="text-xs" disabled={updateIntegrationMutation.isPending} onClick={() => updateIntegrationMutation.mutate({ id: integration.id, displayName: editIntDisplayName, ...(editIntApiKey ? { credentials: { apiKey: editIntApiKey } } : {}) })} data-testid="button-save-edit">
+                                {updateIntegrationMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Save'}
+                              </Button>
+                              <Button size="sm" variant="ghost" className="text-xs" onClick={() => setEditingIntId(null)} data-testid="button-cancel-edit">Cancel</Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="px-4 py-3 flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="text-sm font-medium text-gray-300 truncate">{integration.displayName || integration.channel}</span>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded border bg-gray-800 text-gray-500 border-gray-700 shrink-0">{integration.channel}</span>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <Button size="icon" variant="ghost" className="h-7 w-7" data-testid={`button-edit-integration-${integration.id}`} onClick={() => { setEditingIntId(integration.id); setEditIntDisplayName(integration.displayName || ''); setEditIntApiKey(''); }}>
+                                <Pencil className="w-3 h-3" />
+                              </Button>
+                              <Button size="icon" variant="ghost" className="h-7 w-7 text-red-400/70 hover:text-red-400" data-testid={`button-delete-integration-${integration.id}`} onClick={() => setDeleteIntId(integration.id)}>
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="customs-signer" className="text-xs text-gray-400">Customs Signer Name <span className="text-red-400">*</span></Label>
-                        <Input
-                          id="customs-signer"
-                          type="text"
-                          placeholder="Full name of person certifying customs forms"
-                          className="text-xs"
-                          value={customsSigner}
-                          onChange={(e) => setCustomsSigner(e.target.value)}
-                          onBlur={() => updateSettingsMutation.mutate({ customsSigner: customsSigner || null })}
-                          data-testid="input-customs-signer"
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
+                    ))}
+
+                    {addIntegrationType === 'shipping' && (
+                      <div className="border border-dashed border-gray-600 rounded-lg px-4 py-3 space-y-3 bg-gray-800/20">
+                        <p className="text-xs font-medium text-gray-300">Add Shipping Vendor</p>
                         <div className="space-y-2">
-                          <Label htmlFor="bl-ioss" className="text-xs text-gray-400">BrickLink EU IOSS #</Label>
-                          <Input
-                            id="bl-ioss"
-                            type="text"
-                            placeholder="IM..."
-                            className="text-xs font-mono"
-                            value={blIossNumber}
-                            onChange={(e) => setBlIossNumber(e.target.value)}
-                            onBlur={() => updateSettingsMutation.mutate({ blIossNumber: blIossNumber || null })}
-                            data-testid="input-bl-ioss"
-                          />
+                          <Label className="text-xs text-gray-400">Platform</Label>
+                          <Select value={addIntChannel} onValueChange={(v) => { setAddIntChannel(v); const n: Record<string,string> = { shipstation: 'ShipStation', pirateship: 'Pirate Ship', stamps_com: 'Stamps.com', shipbob: 'ShipBob', other: 'Other' }; setAddIntDisplayName(n[v] || ''); }}>
+                            <SelectTrigger className="text-xs h-8" data-testid="select-add-shipping-vendor"><SelectValue placeholder="Select platform..." /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="shipstation">ShipStation</SelectItem>
+                              <SelectItem value="pirateship">Pirate Ship</SelectItem>
+                              <SelectItem value="stamps_com">Stamps.com</SelectItem>
+                              <SelectItem value="shipbob">ShipBob</SelectItem>
+                              <SelectItem value="other">Other</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="bo-ioss" className="text-xs text-gray-400">BrickOwl EU IOSS #</Label>
-                          <Input
-                            id="bo-ioss"
-                            type="text"
-                            placeholder="IM..."
-                            className="text-xs font-mono"
-                            value={boIossNumber}
-                            onChange={(e) => setBoIossNumber(e.target.value)}
-                            onBlur={() => updateSettingsMutation.mutate({ boIossNumber: boIossNumber || null })}
-                            data-testid="input-bo-ioss"
-                          />
+                          <Label className="text-xs text-gray-400">Display Name</Label>
+                          <Input className="text-xs" placeholder="e.g. ShipStation Account" value={addIntDisplayName} onChange={(e) => setAddIntDisplayName(e.target.value)} data-testid="input-add-display-name" />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="bl-uk-vat" className="text-xs text-gray-400">BrickLink UK VAT #</Label>
-                          <Input
-                            id="bl-uk-vat"
-                            type="text"
-                            placeholder="GB..."
-                            className="text-xs font-mono"
-                            value={blUkVatNumber}
-                            onChange={(e) => setBlUkVatNumber(e.target.value)}
-                            onBlur={() => updateSettingsMutation.mutate({ blUkVatNumber: blUkVatNumber || null })}
-                            data-testid="input-bl-uk-vat"
-                          />
+                          <Label className="text-xs text-gray-400">API Key</Label>
+                          <Input type="password" className="text-xs" placeholder="Enter API key" value={addIntApiKey} onChange={(e) => setAddIntApiKey(e.target.value)} data-testid="input-add-api-key" />
                         </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="bo-uk-vat" className="text-xs text-gray-400">BrickOwl UK VAT #</Label>
-                          <Input
-                            id="bo-uk-vat"
-                            type="text"
-                            placeholder="GB..."
-                            className="text-xs font-mono"
-                            value={boUkVatNumber}
-                            onChange={(e) => setBoUkVatNumber(e.target.value)}
-                            onBlur={() => updateSettingsMutation.mutate({ boUkVatNumber: boUkVatNumber || null })}
-                            data-testid="input-bo-uk-vat"
-                          />
+                        <div className="flex gap-2">
+                          <Button size="sm" className="text-xs" disabled={!addIntChannel || !addIntDisplayName || createIntegrationMutation.isPending} onClick={() => createIntegrationMutation.mutate({ channel: addIntChannel, type: 'shipping', displayName: addIntDisplayName, credentials: { apiKey: addIntApiKey } })} data-testid="button-save-add-integration">
+                            {createIntegrationMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Add'}
+                          </Button>
+                          <Button size="sm" variant="ghost" className="text-xs" onClick={() => setAddIntegrationType(null)} data-testid="button-cancel-add-integration">Cancel</Button>
                         </div>
                       </div>
-                      <p className="text-[11px] text-gray-600">Find IOSS/VAT numbers in your BrickLink and BrickOwl seller dashboards under Tax Settings.</p>
-                    </div>
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                  </Accordion>
+                    )}
+                  </div>
                 </div>
+
+                {/* ── DELETE / REMOVE CONFIRMATION DIALOGS ─────────────────────── */}
+                <AlertDialog open={!!deleteIntId} onOpenChange={(open) => { if (!open) setDeleteIntId(null); }}>
+                  <AlertDialogContent className="bg-gray-900 border border-gray-700">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle className="text-gray-100">Remove Integration</AlertDialogTitle>
+                      <AlertDialogDescription className="text-gray-400">
+                        This will permanently remove this integration and its credentials. You can add it back at any time.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel className="bg-transparent border-gray-600 text-gray-300 hover:bg-gray-800" data-testid="button-cancel-delete-integration">Cancel</AlertDialogCancel>
+                      <AlertDialogAction className="bg-red-600 hover:bg-red-700 text-white" data-testid="button-confirm-delete-integration"
+                        onClick={() => { if (deleteIntId) deleteIntegrationMutation.mutate(deleteIntId); }}>
+                        Remove
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+
+                <AlertDialog open={!!removePrimaryDialog} onOpenChange={(open) => { if (!open) setRemovePrimaryDialog(null); }}>
+                  <AlertDialogContent className="bg-gray-900 border border-gray-700">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle className="text-gray-100">
+                        Remove {removePrimaryDialog === 'brickowl' ? 'BrickOwl' : 'EasyPost'}
+                      </AlertDialogTitle>
+                      <AlertDialogDescription className="text-gray-400">
+                        This will clear all {removePrimaryDialog === 'brickowl' ? 'BrickOwl' : 'EasyPost'} credentials. You can re-enter them at any time.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel className="bg-transparent border-gray-600 text-gray-300 hover:bg-gray-800" data-testid="button-cancel-remove-primary">Cancel</AlertDialogCancel>
+                      <AlertDialogAction className="bg-red-600 hover:bg-red-700 text-white" data-testid="button-confirm-remove-primary"
+                        onClick={() => {
+                          if (removePrimaryDialog === 'brickowl') {
+                            setBrickowlApiKey('');
+                            updateSettingsMutation.mutate({ brickowlApiKey: null });
+                          } else if (removePrimaryDialog === 'easypost') {
+                            setEasypostApiKey('');
+                            setEasypostTestApiKey('');
+                            updateSettingsMutation.mutate({ easypostApiKey: null, easypostTestApiKey: null });
+                          }
+                          setRemovePrimaryDialog(null);
+                        }}>
+                        Remove
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+
               </div>
             )}
 
