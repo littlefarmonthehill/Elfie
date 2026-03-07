@@ -1324,7 +1324,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
           style={{ height: 'min(640px, calc(96dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom)))' }}
         >
           <div
-            className="flex flex-col h-full"
+            className="flex flex-col h-full min-h-0"
           >
             {/* Header */}
             <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-700 flex-shrink-0">
@@ -1345,7 +1345,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
             </div>
 
             {/* Content */}
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 min-h-0 overflow-y-auto">
               {activeSection === null ? (
                 <nav className="p-2">
                   {navigationItems.map((item) => (
