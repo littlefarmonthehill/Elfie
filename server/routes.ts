@@ -4147,33 +4147,31 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       );
 
       // Phase 2b — Send all ready crops to Brickognize.
-      // BQ_CONCURRENCY controls how many pieces are in-flight simultaneously.
-      // Each piece fires 2 BQ requests (figs + parts) + 1 CLIP call in parallel.
-      // BQ calls take 3–5 s each; with 20 concurrent pieces the peak rate is
-      // ~8–13 req/sec — right at Brickognize's 10 req/sec ceiling.  The built-in
-      // 429 backoff (1 s → 2 s → 4 s) self-regulates any momentary spikes, so
-      // scans of ≤20 pieces complete in a single parallel wave.
+      // Use a REQUEST-LEVEL rate limiter (8 req/sec) rather than a piece-level
+      // concurrency limiter.  All pieces run in parallel; individual BQ calls are
+      // staggered 125 ms apart, so we never burst >8 req/sec to Brickognize.
+      //
+      // Throughput for N pieces: N×2 BQ requests / 8 per sec + ~4 s response time.
+      // A 33-piece scan takes ≈12 s vs ≈28 s with concurrency=5 — and zero 429s.
       const phase2bStart = Date.now();
-      console.log(`[Brickanalyzer] Step 2b: Sending ${pieces.length} crops to Brickognize (concurrency=20)...`);
-      const BQ_CONCURRENCY = 20;
-      function makeBqLimiter(concurrency: number) {
-        let active = 0;
-        const waitQueue: Array<() => void> = [];
+      console.log(`[Brickanalyzer] Step 2b: Sending ${pieces.length} crops to Brickognize (rate=8 req/sec)...`);
+
+      // Token-bucket rate limiter: each caller atomically reserves a time-slot
+      // spaced intervalMs apart, then executes fn() after the appropriate delay.
+      const BQ_RATE = 8; // BQ requests per second (Brickognize ceiling ≈ 10)
+      function makeBqRateLimiter(ratePerSec: number) {
+        const intervalMs = 1000 / ratePerSec;
+        let nextSlot = Date.now();
         return function<T>(fn: () => Promise<T>): Promise<T> {
+          const slot = nextSlot;
+          nextSlot += intervalMs; // atomically reserve this slot
+          const delayMs = Math.max(0, slot - Date.now());
           return new Promise<T>((resolve, reject) => {
-            const run = () => {
-              active++;
-              fn().then(resolve, reject).finally(() => {
-                active--;
-                if (waitQueue.length > 0) waitQueue.shift()!();
-              });
-            };
-            if (active < concurrency) run();
-            else waitQueue.push(run);
+            setTimeout(() => fn().then(resolve, reject), delayMs);
           });
         };
       }
-      const bqLimit = makeBqLimiter(BQ_CONCURRENCY);
+      const bqRateLimit = makeBqRateLimiter(BQ_RATE);
 
       // Retry a Brickognize POST with exponential backoff on 429 (rate limit).
       // Drops the request only after 3 retries.
@@ -4213,87 +4211,86 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         }
 
         const pieceStart = Date.now();
-        return bqLimit(async () => {
-          try {
-            // Send to both Brickognize endpoints in parallel — take whichever returns
-            // the higher confidence score. No pre-classification needed.
-            const makeBqForm = (buf: Buffer) => {
-              const f = new FormData();
-              f.append('query_image', buf, { filename: `piece_${idx}.jpg`, contentType: 'image/jpeg' });
-              return f;
-            };
+        try {
+          // Send to both Brickognize endpoints in parallel — take whichever returns
+          // the higher confidence score. No pre-classification needed.
+          const makeBqForm = (buf: Buffer) => {
+            const f = new FormData();
+            f.append('query_image', buf, { filename: `piece_${idx}.jpg`, contentType: 'image/jpeg' });
+            return f;
+          };
 
-            const figsForm  = makeBqForm(cropBuffer);
-            const partsForm = makeBqForm(cropBuffer);
+          const figsForm  = makeBqForm(cropBuffer);
+          const partsForm = makeBqForm(cropBuffer);
 
-            // Run CLIP embedding + nearest-neighbor search in parallel with Brickognize.
-            // Both hit separate services so there's zero added latency.
-            const [clipMatches, [figsRes, partsRes]] = await Promise.all([
-              embedCrop(cropBuffer)
-                .then((emb) => findNearestParts(emb, 5, 0.60))
-                .catch((e: any) => { console.warn(`[CLIP] piece ${idx} embed failed: ${e.message}`); return []; }),
-              Promise.all([
-                bqPost('https://api.brickognize.com/predict/figs/',  figsForm, idx)
-                  .catch((e: any) => { console.warn(`[Brickognize] figs piece ${idx} failed: ${e.message} (HTTP ${e.response?.status ?? 'N/A'})`); return null; }),
-                bqPost('https://api.brickognize.com/predict/parts/', partsForm, idx)
-                  .catch((e: any) => { console.warn(`[Brickognize] parts piece ${idx} failed: ${e.message} (HTTP ${e.response?.status ?? 'N/A'})`); return null; }),
-              ]),
-            ]);
+          // Run CLIP embedding + nearest-neighbor search in parallel with Brickognize.
+          // BQ calls are individually rate-limited (each gets its own time-slot);
+          // CLIP runs against the local Python service so no rate limiting needed.
+          const [clipMatches, [figsRes, partsRes]] = await Promise.all([
+            embedCrop(cropBuffer)
+              .then((emb) => findNearestParts(emb, 5, 0.60))
+              .catch((e: any) => { console.warn(`[CLIP] piece ${idx} embed failed: ${e.message}`); return []; }),
+            Promise.all([
+              bqRateLimit(() => bqPost('https://api.brickognize.com/predict/figs/',  figsForm, idx))
+                .catch((e: any) => { console.warn(`[Brickognize] figs piece ${idx} failed: ${e.message} (HTTP ${e.response?.status ?? 'N/A'})`); return null; }),
+              bqRateLimit(() => bqPost('https://api.brickognize.com/predict/parts/', partsForm, idx))
+                .catch((e: any) => { console.warn(`[Brickognize] parts piece ${idx} failed: ${e.message} (HTTP ${e.response?.status ?? 'N/A'})`); return null; }),
+            ]),
+          ]);
 
-            if (clipMatches.length > 0) {
-              console.log(`[CLIP] Piece ${idx}: top match ${clipMatches[0].itemNo} (color ${clipMatches[0].colorId}) sim=${clipMatches[0].similarity.toFixed(3)}`);
-            }
-
-            const figTop  = figsRes?.data?.items?.[0]  ?? null;
-            const partTop = partsRes?.data?.items?.[0] ?? null;
-
-            // Winner = higher score; break ties in favour of figs (assembled fig
-            // is a more useful result than a component part identification)
-            const figScore  = figTop?.score  ?? -1;
-            const partScore = partTop?.score ?? -1;
-            const topItem   = figScore >= partScore ? figTop : partTop;
-            const itemType: 'MINIFIG' | 'PART' = figScore >= partScore ? 'MINIFIG' : 'PART';
-
-            // Apply minimum confidence threshold — 0 means disabled (show everything Brickognize returns)
-            const minConfidence = settings.minConfidence ?? 0;
-            if (minConfidence > 0 && topItem && topItem.score < minConfidence) {
-              console.log(`[Brickanalyzer] Piece ${idx} (${itemType}): ${topItem.id} score=${topItem.score.toFixed(2)} below threshold ${minConfidence.toFixed(2)} — discarded`);
-              const result = [{ partNo: '', partName: 'Unknown', colorName: '', itemType: 'PART' as const, confidence: 'low' as const, note: `Score ${topItem.score.toFixed(2)} below threshold`, clipMatches }];
-              bqDedupeCache.set(cropHash, result);
-              return result;
-            }
-
-            if (topItem) {
-              const pieceMs = Date.now() - pieceStart;
-              console.log(`[Brickanalyzer] Piece ${idx} (${itemType}): ${topItem.id} "${topItem.name}" score=${topItem.score.toFixed(2)} [fig=${figScore.toFixed(2)} part=${partScore.toFixed(2)}] — ${pieceMs}ms`);
-              const confidence = topItem.score >= 0.7 ? 'high' : topItem.score >= 0.4 ? 'medium' : 'low';
-              const result = [{
-                partNo: topItem.id || '',
-                partName: topItem.name || piece.roughName || 'Unknown',
-                colorName: itemType === 'MINIFIG' ? '' : (piece.colorName || ''),
-                itemType,
-                confidence,
-                note: piece.note || '',
-                detectedRgb: piece.detectedRgb ?? null,
-                cropIndex: idx,
-                bboxX: piece.x, bboxY: piece.y, bboxW: piece.w, bboxH: piece.h,
-                clipMatches,
-              }];
-              bqDedupeCache.set(cropHash, result);
-              return result;
-            }
-            const pieceMs = Date.now() - pieceStart;
-            console.log(`[Brickanalyzer] Piece ${idx} (${piece.roughName || 'unknown'}): both endpoints empty — ${pieceMs}ms`);
-            const emptyResult = [{ partNo: '', partName: piece.roughName || 'Unknown', colorName: piece.colorName || '', itemType: 'PART' as const, confidence: 'low', note: 'Brickognize: no match', cropIndex: idx, bboxX: piece.x, bboxY: piece.y, bboxW: piece.w, bboxH: piece.h, clipMatches }];
-            bqDedupeCache.set(cropHash, emptyResult);
-            return emptyResult;
-
-          } catch (err: any) {
-            const pieceMs = Date.now() - pieceStart;
-            console.warn(`[Brickanalyzer] Piece ${idx} failed (${pieceMs}ms):`, err.message);
-            return [{ partNo: '', partName: piece.roughName || 'Unknown', colorName: piece.colorName || '', confidence: 'low', note: 'identification error', cropIndex: idx, bboxX: piece.x, bboxY: piece.y, bboxW: piece.w, bboxH: piece.h }];
+          if (clipMatches.length > 0) {
+            console.log(`[CLIP] Piece ${idx}: top match ${clipMatches[0].itemNo} (color ${clipMatches[0].colorId}) sim=${clipMatches[0].similarity.toFixed(3)}`);
           }
-        });
+
+          const figTop  = figsRes?.data?.items?.[0]  ?? null;
+          const partTop = partsRes?.data?.items?.[0] ?? null;
+
+          // Winner = higher score; break ties in favour of figs (assembled fig
+          // is a more useful result than a component part identification)
+          const figScore  = figTop?.score  ?? -1;
+          const partScore = partTop?.score ?? -1;
+          const topItem   = figScore >= partScore ? figTop : partTop;
+          const itemType: 'MINIFIG' | 'PART' = figScore >= partScore ? 'MINIFIG' : 'PART';
+
+          // Apply minimum confidence threshold — 0 means disabled (show everything Brickognize returns)
+          const minConfidence = settings.minConfidence ?? 0;
+          if (minConfidence > 0 && topItem && topItem.score < minConfidence) {
+            console.log(`[Brickanalyzer] Piece ${idx} (${itemType}): ${topItem.id} score=${topItem.score.toFixed(2)} below threshold ${minConfidence.toFixed(2)} — discarded`);
+            const result = [{ partNo: '', partName: 'Unknown', colorName: '', itemType: 'PART' as const, confidence: 'low' as const, note: `Score ${topItem.score.toFixed(2)} below threshold`, clipMatches }];
+            bqDedupeCache.set(cropHash, result);
+            return result;
+          }
+
+          if (topItem) {
+            const pieceMs = Date.now() - pieceStart;
+            console.log(`[Brickanalyzer] Piece ${idx} (${itemType}): ${topItem.id} "${topItem.name}" score=${topItem.score.toFixed(2)} [fig=${figScore.toFixed(2)} part=${partScore.toFixed(2)}] — ${pieceMs}ms`);
+            const confidence = topItem.score >= 0.7 ? 'high' : topItem.score >= 0.4 ? 'medium' : 'low';
+            const result = [{
+              partNo: topItem.id || '',
+              partName: topItem.name || piece.roughName || 'Unknown',
+              colorName: itemType === 'MINIFIG' ? '' : (piece.colorName || ''),
+              itemType,
+              confidence,
+              note: piece.note || '',
+              detectedRgb: piece.detectedRgb ?? null,
+              cropIndex: idx,
+              bboxX: piece.x, bboxY: piece.y, bboxW: piece.w, bboxH: piece.h,
+              clipMatches,
+            }];
+            bqDedupeCache.set(cropHash, result);
+            return result;
+          }
+          const pieceMs = Date.now() - pieceStart;
+          console.log(`[Brickanalyzer] Piece ${idx} (${piece.roughName || 'unknown'}): both endpoints empty — ${pieceMs}ms`);
+          const emptyResult = [{ partNo: '', partName: piece.roughName || 'Unknown', colorName: piece.colorName || '', itemType: 'PART' as const, confidence: 'low', note: 'Brickognize: no match', cropIndex: idx, bboxX: piece.x, bboxY: piece.y, bboxW: piece.w, bboxH: piece.h, clipMatches }];
+          bqDedupeCache.set(cropHash, emptyResult);
+          return emptyResult;
+
+        } catch (err: any) {
+          const pieceMs = Date.now() - pieceStart;
+          console.warn(`[Brickanalyzer] Piece ${idx} failed (${pieceMs}ms):`, err.message);
+          return [{ partNo: '', partName: piece.roughName || 'Unknown', colorName: piece.colorName || '', confidence: 'low', note: 'identification error', cropIndex: idx, bboxX: piece.x, bboxY: piece.y, bboxW: piece.w, bboxH: piece.h }];
+        }
       }))).flat();
       console.log(`[Brickanalyzer] Step 2b complete: ${pieces.length} pieces in ${((Date.now() - phase2bStart) / 1000).toFixed(1)}s`);
 
