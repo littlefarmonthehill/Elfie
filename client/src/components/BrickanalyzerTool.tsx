@@ -238,6 +238,102 @@ function PomConditionCol({ data, label }: { data: any; label: string }) {
   );
 }
 
+function OverlayPricingPanel({ partNo, itemType, colorEntries }: {
+  partNo: string;
+  itemType: string;
+  colorEntries: Array<{ colorId?: number | null; colorName?: string | null; colorRgb?: string | null }>;
+}) {
+  const [idx, setIdx] = useState(0);
+  const entry = colorEntries[Math.min(idx, colorEntries.length - 1)];
+  const blType = itemType === 'MINIFIG' ? 'MINIFIG' : 'PART';
+  const buildUrl = (cond: 'N' | 'U') => {
+    const p = new URLSearchParams({ new_or_used: cond });
+    if (entry?.colorId != null) p.set('color_id', String(entry.colorId));
+    return `/api/inventory/price-guide/${encodeURIComponent(partNo)}/${blType}?${p}`;
+  };
+  const { data: nData, isLoading: nLoading } = useQuery<any>({
+    queryKey: ['pom-detail', partNo, blType, entry?.colorId ?? null, 'N'],
+    queryFn: async () => { const r = await fetch(buildUrl('N'), { credentials: 'include' }); if (!r.ok) throw new Error('Failed'); return r.json(); },
+    staleTime: 5 * 60 * 1000,
+  });
+  const { data: uData, isLoading: uLoading } = useQuery<any>({
+    queryKey: ['pom-detail', partNo, blType, entry?.colorId ?? null, 'U'],
+    queryFn: async () => { const r = await fetch(buildUrl('U'), { credentials: 'include' }); if (!r.ok) throw new Error('Failed'); return r.json(); },
+    staleTime: 5 * 60 * 1000,
+  });
+  const cachedAt = nData?.fetchedAt ?? uData?.fetchedAt;
+  const loading = nLoading || uLoading;
+  return (
+    <div className="flex flex-col h-full overflow-y-auto">
+      {colorEntries.length > 1 && (
+        <div className="flex gap-2 px-4 pt-3 pb-2 flex-wrap shrink-0">
+          {colorEntries.map((e, i) => (
+            <button
+              key={i}
+              onClick={() => setIdx(i)}
+              className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-medium border transition-colors ${
+                i === idx
+                  ? 'bg-white/10 border-white/20 text-white'
+                  : 'bg-transparent border-white/[0.08] text-gray-400 hover:text-gray-200'
+              }`}
+            >
+              {e.colorRgb && <span className="w-3 h-3 rounded-full shrink-0 border border-white/20" style={{ backgroundColor: `#${e.colorRgb}` }} />}
+              {e.colorName || `Color ${i + 1}`}
+            </button>
+          ))}
+        </div>
+      )}
+      {loading ? (
+        <div className="flex items-center justify-center py-12 gap-2 text-gray-400 text-sm">
+          <Loader2 className="w-4 h-4 animate-spin" /> Loading…
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3 px-4 pt-3 pb-4">
+          {[{ data: nData, label: 'New' }, { data: uData, label: 'Used' }].map(({ data, label }) => (
+            <div key={label} className="rounded-xl bg-white/[0.04] border border-white/[0.06] p-3 space-y-2">
+              <p className="text-[10px] uppercase tracking-widest font-semibold text-gray-300 border-b border-white/[0.08] pb-1.5">{label}</p>
+              {!data ? (
+                <p className="text-xs text-gray-600 text-center py-2">No data</p>
+              ) : (
+                <>
+                  <div>
+                    <p className="text-[9px] uppercase tracking-wider text-gray-500 mb-1">Current Listings</p>
+                    {[['Avg', data.stockAvgPrice], ['Min', data.stockMinPrice], ['Max', data.stockMaxPrice]].map(([l, v]) => (
+                      v != null && <div key={String(l)} className="flex justify-between text-[11px]"><span className="text-gray-500">{l}</span><span className="font-mono text-white tabular-nums">${Number(v).toFixed(2)}</span></div>
+                    ))}
+                    {data.stockQuantity != null && <div className="flex justify-between text-[11px]"><span className="text-gray-500">Qty / Lots</span><span className="font-mono text-gray-300 tabular-nums">{data.stockQuantity} / {data.stockTotalLots ?? '—'}</span></div>}
+                  </div>
+                  <div>
+                    <p className="text-[9px] uppercase tracking-wider text-gray-500 mb-1">Sold (6mo)</p>
+                    {[['Avg', data.soldAvgPrice], ['Min', data.soldMinPrice], ['Max', data.soldMaxPrice]].map(([l, v]) => (
+                      v != null && <div key={String(l)} className="flex justify-between text-[11px]"><span className="text-gray-500">{l}</span><span className="font-mono text-white tabular-nums">${Number(v).toFixed(2)}</span></div>
+                    ))}
+                    {data.soldQuantity != null && <div className="flex justify-between text-[11px]"><span className="text-gray-500">Qty / Lots</span><span className="font-mono text-gray-300 tabular-nums">{data.soldQuantity} / {data.soldTotalLots ?? '—'}</span></div>}
+                  </div>
+                  {data.suggestedPrice != null && (
+                    <div>
+                      <p className="text-[9px] uppercase tracking-wider text-gray-500 mb-1">POM Suggested</p>
+                      <div className="flex justify-between text-[11px]">
+                        <span className="text-gray-500">{data.premiumPercentage ?? 15}% premium</span>
+                        <span className="font-mono font-semibold text-emerald-400 tabular-nums">${Number(data.suggestedPrice).toFixed(2)}</span>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      {cachedAt && (
+        <div className="px-4 pb-3 text-[9px] text-gray-700">
+          Cached: {new Date(cachedAt).toLocaleDateString()}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PomPriceDialog({ target, onClose }: { target: { partNo: string; itemType: string; colorId: number | null; colorName: string; myQtyNew?: number; myPriceNew?: number | null; myQtyUsed?: number; myPriceUsed?: number | null }; onClose: () => void }) {
   const blType = target.itemType === 'MINIFIG' ? 'MINIFIG' : 'PART';
   const buildUrl = (cond: 'N' | 'U') => {
@@ -995,9 +1091,10 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
   const [overlayZoom, setOverlayZoom] = useState(1);
   const [overlayPan, setOverlayPan] = useState({ x: 0, y: 0 });
   const [overlayDragging, setOverlayDragging] = useState(false);
+  const [overlayTab, setOverlayTab] = useState<'matches' | 'pricing' | 'inventory'>('matches');
   const [overlayDragStart, setOverlayDragStart] = useState({ x: 0, y: 0 });
   const [overlayPinchDist, setOverlayPinchDist] = useState<number | null>(null);
-  useEffect(() => { setOverlayZoom(1); setOverlayPan({ x: 0, y: 0 }); }, [focusedDetailCropIndex]);
+  useEffect(() => { setOverlayZoom(1); setOverlayPan({ x: 0, y: 0 }); setOverlayTab('matches'); }, [focusedDetailCropIndex]);
   function handleOverlayWheel(e: React.WheelEvent) {
     e.preventDefault();
     setOverlayZoom(prev => { const next = Math.min(8, Math.max(1, prev - e.deltaY * 0.003)); if (next === 1) setOverlayPan({ x: 0, y: 0 }); return next; });
@@ -2165,11 +2262,37 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                       </div>
                     )}
 
-                    {/* ── Scrollable body ────────────────────────────────── */}
+                    {/* ── Tab bar ──────────────────────────────────────── */}
+                    <div className="shrink-0 flex border-b border-white/[0.06]" style={{ background: '#0c0c12' }}>
+                      {(['matches', 'pricing', 'inventory'] as const).map(tab => (
+                        <button
+                          key={tab}
+                          onClick={() => setOverlayTab(tab)}
+                          className={`flex-1 py-2.5 text-[11px] font-semibold uppercase tracking-wider transition-colors border-b-2 ${
+                            overlayTab === tab
+                              ? 'border-lego-blue text-white'
+                              : 'border-transparent text-gray-500 hover:text-gray-300'
+                          }`}
+                        >
+                          {tab === 'matches' ? 'Best Matches' : tab === 'pricing' ? 'Pricing' : 'My Inventory'}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* ── Tab content ──────────────────────────────────── */}
                     <div className="flex-1 overflow-y-auto min-h-0">
 
-                      {/* ── Best Match blocks (one per detected color) ───── */}
-                      {overlayColorEntries.map((entry, ei) => {
+                      {/* ── PRICING tab ────────────────────────────────── */}
+                      {overlayTab === 'pricing' && focusedGroup.partNo && (
+                        <OverlayPricingPanel
+                          partNo={focusedGroup.partNo}
+                          itemType={focusedGroup.itemType}
+                          colorEntries={overlayColorEntries}
+                        />
+                      )}
+
+                      {/* ── BEST MATCHES tab ───────────────────────────── */}
+                      {overlayTab === 'matches' && overlayColorEntries.map((entry, ei) => {
                         const refHex = overlayRepEntry.colorRgb ?? '';
                         const entryHex = entry.colorRgb ?? '';
                         const colorDe = (refHex && entryHex && refHex !== entryHex) ? colorDeltaE(entryHex, refHex) : null;
@@ -2222,13 +2345,10 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                                 <p className="text-2xl font-bold font-mono text-white leading-none tabular-nums">
                                   {entry.ourPriceNew != null ? `$${entry.ourPriceNew.toFixed(2)}` : <span className="text-gray-600">—</span>}
                                 </p>
-                                {nScore != null && peak != null && (
+                                {nScore != null && (
                                   <div className="flex items-baseline gap-2 flex-wrap">
                                     <span className={`text-base font-bold font-mono leading-none ${overlayScoreColor(nScore)}`}>{nScore}×</span>
-                                    <button
-                                      className="text-[10px] text-purple-400 hover:text-purple-200 underline decoration-dotted bg-transparent border-none p-0 leading-none"
-                                      onClick={e => { e.stopPropagation(); setPricePopupTarget({ partNo: focusedGroup.partNo, itemType: focusedGroup.itemType, colorId: entry.colorId ?? null, colorName: entry.colorName || '', myQtyNew: entry.ourQtyNew, myPriceNew: entry.ourPriceNew, myQtyUsed: entry.ourQtyUsed, myPriceUsed: entry.ourPriceUsed }); }}
-                                    >peak ${peak.toFixed(2)}</button>
+                                    {peak != null && <span className="text-[10px] text-purple-400 font-mono">peak ${peak.toFixed(2)}</span>}
                                   </div>
                                 )}
                                 {nScore == null && peak == null && entry.ourPriceNew == null && (
@@ -2241,13 +2361,10 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                                 <p className="text-2xl font-bold font-mono text-white leading-none tabular-nums">
                                   {entry.ourPriceUsed != null ? `$${entry.ourPriceUsed.toFixed(2)}` : <span className="text-gray-600">—</span>}
                                 </p>
-                                {uScore != null && peak != null && (
+                                {uScore != null && (
                                   <div className="flex items-baseline gap-2 flex-wrap">
                                     <span className={`text-base font-bold font-mono leading-none ${overlayScoreColor(uScore)}`}>{uScore}×</span>
-                                    <button
-                                      className="text-[10px] text-purple-400 hover:text-purple-200 underline decoration-dotted bg-transparent border-none p-0 leading-none"
-                                      onClick={e => { e.stopPropagation(); setPricePopupTarget({ partNo: focusedGroup.partNo, itemType: focusedGroup.itemType, colorId: entry.colorId ?? null, colorName: entry.colorName || '', myQtyNew: entry.ourQtyNew, myPriceNew: entry.ourPriceNew, myQtyUsed: entry.ourQtyUsed, myPriceUsed: entry.ourPriceUsed }); }}
-                                    >peak ${peak.toFixed(2)}</button>
+                                    {peak != null && <span className="text-[10px] text-purple-400 font-mono">peak ${peak.toFixed(2)}</span>}
                                   </div>
                                 )}
                                 {uScore == null && peak == null && entry.ourPriceUsed == null && (
@@ -2259,6 +2376,9 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                           </div>
                         );
                       })}
+
+                      {/* ── MY INVENTORY tab ───────────────────────────── */}
+                      {overlayTab === 'inventory' && (<>
 
                       {/* ── Other color variants ──────────────────────────── */}
                       {(() => {
@@ -2333,10 +2453,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                                         <p className={`text-sm font-bold font-mono leading-none ${overlayScoreColor(bestScore)}`}>{bestScore}×</p>
                                       )}
                                       {lotPeak && (
-                                        <button
-                                          className="text-[9px] text-purple-400 hover:text-purple-200 underline decoration-dotted bg-transparent border-none p-0 mt-0.5 leading-none"
-                                          onClick={e => { e.stopPropagation(); setPricePopupTarget({ partNo: focusedGroup.partNo, itemType: focusedGroup.itemType, colorId: lot.colorId ?? null, colorName: lot.colorName || '', myQtyNew: lot.qtyNew, myPriceNew: lot.priceNew, myQtyUsed: lot.qtyUsed, myPriceUsed: lot.priceUsed }); }}
-                                        >pk ${lotPeak.toFixed(2)}</button>
+                                        <span className="text-[9px] text-purple-400 font-mono mt-0.5 leading-none block">pk ${lotPeak.toFixed(2)}</span>
                                       )}
                                     </div>
                                   </div>
@@ -2407,6 +2524,8 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                           </div>
                         );
                       })()}
+
+                      </>)}
 
                       <div className="h-6" />
                     </div>
