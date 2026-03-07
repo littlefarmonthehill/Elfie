@@ -1092,9 +1092,10 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
   const [overlayPan, setOverlayPan] = useState({ x: 0, y: 0 });
   const [overlayDragging, setOverlayDragging] = useState(false);
   const [overlayTab, setOverlayTab] = useState<'matches' | 'pricing' | 'inventory'>('matches');
+  const [overlayCalibration, setOverlayCalibration] = useState<Record<number, 'correct' | 'close' | 'wrong'>>({});
   const [overlayDragStart, setOverlayDragStart] = useState({ x: 0, y: 0 });
   const [overlayPinchDist, setOverlayPinchDist] = useState<number | null>(null);
-  useEffect(() => { setOverlayZoom(1); setOverlayPan({ x: 0, y: 0 }); setOverlayTab('matches'); }, [focusedDetailCropIndex]);
+  useEffect(() => { setOverlayZoom(1); setOverlayPan({ x: 0, y: 0 }); setOverlayTab('matches'); setOverlayCalibration({}); }, [focusedDetailCropIndex]);
   function handleOverlayWheel(e: React.WheelEvent) {
     e.preventDefault();
     setOverlayZoom(prev => { const next = Math.min(8, Math.max(1, prev - e.deltaY * 0.003)); if (next === 1) setOverlayPan({ x: 0, y: 0 }); return next; });
@@ -2370,6 +2371,34 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                                 {uScore == null && peak == null && entry.ourPriceUsed == null && (
                                   <p className="text-[10px] text-gray-700">No data</p>
                                 )}
+                              </div>
+                            </div>
+
+                            {/* ── How did I do? ─────────────────────────────── */}
+                            <div className="px-4 pb-3 pt-1 border-t border-white/[0.06]">
+                              <p className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold mb-2">How did I do?</p>
+                              <div className="flex gap-2">
+                                {([ 
+                                  { key: 'correct', icon: ThumbsUp,   label: 'Nailed it', activeColor: 'text-emerald-400', activeBg: 'bg-emerald-400/10 border-emerald-400/30' },
+                                  { key: 'close',   icon: Minus,      label: 'Close',     activeColor: 'text-yellow-400', activeBg: 'bg-yellow-400/10 border-yellow-400/30' },
+                                  { key: 'wrong',   icon: ThumbsDown, label: 'Wrong',     activeColor: 'text-red-400',   activeBg: 'bg-red-400/10 border-red-400/30'     },
+                                ] as const).map(({ key, icon: Icon, label, activeColor, activeBg }) => {
+                                  const active = overlayCalibration[ei] === key;
+                                  return (
+                                    <button
+                                      key={key}
+                                      onClick={e => { e.stopPropagation(); setOverlayCalibration(prev => ({ ...prev, [ei]: active ? undefined as any : key })); }}
+                                      className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border text-[10px] font-semibold transition-colors ${
+                                        active
+                                          ? `${activeColor} ${activeBg} border`
+                                          : 'text-gray-600 border-white/[0.06] hover:text-gray-400 hover:border-white/10'
+                                      }`}
+                                    >
+                                      <Icon className="w-3.5 h-3.5 shrink-0" />
+                                      {label}
+                                    </button>
+                                  );
+                                })}
                               </div>
                             </div>
 
