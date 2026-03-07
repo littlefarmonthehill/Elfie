@@ -36,6 +36,7 @@ export const users = pgTable("users", {
   // Multi-tenant org membership
   orgId: varchar("org_id"),                                        // FK → organizations.id
   orgRole: varchar("org_role").default("owner"),                   // 'owner' | 'admin' | 'member'
+  superAdmin: boolean("super_admin").notNull().default(false),     // platform-level super admin
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({
@@ -51,7 +52,7 @@ export const organizations = pgTable("organizations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: varchar("name").notNull(),
   slug: varchar("slug").unique().notNull(),          // URL-safe lowercase identifier
-  plan: varchar("plan").notNull().default("free"),   // 'free' | 'pro' | 'enterprise'
+  plan: varchar("plan").notNull().default("foundation"),   // 'foundation' | 'core'
   isActive: boolean("is_active").notNull().default(true),
   address: text("address"),
   phone: varchar("phone", { length: 50 }),
@@ -60,6 +61,18 @@ export const organizations = pgTable("organizations", {
   onboardingCompleted: boolean("onboarding_completed").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  // Stripe billing
+  stripeCustomerId: varchar("stripe_customer_id"),
+  stripeSubscriptionId: varchar("stripe_subscription_id"),
+  subscriptionStatus: varchar("subscription_status").default('trial').notNull(), // 'active'|'past_due'|'canceled'|'trial'
+  subscriptionInterval: varchar("subscription_interval").default('monthly').notNull(), // 'monthly'|'annual'
+  // BrickSpotter monthly scan tracking
+  brickspotterScansThisMonth: integer("brickspotter_scans_this_month").notNull().default(0),
+  brickspotterScansResetDate: timestamp("brickspotter_scans_reset_date").defaultNow().notNull(),
+  // Per-org limit overrides (null = use tier default)
+  seatLimitOverride: integer("seat_limit_override"),
+  brickspotterLimitOverride: integer("brickspotter_limit_override"),
+  automationLimitOverride: integer("automation_limit_override"),
 });
 
 export const insertOrganizationSchema = createInsertSchema(organizations).omit({

@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated, isApproved, isOrgOwner, getOrgId } from "./auth";
+import { setupAuth, isAuthenticated, isApproved, isOrgOwner, getOrgId, isSuperAdmin } from "./auth";
 import { syncBricklinkData, fetchPriceOMagicData, searchBricklinkCatalogItem, syncPriceOMagicCache, requestPomSyncStop, getPomFormulaConfig, calculateSuggestedPriceWithSupply, applyPomFloors, bricklinkCatalogRequest } from "./services/bricklink";
 import { getPomIsRunning, setPomIsRunning } from "./services/pom-scheduler";
 import { syncLock } from "./services/sync-lock";
@@ -11,12 +11,14 @@ import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBacku
 import { getProcessedPartImage, processImageFromUrl } from "./services/image-proxy";
 import { db } from "./db";
 import { users, organizations, orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, scanEmbeddings, orgIntegrations } from "@shared/schema";
-import { eq, desc, sql, inArray, like, or, and, isNotNull, isNull, ne } from "drizzle-orm";
+import { eq, desc, sql, inArray, like, or, and, isNotNull, isNull, ne, count } from "drizzle-orm";
 import { z } from "zod";
 import multer from "multer";
 import FormData from "form-data";
 import axios from "axios";
 import OpenAI from "openai";
+import { checkBrickspotterLimit, incrementBrickspotterScan, getOrgWithLimits, checkSeatLimit, checkAutomationLimit } from "./services/tierEnforcement";
+import { stripeClient, createCheckoutSession, createPortalSession, handleStripeWebhook } from "./services/stripe";
 
 // Decode HTML entities from BrickLink notes for accurate comparison.
 // Regex compiled once at module level; single-pass replace with a lookup table.
@@ -264,7 +266,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 </html>`);
   });
 
-  // Auth routes - authenticated but may not be approved
+  // GET /api/auth/user — authenticated but may not be approved
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
       const user = req.user;
@@ -272,6 +274,188 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  // ─── Platform Admin routes (Super Admin Only) ───────────────────────────
+
+  // GET /api/platform-admin/orgs — all orgs with usage stats (superAdmin only)
+  app.get('/api/platform-admin/orgs', isSuperAdmin, async (_req, res) => {
+    try {
+      const orgs = await db.select().from(organizations).orderBy(desc(organizations.createdAt));
+      
+      // Get user counts for all orgs
+      const userCounts = await db
+        .select({ orgId: users.orgId, count: count() })
+        .from(users)
+        .groupBy(users.orgId);
+      
+      const userCountMap = new Map(userCounts.map(u => [u.orgId, u.count]));
+
+      const result = orgs.map(org => {
+        const limits = getEffectiveLimits(org);
+        return {
+          ...org,
+          userCount: userCountMap.get(org.id) || 0,
+          limits,
+        };
+      });
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching platform orgs:", error);
+      res.status(500).json({ message: "Failed to fetch organizations" });
+    }
+  });
+
+  // GET /api/platform-admin/stats — platform-level stats
+  app.get('/api/platform-admin/stats', isSuperAdmin, async (_req, res) => {
+    try {
+      const [orgStats] = await db.select({ count: count() }).from(organizations);
+      const [userStats] = await db.select({ count: count() }).from(users);
+      const [activeSubs] = await db.select({ count: count() }).from(organizations).where(eq(organizations.subscriptionStatus, 'active'));
+
+      res.json({
+        totalOrganizations: orgStats.count,
+        totalUsers: userStats.count,
+        activeSubscriptions: activeSubs.count,
+      });
+    } catch (error) {
+      console.error("Error fetching platform stats:", error);
+      res.status(500).json({ message: "Failed to fetch platform stats" });
+    }
+  });
+
+  // POST /api/admin/organizations/:id/plan — super admin changes org plan
+  app.post('/api/admin/organizations/:id/plan', isSuperAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { plan } = req.body;
+      if (!['foundation', 'core'].includes(plan)) {
+        return res.status(400).json({ message: "Invalid plan" });
+      }
+      const [updated] = await db.update(organizations).set({ plan, updatedAt: new Date() }).where(eq(organizations.id, id)).returning();
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating org plan:", error);
+      res.status(500).json({ message: "Failed to update organization plan" });
+    }
+  });
+
+  // GET /api/admin/organizations/:id/limits — get org's current usage vs limits
+  app.get('/api/admin/organizations/:id/limits', isAuthenticated, async (req, res) => {
+    try {
+      const { id } = req.params;
+      // Ensure user belongs to this org OR is superAdmin
+      const user = req.user as any;
+      if (user.orgId !== id && !user.superAdmin) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const orgWithLimits = await getOrgWithLimits(id);
+      if (!orgWithLimits) return res.status(404).json({ message: "Organization not found" });
+
+      const seatCheck = await checkSeatLimit(id);
+      const automationCheck = await checkAutomationLimit(id);
+      const brickspotterCheck = await checkBrickspotterLimit(id);
+
+      res.json({
+        plan: orgWithLimits.plan,
+        limits: orgWithLimits.limits,
+        usage: {
+          seats: seatCheck,
+          automationRules: automationCheck,
+          brickspotterScans: brickspotterCheck,
+        }
+      });
+    } catch (error) {
+      console.error("Error fetching org limits:", error);
+      res.status(500).json({ message: "Failed to fetch organization limits" });
+    }
+  });
+
+  // PATCH /api/admin/organizations/:id/overrides — set seat/scan/automation overrides
+  app.patch('/api/admin/organizations/:id/overrides', isSuperAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { seatLimitOverride, brickspotterLimitOverride, automationLimitOverride } = req.body;
+      
+      const updates: any = { updatedAt: new Date() };
+      if (seatLimitOverride !== undefined) updates.seatLimitOverride = seatLimitOverride;
+      if (brickspotterLimitOverride !== undefined) updates.brickspotterLimitOverride = brickspotterLimitOverride;
+      if (automationLimitOverride !== undefined) updates.automationLimitOverride = automationLimitOverride;
+
+      const [updated] = await db.update(organizations).set(updates).where(eq(organizations.id, id)).returning();
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating overrides:", error);
+      res.status(500).json({ message: "Failed to update overrides" });
+    }
+  });
+
+  // ─── Billing routes ──────────────────────────────────────────────────────────
+
+  // POST /api/billing/checkout — create Stripe checkout session
+  app.post('/api/billing/checkout', isAuthenticated, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const { plan, interval } = req.body;
+      if (!['foundation', 'core'].includes(plan)) return res.status(400).json({ message: "Invalid plan" });
+      if (!['monthly', 'annual'].includes(interval)) return res.status(400).json({ message: "Invalid interval" });
+
+      const successUrl = `${req.protocol}://${req.get('host')}/settings?tab=billing&session_id={CHECKOUT_SESSION_ID}`;
+      const cancelUrl = `${req.protocol}://${req.get('host')}/settings?tab=billing`;
+
+      const session = await createCheckoutSession(orgId, plan, interval, successUrl, cancelUrl);
+      res.json({ url: session.url });
+    } catch (error: any) {
+      console.error("Stripe checkout error:", error);
+      res.status(500).json({ message: error.message || "Failed to create checkout session" });
+    }
+  });
+
+  // POST /api/billing/portal — create customer portal session
+  app.post('/api/billing/portal', isAuthenticated, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const returnUrl = `${req.protocol}://${req.get('host')}/settings?tab=billing`;
+      const session = await createPortalSession(orgId, returnUrl);
+      res.json({ url: session.url });
+    } catch (error: any) {
+      console.error("Stripe portal error:", error);
+      res.status(500).json({ message: error.message || "Failed to create portal session" });
+    }
+  });
+
+  // GET /api/billing/status — get org subscription status
+  app.get('/api/billing/status', isAuthenticated, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const org = await storage.getOrganization(orgId);
+      if (!org) return res.status(404).json({ message: "Organization not found" });
+      
+      res.json({
+        plan: org.plan,
+        status: org.subscriptionStatus,
+        interval: org.subscriptionInterval,
+        hasStripeCustomer: !!org.stripeCustomerId,
+      });
+    } catch (error) {
+      console.error("Error fetching billing status:", error);
+      res.status(500).json({ message: "Failed to fetch billing status" });
+    }
+  });
+
+  // POST /api/billing/webhook — handle subscription events
+  // Use express.raw() for Stripe webhook to verify signature
+  app.post('/api/billing/webhook', async (req, res) => {
+    const sig = req.headers['stripe-signature'] as string;
+    try {
+      await handleStripeWebhook((req as any).rawBody || req.body, sig);
+      res.json({ received: true });
+    } catch (err: any) {
+      console.error("Webhook error:", err.message);
+      res.status(400).send(`Webhook Error: ${err.message}`);
     }
   });
 
@@ -4944,10 +5128,29 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       if (!req.file) return res.status(400).json({ error: "No image provided" });
       const orgId = reqOrgId(req);
 
+      // Check BrickSpotter limit
+      const limitCheck = await checkBrickspotterLimit(orgId);
+      if (!limitCheck.allowed) {
+        return res.status(429).json({ 
+          error: limitCheck.message,
+          nudge: limitCheck.nudgeLevel,
+          upgradeUrl: "/settings?tab=billing" 
+        });
+      }
+
       const [scan] = await db.insert(brickanalyzerScans).values({
         status: 'processing',
         orgId,
       }).returning();
+
+      // Increment scan count
+      await incrementBrickspotterScan(orgId);
+
+      // If approaching limit, add nudge header
+      if (limitCheck.nudgeLevel !== 'none') {
+        res.setHeader('X-Tier-Nudge', limitCheck.nudgeLevel);
+        res.setHeader('X-Tier-Message', limitCheck.message || '');
+      }
 
       // Parse scan settings passed as a JSON string form field
       let settings: Record<string, number> = {};

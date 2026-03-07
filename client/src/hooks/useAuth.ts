@@ -14,5 +14,6 @@ export function useAuth() {
     isAuthenticated: !!user,
     isApproved: user?.isApproved ?? false,
     isAdmin: user?.role === 'admin' || user?.role === 'employee',
+    superAdmin: user?.superAdmin ?? false,
   };
 }

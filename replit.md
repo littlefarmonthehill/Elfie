@@ -66,6 +66,32 @@ The frontend uses React 18+, TypeScript, Vite, Shadcn/ui, and Tailwind CSS, feat
 -   **Backup & Restore System:** Production-ready disaster recovery with manual and automatic restore options, including Neon PITR.
 -   **Brickanalyzer (Brick Spotter 3000):** Multi-piece LEGO scanning tool accessible from the Inventory tab. Contour-based segmentation isolates individual pieces, then runs two recognition paths in parallel: (1) Brickognize API for part/fig classification, and (2) CLIP ViT-B/32 visual embedding against `scan_embeddings` pgvector table for visual similarity search (512-dim). CLIP embeddings are built from BrickLink CDN reference images (`/api/brickspotter/build-catalog`) and improve over time as confirmed scans are stored via `/api/brickspotter/confirm-embedding`. Results include `clipMatches[]` (itemNo, colorId, similarity) alongside Brickognize results. Each scan result is cross-referenced against live POM inventory for pricing. Data is ephemeral — stored temporarily in `brickanalyzer_scans` DB table and permanently deleted when the user dismisses or closes the scan. Python segment_service.py hosts CLIP at `/embed` and `/embed-url` endpoints; model warmed up at startup alongside SAM.
 
+## Subscription Tier System
+
+PlanetBrick is a multi-tenant SaaS with two subscription tiers:
+
+### Foundation ($39/mo, $390/yr)
+- BrickLink sync, full inventory management, PayPal/Stripe payment sync
+- E.L.F.I.E. Search Mode only (no AI mode)
+- 2 users, 1 year order history, 25 BrickSpotter scans/month, 1 automation rule
+- No BrickOwl, no Price-o-Matic, EasyPost manual only
+
+### Core ($99/mo, $990/yr)
+- Everything in Foundation + BrickOwl sync, E.L.F.I.E. AI Mode, Price-o-Matic
+- 5 users, full order history, unlimited BrickSpotter scans, unlimited automation rules
+- EasyPost with automated rules, full data enrichment
+
+### Infrastructure
+- **shared/tierConfig.ts**: `TIER_CONFIG`, `getEffectiveLimits()`, `isFeatureEnabled()`, `checkLimit()` (nudge levels: none/warning/critical/blocked at 80%/90%/100%)
+- **server/services/tierEnforcement.ts**: `checkBrickspotterLimit()`, `incrementBrickspotterScan()`, `checkSeatLimit()`, `checkAutomationLimit()`, `isFeatureAllowed()`
+- **server/services/stripe.ts**: Lazy Stripe client (requires `STRIPE_SECRET_KEY`), `createCheckoutSession()`, `createPortalSession()`, `handleStripeWebhook()`
+- **Billing routes**: `POST /api/billing/checkout`, `POST /api/billing/portal`, `GET /api/billing/status`, `POST /api/billing/webhook`
+- **Platform admin routes** (superAdmin only): `GET /api/platform-admin/orgs`, `GET /api/platform-admin/stats`, `POST /api/admin/organizations/:id/plan`, `PATCH /api/admin/organizations/:id/overrides`
+- **Schema additions**: `organizations.plan` ('foundation'|'core'), Stripe fields, `brickspotterScansThisMonth`, `brickspotterScansResetDate`, override columns; `users.superAdmin` boolean
+- **Super admin panel**: `/platform-admin` page — accessible only if `user.superAdmin === true` (APPROVED_ADMINS in server/auth.ts auto-set to true)
+- **Settings → Billing & Plan**: Usage meters (BrickSpotter, team seats), current plan, interval toggle, Upgrade/Manage buttons
+- **Stripe env vars needed**: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_FOUNDATION_MONTHLY_PRICE_ID`, `STRIPE_FOUNDATION_ANNUAL_PRICE_ID`, `STRIPE_CORE_MONTHLY_PRICE_ID`, `STRIPE_CORE_ANNUAL_PRICE_ID`
+
 ## External Dependencies
 
 -   **BrickLink API:** LEGO inventory, categories, colors, orders, and market data.

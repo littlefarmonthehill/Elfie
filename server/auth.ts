@@ -142,6 +142,7 @@ export async function setupAuth(app: Express) {
       // Auto-approve admins (Blake and Caleb get admin role and auto-approval)
       const isApproved = APPROVED_ADMINS.includes(email);
       const role = isApproved ? "admin" : "customer";
+      const superAdmin = isApproved; // APPROVED_ADMINS are also superAdmins
 
       // Org assignment: admins join PlanetBrick default org; new users get their own org
       let orgId: string;
@@ -153,7 +154,7 @@ export async function setupAuth(app: Express) {
         const suffix = Math.floor(1000 + Math.random() * 9000);
         const slug = `${baseSlug}${suffix}`;
         const orgName = firstName ? `${firstName}'s Store` : `${email.split('@')[0]}'s Store`;
-        const newOrg = await storage.createOrganization({ name: orgName, slug, plan: 'free' });
+        const newOrg = await storage.createOrganization({ name: orgName, slug, plan: 'foundation' });
         orgId = newOrg.id;
       }
 
@@ -167,6 +168,7 @@ export async function setupAuth(app: Express) {
         role,
         orgId,
         orgRole,
+        superAdmin,
       });
 
       // Regenerate session to prevent session fixation
@@ -281,6 +283,14 @@ export const isAuthenticated: RequestHandler = (req, res, next) => {
     return next();
   }
   res.status(401).json({ message: "Unauthorized" });
+};
+
+// superAdmin middleware - checks if user is a platform superAdmin
+export const isSuperAdmin: RequestHandler = (req, res, next) => {
+  if (req.isAuthenticated() && (req.user as any)?.superAdmin) {
+    return next();
+  }
+  res.status(403).json({ message: "Super admin access required" });
 };
 
 // Approval middleware - user must be authenticated and approved

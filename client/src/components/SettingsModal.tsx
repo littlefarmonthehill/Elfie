@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { AppSettings, User, Organization, OrgIntegration } from "@shared/schema";
 import { APP_VERSION, APP_NAME } from "@shared/version";
-import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Info, Layers, Play, Loader2, ChevronDown, ChevronRight, ChevronLeft, BarChart2, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock, LogOut } from "lucide-react";
+import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Info, Layers, Play, Loader2, ChevronDown, ChevronRight, ChevronLeft, BarChart2, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock, LogOut, CreditCard } from "lucide-react";
 import { PomCategoryTiers } from "@/components/PomCategoryTiers";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -21,12 +21,15 @@ import { EmbeddingsManager } from "@/components/EmbeddingsManager";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { TIER_CONFIG, getTierConfig, getEffectiveLimits, checkLimit, formatPrice, type PlanType } from "@shared/tierConfig";
 
 interface SettingsModalProps {
   open: boolean;
   onClose: () => void;
-  initialSection?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'users';
+  initialSection?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'users' | 'billing';
 }
+
+type ActiveSection = 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'users' | 'billing' | null;
 
 // ── API Call Schedule Chart ────────────────────────────────────────────────
 function ApiCallSchedule({ buckets, callsLast24h, ceiling, timezone = 'America/Chicago' }: {
@@ -305,7 +308,7 @@ const ROLE_META: Record<string, { label: string; description: string; color: str
 };
 
 // User Management Section Component (Admin Only)
-function UserManagementSection() {
+function UserManagementSection({ userCount }: { userCount?: number }) {
   const { toast } = useToast();
   const { isAdmin, user: currentUser } = useAuth();
 
@@ -708,7 +711,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
   const [elfieMode, setElfieMode] = useState<'search' | 'ai'>('search');
 
-  const [activeSection, setActiveSection] = useState<'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'users' | null>(initialSection ?? null);
+  const [activeSection, setActiveSection] = useState<ActiveSection>(initialSection ?? null);
 
   const { data: settings } = useQuery<AppSettings>({
     queryKey: ['/api/settings'],
@@ -817,6 +820,34 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   });
 
   const [showClearPomDialog, setShowClearPomDialog] = useState(false);
+
+  const [billingInterval, setBillingInterval] = useState<'monthly' | 'annual'>('monthly');
+
+  const checkoutMutation = useMutation({
+    mutationFn: async ({ plan, interval }: { plan: string; interval: string }) => {
+      const res = await apiRequest('POST', '/api/billing/checkout', { plan, interval });
+      return res as { url: string };
+    },
+    onSuccess: (data) => {
+      if (data?.url) window.location.href = data.url;
+    },
+    onError: (error: any) => {
+      toast({ title: "Billing Error", description: error.message || "Could not start checkout. Make sure Stripe is configured.", variant: "destructive" });
+    },
+  });
+
+  const portalMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', '/api/billing/portal', {});
+      return res as { url: string };
+    },
+    onSuccess: (data) => {
+      if (data?.url) window.location.href = data.url;
+    },
+    onError: (error: any) => {
+      toast({ title: "Billing Error", description: error.message || "Could not open billing portal. Make sure Stripe is configured.", variant: "destructive" });
+    },
+  });
 
   const clearPomCacheMutation = useMutation({
     mutationFn: async () => {
@@ -1239,13 +1270,28 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     }
   }
 
+  const { data: users } = useQuery<User[]>({
+    queryKey: ['/api/admin/users'],
+    enabled: open && isAdmin,
+  });
+
+  const { data: orgLimits } = useQuery<any>({
+    queryKey: ['/api/admin/organizations', org?.id, 'limits'],
+    enabled: !!org?.id && isAdmin,
+  });
+
+  const effectiveLimits = getEffectiveLimits(org ?? { plan: 'foundation' });
+  const bsCheck = checkLimit(org?.brickspotterScansThisMonth ?? 0, effectiveLimits.brickspotterScansPerMonth, 'BrickSpotter scans');
+  const userCheck = checkLimit(users?.length ?? 0, effectiveLimits.seats, 'team seats');
+
   const navigationItems = [
     { id: 'general' as const, label: 'Organization', icon: Settings },
-    { id: 'platforms' as const, label: 'Platforms', icon: Package },
+    { id: 'billing' as const, label: 'Billing & Plan', icon: CreditCard },
+    { id: 'platforms' as const, label: 'Platforms', icon: Layers },
     ...(isAdmin ? [{ id: 'users' as const, label: 'Team & Roles', icon: Users }] : []),
-    { id: 'automation' as const, label: 'Automation', icon: Clock },
-    { id: 'ai' as const, label: 'Data Enrichment', icon: Sparkles },
-    { id: 'data' as const, label: 'Backup & Clear', icon: Database },
+    { id: 'automation' as const, label: 'Automation', icon: Play },
+    { id: 'data' as const, label: 'Data Enrichment', icon: Database },
+    { id: 'ai' as const, label: 'E.L.F.I.E.', icon: Brain },
   ];
 
   return (
@@ -1576,6 +1622,169 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                 </DialogContent>
               </Dialog>
 
+              </div>
+            )}
+
+            {/* Billing & Plan */}
+            {activeSection === 'billing' && (
+              <div className="space-y-6 min-h-[400px]">
+                {/* Nudge Banners */}
+                {(bsCheck.nudgeLevel === 'warning' || bsCheck.nudgeLevel === 'critical' || userCheck.nudgeLevel === 'warning' || userCheck.nudgeLevel === 'critical') && (
+                  <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 flex items-start gap-3">
+                    <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-amber-200">Approaching Plan Limits</p>
+                      <p className="text-[11px] text-amber-500/80 leading-relaxed">
+                        {bsCheck.message} {userCheck.message}
+                      </p>
+                      {org?.plan === 'foundation' && (
+                        <button 
+                          onClick={() => checkoutMutation.mutate({ plan: 'core', interval: billingInterval })}
+                          disabled={checkoutMutation.isPending}
+                          className="text-[11px] font-bold text-amber-400 hover:text-amber-300 underline underline-offset-2"
+                        >
+                          Upgrade to Core for unlimited access
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Current Plan Card */}
+                <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-300">Current Plan</h3>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-lg font-bold text-white capitalize">{org?.plan ?? 'Foundation'}</span>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium uppercase tracking-wider ${
+                          org?.subscriptionStatus === 'active' ? 'bg-green-500/10 text-green-400 border border-green-500/20' :
+                          org?.subscriptionStatus === 'trial' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
+                          'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                        }`}>
+                          {org?.subscriptionStatus ?? 'Trial'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-gray-500 mb-1">
+                        {org?.plan === 'foundation' ? 'Upgrade Billing' : 'Billing Interval'}
+                      </p>
+                      {org?.plan === 'foundation' ? (
+                        <div className="flex items-center gap-1 text-xs">
+                          <button
+                            onClick={() => setBillingInterval('monthly')}
+                            className={`px-2 py-0.5 rounded text-xs ${billingInterval === 'monthly' ? 'bg-gray-600 text-white' : 'text-gray-500 hover:text-gray-300'}`}
+                            data-testid="button-billing-monthly"
+                          >Monthly</button>
+                          <button
+                            onClick={() => setBillingInterval('annual')}
+                            className={`px-2 py-0.5 rounded text-xs ${billingInterval === 'annual' ? 'bg-gray-600 text-white' : 'text-gray-500 hover:text-gray-300'}`}
+                            data-testid="button-billing-annual"
+                          >Annual <span className="text-green-400">−17%</span></button>
+                        </div>
+                      ) : (
+                        <p className="text-sm font-medium text-gray-300 capitalize">{org?.subscriptionInterval ?? 'Monthly'}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    {org?.plan === 'foundation' ? (
+                      <Button 
+                        className="flex-1 bg-purple-600"
+                        onClick={() => checkoutMutation.mutate({ plan: 'core', interval: billingInterval })}
+                        disabled={checkoutMutation.isPending}
+                        data-testid="button-upgrade-core"
+                      >
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        {checkoutMutation.isPending ? 'Redirecting...' : 'Upgrade to Core'}
+                      </Button>
+                    ) : (
+                      <Button 
+                        variant="outline" 
+                        className="flex-1 border-gray-600"
+                        onClick={() => portalMutation.mutate()}
+                        disabled={portalMutation.isPending}
+                        data-testid="button-manage-subscription"
+                      >
+                        {portalMutation.isPending ? 'Opening...' : 'Manage Subscription'}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Usage Meters */}
+                <div className="space-y-4">
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Usage & Limits</h3>
+                  
+                  <div className="grid gap-4">
+                    {/* BrickSpotter Scans */}
+                    <div className="bg-gray-900/40 border border-gray-800 rounded-lg p-3 space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-gray-400 flex items-center gap-1.5">
+                          <Eye className="w-3.5 h-3.5" />
+                          BrickSpotter Scans
+                        </span>
+                        <span className="font-mono text-gray-300">
+                          {org?.brickspotterScansThisMonth ?? 0} / {effectiveLimits.brickspotterScansPerMonth === -1 ? '∞' : effectiveLimits.brickspotterScansPerMonth}
+                        </span>
+                      </div>
+                      <Progress 
+                        value={effectiveLimits.brickspotterScansPerMonth === -1 ? 0 : Math.min(((org?.brickspotterScansThisMonth ?? 0) / effectiveLimits.brickspotterScansPerMonth) * 100, 100)} 
+                        className="h-1.5"
+                      />
+                      <p className="text-[10px] text-gray-500">Resets on {org?.brickspotterScansResetDate ? new Date(org.brickspotterScansResetDate).toLocaleDateString() : '—'}</p>
+                    </div>
+
+                    {/* Team Seats */}
+                    <div className="bg-gray-900/40 border border-gray-800 rounded-lg p-3 space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-gray-400 flex items-center gap-1.5">
+                          <Users className="w-3.5 h-3.5" />
+                          Team Seats
+                        </span>
+                        <span className="font-mono text-gray-300">
+                          {users?.length ?? 0} / {effectiveLimits.seats}
+                        </span>
+                      </div>
+                      <Progress 
+                        value={Math.min(((users?.length ?? 0) / effectiveLimits.seats) * 100, 100)} 
+                        className="h-1.5"
+                      />
+                      <p className="text-[10px] text-gray-500">Manage seats in Team & Roles</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Plan Comparison */}
+                <div className="space-y-3">
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Plan Comparison</h3>
+                  <div className="border border-gray-700 rounded-lg divide-y divide-gray-700 overflow-hidden">
+                    {[
+                      { feature: 'BrickLink Sync', foundation: true, core: true },
+                      { feature: 'BrickOwl Sync', foundation: false, core: true },
+                      { feature: 'E.L.F.I.E. AI Mode', foundation: false, core: true },
+                      { feature: 'Price-o-Matic', foundation: false, core: true },
+                      { feature: 'Auto-Shipping Rules', foundation: false, core: true },
+                      { feature: 'Unlimited Scans', foundation: false, core: true },
+                    ].map((f, i) => (
+                      <div key={i} className="flex items-center justify-between p-3 text-xs">
+                        <span className="text-gray-300">{f.feature}</span>
+                        <div className="flex gap-4">
+                          <div className="flex items-center gap-1.5 w-20 justify-end">
+                            <span className="text-[10px] text-gray-500 uppercase">Fdn</span>
+                            {f.foundation ? <CheckCircle2 className="w-3.5 h-3.5 text-green-500" /> : <Lock className="w-3.5 h-3.5 text-gray-600" />}
+                          </div>
+                          <div className="flex items-center gap-1.5 w-20 justify-end">
+                            <span className="text-[10px] text-gray-500 uppercase">Core</span>
+                            {f.core ? <CheckCircle2 className="w-3.5 h-3.5 text-green-500" /> : <Lock className="w-3.5 h-3.5 text-gray-600" />}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
 
@@ -3546,7 +3755,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
             {/* Team & Roles (Admin Only) */}
             {activeSection === 'users' && (
-              <UserManagementSection />
+              <UserManagementSection userCount={users?.length} />
             )}
                 </div>
               )}

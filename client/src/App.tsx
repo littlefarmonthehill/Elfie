@@ -9,15 +9,30 @@ import Home from "@/pages/home";
 import Login from "@/pages/login";
 import Signup from "@/pages/signup";
 import PendingApproval from "@/pages/pending-approval";
+import PlatformAdmin from "@/pages/platform-admin";
 import NotFound from "@/pages/not-found";
 
 function Router() {
-  const { isAuthenticated, isApproved, isLoading, isAdmin } = useAuth();
+  const { isAuthenticated, isApproved, isLoading, superAdmin } = useAuth();
 
   return (
     <Switch>
       <Route path="/login" component={Login} />
       <Route path="/signup" component={Signup} />
+
+      <Route path="/platform-admin">
+        {isLoading ? (
+          <div className="min-h-screen flex items-center justify-center bg-background">
+            <div className="flex flex-col items-center gap-4">
+              <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            </div>
+          </div>
+        ) : !isAuthenticated || !superAdmin ? (
+          <Redirect to="/" />
+        ) : (
+          <PlatformAdmin />
+        )}
+      </Route>
 
       <Route path="/admin">
         <Redirect to="/" />
