@@ -2271,10 +2271,30 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                     const hiThresh = maxPrice * 0.60;
                     const midThresh = maxPrice * 0.25;
                     const tierStyle = {
-                      high:   { fill: 'rgba(239,68,68,0.38)',   border: 'rgb(239,68,68)',    label: '#fca5a5', badge: 'rgba(127,29,29,0.85)'  },
-                      medium: { fill: 'rgba(251,146,60,0.35)',  border: 'rgb(251,146,60)',   label: '#fdba74', badge: 'rgba(124,45,18,0.85)'  },
-                      low:    { fill: 'rgba(250,204,21,0.28)',  border: 'rgb(250,204,21)',   label: '#fde68a', badge: 'rgba(120,80,0,0.85)'   },
-                      none:   { fill: 'rgba(107,114,128,0.18)', border: 'rgb(107,114,128)',  label: '#9ca3af', badge: 'rgba(17,24,39,0.80)'  },
+                      high:   {
+                        fill: 'rgba(239,68,68,0.06)',
+                        border: 'rgba(239,68,68,0.95)',
+                        glow: '0 0 12px 4px rgba(239,68,68,0.65), 0 0 4px 1px rgba(239,68,68,0.9), inset 0 0 10px 2px rgba(239,68,68,0.22)',
+                        label: '#fca5a5', badge: 'rgba(127,29,29,0.92)',
+                      },
+                      medium: {
+                        fill: 'rgba(251,146,60,0.05)',
+                        border: 'rgba(251,146,60,0.95)',
+                        glow: '0 0 10px 3px rgba(251,146,60,0.55), 0 0 3px 1px rgba(251,146,60,0.85), inset 0 0 8px 2px rgba(251,146,60,0.18)',
+                        label: '#fdba74', badge: 'rgba(124,45,18,0.92)',
+                      },
+                      low:    {
+                        fill: 'rgba(250,204,21,0.04)',
+                        border: 'rgba(250,204,21,0.9)',
+                        glow: '0 0 8px 2px rgba(250,204,21,0.45), 0 0 3px 1px rgba(250,204,21,0.75), inset 0 0 6px 2px rgba(250,204,21,0.14)',
+                        label: '#fde68a', badge: 'rgba(120,80,0,0.92)',
+                      },
+                      none:   {
+                        fill: 'transparent',
+                        border: 'rgba(107,114,128,0.40)',
+                        glow: 'none',
+                        label: '#6b7280', badge: 'rgba(17,24,39,0.80)',
+                      },
                     };
                     return (
                       <>
@@ -2301,15 +2321,21 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                                 top:    `${r.bboxY}%`,
                                 width:  `${r.bboxW}%`,
                                 height: `${r.bboxH}%`,
-                                background: heatmapCropFocus === r.cropIndex ? 'rgba(20,184,166,0.30)' : ts.fill,
-                                border: heatmapCropFocus === r.cropIndex ? '3px solid rgb(20,184,166)' : `2px solid ${ts.border}`,
-                                boxShadow: heatmapCropFocus === r.cropIndex ? '0 0 0 3px rgba(20,184,166,0.4), 0 0 20px 4px rgba(20,184,166,0.25)' : undefined,
-                                transition: 'filter 0.15s',
+                                background: heatmapCropFocus === r.cropIndex ? 'rgba(20,184,166,0.08)' : ts.fill,
+                                border: heatmapCropFocus === r.cropIndex ? '2px solid rgba(20,184,166,0.95)' : `2px solid ${ts.border}`,
+                                boxShadow: heatmapCropFocus === r.cropIndex
+                                  ? '0 0 14px 5px rgba(20,184,166,0.65), 0 0 4px 1px rgba(20,184,166,0.9), inset 0 0 10px 2px rgba(20,184,166,0.22)'
+                                  : (tier !== 'none' ? ts.glow : 'none'),
+                                transition: 'box-shadow 0.15s, filter 0.15s',
                                 overflow: 'visible',
                                 cursor: 'pointer',
                               }}
-                              onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.filter = 'brightness(1.35)')}
-                              onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.filter = '')}
+                              onMouseEnter={(e) => {
+                                (e.currentTarget as HTMLElement).style.filter = 'brightness(1.4) saturate(1.2)';
+                              }}
+                              onMouseLeave={(e) => {
+                                (e.currentTarget as HTMLElement).style.filter = '';
+                              }}
                               data-testid={`scan-overlay-inline-${r.cropIndex ?? i}`}
                             >
                               <span
