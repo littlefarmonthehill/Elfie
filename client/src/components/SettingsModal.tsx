@@ -715,6 +715,15 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
   const [activeSection, setActiveSection] = useState<ActiveSection>(initialSection ?? null);
 
+  // Sync activeSection whenever the modal opens with a specific initialSection.
+  // useState only uses its initial value on first mount, so without this effect
+  // clicking a dashboard action item with a different section would have no effect.
+  useEffect(() => {
+    if (open && initialSection) {
+      setActiveSection(initialSection);
+    }
+  }, [open, initialSection]);
+
   const { data: settings } = useQuery<AppSettings>({
     queryKey: ['/api/settings'],
     enabled: open,
