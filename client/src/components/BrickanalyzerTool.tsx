@@ -46,6 +46,7 @@ interface ScanResult {
   marketSoldAvgNew?: number | null;
   marketSoldAvgUsed?: number | null;
   stockAvgPriceN?: number | null;
+  stockAvgPriceU?: number | null;
   thumbnailUrl: string | null;
   bestPrice: number | null;
   categoryId?: number | null;
@@ -1093,7 +1094,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
   // Focused crop index for heatmap dialog — highlights one box when opening from card header
   const [heatmapCropFocus, setHeatmapCropFocus] = useState<number | null>(null);
   // Heatmap price toggles
-  const [heatmapMode, setHeatmapMode] = useState<'newMax' | 'newAvg' | 'usedMax' | 'usedAvg'>('newMax');
+  const [heatmapMode, setHeatmapMode] = useState<'newMax' | 'newAvg' | 'newListed' | 'usedMax' | 'usedAvg' | 'usedListed'>('newMax');
   // Focused detail view — when set, shows crop image + single card instead of full list
   const [focusedDetailCropIndex, setFocusedDetailCropIndex] = useState<number | null>(null);
   // POM price popup target
@@ -2059,16 +2060,18 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                   {/* Price mode toggle */}
                   <div className="flex rounded overflow-hidden border border-gray-700 text-[10px] font-medium shrink-0">
                     {([
-                      { key: 'newMax',  label: 'N Max' },
-                      { key: 'newAvg',  label: 'N Avg' },
-                      { key: 'usedMax', label: 'U Max' },
-                      { key: 'usedAvg', label: 'U Avg' },
+                      { key: 'newMax',     label: 'New Max'    },
+                      { key: 'newAvg',     label: 'New Avg'    },
+                      { key: 'newListed',  label: 'New Listed' },
+                      { key: 'usedMax',    label: 'Used Max'   },
+                      { key: 'usedAvg',    label: 'Used Avg'   },
+                      { key: 'usedListed', label: 'Used Listed'},
                     ] as const).map(({ key, label }, i) => (
                       <button
                         key={key}
                         data-testid={`heatmap-mode-${key}`}
                         onClick={() => setHeatmapMode(key)}
-                        className={`px-2 py-0.5 transition-colors ${i === 2 ? 'border-l border-gray-600' : ''} ${heatmapMode === key ? 'bg-gray-600 text-white' : 'text-gray-500 hover:text-gray-300 bg-transparent'}`}
+                        className={`px-2 py-0.5 transition-colors ${i === 3 ? 'border-l border-gray-600' : ''} ${heatmapMode === key ? 'bg-gray-600 text-white' : 'text-gray-500 hover:text-gray-300 bg-transparent'}`}
                       >
                         {label}
                       </button>
@@ -2135,10 +2138,12 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                       return !dk || !dismissedItems.has(dk);
                     });
                     const heatVal = (r: ScanResult): number => {
-                      if (heatmapMode === 'newMax')  return r.marketSoldMaxNew ?? r.stockAvgPriceN ?? 0;
-                      if (heatmapMode === 'newAvg')  return r.marketSoldAvgNew ?? r.marketSoldMaxNew ?? r.stockAvgPriceN ?? 0;
-                      if (heatmapMode === 'usedMax') return r.marketSoldMaxUsed ?? 0;
-                      return r.marketSoldAvgUsed ?? r.marketSoldMaxUsed ?? 0; // usedAvg
+                      if (heatmapMode === 'newMax')    return r.marketSoldMaxNew ?? r.stockAvgPriceN ?? 0;
+                      if (heatmapMode === 'newAvg')    return r.marketSoldAvgNew ?? r.marketSoldMaxNew ?? r.stockAvgPriceN ?? 0;
+                      if (heatmapMode === 'newListed') return r.stockAvgPriceN ?? 0;
+                      if (heatmapMode === 'usedMax')   return r.marketSoldMaxUsed ?? 0;
+                      if (heatmapMode === 'usedAvg')   return r.marketSoldAvgUsed ?? r.marketSoldMaxUsed ?? 0;
+                      return r.stockAvgPriceU ?? 0; // usedListed
                     };
                     const allPrices = bboxResults.map(r => heatVal(r)).filter(p => p > 0);
                     const maxPrice = allPrices.length > 0 ? Math.max(...allPrices) : 0;

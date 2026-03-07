@@ -3891,6 +3891,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         let catalogColorsList: { color_id: number; color_name: string }[] = [];
         // Stock (current listing) average price — fallback when BL has no sold history
         let stockAvgPriceN: number | null = null;
+        let stockAvgPriceU: number | null = null;
 
         if (piece.partNo) {
           // 1. Look up our inventory listings — all conditions for this partNo
@@ -4140,6 +4141,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             if (pgRowsUsed.length > 0 && pgRowsUsed[0].soldMaxPrice != null) {
               marketSoldMaxUsed = Number(pgRowsUsed[0].soldMaxPrice);
               if (pgRowsUsed[0].soldAvgPrice != null) marketSoldAvgUsed = Number(pgRowsUsed[0].soldAvgPrice);
+              if (pgRowsUsed[0].stockAvgPrice != null && Number(pgRowsUsed[0].stockAvgPrice) > 0) stockAvgPriceU = Number(pgRowsUsed[0].stockAvgPrice);
             } else if (!calibration) {
               console.log(`[Brickanalyzer] Fetching live POM (used) for ${piece.partNo} color ${colorId ?? 'any'} type ${blItemType}`);
               const pgDataUsed = await fetchPriceOMagicData(
@@ -4148,6 +4150,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
               if (pgDataUsed) {
                 marketSoldMaxUsed = pgDataUsed.soldMaxPrice ? Number(pgDataUsed.soldMaxPrice) : null;
                 if (pgDataUsed.soldAvgPrice != null) marketSoldAvgUsed = Number(pgDataUsed.soldAvgPrice);
+                if (pgDataUsed.stockAvgPrice != null && Number(pgDataUsed.stockAvgPrice) > 0) stockAvgPriceU = Number(pgDataUsed.stockAvgPrice);
                 if (!thumbnailUrl) thumbnailUrl = pgDataUsed.thumbnailUrl || pgDataUsed.imageUrl || null;
                 if (!piece.partName && pgDataUsed.itemName) piece.partName = pgDataUsed.itemName;
               }
@@ -4358,6 +4361,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           marketSoldAvgNew,
           marketSoldAvgUsed,
           stockAvgPriceN,
+          stockAvgPriceU,
           colorRgb,
           thumbnailUrl,
           bestPrice,
