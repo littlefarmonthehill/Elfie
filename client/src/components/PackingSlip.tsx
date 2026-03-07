@@ -85,19 +85,37 @@ async function loadLogoInfo(orgLogoUrl?: string | null): Promise<{ dataUrl: stri
 
 // ─── Main export ─────────────────────────────────────────────────────────────
 
-;
+export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBranding): Promise<void> {
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
+  const logo = await loadLogoInfo(org?.logoUrl);
+  let logoW = 0;
+  if (logo && logo.w > 0 && logo.h > 0) {
+    logoW = (logo.w / logo.h) * LOGO_H;
+  }
+
+  const companyName = org?.name || 'PlanetBrick.com';
+  const companyAddress = org?.address || 'PO Box 202\nLanesboro, MN 55949';
+  const addressLines = companyAddress.split('\n').map(l => l.trim()).filter(Boolean);
+
+  orders.forEach((order, idx) => {
+    if (idx > 0) doc.addPage();
+    const orderStartPage = doc.internal.getNumberOfPages();
+    let y = MARGIN;
 
     // ── Company info (left) + logo (right) ──────────────────────────────────
     const headerTopY = y;
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(19);
     doc.setFont('helvetica', 'bold');
-    doc.text('PlanetBrick.com', MARGIN, y + 6.5);
+    doc.text(companyName, MARGIN, y + 6.5);
     doc.setFontSize(11);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(51, 51, 51);
-    doc.text('PO Box 202',          MARGIN, y + 13.5);
-    doc.text('Lanesboro, MN 55949', MARGIN, y + 19.5);
+    let addrLineY = y + 13.5;
+    addressLines.forEach(line => {
+      doc.text(line, MARGIN, addrLineY);
+      addrLineY += 6;
+    });
 
     if (logo && logoW > 0) {
       doc.addImage(logo.dataUrl, 'PNG', MARGIN + CONTENT_W - logoW, headerTopY, logoW, LOGO_H);
@@ -125,13 +143,13 @@ async function loadLogoInfo(orgLogoUrl?: string | null): Promise<{ dataUrl: stri
     doc.text('Ship To', MARGIN, y + 5);
 
     doc.setFont('helvetica', 'normal');
-    const addrLines = [
+    const shipAddrLines = [
       shipTo.name, shipTo.company, street1, street2, cityLine,
       showCtry ? shipTo.country : undefined,
     ].filter(Boolean) as string[];
 
-    let addrY = y + 11;
-    addrLines.forEach(line => { doc.text(line, MARGIN, addrY); addrY += 5.5; });
+    let shipAddrY = y + 11;
+    shipAddrLines.forEach(line => { doc.text(line, MARGIN, shipAddrY); shipAddrY += 5.5; });
 
     // Order meta — right-aligned
     const metaX = MARGIN + CONTENT_W;
@@ -146,7 +164,7 @@ async function loadLogoInfo(orgLogoUrl?: string | null): Promise<{ dataUrl: stri
     const dateStr = order.orderDate ? new Date(order.orderDate).toLocaleDateString() : '';
     doc.text(dateStr, metaX, infoTopY + 11, { align: 'right' });
 
-    y = Math.max(addrY, infoTopY + 18) + 3;
+    y = Math.max(shipAddrY, infoTopY + 18) + 3;
 
     // ── Items table ─────────────────────────────────────────────────────────
     // autoTable repeats the Description/Qty header on every page automatically.

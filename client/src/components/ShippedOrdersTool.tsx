@@ -14,8 +14,7 @@ import {
 import { Search, Package, Loader2, Printer, Tag, FileText, ChevronDown, RotateCcw, ScanLine, FlaskConical } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import PackingSlip from "./PackingSlip";
+import { printPackingSlips } from "./PackingSlip";
 
 type ShippedOrder = {
   id: string;
@@ -38,8 +37,6 @@ type ShippedOrder = {
 export default function ShippedOrdersTool() {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
-  const [showPackingSlipDialog, setShowPackingSlipDialog] = useState(false);
-  const [packingSlipData, setPackingSlipData] = useState<any[]>([]);
   const [eodPending, setEodPending] = useState<string | null>(null); // orderId being fetched
 
   const returnToQueueMutation = useMutation({
@@ -81,6 +78,10 @@ export default function ShippedOrdersTool() {
     },
   });
 
+  const { data: org } = useQuery<any>({
+    queryKey: ['/api/organization'],
+  });
+
   const { data: shippedOrders, isLoading } = useQuery<ShippedOrder[]>({
     queryKey: ['/api/orders/shipped', searchQuery],
     queryFn: async () => {
@@ -101,14 +102,8 @@ export default function ShippedOrdersTool() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ orderIds: [orderId] }),
       });
-      
       const data = await response.json();
-      setPackingSlipData(data);
-      setShowPackingSlipDialog(true);
-      
-      setTimeout(() => {
-        window.print();
-      }, 500);
+      await printPackingSlips(data, org ? { name: org.name, address: org.address, logoUrl: org.logoUrl } : undefined);
     } catch (error) {
       console.error('Error fetching packing slip data:', error);
       toast({
@@ -347,15 +342,6 @@ export default function ShippedOrdersTool() {
         )}
       </div>
 
-      {/* Packing Slip Dialog */}
-      <Dialog open={showPackingSlipDialog} onOpenChange={setShowPackingSlipDialog}>
-        <DialogContent className="max-w-none w-auto max-h-[90vh] overflow-y-auto print:max-w-none print:max-h-none">
-          <DialogHeader className="print:hidden">
-            <DialogTitle>Packing Slip</DialogTitle>
-          </DialogHeader>
-          <PackingSlip orders={packingSlipData} />
-        </DialogContent>
-      </Dialog>
     </>
   );
 }

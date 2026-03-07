@@ -241,6 +241,10 @@ export default function FulfillmentTool() {
     queryKey: ['/api/settings'],
   });
 
+  const { data: org } = useQuery<any>({
+    queryKey: ['/api/organization'],
+  });
+
   // EOD-eligible EasyPost shipments (purchased, not yet on any SCAN form)
   const { data: endOfDayData } = useQuery<{ count: number; shipments: any[] }>({
     queryKey: ['/api/shipments/end-of-day'],
@@ -369,7 +373,7 @@ export default function FulfillmentTool() {
       });
       
       const data = await response.json();
-      await printPackingSlips(data);
+      await printPackingSlips(data, org ? { name: org.name, address: org.address, logoUrl: org.logoUrl } : undefined);
       toast({
         title: "Tip: Hide URL & page numbers",
         description: 'In the print dialog, uncheck "Headers and footers" (Chrome) or "Print headers and footers" (Safari/Firefox) for a clean slip.',
