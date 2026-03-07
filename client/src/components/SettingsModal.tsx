@@ -1232,8 +1232,8 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     { id: 'general' as const, label: 'Organization', icon: Settings },
     { id: 'platforms' as const, label: 'Platforms', icon: Package },
     ...(isAdmin ? [{ id: 'users' as const, label: 'Team & Roles', icon: Users }] : []),
-    { id: 'ai' as const, label: 'Data Enrichment', icon: Sparkles },
     { id: 'automation' as const, label: 'Automation', icon: Clock },
+    { id: 'ai' as const, label: 'Data Enrichment', icon: Sparkles },
     { id: 'priceomatic' as const, label: 'Price-o-Matic', icon: Zap },
     { id: 'data' as const, label: 'Backup & Clear', icon: Database },
     { id: 'feedback' as const, label: 'Feedback', icon: MessageSquarePlus },
@@ -2297,12 +2297,12 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                     <Separator className="bg-gray-700" />
 
-                    {/* Price-o-Matic Standalone Scheduler */}
-                    <div className="space-y-3 my-4">
+                    {/* Orders Sync */}
+                    <div className="space-y-3 mt-4">
                       <div className="flex items-center justify-between gap-2">
                         <div>
                           <div className="flex items-center gap-1.5">
-                            <Label className="text-xs font-medium text-gray-300">Price-o-Matic Auto Sync</Label>
+                            <Label className="text-xs font-medium text-gray-300">Orders Sync</Label>
                             <Popover>
                               <PopoverTrigger asChild>
                                 <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
@@ -2310,115 +2310,61 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                 </button>
                               </PopoverTrigger>
                               <PopoverContent side="bottom" className="w-72 text-xs bg-gray-900 border-gray-700 p-3 space-y-1.5">
-                                <p className="font-semibold text-gray-200">Price-o-Matic Auto Sync</p>
-                                <p className="text-gray-400">Fetches avg listed price, avg sold price, and lot count from BrickLink for each inventory item, then computes a suggested price using your formula. Items are processed in priority order by category tier (T1 → T4).</p>
-                                <p className="text-gray-500">Runs on its own independent schedule. Uses 3 BrickLink API calls per lot. Stops automatically at your daily API ceiling.</p>
+                                <p className="font-semibold text-gray-200">Orders Sync</p>
+                                <p className="text-gray-400">Pulls new and updated orders from BrickLink and BrickOwl into the local database. Also syncs order line items, generates AI embeddings for semantic search, and matches Stripe and PayPal refunds and merchant fees to orders.</p>
+                                <p className="text-gray-400">After each order is processed, sold quantities are deducted from local inventory — keeping all channel inventory counts in sync automatically.</p>
+                                <p className="text-gray-500">Runs on a short interval (e.g. every 15–30 min) to keep order data fresh throughout the day.</p>
                               </PopoverContent>
                             </Popover>
                           </div>
-                          <p className="text-[10px] md:text-sm text-gray-500 mt-0.5">Runs independently on its own schedule</p>
-                          <SyncStatusLine entry={syncStatuses?.priceomatic ?? null} />
+                          <p className="text-[10px] md:text-sm text-gray-500 mt-0.5">Sync orders, details, embeddings + refunds/fees periodically</p>
+                          <SyncStatusLine entry={syncStatuses?.orders ?? null} />
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           <Button
                             size="icon"
                             variant="ghost"
-                            disabled={syncingPom}
-                            onClick={() => runManualSync('/api/sync/priceomatic', setSyncingPom, 'Price-o-Matic')}
-                            title="Run Price-o-Matic sync now"
-                            data-testid="button-run-pom-sync"
+                            disabled={syncingOrders}
+                            onClick={() => runManualSync('/api/sync/all-platforms/orders', setSyncingOrders, 'Orders Sync', { limit: 50, fullSync: false })}
+                            title="Run orders sync now"
+                            data-testid="button-run-orders-sync"
                           >
-                            {syncingPom ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                            {syncingOrders ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
                           </Button>
                           <Switch
-                            checked={pomScheduleEnabled}
+                            checked={ordersSyncEnabled}
                             onCheckedChange={(checked) => {
-                              setPomScheduleEnabled(checked);
-                              updateSettingsMutation.mutate({ pomScheduleEnabled: checked });
+                              setOrdersSyncEnabled(checked);
+                              updateSettingsMutation.mutate({ ordersSyncEnabled: checked });
                             }}
-                            data-testid="switch-pom-schedule"
+                            data-testid="switch-orders-sync"
                           />
                         </div>
                       </div>
 
-                      {pomScheduleEnabled && (
-                        <div className="ml-4 space-y-3">
-                          <div className="flex items-center gap-4">
-                            <div className="space-y-1">
-                              <Label htmlFor="pom-sync-time" className="text-xs text-gray-400">Sync Time</Label>
-                              <Input
-                                id="pom-sync-time"
-                                type="time"
-                                value={pomSyncTime}
-                                onChange={(e) => setPomSyncTime(e.target.value)}
-                                onBlur={() => updateSettingsMutation.mutate({ pomSyncTime })}
-                                className="text-xs w-32"
-                                data-testid="input-pom-sync-time"
-                              />
-                              <p className="text-[10px] text-gray-500">Local timezone</p>
-                            </div>
-                            <div className="space-y-1">
-                              <Label htmlFor="pom-schedule-batch" className="text-xs text-gray-400">Lots per run</Label>
-                              <Input
-                                id="pom-schedule-batch"
-                                type="number"
-                                min={100}
-                                max={5000}
-                                step={100}
-                                value={pomScheduleBatchSize}
-                                onChange={(e) => setPomScheduleBatchSize(parseInt(e.target.value) || 100)}
-                                onBlur={() => updateSettingsMutation.mutate({ pomScheduleBatchSize })}
-                                className="text-xs w-28 text-right"
-                                data-testid="input-pom-schedule-batch"
-                              />
-                              <p className="text-[10px] text-gray-500">= {pomScheduleBatchSize} API calls</p>
-                            </div>
-                          </div>
+                      {ordersSyncEnabled && (
+                        <div className="ml-4 space-y-2">
+                          <Label htmlFor="orders-frequency" className="text-xs text-gray-400">Sync Frequency (minutes)</Label>
+                          <Input
+                            id="orders-frequency"
+                            type="number"
+                            min="5"
+                            max="120"
+                            value={ordersSyncFrequencyStr}
+                            onChange={(e) => setOrdersSyncFrequencyStr(e.target.value)}
+                            onBlur={() => {
+                              const parsed = parseInt(ordersSyncFrequencyStr);
+                              const clamped = isNaN(parsed) ? 15 : Math.max(5, Math.min(120, parsed));
+                              setOrdersSyncFrequency(clamped);
+                              setOrdersSyncFrequencyStr(String(clamped));
+                              updateSettingsMutation.mutate({ ordersSyncFrequency: clamped });
+                            }}
+                            className="text-xs w-24"
+                            data-testid="input-orders-frequency"
+                          />
+                          <p className="text-[10px] md:text-sm text-gray-500">Recommended: 15 minutes</p>
                         </div>
                       )}
-
-                      {/* Sync Limits — always visible, not tied to scheduler toggle */}
-                      <div className="ml-4 space-y-2 pt-2 border-t border-gray-700/40">
-                        <p className="text-[10px] text-gray-500">BrickLink allows 5,000 API calls/day. Price-o-Matic uses 3 calls per lot.</p>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1.5">
-                            <Label className="text-xs text-gray-400">Manual sync batch size</Label>
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
-                                  <Info className="w-3 h-3" />
-                                </button>
-                              </PopoverTrigger>
-                              <PopoverContent side="bottom" className="w-60 text-xs bg-gray-900 border-gray-700 p-3">
-                                Max lots to process when you hit the play button above to run a sync manually.
-                              </PopoverContent>
-                            </Popover>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Input type="number" min={100} max={5000} step={100} value={pomBatchSize} onChange={(e) => setPomBatchSize(parseInt(e.target.value) || 100)} onBlur={() => updateSettingsMutation.mutate({ pomBatchSize })} className="text-xs w-24 text-right" data-testid="input-pom-batch-size" />
-                            <span className="text-[10px] text-gray-500 w-16">lots / run</span>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1.5">
-                            <Label className="text-xs text-gray-400">Max API calls per 24h</Label>
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
-                                  <Info className="w-3 h-3" />
-                                </button>
-                              </PopoverTrigger>
-                              <PopoverContent side="bottom" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
-                                Price-o-Matic stops once this many BrickLink API calls have been used in the last 24 hours. Hard limit is 5,000/day. Recommended: 3,000–4,000.
-                              </PopoverContent>
-                            </Popover>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Input type="number" min={500} max={5000} step={100} value={pomApiCallLimit} onChange={(e) => setPomApiCallLimit(parseInt(e.target.value) || 500)} onBlur={() => updateSettingsMutation.mutate({ pomApiCallLimit })} className="text-xs w-24 text-right" data-testid="input-pom-api-limit" />
-                            <span className="text-[10px] text-gray-500 w-14">/ 5,000</span>
-                          </div>
-                        </div>
-                      </div>
                     </div>
 
                     <Separator className="bg-gray-700" />
@@ -2545,12 +2491,12 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                     <Separator className="bg-gray-700" />
 
-                    {/* Orders Sync */}
-                    <div className="space-y-3 mt-4">
+                    {/* Price-o-Matic Standalone Scheduler */}
+                    <div className="space-y-3 my-4">
                       <div className="flex items-center justify-between gap-2">
                         <div>
                           <div className="flex items-center gap-1.5">
-                            <Label className="text-xs font-medium text-gray-300">Orders Sync</Label>
+                            <Label className="text-xs font-medium text-gray-300">Price-o-Matic Auto Sync</Label>
                             <Popover>
                               <PopoverTrigger asChild>
                                 <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
@@ -2558,65 +2504,116 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                 </button>
                               </PopoverTrigger>
                               <PopoverContent side="bottom" className="w-72 text-xs bg-gray-900 border-gray-700 p-3 space-y-1.5">
-                                <p className="font-semibold text-gray-200">Orders Sync</p>
-                                <p className="text-gray-400">Pulls new and updated orders from BrickLink and BrickOwl into the local database. Also syncs order line items, generates AI embeddings for semantic search, and matches Stripe and PayPal refunds and merchant fees to orders.</p>
-                                <p className="text-gray-400">After each order is processed, sold quantities are deducted from local inventory — keeping all channel inventory counts in sync automatically.</p>
-                                <p className="text-gray-500">Runs on a short interval (e.g. every 15–30 min) to keep order data fresh throughout the day.</p>
+                                <p className="font-semibold text-gray-200">Price-o-Matic Auto Sync</p>
+                                <p className="text-gray-400">Fetches avg listed price, avg sold price, and lot count from BrickLink for each inventory item, then computes a suggested price using your formula. Items are processed in priority order by category tier (T1 → T4).</p>
+                                <p className="text-gray-500">Runs on its own independent schedule. Uses 3 BrickLink API calls per lot. Stops automatically at your daily API ceiling.</p>
                               </PopoverContent>
                             </Popover>
                           </div>
-                          <p className="text-[10px] md:text-sm text-gray-500 mt-0.5">Sync orders, details, embeddings + refunds/fees periodically</p>
-                          <SyncStatusLine entry={syncStatuses?.orders ?? null} />
+                          <p className="text-[10px] md:text-sm text-gray-500 mt-0.5">Runs independently on its own schedule</p>
+                          <SyncStatusLine entry={syncStatuses?.priceomatic ?? null} />
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           <Button
                             size="icon"
                             variant="ghost"
-                            disabled={syncingOrders}
-                            onClick={() => runManualSync('/api/sync/all-platforms/orders', setSyncingOrders, 'Orders Sync', { limit: 50, fullSync: false })}
-                            title="Run orders sync now"
-                            data-testid="button-run-orders-sync"
+                            disabled={syncingPom}
+                            onClick={() => runManualSync('/api/sync/priceomatic', setSyncingPom, 'Price-o-Matic')}
+                            title="Run Price-o-Matic sync now"
+                            data-testid="button-run-pom-sync"
                           >
-                            {syncingOrders ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                            {syncingPom ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
                           </Button>
                           <Switch
-                            checked={ordersSyncEnabled}
+                            checked={pomScheduleEnabled}
                             onCheckedChange={(checked) => {
-                              setOrdersSyncEnabled(checked);
-                              updateSettingsMutation.mutate({ ordersSyncEnabled: checked });
+                              setPomScheduleEnabled(checked);
+                              updateSettingsMutation.mutate({ pomScheduleEnabled: checked });
                             }}
-                            data-testid="switch-orders-sync"
+                            data-testid="switch-pom-schedule"
                           />
                         </div>
                       </div>
-                      
-                      {ordersSyncEnabled && (
-                        <div className="ml-4 space-y-2">
-                          <Label htmlFor="orders-frequency" className="text-xs text-gray-400">Sync Frequency (minutes)</Label>
-                          <Input
-                            id="orders-frequency"
-                            type="number"
-                            min="5"
-                            max="120"
-                            value={ordersSyncFrequencyStr}
-                            onChange={(e) => setOrdersSyncFrequencyStr(e.target.value)}
-                            onBlur={() => {
-                              const parsed = parseInt(ordersSyncFrequencyStr);
-                              const clamped = isNaN(parsed) ? 15 : Math.max(5, Math.min(120, parsed));
-                              setOrdersSyncFrequency(clamped);
-                              setOrdersSyncFrequencyStr(String(clamped));
-                              updateSettingsMutation.mutate({ ordersSyncFrequency: clamped });
-                            }}
-                            className="text-xs w-24"
-                            data-testid="input-orders-frequency"
-                          />
-                          <p className="text-[10px] md:text-sm text-gray-500">Recommended: 15 minutes</p>
+
+                      {pomScheduleEnabled && (
+                        <div className="ml-4 space-y-3">
+                          <div className="flex items-center gap-4">
+                            <div className="space-y-1">
+                              <Label htmlFor="pom-sync-time" className="text-xs text-gray-400">Sync Time</Label>
+                              <Input
+                                id="pom-sync-time"
+                                type="time"
+                                value={pomSyncTime}
+                                onChange={(e) => setPomSyncTime(e.target.value)}
+                                onBlur={() => updateSettingsMutation.mutate({ pomSyncTime })}
+                                className="text-xs w-32"
+                                data-testid="input-pom-sync-time"
+                              />
+                              <p className="text-[10px] text-gray-500">Local timezone</p>
+                            </div>
+                            <div className="space-y-1">
+                              <Label htmlFor="pom-schedule-batch" className="text-xs text-gray-400">Lots per run</Label>
+                              <Input
+                                id="pom-schedule-batch"
+                                type="number"
+                                min={100}
+                                max={5000}
+                                step={100}
+                                value={pomScheduleBatchSize}
+                                onChange={(e) => setPomScheduleBatchSize(parseInt(e.target.value) || 100)}
+                                onBlur={() => updateSettingsMutation.mutate({ pomScheduleBatchSize })}
+                                className="text-xs w-28 text-right"
+                                data-testid="input-pom-schedule-batch"
+                              />
+                              <p className="text-[10px] text-gray-500">= {pomScheduleBatchSize} API calls</p>
+                            </div>
+                          </div>
                         </div>
                       )}
 
+                      {/* Sync Limits — always visible, not tied to scheduler toggle */}
+                      <div className="ml-4 space-y-2 pt-2 border-t border-gray-700/40">
+                        <p className="text-[10px] text-gray-500">BrickLink allows 5,000 API calls/day. Price-o-Matic uses 3 calls per lot.</p>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <Label className="text-xs text-gray-400">Manual sync batch size</Label>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                  <Info className="w-3 h-3" />
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent side="bottom" className="w-60 text-xs bg-gray-900 border-gray-700 p-3">
+                                Max lots to process when you hit the play button above to run a sync manually.
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Input type="number" min={100} max={5000} step={100} value={pomBatchSize} onChange={(e) => setPomBatchSize(parseInt(e.target.value) || 100)} onBlur={() => updateSettingsMutation.mutate({ pomBatchSize })} className="text-xs w-24 text-right" data-testid="input-pom-batch-size" />
+                            <span className="text-[10px] text-gray-500 w-16">lots / run</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <Label className="text-xs text-gray-400">Max API calls per 24h</Label>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                  <Info className="w-3 h-3" />
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent side="bottom" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
+                                Price-o-Matic stops once this many BrickLink API calls have been used in the last 24 hours. Hard limit is 5,000/day. Recommended: 3,000–4,000.
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Input type="number" min={500} max={5000} step={100} value={pomApiCallLimit} onChange={(e) => setPomApiCallLimit(parseInt(e.target.value) || 500)} onBlur={() => updateSettingsMutation.mutate({ pomApiCallLimit })} className="text-xs w-24 text-right" data-testid="input-pom-api-limit" />
+                            <span className="text-[10px] text-gray-500 w-14">/ 5,000</span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-
-
 
                     <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3 mt-4">
                       <p className="text-xs text-purple-300">
