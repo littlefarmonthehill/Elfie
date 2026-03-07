@@ -331,7 +331,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const { plan } = req.body;
-      if (!['foundation', 'core', 'flagship'].includes(plan)) {
+      if (!['trial', 'foundation', 'core', 'flagship'].includes(plan)) {
         return res.status(400).json({ message: "Invalid plan" });
       }
       const [updated] = await db.update(organizations).set({ plan, updatedAt: new Date() }).where(eq(organizations.id, id)).returning();
@@ -5442,6 +5442,20 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
     } catch (error) {
       console.error("Error fetching inventory:", error);
       res.status(500).json({ error: "Failed to fetch inventory" });
+    }
+  });
+
+  // Get Inventory Count — used by billing tab to show usage vs trial limit
+  app.get("/api/inventory/count", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const [row] = await db
+        .select({ count: sql<number>`COUNT(*)` })
+        .from(blInventory)
+        .where(eq(blInventory.orgId, orgId));
+      res.json({ count: Number(row?.count ?? 0) });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch inventory count" });
     }
   });
 

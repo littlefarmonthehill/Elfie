@@ -52,7 +52,8 @@ export const organizations = pgTable("organizations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: varchar("name").notNull(),
   slug: varchar("slug").unique().notNull(),          // URL-safe lowercase identifier
-  plan: varchar("plan").notNull().default("foundation"),   // 'foundation' | 'core'
+  plan: varchar("plan").notNull().default("trial"),   // 'trial' | 'foundation' | 'core' | 'flagship'
+  trialEndsAt: timestamp("trial_ends_at"),               // null = no trial expiry (paid or flagship)
   isActive: boolean("is_active").notNull().default(true),
   address: text("address"),
   phone: varchar("phone", { length: 50 }),

@@ -825,6 +825,11 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
   const [billingInterval, setBillingInterval] = useState<'monthly' | 'annual'>('monthly');
 
+  const { data: inventoryCountData } = useQuery<{ count: number }>({
+    queryKey: ['/api/inventory/count'],
+    enabled: open && activeSection === 'billing',
+  });
+
   const checkoutMutation = useMutation({
     mutationFn: async ({ plan, interval }: { plan: string; interval: string }) => {
       const res = await apiRequest('POST', '/api/billing/checkout', { plan, interval });
@@ -1282,9 +1287,14 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     enabled: !!org?.id && isAdmin,
   });
 
-  const effectiveLimits = getEffectiveLimits(org ?? { plan: 'foundation' });
+  const effectiveLimits = getEffectiveLimits(org ?? { plan: 'trial' });
   const bsCheck = checkLimit(org?.brickspotterScansThisMonth ?? 0, effectiveLimits.brickspotterScansPerMonth, 'BrickSpotter scans');
   const userCheck = checkLimit(users?.length ?? 0, effectiveLimits.seats, 'team seats');
+  const inventoryCount = inventoryCountData?.count ?? 0;
+  const inventoryCheck = checkLimit(inventoryCount, effectiveLimits.inventoryItems, 'inventory items');
+  const trialDaysRemaining = org?.trialEndsAt
+    ? Math.max(0, Math.ceil((new Date(org.trialEndsAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+    : null;
 
   const navigationItems = [
     { id: 'general' as const, label: 'Organization', icon: Settings },
@@ -1698,17 +1708,30 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
             {/* Billing & Plan */}
             {activeSection === 'billing' && (
               <div className="space-y-6 min-h-[400px]">
-                {/* Nudge Banners */}
-                {(bsCheck.nudgeLevel === 'warning' || bsCheck.nudgeLevel === 'critical' || userCheck.nudgeLevel === 'warning' || userCheck.nudgeLevel === 'critical') && (
+                {/* Trial Countdown Banner */}
+                {org?.plan === 'trial' && trialDaysRemaining !== null && (
+                  <div className={`rounded-lg p-3 flex items-start gap-3 ${trialDaysRemaining <= 3 ? 'bg-red-500/10 border border-red-500/20' : trialDaysRemaining <= 7 ? 'bg-amber-500/10 border border-amber-500/20' : 'bg-blue-500/10 border border-blue-500/20'}`}>
+                    <AlertTriangle className={`w-4 h-4 shrink-0 mt-0.5 ${trialDaysRemaining <= 3 ? 'text-red-400' : trialDaysRemaining <= 7 ? 'text-amber-500' : 'text-blue-400'}`} />
+                    <div className="space-y-1">
+                      <p className={`text-xs font-medium ${trialDaysRemaining <= 3 ? 'text-red-200' : trialDaysRemaining <= 7 ? 'text-amber-200' : 'text-blue-200'}`}>
+                        {trialDaysRemaining === 0 ? 'Your trial has ended' : `${trialDaysRemaining} day${trialDaysRemaining === 1 ? '' : 's'} left in your free trial`}
+                      </p>
+                      <p className="text-[11px] text-gray-400">Subscribe to keep your data and unlock the full platform.</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Limit Nudge Banners */}
+                {(bsCheck.nudgeLevel === 'warning' || bsCheck.nudgeLevel === 'critical' || userCheck.nudgeLevel === 'warning' || userCheck.nudgeLevel === 'critical' || inventoryCheck.nudgeLevel === 'warning' || inventoryCheck.nudgeLevel === 'critical') && (
                   <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 flex items-start gap-3">
                     <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
                     <div className="space-y-1">
                       <p className="text-xs font-medium text-amber-200">Approaching Plan Limits</p>
                       <p className="text-[11px] text-amber-500/80 leading-relaxed">
-                        {bsCheck.message} {userCheck.message}
+                        {bsCheck.message} {userCheck.message} {inventoryCheck.message}
                       </p>
-                      {org?.plan === 'foundation' && (
-                        <button 
+                      {(org?.plan === 'foundation' || org?.plan === 'trial') && (
+                        <button
                           onClick={() => checkoutMutation.mutate({ plan: 'core', interval: billingInterval })}
                           disabled={checkoutMutation.isPending}
                           className="text-[11px] font-bold text-amber-400 hover:text-amber-300 underline underline-offset-2"
@@ -1735,6 +1758,52 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       </div>
                       <p className="text-xs text-gray-500">Unlimited — no billing required</p>
                     </div>
+                  ) : org?.plan === 'trial' ? (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="text-sm font-medium text-gray-300">Current Plan</h3>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-lg font-bold text-white">Free Trial</span>
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium uppercase tracking-wider ${trialDaysRemaining !== null && trialDaysRemaining <= 3 ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'}`}>
+                              {trialDaysRemaining !== null ? `${trialDaysRemaining}d left` : 'Trial'}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 text-xs">
+                          <button
+                            onClick={() => setBillingInterval('monthly')}
+                            className={`px-2 py-0.5 rounded text-xs ${billingInterval === 'monthly' ? 'bg-gray-600 text-white' : 'text-gray-500 hover:text-gray-300'}`}
+                            data-testid="button-billing-monthly"
+                          >Monthly</button>
+                          <button
+                            onClick={() => setBillingInterval('annual')}
+                            className={`px-2 py-0.5 rounded text-xs ${billingInterval === 'annual' ? 'bg-gray-600 text-white' : 'text-gray-500 hover:text-gray-300'}`}
+                            data-testid="button-billing-annual"
+                          >Annual <span className="text-green-400">−17%</span></button>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          className="flex-1 bg-purple-600"
+                          onClick={() => checkoutMutation.mutate({ plan: 'core', interval: billingInterval })}
+                          disabled={checkoutMutation.isPending}
+                          data-testid="button-upgrade-core"
+                        >
+                          <Sparkles className="w-4 h-4 mr-2" />
+                          {checkoutMutation.isPending ? 'Redirecting...' : 'Subscribe to Core'}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="flex-1 border-gray-600"
+                          onClick={() => checkoutMutation.mutate({ plan: 'foundation', interval: billingInterval })}
+                          disabled={checkoutMutation.isPending}
+                          data-testid="button-upgrade-foundation"
+                        >
+                          {checkoutMutation.isPending ? 'Redirecting...' : 'Subscribe to Foundation'}
+                        </Button>
+                      </div>
+                    </>
                   ) : (
                     <>
                       <div className="flex items-center justify-between">
@@ -1841,6 +1910,26 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       />
                       <p className="text-[10px] text-gray-500">Manage seats in Team & Roles</p>
                     </div>
+
+                    {/* Inventory Items — only shown when plan has a limit */}
+                    {effectiveLimits.inventoryItems !== -1 && (
+                      <div className="bg-gray-900/40 border border-gray-800 rounded-lg p-3 space-y-2">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-gray-400 flex items-center gap-1.5">
+                            <Database className="w-3.5 h-3.5" />
+                            Inventory Items
+                          </span>
+                          <span className="font-mono text-gray-300">
+                            {inventoryCount} / {effectiveLimits.inventoryItems}
+                          </span>
+                        </div>
+                        <Progress
+                          value={Math.min((inventoryCount / effectiveLimits.inventoryItems) * 100, 100)}
+                          className="h-1.5"
+                        />
+                        <p className="text-[10px] text-gray-500">Upgrade to Foundation or Core for unlimited inventory</p>
+                      </div>
+                    )}
                   </div>
                 </div>
 

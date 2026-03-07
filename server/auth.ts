@@ -154,7 +154,8 @@ export async function setupAuth(app: Express) {
         const suffix = Math.floor(1000 + Math.random() * 9000);
         const slug = `${baseSlug}${suffix}`;
         const orgName = firstName ? `${firstName}'s Store` : `${email.split('@')[0]}'s Store`;
-        const newOrg = await storage.createOrganization({ name: orgName, slug, plan: 'foundation' });
+        const trialEndsAt = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000); // 15 days from now
+        const newOrg = await storage.createOrganization({ name: orgName, slug, plan: 'trial', trialEndsAt });
         orgId = newOrg.id;
       }
 

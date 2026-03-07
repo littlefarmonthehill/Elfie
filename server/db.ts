@@ -70,6 +70,7 @@ export async function runMigrations() {
     await client.query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS seat_limit_override INTEGER`);
     await client.query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS brickspotter_limit_override INTEGER`);
     await client.query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS automation_limit_override INTEGER`);
+    await client.query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMP`);
 
     // Seed the default PlanetBrick org. Use UPDATE on conflict so any legacy
     // plan value ('pro', 'free', 'foundation') gets corrected to 'flagship'.

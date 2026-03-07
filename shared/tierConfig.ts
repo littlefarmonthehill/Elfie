@@ -1,10 +1,11 @@
-export type PlanType = 'foundation' | 'core' | 'flagship';
+export type PlanType = 'trial' | 'foundation' | 'core' | 'flagship';
 
 export interface TierLimits {
   seats: number;
   brickspotterScansPerMonth: number; // -1 = unlimited
   automationRules: number; // -1 = unlimited
   orderHistoryDays: number; // -1 = unlimited
+  inventoryItems: number; // -1 = unlimited
 }
 
 export interface TierFeatures {
@@ -34,6 +35,33 @@ export interface TierConfig {
 }
 
 export const TIER_CONFIG: Record<PlanType, TierConfig> = {
+  trial: {
+    id: 'trial',
+    name: 'Free Trial',
+    tagline: '15 days to explore PlanetBrick',
+    limits: {
+      seats: 1,
+      brickspotterScansPerMonth: 5,
+      automationRules: 0,
+      orderHistoryDays: 30,
+      inventoryItems: 500,
+    },
+    features: {
+      brickOwl: false,
+      elfieAiMode: true,
+      priceOMatic: false,
+      easypostAutomation: false,
+      dataEnrichmentImages: false,
+      dataEnrichmentSemantic: false,
+      fullDataEnrichment: false,
+      paymentSync: false,
+    },
+    pricing: {
+      monthly: 0,
+      annual: 0,
+      annualMonthly: 0,
+    },
+  },
   flagship: {
     id: 'flagship',
     name: 'Flagship',
@@ -43,6 +71,7 @@ export const TIER_CONFIG: Record<PlanType, TierConfig> = {
       brickspotterScansPerMonth: -1,
       automationRules: -1,
       orderHistoryDays: -1,
+      inventoryItems: -1,
     },
     features: {
       brickOwl: true,
@@ -69,6 +98,7 @@ export const TIER_CONFIG: Record<PlanType, TierConfig> = {
       brickspotterScansPerMonth: 25,
       automationRules: 1,
       orderHistoryDays: 365,
+      inventoryItems: -1,
     },
     features: {
       brickOwl: false,
@@ -95,6 +125,7 @@ export const TIER_CONFIG: Record<PlanType, TierConfig> = {
       brickspotterScansPerMonth: -1,
       automationRules: -1,
       orderHistoryDays: -1,
+      inventoryItems: -1,
     },
     features: {
       brickOwl: true,
@@ -123,6 +154,7 @@ export interface OrgLimits {
   brickspotterScansPerMonth: number;
   automationRules: number;
   orderHistoryDays: number;
+  inventoryItems: number;
 }
 
 export function getEffectiveLimits(org: {
@@ -137,6 +169,7 @@ export function getEffectiveLimits(org: {
     brickspotterScansPerMonth: org.brickspotterLimitOverride ?? tier.limits.brickspotterScansPerMonth,
     automationRules: org.automationLimitOverride ?? tier.limits.automationRules,
     orderHistoryDays: tier.limits.orderHistoryDays,
+    inventoryItems: tier.limits.inventoryItems,
   };
 }
 
