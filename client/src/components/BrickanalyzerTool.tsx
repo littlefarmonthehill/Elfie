@@ -300,35 +300,6 @@ function OverlayPricingPanel({ partNo, itemType, colorEntries }: {
           ))}
         </div>
       )}
-      {/* ── My Listing ────────────────────────────────────── */}
-      {hasMyPrices && (() => {
-        const cards = [
-          { label: 'New', price: entry?.ourPriceNew, qty: entry?.ourQtyNew, score: nScore },
-          { label: 'Used', price: entry?.ourPriceUsed, qty: entry?.ourQtyUsed, score: uScore },
-        ].filter(({ price, qty }) => price != null || (qty != null && qty > 0));
-        if (cards.length === 0) return null;
-        return (
-          <div className="px-4 pt-3 pb-1 shrink-0">
-            <p className="text-[9px] uppercase tracking-widest text-gray-500 font-semibold mb-2">My Listing</p>
-            <div className={`grid gap-2 ${cards.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
-              {cards.map(({ label, price, qty, score }) => (
-                <div key={label} className="rounded-xl bg-white/[0.04] border border-white/[0.06] p-3 space-y-1">
-                  <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold">{label}</p>
-                  <p className="text-2xl font-bold font-mono text-white leading-none tabular-nums">
-                    {price != null ? `$${price.toFixed(2)}` : <span className="text-gray-600">—</span>}
-                  </p>
-                  <div className="flex items-baseline gap-2 flex-wrap">
-                    {score != null && <span className={`text-base font-bold font-mono leading-none ${scoreColor(score)}`}>{score}×</span>}
-                    {peak != null && <span className="text-[10px] text-purple-400 font-mono">peak ${peak.toFixed(2)}</span>}
-                    {qty != null && qty > 0 && <span className="text-[10px] text-gray-500 font-mono">×{qty}</span>}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-      })()}
-
       {loading ? (
         <div className="flex items-center justify-center py-12 gap-2 text-gray-400 text-sm">
           <Loader2 className="w-4 h-4 animate-spin" /> Loading…
@@ -337,99 +308,159 @@ function OverlayPricingPanel({ partNo, itemType, colorEntries }: {
         const fmt = (v: any) => v != null && Number(v) > 0 ? `$${Number(v).toFixed(2)}` : '—';
         const fmtNum = (v: any) => v != null ? String(v) : '—';
 
-        const COL = 'w-[62px]';
-        const cellBase = `${COL} px-1.5 py-1.5 text-center text-[11px] font-mono tabular-nums border-l border-white/[0.05]`;
+        const GR = 'grid grid-cols-[1fr_66px_66px_66px_66px]';
+        const cell = (extra = '') => `w-[66px] px-1.5 py-2 text-center text-[11px] font-mono tabular-nums border-l border-white/[0.06] ${extra}`;
 
-        const DataRow = ({ label, sN, sU, lN, lU, mono, highlight }: {
-          label: string; sN: any; sU: any; lN: any; lU: any; mono?: boolean; highlight?: boolean;
+        const DataRow = ({ label, sN, sU, lN, lU, mono, bold }: {
+          label: string; sN: any; sU: any; lN: any; lU: any; mono?: boolean; bold?: boolean;
         }) => (
-          <div className={`grid grid-cols-[1fr_auto_auto_auto_auto] border-b border-white/[0.03] ${highlight ? 'bg-white/[0.03]' : ''}`}>
-            <div className={`px-3 py-1.5 text-[11px] ${highlight ? 'text-green-400 font-semibold' : 'text-gray-500'}`}>{label}</div>
-            <div className={`${cellBase} ${highlight ? 'text-green-300' : 'text-white'}`}>{mono ? fmtNum(sN) : fmt(sN)}</div>
-            <div className={`${cellBase} ${highlight ? 'text-green-300' : 'text-white'}`}>{mono ? fmtNum(sU) : fmt(sU)}</div>
-            <div className={`${cellBase} ${highlight ? 'text-green-300' : 'text-gray-300'}`}>{mono ? fmtNum(lN) : fmt(lN)}</div>
-            <div className={`${cellBase} ${highlight ? 'text-green-300' : 'text-gray-300'}`}>{mono ? fmtNum(lU) : fmt(lU)}</div>
+          <div className={`${GR} border-b border-white/[0.04] ${bold ? 'bg-white/[0.03]' : ''}`}>
+            <div className={`px-3 py-2 text-[11px] ${bold ? 'text-gray-200 font-semibold' : 'text-gray-500'}`}>{label}</div>
+            <div className={cell(bold ? 'text-amber-300 font-semibold' : 'text-gray-100')}>{mono ? fmtNum(sN) : fmt(sN)}</div>
+            <div className={cell(bold ? 'text-amber-300 font-semibold' : 'text-gray-100')}>{mono ? fmtNum(sU) : fmt(sU)}</div>
+            <div className={cell(bold ? 'text-sky-300 font-semibold' : 'text-gray-400')}>{mono ? fmtNum(lN) : fmt(lN)}</div>
+            <div className={cell(bold ? 'text-sky-300 font-semibold' : 'text-gray-400')}>{mono ? fmtNum(lU) : fmt(lU)}</div>
           </div>
         );
 
         const hasSoldDist = nData?.soldP10 || nData?.soldP25 || nData?.soldP85 || uData?.soldP10 || uData?.soldP85;
         const allPcts = [
-          { label: 'P10', sN: nData?.soldP10, sU: uData?.soldP10, highlight: false },
-          { label: 'P25', sN: nData?.soldP25, sU: uData?.soldP25, highlight: false },
-          { label: 'P50', sN: nData?.soldP50, sU: uData?.soldP50, highlight: false },
-          { label: 'P75', sN: nData?.soldP75, sU: uData?.soldP75, highlight: false },
-          { label: 'P85 ←', sN: nData?.soldP85, sU: uData?.soldP85, highlight: true },
-          { label: 'P95', sN: nData?.soldP95, sU: uData?.soldP95, highlight: false },
+          { label: 'P10', sN: nData?.soldP10, sU: uData?.soldP10, hi: false },
+          { label: 'P25', sN: nData?.soldP25, sU: uData?.soldP25, hi: false },
+          { label: 'P50', sN: nData?.soldP50, sU: uData?.soldP50, hi: false },
+          { label: 'P75', sN: nData?.soldP75, sU: uData?.soldP75, hi: false },
+          { label: 'P85', sN: nData?.soldP85, sU: uData?.soldP85, hi: true },
+          { label: 'P95', sN: nData?.soldP95, sU: uData?.soldP95, hi: false },
         ].filter(r => r.sN || r.sU);
 
         const hasSuggested = nData?.suggestedPrice != null || uData?.suggestedPrice != null;
+        const pct = nData?.premiumPercentage ?? uData?.premiumPercentage ?? 15;
 
         return (
-          <div className="px-4 pt-2 pb-4 space-y-2.5">
-            {/* Main pricing table */}
-            <div className="rounded-xl bg-white/[0.04] border border-white/[0.06] overflow-hidden">
-              {/* Super-header: SOLD | LISTED */}
-              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] border-b border-white/[0.08]">
-                <div />
-                <div className="col-span-2 py-1.5 text-center text-[9px] uppercase tracking-widest font-semibold text-amber-400/80 border-l border-white/[0.06]">
+          <div className="px-4 pt-2 pb-4 space-y-3">
+            {/* ── Main price table ─────────────────────────── */}
+            <div className="rounded-xl overflow-hidden border border-white/[0.08]">
+              {/* Super-header */}
+              <div className={`${GR} bg-white/[0.06]`}>
+                <div className="px-3 py-2" />
+                <div className="col-span-2 py-2 text-center text-[9px] uppercase tracking-widest font-bold text-amber-400 border-l border-white/[0.08]">
                   Sold (6mo)
                 </div>
-                <div className="col-span-2 py-1.5 text-center text-[9px] uppercase tracking-widest font-semibold text-sky-400/80 border-l border-white/[0.06]">
+                <div className="col-span-2 py-2 text-center text-[9px] uppercase tracking-widest font-bold text-sky-400 border-l border-white/[0.10]">
                   Listed
                 </div>
               </div>
-              {/* Sub-header: New | Used | New | Used */}
-              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] border-b border-white/[0.08]">
-                <div className="px-3 py-1 text-[9px] uppercase tracking-widest text-gray-600 font-semibold" />
-                <div className={`${cellBase} text-[9px] uppercase text-blue-400 font-semibold py-1`}>New</div>
-                <div className={`${cellBase} text-[9px] uppercase text-orange-400 font-semibold py-1`}>Used</div>
-                <div className={`${cellBase} text-[9px] uppercase text-blue-400 font-semibold py-1`}>New</div>
-                <div className={`${cellBase} text-[9px] uppercase text-orange-400 font-semibold py-1`}>Used</div>
+              {/* Condition sub-header */}
+              <div className={`${GR} border-b-2 border-white/[0.10] bg-white/[0.03]`}>
+                <div className="px-3 py-1.5" />
+                <div className={cell('text-[9px] uppercase font-bold text-blue-300 py-1.5')}>New</div>
+                <div className={cell('text-[9px] uppercase font-bold text-orange-300 py-1.5')}>Used</div>
+                <div className={cell('text-[9px] uppercase font-bold text-blue-300 py-1.5')}>New</div>
+                <div className={cell('text-[9px] uppercase font-bold text-orange-300 py-1.5')}>Used</div>
               </div>
               {/* Data rows */}
-              <DataRow label="Avg" sN={nData?.soldAvgPrice} sU={uData?.soldAvgPrice} lN={nData?.stockAvgPrice} lU={uData?.stockAvgPrice} />
+              <DataRow bold label="Avg" sN={nData?.soldAvgPrice} sU={uData?.soldAvgPrice} lN={nData?.stockAvgPrice} lU={uData?.stockAvgPrice} />
               <DataRow label="Min" sN={nData?.soldMinPrice} sU={uData?.soldMinPrice} lN={nData?.stockMinPrice} lU={uData?.stockMinPrice} />
               <DataRow label="Max" sN={nData?.soldMaxPrice} sU={uData?.soldMaxPrice} lN={nData?.stockMaxPrice} lU={uData?.stockMaxPrice} />
               <DataRow label="Units" sN={nData?.soldTotalLots} sU={uData?.soldTotalLots} lN={nData?.stockTotalLots} lU={uData?.stockTotalLots} mono />
               <DataRow label="Avg/lot" sN={nData?.soldQuantity} sU={uData?.soldQuantity} lN={nData?.stockQuantity} lU={uData?.stockQuantity} mono />
-              {hasSuggested && (
-                <DataRow
-                  label={`${nData?.premiumPercentage ?? uData?.premiumPercentage ?? 15}% sugg.`}
-                  sN={nData?.suggestedPrice} sU={uData?.suggestedPrice}
-                  lN={null} lU={null}
-                />
-              )}
+              {/* Distribution toggle */}
               {hasSoldDist && (
                 <button
                   onClick={() => setShowDist(v => !v)}
-                  className="w-full flex items-center justify-between px-3 py-1.5 text-[10px] text-gray-600 hover:text-gray-300 border-t border-white/[0.04] transition-colors"
+                  className="w-full flex items-center justify-between px-3 py-2 text-[10px] text-gray-600 hover:text-gray-300 bg-white/[0.02] transition-colors"
                   data-testid="button-toggle-sold-dist"
                 >
-                  <span>{showDist ? 'Hide distribution' : 'Show distribution'}</span>
+                  <span className="flex items-center gap-1.5">
+                    <BarChart3 className="w-3 h-3" />
+                    {showDist ? 'Hide sold distribution' : 'Sold price distribution (P10–P95)'}
+                  </span>
                   {showDist ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                 </button>
               )}
             </div>
 
-            {/* Sold distribution — collapsible */}
+            {/* ── Sold distribution ────────────────────────── */}
             {showDist && allPcts.length > 0 && (
-              <div className="rounded-xl bg-white/[0.02] border border-white/[0.05] overflow-hidden">
-                <div className="grid grid-cols-[1fr_auto_auto] border-b border-white/[0.06]">
-                  <div className="px-3 py-2 text-[9px] uppercase tracking-widest text-gray-500 font-semibold">Sold Distribution</div>
-                  <div className={`${COL} px-1.5 py-2 text-center text-[9px] uppercase font-semibold text-blue-400 border-l border-white/[0.05]`}>New</div>
-                  <div className={`${COL} px-1.5 py-2 text-center text-[9px] uppercase font-semibold text-orange-400 border-l border-white/[0.05]`}>Used</div>
+              <div className="rounded-xl overflow-hidden border border-white/[0.06]">
+                <div className="grid grid-cols-[1fr_66px_66px] bg-white/[0.04] border-b border-white/[0.08]">
+                  <div className="px-3 py-2 text-[9px] uppercase tracking-widest text-gray-500 font-bold">Sold Distribution</div>
+                  <div className="w-[66px] px-1.5 py-2 text-center text-[9px] uppercase font-bold text-blue-300 border-l border-white/[0.06]">New</div>
+                  <div className="w-[66px] px-1.5 py-2 text-center text-[9px] uppercase font-bold text-orange-300 border-l border-white/[0.06]">Used</div>
                 </div>
                 {allPcts.map(row => (
-                  <div key={row.label} className={`grid grid-cols-[1fr_auto_auto] border-b border-white/[0.03] ${row.highlight ? 'bg-white/[0.03]' : ''}`}>
-                    <div className={`px-3 py-1.5 text-[11px] font-mono ${row.highlight ? 'text-green-400 font-bold' : 'text-gray-500'}`}>{row.label}</div>
-                    <div className={`${COL} px-1.5 py-1.5 text-center text-[11px] font-mono tabular-nums border-l border-white/[0.04] ${row.highlight ? 'text-green-300' : 'text-gray-400'}`}>
+                  <div key={row.label} className={`grid grid-cols-[1fr_66px_66px] border-b border-white/[0.03] ${row.hi ? 'bg-emerald-950/40' : ''}`}>
+                    <div className={`px-3 py-1.5 text-[11px] font-mono font-semibold flex items-center gap-1.5 ${row.hi ? 'text-emerald-400' : 'text-gray-500'}`}>
+                      {row.label}
+                      {row.hi && <span className="text-[8px] bg-emerald-500/20 text-emerald-400 px-1 rounded font-sans">avg</span>}
+                    </div>
+                    <div className={`w-[66px] px-1.5 py-1.5 text-center text-[11px] font-mono tabular-nums border-l border-white/[0.04] ${row.hi ? 'text-emerald-300 font-bold' : 'text-gray-400'}`}>
                       {row.sN ? `$${Number(row.sN).toFixed(2)}` : '—'}
                     </div>
-                    <div className={`${COL} px-1.5 py-1.5 text-center text-[11px] font-mono tabular-nums border-l border-white/[0.04] ${row.highlight ? 'text-green-300' : 'text-gray-400'}`}>
+                    <div className={`w-[66px] px-1.5 py-1.5 text-center text-[11px] font-mono tabular-nums border-l border-white/[0.04] ${row.hi ? 'text-emerald-300 font-bold' : 'text-gray-400'}`}>
                       {row.sU ? `$${Number(row.sU).toFixed(2)}` : '—'}
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {/* ── Suggested + My Prices ────────────────────── */}
+            {(hasSuggested || hasMyPrices) && (
+              <div className="rounded-xl overflow-hidden border border-white/[0.08] bg-white/[0.03]">
+                {/* Suggested prices row */}
+                {hasSuggested && (
+                  <div className="px-3 py-2.5 border-b border-white/[0.06]">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-1.5">
+                        <Sparkles className="w-3 h-3 text-emerald-400" />
+                        <span className="text-[9px] uppercase tracking-widest text-emerald-400 font-bold">POM Suggested · {pct}% premium</span>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[{ label: 'New', val: nData?.suggestedPrice, col: 'text-blue-300' }, { label: 'Used', val: uData?.suggestedPrice, col: 'text-orange-300' }].map(({ label, val, col }) => (
+                        <div key={label} className="rounded-lg bg-emerald-950/30 border border-emerald-500/20 px-3 py-2">
+                          <div className={`text-[9px] uppercase font-bold mb-0.5 ${col}`}>{label}</div>
+                          <div className="text-[17px] font-bold font-mono text-emerald-400 tabular-nums leading-none">
+                            {val != null ? `$${Number(val).toFixed(2)}` : <span className="text-gray-600 text-sm">—</span>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {/* My inventory prices */}
+                {hasMyPrices && (() => {
+                  const myCards = [
+                    { label: 'New', price: entry?.ourPriceNew, qty: entry?.ourQtyNew, score: nScore, col: 'text-blue-300' },
+                    { label: 'Used', price: entry?.ourPriceUsed, qty: entry?.ourQtyUsed, score: uScore, col: 'text-orange-300' },
+                  ].filter(c => c.price != null || (c.qty != null && c.qty > 0));
+                  if (myCards.length === 0) return null;
+                  return (
+                    <div className="px-3 py-2.5">
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <Target className="w-3 h-3 text-purple-400" />
+                        <span className="text-[9px] uppercase tracking-widest text-purple-400 font-bold">My Inventory</span>
+                      </div>
+                      <div className={`grid gap-2 ${myCards.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                        {myCards.map(({ label, price, qty, score, col }) => (
+                          <div key={label} className="rounded-lg bg-purple-950/30 border border-purple-500/20 px-3 py-2">
+                            <div className={`text-[9px] uppercase font-bold mb-0.5 ${col}`}>{label}</div>
+                            <div className="text-[17px] font-bold font-mono text-white tabular-nums leading-none">
+                              {price != null ? `$${price.toFixed(2)}` : <span className="text-gray-600 text-sm">—</span>}
+                            </div>
+                            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                              {score != null && (
+                                <span className={`text-[11px] font-bold font-mono ${scoreColor(score)}`}>{score}×</span>
+                              )}
+                              {qty != null && qty > 0 && <span className="text-[10px] text-gray-500 font-mono">×{qty}</span>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </div>
