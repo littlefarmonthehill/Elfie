@@ -4172,23 +4172,29 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       const phase2bStart = Date.now();
       console.log(`[Brickanalyzer] Step 2b: Sending ${pieces.length} crops to Brickognize (sequential)...`);
 
-      // Retry a Brickognize POST with exponential backoff on 429 (rate limit).
-      // 8s per-request timeout + max 2 retries (1s + 2s backoff) = worst case ~11s per endpoint.
+      // Single Brickognize POST — no retries on 429.
+      // Retrying a 429 just burns the timeout (8s) before failing anyway; the sibling
+      // endpoint (figs or parts) usually succeeds, so the piece is still identified.
       async function bqPost(url: string, form: FormData, pieceIdx: number): Promise<any> {
-        let delay = 1000;
-        for (let attempt = 0; attempt <= 2; attempt++) {
-          try {
-            return await axios.post(url, form, { headers: form.getHeaders(), timeout: 8000 });
-          } catch (e: any) {
-            if (e.response?.status === 429 && attempt < 2) {
-              console.warn(`[Brickognize] 429 rate-limit piece ${pieceIdx}, retry ${attempt + 1}/2 in ${delay}ms`);
-              await new Promise(r => setTimeout(r, delay));
-              delay *= 2;
-            } else {
-              throw e;
-            }
+        try {
+          return await axios.post(url, form, { headers: form.getHeaders(), timeout: 8000 });
+        } catch (e: any) {
+          if (e.response?.status === 429) {
+            console.warn(`[Brickognize] 429 rate-limit piece ${pieceIdx} — skipping endpoint`);
+            return null;
           }
+          throw e;
         }
+      }
+
+      // Rate gate: enforce a minimum gap between actual BQ calls so rapid cache-hit
+      // sequences don't burst Brickognize into a 429 on the next real piece.
+      const BQ_MIN_GAP_MS = 400;
+      let lastBqCallAt = 0;
+      async function bqRateGate() {
+        const wait = BQ_MIN_GAP_MS - (Date.now() - lastBqCallAt);
+        if (wait > 0) await new Promise(r => setTimeout(r, wait));
+        lastBqCallAt = Date.now();
       }
 
       // Deduplication: if two crops have identical bytes (same piece photographed twice
@@ -4232,6 +4238,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             const figsForm  = makeBqForm(cropBuffer);
             const partsForm = makeBqForm(cropBuffer);
 
+            await bqRateGate();
             const [figsRes, partsRes] = await Promise.all([
               bqPost('https://api.brickognize.com/predict/figs/',  figsForm, idx)
                 .catch((e: any) => { console.warn(`[Brickognize] figs piece ${idx} failed: ${e.message} (HTTP ${e.response?.status ?? 'N/A'})`); return null; }),
