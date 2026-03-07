@@ -300,29 +300,33 @@ function OverlayPricingPanel({ partNo, itemType, colorEntries }: {
         </div>
       )}
       {/* ── My Listing ────────────────────────────────────── */}
-      {hasMyPrices && (
-        <div className="px-4 pt-3 pb-1 shrink-0">
-          <p className="text-[9px] uppercase tracking-widest text-gray-500 font-semibold mb-2">My Listing</p>
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              { label: 'New', price: entry?.ourPriceNew, qty: entry?.ourQtyNew, score: nScore },
-              { label: 'Used', price: entry?.ourPriceUsed, qty: entry?.ourQtyUsed, score: uScore },
-            ].map(({ label, price, qty, score }) => (
-              <div key={label} className="rounded-xl bg-white/[0.04] border border-white/[0.06] p-3 space-y-1">
-                <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold">{label}</p>
-                <p className="text-2xl font-bold font-mono text-white leading-none tabular-nums">
-                  {price != null ? `$${price.toFixed(2)}` : <span className="text-gray-600">—</span>}
-                </p>
-                <div className="flex items-baseline gap-2 flex-wrap">
-                  {score != null && <span className={`text-base font-bold font-mono leading-none ${scoreColor(score)}`}>{score}×</span>}
-                  {peak != null && <span className="text-[10px] text-purple-400 font-mono">peak ${peak.toFixed(2)}</span>}
-                  {qty != null && qty > 0 && <span className="text-[10px] text-gray-500 font-mono">×{qty}</span>}
+      {hasMyPrices && (() => {
+        const cards = [
+          { label: 'New', price: entry?.ourPriceNew, qty: entry?.ourQtyNew, score: nScore },
+          { label: 'Used', price: entry?.ourPriceUsed, qty: entry?.ourQtyUsed, score: uScore },
+        ].filter(({ price, qty }) => price != null || (qty != null && qty > 0));
+        if (cards.length === 0) return null;
+        return (
+          <div className="px-4 pt-3 pb-1 shrink-0">
+            <p className="text-[9px] uppercase tracking-widest text-gray-500 font-semibold mb-2">My Listing</p>
+            <div className={`grid gap-2 ${cards.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+              {cards.map(({ label, price, qty, score }) => (
+                <div key={label} className="rounded-xl bg-white/[0.04] border border-white/[0.06] p-3 space-y-1">
+                  <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold">{label}</p>
+                  <p className="text-2xl font-bold font-mono text-white leading-none tabular-nums">
+                    {price != null ? `$${price.toFixed(2)}` : <span className="text-gray-600">—</span>}
+                  </p>
+                  <div className="flex items-baseline gap-2 flex-wrap">
+                    {score != null && <span className={`text-base font-bold font-mono leading-none ${scoreColor(score)}`}>{score}×</span>}
+                    {peak != null && <span className="text-[10px] text-purple-400 font-mono">peak ${peak.toFixed(2)}</span>}
+                    {qty != null && qty > 0 && <span className="text-[10px] text-gray-500 font-mono">×{qty}</span>}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {loading ? (
         <div className="flex items-center justify-center py-12 gap-2 text-gray-400 text-sm">
@@ -331,31 +335,30 @@ function OverlayPricingPanel({ partNo, itemType, colorEntries }: {
       ) : (
         <div className="grid grid-cols-2 gap-3 px-4 pt-3 pb-4">
           {[{ data: nData, label: 'New' }, { data: uData, label: 'Used' }].map(({ data, label }) => (
-            <div key={label} className="rounded-xl bg-white/[0.04] border border-white/[0.06] p-3 space-y-2">
-              <p className="text-[10px] uppercase tracking-widest font-semibold text-gray-300 border-b border-white/[0.08] pb-1.5">{label}</p>
+            <div key={label} className="rounded-xl bg-white/[0.04] border border-white/[0.06] p-2.5 space-y-1.5">
+              <p className="text-[10px] uppercase tracking-widest font-semibold text-gray-300 border-b border-white/[0.08] pb-1">{label}</p>
               {!data ? (
-                <p className="text-xs text-gray-600 text-center py-2">No data</p>
+                <p className="text-xs text-gray-600 text-center py-1">No data</p>
               ) : (
                 <>
                   <div>
-                    <p className="text-[9px] uppercase tracking-wider text-gray-500 mb-1">Current Listings</p>
+                    <p className="text-[9px] uppercase tracking-wider text-gray-500 mb-0.5">Current Listings</p>
                     {[['Avg', data.stockAvgPrice], ['Min', data.stockMinPrice], ['Max', data.stockMaxPrice]].map(([l, v]) => (
-                      v != null && <div key={String(l)} className="flex justify-between text-[11px]"><span className="text-gray-500">{l}</span><span className="font-mono text-white tabular-nums">${Number(v).toFixed(2)}</span></div>
+                      v != null && <div key={String(l)} className="flex justify-between text-[11px] leading-snug"><span className="text-gray-500">{l}</span><span className="font-mono text-white tabular-nums">${Number(v).toFixed(2)}</span></div>
                     ))}
-                    {data.stockQuantity != null && <div className="flex justify-between text-[11px]"><span className="text-gray-500">Qty / Lots</span><span className="font-mono text-gray-300 tabular-nums">{data.stockQuantity} / {data.stockTotalLots ?? '—'}</span></div>}
+                    {data.stockQuantity != null && <div className="flex justify-between text-[11px] leading-snug"><span className="text-gray-500">Qty / Lots</span><span className="font-mono text-gray-300 tabular-nums">{data.stockQuantity} / {data.stockTotalLots ?? '—'}</span></div>}
                   </div>
                   <div>
-                    <p className="text-[9px] uppercase tracking-wider text-gray-500 mb-1">Sold (6mo)</p>
+                    <p className="text-[9px] uppercase tracking-wider text-gray-500 mb-0.5">Sold (6mo)</p>
                     {[['Avg', data.soldAvgPrice], ['Min', data.soldMinPrice], ['Max', data.soldMaxPrice]].map(([l, v]) => (
-                      v != null && <div key={String(l)} className="flex justify-between text-[11px]"><span className="text-gray-500">{l}</span><span className="font-mono text-white tabular-nums">${Number(v).toFixed(2)}</span></div>
+                      v != null && <div key={String(l)} className="flex justify-between text-[11px] leading-snug"><span className="text-gray-500">{l}</span><span className="font-mono text-white tabular-nums">${Number(v).toFixed(2)}</span></div>
                     ))}
-                    {data.soldQuantity != null && <div className="flex justify-between text-[11px]"><span className="text-gray-500">Qty / Lots</span><span className="font-mono text-gray-300 tabular-nums">{data.soldQuantity} / {data.soldTotalLots ?? '—'}</span></div>}
+                    {data.soldQuantity != null && <div className="flex justify-between text-[11px] leading-snug"><span className="text-gray-500">Qty / Lots</span><span className="font-mono text-gray-300 tabular-nums">{data.soldQuantity} / {data.soldTotalLots ?? '—'}</span></div>}
                   </div>
                   {data.suggestedPrice != null && (
-                    <div>
-                      <p className="text-[9px] uppercase tracking-wider text-gray-500 mb-1">POM Suggested</p>
+                    <div className="pt-0.5 border-t border-white/[0.06]">
                       <div className="flex justify-between text-[11px]">
-                        <span className="text-gray-500">{data.premiumPercentage ?? 15}% premium</span>
+                        <span className="text-gray-500">{data.premiumPercentage ?? 15}% suggested</span>
                         <span className="font-mono font-semibold text-emerald-400 tabular-nums">${Number(data.suggestedPrice).toFixed(2)}</span>
                       </div>
                     </div>
@@ -2364,15 +2367,25 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                                   )}
                                 </div>
                               </div>
-                              {inStock && (
+                              {(inStock || entry.ourPriceNew != null || entry.ourPriceUsed != null) && (
                                 <div className="shrink-0 text-right">
-                                  <div className="flex items-center gap-1 justify-end mb-0.5">
-                                    <Check className="w-3.5 h-3.5 text-emerald-400" />
-                                    <span className="text-xs font-bold text-emerald-400">In stock</span>
-                                  </div>
-                                  <span className="text-[10px] text-gray-500 font-mono">
-                                    {[entry.ourQtyNew > 0 ? `${entry.ourQtyNew}N` : null, entry.ourQtyUsed > 0 ? `${entry.ourQtyUsed}U` : null].filter(Boolean).join(' · ')}
-                                  </span>
+                                  {inStock && (
+                                    <>
+                                      <div className="flex items-center gap-1 justify-end mb-0.5">
+                                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                                        <span className="text-xs font-bold text-emerald-400">In stock</span>
+                                      </div>
+                                      <span className="text-[10px] text-gray-500 font-mono block">
+                                        {[entry.ourQtyNew > 0 ? `${entry.ourQtyNew}N` : null, entry.ourQtyUsed > 0 ? `${entry.ourQtyUsed}U` : null].filter(Boolean).join(' · ')}
+                                      </span>
+                                    </>
+                                  )}
+                                  {entry.ourPriceNew != null && (
+                                    <p className="text-[11px] font-mono text-white tabular-nums mt-0.5">${entry.ourPriceNew.toFixed(2)} <span className="text-gray-600 text-[9px]">N</span></p>
+                                  )}
+                                  {entry.ourPriceUsed != null && (
+                                    <p className="text-[11px] font-mono text-gray-400 tabular-nums">${entry.ourPriceUsed.toFixed(2)} <span className="text-gray-600 text-[9px]">U</span></p>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -2552,7 +2565,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                         return (
                           <div className="border-t border-white/[0.06]">
                             <div className="px-4 pt-3 pb-2">
-                              <p className="text-[10px] uppercase tracking-widest text-emerald-500/80 font-semibold">My Inventory</p>
+                              <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold">My Inventory</p>
                             </div>
                             <div className="px-3 pb-3 space-y-1.5">
                               {inStockLots.map((lot, li) => (
