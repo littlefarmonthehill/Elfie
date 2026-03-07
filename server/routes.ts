@@ -500,6 +500,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid role. Must be customer, employee, or admin" });
       }
       
+      // Guardrail: if demoting an admin, ensure at least one other admin remains
+      if (role !== 'admin') {
+        const allUsers = await storage.getAllUsers();
+        const targetUser = allUsers.find(u => u.id === id);
+        if (targetUser?.role === 'admin') {
+          const otherAdmins = allUsers.filter(u => u.id !== id && u.role === 'admin' && u.isApproved);
+          if (otherAdmins.length === 0) {
+            return res.status(400).json({ message: "Cannot remove the last admin. Promote another user to Admin first." });
+          }
+        }
+      }
+      
       const updatedUser = await storage.updateUserRole(id, role);
       
       // Check if user was found and updated

@@ -287,10 +287,28 @@ function EnrichmentSummary() {
   );
 }
 
+const ROLE_META: Record<string, { label: string; description: string; color: string }> = {
+  admin: {
+    label: 'Admin',
+    description: 'Full access — manage settings, users, integrations, and all data',
+    color: 'text-purple-400',
+  },
+  employee: {
+    label: 'Member',
+    description: 'Standard access — use all core features, cannot manage users or settings',
+    color: 'text-blue-400',
+  },
+  customer: {
+    label: 'Viewer',
+    description: 'Read-only access — view data but cannot make changes',
+    color: 'text-gray-400',
+  },
+};
+
 // User Management Section Component (Admin Only)
 function UserManagementSection() {
   const { toast } = useToast();
-  const { isAdmin } = useAuth();
+  const { isAdmin, user: currentUser } = useAuth();
 
   const { data: users, isLoading, isError } = useQuery<User[]>({
     queryKey: ['/api/admin/users'],
@@ -303,17 +321,10 @@ function UserManagementSection() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
-      toast({
-        title: "User Updated",
-        description: "User approval status has been updated successfully.",
-      });
+      toast({ title: "Access Updated", description: "User access has been updated." });
     },
     onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update user approval status.",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: error.message || "Failed to update access.", variant: "destructive" });
     },
   });
 
@@ -323,23 +334,14 @@ function UserManagementSection() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
-      toast({
-        title: "Role Updated",
-        description: "User role has been updated successfully.",
-      });
+      toast({ title: "Role Updated", description: "User role has been updated." });
     },
     onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update user role.",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: error.message || "Failed to update role.", variant: "destructive" });
     },
   });
 
-  if (!isAdmin) {
-    return null;
-  }
+  if (!isAdmin) return null;
 
   if (isError) {
     return (
@@ -347,7 +349,6 @@ function UserManagementSection() {
         <div className="text-center space-y-2">
           <AlertTriangle className="h-8 w-8 text-red-400 mx-auto" />
           <p className="text-sm text-red-400">Access Denied</p>
-          <p className="text-xs text-gray-400">You don't have permission to manage users.</p>
         </div>
       </div>
     );
@@ -356,121 +357,140 @@ function UserManagementSection() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-purple-500 border-t-transparent" />
-          <p className="text-xs text-gray-400">Loading users...</p>
-        </div>
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-purple-500 border-t-transparent" />
       </div>
     );
   }
 
-  return (
-    <div className="space-y-4 min-h-[400px]">
-      <div>
-        <h3 className="text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
-          <Users className="h-4 w-4 text-purple-400" />
-          User Management
-        </h3>
-        <p className="text-xs text-gray-400 mb-4">Manage user access and approvals for PlanetBrick</p>
+  const adminCount = (users ?? []).filter(u => u.role === 'admin' && u.isApproved).length;
 
-        <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 mb-4">
-          <p className="text-xs text-blue-300">
-            <strong>Note:</strong> Users must be approved before they can access the platform. New users will see a pending approval page after logging in.
-          </p>
+  return (
+    <div className="space-y-5 min-h-[400px]">
+      {/* Role legend */}
+      <div>
+        <h3 className="text-sm font-medium text-gray-300 mb-1">Roles</h3>
+        <div className="grid grid-cols-3 gap-2">
+          {Object.entries(ROLE_META).map(([key, meta]) => (
+            <div key={key} className="bg-gray-800/50 border border-gray-700 rounded-md p-2.5">
+              <p className={`text-xs font-medium mb-0.5 ${meta.color}`}>{meta.label}</p>
+              <p className="text-[10px] text-gray-500 leading-snug">{meta.description}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <Separator className="bg-gray-700" />
+
+      {/* Team members */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-medium text-gray-300">Team Members</h3>
+          <span className="text-xs text-gray-500">{(users ?? []).length} member{(users ?? []).length !== 1 ? 's' : ''}</span>
         </div>
 
+        {adminCount === 1 && (
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-md p-2.5 mb-3 flex items-start gap-2">
+            <AlertTriangle className="h-3.5 w-3.5 text-amber-400 mt-0.5 shrink-0" />
+            <p className="text-[11px] text-amber-300">
+              Only one Admin remains. Promote another member before changing this admin's role.
+            </p>
+          </div>
+        )}
+
         <div className="space-y-2">
-          {users && users.length > 0 ? (
-            users.map((user) => (
+          {users && users.length > 0 ? users.map((u) => {
+            const isCurrentUser = u.id === (currentUser as any)?.id;
+            const isLastAdmin = u.role === 'admin' && adminCount === 1;
+            const canChangeRole = !isLastAdmin;
+            const roleMeta = ROLE_META[u.role] ?? ROLE_META.customer;
+
+            return (
               <div
-                key={user.id}
-                className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 flex items-center justify-between hover-elevate"
-                data-testid={`user-card-${user.id}`}
+                key={u.id}
+                className="bg-gray-800/50 border border-gray-700 rounded-md p-3 flex flex-wrap gap-3 items-center"
+                data-testid={`user-card-${u.id}`}
               >
-                <div className="flex items-center gap-3 flex-1">
-                  {user.profileImageUrl ? (
-                    <img
-                      src={user.profileImageUrl}
-                      alt={`${user.firstName} ${user.lastName}`}
-                      className="h-10 w-10 rounded-full"
-                    />
+                {/* Avatar */}
+                <div className="shrink-0">
+                  {u.profileImageUrl ? (
+                    <img src={u.profileImageUrl} alt="" className="h-9 w-9 rounded-full" />
                   ) : (
-                    <div className="h-10 w-10 rounded-full bg-purple-500/20 flex items-center justify-center">
-                      <Users className="h-5 w-5 text-purple-400" />
+                    <div className="h-9 w-9 rounded-full bg-purple-500/20 flex items-center justify-center text-xs font-medium text-purple-300">
+                      {u.firstName?.[0] ?? u.email?.[0]?.toUpperCase() ?? '?'}
                     </div>
                   )}
-                  
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium text-gray-200">
-                        {user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : 'Unknown User'}
-                      </p>
-                    </div>
-                    <p className="text-xs text-gray-400">{user.email || 'No email'}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-[10px] text-gray-500">Role:</span>
-                      <Select
-                        value={user.role}
-                        onValueChange={(role) => updateUserRoleMutation.mutate({ userId: user.id, role })}
-                        disabled={updateUserRoleMutation.isPending}
-                      >
-                        <SelectTrigger 
-                          className="h-6 text-[10px] w-[100px] bg-gray-900/50 border-gray-600"
-                          data-testid={`select-role-${user.id}`}
-                        >
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="customer">Customer</SelectItem>
-                          <SelectItem value="employee">Employee</SelectItem>
-                          <SelectItem value="admin">Admin</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
                 </div>
 
-                <div className="flex flex-col items-end gap-2">
-                  {user.isApproved ? (
-                    <>
-                      <span className="text-xs text-green-400 flex items-center gap-1">
-                        <CheckCircle2 className="h-4 w-4" />
-                        Approved
-                      </span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => updateUserApprovalMutation.mutate({ userId: user.id, isApproved: false })}
-                        disabled={updateUserApprovalMutation.isPending}
-                        data-testid={`button-revoke-${user.id}`}
-                      >
-                        Revoke
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <span className="text-xs text-orange-400 flex items-center gap-1">
-                        <AlertTriangle className="h-4 w-4" />
+                {/* Name + email */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-sm font-medium text-gray-200 truncate">
+                      {u.firstName && u.lastName ? `${u.firstName} ${u.lastName}` : u.email ?? 'Unknown User'}
+                    </span>
+                    {isCurrentUser && (
+                      <span className="text-[10px] bg-gray-700 text-gray-400 px-1.5 py-0.5 rounded">you</span>
+                    )}
+                    {!u.isApproved && (
+                      <span className="text-[10px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded flex items-center gap-1">
+                        <AlertTriangle className="h-3 w-3" />
                         Pending
                       </span>
-                      <Button
-                        variant="default"
-                        size="sm"
-                        onClick={() => updateUserApprovalMutation.mutate({ userId: user.id, isApproved: true })}
-                        disabled={updateUserApprovalMutation.isPending}
-                        data-testid={`button-approve-${user.id}`}
-                      >
-                        Approve
-                      </Button>
-                    </>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 truncate">{u.email}</p>
+                </div>
+
+                {/* Role selector */}
+                <div className="shrink-0">
+                  <Select
+                    value={u.role}
+                    onValueChange={(role) => updateUserRoleMutation.mutate({ userId: u.id, role })}
+                    disabled={updateUserRoleMutation.isPending || !canChangeRole}
+                  >
+                    <SelectTrigger
+                      className={`h-8 text-xs w-[110px] bg-gray-900/50 border-gray-600 ${roleMeta.color}`}
+                      data-testid={`select-role-${u.id}`}
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="employee">Member</SelectItem>
+                      <SelectItem value="customer">Viewer</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Approval toggle */}
+                <div className="shrink-0">
+                  {u.isApproved ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => updateUserApprovalMutation.mutate({ userId: u.id, isApproved: false })}
+                      disabled={updateUserApprovalMutation.isPending || isCurrentUser}
+                      data-testid={`button-revoke-${u.id}`}
+                      className="text-xs"
+                    >
+                      Revoke Access
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={() => updateUserApprovalMutation.mutate({ userId: u.id, isApproved: true })}
+                      disabled={updateUserApprovalMutation.isPending}
+                      data-testid={`button-approve-${u.id}`}
+                      className="text-xs"
+                    >
+                      Approve
+                    </Button>
                   )}
                 </div>
               </div>
-            ))
-          ) : (
-            <div className="text-center py-8 text-gray-400 text-sm">
-              No users found
-            </div>
+            );
+          }) : (
+            <div className="text-center py-8 text-gray-400 text-sm">No team members found</div>
           )}
         </div>
       </div>
@@ -567,57 +587,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const [restoreTime, setRestoreTime] = useState('14:30');
   const [restoreProgress, setRestoreProgress] = useState(0);
   
-  // Password change state
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  
-  const changePasswordMutation = useMutation({
-    mutationFn: async () => {
-      return await apiRequest('POST', '/api/change-password', {
-        currentPassword,
-        newPassword,
-      });
-    },
-    onSuccess: () => {
-      toast({
-        title: "Password Changed",
-        description: "Your password has been updated successfully.",
-      });
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to change password",
-        variant: "destructive",
-      });
-    },
-  });
-  
-  const handlePasswordChange = () => {
-    if (newPassword !== confirmPassword) {
-      toast({
-        title: "Password Mismatch",
-        description: "New passwords do not match",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    if (newPassword.length < 8) {
-      toast({
-        title: "Weak Password",
-        description: "Password must be at least 8 characters",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    changePasswordMutation.mutate();
-  };
   const [restoreCurrentTask, setRestoreCurrentTask] = useState('');
   const [restoreJobId, setRestoreJobId] = useState<string | null>(null);
   const [differentialAnalysis, setDifferentialAnalysis] = useState<{
@@ -1257,12 +1226,12 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const navigationItems = [
     { id: 'general' as const, label: 'Organization', icon: Settings },
     { id: 'platforms' as const, label: 'Platforms', icon: Package },
+    ...(isAdmin ? [{ id: 'users' as const, label: 'Team & Roles', icon: Users }] : []),
     { id: 'ai' as const, label: 'Data Enrichment', icon: Sparkles },
     { id: 'automation' as const, label: 'Automation', icon: Clock },
     { id: 'priceomatic' as const, label: 'Price-o-Matic', icon: Zap },
     { id: 'data' as const, label: 'Backup & Clear', icon: Database },
     { id: 'feedback' as const, label: 'Feedback', icon: MessageSquarePlus },
-    ...(isAdmin ? [{ id: 'users' as const, label: 'User Management', icon: Users }] : []),
   ];
 
   return (
@@ -3518,75 +3487,9 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
               <FeedbackBacklog />
             )}
 
-            {/* User Management (Admin Only) */}
+            {/* Team & Roles (Admin Only) */}
             {activeSection === 'users' && (
-              <div className="space-y-4 min-h-[400px]">
-                {/* Account Security - visible to all users */}
-                <div className="space-y-3">
-                  <h3 className="text-sm font-medium text-gray-300">Account Security</h3>
-                  <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 space-y-3">
-                    <div className="flex items-center gap-2">
-                      <Shield className="h-4 w-4 text-purple-400" />
-                      <h4 className="text-xs font-medium text-gray-300">Change Password</h4>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="space-y-1.5">
-                        <Label htmlFor="currentPassword" className="text-[10px] text-gray-400">Current Password</Label>
-                        <Input
-                          id="currentPassword"
-                          type="password"
-                          value={currentPassword}
-                          onChange={(e) => setCurrentPassword(e.target.value)}
-                          className="bg-gray-900/50 border-gray-600 text-xs h-8"
-                          placeholder="••••••••"
-                          data-testid="input-currentPassword"
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="newPassword" className="text-[10px] text-gray-400">New Password</Label>
-                        <Input
-                          id="newPassword"
-                          type="password"
-                          value={newPassword}
-                          onChange={(e) => setNewPassword(e.target.value)}
-                          className="bg-gray-900/50 border-gray-600 text-xs h-8"
-                          placeholder="••••••••"
-                          data-testid="input-newPassword"
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="confirmPassword" className="text-[10px] text-gray-400">Confirm New Password</Label>
-                        <Input
-                          id="confirmPassword"
-                          type="password"
-                          value={confirmPassword}
-                          onChange={(e) => setConfirmPassword(e.target.value)}
-                          className="bg-gray-900/50 border-gray-600 text-xs h-8"
-                          placeholder="••••••••"
-                          data-testid="input-confirmNewPassword"
-                        />
-                      </div>
-                      <Button
-                        size="sm"
-                        onClick={handlePasswordChange}
-                        disabled={changePasswordMutation.isPending || !currentPassword || !newPassword || !confirmPassword}
-                        className="w-full text-xs"
-                        data-testid="button-changePassword"
-                      >
-                        {changePasswordMutation.isPending ? 'Changing...' : 'Change Password'}
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* User Management - admins only */}
-                {isAdmin && (
-                  <>
-                    <Separator className="bg-gray-700" />
-                    <UserManagementSection />
-                  </>
-                )}
-              </div>
+              <UserManagementSection />
             )}
             </div>
           </div>
