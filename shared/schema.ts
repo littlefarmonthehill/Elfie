@@ -875,6 +875,7 @@ export const inventoryLocations = pgTable("inventory_locations", {
   bagLabel: text("bag_label"), // Optional: label on the physical bag
   quantity: integer("quantity"), // Optional: if splitting inventory across multiple bins
   notes: text("notes"),
+  orgId: varchar("org_id"),                            // FK → organizations.id
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

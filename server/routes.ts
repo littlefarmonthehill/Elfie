@@ -43,6 +43,33 @@ function activeOrderStatusWhere() {
   );
 }
 
+// ─── Multi-tenant helpers ─────────────────────────────────────────────────────
+
+/** Get the requesting user's orgId — falls back to the default org for safety. */
+function reqOrgId(req: any): string {
+  return (req.user as any)?.orgId ?? 'org_planetbrick';
+}
+
+/**
+ * Fetch org's app settings, creating a default row if none exists yet.
+ * This is the canonical way to read settings in route handlers.
+ */
+async function getOrgSettings(orgId: string) {
+  const [existing] = await db
+    .select()
+    .from(appSettings)
+    .where(eq(appSettings.orgId, orgId))
+    .limit(1);
+  if (existing) return existing;
+  // Lazy-init: create default settings row for this org
+  const [created] = await db
+    .insert(appSettings)
+    .values({ id: orgId, orgId, aiEnabled: true, selectedModel: 'gpt-4o-mini' })
+    .onConflictDoUpdate({ target: appSettings.id, set: { orgId, updatedAt: new Date() } })
+    .returning();
+  return created;
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware setup - Email/Password Authentication
   await setupAuth(app);
@@ -475,8 +502,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Lightweight endpoint for Sales Dashboard - orders without details
-  app.get("/api/orders/summary", isApproved, async (req, res) => {
+  app.get("/api/orders/summary", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       // Parse date range parameter
       const range = req.query.range as string;
       const productLine = req.query.productLine as string;
@@ -550,7 +578,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         // Query orders that have at least one item matching the product line
-        let whereConditions = sql`o.order_status NOT IN ('cancelled', 'Cancelled') AND o.is_test = false AND ${productLineCondition}`;
+        let whereConditions = sql`o.org_id = ${orgId} AND o.order_status NOT IN ('cancelled', 'Cancelled') AND o.is_test = false AND ${productLineCondition}`;
         
         if (platform) {
           whereConditions = sql`${whereConditions} AND (o.marketplace = ${platform} OR (o.marketplace IS NULL AND ${platform} = 'Unknown'))`;
@@ -614,16 +642,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       const isTestExclude = sql`${orders.isTest} = false`;
+      const orgFilter = eq(orders.orgId, orgId);
       const allOrders = dateFilter
         ? endDateFilter
           ? await db.select(selectFields).from(orders)
-              .where(and(isTestExclude, sql`${orders.orderDate} >= ${dateFilter.toISOString()} AND ${orders.orderDate} < ${endDateFilter.toISOString()}`))
+              .where(and(orgFilter, isTestExclude, sql`${orders.orderDate} >= ${dateFilter.toISOString()} AND ${orders.orderDate} < ${endDateFilter.toISOString()}`))
               .orderBy(desc(orders.orderDate))
           : await db.select(selectFields).from(orders)
-              .where(and(isTestExclude, sql`${orders.orderDate} >= ${dateFilter.toISOString()}`))
+              .where(and(orgFilter, isTestExclude, sql`${orders.orderDate} >= ${dateFilter.toISOString()}`))
               .orderBy(desc(orders.orderDate))
         : await db.select(selectFields).from(orders)
-            .where(isTestExclude)
+            .where(and(orgFilter, isTestExclude))
             .orderBy(desc(orders.orderDate));
       
       const responseSize = JSON.stringify(allOrders).length;
@@ -637,8 +666,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Data Fetch Routes - all protected by isApproved middleware
-  app.get("/api/orders", isApproved, async (req, res) => {
+  app.get("/api/orders", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       // Parse date range parameter
       const range = req.query.range as string;
       // lean=true skips fetching line items — used by Marketing dashboard for performance
@@ -674,10 +704,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Build where clause — always exclude test orders from analytics
+      // Build where clause — always exclude test orders from analytics and scope to org
       const isTestFilter = sql`${orders.isTest} = false`;
+      const orgOrderFilter = eq(orders.orgId, orgId);
       const buildWhere = (dateClause: any) =>
-        dateClause ? and(isTestFilter, dateClause) : isTestFilter;
+        dateClause ? and(orgOrderFilter, isTestFilter, dateClause) : and(orgOrderFilter, isTestFilter);
 
       const allOrders = dateFilter
         ? endDateFilter
@@ -688,7 +719,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               .where(buildWhere(sql`${orders.orderDate} >= ${dateFilter.toISOString()}`))
               .orderBy(desc(orders.orderDate))
         : await db.select().from(orders)
-            .where(isTestFilter)
+            .where(buildWhere(null))
             .orderBy(desc(orders.orderDate));
       
       console.log(`📊 Fetched ${allOrders.length} orders (dateFilter: ${dateFilter ? 'set' : 'none'})`);
@@ -737,8 +768,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Optimized endpoint for Orders Dashboard - only fetches what's needed
-  app.get("/api/orders/dashboard", isApproved, async (req, res) => {
+  app.get("/api/orders/dashboard", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       // CTE calculates net total (gross - refunds - fees) per order
       const withAdjustments = sql`
         WITH adj AS (
@@ -761,7 +793,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           SELECT ${orderCols}
           FROM orders o
           LEFT JOIN adj a ON a.order_id = o.id
-          WHERE o.order_status IN ('awaiting_payment', 'awaiting_shipment')
+          WHERE o.org_id = ${orgId}
+            AND o.order_status IN ('awaiting_payment', 'awaiting_shipment')
             AND o.is_test = false
           ORDER BY o.order_date DESC
           LIMIT 5
@@ -771,7 +804,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           SELECT ${orderCols}
           FROM orders o
           LEFT JOIN adj a ON a.order_id = o.id
-          WHERE o.order_status = 'shipped'
+          WHERE o.org_id = ${orgId}
+            AND o.order_status = 'shipped'
             AND o.is_test = false
           ORDER BY o.order_date DESC
           LIMIT 5
@@ -781,7 +815,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           SELECT ${orderCols}
           FROM orders o
           LEFT JOIN adj a ON a.order_id = o.id
-          WHERE o.order_total IS NOT NULL AND o.order_total::numeric > 0
+          WHERE o.org_id = ${orgId}
+            AND o.order_total IS NOT NULL AND o.order_total::numeric > 0
             AND o.order_status NOT IN ('cancelled', 'Cancelled')
             AND o.is_test = false
           ORDER BY net_total DESC
@@ -813,12 +848,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get shipped orders with search functionality
-  app.get("/api/orders/shipped", isApproved, async (req, res) => {
+  app.get("/api/orders/shipped", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const searchQuery = req.query.search as string;
       
       // Build base query conditions
-      let whereConditions = eq(orders.orderStatus, 'shipped');
+      let whereConditions: any = and(eq(orders.orgId, orgId), eq(orders.orderStatus, 'shipped'));
       
       // Add search filter if provided
       if (searchQuery && searchQuery.trim()) {
@@ -866,11 +902,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Toggle test order flag — only for shipped orders with net total of $0 and a refund
-  app.patch("/api/orders/:id/toggle-test", isApproved, async (req, res) => {
+  app.patch("/api/orders/:id/toggle-test", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const orderId = decodeURIComponent(req.params.id);
 
-      const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+      const [order] = await db.select().from(orders).where(and(eq(orders.id, orderId), eq(orders.orgId, orgId))).limit(1);
       if (!order) return res.status(404).json({ error: "Order not found" });
 
       // Verify eligibility: must have a refund adjustment and net total ≤ 0
@@ -892,7 +929,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const [updated] = await db.update(orders)
         .set({ isTest: !order.isTest, updatedAt: new Date() })
-        .where(eq(orders.id, orderId))
+        .where(and(eq(orders.id, orderId), eq(orders.orgId, orgId)))
         .returning();
 
       res.json({ isTest: updated.isTest });
@@ -1160,12 +1197,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Fetch single order by ID with full details
-  app.get("/api/orders/:id", isApproved, async (req, res) => {
+  app.get("/api/orders/:id", isApproved, async (req: any, res) => {
     try {
       const orderId = req.params.id;
+      const orgId = reqOrgId(req);
       
       // Fetch the order
-      const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+      const [order] = await db.select().from(orders).where(and(eq(orders.id, orderId), eq(orders.orgId, orgId))).limit(1);
       
       if (!order) {
         res.status(404).json({ error: "Order not found" });
@@ -1212,7 +1250,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           orderTotal: orders.orderTotal,
         })
         .from(orders)
-        .where(eq(orders.customerUsername, customerUsername))
+        .where(and(eq(orders.orgId, orgId), eq(orders.customerUsername, customerUsername)))
         .orderBy(desc(orders.orderDate));
         
         isRepeatCustomer = allCustomerOrders.length > 1;
@@ -1336,12 +1374,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update order address and weight fields (pre-shipment edits)
-  app.patch("/api/orders/:id", isApproved, async (req, res) => {
+  app.patch("/api/orders/:id", isApproved, async (req: any, res) => {
     try {
       const orderId = req.params.id;
+      const orgId = reqOrgId(req);
       const { street1, street2, street3, city, state, postalCode, country, weight, weightUnits, packageType, packageLength, packageWidth, packageHeight } = req.body;
 
-      const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+      const [order] = await db.select().from(orders).where(and(eq(orders.id, orderId), eq(orders.orgId, orgId))).limit(1);
       if (!order) {
         return res.status(404).json({ error: "Order not found" });
       }
@@ -1368,7 +1407,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (packageWidth !== undefined) updateData.packageWidth = packageWidth !== null && packageWidth !== '' ? packageWidth.toString() : null;
       if (packageHeight !== undefined) updateData.packageHeight = packageHeight !== null && packageHeight !== '' ? packageHeight.toString() : null;
 
-      await db.update(orders).set(updateData).where(eq(orders.id, orderId));
+      await db.update(orders).set(updateData).where(and(eq(orders.id, orderId), eq(orders.orgId, orgId)));
 
       res.json({ success: true });
     } catch (error) {
@@ -1517,12 +1556,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Order Adjustments - CRUD
-  app.get("/api/orders/:id/adjustments", isApproved, async (req, res) => {
+  app.get("/api/orders/:id/adjustments", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const adjustments = await db
         .select()
         .from(orderAdjustments)
-        .where(eq(orderAdjustments.orderId, req.params.id))
+        .where(and(eq(orderAdjustments.orderId, req.params.id), eq(orderAdjustments.orgId, orgId)))
         .orderBy(orderAdjustments.createdAt);
       res.json(adjustments);
     } catch (error) {
@@ -1530,11 +1570,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/orders/:id/adjustments", isApproved, async (req, res) => {
+  app.post("/api/orders/:id/adjustments", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const parsed = insertOrderAdjustmentSchema.safeParse({
         ...req.body,
         orderId: req.params.id,
+        orgId,
       });
       if (!parsed.success) {
         return res.status(400).json({ error: parsed.error.flatten() });
@@ -1693,8 +1735,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/dashboard/stats", isApproved, async (req, res) => {
+  app.get("/api/dashboard/stats", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       // Parse date range parameter
       const range = req.query.range as string;
       let dateFilter: Date | null = null;
@@ -1726,21 +1769,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get total orders count with date filter
+      const orgOrdersWhere = eq(orders.orgId, orgId);
       const orderCount = dateFilter
         ? endDateFilter
           ? await db.select({ count: sql<number>`count(*)` }).from(orders)
-              .where(sql`${orders.orderDate} >= ${dateFilter.toISOString()} AND ${orders.orderDate} < ${endDateFilter.toISOString()}`)
+              .where(and(orgOrdersWhere, sql`${orders.orderDate} >= ${dateFilter.toISOString()} AND ${orders.orderDate} < ${endDateFilter.toISOString()}`))
           : await db.select({ count: sql<number>`count(*)` }).from(orders)
-              .where(sql`${orders.orderDate} >= ${dateFilter.toISOString()}`)
-        : await db.select({ count: sql<number>`count(*)` }).from(orders);
+              .where(and(orgOrdersWhere, sql`${orders.orderDate} >= ${dateFilter.toISOString()}`))
+        : await db.select({ count: sql<number>`count(*)` }).from(orders).where(orgOrdersWhere);
       
       // Get total inventory items count (not date-filtered - inventory is current state)
-      const inventoryCount = await db.select({ count: sql<number>`count(*)` }).from(blInventory);
+      const inventoryCount = await db.select({ count: sql<number>`count(*)` }).from(blInventory)
+        .where(eq(blInventory.orgId, orgId));
       
       // Get total inventory quantity (not date-filtered - inventory is current state)
       const inventoryQty = await db.select({ 
         total: sql<number>`sum(${blInventory.quantity})` 
-      }).from(blInventory);
+      }).from(blInventory).where(eq(blInventory.orgId, orgId));
       
       // Get total sales from orders with date filter
       // orderTotal is already decimal type, so just sum it (COALESCE handles nulls)
@@ -1748,13 +1793,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ? endDateFilter
           ? await db.select({
               total: sql<number>`COALESCE(sum(${orders.orderTotal}), 0)`
-            }).from(orders).where(sql`${orders.orderDate} >= ${dateFilter.toISOString()} AND ${orders.orderDate} < ${endDateFilter.toISOString()}`)
+            }).from(orders).where(and(orgOrdersWhere, sql`${orders.orderDate} >= ${dateFilter.toISOString()} AND ${orders.orderDate} < ${endDateFilter.toISOString()}`))
           : await db.select({
               total: sql<number>`COALESCE(sum(${orders.orderTotal}), 0)`
-            }).from(orders).where(sql`${orders.orderDate} >= ${dateFilter.toISOString()}`)
+            }).from(orders).where(and(orgOrdersWhere, sql`${orders.orderDate} >= ${dateFilter.toISOString()}`))
         : await db.select({
             total: sql<number>`COALESCE(sum(${orders.orderTotal}), 0)`
-          }).from(orders);
+          }).from(orders).where(orgOrdersWhere);
       
       res.json({
         totalOrders: Number(orderCount[0]?.count) || 0,
@@ -1769,26 +1814,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Settings Routes
-  app.get("/api/settings", isApproved, async (req, res) => {
+  app.get("/api/settings", isApproved, async (req: any, res) => {
     try {
-      const [settings] = await db
-        .select()
-        .from(appSettings)
-        .limit(1);
-
-      if (!settings) {
-        // Initialize with environment variable if not exists
-        const [newSettings] = await db
-          .insert(appSettings)
-          .values({
-            aiEnabled: true,
-            selectedModel: 'gpt-4o-mini',
-          })
-          .returning();
-        
-        return res.json(newSettings);
-      }
-
+      const orgId = reqOrgId(req);
+      const settings = await getOrgSettings(orgId);
       res.json(settings);
     } catch (error) {
       console.error("Error fetching settings:", error);
@@ -1796,13 +1825,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/settings", isApproved, async (req, res) => {
+  app.post("/api/settings", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const data = insertAppSettingsSchema.parse(req.body);
       
       const [settings] = await db
         .insert(appSettings)
-        .values({ ...data, id: 'default' })
+        .values({ ...data, id: orgId, orgId })
         .onConflictDoUpdate({
           target: appSettings.id,
           set: {
@@ -1915,10 +1945,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Get API key from settings
-      const [settings] = await db
-        .select()
-        .from(appSettings)
-        .limit(1);
+      const orgId = reqOrgId(req);
+      const settings = await getOrgSettings(orgId);
 
       if (!settings?.aiEnabled) {
         return res.status(400).json({
@@ -1934,7 +1962,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const recentHistory = await db
         .select()
         .from(conversations)
-        .where(eq(conversations.sessionId, sessionId))
+        .where(and(eq(conversations.orgId, orgId), eq(conversations.sessionId, sessionId)))
         .orderBy(desc(conversations.createdAt))
         .limit(10);
       
@@ -1954,10 +1982,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Provide summary data for inventory
       if (isSummaryRequest && (lastUserMessage.includes('inventory') || context === 'Inventory')) {
-        const totalItems = await db.select({ count: sql<number>`COUNT(*)` }).from(blInventory);
-        const totalQuantity = await db.select({ sum: sql<number>`SUM(${blInventory.quantity})` }).from(blInventory);
-        const totalValue = await db.select({ sum: sql<number>`SUM(${blInventory.quantity} * CAST(${blInventory.unitPrice} AS DECIMAL))` }).from(blInventory);
-        const uniqueColors = await db.select({ count: sql<number>`COUNT(DISTINCT ${blInventory.colorId})` }).from(blInventory);
+        const totalItems = await db.select({ count: sql<number>`COUNT(*)` }).from(blInventory).where(eq(blInventory.orgId, orgId));
+        const totalQuantity = await db.select({ sum: sql<number>`SUM(${blInventory.quantity})` }).from(blInventory).where(eq(blInventory.orgId, orgId));
+        const totalValue = await db.select({ sum: sql<number>`SUM(${blInventory.quantity} * CAST(${blInventory.unitPrice} AS DECIMAL))` }).from(blInventory).where(eq(blInventory.orgId, orgId));
+        const uniqueColors = await db.select({ count: sql<number>`COUNT(DISTINCT ${blInventory.colorId})` }).from(blInventory).where(eq(blInventory.orgId, orgId));
         
         databaseContext += `\n\nINVENTORY SUMMARY:\n`;
         databaseContext += `- Total Lots: ${totalItems[0]?.count || 0}\n`;
@@ -1968,12 +1996,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Provide summary data for orders
       if (isSummaryRequest && (lastUserMessage.includes('order') || context === 'Orders')) {
-        const totalOrders = await db.select({ count: sql<number>`COUNT(*)` }).from(orders);
+        const totalOrders = await db.select({ count: sql<number>`COUNT(*)` }).from(orders).where(eq(orders.orgId, orgId));
         const totalRevenue = await db.select({ 
           sum: sql<number>`SUM(CASE WHEN ${orders.orderTotal} != '' AND ${orders.orderTotal} IS NOT NULL THEN CAST(${orders.orderTotal} AS DECIMAL) ELSE 0 END)` 
-        }).from(orders);
-        const pendingOrders = await db.select({ count: sql<number>`COUNT(*)` }).from(orders).where(eq(orders.orderStatus, 'Pending'));
-        const shippedOrders = await db.select({ count: sql<number>`COUNT(*)` }).from(orders).where(eq(orders.orderStatus, 'Shipped'));
+        }).from(orders).where(eq(orders.orgId, orgId));
+        const pendingOrders = await db.select({ count: sql<number>`COUNT(*)` }).from(orders).where(and(eq(orders.orgId, orgId), eq(orders.orderStatus, 'Pending')));
+        const shippedOrders = await db.select({ count: sql<number>`COUNT(*)` }).from(orders).where(and(eq(orders.orgId, orgId), eq(orders.orderStatus, 'Shipped')));
         
         databaseContext += `\n\nORDERS SUMMARY:\n`;
         databaseContext += `- Total Orders: ${totalOrders[0]?.count || 0}\n`;
@@ -1986,8 +2014,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (isSummaryRequest && (lastUserMessage.includes('sales') || context === 'Sales')) {
         const totalRevenue = await db.select({ 
           sum: sql<number>`SUM(CASE WHEN ${orders.orderTotal} != '' AND ${orders.orderTotal} IS NOT NULL THEN CAST(${orders.orderTotal} AS DECIMAL) ELSE 0 END)` 
-        }).from(orders);
-        const totalOrders = await db.select({ count: sql<number>`COUNT(*)` }).from(orders);
+        }).from(orders).where(eq(orders.orgId, orgId));
+        const totalOrders = await db.select({ count: sql<number>`COUNT(*)` }).from(orders).where(eq(orders.orgId, orgId));
         const avgOrderValue = Number(totalRevenue[0]?.sum || 0) / (Number(totalOrders[0]?.count) || 1);
         
         // Get top revenue orders (filter out empty/null totals and use safe CAST)
@@ -2000,6 +2028,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           })
           .from(orders)
           .where(and(
+            eq(orders.orgId, orgId),
             sql`${orders.orderTotal} IS NOT NULL`,
             sql`${orders.orderTotal} != ''`
           ))
@@ -2024,7 +2053,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Get unique customers count
         const uniqueCustomers = await db.select({ 
           count: sql<number>`COUNT(DISTINCT ${orders.customerUsername})` 
-        }).from(orders);
+        }).from(orders).where(eq(orders.orgId, orgId));
         
         // Get top customers by total revenue (guard against empty/null totals)
         const topCustomers = await db
@@ -2034,6 +2063,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             orderCount: sql<number>`COUNT(*)`,
           })
           .from(orders)
+          .where(eq(orders.orgId, orgId))
           .groupBy(orders.customerUsername)
           .orderBy(desc(sql`SUM(CASE WHEN ${orders.orderTotal} != '' AND ${orders.orderTotal} IS NOT NULL THEN CAST(${orders.orderTotal} AS DECIMAL) ELSE 0 END)`))
           .limit(5);
@@ -2049,6 +2079,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               orderCount: sql<number>`COUNT(*)`.as('order_count'),
             })
             .from(orders)
+            .where(eq(orders.orgId, orgId))
             .groupBy(orders.customerUsername)
             .having(sql`COUNT(*) > 1`)
             .as('repeat_customers')
@@ -2116,7 +2147,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .from(blInventory)
             .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
             .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
-            .where(like(blInventory.itemNo, `%${partNumber}%`))
+            .where(and(eq(blInventory.orgId, orgId), like(blInventory.itemNo, `%${partNumber}%`)))
             .limit(50);
         } else if (searchKeywords.length > 0) {
           // First try category/theme search - check if keywords match category names
@@ -2156,11 +2187,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
               .from(blInventory)
               .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
               .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
-              .where(inArray(blInventory.categoryId, categoryIds))
+              .where(and(eq(blInventory.orgId, orgId), inArray(blInventory.categoryId, categoryIds)))
               .limit(50);
             
             console.log(`🔍 Category search: Found ${categoryMatches.length} matching categories:`, categoryMatches.map(c => c.name).join(', '));
-          } else {
+          } else { // no category match
             // No category match - try semantic search first if embeddings available
             try {
               const { searchInventorySemantic } = await import('./services/embeddings');
@@ -2217,7 +2248,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 .from(blInventory)
                 .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
                 .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
-                .where(or(...conditions))
+                .where(and(eq(blInventory.orgId, orgId), or(...conditions)))
                 .limit(50);
             }
           }
@@ -2241,6 +2272,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .from(blInventory)
             .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
             .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
+            .where(eq(blInventory.orgId, orgId))
             .limit(50);
         }
         
@@ -2282,9 +2314,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           totalLots: sql<number>`COUNT(*)`,
           totalParts: sql<number>`SUM(${blInventory.quantity})`,
           totalValue: sql<number>`SUM(${blInventory.quantity} * CAST(${blInventory.unitPrice} AS DECIMAL))`,
-        }).from(blInventory),
-        db.select({ count: sql<number>`COUNT(DISTINCT ${blInventory.colorId})` }).from(blInventory),
-        db.select({ count: sql<number>`COUNT(DISTINCT ${blInventory.categoryId})` }).from(blInventory),
+        }).from(blInventory).where(eq(blInventory.orgId, orgId)),
+        db.select({ count: sql<number>`COUNT(DISTINCT ${blInventory.colorId})` }).from(blInventory).where(eq(blInventory.orgId, orgId)),
+        db.select({ count: sql<number>`COUNT(DISTINCT ${blInventory.categoryId})` }).from(blInventory).where(eq(blInventory.orgId, orgId)),
       ]);
 
       const statsData = {
@@ -2321,7 +2353,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               newOrUsed: blInventory.newOrUsed,
             })
             .from(blInventory)
-            .where(eq(blInventory.itemNo, partNumber))
+            .where(and(eq(blInventory.orgId, orgId), eq(blInventory.itemNo, partNumber)))
             .limit(1);
           
           if (inventoryItem.length > 0) {
@@ -2423,6 +2455,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               lastOrderDate: sql<string>`MAX(${orders.orderDate})`,
             })
             .from(orders)
+            .where(eq(orders.orgId, orgId))
             .groupBy(orders.customerUsername)
             .orderBy(isTopCustomers ? desc(sql`SUM(CASE WHEN ${orders.orderTotal} != '' AND ${orders.orderTotal} IS NOT NULL THEN CAST(${orders.orderTotal} AS DECIMAL) ELSE 0 END)`) : desc(sql`COUNT(*)`))
             .limit(20);
@@ -2442,6 +2475,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         } else {
           // Handle order queries
+          const chatOrgFilter = eq(orders.orgId, orgId);
           let ordersQuery = db
             .select({
               id: orders.id,
@@ -2451,20 +2485,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
               orderTotal: orders.orderTotal,
               orderStatus: orders.orderStatus,
             })
-            .from(orders);
+            .from(orders)
+            .where(chatOrgFilter);
           
           // Apply status filter if found
           if (statusFilter) {
-            ordersQuery = ordersQuery.where(eq(orders.orderStatus, statusFilter)) as any;
+            ordersQuery = ordersQuery.where(and(chatOrgFilter, eq(orders.orderStatus, statusFilter))) as any;
           }
           
           // Apply date filter if found
           if (dateFilter) {
             const dateCondition = sql`${orders.orderDate} >= ${dateFilter.toISOString()}`;
             if (statusFilter) {
-              ordersQuery = ordersQuery.where(and(eq(orders.orderStatus, statusFilter), dateCondition)) as any;
+              ordersQuery = ordersQuery.where(and(chatOrgFilter, eq(orders.orderStatus, statusFilter), dateCondition)) as any;
             } else {
-              ordersQuery = ordersQuery.where(dateCondition) as any;
+              ordersQuery = ordersQuery.where(and(chatOrgFilter, dateCondition)) as any;
             }
           }
           
@@ -2774,7 +2809,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           })
           .from(blInventory)
           .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
-          .where(inArray(blInventory.itemNo, Array.from(mentionedParts)));
+          .where(and(eq(blInventory.orgId, orgId), inArray(blInventory.itemNo, Array.from(mentionedParts))));
         
         itemsFound.push(...items);
       }
@@ -2892,7 +2927,8 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             customerUsername: orders.customerUsername,
             orderStatus: orders.orderStatus,
           })
-          .from(orders);
+          .from(orders)
+          .where(eq(orders.orgId, orgId));
         
         const conditions: any[] = [];
         
@@ -2911,9 +2947,9 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           conditions.push(like(orders.customerUsername, `%${customerName}%`));
         }
         
-        // Apply conditions if any
+        // Apply conditions if any (always combined with orgId filter)
         if (conditions.length > 0) {
-          ordersQuery = ordersQuery.where(or(...conditions)) as any;
+          ordersQuery = ordersQuery.where(and(eq(orders.orgId, orgId), or(...conditions))) as any;
         }
         
         const orderResults = await ordersQuery
@@ -2936,6 +2972,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           role: 'user',
           content: lastUserMessageRaw,
           context,
+          orgId,
         });
 
         // Save assistant response
@@ -2944,6 +2981,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           role: 'assistant',
           content: assistantMessage,
           context,
+          orgId,
         });
       } catch (saveError) {
         console.error('Error saving conversation:', saveError);
@@ -3168,8 +3206,9 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   });
 
   // Get Inventory Items Without Embeddings
-  app.get("/api/embeddings/inventory/missing", isApproved, async (req, res) => {
+  app.get("/api/embeddings/inventory/missing", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const limit = parseInt(req.query.limit as string) || 100;
       
       // Get inventory items that don't have embeddings yet
@@ -3177,7 +3216,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         .select({ id: blInventory.id })
         .from(blInventory)
         .leftJoin(inventoryEmbeddings, eq(blInventory.id, inventoryEmbeddings.inventoryId))
-        .where(sql`${inventoryEmbeddings.inventoryId} IS NULL`)
+        .where(and(eq(blInventory.orgId, orgId), sql`${inventoryEmbeddings.inventoryId} IS NULL`))
         .limit(limit);
       
       res.json(itemsWithoutEmbeddings);
@@ -3190,8 +3229,9 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   });
 
   // Get Orders Without Embeddings
-  app.get("/api/embeddings/orders/missing", isApproved, async (req, res) => {
+  app.get("/api/embeddings/orders/missing", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const limit = parseInt(req.query.limit as string) || 100;
       
       // Get orders that don't have embeddings yet
@@ -3199,7 +3239,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         .select({ id: orders.id })
         .from(orders)
         .leftJoin(orderEmbeddings, eq(orders.id, orderEmbeddings.orderId))
-        .where(sql`${orderEmbeddings.orderId} IS NULL`)
+        .where(and(eq(orders.orgId, orgId), sql`${orderEmbeddings.orderId} IS NULL`))
         .limit(limit);
       
       res.json(ordersWithoutEmbeddings);
@@ -3312,8 +3352,9 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   });
 
   // Get active job for a type (now queries database)
-  app.get("/api/embeddings/jobs/active/:type", isApproved, async (req, res) => {
+  app.get("/api/embeddings/jobs/active/:type", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const { type } = req.params;
       
       if (!type || !['inventory', 'orders', 'sets'].includes(type)) {
@@ -3324,7 +3365,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       const [activeJob] = await db
         .select()
         .from(embeddingJobs)
-        .where(sql`${embeddingJobs.jobType} = ${type} AND ${embeddingJobs.status} IN ('pending', 'processing')`)
+        .where(and(eq(embeddingJobs.orgId, orgId), sql`${embeddingJobs.jobType} = ${type} AND ${embeddingJobs.status} IN ('pending', 'processing')`))
         .orderBy(sql`${embeddingJobs.createdAt} DESC`)
         .limit(1);
       
@@ -3496,7 +3537,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
     }
   }
 
-  async function processBrickanalyzerScan(scanId: number, imageBuffer: Buffer, settings: Record<string, number> = {}, calibration = false, previewBoxes?: { x: number; y: number; w: number; h: number }[]) {
+  async function processBrickanalyzerScan(scanId: number, imageBuffer: Buffer, settings: Record<string, number> = {}, calibration = false, previewBoxes?: { x: number; y: number; w: number; h: number }[], orgId: string = 'org_planetbrick') {
     const { incrementActiveScan, decrementActiveScan } = await import('./services/segmentClient.js');
     incrementActiveScan();
     const blApiCallsCounter = { count: 0 };
@@ -3687,6 +3728,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           severity: 'medium',
           status: 'open',
           metadata: JSON.stringify({ scanId }),
+          orgId,
         });
       }
       console.log(`[Brickanalyzer] ${pieces.length} refined regions ready for Brickognize`);
@@ -3891,7 +3933,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           // ── Check 2: which are already known BL part numbers in blInventory ──
           const knownRows = await db.select({ itemNo: blInventory.itemNo })
             .from(blInventory)
-            .where(sql`upper(${blInventory.itemNo}) IN (${sql.join(upperList.map(p => sql`${p}`), sql`, `)})`);
+            .where(and(eq(blInventory.orgId, orgId), sql`upper(${blInventory.itemNo}) IN (${sql.join(upperList.map(p => sql`${p}`), sql`, `)})`));
           const knownSet = new Set(knownRows.map(r => r.itemNo?.toUpperCase()));
 
           // Needs Rebrickable: not in cache and not a known BL number
@@ -3917,7 +3959,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
                   console.log(`[Brickanalyzer] Rebrickable mapped ${legoPartNo} → BL: ${blIds.join(', ')}`);
                   for (const blId of blIds) {
                     const blCheck = await db.select({ itemNo: blInventory.itemNo }).from(blInventory)
-                      .where(sql`upper(${blInventory.itemNo}) = upper(${blId})`).limit(1);
+                      .where(and(eq(blInventory.orgId, orgId), sql`upper(${blInventory.itemNo}) = upper(${blId})`)).limit(1);
                     if (blCheck.length > 0) { resolvedBlId = blCheck[0].itemNo!; break; }
                   }
                   if (!resolvedBlId) resolvedBlId = blIds[0];
@@ -3961,8 +4003,9 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
 
       // Load POM config once
       const pomConfig = await getPomFormulaConfig();
-      const pomSettings = await db.select().from(appSettings).limit(1);
-      const premiumPct = pomSettings[0]?.pomBasePremium ?? 15;
+      const orgId = reqOrgId(req);
+      const pomSettings = await getOrgSettings(orgId);
+      const premiumPct = pomSettings?.pomBasePremium ?? 15;
 
       // For each identified part: inventory lookup + POM price + image
       const enriched = await Promise.all(filteredIdentified.map(async (piece: any) => {
@@ -4003,6 +4046,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           })
           .from(blInventory)
           .where(and(
+            eq(blInventory.orgId, orgId),
             eq(blInventory.itemNo, piece.partNo),
             sql`${blInventory.quantity} > 0`
           ))
@@ -4040,6 +4084,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
               })
               .from(blInventory)
               .where(and(
+                eq(blInventory.orgId, orgId),
                 sql`lower(${blInventory.itemName}) like lower(${'%' + piece.partName.replace(/[%_]/g, '') + '%'})`,
                 sql`${blInventory.quantity} > 0`
               ))
@@ -4523,6 +4568,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           severity: 'medium',
           status: 'open',
           metadata: JSON.stringify({ scanId, regionsDetected: pieces.length }),
+          orgId,
         });
       }
     } catch (err: any) {
@@ -4541,6 +4587,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         severity: 'high',
         status: 'open',
         metadata: JSON.stringify({ scanId, error: err.message }),
+        orgId,
       }).catch(() => {});
     } finally {
       decrementActiveScan();
@@ -4728,12 +4775,14 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   });
 
   // POST /api/brickanalyzer/scan — upload image, start background job
-  app.post("/api/brickanalyzer/scan", brickanalyzerUpload.single('image'), isApproved, async (req, res) => {
+  app.post("/api/brickanalyzer/scan", brickanalyzerUpload.single('image'), isApproved, async (req: any, res) => {
     try {
       if (!req.file) return res.status(400).json({ error: "No image provided" });
+      const orgId = reqOrgId(req);
 
       const [scan] = await db.insert(brickanalyzerScans).values({
         status: 'processing',
+        orgId,
       }).returning();
 
       // Parse scan settings passed as a JSON string form field
@@ -4750,7 +4799,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       }
 
       // Fire and forget — client gets scanId immediately
-      processBrickanalyzerScan(scan.id, req.file.buffer, settings, calibration, previewBoxes).catch(() => {});
+      processBrickanalyzerScan(scan.id, req.file.buffer, settings, calibration, previewBoxes, orgId).catch(() => {});
 
       res.json({ scanId: scan.id });
     } catch (err: any) {
@@ -4762,10 +4811,11 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   // Returns the most recent scan that is not "failed" (complete or processing).
   // A newer failed scan should not overwrite an older successful scan that may
   // have an outstanding action-items notification pointing to it.
-  app.get("/api/brickanalyzer/scans/latest", isApproved, async (req, res) => {
+  app.get("/api/brickanalyzer/scans/latest", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const [scan] = await db.select().from(brickanalyzerScans)
-        .where(ne(brickanalyzerScans.status, 'failed'))
+        .where(and(eq(brickanalyzerScans.orgId, orgId), ne(brickanalyzerScans.status, 'failed')))
         .orderBy(desc(brickanalyzerScans.createdAt))
         .limit(1);
       if (!scan) return res.json(null);
@@ -4778,10 +4828,11 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   });
 
   // GET /api/brickanalyzer/scan/:id — full results (includes cropCount from cache)
-  app.get("/api/brickanalyzer/scan/:id", isApproved, async (req, res) => {
+  app.get("/api/brickanalyzer/scan/:id", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const [scan] = await db.select().from(brickanalyzerScans)
-        .where(eq(brickanalyzerScans.id, Number(req.params.id)));
+        .where(and(eq(brickanalyzerScans.orgId, orgId), eq(brickanalyzerScans.id, Number(req.params.id))));
       if (!scan) return res.status(404).json({ error: "Scan not found" });
       const crops = brickanalyzerCropCache.get(scan.id);
       const meta  = brickanalyzerImageMeta.get(scan.id);
@@ -4930,8 +4981,9 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
 
   // POST /api/brickspotter/build-catalog — batch embed BL inventory items using CDN URLs
   // Body: { limit?: number } — number of inventory items to process (default: all)
-  app.post("/api/brickspotter/build-catalog", isApproved, async (req, res) => {
+  app.post("/api/brickspotter/build-catalog", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const { buildCatalogEmbeddings, getActiveBuild } = await import('./services/clip-search.js');
 
       // Guard against concurrent builds
@@ -4944,7 +4996,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       const rows = await db.select({
         itemNo: blInventory.itemNo,
         colorId: blInventory.colorId,
-      }).from(blInventory);
+      }).from(blInventory).where(eq(blInventory.orgId, orgId));
 
       const items = (limit > 0 ? rows.slice(0, limit) : rows).map((r) => ({
         itemNo: r.itemNo,
@@ -4972,8 +5024,9 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   // ─────────────────────────────────────────────────────────────────────────
 
   // Get Inventory Items
-  app.get("/api/inventory", isApproved, async (req, res) => {
+  app.get("/api/inventory", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const searchQuery = req.query.search as string;
       
       // Build query conditionally
@@ -4996,7 +5049,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             .from(blInventory)
             .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
             .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
-            .where(eq(blInventory.itemNo, searchQuery.trim()))
+            .where(and(eq(blInventory.orgId, orgId), eq(blInventory.itemNo, searchQuery.trim())))
         : await db
             .select({
               id: blInventory.id,
@@ -5015,6 +5068,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             .from(blInventory)
             .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
             .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
+            .where(eq(blInventory.orgId, orgId))
             .limit(100);
 
       res.json(inventoryItems);
@@ -5025,8 +5079,9 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   });
 
   // Get Inventory Stats (MUST be before /api/inventory/:id to avoid route conflict)
-  app.get("/api/inventory/stats", isApproved, async (req, res) => {
+  app.get("/api/inventory/stats", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const stats = await db
         .select({
           totalLots: sql<number>`COUNT(*)`,
@@ -5034,15 +5089,18 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           totalValue: sql<number>`SUM(${blInventory.quantity} * CAST(${blInventory.unitPrice} AS DECIMAL))`,
           totalCost: sql<number>`SUM(${blInventory.quantity} * COALESCE(CAST(${blInventory.myCost} AS DECIMAL), 0))`,
         })
-        .from(blInventory);
+        .from(blInventory)
+        .where(eq(blInventory.orgId, orgId));
 
       const colorCount = await db
         .select({ count: sql<number>`COUNT(DISTINCT ${blInventory.colorId})` })
-        .from(blInventory);
+        .from(blInventory)
+        .where(eq(blInventory.orgId, orgId));
 
       const categoryCount = await db
         .select({ count: sql<number>`COUNT(DISTINCT ${blInventory.categoryId})` })
-        .from(blInventory);
+        .from(blInventory)
+        .where(eq(blInventory.orgId, orgId));
 
       res.json({
         totalLots: Number(stats[0]?.totalLots) || 0,
@@ -5137,15 +5195,17 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   const boidLookupCache = new Map<string, string | null>();
 
   // Get Platform Sync Status
-  app.get("/api/platform-sync/status", isApproved, async (req, res) => {
+  app.get("/api/platform-sync/status", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       // Get BrickLink inventory stats (source of truth)
       const blStats = await db
         .select({
           totalLots: sql<number>`COUNT(*)`,
           totalParts: sql<number>`SUM(${blInventory.quantity})`,
         })
-        .from(blInventory);
+        .from(blInventory)
+        .where(eq(blInventory.orgId, orgId));
 
       const brickLinkStats = {
         totalLots: Number(blStats[0]?.totalLots) || 0,
@@ -5154,7 +5214,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       };
 
       // Check if BrickOwl API key is configured
-      const [settings] = await db.select().from(appSettings).limit(1);
+      const settings = await getOrgSettings(orgId);
       const brickowlEnabled = !!settings?.brickowlApiKey;
 
       // Get actual BrickOwl inventory stats if enabled
@@ -5191,7 +5251,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           // SIMPLIFIED COMPARISON: Use external_lot_ids.other (BrickLink inventory ID) for matching
           console.log('[Status] Starting simplified comparison using external_lot_ids.other');
           const blItemsMap = new Map<number, any>();
-          const blItems = await db.select().from(blInventory);
+          const blItems = await db.select().from(blInventory).where(eq(blInventory.orgId, orgId));
           
           // Build lookup map: BrickLink inventory ID -> BrickLink item
           for (const blItem of blItems) {
@@ -5369,16 +5429,17 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   });
 
   // Get detailed discrepancies for a specific platform and type
-  app.get("/api/platform-sync/discrepancies/:platform/:type", isApproved, async (req, res) => {
+  app.get("/api/platform-sync/discrepancies/:platform/:type", isApproved, async (req: any, res) => {
     try {
       const { platform, type } = req.params;
       const limit = parseInt(req.query.limit as string) || 50;
+      const orgId = reqOrgId(req);
 
       if (platform !== 'BrickOwl') {
         return res.status(400).json({ error: `Platform ${platform} is not supported yet` });
       }
 
-      const [settings] = await db.select().from(appSettings).limit(1);
+      const settings = await getOrgSettings(orgId);
       const brickowlEnabled = !!settings?.brickowlApiKey;
 
       if (!brickowlEnabled) {
@@ -5487,11 +5548,12 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   // ============================================
   
   // Get all sync issues (with optional filters)
-  app.get("/api/sync-issues", isApproved, async (req, res) => {
+  app.get("/api/sync-issues", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const { status, syncType, platform, severity } = req.query;
       
-      const conditions = [];
+      const conditions = [eq(syncIssues.orgId, orgId)];
       
       if (status) {
         conditions.push(eq(syncIssues.status, status as string));
@@ -5506,21 +5568,12 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         conditions.push(eq(syncIssues.severity, severity as string));
       }
       
-      let issues;
-      if (conditions.length > 0) {
-        issues = await db
-          .select()
-          .from(syncIssues)
-          .where(and(...conditions))
-          .orderBy(desc(syncIssues.createdAt))
-          .limit(100);
-      } else {
-        issues = await db
-          .select()
-          .from(syncIssues)
-          .orderBy(desc(syncIssues.createdAt))
-          .limit(100);
-      }
+      const issues = await db
+        .select()
+        .from(syncIssues)
+        .where(and(...conditions))
+        .orderBy(desc(syncIssues.createdAt))
+        .limit(100);
       
       res.json({
         success: true,
@@ -5537,17 +5590,18 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   });
   
   // Get sync issue stats
-  app.get("/api/sync-issues/stats", isApproved, async (req, res) => {
+  app.get("/api/sync-issues/stats", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const openIssues = await db
         .select({ count: sql<number>`count(*)` })
         .from(syncIssues)
-        .where(eq(syncIssues.status, 'open'));
+        .where(and(eq(syncIssues.orgId, orgId), eq(syncIssues.status, 'open')));
       
       const criticalIssues = await db
         .select({ count: sql<number>`count(*)` })
         .from(syncIssues)
-        .where(and(eq(syncIssues.status, 'open'), eq(syncIssues.severity, 'critical')));
+        .where(and(eq(syncIssues.orgId, orgId), eq(syncIssues.status, 'open'), eq(syncIssues.severity, 'critical')));
       
       res.json({
         success: true,
@@ -5566,11 +5620,12 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   });
   
   // Create a new sync issue
-  app.post("/api/sync-issues", isApproved, async (req, res) => {
+  app.post("/api/sync-issues", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const issue = insertSyncIssueSchema.parse(req.body);
       
-      const [newIssue] = await db.insert(syncIssues).values(issue).returning();
+      const [newIssue] = await db.insert(syncIssues).values({ ...issue, orgId }).returning();
       
       res.json({
         success: true,
@@ -5671,8 +5726,9 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   });
 
   // Get Recently Updated/Added Inventory Items (MUST be before /api/inventory/:id)
-  app.get("/api/inventory/recent-updates", isApproved, async (req, res) => {
+  app.get("/api/inventory/recent-updates", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
       const type = req.query.type as string; // 'new' or 'updated'
       
@@ -5699,7 +5755,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           .select(baseSelect)
           .from(blInventory)
           .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
-          .where(sql`EXTRACT(EPOCH FROM (${blInventory.updatedAt} - ${blInventory.syncedAt})) < 5`)
+          .where(and(eq(blInventory.orgId, orgId), sql`EXTRACT(EPOCH FROM (${blInventory.updatedAt} - ${blInventory.syncedAt})) < 5`))
           .orderBy(desc(blInventory.syncedAt))
           .limit(limit);
       } else if (type === 'updated') {
@@ -5708,7 +5764,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           .select(baseSelect)
           .from(blInventory)
           .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
-          .where(sql`EXTRACT(EPOCH FROM (${blInventory.updatedAt} - ${blInventory.syncedAt})) >= 5`)
+          .where(and(eq(blInventory.orgId, orgId), sql`EXTRACT(EPOCH FROM (${blInventory.updatedAt} - ${blInventory.syncedAt})) >= 5`))
           .orderBy(desc(blInventory.updatedAt))
           .limit(limit);
       } else {
@@ -5717,6 +5773,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           .select(baseSelect)
           .from(blInventory)
           .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+          .where(eq(blInventory.orgId, orgId))
           .orderBy(desc(blInventory.updatedAt))
           .limit(limit);
       }
@@ -5801,8 +5858,9 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   });
 
   // Spot Price Lookup — any part number, in or out of inventory
-  app.get("/api/pom/spot-lookup", isApproved, async (req, res) => {
+  app.get("/api/pom/spot-lookup", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const { partNo, itemType = 'P', colorId, newOrUsed = 'N', forceRefresh } = req.query;
 
       if (!partNo || typeof partNo !== 'string' || !partNo.trim()) {
@@ -5853,8 +5911,8 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
         .where(
           colorIdNum !== undefined
-            ? and(sql`upper(${blInventory.itemNo}) = ${partNoClean}`, eq(blInventory.colorId, colorIdNum))
-            : sql`upper(${blInventory.itemNo}) = ${partNoClean}`
+            ? and(eq(blInventory.orgId, orgId), sql`upper(${blInventory.itemNo}) = ${partNoClean}`, eq(blInventory.colorId, colorIdNum))
+            : and(eq(blInventory.orgId, orgId), sql`upper(${blInventory.itemNo}) = ${partNoClean}`)
         )
         .orderBy(blColors.name);
 
@@ -5935,10 +5993,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       });
 
       // Include flag thresholds so the UI can badge each lot as Too High / Too Low / Well Priced
-      const [settingsRow] = await db.select({
-        pomTooHighThreshold: appSettings.pomTooHighThreshold,
-        pomTooLowThreshold: appSettings.pomTooLowThreshold,
-      }).from(appSettings).limit(1);
+      const settingsRow = await getOrgSettings(orgId);
 
       const thresholds = {
         tooHigh: settingsRow?.pomTooHighThreshold ?? 25,
@@ -5992,8 +6047,9 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   });
 
   // Search for inventory by item number (MUST be before /api/inventory/:id)
-  app.get("/api/inventory/search", isApproved, async (req, res) => {
+  app.get("/api/inventory/search", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const { itemNo, limit = 10 } = req.query;
 
       if (!itemNo || typeof itemNo !== 'string') {
@@ -6012,7 +6068,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         })
         .from(blInventory)
         .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
-        .where(eq(blInventory.itemNo, itemNo))
+        .where(and(eq(blInventory.orgId, orgId), eq(blInventory.itemNo, itemNo)))
         .limit(parseInt(limit as string) || 10);
 
       res.json(inventoryLots);
@@ -6023,8 +6079,9 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   });
 
   // Get Inventory Item by ID (MUST be after /api/inventory/stats and price-guide to avoid route conflict)
-  app.get("/api/inventory/:id", isApproved, async (req, res) => {
+  app.get("/api/inventory/:id", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const itemId = parseInt(req.params.id);
       if (isNaN(itemId)) {
         return res.status(400).json({ error: "Invalid item ID" });
@@ -6067,7 +6124,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         .from(blInventory)
         .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
         .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
-        .where(eq(blInventory.id, itemId));
+        .where(and(eq(blInventory.orgId, orgId), eq(blInventory.id, itemId)));
 
       if (items.length === 0) {
         return res.status(404).json({ error: "Item not found" });
@@ -6081,8 +6138,9 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   });
 
   // Get Item Analytics
-  app.get("/api/inventory/:id/analytics", isApproved, async (req, res) => {
+  app.get("/api/inventory/:id/analytics", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const itemId = parseInt(req.params.id);
       if (isNaN(itemId)) {
         return res.status(400).json({ error: "Invalid item ID" });
@@ -6114,7 +6172,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       const [item] = await db
         .select({ id: blInventory.id, dateCreated: blInventory.dateCreated })
         .from(blInventory)
-        .where(eq(blInventory.id, itemId))
+        .where(and(eq(blInventory.orgId, orgId), eq(blInventory.id, itemId)))
         .limit(1);
 
       if (!item) {
@@ -6264,8 +6322,9 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   });
 
   // Sync Routes
-  app.post("/api/sync/bricklink/inventory", isApproved, async (req, res) => {
+  app.post("/api/sync/bricklink/inventory", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const result = await syncBricklinkData();
       res.json({
         success: true,
@@ -6275,7 +6334,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       (async () => {
         try {
           const { buildCatalogEmbeddings } = await import('./services/clip-search.js');
-          const rows = await db.select({ itemNo: blInventory.itemNo, colorId: blInventory.colorId }).from(blInventory);
+          const rows = await db.select({ itemNo: blInventory.itemNo, colorId: blInventory.colorId }).from(blInventory).where(eq(blInventory.orgId, orgId));
           const items = rows.map((r) => ({ itemNo: r.itemNo, colorId: Number(r.colorId), itemType: 'PART' }));
           if (items.length === 0) return;
           const built = await buildCatalogEmbeddings(items);
@@ -6295,13 +6354,14 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   });
 
   // Live BrickLink vs Local quantity comparison
-  app.get("/api/bricklink-quantity-comparison", isApproved, async (req, res) => {
+  app.get("/api/bricklink-quantity-comparison", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const { bricklinkRequest } = await import('./services/bricklink');
       const { data: blLiveData } = await bricklinkRequest('/inventories');
       const blLiveItems: any[] = Array.isArray(blLiveData) ? blLiveData : [];
 
-      const localItems = await db.select().from(blInventory);
+      const localItems = await db.select().from(blInventory).where(eq(blInventory.orgId, orgId));
       const localMap = new Map<number, typeof localItems[0]>();
       for (const item of localItems) localMap.set(item.id, item);
 
@@ -6401,12 +6461,13 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   });
 
   // Get ShipStation sync progress (for real-time UI updates)
-  app.get("/api/sync/shipstation/orders/progress", isApproved, async (req, res) => {
+  app.get("/api/sync/shipstation/orders/progress", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const [metadata] = await db
         .select()
         .from(syncMetadata)
-        .where(eq(syncMetadata.id, 'shipstation_orders'))
+        .where(and(eq(syncMetadata.orgId, orgId), eq(syncMetadata.id, 'shipstation_orders')))
         .limit(1);
       
       if (!metadata) {
@@ -6521,10 +6582,11 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
 
   // Recent sync errors for dashboard action items
   // Returns syncs that completed with error/failed status in the last 24 hours
-  app.get("/api/sync/statuses", isApproved, async (req, res) => {
+  app.get("/api/sync/statuses", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const ids = ['bricklink_inventory', 'priceomatic_cache', 'channel_sync', 'bricklink_orders', 'brickowl_orders'];
-      const rows = await db.select().from(syncMetadata).where(inArray(syncMetadata.id, ids));
+      const rows = await db.select().from(syncMetadata).where(and(eq(syncMetadata.orgId, orgId), inArray(syncMetadata.id, ids)));
 
       // Cross-check in_progress records against live in-memory state.
       // If the DB says in_progress but nothing is actually running, auto-correct.
@@ -6595,14 +6657,16 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
     }
   });
 
-  app.get("/api/sync/recent-errors", isApproved, async (req, res) => {
+  app.get("/api/sync/recent-errors", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
       const rows = await db
         .select()
         .from(syncMetadata)
         .where(
           and(
+            eq(syncMetadata.orgId, orgId),
             inArray(syncMetadata.lastSyncStatus, ['error', 'failed', 'partial']),
             sql`${syncMetadata.lastSyncTime} >= ${since}`
           )
@@ -6632,8 +6696,9 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   });
 
   // Get Order Sync Status for all platforms
-  app.get("/api/order-sync/status", isApproved, async (req, res) => {
+  app.get("/api/order-sync/status", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       // Get local database order stats
       const dbOrderStats = await db
         .select({
@@ -6642,7 +6707,8 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           pendingOrders: sql<number>`COUNT(CASE WHEN ${orders.orderStatus} IN ('awaiting_payment', 'awaiting_shipment', 'pending') THEN 1 END)`,
           shippedOrders: sql<number>`COUNT(CASE WHEN ${orders.orderStatus} = 'shipped' THEN 1 END)`,
         })
-        .from(orders);
+        .from(orders)
+        .where(eq(orders.orgId, orgId));
 
       const dbStats = {
         totalOrders: Number(dbOrderStats[0]?.totalOrders) || 0,
@@ -6652,7 +6718,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       };
 
       // Get settings to check API credentials
-      const [settings] = await db.select().from(appSettings).limit(1);
+      const settings = await getOrgSettings(orgId);
       const bricklinkEnabled = !!(settings?.bricklinkConsumerKey && settings?.bricklinkConsumerSecret && 
         settings?.bricklinkTokenValue && settings?.bricklinkTokenSecret);
       const brickowlEnabled = !!settings?.brickowlApiKey;
@@ -6661,13 +6727,13 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       const [blSyncMeta] = await db
         .select()
         .from(syncMetadata)
-        .where(eq(syncMetadata.id, 'bricklink_orders'))
+        .where(and(eq(syncMetadata.orgId, orgId), eq(syncMetadata.id, 'bricklink_orders')))
         .limit(1);
 
       const [boSyncMeta] = await db
         .select()
         .from(syncMetadata)
-        .where(eq(syncMetadata.id, 'brickowl_orders'))
+        .where(and(eq(syncMetadata.orgId, orgId), eq(syncMetadata.id, 'brickowl_orders')))
         .limit(1);
 
       // Get BrickLink order stats from local database
@@ -6678,7 +6744,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           pendingOrders: sql<number>`COUNT(CASE WHEN ${orders.orderStatus} IN ('awaiting_payment', 'awaiting_shipment', 'pending') THEN 1 END)`,
         })
         .from(orders)
-        .where(eq(orders.marketplace, 'BrickLink'));
+        .where(and(eq(orders.orgId, orgId), eq(orders.marketplace, 'BrickLink')));
 
       const brickLinkStats = {
         totalOrders: Number(blLocalStats[0]?.totalOrders) || 0,
@@ -6695,7 +6761,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           pendingOrders: sql<number>`COUNT(CASE WHEN ${orders.orderStatus} IN ('awaiting_payment', 'awaiting_shipment', 'pending') THEN 1 END)`,
         })
         .from(orders)
-        .where(eq(orders.marketplace, 'BrickOwl'));
+        .where(and(eq(orders.orgId, orgId), eq(orders.marketplace, 'BrickOwl')));
 
       const brickOwlStats = {
         totalOrders: Number(boLocalStats[0]?.totalOrders) || 0,
@@ -6819,8 +6885,9 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   });
 
   // Price-o-Matic sync endpoint (manual trigger from POM screen)
-  app.post("/api/sync/priceomatic", isApproved, async (req, res) => {
+  app.post("/api/sync/priceomatic", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       // Fast in-memory check — blocks if ANY sync is already running
       if (syncLock.isRunning()) {
         const blocker = syncLock.getActive().join(', ');
@@ -6831,16 +6898,14 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       }
 
       // Use pomBatchSize (manual sync setting) — never the scheduler's pomScheduleBatchSize
-      const [pomSettings] = await db.select({
-        pomBatchSize: appSettings.pomBatchSize,
-      }).from(appSettings).limit(1);
+      const pomSettings = await getOrgSettings(orgId);
       const maxItems = req.body.maxItems ?? pomSettings?.pomBatchSize ?? 1500;
       
       // DB-level check as secondary guard (survives server restarts)
       const [existingSync] = await db
         .select()
         .from(syncMetadata)
-        .where(eq(syncMetadata.id, 'priceomatic_cache'))
+        .where(and(eq(syncMetadata.orgId, orgId), eq(syncMetadata.id, 'priceomatic_cache')))
         .limit(1);
       
       if (existingSync?.lastSyncStatus === 'in_progress' && existingSync.lastSyncTime) {
@@ -6873,6 +6938,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           lastSyncTime: new Date(),
           recordsAdded: 0,
           recordsUpdated: 0,
+          orgId,
         })
         .onConflictDoUpdate({
           target: syncMetadata.id,
@@ -6895,6 +6961,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             recordsAdded: 0,
             recordsUpdated: result.itemsUpdated,
             errorMessage: result.stopReason || null,
+            orgId,
           })
           .onConflictDoUpdate({
             target: syncMetadata.id,
@@ -6918,6 +6985,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             recordsAdded: 0,
             recordsUpdated: 0,
             errorMessage: error instanceof Error ? error.message : 'Unknown error',
+            orgId,
           })
           .onConflictDoUpdate({
             target: syncMetadata.id,
@@ -6948,12 +7016,13 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   });
 
   // Get Price-o-Matic sync status
-  app.get("/api/sync/priceomatic/status", isApproved, async (req, res) => {
+  app.get("/api/sync/priceomatic/status", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const [status] = await db
         .select()
         .from(syncMetadata)
-        .where(eq(syncMetadata.id, 'priceomatic_cache'))
+        .where(and(eq(syncMetadata.orgId, orgId), eq(syncMetadata.id, 'priceomatic_cache')))
         .limit(1);
 
       const { checkRateLimit, getPomSyncProgress } = await import("./services/bricklink");
@@ -6970,7 +7039,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           errorMessage: 'Sync interrupted — server was restarted or sync was killed mid-run.',
           updatedAt: new Date(),
         };
-        await db.update(syncMetadata).set(staleFix).where(eq(syncMetadata.id, 'priceomatic_cache'));
+        await db.update(syncMetadata).set(staleFix).where(and(eq(syncMetadata.orgId, orgId), eq(syncMetadata.id, 'priceomatic_cache')));
         resolvedStatus = { ...status, ...staleFix };
         console.log('[POM] Cleared stale in_progress status from previous run');
       }
@@ -7001,8 +7070,9 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   });
 
   // Stop an in-progress Price-o-Matic sync
-  app.post("/api/sync/priceomatic/stop", isApproved, async (req, res) => {
+  app.post("/api/sync/priceomatic/stop", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       requestPomSyncStop();
       // Mark the sync as stopped in the DB so the UI reflects it immediately
       await db
@@ -7012,6 +7082,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           lastSyncStatus: 'stopped',
           lastSyncTime: new Date(),
           errorMessage: 'Sync stopped by user request.',
+          orgId,
         })
         .onConflictDoUpdate({
           target: syncMetadata.id,
@@ -7030,13 +7101,14 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   });
 
   // Clear all Price-o-Matic cache data and reset sync status
-  app.delete("/api/sync/priceomatic/cache", isApproved, async (req, res) => {
+  app.delete("/api/sync/priceomatic/cache", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const result = await db.execute(sql`DELETE FROM price_guide_cache`);
       const deleted = (result as any).rowCount ?? 0;
 
       // Reset sync metadata so the dashboard shows 'never'
-      await db.delete(syncMetadata).where(eq(syncMetadata.id, 'priceomatic_cache'));
+      await db.delete(syncMetadata).where(and(eq(syncMetadata.orgId, orgId), eq(syncMetadata.id, 'priceomatic_cache')));
 
       console.log(`[Price-o-Matic] Cache cleared: ${deleted} rows deleted`);
       res.json({ success: true, deleted });
@@ -7047,10 +7119,11 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   });
 
   // Deep Space: get current keys + stored item metadata for cross-device rendering
-  app.get("/api/priceomatic/deep-space", isApproved, async (req, res) => {
+  app.get("/api/priceomatic/deep-space", isApproved, async (req: any, res) => {
     res.setHeader('Cache-Control', 'no-store');
     try {
-      const [settings] = await db.select({ pomDeepSpaceKeys: appSettings.pomDeepSpaceKeys }).from(appSettings).limit(1);
+      const orgId = reqOrgId(req);
+      const settings = await getOrgSettings(orgId);
       const raw = settings?.pomDeepSpaceKeys || '[]';
       const parsed: unknown[] = JSON.parse(raw);
       // Support both old format (string[]) and new format (StoredGroupInfo[])
@@ -7068,14 +7141,15 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   });
 
   // Deep Space: save full set of item metadata (key + display info)
-  app.put("/api/priceomatic/deep-space", isApproved, async (req, res) => {
+  app.put("/api/priceomatic/deep-space", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const { items } = req.body as { items?: { key: string; itemNo: string; itemName: string | null; colorId: number | null; colorName: string | null }[]; keys?: string[] };
       // Accept either new format (items[]) or legacy format (keys[])
       const toStore = items ?? (req.body.keys as string[] | undefined)?.map((k: string) => ({ key: k, itemNo: k.split('_')[0], itemName: null, colorId: null, colorName: null })) ?? [];
       if (!Array.isArray(toStore)) return res.status(400).json({ success: false, error: "items must be an array" });
       const json = JSON.stringify(toStore);
-      await db.insert(appSettings).values({ id: 'default', pomDeepSpaceKeys: json })
+      await db.insert(appSettings).values({ id: orgId, orgId, pomDeepSpaceKeys: json })
         .onConflictDoUpdate({ target: appSettings.id, set: { pomDeepSpaceKeys: json, updatedAt: new Date() } });
       res.json({ success: true, keys: toStore.map((i: { key: string }) => i.key), items: toStore });
     } catch (error) {
@@ -7224,14 +7298,10 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   });
 
   // List-o-Matic Priority Score List
-  app.get("/api/listomatc/priority", isApproved, async (req, res) => {
+  app.get("/api/listomatc/priority", isApproved, async (req: any, res) => {
     try {
-      const [cfg] = await db.select({
-        lomCategoryScore: appSettings.lomCategoryScore,
-        lomSubcategoryScore: appSettings.lomSubcategoryScore,
-        lomFinalsortScore: appSettings.lomFinalsortScore,
-        lomListingScore: appSettings.lomListingScore,
-      }).from(appSettings).limit(1);
+      const orgId = reqOrgId(req);
+      const cfg = await getOrgSettings(orgId);
 
       const phaseScores: Record<string, number> = {
         category: cfg?.lomCategoryScore ?? 25,
@@ -7317,8 +7387,9 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   });
 
   // Sample parts for a category (up to 5, ordered by qty desc)
-  app.get("/api/listomatc/category/:id/sample", isApproved, async (req, res) => {
+  app.get("/api/listomatc/category/:id/sample", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const categoryId = parseInt(req.params.id);
       if (isNaN(categoryId)) return res.status(400).json({ error: "Invalid category id" });
 
@@ -7333,7 +7404,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           thumbnailUrl: blInventory.thumbnailUrl,
         })
         .from(blInventory)
-        .where(and(eq(blInventory.categoryId, categoryId), eq(blInventory.itemType, 'PART')))
+        .where(and(eq(blInventory.orgId, orgId), eq(blInventory.categoryId, categoryId), eq(blInventory.itemType, 'PART')))
         .orderBy(desc(blInventory.quantity))
         .limit(5);
 
@@ -7362,8 +7433,9 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
     }
   });
 
-  app.patch("/api/listomatc/phase-scores", isApproved, async (req, res) => {
+  app.patch("/api/listomatc/phase-scores", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const { category, subcategory, finalsort, listing } = req.body;
       await db.update(appSettings).set({
         lomCategoryScore:    Number(category)    || 25,
@@ -7371,7 +7443,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         lomFinalsortScore:   Number(finalsort)   || 75,
         lomListingScore:     Number(listing)     || 100,
         updatedAt: sql`CURRENT_TIMESTAMP`,
-      }).where(eq(appSettings.id, 'default'));
+      }).where(eq(appSettings.orgId, orgId));
       res.json({ success: true });
     } catch (error) {
       console.error("Error saving phase scores:", error);
@@ -7381,15 +7453,11 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
 
   // Get Price-o-Matic insights (pricing discrepancies)
   // Per-category Price-o-Matic freshness stats
-  app.get("/api/priceomatic/freshness", isApproved, async (req, res) => {
+  app.get("/api/priceomatic/freshness", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       // Load tier refresh thresholds from settings
-      const [cfg] = await db.select({
-        pomTier1RefreshDays: appSettings.pomTier1RefreshDays,
-        pomTier2RefreshDays: appSettings.pomTier2RefreshDays,
-        pomTier3RefreshDays: appSettings.pomTier3RefreshDays,
-        pomTier4RefreshDays: appSettings.pomTier4RefreshDays,
-      }).from(appSettings).limit(1);
+      const cfg = await getOrgSettings(orgId);
 
       const tierDays: Record<string, number> = {
         tier1: cfg?.pomTier1RefreshDays ?? 1,
@@ -7489,15 +7557,16 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
     }
   });
 
-  app.get("/api/priceomatic/insights", isApproved, async (req, res) => {
+  app.get("/api/priceomatic/insights", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const { priceGuideCache, appSettings: appSettingsTable } = await import("@shared/schema");
       
       // Load current formula config AND flag thresholds — formula is applied live so changes take effect immediately
       const [pomCfg] = await db.select({
         pomTooHighThreshold: appSettingsTable.pomTooHighThreshold,
         pomTooLowThreshold: appSettingsTable.pomTooLowThreshold,
-      }).from(appSettingsTable).limit(1);
+      }).from(appSettingsTable).where(eq(appSettingsTable.orgId, orgId)).limit(1);
       const tooHighPct = pomCfg?.pomTooHighThreshold ?? 20;
       const tooLowPct = pomCfg?.pomTooLowThreshold ?? 20;
 
@@ -7544,7 +7613,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             sql`(${blInventory.colorId} = ${priceGuideCache.colorId} OR (${blInventory.colorId} IS NULL AND ${priceGuideCache.colorId} IS NULL))`
           )
         )
-        .where(sql`${blInventory.unitPrice} IS NOT NULL AND (${priceGuideCache.stockAvgPrice} IS NOT NULL OR ${priceGuideCache.soldAvgPrice} IS NOT NULL)`);
+        .where(and(eq(blInventory.orgId, orgId), sql`${blInventory.unitPrice} IS NOT NULL AND (${priceGuideCache.stockAvgPrice} IS NOT NULL OR ${priceGuideCache.soldAvgPrice} IS NOT NULL)`))
 
       // Recompute suggested price live from current formula — formula changes take effect immediately
       const categorizedInsights = insights.map(item => {
@@ -7625,8 +7694,9 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   // ========================================
 
   // Get all aisles with shelf and bin counts
-  app.get("/api/warehouse/aisles", isApproved, async (req, res) => {
+  app.get("/api/warehouse/aisles", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const aislesWithCounts = await db
         .select({
           id: whAisles.id,
@@ -7637,6 +7707,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           shelfCount: sql<number>`(SELECT COUNT(*) FROM ${whShelves} WHERE ${whShelves.aisleId} = ${whAisles.id})`,
         })
         .from(whAisles)
+        .where(eq(whAisles.orgId, orgId))
         .orderBy(whAisles.name);
 
       res.json(aislesWithCounts);
@@ -7647,12 +7718,13 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   });
 
   // Create aisle
-  app.post("/api/warehouse/aisles", isApproved, async (req, res) => {
+  app.post("/api/warehouse/aisles", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const data = insertWhAisleSchema.parse(req.body);
       const [aisle] = await db
         .insert(whAisles)
-        .values(data)
+        .values({ ...data, orgId })
         .returning();
       res.json(aisle);
     } catch (error) {
@@ -7695,8 +7767,9 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   });
 
   // Get all shelves (with optional aisle filter)
-  app.get("/api/warehouse/shelves", isApproved, async (req, res) => {
+  app.get("/api/warehouse/shelves", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const aisleId = req.query.aisleId ? parseInt(req.query.aisleId as string) : null;
       
       const shelvesWithCounts = await db
@@ -7713,7 +7786,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         })
         .from(whShelves)
         .leftJoin(whAisles, eq(whShelves.aisleId, whAisles.id))
-        .where(aisleId ? eq(whShelves.aisleId, aisleId) : undefined)
+        .where(aisleId ? and(eq(whShelves.orgId, orgId), eq(whShelves.aisleId, aisleId)) : eq(whShelves.orgId, orgId))
         .orderBy(whShelves.aisleId, whShelves.position);
 
       res.json(shelvesWithCounts);
@@ -7724,12 +7797,13 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   });
 
   // Create shelf
-  app.post("/api/warehouse/shelves", isApproved, async (req, res) => {
+  app.post("/api/warehouse/shelves", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const data = insertWhShelfSchema.parse(req.body);
       const [shelf] = await db
         .insert(whShelves)
-        .values(data)
+        .values({ ...data, orgId })
         .returning();
       res.json(shelf);
     } catch (error) {
@@ -7772,8 +7846,9 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   });
 
   // Get all bins (with optional shelf filter)
-  app.get("/api/warehouse/bins", isApproved, async (req, res) => {
+  app.get("/api/warehouse/bins", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const shelfId = req.query.shelfId ? parseInt(req.query.shelfId as string) : null;
       
       const binsWithDetails = await db
@@ -7793,7 +7868,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         .from(whBins)
         .leftJoin(whShelves, eq(whBins.shelfId, whShelves.id))
         .leftJoin(whAisles, eq(whShelves.aisleId, whAisles.id))
-        .where(shelfId ? eq(whBins.shelfId, shelfId) : undefined)
+        .where(shelfId ? and(eq(whBins.orgId, orgId), eq(whBins.shelfId, shelfId)) : eq(whBins.orgId, orgId))
         .orderBy(whBins.shelfId, whBins.position);
 
       res.json(binsWithDetails);
@@ -7804,12 +7879,13 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   });
 
   // Create bin
-  app.post("/api/warehouse/bins", isApproved, async (req, res) => {
+  app.post("/api/warehouse/bins", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const data = insertWhBinSchema.parse(req.body);
       const [bin] = await db
         .insert(whBins)
-        .values(data)
+        .values({ ...data, orgId })
         .returning();
       res.json(bin);
     } catch (error) {
@@ -7852,8 +7928,9 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   });
 
   // Get unassigned inventory items (not in any bin)
-  app.get("/api/warehouse/unassigned/inventory", isApproved, async (req, res) => {
+  app.get("/api/warehouse/unassigned/inventory", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const unassignedItems = await db
         .select({
           id: blInventory.id,
@@ -7866,7 +7943,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         .from(blInventory)
         .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
         .leftJoin(inventoryLocations, eq(blInventory.id, inventoryLocations.inventoryId))
-        .where(sql`${inventoryLocations.id} IS NULL`)
+        .where(and(eq(blInventory.orgId, orgId), sql`${inventoryLocations.id} IS NULL`))
         .limit(1000); // Limit to avoid performance issues
 
       res.json(unassignedItems);
@@ -7877,12 +7954,13 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   });
 
   // Get unassigned bins (not on any shelf)
-  app.get("/api/warehouse/unassigned/bins", isApproved, async (req, res) => {
+  app.get("/api/warehouse/unassigned/bins", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const unassignedBins = await db
         .select()
         .from(whBins)
-        .where(sql`${whBins.shelfId} IS NULL`);
+        .where(and(eq(whBins.orgId, orgId), sql`${whBins.shelfId} IS NULL`));
 
       res.json(unassignedBins);
     } catch (error) {
@@ -7892,12 +7970,13 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   });
 
   // Get unassigned shelves (not in any aisle)
-  app.get("/api/warehouse/unassigned/shelves", isApproved, async (req, res) => {
+  app.get("/api/warehouse/unassigned/shelves", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const unassignedShelves = await db
         .select()
         .from(whShelves)
-        .where(sql`${whShelves.aisleId} IS NULL`);
+        .where(and(eq(whShelves.orgId, orgId), sql`${whShelves.aisleId} IS NULL`));
 
       res.json(unassignedShelves);
     } catch (error) {
@@ -7907,12 +7986,13 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   });
 
   // Assign inventory to bin
-  app.post("/api/warehouse/assign/inventory", isApproved, async (req, res) => {
+  app.post("/api/warehouse/assign/inventory", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const data = insertInventoryLocationSchema.parse(req.body);
       const [location] = await db
         .insert(inventoryLocations)
-        .values(data)
+        .values({ ...data, orgId })
         .returning();
       res.json(location);
     } catch (error) {
@@ -7964,8 +8044,9 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   });
 
   // Get inventory locations with full details
-  app.get("/api/warehouse/locations", isApproved, async (req, res) => {
+  app.get("/api/warehouse/locations", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const locations = await db
         .select({
           id: inventoryLocations.id,
@@ -7990,6 +8071,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         .leftJoin(whBins, eq(inventoryLocations.binId, whBins.id))
         .leftJoin(whShelves, eq(whBins.shelfId, whShelves.id))
         .leftJoin(whAisles, eq(whShelves.aisleId, whAisles.id))
+        .where(eq(inventoryLocations.orgId, orgId))
         .limit(1000);
 
       res.json(locations);
@@ -8035,9 +8117,10 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   // Picklist Routes
   
   // Get picklist stats (unique bins still to pull)
-  app.get("/api/picklist/stats", isApproved, async (req, res) => {
+  app.get("/api/picklist/stats", isApproved, async (req: any, res) => {
     try {
-      const activeOrders = await db.select().from(orders).where(activeOrderStatusWhere());
+      const orgId = reqOrgId(req);
+      const activeOrders = await db.select().from(orders).where(and(eq(orders.orgId, orgId), activeOrderStatusWhere()));
 
       if (activeOrders.length === 0) {
         return res.json({ toPull: 0 });
@@ -8065,12 +8148,13 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   });
   
   // Per-order picklist completion — returns { [orderId]: allPulled }
-  app.get("/api/picklist/order-status", isApproved, async (req, res) => {
+  app.get("/api/picklist/order-status", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const activeOrders = await db
         .select({ id: orders.id })
         .from(orders)
-        .where(activeOrderStatusWhere());
+        .where(and(eq(orders.orgId, orgId), activeOrderStatusWhere()));
 
       if (activeOrders.length === 0) return res.json({});
 
@@ -8095,12 +8179,13 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   });
 
   // Get picklist items for active orders (awaiting payment, awaiting shipment, awaiting fulfillment)
-  app.get("/api/picklist", isApproved, async (req, res) => {
+  app.get("/api/picklist", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const filter = req.query.filter as string; // 'to_pull' | 'to_reshelve' | undefined
       
       // ── Fetch base data ────────────────────────────────────────────────────
-      const activeOrders = await db.select().from(orders).where(activeOrderStatusWhere());
+      const activeOrders = await db.select().from(orders).where(and(eq(orders.orgId, orgId), activeOrderStatusWhere()));
       if (activeOrders.length === 0) return res.json([]);
 
       const orderIds = activeOrders.map(o => o.id);
@@ -8121,7 +8206,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           ? new Map(
               (await db.select({ id: blInventory.id, itemNo: blInventory.itemNo })
                 .from(blInventory)
-                .where(inArray(blInventory.itemNo, skus))
+                .where(and(eq(blInventory.orgId, orgId), inArray(blInventory.itemNo, skus)))
               ).map(i => [i.itemNo, i])
             )
           : new Map<string, { id: number; itemNo: string }>();
@@ -8131,7 +8216,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           ? new Map(
               (await db.select({ inventoryId: inventoryLocations.inventoryId, binId: inventoryLocations.binId })
                 .from(inventoryLocations)
-                .where(inArray(inventoryLocations.inventoryId, invIds))
+                .where(and(eq(inventoryLocations.orgId, orgId), inArray(inventoryLocations.inventoryId, invIds)))
               ).map(l => [l.inventoryId, l])
             )
           : new Map<number, { inventoryId: number; binId: number | null }>();
@@ -8170,15 +8255,15 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       // Warehouse location: bin → shelf → aisle (3 queries total, was 3 per bin)
       const uniqueBinIds = [...new Set(filteredItems.map(i => i.binId).filter((id): id is number => id !== null))];
       const binsData = uniqueBinIds.length > 0
-        ? await db.select().from(whBins).where(inArray(whBins.id, uniqueBinIds))
+        ? await db.select().from(whBins).where(and(eq(whBins.orgId, orgId), inArray(whBins.id, uniqueBinIds)))
         : [];
       const uniqueShelfIds = [...new Set(binsData.map(b => b.shelfId).filter((id): id is number => id !== null))];
       const shelvesData = uniqueShelfIds.length > 0
-        ? await db.select().from(whShelves).where(inArray(whShelves.id, uniqueShelfIds))
+        ? await db.select().from(whShelves).where(and(eq(whShelves.orgId, orgId), inArray(whShelves.id, uniqueShelfIds)))
         : [];
       const uniqueAisleIds = [...new Set(shelvesData.map(s => s.aisleId).filter((id): id is number => id !== null))];
       const aislesData = uniqueAisleIds.length > 0
-        ? await db.select().from(whAisles).where(inArray(whAisles.id, uniqueAisleIds))
+        ? await db.select().from(whAisles).where(and(eq(whAisles.orgId, orgId), inArray(whAisles.id, uniqueAisleIds)))
         : [];
       const binMap = new Map(binsData.map(b => [b.id, b]));
       const shelfMap = new Map(shelvesData.map(s => [s.id, s]));
@@ -8198,7 +8283,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         ? await db
             .select({ id: blInventory.id, itemNo: blInventory.itemNo, colorName: blInventory.colorName, colorId: blInventory.colorId, newOrUsed: blInventory.newOrUsed, remarks: blInventory.remarks, description: blInventory.description, imageUrl: blInventory.imageUrl, quantity: blInventory.quantity })
             .from(blInventory)
-            .where(inArray(blInventory.id, uniqueInvIds))
+            .where(and(eq(blInventory.orgId, orgId), inArray(blInventory.id, uniqueInvIds)))
         : [];
       const invMap = new Map(inventoryData.map(i => [i.id, i]));
 
@@ -8347,12 +8432,13 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   });
 
   // Clear picklist items for shipped orders
-  app.delete("/api/picklist/shipped", isApproved, async (req, res) => {
+  app.delete("/api/picklist/shipped", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const shippedOrders = await db
         .select({ id: orders.id })
         .from(orders)
-        .where(eq(orders.orderStatus, 'shipped'));
+        .where(and(eq(orders.orgId, orgId), eq(orders.orderStatus, 'shipped')));
 
       if (shippedOrders.length === 0) {
         return res.json({ deleted: 0 });
@@ -8388,11 +8474,13 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
 
 
   // End of Day SCAN Form — return all purchased EasyPost shipments not yet added to a SCAN form
-  app.get("/api/shipments/end-of-day", isApproved, async (req, res) => {
+  app.get("/api/shipments/end-of-day", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const eligibleShipments = await db.select().from(shipments)
         .where(
           and(
+            eq(shipments.orgId, orgId),
             eq(shipments.vendorCode, 'easypost'),
             eq(shipments.status, 'purchased'),
             isNull(shipments.eodFormId)
@@ -8406,12 +8494,14 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
     }
   });
 
-  app.post("/api/shipments/scan-form", isApproved, async (req, res) => {
+  app.post("/api/shipments/scan-form", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       // Eligible: purchased EasyPost shipments not yet assigned to any EOD form
       const eligibleShipments = await db.select().from(shipments)
         .where(
           and(
+            eq(shipments.orgId, orgId),
             eq(shipments.vendorCode, 'easypost'),
             eq(shipments.status, 'purchased'),
             isNull(shipments.eodFormId)
@@ -8423,8 +8513,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         return res.status(400).json({ error: 'No eligible EasyPost shipments for an EOD form' });
       }
 
-      const settingsRows = await db.select().from(appSettings).limit(1);
-      const cfg = settingsRows[0];
+      const cfg = await getOrgSettings(orgId);
       const apiKey = cfg?.easypostKeyMode === 'production' ? cfg?.easypostApiKey : cfg?.easypostTestApiKey;
       if (!apiKey) {
         return res.status(400).json({ error: 'EasyPost API key not configured' });
@@ -8499,6 +8588,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         formUrl,
         scanFormId: epScanFormId,
         shipmentCount: activeVendorIds.length,
+        orgId,
       }).returning();
 
       // Tag only the shipments whose IDs were actually accepted
@@ -8521,12 +8611,14 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   });
 
   // Mark all purchased EasyPost shipments as 'manifested' — clears the EOD backlog
-  app.post("/api/shipments/clear-eod-backlog", isApproved, async (req, res) => {
+  app.post("/api/shipments/clear-eod-backlog", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const result = await db.update(shipments)
         .set({ status: 'manifested' })
         .where(
           and(
+            eq(shipments.orgId, orgId),
             eq(shipments.vendorCode, 'easypost'),
             eq(shipments.status, 'purchased'),
             isNull(shipments.eodFormId)
@@ -8542,12 +8634,14 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   });
 
   // Get EOD form info for a specific order (for reprinting from ShippedOrders)
-  app.get("/api/orders/:orderId/eod-form", isApproved, async (req, res) => {
+  app.get("/api/orders/:orderId/eod-form", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const { orderId } = req.params;
       const shipmentRow = await db.select().from(shipments)
         .where(
           and(
+            eq(shipments.orgId, orgId),
             eq(shipments.orderId, orderId),
             isNotNull(shipments.eodFormId),
           )
@@ -8573,17 +8667,21 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   });
 
   // Fulfillment Stats - Count unfulfilled orders
-  app.get("/api/fulfillment/stats", isApproved, async (req, res) => {
+  app.get("/api/fulfillment/stats", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       // Count orders that are awaiting payment, awaiting fulfillment, or awaiting shipment
       const unfulfilled = await db
         .select({ count: sql<number>`count(DISTINCT ${orders.id})` })
         .from(orders)
         .where(
-          or(
-            eq(orders.orderStatus, 'awaiting_payment'),
-            eq(orders.orderStatus, 'awaiting_fulfillment'),
-            eq(orders.orderStatus, 'awaiting_shipment')
+          and(
+            eq(orders.orgId, orgId),
+            or(
+              eq(orders.orderStatus, 'awaiting_payment'),
+              eq(orders.orderStatus, 'awaiting_fulfillment'),
+              eq(orders.orderStatus, 'awaiting_shipment')
+            )
           )
         );
       
@@ -8597,18 +8695,22 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   });
 
   // Get fulfillment data - orders awaiting fulfillment with items grouped by bin
-  app.get("/api/fulfillment", isApproved, async (req, res) => {
+  app.get("/api/fulfillment", isApproved, async (req: any, res) => {
     res.setHeader('Cache-Control', 'no-store');
     try {
+      const orgId = reqOrgId(req);
       // Fetch orders that need fulfillment
       const fulfillmentOrders = await db
         .select()
         .from(orders)
         .where(
-          or(
-            eq(orders.orderStatus, 'awaiting_payment'),
-            eq(orders.orderStatus, 'awaiting_fulfillment'),
-            eq(orders.orderStatus, 'awaiting_shipment')
+          and(
+            eq(orders.orgId, orgId),
+            or(
+              eq(orders.orderStatus, 'awaiting_payment'),
+              eq(orders.orderStatus, 'awaiting_fulfillment'),
+              eq(orders.orderStatus, 'awaiting_shipment')
+            )
           )
         )
         .orderBy(orders.orderNumber);
@@ -8997,14 +9099,15 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   });
   
   // Get shipments for an order
-  app.get("/api/shipments/:orderId", isApproved, async (req, res) => {
+  app.get("/api/shipments/:orderId", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const { orderId } = req.params;
       
       const { shipments } = await import('@shared/schema');
       const orderShipments = await db.select()
         .from(shipments)
-        .where(eq(shipments.orderId, orderId))
+        .where(and(eq(shipments.orgId, orgId), eq(shipments.orderId, orderId)))
         .orderBy(desc(shipments.createdAt));
       
       res.json(orderShipments);
@@ -9015,12 +9118,12 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   });
 
   // Dry-Run Order Sync Tester - Test with historical orders
-  app.post("/api/orders/dry-run-test", isApproved, async (req, res) => {
+  app.post("/api/orders/dry-run-test", isApproved, async (req: any, res) => {
     try {
       const { platform, limit = 5 } = req.body;
-      
+      const orgId = reqOrgId(req);
       // Get API credentials
-      const [settings] = await db.select().from(appSettings).limit(1);
+      const settings = await getOrgSettings(orgId);
       if (!settings) {
         return res.status(400).json({ error: "API credentials not configured" });
       }
@@ -9115,7 +9218,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
                   .leftJoin(whBins, eq(inventoryLocations.binId, whBins.id))
                   .leftJoin(whShelves, eq(whBins.shelfId, whShelves.id))
                   .leftJoin(whAisles, eq(whShelves.aisleId, whAisles.id))
-                  .where(eq(inventoryLocations.inventoryId, parseInt(inventoryId || '0')))
+                  .where(and(eq(inventoryLocations.orgId, orgId), eq(inventoryLocations.inventoryId, parseInt(inventoryId || '0'))))
                   .limit(1);
 
                 return {
@@ -9145,7 +9248,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
                 .leftJoin(whBins, eq(inventoryLocations.binId, whBins.id))
                 .leftJoin(whShelves, eq(whBins.shelfId, whShelves.id))
                 .leftJoin(whAisles, eq(whShelves.aisleId, whAisles.id))
-                .where(eq(inventoryLocations.inventoryId, parseInt(item.sku || '0')))
+                .where(and(eq(inventoryLocations.orgId, orgId), eq(inventoryLocations.inventoryId, parseInt(item.sku || '0'))))
                 .limit(1);
 
               return {
@@ -9251,7 +9354,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
                     .leftJoin(whBins, eq(inventoryLocations.binId, whBins.id))
                     .leftJoin(whShelves, eq(whBins.shelfId, whShelves.id))
                     .leftJoin(whAisles, eq(whShelves.aisleId, whAisles.id))
-                    .where(eq(inventoryLocations.inventoryId, parseInt(inventoryId || '0')))
+                    .where(and(eq(inventoryLocations.orgId, orgId), eq(inventoryLocations.inventoryId, parseInt(inventoryId || '0'))))
                     .limit(1);
 
                   return {
@@ -9282,7 +9385,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
                 .leftJoin(whBins, eq(inventoryLocations.binId, whBins.id))
                 .leftJoin(whShelves, eq(whBins.shelfId, whShelves.id))
                 .leftJoin(whAisles, eq(whShelves.aisleId, whAisles.id))
-                .where(eq(inventoryLocations.inventoryId, parseInt(item.sku || '0')))
+                .where(and(eq(inventoryLocations.orgId, orgId), eq(inventoryLocations.inventoryId, parseInt(item.sku || '0'))))
                 .limit(1);
 
               return {
@@ -9320,8 +9423,9 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   // ============================================================================
 
   // GET /api/items/detail/:itemNo - Get detailed information about a specific item
-  app.get("/api/items/detail/:itemNo", isApproved, async (req, res) => {
+  app.get("/api/items/detail/:itemNo", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const { itemNo } = req.params;
 
       // Get all inventory lots for this item
@@ -9342,7 +9446,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         .from(blInventory)
         .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
         .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
-        .where(eq(blInventory.itemNo, itemNo));
+        .where(and(eq(blInventory.orgId, orgId), eq(blInventory.itemNo, itemNo)));
 
       if (inventoryLots.length === 0) {
         return res.status(404).json({ error: "Item not found" });
@@ -9363,7 +9467,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             .leftJoin(whBins, eq(inventoryLocations.binId, whBins.id))
             .leftJoin(whShelves, eq(whBins.shelfId, whShelves.id))
             .leftJoin(whAisles, eq(whShelves.aisleId, whAisles.id))
-            .where(inArray(inventoryLocations.inventoryId, inventoryIds))
+            .where(and(eq(inventoryLocations.orgId, orgId), inArray(inventoryLocations.inventoryId, inventoryIds)))
         : [];
 
       // Get sales data for this item
@@ -9459,8 +9563,9 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   // ============================================================================
 
   // GET /api/forum/recent - Get recent forum posts for news notification
-  app.get("/api/forum/recent", isApproved, async (req, res) => {
+  app.get("/api/forum/recent", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const daysAgo = parseInt(req.query.days as string) || 7;
       const limit = parseInt(req.query.limit as string) || 10;
       
@@ -9480,7 +9585,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           hasReplies: blForumPosts.hasReplies,
         })
         .from(blForumPosts)
-        .where(sql`${blForumPosts.postedAt} >= ${cutoffDate}`)
+        .where(and(eq(blForumPosts.orgId, orgId), sql`${blForumPosts.postedAt} >= ${cutoffDate}`))
         .orderBy(sql`${blForumPosts.postedAt} DESC`)
         .limit(limit);
       
@@ -9594,9 +9699,10 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
 
   // ─── App Feedback ─────────────────────────────────────────────────────────
   // GET /api/feedback — list all, newest first
-  app.get("/api/feedback", isApproved, async (req, res) => {
+  app.get("/api/feedback", isApproved, async (req: any, res) => {
     try {
-      const items = await db.select().from(appFeedback).orderBy(desc(appFeedback.createdAt));
+      const orgId = reqOrgId(req);
+      const items = await db.select().from(appFeedback).where(eq(appFeedback.orgId, orgId)).orderBy(desc(appFeedback.createdAt));
       res.json(items);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -9604,8 +9710,9 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   });
 
   // POST /api/feedback — save a refined feedback item
-  app.post("/api/feedback", isApproved, async (req, res) => {
+  app.post("/api/feedback", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const { type, title, rawDescription, refinedDescription, acceptanceCriteria, status, sourcePage } = req.body;
       if (!title || !rawDescription) return res.status(400).json({ error: "title and rawDescription are required" });
       const [item] = await db.insert(appFeedback).values({
@@ -9616,6 +9723,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         acceptanceCriteria: acceptanceCriteria ?? null,
         status: status ?? "new",
         sourcePage: sourcePage ?? null,
+        orgId,
       }).returning();
       res.json(item);
     } catch (error: any) {
@@ -9653,12 +9761,12 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   });
 
   // POST /api/feedback/refine — use OpenAI to refine raw feedback into structured form
-  app.post("/api/feedback/refine", isApproved, async (req, res) => {
+  app.post("/api/feedback/refine", isApproved, async (req: any, res) => {
     try {
       const { type, rawDescription } = req.body;
       if (!rawDescription?.trim()) return res.status(400).json({ error: "rawDescription is required" });
-
-      const [settings] = await db.select().from(appSettings).limit(1);
+      const orgId = reqOrgId(req);
+      const settings = await getOrgSettings(orgId);
       const apiKey = settings?.openaiApiKey || process.env.OPENAI_API_KEY;
       if (!apiKey) return res.status(400).json({ error: "OpenAI API key not configured" });
 
