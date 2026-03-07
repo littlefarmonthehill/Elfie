@@ -665,6 +665,9 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const [paypalClientId, setPaypalClientId] = useState("");
   const [paypalClientSecret, setPaypalClientSecret] = useState("");
   const [paypalEnvironment, setPaypalEnvironment] = useState<'sandbox' | 'live'>('live');
+  // Stripe Settings
+  const [stripeSecretKey, setStripeSecretKey] = useState("");
+  const [stripeEnvironment, setStripeEnvironment] = useState<'test' | 'live'>('live');
 
   // EasyPost Settings
   const [easypostApiKey, setEasypostApiKey] = useState("");
@@ -824,6 +827,8 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
       setPaypalClientId(settings.paypalClientId || "");
       setPaypalClientSecret(settings.paypalClientSecret || "");
       setPaypalEnvironment((settings.paypalEnvironment as 'sandbox' | 'live') || 'live');
+      setStripeSecretKey(settings.stripeSecretKey || "");
+      setStripeEnvironment((settings.stripeEnvironment as 'test' | 'live') || 'live');
       setEasypostApiKey(settings.easypostApiKey || "");
       setEasypostTestApiKey(settings.easypostTestApiKey || "");
       setEasypostKeyMode((settings.easypostKeyMode as 'test' | 'production') || 'test');
@@ -1592,6 +1597,72 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             onChange={(e) => setPaypalClientSecret(e.target.value)}
                             onBlur={() => updateSettingsMutation.mutate({ paypalClientSecret: paypalClientSecret || null })}
                             data-testid="input-paypal-client-secret"
+                          />
+                        </div>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                  <AccordionItem value="stripe" className="border border-gray-700 rounded-lg px-4">
+                    <AccordionTrigger className="text-sm font-medium text-gray-300 hover:no-underline">
+                      Stripe
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="space-y-3 pt-2">
+                        <p className="text-xs text-gray-500">
+                          Used to pull Stripe transaction data (refunds, processing fees) and match them to orders. Use a restricted key with read access to Charges and Refunds.
+                        </p>
+                        <div className="space-y-2 pb-2 border-b border-gray-700">
+                          <Label className="text-xs text-gray-400">Environment</Label>
+                          <div className="flex gap-4">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="radio"
+                                name="stripe-env"
+                                value="live"
+                                checked={stripeEnvironment === 'live'}
+                                onChange={() => {
+                                  setStripeEnvironment('live');
+                                  updateSettingsMutation.mutate({ stripeEnvironment: 'live' });
+                                }}
+                                className="text-purple-500 focus:ring-purple-500"
+                                data-testid="radio-stripe-live"
+                              />
+                              <span className="text-xs text-gray-300">Live</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="radio"
+                                name="stripe-env"
+                                value="test"
+                                checked={stripeEnvironment === 'test'}
+                                onChange={() => {
+                                  setStripeEnvironment('test');
+                                  updateSettingsMutation.mutate({ stripeEnvironment: 'test' });
+                                }}
+                                className="text-purple-500 focus:ring-purple-500"
+                                data-testid="radio-stripe-test"
+                              />
+                              <span className="text-xs text-gray-300">Test</span>
+                            </label>
+                          </div>
+                          {stripeEnvironment === 'test' && (
+                            <p className="text-xs text-yellow-500/80 mt-1">Test mode — use a <code className="font-mono">sk_test_</code> key</p>
+                          )}
+                          {stripeEnvironment === 'live' && (
+                            <p className="text-xs text-green-500/80 mt-1">Live mode — use a <code className="font-mono">sk_live_</code> or restricted key</p>
+                          )}
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="stripe-secret-key" className="text-xs text-gray-400">Secret Key</Label>
+                          <Input
+                            id="stripe-secret-key"
+                            type="password"
+                            placeholder={stripeEnvironment === 'test' ? 'sk_test_...' : 'sk_live_... or rk_live_...'}
+                            className="text-xs"
+                            value={stripeSecretKey}
+                            onChange={(e) => setStripeSecretKey(e.target.value)}
+                            onBlur={() => updateSettingsMutation.mutate({ stripeSecretKey: stripeSecretKey || null })}
+                            data-testid="input-stripe-secret-key"
                           />
                         </div>
                       </div>

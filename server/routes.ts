@@ -1643,13 +1643,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Stripe Refund Sync
-  app.post("/api/stripe/sync-refunds", isApproved, async (req, res) => {
+  app.post("/api/stripe/sync-refunds", isApproved, async (req: any, res) => {
     try {
       const { sinceDays = 90 } = req.body;
+      const orgId = reqOrgId(req);
+      const settings = await getOrgSettings(orgId);
+      const apiKey = settings?.stripeSecretKey || process.env.STRIPE_SECRET_KEY;
       const { syncStripeRefunds, syncStripeFees } = await import('./services/stripe-refunds');
       const [refundResult, feeResult] = await Promise.all([
-        syncStripeRefunds(sinceDays),
-        syncStripeFees(sinceDays),
+        syncStripeRefunds(sinceDays, apiKey || undefined),
+        syncStripeFees(sinceDays, apiKey || undefined),
       ]);
       console.log(`✅ Stripe sync: ${refundResult.matched} refunds matched, ${feeResult.matched} fee charges matched`);
       res.json({ refunds: refundResult, fees: feeResult });

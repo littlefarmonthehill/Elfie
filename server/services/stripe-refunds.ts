@@ -46,9 +46,9 @@ interface FeeSyncResult {
   errors: string[];
 }
 
-async function stripeGet(endpoint: string, params: Record<string, string> = {}): Promise<any> {
-  const key = process.env.STRIPE_SECRET_KEY;
-  if (!key) throw new Error('STRIPE_SECRET_KEY not configured');
+async function stripeGet(endpoint: string, params: Record<string, string> = {}, apiKey?: string): Promise<any> {
+  const key = apiKey || process.env.STRIPE_SECRET_KEY;
+  if (!key) throw new Error('Stripe secret key not configured. Add it under Settings → Platforms → Payments → Stripe.');
 
   const url = new URL(`${STRIPE_API_BASE}${endpoint}`);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
@@ -64,7 +64,7 @@ async function stripeGet(endpoint: string, params: Record<string, string> = {}):
   return data;
 }
 
-export async function fetchStripeRefunds(sinceDays = 90): Promise<StripeRefund[]> {
+export async function fetchStripeRefunds(sinceDays = 90, apiKey?: string): Promise<StripeRefund[]> {
   const since = Math.floor((Date.now() - sinceDays * 24 * 60 * 60 * 1000) / 1000);
   const refunds: StripeRefund[] = [];
   let startingAfter: string | null = null;
@@ -76,7 +76,7 @@ export async function fetchStripeRefunds(sinceDays = 90): Promise<StripeRefund[]
     };
     if (startingAfter) params.starting_after = startingAfter;
 
-    const page = await stripeGet('/refunds', params);
+    const page = await stripeGet('/refunds', params, apiKey);
     refunds.push(...page.data);
 
     if (!page.has_more) break;
@@ -86,7 +86,7 @@ export async function fetchStripeRefunds(sinceDays = 90): Promise<StripeRefund[]
   return refunds.filter(r => r.status === 'succeeded');
 }
 
-async function fetchStripeChargeTransactions(sinceDays = 90): Promise<StripeBalanceTransaction[]> {
+async function fetchStripeChargeTransactions(sinceDays = 90, apiKey?: string): Promise<StripeBalanceTransaction[]> {
   const since = Math.floor((Date.now() - sinceDays * 24 * 60 * 60 * 1000) / 1000);
   const transactions: StripeBalanceTransaction[] = [];
   let startingAfter: string | null = null;
@@ -99,7 +99,7 @@ async function fetchStripeChargeTransactions(sinceDays = 90): Promise<StripeBala
     };
     if (startingAfter) params.starting_after = startingAfter;
 
-    const page = await stripeGet('/balance_transactions', params);
+    const page = await stripeGet('/balance_transactions', params, apiKey);
     transactions.push(...page.data);
 
     if (!page.has_more) break;
@@ -109,7 +109,7 @@ async function fetchStripeChargeTransactions(sinceDays = 90): Promise<StripeBala
   return transactions;
 }
 
-export async function syncStripeFees(sinceDays = 90): Promise<FeeSyncResult> {
+export async function syncStripeFees(sinceDays = 90, apiKey?: string): Promise<FeeSyncResult> {
   const result: FeeSyncResult = {
     transactionsChecked: 0,
     matched: 0,
@@ -118,7 +118,7 @@ export async function syncStripeFees(sinceDays = 90): Promise<FeeSyncResult> {
     errors: [],
   };
 
-  const transactions = await fetchStripeChargeTransactions(sinceDays);
+  const transactions = await fetchStripeChargeTransactions(sinceDays, apiKey);
   result.transactionsChecked = transactions.length;
 
   if (transactions.length === 0) return result;
@@ -206,7 +206,7 @@ export async function syncStripeFees(sinceDays = 90): Promise<FeeSyncResult> {
   return result;
 }
 
-export async function syncStripeRefunds(sinceDays = 90): Promise<SyncResult> {
+export async function syncStripeRefunds(sinceDays = 90, apiKey?: string): Promise<SyncResult> {
   const result: SyncResult = {
     refundsChecked: 0,
     matched: 0,
@@ -217,7 +217,7 @@ export async function syncStripeRefunds(sinceDays = 90): Promise<SyncResult> {
     unmatchedRefunds: [],
   };
 
-  const refunds = await fetchStripeRefunds(sinceDays);
+  const refunds = await fetchStripeRefunds(sinceDays, apiKey);
   result.refundsChecked = refunds.length;
 
   const sinceDate = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000);

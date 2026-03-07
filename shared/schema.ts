@@ -423,6 +423,9 @@ export const appSettings = pgTable("app_settings", {
   paypalClientId: text("paypal_client_id"),
   paypalClientSecret: text("paypal_client_secret"),
   paypalEnvironment: text("paypal_environment").default('live').notNull(), // 'sandbox' or 'live'
+  // Stripe Credentials (used for transaction sync + refund/fee matching)
+  stripeSecretKey: text("stripe_secret_key"),
+  stripeEnvironment: text("stripe_environment").default('live').notNull(), // 'test' or 'live'
   // International Shipping / Customs
   customsSigner: text("customs_signer"),           // Name to sign customs declarations
   blIossNumber: text("bl_ioss_number"),            // BrickLink EU IOSS number
