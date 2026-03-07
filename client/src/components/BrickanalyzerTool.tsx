@@ -1094,7 +1094,8 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
   // Focused crop index for heatmap dialog — highlights one box when opening from card header
   const [heatmapCropFocus, setHeatmapCropFocus] = useState<number | null>(null);
   // Heatmap price toggles
-  const [heatmapMode, setHeatmapMode] = useState<'newMax' | 'newAvg' | 'newListed' | 'usedMax' | 'usedAvg' | 'usedListed'>('newMax');
+  const [heatmapCondition, setHeatmapCondition] = useState<'new' | 'used'>('new');
+  const [heatmapMetric, setHeatmapMetric] = useState<'max' | 'avg' | 'listed'>('max');
   // Focused detail view — when set, shows crop image + single card instead of full list
   const [focusedDetailCropIndex, setFocusedDetailCropIndex] = useState<number | null>(null);
   // POM price popup target
@@ -2057,23 +2058,29 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                   <span className="hidden sm:inline">Tap a box to see detail</span>
                 </div>
                 <div className="flex items-center gap-1.5 ml-auto">
-                  {/* Price mode toggle */}
+                  {/* Condition toggle */}
                   <div className="flex rounded overflow-hidden border border-gray-700 text-[10px] font-medium shrink-0">
-                    {([
-                      { key: 'newMax',     label: 'New Max'    },
-                      { key: 'newAvg',     label: 'New Avg'    },
-                      { key: 'newListed',  label: 'New Listed' },
-                      { key: 'usedMax',    label: 'Used Max'   },
-                      { key: 'usedAvg',    label: 'Used Avg'   },
-                      { key: 'usedListed', label: 'Used Listed'},
-                    ] as const).map(({ key, label }, i) => (
+                    {(['new', 'used'] as const).map(c => (
                       <button
-                        key={key}
-                        data-testid={`heatmap-mode-${key}`}
-                        onClick={() => setHeatmapMode(key)}
-                        className={`px-2 py-0.5 transition-colors ${i === 3 ? 'border-l border-gray-600' : ''} ${heatmapMode === key ? 'bg-gray-600 text-white' : 'text-gray-500 hover:text-gray-300 bg-transparent'}`}
+                        key={c}
+                        data-testid={`heatmap-cond-${c}`}
+                        onClick={() => setHeatmapCondition(c)}
+                        className={`px-2 py-0.5 transition-colors capitalize ${heatmapCondition === c ? 'bg-gray-600 text-white' : 'text-gray-500 hover:text-gray-300 bg-transparent'}`}
                       >
-                        {label}
+                        {c === 'new' ? 'New' : 'Used'}
+                      </button>
+                    ))}
+                  </div>
+                  {/* Metric toggle */}
+                  <div className="flex rounded overflow-hidden border border-gray-700 text-[10px] font-medium shrink-0">
+                    {(['max', 'avg', 'listed'] as const).map(m => (
+                      <button
+                        key={m}
+                        data-testid={`heatmap-metric-${m}`}
+                        onClick={() => setHeatmapMetric(m)}
+                        className={`px-2 py-0.5 transition-colors capitalize ${heatmapMetric === m ? 'bg-gray-600 text-white' : 'text-gray-500 hover:text-gray-300 bg-transparent'}`}
+                      >
+                        {m === 'max' ? 'Max' : m === 'avg' ? 'Avg' : 'Listed'}
                       </button>
                     ))}
                   </div>
@@ -2138,12 +2145,15 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                       return !dk || !dismissedItems.has(dk);
                     });
                     const heatVal = (r: ScanResult): number => {
-                      if (heatmapMode === 'newMax')    return r.marketSoldMaxNew ?? r.stockAvgPriceN ?? 0;
-                      if (heatmapMode === 'newAvg')    return r.marketSoldAvgNew ?? r.marketSoldMaxNew ?? r.stockAvgPriceN ?? 0;
-                      if (heatmapMode === 'newListed') return r.stockAvgPriceN ?? 0;
-                      if (heatmapMode === 'usedMax')   return r.marketSoldMaxUsed ?? 0;
-                      if (heatmapMode === 'usedAvg')   return r.marketSoldAvgUsed ?? r.marketSoldMaxUsed ?? 0;
-                      return r.stockAvgPriceU ?? 0; // usedListed
+                      if (heatmapCondition === 'new') {
+                        if (heatmapMetric === 'max')    return r.marketSoldMaxNew ?? r.stockAvgPriceN ?? 0;
+                        if (heatmapMetric === 'avg')    return r.marketSoldAvgNew ?? r.marketSoldMaxNew ?? r.stockAvgPriceN ?? 0;
+                        return r.stockAvgPriceN ?? 0; // listed
+                      } else {
+                        if (heatmapMetric === 'max')    return r.marketSoldMaxUsed ?? 0;
+                        if (heatmapMetric === 'avg')    return r.marketSoldAvgUsed ?? r.marketSoldMaxUsed ?? 0;
+                        return r.stockAvgPriceU ?? 0; // listed
+                      }
                     };
                     const allPrices = bboxResults.map(r => heatVal(r)).filter(p => p > 0);
                     const maxPrice = allPrices.length > 0 ? Math.max(...allPrices) : 0;
