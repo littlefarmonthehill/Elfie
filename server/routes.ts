@@ -4146,32 +4146,13 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         })
       );
 
-      // Phase 2b — Send all ready crops to Brickognize.
-      // Use a REQUEST-LEVEL rate limiter (8 req/sec) rather than a piece-level
-      // concurrency limiter.  All pieces run in parallel; individual BQ calls are
-      // staggered 125 ms apart, so we never burst >8 req/sec to Brickognize.
-      //
-      // Throughput for N pieces: N×2 BQ requests / 8 per sec + ~4 s response time.
-      // A 33-piece scan takes ≈12 s vs ≈28 s with concurrency=5 — and zero 429s.
+      // Phase 2b — Send crops to Brickognize one piece at a time (sequential).
+      // Parallel sending (even with a rate limiter) causes Brickognize to queue
+      // requests internally, leading to 429s → exponential backoff → 20 s timeouts.
+      // Sequential ensures at most 2 active BQ requests at any moment (figs + parts
+      // for the current piece), so each piece gets a fast, clean response.
       const phase2bStart = Date.now();
-      console.log(`[Brickanalyzer] Step 2b: Sending ${pieces.length} crops to Brickognize (rate=8 req/sec)...`);
-
-      // Token-bucket rate limiter: each caller atomically reserves a time-slot
-      // spaced intervalMs apart, then executes fn() after the appropriate delay.
-      const BQ_RATE = 8; // BQ requests per second (Brickognize ceiling ≈ 10)
-      function makeBqRateLimiter(ratePerSec: number) {
-        const intervalMs = 1000 / ratePerSec;
-        let nextSlot = Date.now();
-        return function<T>(fn: () => Promise<T>): Promise<T> {
-          const slot = nextSlot;
-          nextSlot += intervalMs; // atomically reserve this slot
-          const delayMs = Math.max(0, slot - Date.now());
-          return new Promise<T>((resolve, reject) => {
-            setTimeout(() => fn().then(resolve, reject), delayMs);
-          });
-        };
-      }
-      const bqRateLimit = makeBqRateLimiter(BQ_RATE);
+      console.log(`[Brickanalyzer] Step 2b: Sending ${pieces.length} crops to Brickognize (sequential)...`);
 
       // Retry a Brickognize POST with exponential backoff on 429 (rate limit).
       // Drops the request only after 3 retries.
@@ -4197,7 +4178,10 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       // Uses a per-scan map so no state leaks between scans.
       const bqDedupeCache = new Map<string, any[]>();
 
-      const identified: any[] = (await Promise.all(pieces.map(async (piece: any, idx: number) => {
+      const identified: any[] = [];
+      for (let idx = 0; idx < pieces.length; idx++) {
+        const piece = pieces[idx];
+        const pieceResult = await (async (): Promise<any[]> => {
         const entry = cropData[idx];
         if (entry.earlyResult) return entry.earlyResult;
         const cropBuffer = entry.cropBuffer!;
@@ -4223,9 +4207,9 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           const figsForm  = makeBqForm(cropBuffer);
           const partsForm = makeBqForm(cropBuffer);
 
-          // Run CLIP embedding + nearest-neighbor search in parallel with Brickognize.
-          // BQ calls are individually rate-limited (each gets its own time-slot);
-          // CLIP runs against the local Python service so no rate limiting needed.
+          // Run CLIP embedding + Brickognize in parallel — CLIP uses the local Python
+          // service (no rate limiting needed); both BQ endpoints run in parallel for
+          // speed but only for this one piece at a time.
           const [clipMatches, [figsRes, partsRes]] = await Promise.all([
             embedCrop(cropBuffer)
               .then(async (emb) => {
@@ -4241,9 +4225,9 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
               })
               .catch((e: any) => { console.warn(`[CLIP] piece ${idx} embed failed: ${e.message}`); return []; }),
             Promise.all([
-              bqRateLimit(() => bqPost('https://api.brickognize.com/predict/figs/',  figsForm, idx))
+              bqPost('https://api.brickognize.com/predict/figs/',  figsForm, idx)
                 .catch((e: any) => { console.warn(`[Brickognize] figs piece ${idx} failed: ${e.message} (HTTP ${e.response?.status ?? 'N/A'})`); return null; }),
-              bqRateLimit(() => bqPost('https://api.brickognize.com/predict/parts/', partsForm, idx))
+              bqPost('https://api.brickognize.com/predict/parts/', partsForm, idx)
                 .catch((e: any) => { console.warn(`[Brickognize] parts piece ${idx} failed: ${e.message} (HTTP ${e.response?.status ?? 'N/A'})`); return null; }),
             ]),
           ]);
@@ -4301,7 +4285,9 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           console.warn(`[Brickanalyzer] Piece ${idx} failed (${pieceMs}ms):`, err.message);
           return [{ partNo: '', partName: piece.roughName || 'Unknown', colorName: piece.colorName || '', confidence: 'low', note: 'identification error', cropIndex: idx, bboxX: piece.x, bboxY: piece.y, bboxW: piece.w, bboxH: piece.h }];
         }
-      }))).flat();
+        })();
+        identified.push(...pieceResult);
+      }
       console.log(`[Brickanalyzer] Step 2b complete: ${pieces.length} pieces in ${((Date.now() - phase2bStart) / 1000).toFixed(1)}s`);
 
       // ── Zone suppression: if a MINIFIG and one or more PARTs share the same
