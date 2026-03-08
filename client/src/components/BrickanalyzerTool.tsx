@@ -2410,35 +2410,51 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                                       <div className="text-gray-400 text-[11px] mt-0.5">{r.colorName}</div>
                                     )}
                                   </div>
-                                  {/* Price rows */}
-                                  <div className="px-2.5 py-2 space-y-0" style={{ maxHeight: 200, overflowY: 'auto', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
-                                    {/* Column headers — sticky so they stay visible while scrolling */}
-                                    <div className="grid grid-cols-[1fr_70px_70px] text-[10px] font-bold uppercase tracking-widest pb-1.5 border-b border-white/[0.07] bg-gray-950" style={{ position: 'sticky', top: 0, zIndex: 1 }}>
-                                      <span className="text-gray-600 px-1"></span>
-                                      <span className="text-blue-400 text-center">New</span>
-                                      <span className="text-orange-400 text-center">Used</span>
-                                    </div>
-                                    {([
-                                      { label: 'Sold Avg', n: r.marketSoldAvgNew,  u: r.marketSoldAvgUsed,  color: 'text-amber-300' },
-                                      { label: 'Sold Max', n: r.marketSoldMaxNew,  u: r.marketSoldMaxUsed,  color: 'text-amber-200' },
-                                      { label: 'List Avg', n: r.stockAvgPriceN,    u: r.stockAvgPriceU,    color: 'text-sky-300'   },
-                                      { label: 'List Max', n: r.stockMaxPriceN,    u: r.stockMaxPriceU,    color: 'text-sky-200'   },
-                                      ...(r.ourPriceNew != null || r.ourPriceUsed != null
-                                        ? [{ label: 'My Price', n: r.ourPriceNew, u: r.ourPriceUsed, color: 'text-purple-300' }]
-                                        : []),
-                                    ] as { label: string; n: number | null | undefined; u: number | null | undefined; color: string }[]).map(row => {
-                                      const nStr = row.n != null && (row.n as number) > 0 ? `$${(row.n as number).toFixed(2)}` : '—';
-                                      const uStr = row.u != null && (row.u as number) > 0 ? `$${(row.u as number).toFixed(2)}` : '—';
-                                      if (nStr === '—' && uStr === '—') return null;
-                                      return (
-                                        <div key={row.label} className="grid grid-cols-[1fr_70px_70px] py-[4px] border-b border-white/[0.05] last:border-0">
-                                          <span className="text-gray-400 text-[11px] px-1 flex items-center">{row.label}</span>
-                                          <span className={`text-center text-[13px] font-mono font-bold tabular-nums ${nStr === '—' ? 'text-gray-600' : row.color}`}>{nStr}</span>
-                                          <span className={`text-center text-[13px] font-mono font-bold tabular-nums ${uStr === '—' ? 'text-gray-600' : row.color}`}>{uStr}</span>
+                                  {/* Price rows — scrollable, updates with heatmap filter toggles */}
+                                  {(() => {
+                                    // Which row and column the current filter points to
+                                    const activeLabel =
+                                      heatmapSource === 'sold'
+                                        ? (heatmapMetric === 'max' ? 'Sold Max' : 'Sold Avg')
+                                        : (heatmapMetric === 'max' ? 'List Max' : 'List Avg');
+                                    const activeCol = heatmapCondition; // 'new' | 'used'
+                                    return (
+                                      <div className="px-2.5 py-2 space-y-0" style={{ maxHeight: 200, overflowY: 'auto', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
+                                        {/* Column headers — sticky, active column underlined */}
+                                        <div className="grid grid-cols-[1fr_70px_70px] text-[10px] font-bold uppercase tracking-widest pb-1.5 border-b border-white/[0.07] bg-gray-950" style={{ position: 'sticky', top: 0, zIndex: 1 }}>
+                                          <span className="text-gray-600 px-1"></span>
+                                          <span className={`text-center ${activeCol === 'new' ? 'text-blue-300 underline decoration-2 underline-offset-2' : 'text-blue-500'}`}>New</span>
+                                          <span className={`text-center ${activeCol === 'used' ? 'text-orange-300 underline decoration-2 underline-offset-2' : 'text-orange-500'}`}>Used</span>
                                         </div>
-                                      );
-                                    })}
-                                  </div>
+                                        {([
+                                          { label: 'Sold Avg', n: r.marketSoldAvgNew,  u: r.marketSoldAvgUsed,  color: 'text-amber-300' },
+                                          { label: 'Sold Max', n: r.marketSoldMaxNew,  u: r.marketSoldMaxUsed,  color: 'text-amber-200' },
+                                          { label: 'List Avg', n: r.stockAvgPriceN,    u: r.stockAvgPriceU,    color: 'text-sky-300'   },
+                                          { label: 'List Max', n: r.stockMaxPriceN,    u: r.stockMaxPriceU,    color: 'text-sky-200'   },
+                                          ...(r.ourPriceNew != null || r.ourPriceUsed != null
+                                            ? [{ label: 'My Price', n: r.ourPriceNew, u: r.ourPriceUsed, color: 'text-purple-300' }]
+                                            : []),
+                                        ] as { label: string; n: number | null | undefined; u: number | null | undefined; color: string }[]).map(row => {
+                                          const nStr = row.n != null && (row.n as number) > 0 ? `$${(row.n as number).toFixed(2)}` : '—';
+                                          const uStr = row.u != null && (row.u as number) > 0 ? `$${(row.u as number).toFixed(2)}` : '—';
+                                          if (nStr === '—' && uStr === '—') return null;
+                                          const isActiveRow = row.label === activeLabel;
+                                          const nActive = isActiveRow && activeCol === 'new';
+                                          const uActive = isActiveRow && activeCol === 'used';
+                                          return (
+                                            <div
+                                              key={row.label}
+                                              className={`grid grid-cols-[1fr_70px_70px] py-[4px] border-b border-white/[0.05] last:border-0 ${isActiveRow ? 'bg-white/[0.06] rounded' : ''}`}
+                                            >
+                                              <span className={`text-[11px] px-1 flex items-center font-semibold ${isActiveRow ? 'text-white' : 'text-gray-400'}`}>{row.label}</span>
+                                              <span className={`text-center text-[13px] font-mono font-bold tabular-nums ${nStr === '—' ? 'text-gray-600' : row.color} ${nActive ? 'bg-white/10 rounded' : ''}`}>{nStr}</span>
+                                              <span className={`text-center text-[13px] font-mono font-bold tabular-nums ${uStr === '—' ? 'text-gray-600' : row.color} ${uActive ? 'bg-white/10 rounded' : ''}`}>{uStr}</span>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    );
+                                  })()}
                                   {/* Tap-to-dismiss hint */}
                                   <div className="px-3 py-1.5 border-t border-white/[0.06] text-center text-[10px] text-gray-500">
                                     tap price to dismiss
