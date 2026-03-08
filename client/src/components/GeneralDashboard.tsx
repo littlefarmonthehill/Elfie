@@ -8,6 +8,7 @@ import {
   TrendingDown, Clock, Activity, CreditCard,
 } from "lucide-react";
 import DashboardNotifications from "./DashboardNotifications";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface GeneralDashboardProps {
   onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
@@ -278,14 +279,6 @@ function InventoryLane({
     refetchInterval: 8000,
   });
 
-  const { data: rateLimit } = useQuery<{
-    allowed: boolean; callsLast24h: number; blocked?: boolean; warning?: string;
-    hourlyBuckets: { hourStart: string; rollsOffAt: string; calls: number }[];
-  }>({
-    queryKey: ['/api/bricklink/rate-limit'],
-    refetchInterval: 60000,
-  });
-
   const hasRunningJobs = isInvSyncing || isPomRunning;
 
   const tooHighCount = pricingInsights?.data?.tooHigh?.length ?? 0;
@@ -377,12 +370,6 @@ function InventoryLane({
           <ActivityItem icon={Clock} iconColor="text-muted-foreground" label="No Price-o-Matic run yet" />
         )}
       </LaneSection>
-
-      {rateLimit && (
-        <LaneSection label="BrickLink API">
-          <BrickLinkApiSection rateLimit={rateLimit} />
-        </LaneSection>
-      )}
 
     </LaneCard>
   );
@@ -771,14 +758,21 @@ function SystemPulse({ syncErrors, setupItems, billingStatus, rateLimit, onOpenS
 
       {/* BrickLink API usage */}
       {rateLimit != null && (
-        <button
-          onClick={() => onOpenSettings?.('automation')}
-          className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border border-muted-foreground/30 text-muted-foreground bg-muted/10"
-          data-testid="system-pulse-bl-api"
-        >
-          <Activity className="w-2.5 h-2.5" />
-          BL API: {blCalls.toLocaleString()}/{BL_CEILING.toLocaleString()}
-        </button>
+        <Popover>
+          <PopoverTrigger asChild>
+            <button
+              className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border border-muted-foreground/30 text-muted-foreground bg-muted/10"
+              data-testid="system-pulse-bl-api"
+            >
+              <Activity className="w-2.5 h-2.5" />
+              BL API: {blCalls.toLocaleString()}/{BL_CEILING.toLocaleString()}
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-72 p-3" align="start">
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-2">BrickLink API Usage</div>
+            <BrickLinkApiSection rateLimit={rateLimit} />
+          </PopoverContent>
+        </Popover>
       )}
 
       {/* Trial countdown */}
