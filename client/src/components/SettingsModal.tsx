@@ -703,7 +703,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const [pomPricingOpen, setPomPricingOpen] = useState(false);
   const [pomScoringOpen, setPomScoringOpen] = useState(false);
   const [pomBatchSize, setPomBatchSize] = useState(1500);
-  const [pomApiCallLimit, setPomApiCallLimit] = useState(4500);
   const [blApiCallLimit, setBlApiCallLimit] = useState(4900);
   const [pomCostFloorPct, setPomCostFloorPct] = useState(0);
   const [pomMinPrice, setPomMinPrice] = useState(0.02);
@@ -937,7 +936,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
       setPomUnderpricedScore(settings.pomUnderpricedScore ?? 1.5);
       setPomOverpricedScore(settings.pomOverpricedScore ?? 0.8);
       setPomBatchSize(settings.pomBatchSize ?? 1500);
-      setPomApiCallLimit(settings.pomApiCallLimit ?? 4500);
       setBlApiCallLimit(settings.blApiCallLimit ?? 4900);
       setPomCostFloorPct(settings.pomCostFloorPct ?? 0);
       setPomMinPrice(parseFloat(String(settings.pomMinPrice ?? '0.02')));
@@ -1812,25 +1810,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         <div className="flex items-center gap-2">
                           <Input type="number" min={100} max={5000} step={100} value={pomBatchSize} onChange={(e) => setPomBatchSize(parseInt(e.target.value) || 100)} onBlur={() => updateSettingsMutation.mutate({ pomBatchSize })} className="text-xs w-24 text-right" data-testid="input-pom-batch-size" />
                           <span className="text-[10px] text-gray-500 w-16">lots / run</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5">
-                          <Label className="text-xs text-gray-400">Max API calls per 24h</Label>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
-                                <Info className="w-3 h-3" />
-                              </button>
-                            </PopoverTrigger>
-                            <PopoverContent side="bottom" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
-                              Price-o-Matic stops once this many BrickLink API calls have been used in the last 24 hours. Hard limit is 5,000/day. Recommended: 3,000–4,000.
-                            </PopoverContent>
-                          </Popover>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Input type="number" min={500} max={5000} step={100} value={pomApiCallLimit} onChange={(e) => setPomApiCallLimit(parseInt(e.target.value) || 500)} onBlur={() => updateSettingsMutation.mutate({ pomApiCallLimit })} className="text-xs w-24 text-right" data-testid="input-pom-api-limit" />
-                          <span className="text-[10px] text-gray-500 w-14">/ 5,000</span>
                         </div>
                       </div>
                     </div>
@@ -3744,25 +3723,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         <div className="flex items-center gap-2">
                           <Input type="number" min={100} max={5000} step={100} value={pomBatchSize} onChange={(e) => setPomBatchSize(parseInt(e.target.value) || 100)} onBlur={() => updateSettingsMutation.mutate({ pomBatchSize })} className="text-xs w-24 text-right" data-testid="input-pom-batch-size" />
                           <span className="text-[10px] text-gray-500 w-16">lots / run</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5">
-                          <Label className="text-xs text-gray-400">Max API calls per 24h</Label>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
-                                <Info className="w-3 h-3" />
-                              </button>
-                            </PopoverTrigger>
-                            <PopoverContent side="bottom" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
-                              Price-o-Matic stops once this many BrickLink API calls have been used in the last 24 hours. Hard limit is 5,000/day. Recommended: 3,000–4,000.
-                            </PopoverContent>
-                          </Popover>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Input type="number" min={500} max={5000} step={100} value={pomApiCallLimit} onChange={(e) => setPomApiCallLimit(parseInt(e.target.value) || 500)} onBlur={() => updateSettingsMutation.mutate({ pomApiCallLimit })} className="text-xs w-24 text-right" data-testid="input-pom-api-limit" />
-                          <span className="text-[10px] text-gray-500 w-14">/ 5,000</span>
                         </div>
                       </div>
                     </div>

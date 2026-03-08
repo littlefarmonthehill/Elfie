@@ -1233,11 +1233,11 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = 'o
   const pomConfig = await getPomFormulaConfig();
   const [pomSettings] = await db.select({
     pomBatchSize: appSettings.pomBatchSize,
-    pomApiCallLimit: appSettings.pomApiCallLimit,
-  }).from(appSettings).where(eq(appSettings.orgId, orgId)).limit(1);
+    blApiCallLimit: appSettings.blApiCallLimit,
+  }).from(appSettings).where(eq(appSettings.id, orgId)).limit(1);
 
   const effectiveMaxItems = maxItems ?? pomSettings?.pomBatchSize ?? 1500;
-  const apiCallCeiling = pomSettings?.pomApiCallLimit ?? 4500;
+  const apiCallCeiling = pomSettings?.blApiCallLimit ?? 4900;
 
   console.log(`[Price-o-Matic Sync] Starting sync for up to ${effectiveMaxItems} items (API ceiling: ${apiCallCeiling})`);
   pomSyncStopRequested = false; // Clear any prior stop request
