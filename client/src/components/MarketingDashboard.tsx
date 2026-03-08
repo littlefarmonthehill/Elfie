@@ -145,7 +145,7 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
             <Sparkles className="w-3.5 h-3.5 md:w-5 md:h-5 text-gray-400" />
             <h3 className="text-xs md:text-base font-semibold text-gray-400 uppercase tracking-wide">Tools</h3>
           </div>
-          <div className="grid grid-cols-1 gap-2">
+          <div className="grid grid-cols-2 gap-2">
 
             {/* Attract */}
             <button
@@ -233,7 +233,7 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
             <button
               onClick={() => onDrawerChange('reward')}
               data-testid="tool-reward"
-              className="group flex flex-col gap-1.5 rounded-lg border border-amber-700/40 bg-amber-950/40 p-3 text-left hover-elevate active-elevate-2 transition-all"
+              className="group col-span-2 flex flex-col gap-1.5 rounded-lg border border-amber-700/40 bg-amber-950/40 p-3 text-left hover-elevate active-elevate-2 transition-all"
             >
               <div className="flex items-center gap-2">
                 <div className="rounded-md bg-amber-900/60 p-1.5">
