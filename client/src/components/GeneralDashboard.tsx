@@ -265,7 +265,7 @@ function BrickLinkApiSection({ rateLimit, blApiCallLimit }: { rateLimit: any; bl
 // ── INVENTORY LANE ────────────────────────────────────────────────────────────
 
 function InventoryLane({
-  stats, globalSyncStatuses, invSyncProgress, pomStatus, pricingInsights, underpricedThreshold, onItemClick, onOpenBrickanalyzer, onOpenPriceomatic, onOpenSettings,
+  stats, globalSyncStatuses, invSyncProgress, pomStatus, pricingInsights, underpricedThreshold, deepSpaceKeys, onItemClick, onOpenBrickanalyzer, onOpenPriceomatic, onOpenSettings,
 }: any) {
   const lastInvSync = globalSyncStatuses?.inventory;
   const lastPom = pomStatus?.data ?? globalSyncStatuses?.priceomatic;
@@ -303,8 +303,8 @@ function InventoryLane({
       groupScores.set(key, { maxScore: score, totalQty: qty });
     }
   }
-  const highOpportunityCount = Array.from(groupScores.values()).filter(
-    g => g.totalQty > 0 && g.maxScore >= threshold
+  const highOpportunityCount = Array.from(groupScores.entries()).filter(
+    ([key, g]) => g.totalQty > 0 && g.maxScore >= threshold && !(deepSpaceKeys as Set<string>)?.has(key)
   ).length;
 
   const invSyncFailed = lastInvSync?.lastSyncStatus === 'failed' || lastInvSync?.lastSyncStatus === 'error';
@@ -920,6 +920,12 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
     queryKey: ['/api/priceomatic/insights'],
   });
 
+  const { data: deepSpaceData } = useQuery<{ success: boolean; keys: string[] }>({
+    queryKey: ['/api/priceomatic/deep-space'],
+    staleTime: 0,
+  });
+  const deepSpaceKeySet = new Set<string>(deepSpaceData?.keys ?? []);
+
   const { data: pomStatus } = useQuery<{ success: boolean; data: any }>({
     queryKey: ['/api/sync/priceomatic/status'],
     refetchInterval: 5000,
@@ -1024,6 +1030,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
           pomStatus={pomStatus}
           pricingInsights={pricingInsights}
           underpricedThreshold={underpricedThreshold}
+          deepSpaceKeys={deepSpaceKeySet}
           onItemClick={onItemClick}
           onOpenBrickanalyzer={onOpenBrickanalyzer}
           onOpenPriceomatic={onOpenPriceomatic}
