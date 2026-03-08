@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import {
@@ -141,6 +142,125 @@ function AllGood({ label = 'All clear' }: { label?: string }) {
   );
 }
 
+// ── BRICKLINK API USAGE ───────────────────────────────────────────────────────
+function BrickLinkApiSection({ rateLimit }: { rateLimit: any }) {
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+  const BL_CEILING = 5000;
+  const callsLast24h: number = rateLimit?.callsLast24h ?? 0;
+  const buckets: { hourStart: string; rollsOffAt: string; calls: number }[] = rateLimit?.hourlyBuckets ?? [];
+  const availableNow = Math.max(0, BL_CEILING - callsLast24h);
+  const pct = Math.min(callsLast24h / BL_CEILING, 1);
+  const maxCalls = Math.max(...buckets.map(b => b.calls), 1);
+
+  const rolloffEvents = [...buckets]
+    .filter(b => b.calls > 0)
+    .sort((a, b) => new Date(a.rollsOffAt).getTime() - new Date(b.rollsOffAt).getTime());
+  let cumFreed = 0;
+  const schedule = rolloffEvents.map((b, idx) => {
+    cumFreed += b.calls;
+    const availableAfter = Math.min(BL_CEILING, availableNow + cumFreed);
+    const prevAvail = idx === 0 ? availableNow : Math.min(BL_CEILING, availableNow + (cumFreed - b.calls));
+    return { ...b, freed: b.calls, availableAfter, isFirstFull: availableAfter >= BL_CEILING && prevAvail < BL_CEILING };
+  });
+  const fullRestoreRow = schedule.find(s => s.isFirstFull);
+
+  const fmtTime = (iso: string) => {
+    const d = new Date(iso);
+    const nowStr = new Date().toLocaleDateString('en-US');
+    const dStr = d.toLocaleDateString('en-US');
+    const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return dStr === nowStr ? time : `${time} tomorrow`;
+  };
+  const progressColor = pct >= 0.9 ? 'bg-red-500' : pct >= 0.6 ? 'bg-orange-500' : 'bg-blue-500';
+  const barColor = (calls: number) => {
+    if (calls === 0) return 'bg-muted/40';
+    if (calls < BL_CEILING * 0.1) return 'bg-blue-500/70';
+    if (calls < BL_CEILING * 0.3) return 'bg-orange-500/70';
+    return 'bg-red-500/70';
+  };
+  const availColor = (avail: number) => {
+    const r = avail / BL_CEILING;
+    if (r >= 0.9) return 'text-emerald-400';
+    if (r >= 0.5) return 'text-blue-400';
+    if (r >= 0.25) return 'text-orange-400';
+    return 'text-muted-foreground';
+  };
+
+  return (
+    <div className="space-y-2 px-1.5 py-0.5">
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <span className={`text-[11px] font-medium ${pct >= 0.9 ? 'text-red-400' : pct >= 0.6 ? 'text-orange-400' : 'text-emerald-400'}`}>
+            {availableNow.toLocaleString()} free
+          </span>
+          <span className="text-[10px] text-muted-foreground"> · {callsLast24h.toLocaleString()}/{BL_CEILING.toLocaleString()} used</span>
+        </div>
+        {fullRestoreRow ? (
+          <div className="text-right flex-shrink-0">
+            <div className="text-[9px] text-muted-foreground uppercase tracking-wide leading-none">Full at</div>
+            <div className="text-[10px] font-semibold text-emerald-400">{fmtTime(fullRestoreRow.rollsOffAt)}</div>
+          </div>
+        ) : availableNow >= BL_CEILING ? (
+          <span className="text-[10px] text-emerald-400 font-semibold flex-shrink-0">Full quota</span>
+        ) : null}
+      </div>
+      <div className="h-1 w-full rounded-full bg-muted/50">
+        <div className={`h-full rounded-full transition-all ${progressColor}`} style={{ width: `${pct * 100}%` }} />
+      </div>
+      {buckets.length > 0 && (
+        <div>
+          <div className="flex items-end gap-px h-7" onMouseLeave={() => setHoveredIdx(null)}>
+            {buckets.map((b, i) => {
+              const height = b.calls === 0 ? 1 : Math.max(2, Math.round((b.calls / maxCalls) * 28));
+              return (
+                <div key={b.hourStart} className="flex-1 flex flex-col justify-end cursor-default" onMouseEnter={() => setHoveredIdx(i)}>
+                  <div className={`w-full rounded-sm ${barColor(b.calls)} ${hoveredIdx === i ? 'opacity-100' : 'opacity-75'}`} style={{ height: `${height}px` }} />
+                </div>
+              );
+            })}
+          </div>
+          {hoveredIdx !== null && buckets[hoveredIdx]?.calls > 0 && (
+            <div className="text-[10px] text-muted-foreground mt-0.5 font-mono">
+              {new Date(buckets[hoveredIdx].hourStart).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}:
+              {' '}<span className="text-foreground">{buckets[hoveredIdx].calls.toLocaleString()} calls</span>
+            </div>
+          )}
+        </div>
+      )}
+      {schedule.length > 0 && (
+        <div className="space-y-px">
+          <div className="text-[9px] text-muted-foreground uppercase tracking-wide mb-1">Recovery schedule</div>
+          <div className="flex items-center justify-between px-1.5 py-0.5">
+            <span className="text-[10px] text-muted-foreground">Now</span>
+            <span className={`text-[10px] font-mono font-semibold ${availColor(availableNow)}`}>{availableNow.toLocaleString()} free</span>
+          </div>
+          {schedule.slice(0, 6).map(s => {
+            const availRatio = s.availableAfter / BL_CEILING;
+            return (
+              <div key={s.hourStart} className={`relative rounded overflow-hidden px-1.5 py-0.5 ${s.isFirstFull ? 'ring-1 ring-emerald-500/40' : ''}`} style={{ backgroundColor: 'rgba(255,255,255,0.025)' }}>
+                <div className="absolute left-0 top-0 bottom-0 rounded-sm pointer-events-none" style={{ width: `${Math.min(availRatio * 100, 100)}%`, backgroundColor: availRatio >= 0.9 ? 'rgba(16,185,129,0.09)' : availRatio >= 0.5 ? 'rgba(59,130,246,0.09)' : 'rgba(249,115,22,0.07)' }} />
+                <div className="relative flex items-center justify-between gap-1">
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] text-muted-foreground">{fmtTime(s.rollsOffAt)}</span>
+                    {s.isFirstFull && <span className="text-[8px] font-bold text-emerald-400 uppercase tracking-wide">Full</span>}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[9px] text-muted-foreground/60 font-mono">+{s.freed.toLocaleString()}</span>
+                    <span className={`text-[10px] font-mono font-semibold w-14 text-right ${availColor(s.availableAfter)}`}>{s.availableAfter.toLocaleString()} free</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {schedule.length === 0 && availableNow >= BL_CEILING && (
+        <div className="text-[10px] text-emerald-400 text-center py-0.5">Full quota — ready anytime.</div>
+      )}
+    </div>
+  );
+}
+
 // ── INVENTORY LANE ────────────────────────────────────────────────────────────
 
 function InventoryLane({
@@ -156,6 +276,14 @@ function InventoryLane({
   const { data: activeInvEmbed } = useQuery<{ id: string; status: string } | null>({
     queryKey: ['/api/embeddings/jobs/active/inventory'],
     refetchInterval: 8000,
+  });
+
+  const { data: rateLimit } = useQuery<{
+    allowed: boolean; callsLast24h: number; blocked?: boolean; warning?: string;
+    hourlyBuckets: { hourStart: string; rollsOffAt: string; calls: number }[];
+  }>({
+    queryKey: ['/api/bricklink/rate-limit'],
+    refetchInterval: 60000,
   });
 
   const hasRunningJobs = isInvSyncing || isPomRunning;
@@ -249,6 +377,12 @@ function InventoryLane({
           <ActivityItem icon={Clock} iconColor="text-muted-foreground" label="No Price-o-Matic run yet" />
         )}
       </LaneSection>
+
+      {rateLimit && (
+        <LaneSection label="BrickLink API">
+          <BrickLinkApiSection rateLimit={rateLimit} />
+        </LaneSection>
+      )}
 
     </LaneCard>
   );
