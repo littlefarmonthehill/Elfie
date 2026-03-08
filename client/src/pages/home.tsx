@@ -12,7 +12,7 @@ import DashboardNav, { DashboardType } from "@/components/DashboardNav";
 import SettingsModal from "@/components/SettingsModal";
 import InventoryDashboard from "@/components/InventoryDashboard";
 import SalesDashboard from "@/components/SalesDashboard";
-import MarketingDashboard from "@/components/MarketingDashboard";
+import MarketingDashboard, { MarketingDrawer } from "@/components/MarketingDashboard";
 import GeneralDashboard from "@/components/GeneralDashboard";
 import OrdersDashboard from "@/components/OrdersDashboard";
 import ChatInterface from "@/components/ChatInterface";
@@ -49,6 +49,7 @@ export default function Home() {
   } | null>(null);
   const [activeInventoryDrawer, setActiveInventoryDrawer] = useState<'priceomatic' | 'warehouse' | 'platformsync' | 'brickanalyzer' | null>(null);
   const [activeOrdersDrawer, setActiveOrdersDrawer] = useState<'fulfillment' | 'shipped' | null>(null);
+  const [activeMarketingDrawer, setActiveMarketingDrawer] = useState<MarketingDrawer>(null);
   const [detailModal, setDetailModal] = useState<{ open: boolean; data: DetailData | null }>({
     open: false,
     data: null,
@@ -320,7 +321,7 @@ export default function Home() {
       case 'sales':
         return <SalesDashboard period={salesPeriod} dateRange={dateRange} onItemClick={handleDashboardItemClick} />;
       case 'marketing':
-        return <MarketingDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} />;
+        return <MarketingDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeMarketingDrawer} onDrawerChange={setActiveMarketingDrawer} />;
       default:
         return <GeneralDashboard onItemClick={handleDashboardItemClick} onOpenFulfillment={() => { setActiveDashboard('orders'); setActiveOrdersDrawer('fulfillment'); }} onOpenBrickanalyzer={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('brickanalyzer'); }} onOpenPriceomatic={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('priceomatic'); }} onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }} />;
     }
