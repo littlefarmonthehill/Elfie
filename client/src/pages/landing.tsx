@@ -426,95 +426,98 @@ export default function Landing() {
             }} />
           ))}
 
-          {/* Screen + right controls row */}
-          <div style={{ display: "flex", gap: "clamp(10px,1.5vw,18px)" }}>
-
-            {/* Screen */}
-            <div style={{ flex: 1, minWidth: 0 }}>
-              {/* Chrome bezel */}
+          {/* Screen — full width */}
+          <div>
+            {/* Chrome bezel */}
+            <div style={{
+              background: "linear-gradient(145deg, #3A3A5A 0%, #555578 20%, #2A2A44 55%, #404068 80%, #222238 100%)",
+              borderRadius: "clamp(10px,1.6vw,20px)",
+              padding: "clamp(5px,0.7vw,8px)",
+              boxShadow: `inset 0 3px 8px rgba(0,0,0,0.7), 0 2px 6px rgba(0,0,0,0.5), 0 0 0 1px ${TEAL}22`,
+            }}>
               <div style={{
-                background: "linear-gradient(145deg, #3A3A5A 0%, #555578 20%, #2A2A44 55%, #404068 80%, #222238 100%)",
-                borderRadius: "clamp(10px,1.6vw,20px)",
-                padding: "clamp(5px,0.7vw,8px)",
-                boxShadow: `inset 0 3px 8px rgba(0,0,0,0.7), 0 2px 6px rgba(0,0,0,0.5), 0 0 0 1px ${TEAL}22`,
+                background: SCR_BG,
+                borderRadius: "clamp(7px,1.1vw,14px)",
+                overflow: "hidden",
+                position: "relative",
+                height: "clamp(300px,42vh,520px)",
               }}>
+                {/* Scanlines */}
                 <div style={{
-                  background: SCR_BG,
-                  borderRadius: "clamp(7px,1.1vw,14px)",
+                  position: "absolute", inset: 0, zIndex: 15, pointerEvents: "none",
+                  backgroundImage: "repeating-linear-gradient(0deg, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 2px, rgba(0,0,0,0.18) 2px, rgba(0,0,0,0.18) 4px)",
+                }} />
+                {/* Teal phosphor glow */}
+                <div style={{
+                  position: "absolute", inset: 0, zIndex: 14, pointerEvents: "none",
+                  background: `radial-gradient(ellipse 75% 60% at 50% 40%, ${TEAL}0E 0%, transparent 70%)`,
+                }} />
+                {/* Animated scan line sweep */}
+                <div style={{
+                  position: "absolute", left: 0, right: 0, height: "2px", zIndex: 17, pointerEvents: "none",
+                  background: `linear-gradient(90deg, transparent 0%, ${TEAL}40 30%, ${TEAL}88 50%, ${TEAL}40 70%, transparent 100%)`,
+                  animation: "pb-scan 7s ease-in-out 2s infinite",
+                  top: 0,
+                }} />
+                {/* Glass reflection */}
+                <div style={{
+                  position: "absolute", top: 0, left: 0, right: 0, height: "20%", zIndex: 16, pointerEvents: "none",
+                  background: "linear-gradient(to bottom, rgba(255,255,255,0.03), transparent)",
+                  borderRadius: "14px 14px 0 0",
+                }} />
+                {/* Channel flash static */}
+                {flash && (
+                  <div style={{
+                    position: "absolute", inset: 0, zIndex: 20,
+                    backgroundImage: `
+                      repeating-linear-gradient(0deg, ${TEAL}22 0px, transparent 1px, rgba(0,0,0,0.5) 3px, rgba(255,255,255,0.12) 5px),
+                      repeating-linear-gradient(90deg, rgba(255,255,255,0.04) 0px, transparent 2px)
+                    `,
+                    opacity: 0.9,
+                  }} />
+                )}
+                {/* Content */}
+                <div style={{
+                  position: "relative", zIndex: 5, height: "100%",
+                  opacity: flash ? 0 : 1, transition: "opacity 0.1s ease",
                   overflow: "hidden",
-                  position: "relative",
-                  height: "clamp(290px,38vh,460px)",
                 }}>
-                  {/* Scanlines */}
-                  <div style={{
-                    position: "absolute", inset: 0, zIndex: 15, pointerEvents: "none",
-                    backgroundImage: "repeating-linear-gradient(0deg, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 2px, rgba(0,0,0,0.18) 2px, rgba(0,0,0,0.18) 4px)",
-                  }} />
-                  {/* Teal phosphor glow */}
-                  <div style={{
-                    position: "absolute", inset: 0, zIndex: 14, pointerEvents: "none",
-                    background: `radial-gradient(ellipse 75% 60% at 50% 40%, ${TEAL}0E 0%, transparent 70%)`,
-                  }} />
-                  {/* Animated scan line sweep */}
-                  <div style={{
-                    position: "absolute", left: 0, right: 0, height: "2px", zIndex: 17, pointerEvents: "none",
-                    background: `linear-gradient(90deg, transparent 0%, ${TEAL}40 30%, ${TEAL}88 50%, ${TEAL}40 70%, transparent 100%)`,
-                    animation: "pb-scan 7s ease-in-out 2s infinite",
-                    top: 0,
-                  }} />
-                  {/* Glass reflection */}
-                  <div style={{
-                    position: "absolute", top: 0, left: 0, right: 0, height: "20%", zIndex: 16, pointerEvents: "none",
-                    background: "linear-gradient(to bottom, rgba(255,255,255,0.03), transparent)",
-                    borderRadius: "14px 14px 0 0",
-                  }} />
-                  {/* Channel flash static */}
-                  {flash && (
-                    <div style={{
-                      position: "absolute", inset: 0, zIndex: 20,
-                      backgroundImage: `
-                        repeating-linear-gradient(0deg, ${TEAL}22 0px, transparent 1px, rgba(0,0,0,0.5) 3px, rgba(255,255,255,0.12) 5px),
-                        repeating-linear-gradient(90deg, rgba(255,255,255,0.04) 0px, transparent 2px)
-                      `,
-                      opacity: 0.9,
-                    }} />
-                  )}
-                  {/* Content */}
-                  <div style={{
-                    position: "relative", zIndex: 5, height: "100%",
-                    opacity: flash ? 0 : 1, transition: "opacity 0.1s ease",
-                    overflow: "hidden",
-                  }}>
-                    {ch === "home"     && <HomeScreen tune={tune} />}
-                    {ch === "features" && <FeaturesScreen />}
-                    {ch === "pricing"  && <PricingScreen tune={tune} />}
-                    {ch === "live"     && <LiveScreen />}
-                  </div>
+                  {ch === "home"     && <HomeScreen tune={tune} />}
+                  {ch === "features" && <FeaturesScreen />}
+                  {ch === "pricing"  && <PricingScreen tune={tune} />}
+                  {ch === "live"     && <LiveScreen />}
                 </div>
               </div>
             </div>
+          </div>
 
-            {/* Right side — channel panel */}
+          {/* Bottom controls strip: LED | channels | dials | signal */}
+          <div style={{
+            display: "flex", alignItems: "center",
+            gap: "clamp(8px,1.2vw,16px)",
+            paddingTop: "clamp(6px,0.9vw,10px)",
+            borderTop: `1px solid ${TEAL}18`,
+          }}>
+            {/* LED channel display */}
             <div style={{
-              width: "clamp(70px,8vw,100px)", flexShrink: 0,
-              display: "flex", flexDirection: "column", gap: "clamp(6px,0.9vw,10px)",
-              paddingTop: "2px",
+              background: "#060612",
+              border: `1px solid ${TEAL}55`,
+              borderRadius: "10px",
+              padding: "clamp(4px,0.6vw,7px) clamp(8px,1vw,14px)",
+              textAlign: "center", fontFamily: "monospace",
+              color: TEAL, fontWeight: 900, lineHeight: 1,
+              fontSize: "clamp(16px,1.8vw,22px)",
+              boxShadow: `0 0 14px ${TEAL}33, inset 0 0 12px rgba(0,0,0,0.95)`,
+              animation: "pb-ledpulse 2.5s ease-in-out infinite",
+              flexShrink: 0,
+              display: "flex", flexDirection: "column", alignItems: "center", gap: "2px",
             }}>
-              {/* Channel LED display */}
-              <div style={{
-                background: "#060612",
-                border: `1px solid ${TEAL}55`,
-                borderRadius: "10px", padding: "clamp(6px,0.9vw,10px) 4px",
-                textAlign: "center", fontFamily: "monospace",
-                color: TEAL, fontSize: "clamp(18px,2.2vw,26px)", fontWeight: 900, lineHeight: 1,
-                boxShadow: `0 0 16px ${TEAL}33, inset 0 0 16px rgba(0,0,0,0.95)`,
-                animation: "pb-ledpulse 2.5s ease-in-out infinite",
-              }}>
-                {activeCh.num}
-                <div style={{ fontSize: "clamp(6px,0.6vw,8px)", letterSpacing: "0.2em", color: `${TEAL}BB`, marginTop: "3px" }}>CH</div>
-              </div>
+              {activeCh.num}
+              <div style={{ fontSize: "clamp(5px,0.5vw,7px)", letterSpacing: "0.2em", color: `${TEAL}BB` }}>CH</div>
+            </div>
 
-              {/* Channel buttons */}
+            {/* Channel buttons — horizontal row */}
+            <div style={{ display: "flex", gap: "clamp(5px,0.8vw,10px)", flex: 1, justifyContent: "center" }}>
               {CHANNELS.map(c => {
                 const isActive = ch === c.id;
                 return (
@@ -522,59 +525,55 @@ export default function Landing() {
                     background: isActive ? `${TEAL}18` : "rgba(255,255,255,0.04)",
                     border: `1px solid ${isActive ? TEAL : "rgba(200,220,255,0.2)"}`,
                     borderRadius: "8px",
-                    padding: "clamp(5px,0.7vw,8px) 4px",
+                    padding: "clamp(5px,0.7vw,9px) clamp(10px,1.4vw,18px)",
                     cursor: "pointer",
                     color: isActive ? TEAL : "rgba(215,230,255,0.82)",
-                    fontSize: "clamp(7px,0.7vw,9px)", fontFamily: "monospace",
-                    letterSpacing: "0.1em", fontWeight: 700,
+                    fontFamily: "monospace", fontWeight: 700,
+                    letterSpacing: "0.08em",
                     transition: "all 0.15s",
                     animation: isActive ? "pb-chglow 2s ease-in-out infinite" : "none",
-                    textAlign: "center", lineHeight: 1.4,
+                    textAlign: "center", lineHeight: 1.3,
                     textShadow: isActive ? `0 0 8px ${TEAL}` : "none",
+                    display: "flex", flexDirection: "column", alignItems: "center", gap: "2px",
+                    flex: 1, minWidth: 0,
                   }}>
-                    <div style={{ fontSize: "clamp(9px,1vw,13px)" }}>{c.num}</div>
-                    <div style={{ fontSize: "clamp(6px,0.58vw,7px)", opacity: 0.8, marginTop: "1px" }}>{c.label}</div>
+                    <div style={{ fontSize: "clamp(10px,1.1vw,14px)" }}>{c.num}</div>
+                    <div style={{ fontSize: "clamp(7px,0.65vw,9px)", opacity: 0.85 }}>{c.label}</div>
                   </button>
                 );
               })}
+            </div>
 
-              {/* Decorative orb dials */}
-              <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: "8px", alignItems: "center" }}>
-                {([
-                  { label: "PWR", color: TEAL },
-                  { label: "HUE", color: PURP },
-                ] as const).map((k) => (
-                  <div key={k.label} style={{ textAlign: "center" }}>
+            {/* Decorative orb dials */}
+            <div style={{ display: "flex", gap: "clamp(8px,1vw,14px)", flexShrink: 0, alignItems: "center" }}>
+              {([
+                { label: "PWR", color: TEAL },
+                { label: "HUE", color: PURP },
+              ] as const).map((k) => (
+                <div key={k.label} style={{ textAlign: "center" }}>
+                  <div style={{
+                    width: "clamp(22px,2.4vw,32px)", height: "clamp(22px,2.4vw,32px)", borderRadius: "50%",
+                    background: `radial-gradient(circle at 35% 30%, rgba(100,100,180,0.3), rgba(10,10,40,0.95))`,
+                    border: `1px solid ${k.color}44`,
+                    boxShadow: `0 0 10px ${k.color}33, inset 0 0 8px rgba(0,0,0,0.9)`,
+                    margin: "0 auto", position: "relative", cursor: "default",
+                  }}>
                     <div style={{
-                      width: "clamp(24px,2.8vw,34px)", height: "clamp(24px,2.8vw,34px)", borderRadius: "50%",
-                      background: `radial-gradient(circle at 35% 30%, rgba(100,100,180,0.3), rgba(10,10,40,0.95))`,
-                      border: `1px solid ${k.color}44`,
-                      boxShadow: `0 0 10px ${k.color}33, inset 0 0 8px rgba(0,0,0,0.9)`,
-                      margin: "0 auto", position: "relative", cursor: "default",
-                    }}>
-                      <div style={{
-                        position: "absolute", width: "2px", height: "36%",
-                        background: k.color, top: "14%", left: "50%",
-                        transform: "translateX(-50%)",
-                        transformOrigin: "bottom center",
-                        borderRadius: "1px",
-                        boxShadow: `0 0 6px ${k.color}`,
-                      }} />
-                    </div>
-                    <div style={{ fontSize: "clamp(5px,0.5vw,7px)", fontFamily: "monospace", color: `${k.color}66`, letterSpacing: "0.12em", marginTop: "3px" }}>{k.label}</div>
+                      position: "absolute", width: "2px", height: "36%",
+                      background: k.color, top: "14%", left: "50%",
+                      transform: "translateX(-50%)",
+                      transformOrigin: "bottom center",
+                      borderRadius: "1px",
+                      boxShadow: `0 0 6px ${k.color}`,
+                    }} />
                   </div>
-                ))}
-              </div>
+                  <div style={{ fontSize: "clamp(5px,0.48vw,7px)", fontFamily: "monospace", color: `${k.color}66`, letterSpacing: "0.12em", marginTop: "2px" }}>{k.label}</div>
+                </div>
+              ))}
             </div>
-          </div>
 
-          {/* Bottom strip */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: "clamp(4px,0.6vw,8px)", borderTop: `1px solid ${TEAL}18` }}>
-            <div style={{ fontSize: "clamp(8px,0.65vw,10px)", fontFamily: "monospace", color: "rgba(160,185,240,0.7)", letterSpacing: "0.3em", textTransform: "uppercase" }}>
-              PlanetBrick ◆ LEGO Commerce System
-            </div>
             {/* Signal bars */}
-            <div style={{ display: "flex", gap: "3px", alignItems: "flex-end" }}>
+            <div style={{ display: "flex", gap: "3px", alignItems: "flex-end", flexShrink: 0 }}>
               {[4, 6, 8, 10, 12].map((h, i) => (
                 <div key={i} style={{
                   width: "clamp(3px,0.4vw,5px)", height: `${h}px`,
@@ -583,6 +582,13 @@ export default function Landing() {
                   boxShadow: i < 4 ? `0 0 4px ${TEAL}66` : "none",
                 }} />
               ))}
+            </div>
+          </div>
+
+          {/* Brand strip */}
+          <div style={{ textAlign: "center", paddingBottom: "2px" }}>
+            <div style={{ fontSize: "clamp(7px,0.6vw,9px)", fontFamily: "monospace", color: "rgba(160,185,240,0.6)", letterSpacing: "0.3em", textTransform: "uppercase" }}>
+              PlanetBrick ◆ LEGO Commerce System
             </div>
           </div>
         </div>
