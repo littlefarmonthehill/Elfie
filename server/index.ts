@@ -10,8 +10,8 @@ import { startForumSyncScheduler } from "./services/bl-forum-scheduler";
 import { startUniversalCatalogScheduler } from "./services/universal-catalog-scheduler";
 import { startService as startSegmentService, warmupClip } from "./services/segmentClient";
 import { pool, db, runMigrations } from "./db";
-import { blInventory, scanEmbeddings } from "@shared/schema";
-import { sql as drizzleSqlCount } from "drizzle-orm";
+import { blInventory, scanEmbeddings, embeddingJobs, orders } from "@shared/schema";
+import { sql as drizzleSqlCount, eq, inArray } from "drizzle-orm";
 
 // Suppress Vite's process.exit(1) which fires on any CSS/TS compilation error.
 // By throwing instead, the error surfaces as an uncaughtException (caught below)
@@ -267,6 +267,52 @@ app.use((req, res, next) => {
           console.error('[CLIP Catalog] Auto-resume check failed (non-fatal):', e.message);
         }
       }, 15000); // 15s delay: let segment service warm up first
+
+      // Auto-resume inventory & orders vector enrichment if items remain unembedded
+      setTimeout(async () => {
+        try {
+          const { createEmbeddingJob } = await import('./services/embedding-worker');
+
+          // Check for an active (pending/processing) job for each type — only create if none exists
+          const activeJobs = await db
+            .select({ jobType: embeddingJobs.jobType })
+            .from(embeddingJobs)
+            .where(inArray(embeddingJobs.status, ['pending', 'processing']));
+          const activeTypes = new Set(activeJobs.map(j => j.jobType));
+
+          // --- Inventory ---
+          if (!activeTypes.has('inventory')) {
+            const invResult = await db.execute(drizzleSqlCount`
+              SELECT COUNT(*) AS count
+              FROM bl_inventory bi
+              LEFT JOIN inventory_embeddings ie ON bi.id = ie.inventory_id
+              WHERE ie.inventory_id IS NULL
+            `);
+            const unembeddedInv = parseInt(String((invResult.rows[0] as any)?.count ?? '0'));
+            if (unembeddedInv > 0) {
+              await createEmbeddingJob('inventory', 'auto-resume-on-start');
+              console.log(`[EmbedResume] Created inventory job — ${unembeddedInv} items need embedding`);
+            }
+          }
+
+          // --- Orders ---
+          if (!activeTypes.has('orders')) {
+            const ordResult = await db.execute(drizzleSqlCount`
+              SELECT COUNT(*) AS count
+              FROM orders o
+              LEFT JOIN order_embeddings oe ON o.id = oe.order_id
+              WHERE oe.order_id IS NULL
+            `);
+            const unembeddedOrd = parseInt(String((ordResult.rows[0] as any)?.count ?? '0'));
+            if (unembeddedOrd > 0) {
+              await createEmbeddingJob('orders', 'auto-resume-on-start');
+              console.log(`[EmbedResume] Created orders job — ${unembeddedOrd} orders need embedding`);
+            }
+          }
+        } catch (e: any) {
+          console.error('[EmbedResume] Auto-resume check failed (non-fatal):', e.message);
+        }
+      }, 20000); // 20s — after embedding worker has started
     });
   } catch (error) {
     console.error("Failed to start server:", error);
