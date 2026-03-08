@@ -761,7 +761,7 @@ function AIIntelligenceLane({ latestScan, appSettings, onOpenBrickanalyzer, dism
 
 function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLimit, onOpenSettings }: {
   setupItems: Array<{ id: string; label: string; section: 'general' | 'platforms' }>;
-  billingStatus?: { plan: string; status: string; trialEndsAt?: string | null; brickspotter?: { scansUsed: number; scansLimit: number } } | null;
+  billingStatus?: { plan: string; status: string; interval?: string | null; trialEndsAt?: string | null; subscriptionEndsAt?: string | null; brickspotter?: { scansUsed: number; scansLimit: number } } | null;
   rateLimit?: { allowed: boolean; callsLast24h: number; blocked?: boolean } | null;
   blApiCallLimit?: number;
   onOpenSettings?: (section: any) => void;
@@ -773,6 +773,14 @@ function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLimit, onO
     const diff = new Date(billingStatus.trialEndsAt).getTime() - Date.now();
     return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
   })();
+
+  const renewalDateStr = (() => {
+    const d = billingStatus?.subscriptionEndsAt;
+    if (!d) return null;
+    return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  })();
+
+  const intervalLabel = billingStatus?.interval === 'annual' ? 'Annual' : billingStatus?.interval === 'monthly' ? 'Monthly' : null;
 
   const isTrial = billingStatus?.status === 'trial' || billingStatus?.plan === 'trial';
   const bs = billingStatus?.brickspotter;
@@ -796,17 +804,29 @@ function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLimit, onO
 
   return (
     <div className="rounded-lg border border-gray-800/60 bg-gray-900/60 overflow-hidden" data-testid="system-pulse">
-      {/* Header — plan name right-aligned */}
+      {/* Header — plan name + interval + renewal date right-aligned */}
       <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-800/40 bg-gray-900/80">
         <CreditCard className="w-4 h-4 shrink-0 text-violet-400 opacity-80" />
         <span className="text-xs font-semibold uppercase tracking-widest">Your Plan</span>
         {billingStatus && (
           <button
             onClick={() => onOpenSettings?.('billing')}
-            className="ml-auto text-[10px] text-violet-300 font-medium hover:text-violet-200 transition-colors"
+            className="ml-auto flex items-center gap-1.5 hover:opacity-80 transition-opacity"
             data-testid="system-pulse-plan"
           >
-            {planLabels[billingStatus.plan] ?? billingStatus.plan}
+            <span className="text-[10px] text-violet-300 font-semibold">
+              {planLabels[billingStatus.plan] ?? billingStatus.plan}
+            </span>
+            {intervalLabel && !isTrial && (
+              <span className="text-[9px] text-muted-foreground/70 bg-gray-800/60 rounded px-1 py-0.5 leading-none">
+                {intervalLabel}
+              </span>
+            )}
+            {renewalDateStr && !isTrial && (
+              <span className="text-[9px] text-muted-foreground/60 leading-none">
+                renews {renewalDateStr}
+              </span>
+            )}
           </button>
         )}
       </div>
@@ -985,7 +1005,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
   });
 
 
-  const { data: billingStatus } = useQuery<{ plan: string; status: string; trialEndsAt: string | null; brickspotter: { scansUsed: number; scansLimit: number } }>({
+  const { data: billingStatus } = useQuery<{ plan: string; status: string; interval: string | null; trialEndsAt: string | null; subscriptionEndsAt: string | null; brickspotter: { scansUsed: number; scansLimit: number } }>({
     queryKey: ['/api/billing/status'],
     refetchInterval: 60000,
   });

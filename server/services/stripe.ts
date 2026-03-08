@@ -90,12 +90,16 @@ export async function handleStripeWebhook(payload: string, sig: string) {
       const plan = subscription.metadata.plan || org.plan;
       const interval = subscription.items.data[0].price.recurring?.interval === "year" ? "annual" : "monthly";
       
+      const periodEnd = subscription.current_period_end
+        ? new Date(subscription.current_period_end * 1000)
+        : null;
       await db.update(organizations).set({
         stripeSubscriptionId,
         stripeCustomerId,
         subscriptionStatus: status === "active" ? "active" : (status === "trialing" ? "trial" : "past_due"),
         plan: plan as any,
         subscriptionInterval: interval,
+        subscriptionEndsAt: periodEnd,
         updatedAt: new Date(),
       }).where(eq(organizations.id, org.id));
       break;

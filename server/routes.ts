@@ -460,6 +460,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         interval: org.subscriptionInterval,
         hasStripeCustomer: !!org.stripeCustomerId,
         trialEndsAt: org.trialEndsAt ?? null,
+        subscriptionEndsAt: org.subscriptionEndsAt ?? null,
         brickspotter: {
           scansUsed: brickspotterCheck.scansUsed ?? 0,
           scansLimit: brickspotterCheck.scansLimit ?? -1,

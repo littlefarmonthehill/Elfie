@@ -67,6 +67,7 @@ export const organizations = pgTable("organizations", {
   stripeSubscriptionId: varchar("stripe_subscription_id"),
   subscriptionStatus: varchar("subscription_status").default('trial').notNull(), // 'active'|'past_due'|'canceled'|'trial'
   subscriptionInterval: varchar("subscription_interval").default('monthly').notNull(), // 'monthly'|'annual'
+  subscriptionEndsAt: timestamp("subscription_ends_at"),  // null = trial/no sub; set from Stripe current_period_end
   // BrickSpotter monthly scan tracking
   brickspotterScansThisMonth: integer("brickspotter_scans_this_month").notNull().default(0),
   brickspotterScansResetDate: timestamp("brickspotter_scans_reset_date").defaultNow().notNull(),
