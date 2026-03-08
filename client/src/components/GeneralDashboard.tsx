@@ -750,7 +750,7 @@ function SystemPulse({ syncErrors, setupItems, billingStatus, onOpenSettings }: 
 
   return (
     <div className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg bg-gray-900/70 border border-yellow-500/20" data-testid="system-pulse">
-      <span className="text-[9px] uppercase tracking-widest text-yellow-400 font-semibold shrink-0">System</span>
+      <span className="text-[9px] uppercase tracking-widest text-yellow-400 font-semibold shrink-0">Your Plan</span>
 
       {/* Plan badge */}
       {billingStatus && (
