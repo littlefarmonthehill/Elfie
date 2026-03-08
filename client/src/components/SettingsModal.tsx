@@ -1838,6 +1838,69 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                   <Separator className="bg-gray-700" />
 
+                  {/* Scoring collapsible */}
+                  <div>
+                    <button
+                      onClick={() => setPomScoringOpen(!pomScoringOpen)}
+                      className="w-full flex items-center justify-between gap-2 py-2 mb-3 border-b border-gray-600/60 hover:border-gray-500/60 transition-colors group"
+                      data-testid="button-pom-scoring-toggle"
+                    >
+                      <span className="text-sm font-semibold text-gray-200 uppercase tracking-wider">Scoring</span>
+                      {pomScoringOpen ? <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" /> : <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" />}
+                    </button>
+                    {pomScoringOpen && (
+                      <div className="space-y-2">
+                        <div className="divide-y divide-gray-700/30 mb-2">
+                          <div className="flex items-center justify-between py-3">
+                            <div className="flex items-center gap-1.5">
+                              <Label className="text-sm text-emerald-300">Underpriced Score</Label>
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                    <Info className="w-3.5 h-3.5" />
+                                  </button>
+                                </PopoverTrigger>
+                                <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                                  Items with an opportunity score at or above this value are flagged as underpriced in the POM dashboard filter. Score = market peak ÷ your price, so 1.5× means you're 50% below the market peak. Only items with stock on hand are counted.
+                                </PopoverContent>
+                              </Popover>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-gray-300">score ≥</span>
+                              <Input type="number" min={0.1} max={10} step={0.1} value={pomUnderpricedScore} onChange={(e) => setPomUnderpricedScore(parseFloat(e.target.value) || 0.1)} onBlur={() => updateSettingsMutation.mutate({ pomUnderpricedScore })} className="text-sm w-20 text-right" data-testid="input-pom-underpriced-score" />
+                              <span className="text-xs text-gray-400 w-14">× (peak)</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between py-3">
+                            <div className="flex items-center gap-1.5">
+                              <Label className="text-sm text-orange-300">Overpriced Score</Label>
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                    <Info className="w-3.5 h-3.5" />
+                                  </button>
+                                </PopoverTrigger>
+                                <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                                  Items with an opportunity score at or below this value are flagged as overpriced in the POM dashboard filter. Score = market peak ÷ your price, so 0.8× means you're 25% above the market peak. Only items with stock on hand are counted.
+                                </PopoverContent>
+                              </Popover>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-gray-300">score ≤</span>
+                              <Input type="number" min={0.1} max={10} step={0.1} value={pomOverpricedScore} onChange={(e) => setPomOverpricedScore(parseFloat(e.target.value) || 0.1)} onBlur={() => updateSettingsMutation.mutate({ pomOverpricedScore })} className="text-sm w-20 text-right" data-testid="input-pom-overpriced-score" />
+                              <span className="text-xs text-gray-400 w-14">× (peak)</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Layers className="h-4 w-4 text-gray-400" />
+                          <p className="text-xs text-gray-400">Assign categories to refresh tiers. T1 = daily, T2 = 3 days, T3 = weekly, T4 = monthly.</p>
+                        </div>
+                        <PomCategoryTiers />
+                      </div>
+                    )}
+                  </div>
+
                   {/* Pricing collapsible */}
                   <div>
                     <button
@@ -2238,69 +2301,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           </div>
                         </div>
 
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Scoring collapsible */}
-                  <div>
-                    <button
-                      onClick={() => setPomScoringOpen(!pomScoringOpen)}
-                      className="w-full flex items-center justify-between gap-2 py-2 mb-3 border-b border-gray-600/60 hover:border-gray-500/60 transition-colors group"
-                      data-testid="button-pom-scoring-toggle"
-                    >
-                      <span className="text-sm font-semibold text-gray-200 uppercase tracking-wider">Scoring</span>
-                      {pomScoringOpen ? <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" /> : <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" />}
-                    </button>
-                    {pomScoringOpen && (
-                      <div className="space-y-2">
-                        <div className="divide-y divide-gray-700/30 mb-2">
-                          <div className="flex items-center justify-between py-3">
-                            <div className="flex items-center gap-1.5">
-                              <Label className="text-sm text-emerald-300">Underpriced Score</Label>
-                              <Popover>
-                                <PopoverTrigger asChild>
-                                  <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
-                                    <Info className="w-3.5 h-3.5" />
-                                  </button>
-                                </PopoverTrigger>
-                                <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
-                                  Items with an opportunity score at or above this value are flagged as underpriced in the POM dashboard filter. Score = market peak ÷ your price, so 1.5× means you're 50% below the market peak. Only items with stock on hand are counted.
-                                </PopoverContent>
-                              </Popover>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-gray-300">score ≥</span>
-                              <Input type="number" min={0.1} max={10} step={0.1} value={pomUnderpricedScore} onChange={(e) => setPomUnderpricedScore(parseFloat(e.target.value) || 0.1)} onBlur={() => updateSettingsMutation.mutate({ pomUnderpricedScore })} className="text-sm w-20 text-right" data-testid="input-pom-underpriced-score" />
-                              <span className="text-xs text-gray-400 w-14">× (peak)</span>
-                            </div>
-                          </div>
-                          <div className="flex items-center justify-between py-3">
-                            <div className="flex items-center gap-1.5">
-                              <Label className="text-sm text-orange-300">Overpriced Score</Label>
-                              <Popover>
-                                <PopoverTrigger asChild>
-                                  <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
-                                    <Info className="w-3.5 h-3.5" />
-                                  </button>
-                                </PopoverTrigger>
-                                <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
-                                  Items with an opportunity score at or below this value are flagged as overpriced in the POM dashboard filter. Score = market peak ÷ your price, so 0.8× means you're 25% above the market peak. Only items with stock on hand are counted.
-                                </PopoverContent>
-                              </Popover>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-gray-300">score ≤</span>
-                              <Input type="number" min={0.1} max={10} step={0.1} value={pomOverpricedScore} onChange={(e) => setPomOverpricedScore(parseFloat(e.target.value) || 0.1)} onBlur={() => updateSettingsMutation.mutate({ pomOverpricedScore })} className="text-sm w-20 text-right" data-testid="input-pom-overpriced-score" />
-                              <span className="text-xs text-gray-400 w-14">× (peak)</span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Layers className="h-4 w-4 text-gray-400" />
-                          <p className="text-xs text-gray-400">Assign categories to refresh tiers. T1 = daily, T2 = 3 days, T3 = weekly, T4 = monthly.</p>
-                        </div>
-                        <PomCategoryTiers />
                       </div>
                     )}
                   </div>
@@ -3429,6 +3429,69 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                 <p className="text-gray-400">Pulls new and updated orders from BrickLink and BrickOwl into the local database. Also syncs order line items, generates AI embeddings for semantic search, and matches Stripe and PayPal refunds and merchant fees to orders.</p>
                                 <p className="text-gray-400">After each order is processed, sold quantities are deducted from local inventory — keeping all channel inventory counts in sync automatically.</p>
                                 <p className="text-gray-500">Runs on a short interval (e.g. every 15–30 min) to keep order data fresh throughout the day.</p>
+                                <Input type="number" min={0} max={100} value={pomMinifigPremium} onChange={(e) => setPomMinifigPremium(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomMinifigPremium })} className="text-sm w-20 text-right" data-testid="input-pom-minifig-premium" />
+                                <span className="text-xs text-gray-400 w-5">%</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Scarcity Bonuses */}
+                        <div className="rounded-md border border-gray-700/60 overflow-hidden">
+                          <div className="bg-gray-800/50 px-4 py-2.5 flex items-center gap-1.5 border-b border-gray-700/40">
+                            <h4 className="text-xs font-semibold text-gray-200 uppercase tracking-wider">Scarcity Bonuses</h4>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                  <Info className="w-3.5 h-3.5" />
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                                When fewer sellers list a part on BrickLink, you can charge more. Each tier adds a bonus % on top of your base premium. Items above the highest threshold get base premium only — no bonus.
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+                          <div className="px-4">
+                            <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-2 border-b border-gray-700/40">
+                              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Supply Level</span>
+                              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider text-right">Under</span>
+                              <span className="w-6"></span>
+                              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider text-right">Bonus</span>
+                              <span className="w-4"></span>
+                            </div>
+                            <div className="divide-y divide-gray-700/30">
+                              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-3">
+                                <span className="text-sm font-medium text-orange-300">Very Low</span>
+                                <Input type="number" min={1} value={pomScarcityThreshold1} onChange={(e) => setPomScarcityThreshold1(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityThreshold1 })} className="text-sm w-20 text-right" data-testid="input-pom-threshold1" />
+                                <span className="text-xs text-gray-300">lots</span>
+                                <Input type="number" min={0} max={200} value={pomScarcityBonus1} onChange={(e) => setPomScarcityBonus1(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityBonus1 })} className="text-sm w-20 text-right" data-testid="input-pom-bonus1" />
+                                <span className="text-xs text-gray-400">%</span>
+                              </div>
+                              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-3">
+                                <span className="text-sm font-medium text-yellow-300">Low</span>
+                                <Input type="number" min={1} value={pomScarcityThreshold2} onChange={(e) => setPomScarcityThreshold2(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityThreshold2 })} className="text-sm w-20 text-right" data-testid="input-pom-threshold2" />
+                                <span className="text-xs text-gray-300">lots</span>
+                                <Input type="number" min={0} max={200} value={pomScarcityBonus2} onChange={(e) => setPomScarcityBonus2(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityBonus2 })} className="text-sm w-20 text-right" data-testid="input-pom-bonus2" />
+                                <span className="text-xs text-gray-400">%</span>
+                              </div>
+                              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-3">
+                                <span className="text-sm font-medium text-blue-300">Medium</span>
+                                <Input type="number" min={1} value={pomScarcityThreshold3} onChange={(e) => setPomScarcityThreshold3(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityThreshold3 })} className="text-sm w-20 text-right" data-testid="input-pom-threshold3" />
+                                <span className="text-xs text-gray-300">lots</span>
+                                <Input type="number" min={0} max={200} value={pomScarcityBonus3} onChange={(e) => setPomScarcityBonus3(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityBonus3 })} className="text-sm w-20 text-right" data-testid="input-pom-bonus3" />
+                                <span className="text-xs text-gray-400">%</span>
+                              </div>
+                              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-3">
+                                <span className="text-sm font-medium text-gray-300">High</span>
+                                <span className="text-sm text-gray-400 text-right">{pomScarcityThreshold3}+</span>
+                                <span className="text-xs text-gray-400">lots</span>
+                                <span className="text-sm text-gray-400 w-20 text-right">—</span>
+                                <span className="text-xs text-gray-400">%</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                              <div className="flex items-center gap-2">
                               </PopoverContent>
                             </Popover>
                           </div>
@@ -3770,6 +3833,69 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                   <Separator className="bg-gray-700" />
 
+                  {/* Scoring collapsible */}
+                  <div>
+                    <button
+                      onClick={() => setPomScoringOpen(!pomScoringOpen)}
+                      className="w-full flex items-center justify-between gap-2 py-2 mb-3 border-b border-gray-600/60 hover:border-gray-500/60 transition-colors group"
+                      data-testid="button-pom-scoring-toggle"
+                    >
+                      <span className="text-sm font-semibold text-gray-200 uppercase tracking-wider">Scoring</span>
+                      {pomScoringOpen ? <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" /> : <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" />}
+                    </button>
+                    {pomScoringOpen && (
+                      <div className="space-y-2">
+                        <div className="divide-y divide-gray-700/30 mb-2">
+                          <div className="flex items-center justify-between py-3">
+                            <div className="flex items-center gap-1.5">
+                              <Label className="text-sm text-emerald-300">Underpriced Score</Label>
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                    <Info className="w-3.5 h-3.5" />
+                                  </button>
+                                </PopoverTrigger>
+                                <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                                  Items with an opportunity score at or above this value are flagged as underpriced in the POM dashboard filter. Score = market peak ÷ your price, so 1.5× means you're 50% below the market peak. Only items with stock on hand are counted.
+                                </PopoverContent>
+                              </Popover>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-gray-300">score ≥</span>
+                              <Input type="number" min={0.1} max={10} step={0.1} value={pomUnderpricedScore} onChange={(e) => setPomUnderpricedScore(parseFloat(e.target.value) || 0.1)} onBlur={() => updateSettingsMutation.mutate({ pomUnderpricedScore })} className="text-sm w-20 text-right" data-testid="input-pom-underpriced-score" />
+                              <span className="text-xs text-gray-400 w-14">× (peak)</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between py-3">
+                            <div className="flex items-center gap-1.5">
+                              <Label className="text-sm text-orange-300">Overpriced Score</Label>
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                    <Info className="w-3.5 h-3.5" />
+                                  </button>
+                                </PopoverTrigger>
+                                <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                                  Items with an opportunity score at or below this value are flagged as overpriced in the POM dashboard filter. Score = market peak ÷ your price, so 0.8× means you're 25% above the market peak. Only items with stock on hand are counted.
+                                </PopoverContent>
+                              </Popover>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-gray-300">score ≤</span>
+                              <Input type="number" min={0.1} max={10} step={0.1} value={pomOverpricedScore} onChange={(e) => setPomOverpricedScore(parseFloat(e.target.value) || 0.1)} onBlur={() => updateSettingsMutation.mutate({ pomOverpricedScore })} className="text-sm w-20 text-right" data-testid="input-pom-overpriced-score" />
+                              <span className="text-xs text-gray-400 w-14">× (peak)</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Layers className="h-4 w-4 text-gray-400" />
+                          <p className="text-xs text-gray-400">Assign categories to refresh tiers. T1 = daily, T2 = 3 days, T3 = weekly, T4 = monthly.</p>
+                        </div>
+                        <PomCategoryTiers />
+                      </div>
+                    )}
+                  </div>
+
                   {/* Pricing collapsible */}
                   <div>
                     <button
@@ -3832,69 +3958,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                   </PopoverContent>
                                 </Popover>
                               </div>
-                              <div className="flex items-center gap-2">
-                                <Input type="number" min={0} max={100} value={pomMinifigPremium} onChange={(e) => setPomMinifigPremium(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomMinifigPremium })} className="text-sm w-20 text-right" data-testid="input-pom-minifig-premium" />
-                                <span className="text-xs text-gray-400 w-5">%</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Scarcity Bonuses */}
-                        <div className="rounded-md border border-gray-700/60 overflow-hidden">
-                          <div className="bg-gray-800/50 px-4 py-2.5 flex items-center gap-1.5 border-b border-gray-700/40">
-                            <h4 className="text-xs font-semibold text-gray-200 uppercase tracking-wider">Scarcity Bonuses</h4>
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
-                                  <Info className="w-3.5 h-3.5" />
-                                </button>
-                              </PopoverTrigger>
-                              <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
-                                When fewer sellers list a part on BrickLink, you can charge more. Each tier adds a bonus % on top of your base premium. Items above the highest threshold get base premium only — no bonus.
-                              </PopoverContent>
-                            </Popover>
-                          </div>
-                          <div className="px-4">
-                            <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-2 border-b border-gray-700/40">
-                              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Supply Level</span>
-                              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider text-right">Under</span>
-                              <span className="w-6"></span>
-                              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider text-right">Bonus</span>
-                              <span className="w-4"></span>
-                            </div>
-                            <div className="divide-y divide-gray-700/30">
-                              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-3">
-                                <span className="text-sm font-medium text-orange-300">Very Low</span>
-                                <Input type="number" min={1} value={pomScarcityThreshold1} onChange={(e) => setPomScarcityThreshold1(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityThreshold1 })} className="text-sm w-20 text-right" data-testid="input-pom-threshold1" />
-                                <span className="text-xs text-gray-300">lots</span>
-                                <Input type="number" min={0} max={200} value={pomScarcityBonus1} onChange={(e) => setPomScarcityBonus1(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityBonus1 })} className="text-sm w-20 text-right" data-testid="input-pom-bonus1" />
-                                <span className="text-xs text-gray-400">%</span>
-                              </div>
-                              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-3">
-                                <span className="text-sm font-medium text-yellow-300">Low</span>
-                                <Input type="number" min={1} value={pomScarcityThreshold2} onChange={(e) => setPomScarcityThreshold2(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityThreshold2 })} className="text-sm w-20 text-right" data-testid="input-pom-threshold2" />
-                                <span className="text-xs text-gray-300">lots</span>
-                                <Input type="number" min={0} max={200} value={pomScarcityBonus2} onChange={(e) => setPomScarcityBonus2(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityBonus2 })} className="text-sm w-20 text-right" data-testid="input-pom-bonus2" />
-                                <span className="text-xs text-gray-400">%</span>
-                              </div>
-                              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-3">
-                                <span className="text-sm font-medium text-blue-300">Medium</span>
-                                <Input type="number" min={1} value={pomScarcityThreshold3} onChange={(e) => setPomScarcityThreshold3(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityThreshold3 })} className="text-sm w-20 text-right" data-testid="input-pom-threshold3" />
-                                <span className="text-xs text-gray-300">lots</span>
-                                <Input type="number" min={0} max={200} value={pomScarcityBonus3} onChange={(e) => setPomScarcityBonus3(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityBonus3 })} className="text-sm w-20 text-right" data-testid="input-pom-bonus3" />
-                                <span className="text-xs text-gray-400">%</span>
-                              </div>
-                              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-3">
-                                <span className="text-sm font-medium text-gray-300">High</span>
-                                <span className="text-sm text-gray-400 text-right">{pomScarcityThreshold3}+</span>
-                                <span className="text-xs text-gray-400">lots</span>
-                                <span className="text-sm text-gray-400 w-20 text-right">—</span>
-                                <span className="text-xs text-gray-400">%</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
 
                         {/* Formula Preview */}
                         <div className="bg-gray-900/60 rounded-md border border-gray-700/40 px-4 py-3">
@@ -4170,69 +4233,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           </div>
                         </div>
 
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Scoring collapsible */}
-                  <div>
-                    <button
-                      onClick={() => setPomScoringOpen(!pomScoringOpen)}
-                      className="w-full flex items-center justify-between gap-2 py-2 mb-3 border-b border-gray-600/60 hover:border-gray-500/60 transition-colors group"
-                      data-testid="button-pom-scoring-toggle"
-                    >
-                      <span className="text-sm font-semibold text-gray-200 uppercase tracking-wider">Scoring</span>
-                      {pomScoringOpen ? <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" /> : <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" />}
-                    </button>
-                    {pomScoringOpen && (
-                      <div className="space-y-2">
-                        <div className="divide-y divide-gray-700/30 mb-2">
-                          <div className="flex items-center justify-between py-3">
-                            <div className="flex items-center gap-1.5">
-                              <Label className="text-sm text-emerald-300">Underpriced Score</Label>
-                              <Popover>
-                                <PopoverTrigger asChild>
-                                  <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
-                                    <Info className="w-3.5 h-3.5" />
-                                  </button>
-                                </PopoverTrigger>
-                                <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
-                                  Items with an opportunity score at or above this value are flagged as underpriced in the POM dashboard filter. Score = market peak ÷ your price, so 1.5× means you're 50% below the market peak. Only items with stock on hand are counted.
-                                </PopoverContent>
-                              </Popover>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-gray-300">score ≥</span>
-                              <Input type="number" min={0.1} max={10} step={0.1} value={pomUnderpricedScore} onChange={(e) => setPomUnderpricedScore(parseFloat(e.target.value) || 0.1)} onBlur={() => updateSettingsMutation.mutate({ pomUnderpricedScore })} className="text-sm w-20 text-right" data-testid="input-pom-underpriced-score" />
-                              <span className="text-xs text-gray-400 w-14">× (peak)</span>
-                            </div>
-                          </div>
-                          <div className="flex items-center justify-between py-3">
-                            <div className="flex items-center gap-1.5">
-                              <Label className="text-sm text-orange-300">Overpriced Score</Label>
-                              <Popover>
-                                <PopoverTrigger asChild>
-                                  <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
-                                    <Info className="w-3.5 h-3.5" />
-                                  </button>
-                                </PopoverTrigger>
-                                <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
-                                  Items with an opportunity score at or below this value are flagged as overpriced in the POM dashboard filter. Score = market peak ÷ your price, so 0.8× means you're 25% above the market peak. Only items with stock on hand are counted.
-                                </PopoverContent>
-                              </Popover>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-gray-300">score ≤</span>
-                              <Input type="number" min={0.1} max={10} step={0.1} value={pomOverpricedScore} onChange={(e) => setPomOverpricedScore(parseFloat(e.target.value) || 0.1)} onBlur={() => updateSettingsMutation.mutate({ pomOverpricedScore })} className="text-sm w-20 text-right" data-testid="input-pom-overpriced-score" />
-                              <span className="text-xs text-gray-400 w-14">× (peak)</span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Layers className="h-4 w-4 text-gray-400" />
-                          <p className="text-xs text-gray-400">Assign categories to refresh tiers. T1 = daily, T2 = 3 days, T3 = weekly, T4 = monthly.</p>
-                        </div>
-                        <PomCategoryTiers />
                       </div>
                     )}
                   </div>
