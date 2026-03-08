@@ -5,7 +5,7 @@ import {
   Package, ShoppingCart, Globe, Brain,
   RefreshCw, CheckCircle, XCircle, AlertCircle, Loader2,
   ScanSearch, ArrowRight, Settings, AlertTriangle, Zap,
-  TrendingDown, Clock, Activity,
+  TrendingDown, Clock, Activity, CreditCard,
 } from "lucide-react";
 import DashboardNotifications from "./DashboardNotifications";
 
@@ -14,7 +14,7 @@ interface GeneralDashboardProps {
   onOpenFulfillment?: () => void;
   onOpenBrickanalyzer?: () => void;
   onOpenPriceomatic?: () => void;
-  onOpenSettings?: (section: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'users') => void;
+  onOpenSettings?: (section: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'users' | 'billing') => void;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -491,8 +491,8 @@ function MultichannelLane({ channelSyncRunning, globalSyncStatuses, syncStatus, 
   const channelSyncFailed = lastChannelSync?.lastSyncStatus === 'failed' || lastChannelSync?.lastSyncStatus === 'error';
 
   const targets: any[] = syncStatus?.targets ?? [];
-  const connectedChannels = targets.filter((t: any) => t.connected);
-  const disconnectedChannels = targets.filter((t: any) => !t.connected);
+  const connectedChannels = targets.filter((t: any) => t.enabled ?? t.connected);
+  const disconnectedChannels = targets.filter((t: any) => !(t.enabled ?? t.connected));
 
   const summary = totalDiscrepancies > 0
     ? `${connectedChannels.length} channel${connectedChannels.length !== 1 ? 's' : ''} · ${totalDiscrepancies} misaligned`
@@ -531,21 +531,25 @@ function MultichannelLane({ channelSyncRunning, globalSyncStatuses, syncStatus, 
       <LaneSection label="Channels">
         {connectedChannels.length > 0 ? connectedChannels.map((t: any) => {
           const disc = (t.discrepancies?.missingLots || 0) + (t.discrepancies?.priceDifferences || 0) + (t.discrepancies?.quantityDifferences || 0);
+          const channelName = t.name ?? t.platform ?? 'Unknown channel';
           return (
             <ActivityItem
-              key={t.platform}
+              key={channelName}
               icon={disc > 0 ? AlertTriangle : CheckCircle}
               iconColor={disc > 0 ? 'text-yellow-400' : 'text-green-400'}
-              label={t.platform}
+              label={channelName}
               sub={disc > 0 ? `${disc} discrepanc${disc !== 1 ? 'ies' : 'y'}` : 'In sync'}
             />
           );
         }) : (
           <ActivityItem icon={Globe} iconColor="text-muted-foreground" label="No channels connected" sub="Connect BrickOwl, eBay or Amazon" onClick={() => onOpenSettings?.('platforms')} />
         )}
-        {disconnectedChannels.map((t: any, i: number) => (
-          <AlertItem key={t.platform ?? `disconnected-${i}`} icon={XCircle} iconColor="text-red-400" label={`${t.platform} disconnected`} onClick={() => onOpenSettings?.('platforms')} severity="error" />
-        ))}
+        {disconnectedChannels.map((t: any, i: number) => {
+          const channelName = t.name ?? t.platform ?? 'Unknown channel';
+          return (
+            <AlertItem key={channelName ?? `disconnected-${i}`} icon={XCircle} iconColor="text-red-400" label={`${channelName} disconnected`} onClick={() => onOpenSettings?.('platforms')} severity="error" />
+          );
+        })}
       </LaneSection>
 
       {/* Last Actions */}
@@ -715,21 +719,86 @@ function AIIntelligenceLane({ latestScan, appSettings, onOpenBrickanalyzer, dism
 
 // ── SYSTEM PULSE STRIP ────────────────────────────────────────────────────────
 
-function SystemPulse({ syncErrors, setupItems, onOpenSettings }: {
+function SystemPulse({ syncErrors, setupItems, billingStatus, onOpenSettings }: {
   syncErrors: any[];
   setupItems: Array<{ id: string; label: string; section: 'general' | 'platforms' }>;
+  billingStatus?: { plan: string; status: string; trialEndsAt?: string | null; brickspotter?: { scansUsed: number; scansLimit: number } } | null;
   onOpenSettings?: (section: any) => void;
 }) {
+  const planLabels: Record<string, string> = { trial: 'Trial', foundation: 'Foundation', core: 'Core', flagship: 'Flagship' };
+
+  const trialDaysLeft = (() => {
+    if (!billingStatus?.trialEndsAt) return null;
+    const diff = new Date(billingStatus.trialEndsAt).getTime() - Date.now();
+    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+  })();
+
+  const isTrial = billingStatus?.status === 'trial' || billingStatus?.plan === 'trial';
+  const bs = billingStatus?.brickspotter;
+  const bsLimited = bs && bs.scansLimit > 0;
+  const bsNearLimit = bsLimited && bs.scansUsed >= Math.floor(bs.scansLimit * 0.8);
+  const bsAtLimit = bsLimited && bs.scansUsed >= bs.scansLimit;
+
   const all = [
-    ...syncErrors.map((e) => ({ id: e.id, label: e.label + (e.status === 'partial' ? ' — partial' : ' — failed'), severity: e.status === 'partial' ? 'warn' : 'error' as any, section: null })),
-    ...setupItems.map((s) => ({ id: s.id, label: s.label, severity: 'info' as any, section: s.section })),
+    ...syncErrors.map((e) => ({ id: e.id, label: e.label + (e.status === 'partial' ? ' — partial' : ' — failed'), severity: e.status === 'partial' ? 'warn' : 'error' as any, section: null, onClick: null })),
+    ...setupItems.map((s) => ({ id: s.id, label: s.label, severity: 'info' as any, section: s.section, onClick: null })),
   ];
 
-  if (all.length === 0) return null;
+  const hasAlerts = all.length > 0;
+  const hasPlanInfo = !!billingStatus;
+  if (!hasAlerts && !hasPlanInfo) return null;
 
   return (
     <div className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg bg-gray-900/70 border border-yellow-500/20" data-testid="system-pulse">
       <span className="text-[9px] uppercase tracking-widest text-yellow-400 font-semibold shrink-0">System</span>
+
+      {/* Plan badge */}
+      {billingStatus && (
+        <button
+          onClick={() => onOpenSettings?.('billing')}
+          className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border border-violet-500/30 text-violet-300 bg-violet-950/30"
+          data-testid="system-pulse-plan"
+        >
+          <CreditCard className="w-2.5 h-2.5" />
+          {planLabels[billingStatus.plan] ?? billingStatus.plan}
+        </button>
+      )}
+
+      {/* Trial countdown */}
+      {isTrial && trialDaysLeft !== null && (
+        <button
+          onClick={() => onOpenSettings?.('billing')}
+          className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border ${
+            trialDaysLeft <= 3
+              ? 'border-red-500/30 text-red-300 bg-red-950/30'
+              : trialDaysLeft <= 7
+                ? 'border-yellow-500/30 text-yellow-300 bg-yellow-950/30'
+                : 'border-blue-500/30 text-blue-300 bg-blue-950/30'
+          }`}
+          data-testid="system-pulse-trial"
+        >
+          <Clock className="w-2.5 h-2.5" />
+          {trialDaysLeft === 0 ? 'Trial ending today' : `${trialDaysLeft}d trial remaining`}
+        </button>
+      )}
+
+      {/* BrickSpotter scan quota */}
+      {bsLimited && (bsNearLimit || bsAtLimit) && (
+        <button
+          onClick={() => onOpenSettings?.('billing')}
+          className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border ${
+            bsAtLimit
+              ? 'border-red-500/30 text-red-300 bg-red-950/30'
+              : 'border-yellow-500/30 text-yellow-300 bg-yellow-950/30'
+          }`}
+          data-testid="system-pulse-brickspotter"
+        >
+          {bsAtLimit ? <XCircle className="w-2.5 h-2.5" /> : <AlertCircle className="w-2.5 h-2.5" />}
+          {bsAtLimit ? `BrickSpotter limit reached (${bs.scansUsed}/${bs.scansLimit})` : `BrickSpotter: ${bs.scansUsed}/${bs.scansLimit} scans`}
+        </button>
+      )}
+
+      {/* Sync errors and setup items */}
       {all.map((item) => (
         <button
           key={item.id}
@@ -827,6 +896,11 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
     staleTime: 0,
   });
 
+  const { data: billingStatus } = useQuery<{ plan: string; status: string; trialEndsAt: string | null; brickspotter: { scansUsed: number; scansLimit: number } }>({
+    queryKey: ['/api/billing/status'],
+    refetchInterval: 60000,
+  });
+
   const dismissScanMutation = useMutation({
     mutationFn: async (scanId: number) => {
       await fetch(`/api/brickanalyzer/scan/${scanId}`, { method: 'DELETE', credentials: 'include' });
@@ -852,7 +926,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
     <div className="p-2 md:p-4 lg:p-5 space-y-3 md:space-y-4">
 
       {/* System Pulse — only shows when there are errors or setup gaps */}
-      <SystemPulse syncErrors={syncErrors} setupItems={setupItems} onOpenSettings={onOpenSettings} />
+      <SystemPulse syncErrors={syncErrors} setupItems={setupItems} billingStatus={billingStatus} onOpenSettings={onOpenSettings} />
 
       {/* Sync issue notifications (per-item detail feed) */}
       <DashboardNotifications />

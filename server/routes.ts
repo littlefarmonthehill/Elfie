@@ -451,12 +451,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const orgId = reqOrgId(req);
       const org = await storage.getOrganization(orgId);
       if (!org) return res.status(404).json({ message: "Organization not found" });
+
+      const brickspotterCheck = await checkBrickspotterLimit(orgId);
       
       res.json({
         plan: org.plan,
         status: org.subscriptionStatus,
         interval: org.subscriptionInterval,
         hasStripeCustomer: !!org.stripeCustomerId,
+        trialEndsAt: org.trialEndsAt ?? null,
+        brickspotter: {
+          scansUsed: brickspotterCheck.scansUsed ?? 0,
+          scansLimit: brickspotterCheck.scansLimit ?? -1,
+        },
       });
     } catch (error) {
       console.error("Error fetching billing status:", error);
