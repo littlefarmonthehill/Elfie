@@ -223,6 +223,44 @@ app.use((req, res, next) => {
       // Start Universal CLIP Catalog auto-refresh scheduler
       startUniversalCatalogScheduler();
 
+      // Auto-resume Universal Catalog worker after restarts.
+      // Delayed 90s so the CLIP model has time to load before the first embed request.
+      setTimeout(async () => {
+        try {
+          const {
+            startUniversalWorker,
+            getUniversalCatalogState,
+            isUniversalImporting,
+          } = await import('./services/universal-clip-catalog.js');
+
+          if (isUniversalImporting() || getUniversalCatalogState()?.running) return;
+
+          // Reset items that failed recently (within 3h) — these are almost always
+          // transient failures from the CLIP model still warming up on the previous run.
+          await db.execute(drizzleSqlCount`
+            UPDATE universal_catalog_queue
+            SET status = 'pending', attempted_at = NULL, error_msg = NULL
+            WHERE status = 'failed'
+              AND attempted_at IS NOT NULL
+              AND attempted_at > NOW() - INTERVAL '3 hours'
+          `);
+
+          const [row] = await db.execute<{ cnt: string }>(
+            drizzleSqlCount`SELECT COUNT(*)::text AS cnt FROM universal_catalog_queue WHERE status = 'pending'`
+          ).then(r => r.rows ?? []);
+          const pending = Number(row?.cnt ?? 0);
+
+          if (pending > 0) {
+            console.log(`[Universal Catalog] Auto-resuming — ${pending.toLocaleString()} pending parts to embed`);
+            await startUniversalWorker();
+          } else {
+            console.log('[Universal Catalog] Auto-resume check — nothing pending');
+          }
+        } catch (e: any) {
+          console.error('[Universal Catalog] Auto-resume failed (non-fatal):', e.message);
+        }
+      }, 90_000); // 90s: CLIP model warm-up window
+
       // Start BrickLink forum sync scheduler
       startForumSyncScheduler().catch(error => {
         console.error('Failed to start forum sync scheduler:', error);
