@@ -54,6 +54,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
 
   const { data: adjustments } = useQuery<{
     totalRefunds: number;
+    refundedOrderCount: number;
     totalFees: number;
     totalShipping: number;
   }>({
@@ -67,10 +68,19 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
   });
 
   const formatCurrency = (value: number) =>
-    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
+    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(value);
 
   const formatNumber = (value: number) =>
     new Intl.NumberFormat('en-US').format(value);
+
+  const formatPct = (value: number) =>
+    `${value.toFixed(1)}%`;
+
+  const aov = stats && stats.totalOrders > 0 ? stats.monthRevenue / stats.totalOrders : 0;
+  const fulfillmentRate = stats && stats.totalOrders > 0 ? (stats.shippedOrders / stats.totalOrders) * 100 : 0;
+  const returnRate = stats && stats.totalOrders > 0 && adjustments
+    ? (adjustments.refundedOrderCount / stats.totalOrders) * 100
+    : 0;
 
   if (statsLoading) {
     return (
@@ -98,18 +108,15 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
             </div>
             <h3 className="text-xs md:text-base lg:text-lg font-semibold text-orange-200 uppercase tracking-wide">Orders</h3>
           </div>
-          <div className="grid grid-cols-3 gap-1.5 mb-2" data-testid="section-orders-counts">
+          <div className="grid grid-cols-3 gap-1.5 mb-1.5" data-testid="section-orders-counts">
             <MetricCard label="Total" value={stats ? formatNumber(stats.totalOrders) : '—'} color="orange" data-testid="metric-total-orders" />
             <MetricCard label="Pending" value={stats ? formatNumber(stats.pendingOrders) : '—'} color="orange" data-testid="metric-pending-orders" />
             <MetricCard label="Shipped" value={stats ? formatNumber(stats.shippedOrders) : '—'} color="green" data-testid="metric-shipped-orders" />
           </div>
-          <div className="grid grid-cols-2 gap-1.5 mb-1.5" data-testid="section-orders-revenue">
-            <MetricCard label="Pending Revenue" value={stats ? formatCurrency(stats.pendingRevenue) : '$0.00'} color="orange" data-testid="metric-pending-revenue" />
-            <MetricCard label="Revenue" value={stats ? formatCurrency(stats.monthRevenue) : '$0.00'} color="green" data-testid="metric-month-revenue" />
-          </div>
-          <div className="grid grid-cols-2 gap-1.5" data-testid="section-orders-adjustments">
-            <MetricCard label="Refunds" value={adjustments ? (adjustments.totalRefunds > 0 ? `-$${adjustments.totalRefunds.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '$0') : '—'} color="red" data-testid="metric-orders-refunds" />
-            <MetricCard label="Fees" value={adjustments ? (adjustments.totalFees > 0 ? `-$${adjustments.totalFees.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '$0') : '—'} color="yellow" data-testid="metric-orders-fees" />
+          <div className="grid grid-cols-3 gap-1.5" data-testid="section-orders-kpis">
+            <MetricCard label="Avg Order" value={stats ? formatCurrency(aov) : '—'} color="orange" data-testid="metric-aov" />
+            <MetricCard label="Fulfill Rate" value={stats ? formatPct(fulfillmentRate) : '—'} color="green" data-testid="metric-fulfillment-rate" />
+            <MetricCard label="Return Rate" value={adjustments ? formatPct(returnRate) : '—'} color={returnRate > 5 ? 'red' : 'yellow'} data-testid="metric-return-rate" />
           </div>
         </div>
 
