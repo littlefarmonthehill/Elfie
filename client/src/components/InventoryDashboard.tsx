@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import MetricCard from "./MetricCard";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import { InfoIcon, AlertCircle, Package, TrendingUp, Clock, Sparkles, Warehouse, RefreshCw, Info, ListChecks, ScanSearch, AlertTriangle } from "lucide-react";
+import { InfoIcon, AlertCircle, Package, TrendingUp, Clock, Sparkles, Warehouse, RefreshCw, Info, ListChecks, ScanSearch, AlertTriangle, ArrowRight, Globe, Boxes } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -153,42 +153,126 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
   return (
     <div className="p-2 space-y-1.5 bg-gradient-to-br from-lego-blue/5 to-transparent rounded-lg border border-lego-blue/10 shadow-[0_0_15px_rgba(59,130,246,0.1)]">
       <div className="space-y-1.5">
-        <div className="bg-gray-900/50 border border-blue-500/20 rounded-lg p-3" data-testid="section-inventory-info">
-          <div className="flex items-center gap-2 mb-2">
+
+        {/* Combined Inventory Info + Values */}
+        <div className="bg-gray-900/50 border border-blue-500/20 rounded-lg p-3" data-testid="section-inventory-overview">
+          <div className="flex items-center gap-2 mb-2.5">
             <Package className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-blue-400" />
-            <h3 className="text-xs md:text-base lg:text-lg font-semibold text-blue-400 uppercase tracking-wide">Inventory Info</h3>
+            <h3 className="text-xs md:text-base lg:text-lg font-semibold text-blue-400 uppercase tracking-wide">Inventory</h3>
+            <div className="flex items-center gap-1.5 ml-auto">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button className="text-gray-500 hover:text-gray-400" data-testid="button-cost-info">
+                    <InfoIcon className="h-3 w-3" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p className="text-xs">
+                    <strong>My Cost</strong> tracking is not available via BrickLink's API.
+                    To track costs, you'll need to manually add them in this app.
+                    (Cost tracking feature coming soon!)
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
           </div>
-          <div className="grid grid-cols-4 gap-1.5">
+          <div className="grid grid-cols-4 gap-1.5 mb-2" data-testid="section-inventory-info">
             <MetricCard label="Lots" value={stats ? formatNumber(stats.totalLots) : '0'} color="blue" data-testid="metric-lots" />
             <MetricCard label="Parts" value={stats ? formatNumber(stats.totalParts) : '0'} color="blue" data-testid="metric-parts" />
             <MetricCard label="Colors" value={stats ? formatNumber(stats.totalColors) : '0'} color="blue" data-testid="metric-colors" />
             <MetricCard label="Categories" value={stats ? formatNumber(stats.totalCategories) : '0'} color="blue" data-testid="metric-categories" />
           </div>
-        </div>
-
-        <div className="bg-gray-900/50 border border-cyan-500/20 rounded-lg p-3" data-testid="section-values">
-          <div className="flex items-center gap-2 mb-2">
-            <TrendingUp className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-cyan-400" />
-            <h3 className="text-xs md:text-base lg:text-lg font-semibold text-cyan-400 uppercase tracking-wide">Values</h3>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button className="text-gray-500 hover:text-gray-400" data-testid="button-cost-info">
-                  <InfoIcon className="h-3 w-3" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-xs">
-                <p className="text-xs">
-                  <strong>My Cost</strong> tracking is not available via BrickLink's API. 
-                  To track costs, you'll need to manually add them in this app. 
-                  (Cost tracking feature coming soon!)
-                </p>
-              </TooltipContent>
-            </Tooltip>
-          </div>
-          <div className="grid grid-cols-3 gap-1.5">
+          <div className="grid grid-cols-3 gap-1.5" data-testid="section-values">
             <MetricCard label="My Cost" value={stats ? formatCurrency(stats.totalCost) : '$0.00'} color="red" data-testid="metric-cost" />
             <MetricCard label="Listed" value={stats ? formatCurrency(stats.totalValue) : '$0.00'} color="blue" data-testid="metric-listed" />
             <MetricCard label="Profit Potential" value={formatCurrency(profitPotential)} color="green" data-testid="metric-profit" />
+          </div>
+        </div>
+
+        {/* Tools — Primary Workflows */}
+        <div className="bg-gray-900/50 border border-gray-700/50 rounded-lg p-3" data-testid="section-tools">
+          <div className="flex items-center gap-2 mb-3">
+            <Sparkles className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-gray-400" />
+            <h3 className="text-xs md:text-base lg:text-lg font-semibold text-gray-400 uppercase tracking-wide">Tools</h3>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+
+            {/* Price-O-Matic */}
+            <button
+              onClick={() => onDrawerChange('priceomatic')}
+              data-testid="tool-priceomatic"
+              className="group flex flex-col gap-1.5 rounded-lg border border-purple-700/40 bg-purple-950/40 p-3 text-left hover-elevate active-elevate-2 transition-all"
+            >
+              <div className="flex items-center gap-2">
+                <div className="rounded-md bg-purple-900/60 p-1.5">
+                  <Sparkles className="w-3.5 h-3.5 md:w-5 md:h-5 text-purple-300" />
+                </div>
+                <span className="text-xs md:text-sm lg:text-base font-bold text-purple-200 leading-tight">Price-O-Matic</span>
+              </div>
+              <p className="text-[10px] md:text-xs text-gray-400 leading-snug">AI-powered pricing engine. Review opportunities and set competitive prices.</p>
+              <div className="flex items-center justify-between mt-0.5">
+                <span className="text-[10px] md:text-xs text-purple-400 font-medium">Open tool</span>
+                <ArrowRight className="w-3 h-3 md:w-4 md:h-4 text-purple-500/60 group-hover:text-purple-300 transition-colors" />
+              </div>
+            </button>
+
+            {/* List-O-Matic */}
+            <button
+              onClick={() => onDrawerChange('platformsync')}
+              data-testid="tool-listomatic"
+              className="group flex flex-col gap-1.5 rounded-lg border border-green-700/40 bg-green-950/40 p-3 text-left hover-elevate active-elevate-2 transition-all"
+            >
+              <div className="flex items-center gap-2">
+                <div className="rounded-md bg-green-900/60 p-1.5">
+                  <Globe className="w-3.5 h-3.5 md:w-5 md:h-5 text-green-300" />
+                </div>
+                <span className="text-xs md:text-sm lg:text-base font-bold text-green-200 leading-tight">List-O-Matic</span>
+              </div>
+              <p className="text-[10px] md:text-xs text-gray-400 leading-snug">Manage listings across BrickLink, BrickOwl, and other platforms.</p>
+              <div className="flex items-center justify-between mt-0.5">
+                <span className="text-[10px] md:text-xs text-green-400 font-medium">Open tool</span>
+                <ArrowRight className="w-3 h-3 md:w-4 md:h-4 text-green-500/60 group-hover:text-green-300 transition-colors" />
+              </div>
+            </button>
+
+            {/* Warehouse */}
+            <button
+              onClick={() => onDrawerChange('warehouse')}
+              data-testid="tool-warehouse"
+              className="group flex flex-col gap-1.5 rounded-lg border border-teal-700/40 bg-teal-950/40 p-3 text-left hover-elevate active-elevate-2 transition-all"
+            >
+              <div className="flex items-center gap-2">
+                <div className="rounded-md bg-teal-900/60 p-1.5">
+                  <Boxes className="w-3.5 h-3.5 md:w-5 md:h-5 text-teal-300" />
+                </div>
+                <span className="text-xs md:text-sm lg:text-base font-bold text-teal-200 leading-tight">Warehouse</span>
+              </div>
+              <p className="text-[10px] md:text-xs text-gray-400 leading-snug">Organize stock by location. Assign bins, shelves, and storage zones.</p>
+              <div className="flex items-center justify-between mt-0.5">
+                <span className="text-[10px] md:text-xs text-teal-400 font-medium">Open tool</span>
+                <ArrowRight className="w-3 h-3 md:w-4 md:h-4 text-teal-500/60 group-hover:text-teal-300 transition-colors" />
+              </div>
+            </button>
+
+            {/* Brick Spotter 3000 */}
+            <button
+              onClick={() => onDrawerChange('brickanalyzer')}
+              data-testid="tool-brickspotter"
+              className="group flex flex-col gap-1.5 rounded-lg border border-amber-700/40 bg-amber-950/40 p-3 text-left hover-elevate active-elevate-2 transition-all"
+            >
+              <div className="flex items-center gap-2">
+                <div className="rounded-md bg-amber-900/60 p-1.5">
+                  <ScanSearch className="w-3.5 h-3.5 md:w-5 md:h-5 text-amber-300" />
+                </div>
+                <span className="text-xs md:text-sm lg:text-base font-bold text-amber-200 leading-tight">Brick Spotter</span>
+              </div>
+              <p className="text-[10px] md:text-xs text-gray-400 leading-snug">Photograph a pile of parts and let AI identify and value each piece.</p>
+              <div className="flex items-center justify-between mt-0.5">
+                <span className="text-[10px] md:text-xs text-amber-400 font-medium">Open tool</span>
+                <ArrowRight className="w-3 h-3 md:w-4 md:h-4 text-amber-500/60 group-hover:text-amber-300 transition-colors" />
+              </div>
+            </button>
+
           </div>
         </div>
 
