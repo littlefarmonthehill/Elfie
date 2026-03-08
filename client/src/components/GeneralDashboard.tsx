@@ -6,6 +6,7 @@ import {
   RefreshCw, CheckCircle, XCircle, AlertCircle, Loader2,
   ScanSearch, ArrowRight, Settings, AlertTriangle, Zap,
   TrendingDown, Clock, Activity, CreditCard,
+  Boxes, Sparkles,
 } from "lucide-react";
 import DashboardNotifications from "./DashboardNotifications";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -15,6 +16,8 @@ interface GeneralDashboardProps {
   onOpenFulfillment?: () => void;
   onOpenBrickanalyzer?: () => void;
   onOpenPriceomatic?: () => void;
+  onOpenWarehouse?: () => void;
+  onOpenListOMatic?: () => void;
   onOpenSettings?: (section: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'users' | 'billing') => void;
 }
 
@@ -265,7 +268,7 @@ function BrickLinkApiSection({ rateLimit, blApiCallLimit }: { rateLimit: any; bl
 // ── INVENTORY LANE ────────────────────────────────────────────────────────────
 
 function InventoryLane({
-  stats, globalSyncStatuses, invSyncProgress, pomStatus, pricingInsights, underpricedThreshold, deepSpaceKeys, futureMissionsKeys, onItemClick, onOpenBrickanalyzer, onOpenPriceomatic, onOpenSettings,
+  stats, globalSyncStatuses, invSyncProgress, pomStatus, pricingInsights, underpricedThreshold, deepSpaceKeys, futureMissionsKeys, onItemClick, onOpenBrickanalyzer, onOpenPriceomatic, onOpenWarehouse, onOpenListOMatic, onOpenSettings,
 }: any) {
   const lastInvSync = globalSyncStatuses?.inventory;
   const lastPom = pomStatus?.data ?? globalSyncStatuses?.priceomatic;
@@ -282,9 +285,7 @@ function InventoryLane({
   const hasRunningJobs = isInvSyncing || isPomRunning || !!activeInvEmbed;
 
   const threshold = underpricedThreshold ?? 1.5;
-  const tooHighCount = pricingInsights?.data?.tooHigh?.length ?? 0;
 
-  // Mirror POM screen logic: group ALL items by itemNo+colorId, use max score per group
   const allInsightItems: any[] = [
     ...(pricingInsights?.data?.tooHigh ?? []),
     ...(pricingInsights?.data?.tooLow ?? []),
@@ -309,52 +310,163 @@ function InventoryLane({
 
   const invSyncFailed = lastInvSync?.lastSyncStatus === 'failed' || lastInvSync?.lastSyncStatus === 'error';
   const pomFailed = lastPom?.lastSyncStatus === 'failed' || lastPom?.lastSyncStatus === 'error';
+  const hasAlerts = invSyncFailed || pomFailed;
 
-  const summary = stats
-    ? `${(stats.totalInventoryItems || 0).toLocaleString()} lots · ${(stats.totalInventoryQuantity || 0).toLocaleString()} pcs`
-    : undefined;
+  const lots = (stats?.totalInventoryItems || 0).toLocaleString();
+  const pcs = (stats?.totalInventoryQuantity || 0).toLocaleString();
+  const value = stats?.totalInventoryValue != null ? formatCurrency(stats.totalInventoryValue) : null;
+
+  const pomStatusColor = pomFailed
+    ? 'text-red-400'
+    : isPomRunning
+    ? 'text-purple-400'
+    : lastPom?.lastSyncTime
+    ? 'text-green-400'
+    : 'text-muted-foreground';
+
+  const invStatusColor = invSyncFailed
+    ? 'text-red-400'
+    : isInvSyncing
+    ? 'text-cyan-400'
+    : lastInvSync?.lastSyncTime
+    ? 'text-green-400'
+    : 'text-muted-foreground';
 
   return (
-    <LaneCard title="Inventory" Icon={Package} accent="border-cyan-800/40 text-cyan-300" summary={summary}>
+    <LaneCard title="Inventory" Icon={Package} accent="border-cyan-800/40 text-cyan-300">
 
-      {/* Needs Attention */}
-      {(invSyncFailed || pomFailed || highOpportunityCount > 0 || tooHighCount > 0) ? (
-        <LaneSection label="Attention">
+      {/* Stats Bar */}
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-cyan-900/30 bg-cyan-950/20 flex-wrap">
+        <span className="text-[11px] font-semibold text-cyan-200">{lots}</span>
+        <span className="text-[10px] text-muted-foreground">lots</span>
+        <span className="text-[10px] text-cyan-800/60">·</span>
+        <span className="text-[11px] font-semibold text-cyan-200">{pcs}</span>
+        <span className="text-[10px] text-muted-foreground">pcs</span>
+        {value && (
+          <>
+            <span className="text-[10px] text-cyan-800/60">·</span>
+            <span className="text-[11px] font-semibold text-emerald-300">{value}</span>
+          </>
+        )}
+        {lastInvSync?.lastSyncTime && (
+          <span className="ml-auto text-[9px] text-muted-foreground">synced {relTime(lastInvSync.lastSyncTime)}</span>
+        )}
+      </div>
+
+      {/* Tools */}
+      <div className="px-2.5 pt-2.5 pb-1.5">
+        <p className="text-[9px] uppercase tracking-widest text-muted-foreground font-semibold mb-2 px-0.5">Tools</p>
+        <div className="grid grid-cols-2 gap-1.5">
+
+          {/* Price-O-Matic */}
+          <button
+            onClick={onOpenPriceomatic}
+            data-testid="dashboard-tool-priceomatic"
+            className="group flex flex-col gap-1 rounded-md border border-purple-800/40 bg-purple-950/30 px-2.5 py-2 text-left hover-elevate active-elevate-2 transition-all"
+          >
+            <div className="flex items-center justify-between gap-1">
+              <div className="flex items-center gap-1.5">
+                <Sparkles className="w-3 h-3 text-purple-400 shrink-0" />
+                <span className="text-[11px] font-semibold text-purple-200 leading-tight">Price-O-Matic</span>
+              </div>
+              {highOpportunityCount > 0 && (
+                <span className="text-[9px] font-bold bg-orange-500/20 text-orange-300 border border-orange-600/30 rounded-full px-1.5 py-px leading-tight shrink-0">
+                  {highOpportunityCount}
+                </span>
+              )}
+            </div>
+            <span className="text-[9px] text-muted-foreground leading-tight">
+              {isPomRunning
+                ? `Running… ${pomProgress?.itemsProcessed ?? 0}/${pomProgress?.itemsTotal ?? 0}`
+                : lastPom?.lastSyncTime
+                ? `Last run ${relTime(lastPom.lastSyncTime)}`
+                : 'AI pricing engine'}
+            </span>
+            <div className="flex items-center justify-between mt-0.5">
+              <span className={`text-[9px] font-medium ${pomStatusColor}`}>
+                {pomFailed ? 'Failed' : isPomRunning ? 'Running' : lastPom?.lastSyncStatus === 'success' ? `${lastPom.recordsUpdated ?? 0} lots priced` : 'Ready'}
+              </span>
+              <ArrowRight className="w-2.5 h-2.5 text-muted-foreground/50 group-hover:text-purple-400 transition-colors" />
+            </div>
+          </button>
+
+          {/* List-O-Matic */}
+          <button
+            onClick={onOpenListOMatic}
+            data-testid="dashboard-tool-listomatic"
+            className="group flex flex-col gap-1 rounded-md border border-blue-800/40 bg-blue-950/30 px-2.5 py-2 text-left hover-elevate active-elevate-2 transition-all"
+          >
+            <div className="flex items-center gap-1.5">
+              <Globe className="w-3 h-3 text-blue-400 shrink-0" />
+              <span className="text-[11px] font-semibold text-blue-200 leading-tight">List-O-Matic</span>
+            </div>
+            <span className="text-[9px] text-muted-foreground leading-tight">Multi-platform listings</span>
+            <div className="flex items-center justify-between mt-0.5">
+              <span className="text-[9px] font-medium text-muted-foreground">Platform sync</span>
+              <ArrowRight className="w-2.5 h-2.5 text-muted-foreground/50 group-hover:text-blue-400 transition-colors" />
+            </div>
+          </button>
+
+          {/* Warehouse */}
+          <button
+            onClick={onOpenWarehouse}
+            data-testid="dashboard-tool-warehouse"
+            className="group flex flex-col gap-1 rounded-md border border-teal-800/40 bg-teal-950/30 px-2.5 py-2 text-left hover-elevate active-elevate-2 transition-all"
+          >
+            <div className="flex items-center gap-1.5">
+              <Boxes className="w-3 h-3 text-teal-400 shrink-0" />
+              <span className="text-[11px] font-semibold text-teal-200 leading-tight">Warehouse</span>
+            </div>
+            <span className="text-[9px] text-muted-foreground leading-tight">Location management</span>
+            <div className="flex items-center justify-between mt-0.5">
+              <span className="text-[9px] font-medium text-muted-foreground">Organize stock</span>
+              <ArrowRight className="w-2.5 h-2.5 text-muted-foreground/50 group-hover:text-teal-400 transition-colors" />
+            </div>
+          </button>
+
+          {/* BrickSpotter */}
+          <button
+            onClick={onOpenBrickanalyzer}
+            data-testid="dashboard-tool-brickspotter"
+            className="group flex flex-col gap-1 rounded-md border border-amber-800/40 bg-amber-950/30 px-2.5 py-2 text-left hover-elevate active-elevate-2 transition-all"
+          >
+            <div className="flex items-center gap-1.5">
+              <ScanSearch className="w-3 h-3 text-amber-400 shrink-0" />
+              <span className="text-[11px] font-semibold text-amber-200 leading-tight">BrickSpotter</span>
+            </div>
+            <span className="text-[9px] text-muted-foreground leading-tight">AI piece scanner</span>
+            <div className="flex items-center justify-between mt-0.5">
+              <span className="text-[9px] font-medium text-muted-foreground">Identify parts</span>
+              <ArrowRight className="w-2.5 h-2.5 text-muted-foreground/50 group-hover:text-amber-400 transition-colors" />
+            </div>
+          </button>
+
+        </div>
+      </div>
+
+      {/* Alerts */}
+      {hasAlerts && (
+        <LaneSection label="Alerts">
           {invSyncFailed && (
             <AlertItem icon={XCircle} iconColor="text-red-400" label="Inventory sync failed" sub={lastInvSync?.errorMessage ?? 'Check BrickLink connection'} onClick={() => onOpenSettings?.('platforms')} severity="error" />
           )}
           {pomFailed && (
             <AlertItem icon={XCircle} iconColor="text-red-400" label="Price-o-Matic failed" sub={lastPom?.errorMessage ?? 'Run manually from Settings'} onClick={() => onOpenSettings?.('automation')} severity="error" />
           )}
-          {highOpportunityCount > 0 && (
-            <AlertItem icon={TrendingDown} iconColor="text-orange-400" label={`${highOpportunityCount} items underpriced (score > ${threshold}x)`} sub="Open Price-o-Matic to review" onClick={onOpenPriceomatic} severity="warn" />
-          )}
         </LaneSection>
-      ) : (
-        <LaneSection><AllGood /></LaneSection>
       )}
 
       {/* Running Jobs */}
       {hasRunningJobs && (
         <LaneSection label="Running">
           {isInvSyncing && (
-            <JobBar
-              label="Inventory Sync"
-              pct={invSyncProgress?.progress ?? 0}
-              sublabel={invSyncProgress?.currentStep}
-              color="cyan"
-            />
+            <JobBar label="Inventory Sync" pct={invSyncProgress?.progress ?? 0} sublabel={invSyncProgress?.currentStep} color="cyan" />
           )}
           {isInvComplete && (
             <ActivityItem icon={CheckCircle} iconColor="text-green-400" label="Inventory Sync complete" sub={`${invSyncProgress?.details?.itemsAdded ?? 0} added, ${invSyncProgress?.details?.itemsUpdated ?? 0} updated`} />
           )}
           {isPomRunning && pomProgress && (
-            <JobBar
-              label="Price-o-Matic"
-              pct={pomProgress.itemsTotal > 0 ? (pomProgress.itemsProcessed / pomProgress.itemsTotal) * 100 : 0}
-              sublabel={`${pomProgress.itemsProcessed.toLocaleString()} / ${pomProgress.itemsTotal.toLocaleString()} lots`}
-              color="purple"
-            />
+            <JobBar label="Price-o-Matic" pct={pomProgress.itemsTotal > 0 ? (pomProgress.itemsProcessed / pomProgress.itemsTotal) * 100 : 0} sublabel={`${pomProgress.itemsProcessed.toLocaleString()} / ${pomProgress.itemsTotal.toLocaleString()} lots`} color="purple" />
           )}
           {activeInvEmbed && (
             <div className="flex items-center gap-1.5 px-1.5">
@@ -365,30 +477,24 @@ function InventoryLane({
         </LaneSection>
       )}
 
-      {/* Last Actions */}
-      <LaneSection label="Last Actions">
-        {lastInvSync?.lastSyncTime ? (
-          <ActivityItem
-            icon={lastInvSync.lastSyncStatus === 'success' ? CheckCircle : lastInvSync.lastSyncStatus === 'partial' ? AlertCircle : XCircle}
-            iconColor={lastInvSync.lastSyncStatus === 'success' ? 'text-green-400' : lastInvSync.lastSyncStatus === 'partial' ? 'text-yellow-400' : 'text-red-400'}
-            label={`Inventory sync — ${lastInvSync.lastSyncStatus}`}
-            sub={lastInvSync.lastSyncStatus === 'success' ? `+${lastInvSync.recordsAdded ?? 0} added, ${lastInvSync.recordsUpdated ?? 0} updated` : lastInvSync.errorMessage ?? undefined}
-            time={relTime(lastInvSync.lastSyncTime)}
-          />
-        ) : (
-          <ActivityItem icon={Clock} iconColor="text-muted-foreground" label="No inventory sync yet" />
-        )}
-        {lastPom?.lastSyncTime && lastPom.lastSyncStatus !== 'in_progress' ? (
-          <ActivityItem
-            icon={lastPom.lastSyncStatus === 'success' ? CheckCircle : lastPom.lastSyncStatus === 'partial' ? AlertCircle : XCircle}
-            iconColor={lastPom.lastSyncStatus === 'success' ? 'text-green-400' : lastPom.lastSyncStatus === 'partial' ? 'text-yellow-400' : 'text-red-400'}
-            label={`Price-o-Matic — ${lastPom.lastSyncStatus}`}
-            sub={lastPom.lastSyncStatus === 'success' ? `${lastPom.recordsUpdated ?? 0} lots priced` : lastPom.errorMessage ?? undefined}
-            time={relTime(lastPom.lastSyncTime)}
-          />
-        ) : !isPomRunning ? (
-          <ActivityItem icon={Clock} iconColor="text-muted-foreground" label="No Price-o-Matic run yet" />
-        ) : null}
+      {/* Last Sync (compact) */}
+      <LaneSection label="Last Sync">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5">
+            <Package className="w-2.5 h-2.5 text-muted-foreground/60" />
+            <span className="text-[9px] text-muted-foreground">BrickLink</span>
+            <span className={`text-[9px] font-medium ${invStatusColor}`}>
+              {isInvSyncing ? 'syncing…' : lastInvSync?.lastSyncTime ? relTime(lastInvSync.lastSyncTime) : 'never'}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Sparkles className="w-2.5 h-2.5 text-muted-foreground/60" />
+            <span className="text-[9px] text-muted-foreground">POM</span>
+            <span className={`text-[9px] font-medium ${pomStatusColor}`}>
+              {isPomRunning ? 'running…' : lastPom?.lastSyncTime && lastPom.lastSyncStatus !== 'in_progress' ? relTime(lastPom.lastSyncTime) : 'never'}
+            </span>
+          </div>
+        </div>
       </LaneSection>
 
     </LaneCard>
@@ -922,9 +1028,9 @@ function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLimit, onO
 
 // ── MAIN COMPONENT ────────────────────────────────────────────────────────────
 
-export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpenBrickanalyzer, onOpenPriceomatic, onOpenSettings }: GeneralDashboardProps) {
+export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpenBrickanalyzer, onOpenPriceomatic, onOpenWarehouse, onOpenListOMatic, onOpenSettings }: GeneralDashboardProps) {
 
-  const { data: stats } = useQuery<{ totalOrders: number; totalInventoryItems: number; totalInventoryQuantity: number; totalSales: number }>({
+  const { data: stats } = useQuery<{ totalOrders: number; totalInventoryItems: number; totalInventoryQuantity: number; totalSales: number; totalInventoryValue: number }>({
     queryKey: ['/api/dashboard/stats'],
   });
 
@@ -1060,6 +1166,8 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
           onItemClick={onItemClick}
           onOpenBrickanalyzer={onOpenBrickanalyzer}
           onOpenPriceomatic={onOpenPriceomatic}
+          onOpenWarehouse={onOpenWarehouse}
+          onOpenListOMatic={onOpenListOMatic}
           onOpenSettings={onOpenSettings}
         />
 

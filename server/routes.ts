@@ -2081,11 +2081,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
             total: sql<number>`COALESCE(sum(${orders.orderTotal}), 0)`
           }).from(orders).where(orgOrdersWhere);
       
+      const inventoryValue = await db.select({
+        total: sql<number>`COALESCE(sum(${blInventory.quantity} * CAST(${blInventory.unitPrice} AS DECIMAL)), 0)`
+      }).from(blInventory).where(eq(blInventory.orgId, orgId));
+
       res.json({
         totalOrders: Number(orderCount[0]?.count) || 0,
         totalInventoryItems: Number(inventoryCount[0]?.count) || 0,
         totalInventoryQuantity: Number(inventoryQty[0]?.total) || 0,
         totalSales: Number(totalSales[0]?.total) || 0,
+        totalInventoryValue: Number(inventoryValue[0]?.total) || 0,
       });
     } catch (error) {
       console.error("Error fetching dashboard stats:", error);
