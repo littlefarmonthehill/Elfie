@@ -5585,6 +5585,18 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
     } catch (err: any) { res.status(500).json({ error: err.message }); }
   });
 
+  // POST /api/brickspotter/universal-catalog/retry
+  // Resets no_image / failed rows back to 'pending' for re-processing.
+  // Body: { olderThanDays?: number } — default 30; 0 = retry everything
+  app.post("/api/brickspotter/universal-catalog/retry", isApproved, async (req, res) => {
+    try {
+      const { retryStaleItems } = await import('./services/universal-clip-catalog.js');
+      const olderThanDays = Number(req.body?.olderThanDays ?? 30);
+      const count = await retryStaleItems(olderThanDays);
+      res.json({ ok: true, reset: count });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
   // ─────────────────────────────────────────────────────────────────────────
 
   // Get Inventory Items

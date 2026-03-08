@@ -32,9 +32,11 @@ interface WorkerState {
 
 let _worker: WorkerState | null = null;
 let _importing = false;
+let _lastImportedAt: number | null = null;
 
 export function getUniversalCatalogState() { return _worker; }
 export function isUniversalImporting()     { return _importing; }
+export function getLastImportedAt()        { return _lastImportedAt; }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -142,11 +144,43 @@ export async function importFromRebrickable(): Promise<ImportResult> {
     await flush();
 
     const total = imported + skipped;
+    _lastImportedAt = Date.now();
     console.log(`[Universal Catalog] Import complete — ${imported.toLocaleString()} new, ${skipped.toLocaleString()} already existed`);
     return { imported, skipped, total };
   } finally {
     _importing = false;
   }
+}
+
+/**
+ * Reset stale no_image / failed rows back to 'pending' so the worker retries
+ * them. Pass olderThanDays=0 to retry everything regardless of age.
+ * Returns the number of rows reset.
+ */
+export async function retryStaleItems(olderThanDays: number = 30): Promise<number> {
+  const cutoff = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000);
+
+  let result: { partNo: string }[];
+  if (olderThanDays <= 0) {
+    result = await db.execute<{ partNo: string }>(
+      sql`UPDATE universal_catalog_queue
+          SET status = 'pending', attempted_at = NULL, error_msg = NULL
+          WHERE status IN ('no_image', 'failed')
+          RETURNING part_no AS "partNo"`
+    ).then(r => r.rows ?? []);
+  } else {
+    result = await db.execute<{ partNo: string }>(
+      sql`UPDATE universal_catalog_queue
+          SET status = 'pending', attempted_at = NULL, error_msg = NULL
+          WHERE status IN ('no_image', 'failed')
+            AND (attempted_at IS NULL OR attempted_at < ${cutoff.toISOString()}::timestamptz)
+          RETURNING part_no AS "partNo"`
+    ).then(r => r.rows ?? []);
+  }
+
+  const count = result.length;
+  console.log(`[Universal Catalog] Reset ${count} stale items back to 'pending'`);
+  return count;
 }
 
 // ── Worker ─────────────────────────────────────────────────────────────────────
@@ -259,19 +293,20 @@ export function stopUniversalWorker(): void {
 // ── Status ─────────────────────────────────────────────────────────────────────
 
 export interface UniversalCatalogStatus {
-  queueSize:      number;
-  pending:        number;
-  embedded:       number;
-  noImage:        number;
-  failed:         number;
-  universalInDb:  number;  // rows in scan_embeddings with source='universal'
-  workerRunning:  boolean;
-  workerEmbedded: number;
-  workerNoImage:  number;
-  workerFailed:   number;
-  workerCurrent:  string;
+  queueSize:       number;
+  pending:         number;
+  embedded:        number;
+  noImage:         number;
+  failed:          number;
+  universalInDb:   number;  // rows in scan_embeddings with source='universal'
+  workerRunning:   boolean;
+  workerEmbedded:  number;
+  workerNoImage:   number;
+  workerFailed:    number;
+  workerCurrent:   string;
   workerStartedAt: number | null;
-  importing:      boolean;
+  importing:       boolean;
+  lastImportedAt:  number | null;  // unix ms when CSV was last downloaded
 }
 
 export async function getUniversalCatalogStatus(): Promise<UniversalCatalogStatus> {
@@ -301,6 +336,7 @@ export async function getUniversalCatalogStatus(): Promise<UniversalCatalogStatu
     workerFailed:   _worker?.failed   ?? 0,
     workerCurrent:  _worker?.current  ?? '',
     workerStartedAt: _worker?.startedAt ?? null,
-    importing:      _importing,
+    importing:       _importing,
+    lastImportedAt:  _lastImportedAt,
   };
 }

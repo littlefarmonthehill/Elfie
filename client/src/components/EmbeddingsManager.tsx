@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Sparkles, Database, Search, Loader2, CheckCircle2, AlertCircle, Play, Square, Eye, Globe, Download } from 'lucide-react';
+import { Sparkles, Database, Search, Loader2, CheckCircle2, AlertCircle, Play, Square, Eye, Globe, Download, RefreshCw } from 'lucide-react';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -588,19 +588,34 @@ function UniversalCatalogCard() {
   });
 
   const s = status as any;
-  const queueSize     = s?.queueSize     ?? 0;
-  const embedded      = s?.embedded      ?? 0;
-  const noImage       = s?.noImage       ?? 0;
-  const failed        = s?.failed        ?? 0;
-  const pending       = s?.pending       ?? 0;
-  const universalInDb = s?.universalInDb ?? 0;
-  const workerRunning = s?.workerRunning ?? false;
-  const importing     = s?.importing     ?? false;
-  const workerCurrent = s?.workerCurrent ?? '';
+  const queueSize      = s?.queueSize      ?? 0;
+  const embedded       = s?.embedded       ?? 0;
+  const noImage        = s?.noImage        ?? 0;
+  const failed         = s?.failed         ?? 0;
+  const pending        = s?.pending        ?? 0;
+  const universalInDb  = s?.universalInDb  ?? 0;
+  const workerRunning  = s?.workerRunning  ?? false;
+  const importing      = s?.importing      ?? false;
+  const workerCurrent  = s?.workerCurrent  ?? '';
+  const lastImportedAt = s?.lastImportedAt ?? null;
+
+  const retryable = noImage + failed;
 
   // Progress based on embedded + noImage (processed) vs queue total
   const processed = embedded + noImage + failed;
   const pct = queueSize > 0 ? Math.round((processed / queueSize) * 100) : 0;
+
+  // Relative time since last import
+  const lastImportLabel = lastImportedAt
+    ? (() => {
+        const mins = Math.round((Date.now() - lastImportedAt) / 60000);
+        if (mins < 2)  return 'just now';
+        if (mins < 60) return `${mins}m ago`;
+        const hrs = Math.round(mins / 60);
+        if (hrs < 24)  return `${hrs}h ago`;
+        return `${Math.round(hrs / 24)}d ago`;
+      })()
+    : null;
 
   const { mutate: runImport, isPending: importPending } = useMutation({
     mutationFn: () => fetch('/api/brickspotter/universal-catalog/import', { method: 'POST' }).then(r => r.json()),
@@ -608,7 +623,7 @@ function UniversalCatalogCard() {
       if (data?.error) {
         toast({ title: 'Import Already Running', description: 'The CSV import is already in progress.', variant: 'destructive' });
       } else {
-        toast({ title: 'Import Started', description: 'Downloading Rebrickable parts CSV in the background. This takes ~1–2 minutes.' });
+        toast({ title: 'Import Started', description: 'Downloading Rebrickable CSV. New parts will be added to the queue automatically.' });
       }
       queryClient.invalidateQueries({ queryKey: ['/api/brickspotter/universal-catalog/status'] });
     },
@@ -634,6 +649,22 @@ function UniversalCatalogCard() {
       toast({ title: 'Worker Stopping', description: 'Will finish the current part then stop.' });
       queryClient.invalidateQueries({ queryKey: ['/api/brickspotter/universal-catalog/status'] });
     },
+  });
+
+  const { mutate: retryItems, isPending: retryPending } = useMutation({
+    mutationFn: (olderThanDays: number) => fetch('/api/brickspotter/universal-catalog/retry', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ olderThanDays }),
+    }).then(r => r.json()),
+    onSuccess: (data: any) => {
+      toast({
+        title: 'Parts Queued for Retry',
+        description: `${(data.reset ?? 0).toLocaleString()} parts reset to pending — start the worker to re-embed them.`,
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/brickspotter/universal-catalog/status'] });
+    },
+    onError: () => toast({ title: 'Retry Failed', variant: 'destructive' }),
   });
 
   return (
@@ -707,12 +738,17 @@ function UniversalCatalogCard() {
           </AlertDescription>
         </Alert>
 
-        {/* Step 1: Import CSV */}
+        {/* Step 1: Import CSV — always available for monthly refresh to pick up new parts */}
         <div className="space-y-1.5">
-          <div className="text-xs font-medium text-muted-foreground">Step 1 — Load parts list</div>
+          <div className="flex items-center justify-between">
+            <div className="text-xs font-medium text-muted-foreground">Step 1 — Load parts list</div>
+            {lastImportLabel && (
+              <span className="text-[10px] text-muted-foreground">Last: {lastImportLabel}</span>
+            )}
+          </div>
           <Button
             onClick={() => runImport()}
-            disabled={importPending || importing || queueSize > 0}
+            disabled={importPending || importing}
             size="sm"
             variant="outline"
             className="w-full text-xs gap-1"
@@ -723,11 +759,20 @@ function UniversalCatalogCard() {
             ) : (
               <Download className="w-3 h-3" />
             )}
-            {importing ? 'Importing CSV…' : queueSize > 0 ? `Queue Ready (${queueSize.toLocaleString()} parts)` : 'Import from Rebrickable'}
+            {importing
+              ? 'Importing CSV…'
+              : queueSize > 0
+                ? 'Re-import (pick up new parts)'
+                : 'Import from Rebrickable'}
           </Button>
+          {queueSize > 0 && (
+            <p className="text-[10px] text-muted-foreground">
+              Re-import monthly — idempotent, never overwrites existing rows.
+            </p>
+          )}
         </div>
 
-        {/* Step 2: Run worker */}
+        {/* Step 2: Embed */}
         <div className="space-y-1.5">
           <div className="text-xs font-medium text-muted-foreground">Step 2 — Embed parts</div>
           {!workerRunning ? (
@@ -754,6 +799,42 @@ function UniversalCatalogCard() {
             </Button>
           )}
         </div>
+
+        {/* Retry stale — only visible once there are no_image or failed rows */}
+        {retryable > 0 && (
+          <div className="space-y-1.5">
+            <div className="text-xs font-medium text-muted-foreground">
+              Retry — {retryable.toLocaleString()} parts previously skipped
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              BrickLink sometimes adds images for parts that had none. Retry re-checks them.
+            </p>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => retryItems(30)}
+                disabled={retryPending || workerRunning}
+                size="sm"
+                variant="outline"
+                className="flex-1 text-xs gap-1"
+                data-testid="button-universal-retry-30d"
+              >
+                {retryPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                Retry &gt;30d old
+              </Button>
+              <Button
+                onClick={() => retryItems(0)}
+                disabled={retryPending || workerRunning}
+                size="sm"
+                variant="outline"
+                className="flex-1 text-xs gap-1"
+                data-testid="button-universal-retry-all"
+              >
+                {retryPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                Retry All
+              </Button>
+            </div>
+          </div>
+        )}
 
       </CardContent>
     </Card>
