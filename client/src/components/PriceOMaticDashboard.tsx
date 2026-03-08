@@ -240,6 +240,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
   const [deepSpaceKeys, setDeepSpaceKeys] = useState<Set<string>>(lsLoadDeepSpace);
   const [deepSpaceItems, setDeepSpaceItems] = useState<Map<string, StoredGroupInfo>>(lsLoadDeepSpaceItems);
   const [orbitFilter, setOrbitFilter] = useState<'in_orbit' | 'deep_space'>('in_orbit');
+  const [scoreFilter, setScoreFilter] = useState<'all' | 'underpriced' | 'priced_right' | 'overpriced'>('all');
 
   // Fetch deep space keys + item metadata from the server (cross-device source of truth)
   const { data: deepSpaceData } = useQuery<{ success: boolean; keys: string[]; items?: StoredGroupInfo[] }>({
@@ -373,6 +374,8 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
   });
 
   const insightsData = insights?.data;
+  const pomUnderpricedScore: number = settingsData?.pomUnderpricedScore ?? 1.5;
+  const pomOverpricedScore: number = settingsData?.pomOverpricedScore ?? 0.8;
 
   const formatCurrency = (value: string | number | null | undefined) => {
     if (value == null) return '—';
@@ -456,11 +459,28 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
       usedScore: 0,
     }));
   const deepSpaceGroups = [...deepSpaceFromAnalysis, ...deepSpaceFallbacks];
-  const selectedGroups = orbitFilter === 'in_orbit' ? inOrbitGroups : deepSpaceGroups;
+
+  const classifyGroup = (g: GroupedInsight): 'underpriced' | 'overpriced' | 'priced_right' => {
+    const maxScore = Math.max(g.newScore, g.usedScore);
+    if (maxScore <= 0) return 'priced_right';
+    if (maxScore >= pomUnderpricedScore) return 'underpriced';
+    if (maxScore <= pomOverpricedScore) return 'overpriced';
+    return 'priced_right';
+  };
+
+  const scoreFilteredOrbitGroups = scoreFilter === 'all'
+    ? inOrbitGroups
+    : inOrbitGroups.filter(g => classifyGroup(g) === scoreFilter);
+
+  const underpricedCount = inOrbitGroups.filter(g => classifyGroup(g) === 'underpriced').length;
+  const overPricedCount = inOrbitGroups.filter(g => classifyGroup(g) === 'overpriced').length;
+  const pricedRightCount = inOrbitGroups.filter(g => classifyGroup(g) === 'priced_right').length;
+
+  const selectedGroups = orbitFilter === 'in_orbit' ? scoreFilteredOrbitGroups : deepSpaceGroups;
 
   useEffect(() => {
     setItemsToShow(25);
-  }, [sortDir, orbitFilter]);
+  }, [sortDir, orbitFilter, scoreFilter]);
 
   const ScoreSortButton = () => (
     <button
@@ -514,6 +534,28 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
             <span className="text-[9px] opacity-70">({deepSpaceGroups.length})</span>
           </button>
         </div>
+
+        {/* Score filter tabs — only shown when In Orbit is selected */}
+        {orbitFilter === 'in_orbit' && (
+          <div className="flex items-center gap-1.5 px-1 pb-1 flex-wrap">
+            {([
+              { key: 'all',          label: 'All',           count: inOrbitGroups.length,  active: 'bg-gray-700/60 text-gray-200 border border-gray-600/60',   inactive: 'text-gray-500 hover:text-gray-300' },
+              { key: 'underpriced',  label: 'Underpriced',   count: underpricedCount,       active: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40', inactive: 'text-gray-500 hover:text-gray-300' },
+              { key: 'priced_right', label: 'Priced Right',  count: pricedRightCount,       active: 'bg-blue-500/20 text-blue-300 border border-blue-500/40',    inactive: 'text-gray-500 hover:text-gray-300' },
+              { key: 'overpriced',   label: 'Overpriced',    count: overPricedCount,        active: 'bg-orange-500/20 text-orange-300 border border-orange-500/40', inactive: 'text-gray-500 hover:text-gray-300' },
+            ] as const).map(({ key, label, count, active, inactive }) => (
+              <button
+                key={key}
+                onClick={() => setScoreFilter(key)}
+                className={`flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded transition-colors ${scoreFilter === key ? active : inactive}`}
+                data-testid={`filter-score-${key}`}
+              >
+                {label}
+                <span className="opacity-70">({count})</span>
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Deep Space: renders independently of insightsData so cross-device items always show */}
         {/* In Orbit: gated on insightsData; shows "No Data Yet" when not loaded */}

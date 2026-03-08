@@ -1,5 +1,5 @@
 import { sql, relations } from "drizzle-orm";
-import { pgTable, text, varchar, integer, decimal, timestamp, boolean, index, jsonb, serial, date } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, decimal, real, timestamp, boolean, index, jsonb, serial, date } from "drizzle-orm/pg-core";
 import { vector } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -480,6 +480,8 @@ export const appSettings = pgTable("app_settings", {
   pomScarcityBonus3: integer("pom_scarcity_bonus3").default(3).notNull(),            // Medium supply bonus %
   pomTooHighThreshold: integer("pom_too_high_threshold").default(20).notNull(),  // % above suggested = too high
   pomTooLowThreshold: integer("pom_too_low_threshold").default(20).notNull(),    // % below suggested = too low
+  pomUnderpricedScore: real("pom_underpriced_score").default(1.5).notNull(),     // Opportunity score >= this = underpriced
+  pomOverpricedScore: real("pom_overpriced_score").default(0.8).notNull(),       // Opportunity score <= this = overpriced
   pomBatchSize: integer("pom_batch_size").default(1500).notNull(),               // Items per sync run
   pomApiCallLimit: integer("pom_api_call_limit").default(4500).notNull(),        // POM daily API call ceiling
   blApiCallLimit: integer("bl_api_call_limit").default(4900).notNull(),          // Global BrickLink daily API call ceiling (hard block for all features)

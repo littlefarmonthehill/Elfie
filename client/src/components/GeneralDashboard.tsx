@@ -265,7 +265,7 @@ function BrickLinkApiSection({ rateLimit }: { rateLimit: any }) {
 // ── INVENTORY LANE ────────────────────────────────────────────────────────────
 
 function InventoryLane({
-  stats, globalSyncStatuses, invSyncProgress, pomStatus, pricingInsights, onItemClick, onOpenBrickanalyzer, onOpenPriceomatic, onOpenSettings,
+  stats, globalSyncStatuses, invSyncProgress, pomStatus, pricingInsights, underpricedThreshold, onItemClick, onOpenBrickanalyzer, onOpenPriceomatic, onOpenSettings,
 }: any) {
   const lastInvSync = globalSyncStatuses?.inventory;
   const lastPom = globalSyncStatuses?.priceomatic;
@@ -281,9 +281,10 @@ function InventoryLane({
 
   const hasRunningJobs = isInvSyncing || isPomRunning;
 
+  const threshold = underpricedThreshold ?? 1.5;
   const tooHighCount = pricingInsights?.data?.tooHigh?.length ?? 0;
   const highOpportunityItems: any[] = (pricingInsights?.data?.tooLow ?? []).filter(
-    (i: any) => (i.opportunityScore ?? 0) >= 2.3
+    (i: any) => (i.opportunityScore ?? 0) >= threshold
   );
   const highOpportunityCount = highOpportunityItems.length;
 
@@ -913,7 +914,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
     staleTime: 0,
   });
 
-  const { data: appSettings } = useQuery<{ elfieMode?: string; bricklinkConsumerKey?: string | null; paypalClientId?: string | null; stripeSecretKey?: string | null; paypalConnectedViaEnv?: boolean; stripeConnectedViaEnv?: boolean }>({
+  const { data: appSettings } = useQuery<{ elfieMode?: string; bricklinkConsumerKey?: string | null; paypalClientId?: string | null; stripeSecretKey?: string | null; paypalConnectedViaEnv?: boolean; stripeConnectedViaEnv?: boolean; pomUnderpricedScore?: number }>({
     queryKey: ['/api/settings'],
   });
 
@@ -945,6 +946,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
   });
 
   const syncErrors = recentErrorsData?.errors ?? [];
+  const underpricedThreshold = appSettings?.pomUnderpricedScore ?? 1.5;
 
   const setupItems: Array<{ id: string; label: string; section: 'general' | 'platforms' }> = [];
   if (orgData?.onboardingCompleted) {
@@ -976,6 +978,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
           invSyncProgress={invSyncProgress}
           pomStatus={pomStatus}
           pricingInsights={pricingInsights}
+          underpricedThreshold={underpricedThreshold}
           onItemClick={onItemClick}
           onOpenBrickanalyzer={onOpenBrickanalyzer}
           onOpenPriceomatic={onOpenPriceomatic}
