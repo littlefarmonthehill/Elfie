@@ -1044,6 +1044,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Lightweight stats for Orders Dashboard header
+  app.get("/api/orders/stats", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+      const [totalResult, pendingResult, shippedResult, revenueResult, monthResult] = await Promise.all([
+        db.select({ count: sql<number>`COUNT(*)` })
+          .from(orders)
+          .where(and(eq(orders.orgId, orgId), sql`${orders.isTest} = false`, sql`${orders.orderStatus} NOT IN ('cancelled', 'Cancelled')`))
+          .then(r => r[0]),
+        db.select({ count: sql<number>`COUNT(*)` })
+          .from(orders)
+          .where(and(eq(orders.orgId, orgId), sql`${orders.isTest} = false`, sql`${orders.orderStatus} IN ('awaiting_payment', 'awaiting_shipment', 'awaiting_fulfillment')`))
+          .then(r => r[0]),
+        db.select({ count: sql<number>`COUNT(*)` })
+          .from(orders)
+          .where(and(eq(orders.orgId, orgId), sql`${orders.isTest} = false`, eq(orders.orderStatus, 'shipped')))
+          .then(r => r[0]),
+        db.select({ total: sql<string>`COALESCE(SUM(order_total::numeric), 0)` })
+          .from(orders)
+          .where(and(eq(orders.orgId, orgId), sql`${orders.isTest} = false`, sql`${orders.orderStatus} IN ('awaiting_payment', 'awaiting_shipment', 'awaiting_fulfillment')`))
+          .then(r => r[0]),
+        db.select({ total: sql<string>`COALESCE(SUM(order_total::numeric), 0)` })
+          .from(orders)
+          .where(and(eq(orders.orgId, orgId), sql`${orders.isTest} = false`, sql`${orders.orderStatus} NOT IN ('cancelled', 'Cancelled')`, sql`${orders.orderDate} >= ${monthStart}`))
+          .then(r => r[0]),
+      ]);
+
+      res.json({
+        totalOrders: Number(totalResult?.count ?? 0),
+        pendingOrders: Number(pendingResult?.count ?? 0),
+        shippedOrders: Number(shippedResult?.count ?? 0),
+        pendingRevenue: Number(revenueResult?.total ?? 0),
+        monthRevenue: Number(monthResult?.total ?? 0),
+      });
+    } catch (error) {
+      console.error("Error fetching order stats:", error);
+      res.status(500).json({ error: "Failed to fetch order stats" });
+    }
+  });
+
   // Optimized endpoint for Orders Dashboard - only fetches what's needed
   app.get("/api/orders/dashboard", isApproved, async (req: any, res) => {
     try {
