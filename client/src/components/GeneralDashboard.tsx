@@ -111,12 +111,18 @@ function AlertItem({ icon: Icon, iconColor, label, sub, onClick, severity = 'war
   icon: React.ElementType; iconColor: string; label: string; sub?: string; onClick?: () => void; severity?: 'warn' | 'error' | 'info';
 }) {
   const bg = severity === 'error' ? 'bg-red-950/40 border-red-500/20' : severity === 'info' ? 'bg-blue-950/40 border-blue-500/20' : 'bg-yellow-950/40 border-yellow-500/20';
+  const ringColor = severity === 'error' ? 'border-red-500' : severity === 'info' ? 'border-blue-400' : 'border-orange-400';
   return (
     <div
       onClick={onClick}
       className={`flex items-start gap-2 rounded border px-2 py-1.5 ${bg} ${onClick ? 'cursor-pointer hover-elevate' : ''}`}
     >
-      <Icon className={`w-3 h-3 shrink-0 mt-0.5 ${iconColor}`} />
+      <div className="relative shrink-0 mt-0.5 w-3 h-3 flex items-center justify-center">
+        <div className={`retro-wave-ring retro-wave-ring-1 ${ringColor}`} />
+        <div className={`retro-wave-ring retro-wave-ring-2 ${ringColor}`} />
+        <div className={`retro-wave-ring retro-wave-ring-3 ${ringColor}`} />
+        <Icon className={`w-3 h-3 ${iconColor} relative z-10`} />
+      </div>
       <div className="flex-1 min-w-0">
         <p className="text-xs font-medium leading-tight truncate">{label}</p>
         {sub && <p className="text-[10px] text-muted-foreground truncate">{sub}</p>}
@@ -161,8 +167,14 @@ function InventoryLane({
   const catalogPct = catalogStatus && catalogStatus.total > 0
     ? Math.round((catalogStatus.catalog / catalogStatus.total) * 100) : 0;
 
-  const tooLowCount = pricingInsights?.data?.tooLow?.length ?? 0;
   const tooHighCount = pricingInsights?.data?.tooHigh?.length ?? 0;
+  const highOpportunityItems: any[] = (pricingInsights?.data?.tooLow ?? []).filter(
+    (i: any) => (i.opportunityScore ?? 0) >= 2.3
+  );
+  const highOpportunityCount = highOpportunityItems.length;
+  const topOpportunityScore = highOpportunityItems.length > 0
+    ? Math.max(...highOpportunityItems.map((i: any) => i.opportunityScore ?? 0))
+    : 0;
 
   const invSyncFailed = lastInvSync?.lastSyncStatus === 'failed' || lastInvSync?.lastSyncStatus === 'error';
   const pomFailed = lastPom?.lastSyncStatus === 'failed' || lastPom?.lastSyncStatus === 'error';
@@ -175,7 +187,7 @@ function InventoryLane({
     <LaneCard title="Inventory" Icon={Package} accent="border-cyan-800/40 text-cyan-300" summary={summary}>
 
       {/* Needs Attention */}
-      {(invSyncFailed || pomFailed || tooLowCount > 0 || tooHighCount > 0) ? (
+      {(invSyncFailed || pomFailed || highOpportunityCount > 0 || tooHighCount > 0) ? (
         <LaneSection label="Attention">
           {invSyncFailed && (
             <AlertItem icon={XCircle} iconColor="text-red-400" label="Inventory sync failed" sub={lastInvSync?.errorMessage ?? 'Check BrickLink connection'} onClick={() => onOpenSettings?.('platforms')} severity="error" />
@@ -183,8 +195,8 @@ function InventoryLane({
           {pomFailed && (
             <AlertItem icon={XCircle} iconColor="text-red-400" label="Price-o-Matic failed" sub={lastPom?.errorMessage ?? 'Run manually from Settings'} onClick={() => onOpenSettings?.('automation')} severity="error" />
           )}
-          {tooLowCount > 0 && (
-            <AlertItem icon={TrendingDown} iconColor="text-orange-400" label={`${tooLowCount} items priced too low`} sub="Open Price-o-Matic to review" onClick={onOpenPriceomatic} severity="warn" />
+          {highOpportunityCount > 0 && (
+            <AlertItem icon={TrendingDown} iconColor="text-orange-400" label={`${highOpportunityCount} underpriced (top ${topOpportunityScore.toFixed(1)}x)`} sub="Open Price-o-Matic to review" onClick={onOpenPriceomatic} severity="warn" />
           )}
         </LaneSection>
       ) : (
