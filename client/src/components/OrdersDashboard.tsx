@@ -52,6 +52,20 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
     staleTime: 2 * 60 * 1000,
   });
 
+  const { data: adjustments } = useQuery<{
+    totalRefunds: number;
+    totalFees: number;
+    totalShipping: number;
+  }>({
+    queryKey: ['/api/orders/adjustments/summary', dateRange],
+    queryFn: async () => {
+      const res = await fetch(`/api/orders/adjustments/summary?dateRange=${dateRange}`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch adjustments');
+      return res.json();
+    },
+    staleTime: 2 * 60 * 1000,
+  });
+
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
 
@@ -89,9 +103,13 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
             <MetricCard label="Pending" value={stats ? formatNumber(stats.pendingOrders) : '—'} color="orange" data-testid="metric-pending-orders" />
             <MetricCard label="Shipped" value={stats ? formatNumber(stats.shippedOrders) : '—'} color="green" data-testid="metric-shipped-orders" />
           </div>
-          <div className="grid grid-cols-2 gap-1.5" data-testid="section-orders-revenue">
+          <div className="grid grid-cols-2 gap-1.5 mb-1.5" data-testid="section-orders-revenue">
             <MetricCard label="Pending Revenue" value={stats ? formatCurrency(stats.pendingRevenue) : '$0.00'} color="orange" data-testid="metric-pending-revenue" />
             <MetricCard label="Revenue" value={stats ? formatCurrency(stats.monthRevenue) : '$0.00'} color="green" data-testid="metric-month-revenue" />
+          </div>
+          <div className="grid grid-cols-2 gap-1.5" data-testid="section-orders-adjustments">
+            <MetricCard label="Refunds" value={adjustments ? (adjustments.totalRefunds > 0 ? `-$${adjustments.totalRefunds.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '$0') : '—'} color="red" data-testid="metric-orders-refunds" />
+            <MetricCard label="Fees" value={adjustments ? (adjustments.totalFees > 0 ? `-$${adjustments.totalFees.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '$0') : '—'} color="yellow" data-testid="metric-orders-fees" />
           </div>
         </div>
 
