@@ -1,13 +1,11 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import {
-  Package, DollarSign, ShoppingCart, Globe, Brain,
+  Package, ShoppingCart, Globe, Brain,
   RefreshCw, CheckCircle, XCircle, AlertCircle, Loader2,
   ScanSearch, ArrowRight, Settings, AlertTriangle, Zap,
-  TrendingDown, TrendingUp, Clock, Activity,
+  TrendingDown, Clock, Activity,
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import DashboardNotifications from "./DashboardNotifications";
 
 interface GeneralDashboardProps {
@@ -175,6 +173,23 @@ function InventoryLane({
   return (
     <LaneCard title="Inventory" Icon={Package} accent="border-cyan-800/40 text-cyan-300" summary={summary}>
 
+      {/* Needs Attention */}
+      {(invSyncFailed || pomFailed || tooLowCount > 0 || tooHighCount > 0) ? (
+        <LaneSection label="Attention">
+          {invSyncFailed && (
+            <AlertItem icon={XCircle} iconColor="text-red-400" label="Inventory sync failed" sub={lastInvSync?.errorMessage ?? 'Check BrickLink connection'} onClick={() => onOpenSettings?.('platforms')} severity="error" />
+          )}
+          {pomFailed && (
+            <AlertItem icon={XCircle} iconColor="text-red-400" label="Price-o-Matic failed" sub={lastPom?.errorMessage ?? 'Run manually from Settings'} onClick={() => onOpenSettings?.('automation')} severity="error" />
+          )}
+          {tooLowCount > 0 && (
+            <AlertItem icon={TrendingDown} iconColor="text-orange-400" label={`${tooLowCount} items priced too low`} sub="Click a pricing item to view" onClick={() => onItemClick?.('inventory', 0)} severity="warn" />
+          )}
+        </LaneSection>
+      ) : (
+        <LaneSection><AllGood /></LaneSection>
+      )}
+
       {/* Running Jobs */}
       {hasRunningJobs && (
         <LaneSection label="Running">
@@ -240,22 +255,6 @@ function InventoryLane({
         )}
       </LaneSection>
 
-      {/* Needs Attention */}
-      {(invSyncFailed || pomFailed || tooLowCount > 0 || tooHighCount > 0) ? (
-        <LaneSection label="Attention">
-          {invSyncFailed && (
-            <AlertItem icon={XCircle} iconColor="text-red-400" label="Inventory sync failed" sub={lastInvSync?.errorMessage ?? 'Check BrickLink connection'} onClick={() => onOpenSettings?.('platforms')} severity="error" />
-          )}
-          {pomFailed && (
-            <AlertItem icon={XCircle} iconColor="text-red-400" label="Price-o-Matic failed" sub={lastPom?.errorMessage ?? 'Run manually from Settings'} onClick={() => onOpenSettings?.('automation')} severity="error" />
-          )}
-          {tooLowCount > 0 && (
-            <AlertItem icon={TrendingDown} iconColor="text-orange-400" label={`${tooLowCount} items priced too low`} sub="Click a pricing item to view" onClick={() => onItemClick?.('inventory', 0)} severity="warn" />
-          )}
-        </LaneSection>
-      ) : (
-        <LaneSection><AllGood /></LaneSection>
-      )}
     </LaneCard>
   );
 }
@@ -282,6 +281,27 @@ function OrdersLane({ stats, dashboardOrders, fulfillmentStats, orderSyncRunning
 
   return (
     <LaneCard title="Orders" Icon={ShoppingCart} accent="border-orange-800/40 text-orange-300" summary={summary}>
+
+      {/* Attention */}
+      {(pendingCount > 0 || orderSyncFailed) ? (
+        <LaneSection label="Attention">
+          {pendingCount > 0 && (
+            <AlertItem
+              icon={ShoppingCart}
+              iconColor="text-orange-400"
+              label={`${pendingCount} order${pendingCount > 1 ? 's' : ''} to fulfill`}
+              sub="Ready for packing & shipping"
+              onClick={onOpenFulfillment}
+              severity="warn"
+            />
+          )}
+          {orderSyncFailed && (
+            <AlertItem icon={XCircle} iconColor="text-red-400" label="Order sync failed" sub={lastOrderSync?.errorMessage ?? 'Check connection'} severity="error" />
+          )}
+        </LaneSection>
+      ) : (
+        <LaneSection><AllGood label="All orders handled" /></LaneSection>
+      )}
 
       {/* Running */}
       {(isOrderSyncing || activeOrdEmbed) && (
@@ -330,26 +350,6 @@ function OrdersLane({ stats, dashboardOrders, fulfillmentStats, orderSyncRunning
         )}
       </LaneSection>
 
-      {/* Attention */}
-      {(pendingCount > 0 || orderSyncFailed) ? (
-        <LaneSection label="Attention">
-          {pendingCount > 0 && (
-            <AlertItem
-              icon={ShoppingCart}
-              iconColor="text-orange-400"
-              label={`${pendingCount} order${pendingCount > 1 ? 's' : ''} to fulfill`}
-              sub="Ready for packing & shipping"
-              onClick={onOpenFulfillment}
-              severity="warn"
-            />
-          )}
-          {orderSyncFailed && (
-            <AlertItem icon={XCircle} iconColor="text-red-400" label="Order sync failed" sub={lastOrderSync?.errorMessage ?? 'Check connection'} severity="error" />
-          )}
-        </LaneSection>
-      ) : (
-        <LaneSection><AllGood label="All orders handled" /></LaneSection>
-      )}
     </LaneCard>
   );
 }
@@ -373,6 +373,20 @@ function MultichannelLane({ channelSyncRunning, globalSyncStatuses, syncStatus, 
 
   return (
     <LaneCard title="Multichannel" Icon={Globe} accent="border-teal-800/40 text-teal-300" summary={summary}>
+
+      {/* Attention */}
+      {(totalDiscrepancies > 0 || channelSyncFailed) ? (
+        <LaneSection label="Attention">
+          {totalDiscrepancies > 0 && (
+            <AlertItem icon={AlertTriangle} iconColor="text-yellow-400" label={`${totalDiscrepancies} inventory discrepanc${totalDiscrepancies !== 1 ? 'ies' : 'y'}`} sub="Prices or quantities out of sync" severity="warn" />
+          )}
+          {channelSyncFailed && (
+            <AlertItem icon={XCircle} iconColor="text-red-400" label="Channel sync failed" sub={lastChannelSync?.errorMessage ?? 'Check channel connections'} onClick={() => onOpenSettings?.('platforms')} severity="error" />
+          )}
+        </LaneSection>
+      ) : connectedChannels.length > 0 ? (
+        <LaneSection><AllGood label="All channels aligned" /></LaneSection>
+      ) : null}
 
       {/* Running */}
       {isChannelSyncing && (
@@ -420,19 +434,6 @@ function MultichannelLane({ channelSyncRunning, globalSyncStatuses, syncStatus, 
         )}
       </LaneSection>
 
-      {/* Attention */}
-      {(totalDiscrepancies > 0 || channelSyncFailed) ? (
-        <LaneSection label="Attention">
-          {totalDiscrepancies > 0 && (
-            <AlertItem icon={AlertTriangle} iconColor="text-yellow-400" label={`${totalDiscrepancies} inventory discrepanc${totalDiscrepancies !== 1 ? 'ies' : 'y'}`} sub="Prices or quantities out of sync" severity="warn" />
-          )}
-          {channelSyncFailed && (
-            <AlertItem icon={XCircle} iconColor="text-red-400" label="Channel sync failed" sub={lastChannelSync?.errorMessage ?? 'Check channel connections'} onClick={() => onOpenSettings?.('platforms')} severity="error" />
-          )}
-        </LaneSection>
-      ) : connectedChannels.length > 0 ? (
-        <LaneSection><AllGood label="All channels aligned" /></LaneSection>
-      ) : null}
     </LaneCard>
   );
 }
@@ -461,6 +462,20 @@ function AIIntelligenceLane({ latestScan, appSettings, onOpenBrickanalyzer, dism
 
   return (
     <LaneCard title="AI Intelligence" Icon={Brain} accent="border-purple-800/40 text-purple-300" summary={summary}>
+
+      {/* Attention */}
+      {isScanComplete && (latestScan?.totalPieces ?? 0) > 0 && (
+        <LaneSection label="Attention">
+          <AlertItem
+            icon={Zap}
+            iconColor="text-purple-400"
+            label="Scan results ready to view"
+            sub="View before they expire"
+            onClick={onOpenBrickanalyzer}
+            severity="info"
+          />
+        </LaneSection>
+      )}
 
       {/* Running */}
       {(isScanProcessing || universalCatalog?.workerRunning) && (
@@ -523,19 +538,6 @@ function AIIntelligenceLane({ latestScan, appSettings, onOpenBrickanalyzer, dism
         )}
       </LaneSection>
 
-      {/* Attention */}
-      {isScanComplete && (latestScan?.totalPieces ?? 0) > 0 && (
-        <LaneSection label="Attention">
-          <AlertItem
-            icon={Zap}
-            iconColor="text-purple-400"
-            label="Scan results ready to view"
-            sub="View before they expire"
-            onClick={onOpenBrickanalyzer}
-            severity="info"
-          />
-        </LaneSection>
-      )}
     </LaneCard>
   );
 }
@@ -724,26 +726,6 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
         />
 
       </div>
-
-      {/* Revenue summary strip */}
-      {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2" data-testid="summary-metrics">
-          {[
-            { label: 'Total Revenue', value: formatCurrency(stats.totalSales), Icon: TrendingUp, color: 'text-green-400' },
-            { label: 'Total Orders', value: stats.totalOrders.toLocaleString(), Icon: ShoppingCart, color: 'text-orange-400' },
-            { label: 'Inventory Lots', value: stats.totalInventoryItems.toLocaleString(), Icon: Package, color: 'text-cyan-400' },
-            { label: 'Total Pieces', value: stats.totalInventoryQuantity.toLocaleString(), Icon: Activity, color: 'text-purple-400' },
-          ].map(({ label, value, Icon, color }) => (
-            <div key={label} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-900/50 border border-border/60" data-testid={`metric-${label.toLowerCase().replace(/\s+/g, '-')}`}>
-              <Icon className={`w-4 h-4 shrink-0 ${color}`} />
-              <div>
-                <p className="text-[10px] text-muted-foreground">{label}</p>
-                <p className={`text-sm font-semibold font-mono ${color}`}>{value}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
