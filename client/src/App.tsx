@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import Home from "@/pages/home";
 import Login from "@/pages/login";
 import Signup from "@/pages/signup";
+import Landing from "@/pages/landing";
 import PendingApproval from "@/pages/pending-approval";
 import PlatformAdmin from "@/pages/platform-admin";
 import NotFound from "@/pages/not-found";
@@ -40,14 +41,13 @@ function Router() {
 
       <Route path="/">
         {isLoading ? (
-          <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-lego-red/20">
+          <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-950 via-indigo-950 to-gray-950">
             <div className="flex flex-col items-center gap-4">
-              <div className="h-12 w-12 animate-spin rounded-full border-4 border-lego-blue border-t-transparent" />
-              <p className="text-sm text-gray-400">Loading...</p>
+              <div className="h-12 w-12 animate-spin rounded-full border-4 border-purple-500 border-t-transparent" />
             </div>
           </div>
         ) : !isAuthenticated ? (
-          <Redirect to="/login" />
+          <Landing />
         ) : !isApproved ? (
           <PendingApproval />
         ) : (
