@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Sparkles, Database, Search, Loader2, CheckCircle2, AlertCircle, Play, Square, Eye } from 'lucide-react';
+import { Sparkles, Database, Search, Loader2, CheckCircle2, AlertCircle, Play, Square, Eye, Globe, Download } from 'lucide-react';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -500,6 +500,9 @@ export function EmbeddingsManager() {
         </CardContent>
       </Card>
 
+      {/* Universal CLIP Catalog */}
+      <UniversalCatalogCard />
+
       {/* Semantic Search Test */}
       <Card>
         <CardHeader className="pb-2 p-3">
@@ -572,5 +575,187 @@ export function EmbeddingsManager() {
         </AlertDescription>
       </Alert>
     </div>
+  );
+}
+
+// ── Universal CLIP Catalog Card ───────────────────────────────────────────────
+function UniversalCatalogCard() {
+  const { toast } = useToast();
+
+  const { data: status } = useQuery({
+    queryKey: ['/api/brickspotter/universal-catalog/status'],
+    refetchInterval: 4000,
+  });
+
+  const s = status as any;
+  const queueSize     = s?.queueSize     ?? 0;
+  const embedded      = s?.embedded      ?? 0;
+  const noImage       = s?.noImage       ?? 0;
+  const failed        = s?.failed        ?? 0;
+  const pending       = s?.pending       ?? 0;
+  const universalInDb = s?.universalInDb ?? 0;
+  const workerRunning = s?.workerRunning ?? false;
+  const importing     = s?.importing     ?? false;
+  const workerCurrent = s?.workerCurrent ?? '';
+
+  // Progress based on embedded + noImage (processed) vs queue total
+  const processed = embedded + noImage + failed;
+  const pct = queueSize > 0 ? Math.round((processed / queueSize) * 100) : 0;
+
+  const { mutate: runImport, isPending: importPending } = useMutation({
+    mutationFn: () => fetch('/api/brickspotter/universal-catalog/import', { method: 'POST' }).then(r => r.json()),
+    onSuccess: (data: any) => {
+      if (data?.error) {
+        toast({ title: 'Import Already Running', description: 'The CSV import is already in progress.', variant: 'destructive' });
+      } else {
+        toast({ title: 'Import Started', description: 'Downloading Rebrickable parts CSV in the background. This takes ~1–2 minutes.' });
+      }
+      queryClient.invalidateQueries({ queryKey: ['/api/brickspotter/universal-catalog/status'] });
+    },
+    onError: () => toast({ title: 'Import Failed', variant: 'destructive' }),
+  });
+
+  const { mutate: startWorker, isPending: startPending } = useMutation({
+    mutationFn: () => fetch('/api/brickspotter/universal-catalog/start', { method: 'POST' }).then(r => r.json()),
+    onSuccess: (data: any) => {
+      if (data?.error) {
+        toast({ title: 'Already Running', description: data.error });
+      } else {
+        toast({ title: 'Worker Started', description: 'Embedding parts in the background. You can close this screen!' });
+      }
+      queryClient.invalidateQueries({ queryKey: ['/api/brickspotter/universal-catalog/status'] });
+    },
+    onError: () => toast({ title: 'Failed to Start Worker', variant: 'destructive' }),
+  });
+
+  const { mutate: stopWorker } = useMutation({
+    mutationFn: () => fetch('/api/brickspotter/universal-catalog/stop', { method: 'POST' }).then(r => r.json()),
+    onSuccess: () => {
+      toast({ title: 'Worker Stopping', description: 'Will finish the current part then stop.' });
+      queryClient.invalidateQueries({ queryKey: ['/api/brickspotter/universal-catalog/status'] });
+    },
+  });
+
+  return (
+    <Card>
+      <CardHeader className="pb-2 p-3">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <Globe className="w-4 h-4 text-emerald-400" />
+          Universal Part Catalog
+        </CardTitle>
+        <CardDescription className="text-xs">
+          Embeds all ~130k BrickLink parts so BrickSpotter recognizes anything — not just your inventory
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3 p-3 pt-0">
+
+        {/* Stats row */}
+        <div className="grid grid-cols-4 gap-2 text-center">
+          <div>
+            <div className="text-lg font-bold" data-testid="text-universal-queue">{queueSize.toLocaleString()}</div>
+            <div className="text-[10px] text-muted-foreground">In Queue</div>
+          </div>
+          <div>
+            <div className="text-lg font-bold text-emerald-400" data-testid="text-universal-embedded">{universalInDb.toLocaleString()}</div>
+            <div className="text-[10px] text-muted-foreground">Embedded</div>
+          </div>
+          <div>
+            <div className="text-lg font-bold text-muted-foreground" data-testid="text-universal-no-image">{noImage.toLocaleString()}</div>
+            <div className="text-[10px] text-muted-foreground">No Image</div>
+          </div>
+          <div>
+            <div className="text-lg font-bold text-amber-400" data-testid="text-universal-pending">{pending.toLocaleString()}</div>
+            <div className="text-[10px] text-muted-foreground">Pending</div>
+          </div>
+        </div>
+
+        {/* Progress bar — shows once there's queue data */}
+        {queueSize > 0 && (
+          <div className="space-y-1">
+            <div className="flex justify-between items-center">
+              <span className="text-xs text-muted-foreground">{pct}% processed</span>
+              <span className="text-xs text-muted-foreground">{processed.toLocaleString()} / {queueSize.toLocaleString()}</span>
+            </div>
+            <Progress value={pct} className="h-1.5" />
+          </div>
+        )}
+
+        {/* Live worker status */}
+        {(importing || workerRunning) && (
+          <Alert className="p-2 bg-emerald-500/10 border-emerald-500/20">
+            <Loader2 className="h-3 w-3 animate-spin text-emerald-400" />
+            <AlertDescription className="text-xs ml-2">
+              {importing
+                ? 'Downloading Rebrickable CSV and populating queue…'
+                : `Embedding in background${workerCurrent ? ` — ${workerCurrent}` : '…'}`}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Completion badge */}
+        {!workerRunning && !importing && universalInDb > 0 && pending === 0 && (
+          <div className="flex items-center gap-1 text-xs text-emerald-400">
+            <CheckCircle2 className="w-3 h-3" />
+            <span>{universalInDb.toLocaleString()} parts embedded — Universal recognition active</span>
+          </div>
+        )}
+
+        <Alert className="p-2">
+          <AlertCircle className="h-3 w-3" />
+          <AlertDescription className="text-xs ml-2">
+            Free — uses BrickLink CDN images. At 1 part/sec, ~130k parts takes ~36 hours total.
+          </AlertDescription>
+        </Alert>
+
+        {/* Step 1: Import CSV */}
+        <div className="space-y-1.5">
+          <div className="text-xs font-medium text-muted-foreground">Step 1 — Load parts list</div>
+          <Button
+            onClick={() => runImport()}
+            disabled={importPending || importing || queueSize > 0}
+            size="sm"
+            variant="outline"
+            className="w-full text-xs gap-1"
+            data-testid="button-universal-import"
+          >
+            {(importPending || importing) ? (
+              <Loader2 className="w-3 h-3 animate-spin" />
+            ) : (
+              <Download className="w-3 h-3" />
+            )}
+            {importing ? 'Importing CSV…' : queueSize > 0 ? `Queue Ready (${queueSize.toLocaleString()} parts)` : 'Import from Rebrickable'}
+          </Button>
+        </div>
+
+        {/* Step 2: Run worker */}
+        <div className="space-y-1.5">
+          <div className="text-xs font-medium text-muted-foreground">Step 2 — Embed parts</div>
+          {!workerRunning ? (
+            <Button
+              onClick={() => startWorker()}
+              disabled={startPending || workerRunning || queueSize === 0 || pending === 0}
+              size="sm"
+              className="w-full text-xs gap-1"
+              data-testid="button-universal-start"
+            >
+              {startPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />}
+              {pending === 0 && queueSize > 0 ? 'All Done' : 'Start / Resume Embedding'}
+            </Button>
+          ) : (
+            <Button
+              onClick={() => stopWorker()}
+              size="sm"
+              variant="outline"
+              className="w-full text-xs gap-1"
+              data-testid="button-universal-stop"
+            >
+              <Square className="w-3 h-3" />
+              Stop Worker
+            </Button>
+          )}
+        </div>
+
+      </CardContent>
+    </Card>
   );
 }

@@ -5544,6 +5544,47 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
     }
   });
 
+  // ── Universal CLIP Catalog routes ─────────────────────────────────────────
+
+  // GET /api/brickspotter/universal-catalog/status
+  app.get("/api/brickspotter/universal-catalog/status", isApproved, async (_req, res) => {
+    try {
+      const { getUniversalCatalogStatus } = await import('./services/universal-clip-catalog.js');
+      res.json(await getUniversalCatalogStatus());
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  // POST /api/brickspotter/universal-catalog/import
+  // Downloads Rebrickable parts CSV and populates the queue (idempotent)
+  app.post("/api/brickspotter/universal-catalog/import", isApproved, async (_req, res) => {
+    try {
+      const { importFromRebrickable, isUniversalImporting } = await import('./services/universal-clip-catalog.js');
+      if (isUniversalImporting()) return res.status(409).json({ error: 'Import already in progress' });
+      res.json({ ok: true, message: 'Import started in background' });
+      importFromRebrickable().catch(e => console.error('[Universal Catalog] Import failed:', e.message));
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  // POST /api/brickspotter/universal-catalog/start
+  // Starts (or resumes) the background embedding worker
+  app.post("/api/brickspotter/universal-catalog/start", isApproved, async (_req, res) => {
+    try {
+      const { startUniversalWorker, getUniversalCatalogState } = await import('./services/universal-clip-catalog.js');
+      if (getUniversalCatalogState()?.running) return res.status(409).json({ error: 'Worker already running' });
+      res.json({ ok: true });
+      startUniversalWorker().catch(e => console.error('[Universal Catalog] Start failed:', e.message));
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  // POST /api/brickspotter/universal-catalog/stop
+  app.post("/api/brickspotter/universal-catalog/stop", isApproved, async (_req, res) => {
+    try {
+      const { stopUniversalWorker } = await import('./services/universal-clip-catalog.js');
+      stopUniversalWorker();
+      res.json({ ok: true });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
   // ─────────────────────────────────────────────────────────────────────────
 
   // Get Inventory Items

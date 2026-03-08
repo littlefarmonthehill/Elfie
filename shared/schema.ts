@@ -1273,6 +1273,22 @@ export const insertAppFeedbackSchema = createInsertSchema(appFeedback).omit({
 export type InsertAppFeedback = z.infer<typeof insertAppFeedbackSchema>;
 export type AppFeedback = typeof appFeedback.$inferSelect;
 
+// ── Universal CLIP Catalog Queue ──────────────────────────────────────────────
+// Tracks every BrickLink part number for the universal visual training catalog.
+// Worker processes 'pending' rows, embeds via CLIP, stores in scan_embeddings
+// with source='universal'. Survives restarts — picks up from 'pending' rows.
+export const universalCatalogQueue = pgTable("universal_catalog_queue", {
+  partNo: text("part_no").primaryKey(),
+  partName: text("part_name"),
+  status: text("status").notNull().default('pending'), // pending | embedded | no_image | failed
+  attemptedAt: timestamp("attempted_at"),
+  errorMsg: text("error_msg"),
+}, (table) => [
+  index("ucq_status_idx").on(table.status),
+]);
+
+export type UniversalCatalogItem = typeof universalCatalogQueue.$inferSelect;
+
 // ── Per-Org Selling Channel Integrations ──────────────────────────────────────
 // Stores credentials for BrickOwl, eBay, Amazon, Stripe, and any future channel.
 // Each (orgId, channel) pair is unique. Credentials are stored as JSONB.
