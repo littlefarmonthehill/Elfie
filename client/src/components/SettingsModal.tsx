@@ -4705,6 +4705,27 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   </div>
                 </div>
 
+                {/* Data & Security */}
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold mb-2 px-1">Data & Security</p>
+                  <div className="rounded-lg bg-gray-800/60 border border-gray-700 divide-y divide-gray-700/60">
+                    {[
+                      { name: 'Tenant Isolation', desc: 'Each store\'s inventory, orders, and settings are scoped to their organization — no data is shared across accounts' },
+                      { name: 'Encrypted Credentials', desc: 'Marketplace API keys and secrets are stored encrypted at rest and never exposed in logs or responses' },
+                      { name: 'Automated Backups', desc: 'Point-in-time database backups run automatically and can be downloaded or restored at any time from Data Maintenance' },
+                      { name: 'Your Data, Your Control', desc: 'Your inventory and order data is never sold or shared with third parties. Marketplace data flows in — not out' },
+                      { name: 'Infrastructure', desc: 'Hosted on Replit\'s managed cloud with TLS encryption in transit on all connections' },
+                    ].map(({ name, desc }) => (
+                      <div key={name} className="flex items-start gap-3 px-4 py-2.5">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-gray-200">{name}</p>
+                          <p className="text-[10px] text-gray-500">{desc}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
                 <p className="text-center text-[10px] text-gray-600 pb-2">{APP_NAME} {APP_VERSION}</p>
 
               </div>
