@@ -2411,9 +2411,9 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                                     )}
                                   </div>
                                   {/* Price rows */}
-                                  <div className="px-2.5 py-2 space-y-0">
-                                    {/* Column headers */}
-                                    <div className="grid grid-cols-[1fr_70px_70px] text-[10px] font-bold uppercase tracking-widest pb-1.5 border-b border-white/[0.07]">
+                                  <div className="px-2.5 py-2 space-y-0" style={{ maxHeight: 200, overflowY: 'auto', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
+                                    {/* Column headers — sticky so they stay visible while scrolling */}
+                                    <div className="grid grid-cols-[1fr_70px_70px] text-[10px] font-bold uppercase tracking-widest pb-1.5 border-b border-white/[0.07] bg-gray-950" style={{ position: 'sticky', top: 0, zIndex: 1 }}>
                                       <span className="text-gray-600 px-1"></span>
                                       <span className="text-blue-400 text-center">New</span>
                                       <span className="text-orange-400 text-center">Used</span>
