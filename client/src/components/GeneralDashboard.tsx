@@ -283,10 +283,29 @@ function InventoryLane({
 
   const threshold = underpricedThreshold ?? 1.5;
   const tooHighCount = pricingInsights?.data?.tooHigh?.length ?? 0;
-  const highOpportunityItems: any[] = (pricingInsights?.data?.tooLow ?? []).filter(
-    (i: any) => (i.opportunityScore ?? 0) >= threshold
-  );
-  const highOpportunityCount = highOpportunityItems.length;
+
+  // Mirror POM screen logic: group ALL items by itemNo+colorId, use max score per group
+  const allInsightItems: any[] = [
+    ...(pricingInsights?.data?.tooHigh ?? []),
+    ...(pricingInsights?.data?.tooLow ?? []),
+    ...(pricingInsights?.data?.wellPriced ?? []),
+  ];
+  const groupScores = new Map<string, { maxScore: number; totalQty: number }>();
+  for (const item of allInsightItems) {
+    const key = `${item.itemNo}_${item.colorId ?? 'null'}`;
+    const score = item.opportunityScore ?? 0;
+    const qty = item.quantity ?? 0;
+    const existing = groupScores.get(key);
+    if (existing) {
+      existing.maxScore = Math.max(existing.maxScore, score);
+      existing.totalQty += qty;
+    } else {
+      groupScores.set(key, { maxScore: score, totalQty: qty });
+    }
+  }
+  const highOpportunityCount = Array.from(groupScores.values()).filter(
+    g => g.totalQty > 0 && g.maxScore >= threshold
+  ).length;
 
   const invSyncFailed = lastInvSync?.lastSyncStatus === 'failed' || lastInvSync?.lastSyncStatus === 'error';
   const pomFailed = lastPom?.lastSyncStatus === 'failed' || lastPom?.lastSyncStatus === 'error';
