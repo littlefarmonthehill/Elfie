@@ -153,19 +153,12 @@ function InventoryLane({
   const isPomRunning = pomStatus?.data?.liveProgress?.active === true;
   const pomProgress = pomStatus?.data?.liveProgress;
 
-  const { data: catalogStatus } = useQuery<{ catalog: number; confirmed: number; total: number }>({
-    queryKey: ['/api/brickspotter/catalog-status'],
-    refetchInterval: 10000,
-  });
-
   const { data: activeInvEmbed } = useQuery<{ id: string; status: string } | null>({
     queryKey: ['/api/embeddings/jobs/active/inventory'],
     refetchInterval: 8000,
   });
 
   const hasRunningJobs = isInvSyncing || isPomRunning;
-  const catalogPct = catalogStatus && catalogStatus.total > 0
-    ? Math.round((catalogStatus.catalog / catalogStatus.total) * 100) : 0;
 
   const tooHighCount = pricingInsights?.data?.tooHigh?.length ?? 0;
   const highOpportunityItems: any[] = (pricingInsights?.data?.tooLow ?? []).filter(
@@ -254,14 +247,6 @@ function InventoryLane({
           />
         ) : (
           <ActivityItem icon={Clock} iconColor="text-muted-foreground" label="No Price-o-Matic run yet" />
-        )}
-        {catalogStatus && (
-          <ActivityItem
-            icon={ScanSearch}
-            iconColor="text-purple-400"
-            label={`CLIP catalog — ${catalogPct}% built`}
-            sub={`${catalogStatus.catalog} / ${catalogStatus.total} parts embedded`}
-          />
         )}
       </LaneSection>
 
@@ -468,9 +453,17 @@ function AIIntelligenceLane({ latestScan, appSettings, onOpenBrickanalyzer, dism
     refetchInterval: 30000,
   });
 
+  const { data: catalogStatus } = useQuery<{ catalog: number; confirmed: number; total: number }>({
+    queryKey: ['/api/brickspotter/catalog-status'],
+    refetchInterval: 10000,
+  });
+
   const ucPct = universalCatalog && universalCatalog.queueSize > 0
     ? Math.round(((universalCatalog.embedded + universalCatalog.noImage) / universalCatalog.queueSize) * 100)
     : 0;
+
+  const catalogPct = catalogStatus && catalogStatus.total > 0
+    ? Math.round((catalogStatus.catalog / catalogStatus.total) * 100) : 0;
 
   const isScanProcessing = latestScan?.status === 'processing';
   const isScanComplete = latestScan?.status === 'complete';
@@ -525,33 +518,41 @@ function AIIntelligenceLane({ latestScan, appSettings, onOpenBrickanalyzer, dism
         </div>
       </LaneSection>
 
-      {/* Catalog Health */}
-      {universalCatalog && (
-        <LaneSection label="Universal Part Catalog">
-          <ActivityItem
-            icon={universalCatalog.workerRunning ? RefreshCw : CheckCircle}
-            iconColor={universalCatalog.workerRunning ? 'text-purple-400' : 'text-green-400'}
-            label={`${universalCatalog.embedded.toLocaleString()} parts embedded (${ucPct}%)`}
-            sub={universalCatalog.pending > 0 ? `${universalCatalog.pending.toLocaleString()} pending` : universalCatalog.noImage > 0 ? `${universalCatalog.noImage.toLocaleString()} no image` : 'Catalog complete'}
-          />
-        </LaneSection>
-      )}
-
-      {/* Inventory & Order Embeddings */}
-      {embedStats && (
+      {/* Data Embeddings — catalogs + inventory/orders */}
+      {(universalCatalog || catalogStatus || embedStats) && (
         <LaneSection label="Data Embeddings">
-          <ActivityItem
-            icon={embedStats.inventory.embedded >= embedStats.inventory.total && embedStats.inventory.total > 0 ? CheckCircle : RefreshCw}
-            iconColor={embedStats.inventory.embedded >= embedStats.inventory.total && embedStats.inventory.total > 0 ? 'text-green-400' : 'text-purple-400'}
-            label={`${embedStats.inventory.embedded.toLocaleString()} / ${embedStats.inventory.total.toLocaleString()} inventory items`}
-            sub={`${embedStats.inventory.percentage}% embedded`}
-          />
-          <ActivityItem
-            icon={embedStats.orders.embedded >= embedStats.orders.total && embedStats.orders.total > 0 ? CheckCircle : RefreshCw}
-            iconColor={embedStats.orders.embedded >= embedStats.orders.total && embedStats.orders.total > 0 ? 'text-green-400' : 'text-purple-400'}
-            label={`${embedStats.orders.embedded.toLocaleString()} / ${embedStats.orders.total.toLocaleString()} orders`}
-            sub={`${embedStats.orders.percentage}% embedded`}
-          />
+          {universalCatalog && (
+            <ActivityItem
+              icon={universalCatalog.workerRunning ? RefreshCw : CheckCircle}
+              iconColor={universalCatalog.workerRunning ? 'text-purple-400' : 'text-green-400'}
+              label={`Universal catalog — ${universalCatalog.embedded.toLocaleString()} parts (${ucPct}%)`}
+              sub={universalCatalog.pending > 0 ? `${universalCatalog.pending.toLocaleString()} pending` : universalCatalog.noImage > 0 ? `${universalCatalog.noImage.toLocaleString()} no image` : 'Catalog complete'}
+            />
+          )}
+          {catalogStatus && (
+            <ActivityItem
+              icon={ScanSearch}
+              iconColor="text-purple-400"
+              label={`CLIP parts catalog — ${catalogPct}% built`}
+              sub={`${catalogStatus.catalog} / ${catalogStatus.total} parts embedded`}
+            />
+          )}
+          {embedStats && (
+            <>
+              <ActivityItem
+                icon={embedStats.inventory.embedded >= embedStats.inventory.total && embedStats.inventory.total > 0 ? CheckCircle : RefreshCw}
+                iconColor={embedStats.inventory.embedded >= embedStats.inventory.total && embedStats.inventory.total > 0 ? 'text-green-400' : 'text-purple-400'}
+                label={`${embedStats.inventory.embedded.toLocaleString()} / ${embedStats.inventory.total.toLocaleString()} inventory items`}
+                sub={`${embedStats.inventory.percentage}% embedded`}
+              />
+              <ActivityItem
+                icon={embedStats.orders.embedded >= embedStats.orders.total && embedStats.orders.total > 0 ? CheckCircle : RefreshCw}
+                iconColor={embedStats.orders.embedded >= embedStats.orders.total && embedStats.orders.total > 0 ? 'text-green-400' : 'text-purple-400'}
+                label={`${embedStats.orders.embedded.toLocaleString()} / ${embedStats.orders.total.toLocaleString()} orders`}
+                sub={`${embedStats.orders.percentage}% embedded`}
+              />
+            </>
+          )}
         </LaneSection>
       )}
 
