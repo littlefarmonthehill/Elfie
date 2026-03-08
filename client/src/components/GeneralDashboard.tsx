@@ -762,6 +762,59 @@ function SystemPulse({ syncErrors, setupItems, billingStatus, rateLimit, onOpenS
       {/* Rows — one per status item, matching ActivityItem / AlertItem style */}
       <div className="flex flex-col divide-y divide-border/40">
 
+        {/* ── Attention items first ── */}
+
+        {/* Sync errors and setup items */}
+        {all.map((item) => (
+          <AlertItem
+            key={item.id}
+            icon={item.severity === 'error' ? XCircle : item.severity === 'info' ? Settings : AlertCircle}
+            iconColor={item.severity === 'error' ? 'text-red-400' : item.severity === 'info' ? 'text-blue-400' : 'text-yellow-400'}
+            label={item.label}
+            sub={item.section ? 'Tap to fix' : undefined}
+            severity={item.severity}
+            onClick={item.section ? () => onOpenSettings?.(item.section) : undefined}
+          />
+        ))}
+
+        {/* BrickSpotter scan quota */}
+        {bsLimited && (bsNearLimit || bsAtLimit) && (
+          <div
+            onClick={() => onOpenSettings?.('billing')}
+            className="flex items-start gap-2 rounded px-3 py-1.5 cursor-pointer hover-elevate"
+            data-testid="system-pulse-brickspotter"
+          >
+            <ScanSearch className={`w-3 h-3 shrink-0 mt-0.5 ${bsAtLimit ? 'text-red-400' : 'text-yellow-400'}`} />
+            <div className="flex-1 min-w-0">
+              <p className={`text-xs leading-tight truncate ${bsAtLimit ? 'text-red-300' : 'text-yellow-300'}`}>
+                BrickSpotter {bsAtLimit ? 'limit reached' : 'near limit'}
+              </p>
+              <p className="text-[10px] text-muted-foreground truncate">{bs.scansUsed} / {bs.scansLimit} scans used</p>
+            </div>
+            <ArrowRight className="w-3 h-3 shrink-0 mt-0.5 text-muted-foreground" />
+          </div>
+        )}
+
+        {/* Trial countdown */}
+        {isTrial && trialDaysLeft !== null && (
+          <div
+            onClick={() => onOpenSettings?.('billing')}
+            className="flex items-start gap-2 rounded px-3 py-1.5 cursor-pointer hover-elevate"
+            data-testid="system-pulse-trial"
+          >
+            <Clock className={`w-3 h-3 shrink-0 mt-0.5 ${trialSeverity === 'error' ? 'text-red-400' : trialSeverity === 'warn' ? 'text-yellow-400' : 'text-muted-foreground'}`} />
+            <div className="flex-1 min-w-0">
+              <p className={`text-xs leading-tight truncate ${trialSeverity === 'error' ? 'text-red-300' : trialSeverity === 'warn' ? 'text-yellow-300' : 'text-foreground'}`}>
+                {trialDaysLeft === 0 ? 'Trial ending today' : `${trialDaysLeft} days left in trial`}
+              </p>
+              <p className="text-[10px] text-muted-foreground truncate">Upgrade to keep access</p>
+            </div>
+            <ArrowRight className="w-3 h-3 shrink-0 mt-0.5 text-muted-foreground" />
+          </div>
+        )}
+
+        {/* ── Informational items last ── */}
+
         {/* BrickLink API usage — opens detail popover */}
         {rateLimit != null && (
           <Popover>
@@ -785,57 +838,8 @@ function SystemPulse({ syncErrors, setupItems, billingStatus, rateLimit, onOpenS
           </Popover>
         )}
 
-        {/* Trial countdown */}
-        {isTrial && trialDaysLeft !== null && (
-          <div
-            onClick={() => onOpenSettings?.('billing')}
-            className="flex items-start gap-2 rounded px-3 py-1.5 cursor-pointer hover-elevate"
-            data-testid="system-pulse-trial"
-          >
-            <Clock className={`w-3 h-3 shrink-0 mt-0.5 ${trialSeverity === 'error' ? 'text-red-400' : trialSeverity === 'warn' ? 'text-yellow-400' : 'text-muted-foreground'}`} />
-            <div className="flex-1 min-w-0">
-              <p className={`text-xs leading-tight truncate ${trialSeverity === 'error' ? 'text-red-300' : trialSeverity === 'warn' ? 'text-yellow-300' : 'text-foreground'}`}>
-                {trialDaysLeft === 0 ? 'Trial ending today' : `${trialDaysLeft} days left in trial`}
-              </p>
-              <p className="text-[10px] text-muted-foreground truncate">Upgrade to keep access</p>
-            </div>
-            <ArrowRight className="w-3 h-3 shrink-0 mt-0.5 text-muted-foreground" />
-          </div>
-        )}
-
-        {/* BrickSpotter scan quota */}
-        {bsLimited && (bsNearLimit || bsAtLimit) && (
-          <div
-            onClick={() => onOpenSettings?.('billing')}
-            className="flex items-start gap-2 rounded px-3 py-1.5 cursor-pointer hover-elevate"
-            data-testid="system-pulse-brickspotter"
-          >
-            <ScanSearch className={`w-3 h-3 shrink-0 mt-0.5 ${bsAtLimit ? 'text-red-400' : 'text-yellow-400'}`} />
-            <div className="flex-1 min-w-0">
-              <p className={`text-xs leading-tight truncate ${bsAtLimit ? 'text-red-300' : 'text-yellow-300'}`}>
-                BrickSpotter {bsAtLimit ? 'limit reached' : 'near limit'}
-              </p>
-              <p className="text-[10px] text-muted-foreground truncate">{bs.scansUsed} / {bs.scansLimit} scans used</p>
-            </div>
-            <ArrowRight className="w-3 h-3 shrink-0 mt-0.5 text-muted-foreground" />
-          </div>
-        )}
-
-        {/* Sync errors and setup items */}
-        {all.map((item) => (
-          <AlertItem
-            key={item.id}
-            icon={item.severity === 'error' ? XCircle : item.severity === 'info' ? Settings : AlertCircle}
-            iconColor={item.severity === 'error' ? 'text-red-400' : item.severity === 'info' ? 'text-blue-400' : 'text-yellow-400'}
-            label={item.label}
-            sub={item.section ? 'Tap to fix' : undefined}
-            severity={item.severity}
-            onClick={item.section ? () => onOpenSettings?.(item.section) : undefined}
-          />
-        ))}
-
-        {/* Placeholder when nothing to show beyond plan */}
-        {!hasBlData && !hasAlerts && !(isTrial && trialDaysLeft !== null) && !(bsLimited && (bsNearLimit || bsAtLimit)) && (
+        {/* Placeholder only when nothing at all is shown */}
+        {!hasAlerts && !(bsLimited && (bsNearLimit || bsAtLimit)) && !(isTrial && trialDaysLeft !== null) && !hasBlData && (
           <AllGood label="All systems normal" />
         )}
 
