@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { format, subMonths, subYears, startOfMonth, parseISO, startOfDay, getYear, startOfWeek } from "date-fns";
+import { format, subMonths, subYears, addYears, startOfMonth, parseISO, startOfDay, getYear, startOfWeek } from "date-fns";
 import { TrendingUp, Target, GitCompare, BarChart2, Info, ArrowRight, X, Activity } from "lucide-react";
 import MetricCard from "./MetricCard";
 import { DateRangeValue } from "./DateRangeSelector";
