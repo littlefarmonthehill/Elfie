@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { AppSettings, User, Organization, OrgIntegration } from "@shared/schema";
 import { APP_VERSION, APP_NAME } from "@shared/version";
-import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Info, Layers, Play, Loader2, ChevronDown, ChevronRight, ChevronLeft, BarChart2, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock, LogOut, CreditCard, Share2, PlusSquare, ShieldCheck } from "lucide-react";
+import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Info, Layers, Play, Loader2, ChevronDown, ChevronRight, ChevronLeft, BarChart2, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock, LogOut, CreditCard, Share2, PlusSquare, ShieldCheck, ExternalLink } from "lucide-react";
 import { useInstallPrompt } from "@/hooks/use-install-prompt";
 import { PomCategoryTiers } from "@/components/PomCategoryTiers";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -4627,17 +4627,20 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold mb-2 px-1">Architecture</p>
                   <div className="rounded-lg bg-gray-800/60 border border-gray-700 divide-y divide-gray-700/60">
                     {[
-                      { name: 'TypeScript', desc: 'End-to-end type safety across client and server' },
-                      { name: 'React', desc: 'Component-driven UI framework' },
-                      { name: 'Vite', desc: 'Lightning-fast frontend build tooling' },
-                      { name: 'Node.js + Express', desc: 'Backend API server' },
-                      { name: 'PostgreSQL', desc: 'Primary relational database' },
-                      { name: 'Drizzle ORM', desc: 'Type-safe database queries and schema management' },
-                      { name: 'Python + Flask', desc: 'ML inference service for CLIP and image segmentation' },
-                    ].map(({ name, desc }) => (
+                      { name: 'TypeScript', desc: 'End-to-end type safety across client and server', url: 'https://www.typescriptlang.org' },
+                      { name: 'React', desc: 'Component-driven UI framework', url: 'https://react.dev' },
+                      { name: 'Vite', desc: 'Lightning-fast frontend build tooling', url: 'https://vitejs.dev' },
+                      { name: 'Node.js + Express', desc: 'Backend API server', url: 'https://expressjs.com' },
+                      { name: 'PostgreSQL', desc: 'Primary relational database', url: 'https://www.postgresql.org' },
+                      { name: 'Drizzle ORM', desc: 'Type-safe database queries and schema management', url: 'https://orm.drizzle.team' },
+                      { name: 'Python + Flask', desc: 'ML inference service for CLIP and image segmentation', url: 'https://flask.palletsprojects.com' },
+                    ].map(({ name, desc, url }) => (
                       <div key={name} className="flex items-start gap-3 px-4 py-2.5">
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-gray-200">{name}</p>
+                          <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 group">
+                            <span className="text-xs font-medium text-gray-200 group-hover:text-violet-300 transition-colors">{name}</span>
+                            <ExternalLink className="h-2.5 w-2.5 text-gray-600 group-hover:text-violet-400 transition-colors shrink-0" />
+                          </a>
                           <p className="text-[10px] text-gray-500">{desc}</p>
                         </div>
                       </div>
@@ -4650,16 +4653,19 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold mb-2 px-1">UI & Design</p>
                   <div className="rounded-lg bg-gray-800/60 border border-gray-700 divide-y divide-gray-700/60">
                     {[
-                      { name: 'shadcn/ui', desc: 'Accessible component library built on Radix UI primitives' },
-                      { name: 'Radix UI', desc: 'Unstyled headless UI primitives' },
-                      { name: 'Tailwind CSS', desc: 'Utility-first CSS framework' },
-                      { name: 'Lucide', desc: 'Icon library' },
-                      { name: 'TanStack Query', desc: 'Async data fetching, caching, and synchronization' },
-                      { name: 'Zod', desc: 'Schema validation and type inference' },
-                    ].map(({ name, desc }) => (
+                      { name: 'shadcn/ui', desc: 'Accessible component library built on Radix UI primitives', url: 'https://ui.shadcn.com' },
+                      { name: 'Radix UI', desc: 'Unstyled headless UI primitives', url: 'https://www.radix-ui.com' },
+                      { name: 'Tailwind CSS', desc: 'Utility-first CSS framework', url: 'https://tailwindcss.com' },
+                      { name: 'Lucide', desc: 'Icon library', url: 'https://lucide.dev' },
+                      { name: 'TanStack Query', desc: 'Async data fetching, caching, and synchronization', url: 'https://tanstack.com/query' },
+                      { name: 'Zod', desc: 'Schema validation and type inference', url: 'https://zod.dev' },
+                    ].map(({ name, desc, url }) => (
                       <div key={name} className="flex items-start gap-3 px-4 py-2.5">
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-gray-200">{name}</p>
+                          <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 group">
+                            <span className="text-xs font-medium text-gray-200 group-hover:text-violet-300 transition-colors">{name}</span>
+                            <ExternalLink className="h-2.5 w-2.5 text-gray-600 group-hover:text-violet-400 transition-colors shrink-0" />
+                          </a>
                           <p className="text-[10px] text-gray-500">{desc}</p>
                         </div>
                       </div>
@@ -4672,15 +4678,18 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold mb-2 px-1">AI & Intelligence</p>
                   <div className="rounded-lg bg-gray-800/60 border border-gray-700 divide-y divide-gray-700/60">
                     {[
-                      { name: 'Anthropic Claude', desc: 'AI analysis, summaries, and natural language features' },
-                      { name: 'OpenAI', desc: 'Embeddings powering semantic inventory and order search' },
-                      { name: 'CLIP (ViT-B/32)', desc: 'Vision-language model for universal catalog image matching' },
-                      { name: 'Brickognize', desc: 'AI-powered LEGO piece identification from photos' },
-                      { name: 'remove.bg', desc: 'ML-based background removal for clean part images' },
-                    ].map(({ name, desc }) => (
+                      { name: 'Anthropic Claude', desc: 'AI analysis, summaries, and natural language features', url: 'https://www.anthropic.com' },
+                      { name: 'OpenAI', desc: 'Embeddings powering semantic inventory and order search', url: 'https://openai.com' },
+                      { name: 'CLIP (ViT-B/32)', desc: 'Vision-language model for universal catalog image matching', url: 'https://openai.com/research/clip' },
+                      { name: 'Brickognize', desc: 'AI-powered LEGO piece identification from photos', url: 'https://www.brickognize.com' },
+                      { name: 'remove.bg', desc: 'ML-based background removal for clean part images', url: 'https://www.remove.bg' },
+                    ].map(({ name, desc, url }) => (
                       <div key={name} className="flex items-start gap-3 px-4 py-2.5">
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-gray-200">{name}</p>
+                          <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 group">
+                            <span className="text-xs font-medium text-gray-200 group-hover:text-violet-300 transition-colors">{name}</span>
+                            <ExternalLink className="h-2.5 w-2.5 text-gray-600 group-hover:text-violet-400 transition-colors shrink-0" />
+                          </a>
                           <p className="text-[10px] text-gray-500">{desc}</p>
                         </div>
                       </div>
@@ -4693,13 +4702,16 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold mb-2 px-1">LEGO Data & Marketplaces</p>
                   <div className="rounded-lg bg-gray-800/60 border border-gray-700 divide-y divide-gray-700/60">
                     {[
-                      { name: 'BrickLink', desc: 'Primary marketplace — inventory, orders, and pricing data' },
-                      { name: 'BrickOwl', desc: 'Secondary marketplace channel' },
-                      { name: 'Rebrickable', desc: 'Parts catalog and set inventories; LDraw for part images' },
-                    ].map(({ name, desc }) => (
+                      { name: 'BrickLink', desc: 'Primary marketplace — inventory, orders, and pricing data', url: 'https://www.bricklink.com' },
+                      { name: 'BrickOwl', desc: 'Secondary marketplace channel', url: 'https://www.brickowl.com' },
+                      { name: 'Rebrickable', desc: 'Parts catalog and set inventories; LDraw for part images', url: 'https://rebrickable.com' },
+                    ].map(({ name, desc, url }) => (
                       <div key={name} className="flex items-start gap-3 px-4 py-2.5">
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-gray-200">{name}</p>
+                          <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 group">
+                            <span className="text-xs font-medium text-gray-200 group-hover:text-violet-300 transition-colors">{name}</span>
+                            <ExternalLink className="h-2.5 w-2.5 text-gray-600 group-hover:text-violet-400 transition-colors shrink-0" />
+                          </a>
                           <p className="text-[10px] text-gray-500">{desc}</p>
                         </div>
                       </div>
@@ -4712,13 +4724,16 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold mb-2 px-1">Payments & Services</p>
                   <div className="rounded-lg bg-gray-800/60 border border-gray-700 divide-y divide-gray-700/60">
                     {[
-                      { name: 'Stripe', desc: 'Subscription billing and payment processing' },
-                      { name: 'PayPal', desc: 'Payment reconciliation for marketplace orders' },
-                      { name: 'EasyPost', desc: 'Shipping label generation and scan forms' },
-                    ].map(({ name, desc }) => (
+                      { name: 'Stripe', desc: 'Subscription billing and payment processing', url: 'https://stripe.com' },
+                      { name: 'PayPal', desc: 'Payment reconciliation for marketplace orders', url: 'https://www.paypal.com' },
+                      { name: 'EasyPost', desc: 'Shipping label generation and scan forms', url: 'https://www.easypost.com' },
+                    ].map(({ name, desc, url }) => (
                       <div key={name} className="flex items-start gap-3 px-4 py-2.5">
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-gray-200">{name}</p>
+                          <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 group">
+                            <span className="text-xs font-medium text-gray-200 group-hover:text-violet-300 transition-colors">{name}</span>
+                            <ExternalLink className="h-2.5 w-2.5 text-gray-600 group-hover:text-violet-400 transition-colors shrink-0" />
+                          </a>
                           <p className="text-[10px] text-gray-500">{desc}</p>
                         </div>
                       </div>
