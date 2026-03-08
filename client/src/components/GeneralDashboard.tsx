@@ -707,8 +707,7 @@ function AIIntelligenceLane({ latestScan, appSettings, onOpenBrickanalyzer, dism
 
 // ── SYSTEM PULSE STRIP ────────────────────────────────────────────────────────
 
-function SystemPulse({ syncErrors, setupItems, billingStatus, rateLimit, onOpenSettings }: {
-  syncErrors: any[];
+function SystemPulse({ setupItems, billingStatus, rateLimit, onOpenSettings }: {
   setupItems: Array<{ id: string; label: string; section: 'general' | 'platforms' }>;
   billingStatus?: { plan: string; status: string; trialEndsAt?: string | null; brickspotter?: { scansUsed: number; scansLimit: number } } | null;
   rateLimit?: { allowed: boolean; callsLast24h: number; blocked?: boolean } | null;
@@ -729,7 +728,6 @@ function SystemPulse({ syncErrors, setupItems, billingStatus, rateLimit, onOpenS
   const bsAtLimit = bsLimited && bs.scansUsed >= bs.scansLimit;
 
   const all = [
-    ...syncErrors.map((e) => ({ id: e.id, label: e.label + (e.status === 'partial' ? ' — partial' : ' — failed'), severity: e.status === 'partial' ? 'warn' : 'error' as any, section: null, onClick: null })),
     ...setupItems.map((s) => ({ id: s.id, label: s.label, severity: 'info' as any, section: s.section, onClick: null })),
   ];
 
@@ -922,11 +920,6 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
     queryKey: ['/api/org'],
   });
 
-  const { data: recentErrorsData } = useQuery<{ errors: any[] }>({
-    queryKey: ['/api/sync/recent-errors'],
-    refetchInterval: 30000,
-    staleTime: 0,
-  });
 
   const { data: billingStatus } = useQuery<{ plan: string; status: string; trialEndsAt: string | null; brickspotter: { scansUsed: number; scansLimit: number } }>({
     queryKey: ['/api/billing/status'],
@@ -945,7 +938,6 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['/api/brickanalyzer/scans/latest'] }),
   });
 
-  const syncErrors = recentErrorsData?.errors ?? [];
   const underpricedThreshold = appSettings?.pomUnderpricedScore ?? 1.5;
 
   const setupItems: Array<{ id: string; label: string; section: 'general' | 'platforms' }> = [];
@@ -964,7 +956,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
     <div className="p-2 md:p-4 lg:p-5 space-y-3 md:space-y-4">
 
       {/* System Pulse — only shows when there are errors or setup gaps */}
-      <SystemPulse syncErrors={syncErrors} setupItems={setupItems} billingStatus={billingStatus} rateLimit={rateLimit} onOpenSettings={onOpenSettings} />
+      <SystemPulse setupItems={setupItems} billingStatus={billingStatus} rateLimit={rateLimit} onOpenSettings={onOpenSettings} />
 
       {/* Sync issue notifications (per-item detail feed) */}
       <DashboardNotifications />
