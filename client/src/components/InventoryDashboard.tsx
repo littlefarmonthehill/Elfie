@@ -207,10 +207,24 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 <div className="rounded-md bg-purple-900/60 p-1.5">
                   <Sparkles className="w-3.5 h-3.5 md:w-5 md:h-5 text-purple-300" />
                 </div>
-                <span className="text-xs md:text-sm lg:text-base font-bold text-purple-200 leading-tight">Price-O-Matic</span>
+                <span className="text-xs md:text-sm lg:text-base font-bold text-purple-200 leading-tight flex-1">Price-O-Matic</span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <span
+                      role="button"
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-purple-600/60 hover:text-purple-400 transition-colors"
+                      data-testid="info-priceomatic"
+                    >
+                      <Info className="w-3 h-3" />
+                    </span>
+                  </PopoverTrigger>
+                  <PopoverContent side="top" className="w-60 text-xs text-gray-300 bg-gray-900 border-gray-700 p-2.5">
+                    AI-powered pricing engine. Review opportunities and set competitive prices.
+                  </PopoverContent>
+                </Popover>
               </div>
-              <p className="text-[10px] md:text-xs text-gray-400 leading-snug">AI-powered pricing engine. Review opportunities and set competitive prices.</p>
-              <div className="flex items-center justify-between mt-0.5">
+              <div className="flex items-center justify-between">
                 <span className="text-[10px] md:text-xs text-purple-400 font-medium">Open tool</span>
                 <ArrowRight className="w-3 h-3 md:w-4 md:h-4 text-purple-500/60 group-hover:text-purple-300 transition-colors" />
               </div>
@@ -226,10 +240,24 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 <div className="rounded-md bg-green-900/60 p-1.5">
                   <Globe className="w-3.5 h-3.5 md:w-5 md:h-5 text-green-300" />
                 </div>
-                <span className="text-xs md:text-sm lg:text-base font-bold text-green-200 leading-tight">List-O-Matic</span>
+                <span className="text-xs md:text-sm lg:text-base font-bold text-green-200 leading-tight flex-1">List-O-Matic</span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <span
+                      role="button"
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-green-600/60 hover:text-green-400 transition-colors"
+                      data-testid="info-listomatic"
+                    >
+                      <Info className="w-3 h-3" />
+                    </span>
+                  </PopoverTrigger>
+                  <PopoverContent side="top" className="w-60 text-xs text-gray-300 bg-gray-900 border-gray-700 p-2.5">
+                    Manage listings across BrickLink, BrickOwl, and other platforms.
+                  </PopoverContent>
+                </Popover>
               </div>
-              <p className="text-[10px] md:text-xs text-gray-400 leading-snug">Manage listings across BrickLink, BrickOwl, and other platforms.</p>
-              <div className="flex items-center justify-between mt-0.5">
+              <div className="flex items-center justify-between">
                 <span className="text-[10px] md:text-xs text-green-400 font-medium">Open tool</span>
                 <ArrowRight className="w-3 h-3 md:w-4 md:h-4 text-green-500/60 group-hover:text-green-300 transition-colors" />
               </div>
@@ -245,10 +273,24 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 <div className="rounded-md bg-teal-900/60 p-1.5">
                   <Boxes className="w-3.5 h-3.5 md:w-5 md:h-5 text-teal-300" />
                 </div>
-                <span className="text-xs md:text-sm lg:text-base font-bold text-teal-200 leading-tight">Warehouse</span>
+                <span className="text-xs md:text-sm lg:text-base font-bold text-teal-200 leading-tight flex-1">Warehouse</span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <span
+                      role="button"
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-teal-600/60 hover:text-teal-400 transition-colors"
+                      data-testid="info-warehouse"
+                    >
+                      <Info className="w-3 h-3" />
+                    </span>
+                  </PopoverTrigger>
+                  <PopoverContent side="top" className="w-60 text-xs text-gray-300 bg-gray-900 border-gray-700 p-2.5">
+                    Organize stock by location. Assign bins, shelves, and storage zones.
+                  </PopoverContent>
+                </Popover>
               </div>
-              <p className="text-[10px] md:text-xs text-gray-400 leading-snug">Organize stock by location. Assign bins, shelves, and storage zones.</p>
-              <div className="flex items-center justify-between mt-0.5">
+              <div className="flex items-center justify-between">
                 <span className="text-[10px] md:text-xs text-teal-400 font-medium">Open tool</span>
                 <ArrowRight className="w-3 h-3 md:w-4 md:h-4 text-teal-500/60 group-hover:text-teal-300 transition-colors" />
               </div>
@@ -264,10 +306,24 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 <div className="rounded-md bg-amber-900/60 p-1.5">
                   <ScanSearch className="w-3.5 h-3.5 md:w-5 md:h-5 text-amber-300" />
                 </div>
-                <span className="text-xs md:text-sm lg:text-base font-bold text-amber-200 leading-tight">Brick Spotter</span>
+                <span className="text-xs md:text-sm lg:text-base font-bold text-amber-200 leading-tight flex-1">Brick Spotter</span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <span
+                      role="button"
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-amber-600/60 hover:text-amber-400 transition-colors"
+                      data-testid="info-brickspotter"
+                    >
+                      <Info className="w-3 h-3" />
+                    </span>
+                  </PopoverTrigger>
+                  <PopoverContent side="top" className="w-60 text-xs text-gray-300 bg-gray-900 border-gray-700 p-2.5">
+                    Photograph a pile of parts and let AI identify and value each piece.
+                  </PopoverContent>
+                </Popover>
               </div>
-              <p className="text-[10px] md:text-xs text-gray-400 leading-snug">Photograph a pile of parts and let AI identify and value each piece.</p>
-              <div className="flex items-center justify-between mt-0.5">
+              <div className="flex items-center justify-between">
                 <span className="text-[10px] md:text-xs text-amber-400 font-medium">Open tool</span>
                 <ArrowRight className="w-3 h-3 md:w-4 md:h-4 text-amber-500/60 group-hover:text-amber-300 transition-colors" />
               </div>
