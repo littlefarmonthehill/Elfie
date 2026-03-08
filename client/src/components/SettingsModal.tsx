@@ -1329,21 +1329,24 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
             className="flex flex-col h-full min-h-0"
           >
             {/* Header */}
-            <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-700 flex-shrink-0">
-              {activeSection !== null && (
-                <button
-                  onClick={() => setActiveSection(null)}
-                  className="text-gray-400 hover:text-gray-200 transition-colors flex-shrink-0 -ml-1 p-1 rounded"
-                  data-testid="button-settings-back"
-                >
-                  <ChevronLeft className="h-5 w-5" />
-                </button>
-              )}
-              <DialogHeader className="flex-1 p-0">
-                <DialogTitle className="text-base font-semibold">
+            <div className="flex items-center px-3 py-3 border-b border-gray-700/80 bg-gray-800/70 flex-shrink-0">
+              <div className="w-8 flex-shrink-0 flex items-center">
+                {activeSection !== null && (
+                  <button
+                    onClick={() => setActiveSection(null)}
+                    className="text-gray-400 hover:text-gray-200 transition-colors p-1 rounded"
+                    data-testid="button-settings-back"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+                )}
+              </div>
+              <DialogHeader className="flex-1 p-0 text-center">
+                <DialogTitle className="text-sm font-semibold text-gray-100 tracking-wide">
                   {activeSection === null ? 'Settings' : navigationItems.find(i => i.id === activeSection)?.label ?? 'Settings'}
                 </DialogTitle>
               </DialogHeader>
+              <div className="w-8 flex-shrink-0" />
             </div>
 
             {/* Content */}
@@ -4668,9 +4671,9 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold mb-2 px-1">LEGO Data & Marketplaces</p>
                   <div className="rounded-lg bg-gray-800/60 border border-gray-700 divide-y divide-gray-700/60">
                     {[
-                      { name: 'Rebrickable', desc: 'Parts catalog, set inventories, and part images' },
                       { name: 'BrickLink', desc: 'Primary marketplace — inventory, orders, and pricing data' },
                       { name: 'BrickOwl', desc: 'Secondary marketplace channel' },
+                      { name: 'Rebrickable', desc: 'Parts catalog and set inventories; LDraw for part images' },
                     ].map(({ name, desc }) => (
                       <div key={name} className="flex items-start gap-3 px-4 py-2.5">
                         <div className="flex-1 min-w-0">
