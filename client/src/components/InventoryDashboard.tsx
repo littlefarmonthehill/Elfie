@@ -170,10 +170,13 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
       <div className="space-y-1.5">
 
         {/* Combined Inventory Info + Values */}
-        <div className="bg-gray-900/50 border border-blue-500/20 rounded-lg p-3" data-testid="section-inventory-overview">
+        <div className="relative bg-gradient-to-b from-blue-950/25 to-gray-900/85 border border-blue-500/40 rounded-lg p-3 shadow-[0_0_22px_rgba(59,130,246,0.12)] overflow-hidden" data-testid="section-inventory-overview">
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-blue-400/50 to-transparent" />
           <div className="flex items-center gap-2 mb-2.5">
-            <Package className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-blue-400" />
-            <h3 className="text-xs md:text-base lg:text-lg font-semibold text-blue-400 uppercase tracking-wide">Inventory</h3>
+            <div className="p-1.5 rounded-md bg-blue-900/60 ring-1 ring-blue-500/50 shadow-[0_0_10px_rgba(59,130,246,0.25)]">
+              <Package className="w-3 h-3 md:w-4 md:h-4 text-blue-200" />
+            </div>
+            <h3 className="text-xs md:text-base lg:text-lg font-semibold text-blue-200 uppercase tracking-wide">Inventory</h3>
             <div className="flex items-center gap-1.5 ml-auto">
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -205,10 +208,13 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
         </div>
 
         {/* Tools — Primary Workflows */}
-        <div className="bg-gray-900/50 border border-gray-700/50 rounded-lg p-3" data-testid="section-tools">
+        <div className="relative bg-gradient-to-b from-gray-800/45 to-gray-900/85 border border-gray-600/50 rounded-lg p-3 shadow-[0_0_16px_rgba(255,255,255,0.03)] overflow-hidden" data-testid="section-tools">
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-400/25 to-transparent" />
           <div className="flex items-center gap-2 mb-3">
-            <Sparkles className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-gray-400" />
-            <h3 className="text-xs md:text-base lg:text-lg font-semibold text-gray-400 uppercase tracking-wide">Tools</h3>
+            <div className="p-1.5 rounded-md bg-gray-700/60 ring-1 ring-gray-500/40">
+              <Sparkles className="w-3 h-3 md:w-4 md:h-4 text-gray-200" />
+            </div>
+            <h3 className="text-xs md:text-base lg:text-lg font-semibold text-gray-200 uppercase tracking-wide">Tools</h3>
           </div>
           <div className="grid grid-cols-2 gap-2">
 
@@ -216,13 +222,13 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             <button
               onClick={() => onDrawerChange('priceomatic')}
               data-testid="tool-priceomatic"
-              className="group flex flex-col gap-1.5 rounded-lg border border-purple-700/40 bg-purple-950/40 p-3 text-left hover-elevate active-elevate-2 transition-all"
+              className="group flex flex-col gap-1.5 rounded-lg border border-purple-500/50 bg-gradient-to-br from-purple-950/65 to-gray-950/80 p-3 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(168,85,247,0.09)]"
             >
               <div className="flex items-center gap-2">
-                <div className="rounded-md bg-purple-900/60 p-1.5">
-                  <Sparkles className="w-3.5 h-3.5 md:w-5 md:h-5 text-purple-300" />
+                <div className="rounded-lg bg-purple-900/70 p-1.5 ring-1 ring-purple-500/45 shadow-[0_0_10px_rgba(168,85,247,0.22)]">
+                  <Sparkles className="w-3.5 h-3.5 md:w-5 md:h-5 text-purple-200" />
                 </div>
-                <span className="text-xs md:text-sm lg:text-base font-bold text-purple-200 leading-tight flex-1">Price-O-Matic</span>
+                <span className="text-xs md:text-sm lg:text-base font-bold text-purple-100 leading-tight flex-1">Price-O-Matic</span>
                 <Popover>
                   <PopoverTrigger asChild>
                     <span
@@ -255,8 +261,8 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 )}
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[10px] md:text-xs text-purple-400 font-medium">Open tool</span>
-                <ArrowRight className="w-3 h-3 md:w-4 md:h-4 text-purple-500/60 group-hover:text-purple-300 transition-colors" />
+                <span className="text-[10px] md:text-xs text-purple-300 font-medium">Open tool</span>
+                <ArrowRight className="w-3 h-3 md:w-4 md:h-4 text-purple-400/70 group-hover:text-purple-200 transition-colors" />
               </div>
             </button>
 
@@ -264,13 +270,13 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             <button
               onClick={() => onDrawerChange('platformsync')}
               data-testid="tool-listomatic"
-              className="group flex flex-col gap-1.5 rounded-lg border border-green-700/40 bg-green-950/40 p-3 text-left hover-elevate active-elevate-2 transition-all"
+              className="group flex flex-col gap-1.5 rounded-lg border border-green-500/50 bg-gradient-to-br from-green-950/65 to-gray-950/80 p-3 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(34,197,94,0.09)]"
             >
               <div className="flex items-center gap-2">
-                <div className="rounded-md bg-green-900/60 p-1.5">
-                  <Globe className="w-3.5 h-3.5 md:w-5 md:h-5 text-green-300" />
+                <div className="rounded-lg bg-green-900/70 p-1.5 ring-1 ring-green-500/45 shadow-[0_0_10px_rgba(34,197,94,0.22)]">
+                  <Globe className="w-3.5 h-3.5 md:w-5 md:h-5 text-green-200" />
                 </div>
-                <span className="text-xs md:text-sm lg:text-base font-bold text-green-200 leading-tight flex-1">List-O-Matic</span>
+                <span className="text-xs md:text-sm lg:text-base font-bold text-green-100 leading-tight flex-1">List-O-Matic</span>
                 <Popover>
                   <PopoverTrigger asChild>
                     <span
@@ -289,8 +295,8 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               </div>
               <div className="flex flex-wrap gap-1 min-h-[1.25rem]" />
               <div className="flex items-center justify-between">
-                <span className="text-[10px] md:text-xs text-green-400 font-medium">Open tool</span>
-                <ArrowRight className="w-3 h-3 md:w-4 md:h-4 text-green-500/60 group-hover:text-green-300 transition-colors" />
+                <span className="text-[10px] md:text-xs text-green-300 font-medium">Open tool</span>
+                <ArrowRight className="w-3 h-3 md:w-4 md:h-4 text-green-400/70 group-hover:text-green-200 transition-colors" />
               </div>
             </button>
 
@@ -298,13 +304,13 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             <button
               onClick={() => onDrawerChange('warehouse')}
               data-testid="tool-warehouse"
-              className="group flex flex-col gap-1.5 rounded-lg border border-teal-700/40 bg-teal-950/40 p-3 text-left hover-elevate active-elevate-2 transition-all"
+              className="group flex flex-col gap-1.5 rounded-lg border border-teal-500/50 bg-gradient-to-br from-teal-950/65 to-gray-950/80 p-3 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(20,184,166,0.09)]"
             >
               <div className="flex items-center gap-2">
-                <div className="rounded-md bg-teal-900/60 p-1.5">
-                  <Boxes className="w-3.5 h-3.5 md:w-5 md:h-5 text-teal-300" />
+                <div className="rounded-lg bg-teal-900/70 p-1.5 ring-1 ring-teal-500/45 shadow-[0_0_10px_rgba(20,184,166,0.22)]">
+                  <Boxes className="w-3.5 h-3.5 md:w-5 md:h-5 text-teal-200" />
                 </div>
-                <span className="text-xs md:text-sm lg:text-base font-bold text-teal-200 leading-tight flex-1">Warehouse</span>
+                <span className="text-xs md:text-sm lg:text-base font-bold text-teal-100 leading-tight flex-1">Warehouse</span>
                 <Popover>
                   <PopoverTrigger asChild>
                     <span
@@ -342,8 +348,8 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 )}
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[10px] md:text-xs text-teal-400 font-medium">Open tool</span>
-                <ArrowRight className="w-3 h-3 md:w-4 md:h-4 text-teal-500/60 group-hover:text-teal-300 transition-colors" />
+                <span className="text-[10px] md:text-xs text-teal-300 font-medium">Open tool</span>
+                <ArrowRight className="w-3 h-3 md:w-4 md:h-4 text-teal-400/70 group-hover:text-teal-200 transition-colors" />
               </div>
             </button>
 
@@ -351,13 +357,13 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             <button
               onClick={() => onDrawerChange('brickanalyzer')}
               data-testid="tool-brickspotter"
-              className="group flex flex-col gap-1.5 rounded-lg border border-amber-700/40 bg-amber-950/40 p-3 text-left hover-elevate active-elevate-2 transition-all"
+              className="group flex flex-col gap-1.5 rounded-lg border border-amber-500/50 bg-gradient-to-br from-amber-950/65 to-gray-950/80 p-3 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(245,158,11,0.09)]"
             >
               <div className="flex items-center gap-2">
-                <div className="rounded-md bg-amber-900/60 p-1.5">
-                  <ScanSearch className="w-3.5 h-3.5 md:w-5 md:h-5 text-amber-300" />
+                <div className="rounded-lg bg-amber-900/70 p-1.5 ring-1 ring-amber-500/45 shadow-[0_0_10px_rgba(245,158,11,0.22)]">
+                  <ScanSearch className="w-3.5 h-3.5 md:w-5 md:h-5 text-amber-200" />
                 </div>
-                <span className="text-xs md:text-sm lg:text-base font-bold text-amber-200 leading-tight flex-1">Brick Spotter</span>
+                <span className="text-xs md:text-sm lg:text-base font-bold text-amber-100 leading-tight flex-1">Brick Spotter</span>
                 <Popover>
                   <PopoverTrigger asChild>
                     <span
@@ -384,8 +390,8 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 ) : null}
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[10px] md:text-xs text-amber-400 font-medium">Open tool</span>
-                <ArrowRight className="w-3 h-3 md:w-4 md:h-4 text-amber-500/60 group-hover:text-amber-300 transition-colors" />
+                <span className="text-[10px] md:text-xs text-amber-300 font-medium">Open tool</span>
+                <ArrowRight className="w-3 h-3 md:w-4 md:h-4 text-amber-400/70 group-hover:text-amber-200 transition-colors" />
               </div>
             </button>
 

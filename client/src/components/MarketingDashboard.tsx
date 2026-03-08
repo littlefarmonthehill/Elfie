@@ -123,10 +123,13 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
       <div className="space-y-1.5">
 
         {/* ── Customer Overview ── */}
-        <div className="bg-gray-900/50 border border-yellow-500/20 rounded-lg p-3" data-testid="section-customer-overview">
+        <div className="relative bg-gradient-to-b from-yellow-950/20 to-gray-900/85 border border-yellow-500/40 rounded-lg p-3 shadow-[0_0_22px_rgba(234,179,8,0.10)] overflow-hidden" data-testid="section-customer-overview">
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-yellow-400/50 to-transparent" />
           <div className="flex items-center gap-2 mb-2.5">
-            <Users className="w-3.5 h-3.5 md:w-5 md:h-5 text-yellow-400" />
-            <h3 className="text-xs md:text-base font-semibold text-yellow-400 uppercase tracking-wide">Customers</h3>
+            <div className="p-1.5 rounded-md bg-yellow-900/60 ring-1 ring-yellow-500/50 shadow-[0_0_10px_rgba(234,179,8,0.22)]">
+              <Users className="w-3 h-3 md:w-4 md:h-4 text-yellow-200" />
+            </div>
+            <h3 className="text-xs md:text-base font-semibold text-yellow-200 uppercase tracking-wide">Customers</h3>
           </div>
           <div className="grid grid-cols-3 gap-1.5 mb-2" data-testid="section-customer-counts">
             <MetricCard label="Total" value={String(totalCustomers)} color="yellow" data-testid="metric-total-customers" />
@@ -140,10 +143,13 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
         </div>
 
         {/* ── Tools ── */}
-        <div className="bg-gray-900/50 border border-gray-700/50 rounded-lg p-3" data-testid="section-marketing-tools">
+        <div className="relative bg-gradient-to-b from-gray-800/45 to-gray-900/85 border border-gray-600/50 rounded-lg p-3 shadow-[0_0_16px_rgba(255,255,255,0.03)] overflow-hidden" data-testid="section-marketing-tools">
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-400/25 to-transparent" />
           <div className="flex items-center gap-2 mb-3">
-            <Sparkles className="w-3.5 h-3.5 md:w-5 md:h-5 text-gray-400" />
-            <h3 className="text-xs md:text-base font-semibold text-gray-400 uppercase tracking-wide">Tools</h3>
+            <div className="p-1.5 rounded-md bg-gray-700/60 ring-1 ring-gray-500/40">
+              <Sparkles className="w-3 h-3 md:w-4 md:h-4 text-gray-200" />
+            </div>
+            <h3 className="text-xs md:text-base font-semibold text-gray-200 uppercase tracking-wide">Tools</h3>
           </div>
           <div className="grid grid-cols-2 gap-2">
 
@@ -151,13 +157,13 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
             <button
               onClick={() => onDrawerChange('attract')}
               data-testid="tool-attract"
-              className="group flex flex-col gap-1.5 rounded-lg border border-indigo-700/40 bg-indigo-950/40 p-3 text-left hover-elevate active-elevate-2 transition-all"
+              className="group flex flex-col gap-1.5 rounded-lg border border-indigo-500/50 bg-gradient-to-br from-indigo-950/65 to-gray-950/80 p-3 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(99,102,241,0.09)]"
             >
               <div className="flex items-center gap-2">
-                <div className="rounded-md bg-indigo-900/60 p-1.5">
-                  <Megaphone className="w-3.5 h-3.5 md:w-5 md:h-5 text-indigo-300" />
+                <div className="rounded-lg bg-indigo-900/70 p-1.5 ring-1 ring-indigo-500/45 shadow-[0_0_10px_rgba(99,102,241,0.22)]">
+                  <Megaphone className="w-3.5 h-3.5 md:w-5 md:h-5 text-indigo-200" />
                 </div>
-                <span className="text-xs md:text-sm font-bold text-indigo-200 leading-tight flex-1">Attract New Customers</span>
+                <span className="text-xs md:text-sm font-bold text-indigo-100 leading-tight flex-1">Attract New Customers</span>
                 <Popover>
                   <PopoverTrigger asChild>
                     <span
@@ -180,8 +186,8 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[10px] md:text-xs text-indigo-400 font-medium">Open tool</span>
-                <ArrowRight className="w-3 h-3 md:w-4 md:h-4 text-indigo-500/60 group-hover:text-indigo-300 transition-colors" />
+                <span className="text-[10px] md:text-xs text-indigo-300 font-medium">Open tool</span>
+                <ArrowRight className="w-3 h-3 md:w-4 md:h-4 text-indigo-400/70 group-hover:text-indigo-200 transition-colors" />
               </div>
             </button>
 
@@ -189,13 +195,13 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
             <button
               onClick={() => onDrawerChange('delight')}
               data-testid="tool-delight"
-              className="group flex flex-col gap-1.5 rounded-lg border border-cyan-700/40 bg-cyan-950/40 p-3 text-left hover-elevate active-elevate-2 transition-all"
+              className="group flex flex-col gap-1.5 rounded-lg border border-cyan-500/50 bg-gradient-to-br from-cyan-950/65 to-gray-950/80 p-3 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(6,182,212,0.09)]"
             >
               <div className="flex items-center gap-2">
-                <div className="rounded-md bg-cyan-900/60 p-1.5">
-                  <Heart className="w-3.5 h-3.5 md:w-5 md:h-5 text-cyan-300" />
+                <div className="rounded-lg bg-cyan-900/70 p-1.5 ring-1 ring-cyan-500/45 shadow-[0_0_10px_rgba(6,182,212,0.22)]">
+                  <Heart className="w-3.5 h-3.5 md:w-5 md:h-5 text-cyan-200" />
                 </div>
-                <span className="text-xs md:text-sm font-bold text-cyan-200 leading-tight flex-1">Delight Current Customers</span>
+                <span className="text-xs md:text-sm font-bold text-cyan-100 leading-tight flex-1">Delight Current Customers</span>
                 <Popover>
                   <PopoverTrigger asChild>
                     <span
@@ -224,8 +230,8 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
                 )}
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[10px] md:text-xs text-cyan-400 font-medium">Open tool</span>
-                <ArrowRight className="w-3 h-3 md:w-4 md:h-4 text-cyan-500/60 group-hover:text-cyan-300 transition-colors" />
+                <span className="text-[10px] md:text-xs text-cyan-300 font-medium">Open tool</span>
+                <ArrowRight className="w-3 h-3 md:w-4 md:h-4 text-cyan-400/70 group-hover:text-cyan-200 transition-colors" />
               </div>
             </button>
 
@@ -233,13 +239,13 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
             <button
               onClick={() => onDrawerChange('reward')}
               data-testid="tool-reward"
-              className="group col-span-2 flex flex-col gap-1.5 rounded-lg border border-amber-700/40 bg-amber-950/40 p-3 text-left hover-elevate active-elevate-2 transition-all"
+              className="group col-span-2 flex flex-col gap-1.5 rounded-lg border border-amber-500/50 bg-gradient-to-br from-amber-950/65 to-gray-950/80 p-3 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(245,158,11,0.09)]"
             >
               <div className="flex items-center gap-2">
-                <div className="rounded-md bg-amber-900/60 p-1.5">
-                  <Trophy className="w-3.5 h-3.5 md:w-5 md:h-5 text-amber-300" />
+                <div className="rounded-lg bg-amber-900/70 p-1.5 ring-1 ring-amber-500/45 shadow-[0_0_10px_rgba(245,158,11,0.22)]">
+                  <Trophy className="w-3.5 h-3.5 md:w-5 md:h-5 text-amber-200" />
                 </div>
-                <span className="text-xs md:text-sm font-bold text-amber-200 leading-tight flex-1">Reward Loyal &amp; High Spenders</span>
+                <span className="text-xs md:text-sm font-bold text-amber-100 leading-tight flex-1">Reward Loyal &amp; High Spenders</span>
                 <Popover>
                   <PopoverTrigger asChild>
                     <span
@@ -268,8 +274,8 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
                 )}
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[10px] md:text-xs text-amber-400 font-medium">Open tool</span>
-                <ArrowRight className="w-3 h-3 md:w-4 md:h-4 text-amber-500/60 group-hover:text-amber-300 transition-colors" />
+                <span className="text-[10px] md:text-xs text-amber-300 font-medium">Open tool</span>
+                <ArrowRight className="w-3 h-3 md:w-4 md:h-4 text-amber-400/70 group-hover:text-amber-200 transition-colors" />
               </div>
             </button>
 
