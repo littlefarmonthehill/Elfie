@@ -740,90 +740,109 @@ function SystemPulse({ syncErrors, setupItems, billingStatus, rateLimit, onOpenS
   const hasBlData = rateLimit != null;
   if (!hasAlerts && !hasPlanInfo && !hasBlData) return null;
 
+  const trialSeverity = trialDaysLeft !== null && trialDaysLeft <= 3 ? 'error' : trialDaysLeft !== null && trialDaysLeft <= 7 ? 'warn' : null;
+
   return (
-    <div className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg bg-gray-900/70 border border-yellow-500/20" data-testid="system-pulse">
-      <span className="text-[9px] uppercase tracking-widest text-yellow-400 font-semibold shrink-0">Your Plan</span>
+    <div className="rounded-lg border border-gray-800/60 bg-gray-900/60 overflow-hidden" data-testid="system-pulse">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-800/40 bg-gray-900/80">
+        <CreditCard className="w-4 h-4 shrink-0 text-violet-400 opacity-80" />
+        <span className="text-xs font-semibold uppercase tracking-widest">Your Plan</span>
+      </div>
+      <div className="flex flex-wrap divide-x divide-border/40">
 
-      {/* Plan badge */}
-      {billingStatus && (
-        <button
-          onClick={() => onOpenSettings?.('billing')}
-          className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border border-violet-500/30 text-violet-300 bg-violet-950/30"
-          data-testid="system-pulse-plan"
-        >
-          <CreditCard className="w-2.5 h-2.5" />
-          {planLabels[billingStatus.plan] ?? billingStatus.plan}
-        </button>
-      )}
+        {/* Plan name */}
+        {billingStatus && (
+          <div
+            onClick={() => onOpenSettings?.('billing')}
+            className="flex items-center gap-2 px-3 py-2 cursor-pointer hover-elevate"
+            data-testid="system-pulse-plan"
+          >
+            <CreditCard className="w-3 h-3 shrink-0 text-violet-400" />
+            <div>
+              <p className="text-xs text-foreground leading-tight">{planLabels[billingStatus.plan] ?? billingStatus.plan}</p>
+              <p className="text-[10px] text-muted-foreground">Subscription</p>
+            </div>
+          </div>
+        )}
 
-      {/* BrickLink API usage */}
-      {rateLimit != null && (
-        <Popover>
-          <PopoverTrigger asChild>
-            <button
-              className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border border-muted-foreground/30 text-muted-foreground bg-muted/10"
-              data-testid="system-pulse-bl-api"
-            >
-              <Activity className="w-2.5 h-2.5" />
-              BL API: {blCalls.toLocaleString()}/{BL_CEILING.toLocaleString()}
-            </button>
-          </PopoverTrigger>
-          <PopoverContent className="w-72 p-3" align="start">
-            <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-2">BrickLink API Usage</div>
-            <BrickLinkApiSection rateLimit={rateLimit} />
-          </PopoverContent>
-        </Popover>
-      )}
+        {/* BrickLink API usage — opens detail popover */}
+        {rateLimit != null && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <div
+                className="flex items-center gap-2 px-3 py-2 cursor-pointer hover-elevate"
+                data-testid="system-pulse-bl-api"
+              >
+                <Activity className="w-3 h-3 shrink-0 text-muted-foreground" />
+                <div>
+                  <p className="text-xs text-foreground leading-tight">BL API</p>
+                  <p className="text-[10px] text-muted-foreground">{blCalls.toLocaleString()} / {BL_CEILING.toLocaleString()}</p>
+                </div>
+              </div>
+            </PopoverTrigger>
+            <PopoverContent className="w-72 p-3" align="start">
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-2">BrickLink API Usage</div>
+              <BrickLinkApiSection rateLimit={rateLimit} />
+            </PopoverContent>
+          </Popover>
+        )}
 
-      {/* Trial countdown */}
-      {isTrial && trialDaysLeft !== null && (
-        <button
-          onClick={() => onOpenSettings?.('billing')}
-          className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border ${
-            trialDaysLeft <= 3
-              ? 'border-red-500/30 text-red-300 bg-red-950/30'
-              : trialDaysLeft <= 7
-                ? 'border-yellow-500/30 text-yellow-300 bg-yellow-950/30'
-                : 'border-blue-500/30 text-blue-300 bg-blue-950/30'
-          }`}
-          data-testid="system-pulse-trial"
-        >
-          <Clock className="w-2.5 h-2.5" />
-          {trialDaysLeft === 0 ? 'Trial ending today' : `${trialDaysLeft}d trial remaining`}
-        </button>
-      )}
+        {/* Trial countdown */}
+        {isTrial && trialDaysLeft !== null && (
+          <div
+            onClick={() => onOpenSettings?.('billing')}
+            className="flex items-center gap-2 px-3 py-2 cursor-pointer hover-elevate"
+            data-testid="system-pulse-trial"
+          >
+            <Clock className={`w-3 h-3 shrink-0 ${trialSeverity === 'error' ? 'text-red-400' : trialSeverity === 'warn' ? 'text-yellow-400' : 'text-muted-foreground'}`} />
+            <div>
+              <p className={`text-xs leading-tight ${trialSeverity === 'error' ? 'text-red-300' : trialSeverity === 'warn' ? 'text-yellow-300' : 'text-foreground'}`}>
+                {trialDaysLeft === 0 ? 'Trial ending today' : `${trialDaysLeft} days left`}
+              </p>
+              <p className="text-[10px] text-muted-foreground">Trial period</p>
+            </div>
+          </div>
+        )}
 
-      {/* BrickSpotter scan quota */}
-      {bsLimited && (bsNearLimit || bsAtLimit) && (
-        <button
-          onClick={() => onOpenSettings?.('billing')}
-          className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border ${
-            bsAtLimit
-              ? 'border-red-500/30 text-red-300 bg-red-950/30'
-              : 'border-yellow-500/30 text-yellow-300 bg-yellow-950/30'
-          }`}
-          data-testid="system-pulse-brickspotter"
-        >
-          {bsAtLimit ? <XCircle className="w-2.5 h-2.5" /> : <AlertCircle className="w-2.5 h-2.5" />}
-          {bsAtLimit ? `BrickSpotter limit reached (${bs.scansUsed}/${bs.scansLimit})` : `BrickSpotter: ${bs.scansUsed}/${bs.scansLimit} scans`}
-        </button>
-      )}
+        {/* BrickSpotter scan quota */}
+        {bsLimited && (bsNearLimit || bsAtLimit) && (
+          <div
+            onClick={() => onOpenSettings?.('billing')}
+            className="flex items-center gap-2 px-3 py-2 cursor-pointer hover-elevate"
+            data-testid="system-pulse-brickspotter"
+          >
+            <ScanSearch className={`w-3 h-3 shrink-0 ${bsAtLimit ? 'text-red-400' : 'text-yellow-400'}`} />
+            <div>
+              <p className={`text-xs leading-tight ${bsAtLimit ? 'text-red-300' : 'text-yellow-300'}`}>
+                {bs.scansUsed} / {bs.scansLimit} scans
+              </p>
+              <p className="text-[10px] text-muted-foreground">BrickSpotter</p>
+            </div>
+          </div>
+        )}
 
-      {/* Sync errors and setup items */}
-      {all.map((item) => (
-        <button
-          key={item.id}
-          onClick={() => item.section && onOpenSettings?.(item.section)}
-          className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border ${
-            item.severity === 'error' ? 'border-red-500/30 text-red-300 bg-red-950/30' :
-            item.severity === 'info' ? 'border-blue-500/30 text-blue-300 bg-blue-950/30' :
-            'border-yellow-500/30 text-yellow-300 bg-yellow-950/30'
-          }`}
-        >
-          {item.severity === 'error' ? <XCircle className="w-2.5 h-2.5" /> : item.severity === 'info' ? <Settings className="w-2.5 h-2.5" /> : <AlertCircle className="w-2.5 h-2.5" />}
-          {item.label}
-        </button>
-      ))}
+        {/* Sync errors and setup items */}
+        {all.map((item) => (
+          <div
+            key={item.id}
+            onClick={() => item.section && onOpenSettings?.(item.section)}
+            className={`flex items-center gap-2 px-3 py-2 ${item.section ? 'cursor-pointer hover-elevate' : ''}`}
+          >
+            {item.severity === 'error'
+              ? <XCircle className="w-3 h-3 shrink-0 text-red-400" />
+              : item.severity === 'info'
+                ? <Settings className="w-3 h-3 shrink-0 text-blue-400" />
+                : <AlertCircle className="w-3 h-3 shrink-0 text-yellow-400" />}
+            <div>
+              <p className={`text-xs leading-tight ${item.severity === 'error' ? 'text-red-300' : item.severity === 'info' ? 'text-blue-300' : 'text-yellow-300'}`}>
+                {item.label}
+              </p>
+              {item.section && <p className="text-[10px] text-muted-foreground">Tap to fix</p>}
+            </div>
+          </div>
+        ))}
+
+      </div>
     </div>
   );
 }
