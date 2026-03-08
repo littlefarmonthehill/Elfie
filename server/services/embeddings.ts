@@ -308,12 +308,14 @@ export async function embedOrderDetail(orderDetailId: string) {
 /**
  * Semantic search for inventory items
  */
-export async function searchInventorySemantic(query: string, limit: number = 5) {
+export async function searchInventorySemantic(query: string, limit: number = 5, orgId?: number) {
   try {
     // Generate query embedding
     const queryEmbedding = await generateEmbedding(query);
     
-    // Search using cosine similarity
+    const orgFilter = orgId != null ? `AND bi.org_id = ${orgId}` : '';
+
+    // Search using cosine similarity, always scoped to org when provided
     const results = await db.execute(sql.raw(`
       SELECT 
         ie.inventory_id,
@@ -328,6 +330,7 @@ export async function searchInventorySemantic(query: string, limit: number = 5) 
         1 - (ie.embedding <=> '${JSON.stringify(queryEmbedding)}'::vector) as similarity
       FROM inventory_embeddings ie
       JOIN bl_inventory bi ON ie.inventory_id = bi.id
+      WHERE 1=1 ${orgFilter}
       ORDER BY ie.embedding <=> '${JSON.stringify(queryEmbedding)}'::vector
       LIMIT ${limit}
     `));
@@ -342,12 +345,14 @@ export async function searchInventorySemantic(query: string, limit: number = 5) 
 /**
  * Semantic search for orders
  */
-export async function searchOrders(query: string, limit: number = 5) {
+export async function searchOrders(query: string, limit: number = 5, orgId?: number) {
   try {
     // Generate query embedding
     const queryEmbedding = await generateEmbedding(query);
-    
-    // Search using cosine similarity
+
+    const orgFilter = orgId != null ? `AND o.org_id = ${orgId}` : '';
+
+    // Search using cosine similarity, always scoped to org when provided
     const results = await db.execute(sql.raw(`
       SELECT 
         oe.order_id,
@@ -361,6 +366,7 @@ export async function searchOrders(query: string, limit: number = 5) {
         1 - (oe.embedding <=> '${JSON.stringify(queryEmbedding)}'::vector) as similarity
       FROM order_embeddings oe
       JOIN orders o ON oe.order_id = o.id
+      WHERE 1=1 ${orgFilter}
       ORDER BY oe.embedding <=> '${JSON.stringify(queryEmbedding)}'::vector
       LIMIT ${limit}
     `));

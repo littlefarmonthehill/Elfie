@@ -2622,7 +2622,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // No category match - try semantic search first if embeddings available
             try {
               const { searchInventorySemantic } = await import('./services/embeddings');
-              const semanticResults = await searchInventorySemantic(lastUserMessage, 10);
+              const semanticResults = await searchInventorySemantic(lastUserMessage, 10, orgId);
               
               if (semanticResults && semanticResults.length > 0) {
                 console.log(`🧠 Semantic search: Found ${semanticResults.length} items`);
@@ -3460,13 +3460,14 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   app.post("/api/search/inventory/semantic", isApproved, async (req, res) => {
     try {
       const { query, limit = 5 } = req.body;
+      const orgId = reqOrgId(req);
       
       if (!query) {
         return res.status(400).json({ error: "Query is required" });
       }
       
       const { searchInventorySemantic } = await import('./services/embeddings');
-      const results = await searchInventorySemantic(query, limit);
+      const results = await searchInventorySemantic(query, limit, orgId);
       
       res.json({ results });
     } catch (error) {
@@ -3481,13 +3482,14 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   app.post("/api/search/orders/semantic", isApproved, async (req, res) => {
     try {
       const { query, limit = 5 } = req.body;
+      const orgId = reqOrgId(req);
       
       if (!query) {
         return res.status(400).json({ error: "Query is required" });
       }
       
       const { searchOrders } = await import('./services/embeddings');
-      const results = await searchOrders(query, limit);
+      const results = await searchOrders(query, limit, orgId);
       
       res.json({ results });
     } catch (error) {
