@@ -719,10 +719,11 @@ function AIIntelligenceLane({ latestScan, appSettings, onOpenBrickanalyzer, dism
 
 // ── SYSTEM PULSE STRIP ────────────────────────────────────────────────────────
 
-function SystemPulse({ syncErrors, setupItems, billingStatus, onOpenSettings }: {
+function SystemPulse({ syncErrors, setupItems, billingStatus, rateLimit, onOpenSettings }: {
   syncErrors: any[];
   setupItems: Array<{ id: string; label: string; section: 'general' | 'platforms' }>;
   billingStatus?: { plan: string; status: string; trialEndsAt?: string | null; brickspotter?: { scansUsed: number; scansLimit: number } } | null;
+  rateLimit?: { allowed: boolean; callsLast24h: number; blocked?: boolean } | null;
   onOpenSettings?: (section: any) => void;
 }) {
   const planLabels: Record<string, string> = { trial: 'Trial', foundation: 'Foundation', core: 'Core', flagship: 'Flagship' };
@@ -744,9 +745,13 @@ function SystemPulse({ syncErrors, setupItems, billingStatus, onOpenSettings }: 
     ...setupItems.map((s) => ({ id: s.id, label: s.label, severity: 'info' as any, section: s.section, onClick: null })),
   ];
 
+  const BL_CEILING = 5000;
+  const blCalls = rateLimit?.callsLast24h ?? 0;
+
   const hasAlerts = all.length > 0;
   const hasPlanInfo = !!billingStatus;
-  if (!hasAlerts && !hasPlanInfo) return null;
+  const hasBlData = rateLimit != null;
+  if (!hasAlerts && !hasPlanInfo && !hasBlData) return null;
 
   return (
     <div className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg bg-gray-900/70 border border-yellow-500/20" data-testid="system-pulse">
@@ -761,6 +766,18 @@ function SystemPulse({ syncErrors, setupItems, billingStatus, onOpenSettings }: 
         >
           <CreditCard className="w-2.5 h-2.5" />
           {planLabels[billingStatus.plan] ?? billingStatus.plan}
+        </button>
+      )}
+
+      {/* BrickLink API usage */}
+      {rateLimit != null && (
+        <button
+          onClick={() => onOpenSettings?.('automation')}
+          className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border border-muted-foreground/30 text-muted-foreground bg-muted/10"
+          data-testid="system-pulse-bl-api"
+        >
+          <Activity className="w-2.5 h-2.5" />
+          BL API: {blCalls.toLocaleString()}/{BL_CEILING.toLocaleString()}
         </button>
       )}
 
@@ -901,6 +918,11 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
     refetchInterval: 60000,
   });
 
+  const { data: rateLimit } = useQuery<{ allowed: boolean; callsLast24h: number; blocked?: boolean }>({
+    queryKey: ['/api/bricklink/rate-limit'],
+    refetchInterval: 60000,
+  });
+
   const dismissScanMutation = useMutation({
     mutationFn: async (scanId: number) => {
       await fetch(`/api/brickanalyzer/scan/${scanId}`, { method: 'DELETE', credentials: 'include' });
@@ -926,7 +948,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
     <div className="p-2 md:p-4 lg:p-5 space-y-3 md:space-y-4">
 
       {/* System Pulse — only shows when there are errors or setup gaps */}
-      <SystemPulse syncErrors={syncErrors} setupItems={setupItems} billingStatus={billingStatus} onOpenSettings={onOpenSettings} />
+      <SystemPulse syncErrors={syncErrors} setupItems={setupItems} billingStatus={billingStatus} rateLimit={rateLimit} onOpenSettings={onOpenSettings} />
 
       {/* Sync issue notifications (per-item detail feed) */}
       <DashboardNotifications />
