@@ -268,7 +268,7 @@ function InventoryLane({
   stats, globalSyncStatuses, invSyncProgress, pomStatus, pricingInsights, underpricedThreshold, onItemClick, onOpenBrickanalyzer, onOpenPriceomatic, onOpenSettings,
 }: any) {
   const lastInvSync = globalSyncStatuses?.inventory;
-  const lastPom = globalSyncStatuses?.priceomatic;
+  const lastPom = pomStatus?.data ?? globalSyncStatuses?.priceomatic;
   const isInvSyncing = invSyncProgress?.status === 'syncing';
   const isInvComplete = invSyncProgress?.status === 'complete';
   const isPomRunning = pomStatus?.data?.liveProgress?.active === true;
@@ -359,7 +359,7 @@ function InventoryLane({
         ) : (
           <ActivityItem icon={Clock} iconColor="text-muted-foreground" label="No inventory sync yet" />
         )}
-        {lastPom?.lastSyncTime ? (
+        {lastPom?.lastSyncTime && lastPom.lastSyncStatus !== 'in_progress' ? (
           <ActivityItem
             icon={lastPom.lastSyncStatus === 'success' ? CheckCircle : lastPom.lastSyncStatus === 'partial' ? AlertCircle : XCircle}
             iconColor={lastPom.lastSyncStatus === 'success' ? 'text-green-400' : lastPom.lastSyncStatus === 'partial' ? 'text-yellow-400' : 'text-red-400'}
@@ -367,9 +367,9 @@ function InventoryLane({
             sub={lastPom.lastSyncStatus === 'success' ? `${lastPom.recordsUpdated ?? 0} lots priced` : lastPom.errorMessage ?? undefined}
             time={relTime(lastPom.lastSyncTime)}
           />
-        ) : (
+        ) : !isPomRunning ? (
           <ActivityItem icon={Clock} iconColor="text-muted-foreground" label="No Price-o-Matic run yet" />
-        )}
+        ) : null}
       </LaneSection>
 
     </LaneCard>
