@@ -1698,6 +1698,616 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                 </DialogContent>
               </Dialog>
 
+                <Separator className="bg-gray-700" />
+
+                {/* Price-o-Matic */}
+                <div>
+                  <h3 className="text-sm font-medium text-gray-300 mb-3">Price-o-Matic</h3>
+
+                  {/* Auto Sync Scheduler */}
+                  <div className="space-y-3 my-4">
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <Label className="text-xs font-medium text-gray-300">Price-o-Matic Auto Sync</Label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                <Info className="w-3 h-3" />
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent side="bottom" className="w-72 text-xs bg-gray-900 border-gray-700 p-3 space-y-1.5">
+                              <p className="font-semibold text-gray-200">Price-o-Matic Auto Sync</p>
+                              <p className="text-gray-400">Fetches avg listed price, avg sold price, and lot count from BrickLink for each inventory item, then computes a suggested price using your formula. Items are processed in priority order by category tier (T1 → T4).</p>
+                              <p className="text-gray-500">Runs on its own independent schedule. Uses 3 BrickLink API calls per lot. Stops automatically at your daily API ceiling.</p>
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                        <p className="text-[10px] md:text-sm text-gray-500 mt-0.5">Runs independently on its own schedule</p>
+                        <SyncStatusLine entry={syncStatuses?.priceomatic ?? null} />
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          disabled={syncingPom}
+                          onClick={() => runManualSync('/api/sync/priceomatic', setSyncingPom, 'Price-o-Matic')}
+                          title="Run Price-o-Matic sync now"
+                          data-testid="button-run-pom-sync"
+                        >
+                          {syncingPom ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                        </Button>
+                        <Switch
+                          checked={pomScheduleEnabled}
+                          onCheckedChange={(checked) => {
+                            setPomScheduleEnabled(checked);
+                            updateSettingsMutation.mutate({ pomScheduleEnabled: checked });
+                          }}
+                          data-testid="switch-pom-schedule"
+                        />
+                      </div>
+                    </div>
+
+                    {pomScheduleEnabled && (
+                      <div className="ml-4 space-y-3">
+                        <div className="flex items-center gap-4">
+                          <div className="space-y-1">
+                            <Label htmlFor="pom-sync-time" className="text-xs text-gray-400">Sync Time</Label>
+                            <Input
+                              id="pom-sync-time"
+                              type="time"
+                              value={pomSyncTime}
+                              onChange={(e) => setPomSyncTime(e.target.value)}
+                              onBlur={() => updateSettingsMutation.mutate({ pomSyncTime })}
+                              className="text-xs w-32"
+                              data-testid="input-pom-sync-time"
+                            />
+                            <p className="text-[10px] text-gray-500">Local timezone</p>
+                          </div>
+                          <div className="space-y-1">
+                            <Label htmlFor="pom-schedule-batch" className="text-xs text-gray-400">Lots per run</Label>
+                            <Input
+                              id="pom-schedule-batch"
+                              type="number"
+                              min={100}
+                              max={5000}
+                              step={100}
+                              value={pomScheduleBatchSize}
+                              onChange={(e) => setPomScheduleBatchSize(parseInt(e.target.value) || 100)}
+                              onBlur={() => updateSettingsMutation.mutate({ pomScheduleBatchSize })}
+                              className="text-xs w-28 text-right"
+                              data-testid="input-pom-schedule-batch"
+                            />
+                            <p className="text-[10px] text-gray-500">= {pomScheduleBatchSize} API calls</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Sync Limits — always visible, not tied to scheduler toggle */}
+                    <div className="ml-4 space-y-2 pt-2 border-t border-gray-700/40">
+                      <p className="text-[10px] text-gray-500">BrickLink allows 5,000 API calls/day. Price-o-Matic uses 3 calls per lot.</p>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <Label className="text-xs text-gray-400">Manual sync batch size</Label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                <Info className="w-3 h-3" />
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent side="bottom" className="w-60 text-xs bg-gray-900 border-gray-700 p-3">
+                              Max lots to process when you hit the play button above to run a sync manually.
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Input type="number" min={100} max={5000} step={100} value={pomBatchSize} onChange={(e) => setPomBatchSize(parseInt(e.target.value) || 100)} onBlur={() => updateSettingsMutation.mutate({ pomBatchSize })} className="text-xs w-24 text-right" data-testid="input-pom-batch-size" />
+                          <span className="text-[10px] text-gray-500 w-16">lots / run</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <Label className="text-xs text-gray-400">Max API calls per 24h</Label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                <Info className="w-3 h-3" />
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent side="bottom" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
+                              Price-o-Matic stops once this many BrickLink API calls have been used in the last 24 hours. Hard limit is 5,000/day. Recommended: 3,000–4,000.
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Input type="number" min={500} max={5000} step={100} value={pomApiCallLimit} onChange={(e) => setPomApiCallLimit(parseInt(e.target.value) || 500)} onBlur={() => updateSettingsMutation.mutate({ pomApiCallLimit })} className="text-xs w-24 text-right" data-testid="input-pom-api-limit" />
+                          <span className="text-[10px] text-gray-500 w-14">/ 5,000</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Separator className="bg-gray-700" />
+
+                  {/* Pricing collapsible */}
+                  <div>
+                    <button
+                      onClick={() => setPomPricingOpen(!pomPricingOpen)}
+                      className="w-full flex items-center justify-between gap-2 py-2 mb-3 border-b border-gray-600/60 hover:border-gray-500/60 transition-colors group"
+                      data-testid="button-pom-pricing-toggle"
+                    >
+                      <span className="text-sm font-semibold text-gray-200 uppercase tracking-wider">Pricing</span>
+                      {pomPricingOpen ? <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" /> : <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" />}
+                    </button>
+                    {pomPricingOpen && (
+                      <div className="space-y-4">
+
+                        {/* Base Premium */}
+                        <div className="rounded-md border border-gray-700/60 overflow-hidden">
+                          <div className="bg-gray-800/50 px-4 py-2.5 flex items-center gap-1.5 border-b border-gray-700/40">
+                            <h4 className="text-xs font-semibold text-gray-200 uppercase tracking-wider">Base Premium</h4>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                  <Info className="w-3.5 h-3.5" />
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                                The minimum % markup above BrickLink's average price every item receives. Avg price = midpoint of avg listed and avg sold. Scarcity bonuses stack on top of this.
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+                          <div className="px-4 divide-y divide-gray-700/30">
+                            <div className="flex items-center justify-between py-3">
+                              <div className="flex items-center gap-1.5">
+                                <Label className="text-sm text-gray-200">Parts Premium</Label>
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                      <Info className="w-3.5 h-3.5" />
+                                    </button>
+                                  </PopoverTrigger>
+                                  <PopoverContent side="bottom" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
+                                    Applied to all standard parts. Suggested = avg_price × (1 + base% + scarcity%). Being too high pushes above market; too low leaves margin on the table.
+                                  </PopoverContent>
+                                </Popover>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Input type="number" min={0} max={100} value={pomBasePremium} onChange={(e) => setPomBasePremium(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomBasePremium })} className="text-sm w-20 text-right" data-testid="input-pom-base-premium" />
+                                <span className="text-xs text-gray-400 w-5">%</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between py-3">
+                              <div className="flex items-center gap-1.5">
+                                <Label className="text-sm text-gray-200">Minifigure Premium</Label>
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                      <Info className="w-3.5 h-3.5" />
+                                    </button>
+                                  </PopoverTrigger>
+                                  <PopoverContent side="bottom" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
+                                    Minifigures use a separate premium because they already command elevated prices relative to cost. Setting this too high on high-value figs risks losing buyers to competitors.
+                                  </PopoverContent>
+                                </Popover>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Input type="number" min={0} max={100} value={pomMinifigPremium} onChange={(e) => setPomMinifigPremium(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomMinifigPremium })} className="text-sm w-20 text-right" data-testid="input-pom-minifig-premium" />
+                                <span className="text-xs text-gray-400 w-5">%</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Scarcity Bonuses */}
+                        <div className="rounded-md border border-gray-700/60 overflow-hidden">
+                          <div className="bg-gray-800/50 px-4 py-2.5 flex items-center gap-1.5 border-b border-gray-700/40">
+                            <h4 className="text-xs font-semibold text-gray-200 uppercase tracking-wider">Scarcity Bonuses</h4>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                  <Info className="w-3.5 h-3.5" />
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                                When fewer sellers list a part on BrickLink, you can charge more. Each tier adds a bonus % on top of your base premium. Items above the highest threshold get base premium only — no bonus.
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+                          <div className="px-4">
+                            <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-2 border-b border-gray-700/40">
+                              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Supply Level</span>
+                              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider text-right">Under</span>
+                              <span className="w-6"></span>
+                              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider text-right">Bonus</span>
+                              <span className="w-4"></span>
+                            </div>
+                            <div className="divide-y divide-gray-700/30">
+                              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-3">
+                                <span className="text-sm font-medium text-orange-300">Very Low</span>
+                                <Input type="number" min={1} value={pomScarcityThreshold1} onChange={(e) => setPomScarcityThreshold1(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityThreshold1 })} className="text-sm w-20 text-right" data-testid="input-pom-threshold1" />
+                                <span className="text-xs text-gray-300">lots</span>
+                                <Input type="number" min={0} max={200} value={pomScarcityBonus1} onChange={(e) => setPomScarcityBonus1(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityBonus1 })} className="text-sm w-20 text-right" data-testid="input-pom-bonus1" />
+                                <span className="text-xs text-gray-400">%</span>
+                              </div>
+                              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-3">
+                                <span className="text-sm font-medium text-yellow-300">Low</span>
+                                <Input type="number" min={1} value={pomScarcityThreshold2} onChange={(e) => setPomScarcityThreshold2(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityThreshold2 })} className="text-sm w-20 text-right" data-testid="input-pom-threshold2" />
+                                <span className="text-xs text-gray-300">lots</span>
+                                <Input type="number" min={0} max={200} value={pomScarcityBonus2} onChange={(e) => setPomScarcityBonus2(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityBonus2 })} className="text-sm w-20 text-right" data-testid="input-pom-bonus2" />
+                                <span className="text-xs text-gray-400">%</span>
+                              </div>
+                              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-3">
+                                <span className="text-sm font-medium text-blue-300">Medium</span>
+                                <Input type="number" min={1} value={pomScarcityThreshold3} onChange={(e) => setPomScarcityThreshold3(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityThreshold3 })} className="text-sm w-20 text-right" data-testid="input-pom-threshold3" />
+                                <span className="text-xs text-gray-300">lots</span>
+                                <Input type="number" min={0} max={200} value={pomScarcityBonus3} onChange={(e) => setPomScarcityBonus3(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityBonus3 })} className="text-sm w-20 text-right" data-testid="input-pom-bonus3" />
+                                <span className="text-xs text-gray-400">%</span>
+                              </div>
+                              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-3">
+                                <span className="text-sm font-medium text-gray-300">High</span>
+                                <span className="text-sm text-gray-400 text-right">{pomScarcityThreshold3}+</span>
+                                <span className="text-xs text-gray-400">lots</span>
+                                <span className="text-sm text-gray-400 w-20 text-right">—</span>
+                                <span className="text-xs text-gray-400">%</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Formula Preview */}
+                        <div className="bg-gray-900/60 rounded-md border border-gray-700/40 px-4 py-3">
+                          <div className="flex items-center gap-1.5 mb-2.5">
+                            <h4 className="text-[10px] font-semibold text-gray-300 uppercase tracking-wider">Formula Preview</h4>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                  <Info className="w-3 h-3" />
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                                Shows the suggested price for a $0.10 part at each supply level using your current settings. Adjust the premiums and bonuses above to see results update instantly.
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+                          <div className="space-y-1.5 font-mono text-xs">
+                            {[
+                              { label: 'Very Low (30 lots)', color: 'text-orange-300', premium: pomBasePremium + pomScarcityBonus1 },
+                              { label: 'Low (100 lots)', color: 'text-yellow-300', premium: pomBasePremium + pomScarcityBonus2 },
+                              { label: 'Medium (350 lots)', color: 'text-blue-300', premium: pomBasePremium + pomScarcityBonus3 },
+                              { label: 'High (600 lots)', color: 'text-gray-500', premium: pomBasePremium },
+                            ].map(({ label, color, premium }) => (
+                              <div key={label} className="flex items-center justify-between">
+                                <span className={color}>{label}</span>
+                                <span className="text-green-400 font-semibold">${(0.10 * (1 + premium / 100)).toFixed(3)}</span>
+                              </div>
+                            ))}
+                            <div className="border-t border-gray-700/50 pt-1.5 mt-0.5">
+                              <span className="text-gray-400">Base input: $0.10 avg price</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Price Floors */}
+                        <div className="rounded-md border border-gray-700/60 overflow-hidden">
+                          <div className="bg-gray-800/50 px-4 py-2.5 flex items-center gap-1.5 border-b border-gray-700/40">
+                            <h4 className="text-xs font-semibold text-gray-200 uppercase tracking-wider">Price Floors</h4>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                  <Info className="w-3.5 h-3.5" />
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                                Safety net applied after the market formula. Final price = max(market_price, cost_floor, min_price). Cost floor only applies to items with a recorded cost (my_cost).
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+                          <div className="px-4 divide-y divide-gray-700/30">
+                            <div className="flex items-center justify-between py-3">
+                              <div className="flex items-center gap-1.5">
+                                <Label className="text-sm text-gray-200">Cost Floor</Label>
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                      <Info className="w-3.5 h-3.5" />
+                                    </button>
+                                  </PopoverTrigger>
+                                  <PopoverContent side="bottom" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
+                                    Minimum margin above your recorded cost (my_cost). At 25%, the suggested price never goes below cost × 1.25. Set to 0 to disable.
+                                  </PopoverContent>
+                                </Popover>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Input type="number" min="0" max="200" value={pomCostFloorPct} onChange={(e) => setPomCostFloorPct(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomCostFloorPct })} className="text-sm w-20 text-right" data-testid="input-pom-cost-floor" />
+                                <span className="text-xs text-gray-400 w-16">% above cost</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between py-3">
+                              <div className="flex items-center gap-1.5">
+                                <Label className="text-sm text-gray-200">Minimum Price</Label>
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                      <Info className="w-3.5 h-3.5" />
+                                    </button>
+                                  </PopoverTrigger>
+                                  <PopoverContent side="bottom" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
+                                    No item will be suggested below this price regardless of market data or cost. Useful for covering platform fees on micro-priced parts. Default $0.02.
+                                  </PopoverContent>
+                                </Popover>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm text-gray-400">$</span>
+                                <Input type="number" min="0" step="0.01" value={pomMinPrice} onChange={(e) => setPomMinPrice(parseFloat(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomMinPrice: pomMinPrice.toString() })} className="text-sm w-20 text-right" data-testid="input-pom-min-price" />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Market Dynamics */}
+                        <div className="rounded-md border border-gray-700/60 overflow-hidden">
+                          <div className="bg-gray-800/50 px-4 py-2.5 flex items-center justify-between border-b border-gray-700/40">
+                            <div className="flex items-center gap-1.5">
+                              <h4 className="text-xs font-semibold text-gray-200 uppercase tracking-wider">Market Dynamics</h4>
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                    <Info className="w-3.5 h-3.5" />
+                                  </button>
+                                </PopoverTrigger>
+                                <PopoverContent side="bottom" className="w-80 text-xs bg-gray-900 border-gray-700 p-3 space-y-1.5">
+                                  <p>Adjusts suggested prices using live BrickLink market data — no local order history involved.</p>
+                                  <p><span className="text-blue-300 font-medium">Demand signal:</span> total pieces sold globally on BrickLink (from the sold price guide). High sales volume relative to your demand threshold boosts the price.</p>
+                                  <p><span className="text-orange-300 font-medium">Supply signal:</span> total pieces currently listed for sale globally. High availability relative to your supply threshold lowers the price.</p>
+                                  <p>The two signals are weighted and combined: <span className="font-mono text-gray-300">adj = maxAdj × (demandRatio × demandWeight% − supplyRatio × supplyWeight%)</span></p>
+                                </PopoverContent>
+                              </Popover>
+                            </div>
+                            <Switch
+                              checked={pomTrendingEnabled}
+                              onCheckedChange={(v) => { setPomTrendingEnabled(v); updateSettingsMutation.mutate({ pomTrendingEnabled: v }); }}
+                              data-testid="switch-pom-trending"
+                            />
+                          </div>
+                          <div className={`px-4 divide-y divide-gray-700/30 ${!pomTrendingEnabled ? 'opacity-40 pointer-events-none' : ''}`}>
+                            <div className="flex items-center justify-between py-3">
+                              <div className="flex items-center gap-1.5">
+                                <Label className="text-sm text-gray-300">Max adjustment</Label>
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                      <Info className="w-3.5 h-3.5" />
+                                    </button>
+                                  </PopoverTrigger>
+                                  <PopoverContent side="bottom" className="w-60 text-xs bg-gray-900 border-gray-700 p-3">
+                                    The maximum percentage the market dynamics formula can move a price — either up (high demand) or down (high supply). Demand and supply weights further scale within this cap.
+                                  </PopoverContent>
+                                </Popover>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Input type="number" min={1} max={50} value={pomTrendingDays} onChange={(e) => setPomTrendingDays(parseInt(e.target.value) || 15)} onBlur={() => updateSettingsMutation.mutate({ pomTrendingDays })} className="text-sm w-20 text-right" data-testid="input-pom-market-max-adj" disabled={!pomTrendingEnabled} />
+                                <span className="text-xs text-gray-400 w-8">%</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between py-3">
+                              <div className="flex items-center gap-1.5">
+                                <Label className="text-sm text-blue-300">Demand threshold</Label>
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                      <Info className="w-3.5 h-3.5" />
+                                    </button>
+                                  </PopoverTrigger>
+                                  <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                                    Total pieces sold globally on BrickLink that represents "fully demanded." An item at or above this level gets the full demand bonus. Below it, the bonus is proportionally reduced.
+                                  </PopoverContent>
+                                </Popover>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Input type="number" min={1} step={100} value={pomTrendingThreshold} onChange={(e) => setPomTrendingThreshold(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomTrendingThreshold })} className="text-sm w-24 text-right" data-testid="input-pom-trending-threshold" disabled={!pomTrendingEnabled} />
+                                <span className="text-xs text-gray-400 w-14">units sold</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between py-3">
+                              <div className="flex items-center gap-1.5">
+                                <Label className="text-sm text-blue-300">Demand weight</Label>
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                      <Info className="w-3.5 h-3.5" />
+                                    </button>
+                                  </PopoverTrigger>
+                                  <PopoverContent side="bottom" className="w-60 text-xs bg-gray-900 border-gray-700 p-3">
+                                    How much of the max adjustment the demand signal can contribute. At 60 with max 15%, a fully-demanded item adds up to 9% (15 × 0.6).
+                                  </PopoverContent>
+                                </Popover>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Input type="number" min={0} max={100} value={pomTrendingBonus} onChange={(e) => setPomTrendingBonus(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomTrendingBonus })} className="text-sm w-20 text-right" data-testid="input-pom-trending-bonus" disabled={!pomTrendingEnabled} />
+                                <span className="text-xs text-gray-400 w-8">%</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between py-3">
+                              <div className="flex items-center gap-1.5">
+                                <Label className="text-sm text-orange-300">Supply threshold</Label>
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                      <Info className="w-3.5 h-3.5" />
+                                    </button>
+                                  </PopoverTrigger>
+                                  <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                                    Total pieces currently listed for sale on BrickLink globally that represents "fully supplied." Common commodity parts often have 50,000+ pieces globally — set this to match your market context.
+                                  </PopoverContent>
+                                </Popover>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Input type="number" min={100} step={1000} value={pomHighSupplyThreshold} onChange={(e) => setPomHighSupplyThreshold(parseInt(e.target.value) || 100)} onBlur={() => updateSettingsMutation.mutate({ pomHighSupplyThreshold })} className="text-sm w-24 text-right" data-testid="input-pom-high-supply-threshold" disabled={!pomTrendingEnabled} />
+                                <span className="text-xs text-gray-400 w-12">pieces</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between py-3">
+                              <div className="flex items-center gap-1.5">
+                                <Label className="text-sm text-orange-300">Supply weight</Label>
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                      <Info className="w-3.5 h-3.5" />
+                                    </button>
+                                  </PopoverTrigger>
+                                  <PopoverContent side="bottom" className="w-60 text-xs bg-gray-900 border-gray-700 p-3">
+                                    How much of the max adjustment the supply signal can subtract. At 40 with max 15%, a fully-supplied item removes up to 6% (15 × 0.4).
+                                  </PopoverContent>
+                                </Popover>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Input type="number" min={0} max={100} value={pomHighSupplyPenalty} onChange={(e) => setPomHighSupplyPenalty(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomHighSupplyPenalty })} className="text-sm w-20 text-right" data-testid="input-pom-high-supply-penalty" disabled={!pomTrendingEnabled} />
+                                <span className="text-xs text-gray-400 w-8">%</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Flag Thresholds */}
+                        <div className="rounded-md border border-gray-700/60 overflow-hidden">
+                          <div className="bg-gray-800/50 px-4 py-2.5 flex items-center gap-1.5 border-b border-gray-700/40">
+                            <h4 className="text-xs font-semibold text-gray-200 uppercase tracking-wider">Flag Thresholds</h4>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                  <Info className="w-3.5 h-3.5" />
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                                Controls which items appear in the Price-o-Matic dashboard as needing attention. Items outside these bands are flagged — not automatically repriced. You decide whether to act on each flag.
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+                          <div className="px-4 divide-y divide-gray-700/30">
+                            <div className="flex items-center justify-between py-3">
+                              <div className="flex items-center gap-1.5">
+                                <Label className="text-sm text-red-300">Too High Flag</Label>
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                      <Info className="w-3.5 h-3.5" />
+                                    </button>
+                                  </PopoverTrigger>
+                                  <PopoverContent side="bottom" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
+                                    Items priced this far above the suggested price appear in the "Too High" tab. Buyers will likely find cheaper options elsewhere, reducing your sell-through rate.
+                                  </PopoverContent>
+                                </Popover>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-gray-300">more than</span>
+                                <Input type="number" min={1} max={200} value={pomTooHighThreshold} onChange={(e) => setPomTooHighThreshold(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomTooHighThreshold })} className="text-sm w-20 text-right" data-testid="input-pom-too-high" />
+                                <span className="text-xs text-gray-400 w-14">% above</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between py-3">
+                              <div className="flex items-center gap-1.5">
+                                <Label className="text-sm text-yellow-300">Too Low Flag</Label>
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                      <Info className="w-3.5 h-3.5" />
+                                    </button>
+                                  </PopoverTrigger>
+                                  <PopoverContent side="bottom" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
+                                    Items priced this far below the suggested price appear in the "Too Low" tab. You're leaving margin on the table — buyers didn't need that discount.
+                                  </PopoverContent>
+                                </Popover>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-gray-300">more than</span>
+                                <Input type="number" min={1} max={200} value={pomTooLowThreshold} onChange={(e) => setPomTooLowThreshold(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomTooLowThreshold })} className="text-sm w-20 text-right" data-testid="input-pom-too-low" />
+                                <span className="text-xs text-gray-400 w-14">% below</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Scoring collapsible */}
+                  <div>
+                    <button
+                      onClick={() => setPomScoringOpen(!pomScoringOpen)}
+                      className="w-full flex items-center justify-between gap-2 py-2 mb-3 border-b border-gray-600/60 hover:border-gray-500/60 transition-colors group"
+                      data-testid="button-pom-scoring-toggle"
+                    >
+                      <span className="text-sm font-semibold text-gray-200 uppercase tracking-wider">Scoring</span>
+                      {pomScoringOpen ? <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" /> : <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" />}
+                    </button>
+                    {pomScoringOpen && (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Layers className="h-4 w-4 text-gray-400" />
+                          <p className="text-xs text-gray-400">Assign categories to refresh tiers. T1 = daily, T2 = 3 days, T3 = weekly, T4 = monthly.</p>
+                        </div>
+                        <PomCategoryTiers />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Clear Cache */}
+                  <div className="bg-red-500/5 border border-red-500/20 rounded-md px-4 py-3">
+                    <div className="flex items-center justify-between gap-4 flex-wrap">
+                      <div className="flex items-center gap-1.5">
+                        <Label className="text-sm font-medium text-red-300">Clear Price Guide Cache</Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                              <Info className="w-3.5 h-3.5" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                            Deletes all stored price guide data and resets sync history. Use when starting fresh with new formula settings. The next sync rebuilds from scratch. No inventory data is affected.
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                      <Button variant="outline" size="sm" onClick={() => setShowClearPomDialog(true)} className="border-red-500/40 text-red-400 hover:text-red-300 shrink-0" data-testid="button-clear-pom-cache">
+                        <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                        Clear Cache
+                      </Button>
+                    </div>
+                  </div>
+
+                  <AlertDialog open={showClearPomDialog} onOpenChange={setShowClearPomDialog}>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Clear Price Guide Cache?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will permanently delete all stored Price-o-Matic price guide data and reset the sync history. The next sync run will start fresh and rebuild from scratch using your current formula settings.
+                          <br /><br />
+                          This cannot be undone, but no inventory data is affected — only the pricing cache.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => clearPomCacheMutation.mutate()}
+                          className="bg-red-600 hover:bg-red-700"
+                          data-testid="button-confirm-clear-pom"
+                        >
+                          {clearPomCacheMutation.isPending ? "Clearing..." : "Yes, Clear Cache"}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+
+                  <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
+                    <p className="text-xs text-blue-300">
+                      <strong>How it works:</strong> Price-o-Matic pulls avg listed price, avg sold price, and lot count from BrickLink for each item, then applies your formula above to compute a suggested price. Items more than {pomTooHighThreshold}% above or {pomTooLowThreshold}% below that suggested price are flagged in the dashboard.
+                    </p>
+                  </div>
+
+                </div>
+
               </div>
             )}
 
@@ -2617,6 +3227,363 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                 <Separator className="bg-gray-700" />
 
+                {/* Semantic Search & Embeddings */}
+                <div>
+                  <h3 className="text-sm font-medium text-gray-300 mb-3">Semantic Search & Embeddings</h3>
+                  <EmbeddingsManager />
+                </div>
+              </div>
+              </div>
+            )}
+
+            {/* Automation & Scheduling */}
+            {activeSection === 'automation' && (
+              <div className="space-y-4 min-h-[400px]">
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+                      <h3 className="text-sm font-medium text-gray-300">Automation & Scheduling</h3>
+                      {rateLimit && (
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-xs font-medium transition-colors hover:opacity-80 ${
+                              rateLimit.blocked
+                                ? 'bg-red-500/10 border-red-500/30 text-red-400'
+                                : rateLimit.warning
+                                ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400'
+                                : 'bg-blue-500/10 border-blue-500/30 text-blue-300'
+                            }`}>
+                              <BarChart2 className="w-3 h-3" />
+                              <span>BrickLink API:</span>
+                              <span className="font-mono font-semibold">{rateLimit.callsLast24h.toLocaleString()}</span>
+                              <span className="text-gray-400">/ 5,000</span>
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent side="bottom" align="end" className="w-96 p-3 max-h-[80vh] overflow-y-auto bg-gray-900 border-gray-700">
+                            <ApiCallSchedule
+                              buckets={rateLimit.hourlyBuckets ?? []}
+                              callsLast24h={rateLimit.callsLast24h}
+                              ceiling={5000}
+                              timezone={timezone}
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-400 mb-4">Configure automated syncing and updates</p>
+
+                    {/* Inventory Sync */}
+                    <div className="space-y-3 mb-4">
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <Label className="text-xs font-medium text-gray-300">Inventory Sync (Daily)</Label>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                  <Info className="w-3 h-3" />
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent side="bottom" className="w-72 text-xs bg-gray-900 border-gray-700 p-3 space-y-1.5">
+                                <p className="font-semibold text-gray-200">Inventory Sync</p>
+                                <p className="text-gray-400">Pulls your full BrickLink inventory into the local database. Also syncs BrickLink categories, colors, and Rebrickable part images. Triggers re-embedding of any changed inventory items for AI search.</p>
+                                <p className="text-gray-500">Runs once daily. Safe to trigger manually at any time.</p>
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+                          <p className="text-[10px] md:text-sm text-gray-500 mt-0.5">Sync inventory, colors, categories + embeddings</p>
+                          <SyncStatusLine entry={syncStatuses?.inventory ?? null} />
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            disabled={syncingInventory}
+                            onClick={() => runManualSync('/api/sync/bricklink/inventory', setSyncingInventory, 'Inventory Sync')}
+                            title="Run inventory sync now"
+                            data-testid="button-run-inventory-sync"
+                          >
+                            {syncingInventory ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                          </Button>
+                          <Switch
+                            checked={inventorySyncEnabled}
+                            onCheckedChange={(checked) => {
+                              setInventorySyncEnabled(checked);
+                              updateSettingsMutation.mutate({ inventorySyncEnabled: checked });
+                            }}
+                            data-testid="switch-inventory-sync"
+                          />
+                        </div>
+                      </div>
+                      
+                      {inventorySyncEnabled && (
+                        <div className="ml-4 space-y-2">
+                          <Label htmlFor="inventory-time" className="text-xs text-gray-400">Sync Time</Label>
+                          <Input
+                            id="inventory-time"
+                            type="time"
+                            value={inventorySyncTime}
+                            onChange={(e) => setInventorySyncTime(e.target.value)}
+                            onBlur={() => updateSettingsMutation.mutate({ inventorySyncTime })}
+                            className="text-xs w-32"
+                            data-testid="input-inventory-time"
+                          />
+                          <p className="text-[10px] md:text-sm text-gray-500">Time in your local timezone</p>
+                        </div>
+                      )}
+
+                      {/* BrickLink Store Info */}
+                      <div className="mt-3 bg-gray-800/60 border border-purple-500/20 rounded-lg p-3 space-y-2">
+                        <p className="text-xs font-semibold text-purple-300">BrickLink Store</p>
+                        {platformSyncLoading ? (
+                          <div className="flex gap-4">
+                            <span className="inline-block bg-gray-700 h-3 w-20 rounded animate-pulse" />
+                            <span className="inline-block bg-gray-700 h-3 w-20 rounded animate-pulse" />
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-3 gap-2">
+                            <div>
+                              <p className="text-[10px] text-gray-500">Lots</p>
+                              <p className="text-xs font-bold text-white font-mono">{platformSyncData?.source.stats.totalLots?.toLocaleString() ?? '—'}</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-gray-500">Parts</p>
+                              <p className="text-xs font-bold text-white font-mono">{platformSyncData?.source.stats.totalParts?.toLocaleString() ?? '—'}</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-gray-500">Last Synced</p>
+                              <p className="text-[10px] text-gray-400">{platformSyncData?.source.stats.lastSyncedAt ? new Date(platformSyncData.source.stats.lastSyncedAt).toLocaleString() : 'Never'}</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <Separator className="bg-gray-700" />
+
+                    {/* Orders Sync */}
+                    <div className="space-y-3 mt-4">
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <Label className="text-xs font-medium text-gray-300">Orders Sync</Label>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                  <Info className="w-3 h-3" />
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent side="bottom" className="w-72 text-xs bg-gray-900 border-gray-700 p-3 space-y-1.5">
+                                <p className="font-semibold text-gray-200">Orders Sync</p>
+                                <p className="text-gray-400">Pulls new and updated orders from BrickLink and BrickOwl into the local database. Also syncs order line items, generates AI embeddings for semantic search, and matches Stripe and PayPal refunds and merchant fees to orders.</p>
+                                <p className="text-gray-400">After each order is processed, sold quantities are deducted from local inventory — keeping all channel inventory counts in sync automatically.</p>
+                                <p className="text-gray-500">Runs on a short interval (e.g. every 15–30 min) to keep order data fresh throughout the day.</p>
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+                          <p className="text-[10px] md:text-sm text-gray-500 mt-0.5">Sync orders, details, embeddings + refunds/fees periodically</p>
+                          <SyncStatusLine entry={syncStatuses?.orders ?? null} />
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            disabled={syncingOrders}
+                            onClick={() => runManualSync('/api/sync/all-platforms/orders', setSyncingOrders, 'Orders Sync', { limit: 50, fullSync: false })}
+                            title="Run orders sync now"
+                            data-testid="button-run-orders-sync"
+                          >
+                            {syncingOrders ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                          </Button>
+                          <Switch
+                            checked={ordersSyncEnabled}
+                            onCheckedChange={(checked) => {
+                              setOrdersSyncEnabled(checked);
+                              updateSettingsMutation.mutate({ ordersSyncEnabled: checked });
+                            }}
+                            data-testid="switch-orders-sync"
+                          />
+                        </div>
+                      </div>
+
+                      {ordersSyncEnabled && (
+                        <div className="ml-4 space-y-2">
+                          <Label htmlFor="orders-frequency" className="text-xs text-gray-400">Sync Frequency (minutes)</Label>
+                          <Input
+                            id="orders-frequency"
+                            type="number"
+                            min="5"
+                            max="120"
+                            value={ordersSyncFrequencyStr}
+                            onChange={(e) => setOrdersSyncFrequencyStr(e.target.value)}
+                            onBlur={() => {
+                              const parsed = parseInt(ordersSyncFrequencyStr);
+                              const clamped = isNaN(parsed) ? 15 : Math.max(5, Math.min(120, parsed));
+                              setOrdersSyncFrequency(clamped);
+                              setOrdersSyncFrequencyStr(String(clamped));
+                              updateSettingsMutation.mutate({ ordersSyncFrequency: clamped });
+                            }}
+                            className="text-xs w-24"
+                            data-testid="input-orders-frequency"
+                          />
+                          <p className="text-[10px] md:text-sm text-gray-500">Recommended: 15 minutes</p>
+                        </div>
+                      )}
+                    </div>
+
+                    <Separator className="bg-gray-700" />
+
+                    {/* Channel Sync (Local DB → BrickOwl / other platforms) */}
+                    <div className="space-y-3 my-4">
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <Label className="text-xs font-medium text-gray-300">Channel Sync (Daily)</Label>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                  <Info className="w-3 h-3" />
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent side="bottom" className="w-72 text-xs bg-gray-900 border-gray-700 p-3 space-y-1.5">
+                                <p className="font-semibold text-gray-200">Channel Sync</p>
+                                <p className="text-gray-400">Pushes your local database inventory outward to BrickOwl and any other sales channels. Compares local quantities and prices against each platform and updates only what has changed.</p>
+                                <p className="text-gray-500">Should run after Inventory Sync has completed. Schedule it at least 1 hour later to ensure inbound data has settled.</p>
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+                          <p className="text-[10px] md:text-sm text-gray-500 mt-0.5">Push Local DB → BrickOwl after inbound + order syncs settle</p>
+                          <SyncStatusLine entry={syncStatuses?.channel ?? null} />
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            disabled={syncingChannel}
+                            onClick={() => runManualSync('/api/sync/channel', setSyncingChannel, 'Channel Sync')}
+                            title="Run channel sync now"
+                            data-testid="button-run-channel-sync"
+                          >
+                            {syncingChannel ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                          </Button>
+                          <Switch
+                            checked={channelSyncEnabled}
+                            onCheckedChange={(checked) => {
+                              setChannelSyncEnabled(checked);
+                              updateSettingsMutation.mutate({ channelSyncEnabled: checked });
+                            }}
+                            data-testid="switch-channel-sync"
+                          />
+                        </div>
+                      </div>
+
+                      {channelSyncEnabled && (
+                        <div className="ml-4 space-y-2">
+                          <Label htmlFor="channel-sync-time" className="text-xs text-gray-400">Sync Time</Label>
+                          <Input
+                            id="channel-sync-time"
+                            type="time"
+                            value={channelSyncTime}
+                            onChange={(e) => setChannelSyncTime(e.target.value)}
+                            onBlur={() => updateSettingsMutation.mutate({ channelSyncTime })}
+                            className="text-xs w-32"
+                            data-testid="input-channel-sync-time"
+                          />
+                          <p className="text-[10px] md:text-sm text-gray-500">Run at least 1 hour after Inventory Sync</p>
+                        </div>
+                      )}
+
+                      {/* Channel Names — collapsible */}
+                      <div className="mt-3">
+                        <button
+                          onClick={() => setChannelDetailsExpanded(!channelDetailsExpanded)}
+                          className="w-full flex items-center justify-between gap-2 py-1.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider hover:text-gray-300 transition-colors"
+                          data-testid="button-channel-details-toggle"
+                        >
+                          <span>Channels</span>
+                          {channelDetailsExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                        </button>
+                        {channelDetailsExpanded && (
+                          <div className="bg-gray-800/60 border border-blue-500/20 rounded-lg p-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <p className="text-xs font-semibold text-blue-300">BrickOwl Store</p>
+                              {brickOwlTarget?.enabled && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  disabled={channelSyncMutation.isPending}
+                                  onClick={() => channelSyncMutation.mutate()}
+                                  className="text-xs h-6 px-2 text-blue-400"
+                                  data-testid="button-channel-sync-bo"
+                                >
+                                  {channelSyncMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3 mr-1" />}
+                                  Sync
+                                </Button>
+                              )}
+                            </div>
+                            {platformSyncLoading ? (
+                              <div className="flex gap-4">
+                                <span className="inline-block bg-gray-700 h-3 w-20 rounded animate-pulse" />
+                                <span className="inline-block bg-gray-700 h-3 w-20 rounded animate-pulse" />
+                              </div>
+                            ) : !brickOwlTarget?.enabled ? (
+                              <p className="text-[10px] text-gray-500">Not configured — add BrickOwl API key in Platform Connections</p>
+                            ) : (
+                              <div className="space-y-2">
+                                <div className="grid grid-cols-3 gap-2">
+                                  <div>
+                                    <p className="text-[10px] text-gray-500">Lots</p>
+                                    <p className="text-xs font-bold text-white font-mono">{brickOwlTarget.stats.totalLots?.toLocaleString() ?? '—'}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-[10px] text-gray-500">Parts</p>
+                                    <p className="text-xs font-bold text-white font-mono">{brickOwlTarget.stats.totalParts?.toLocaleString() ?? '—'}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-[10px] text-gray-500">Last Synced</p>
+                                    <p className="text-[10px] text-gray-400">{brickOwlTarget.stats.lastSyncedAt ? new Date(brickOwlTarget.stats.lastSyncedAt).toLocaleString() : 'Never'}</p>
+                                  </div>
+                                </div>
+                                {(brickOwlTarget.discrepancies.missingLots > 0 || brickOwlTarget.discrepancies.priceDifferences > 0 || brickOwlTarget.discrepancies.quantityDifferences > 0) && (
+                                  <div className="bg-orange-500/10 border border-orange-500/20 rounded p-2">
+                                    <div className="flex items-center gap-1 mb-1">
+                                      <AlertTriangle className="w-3 h-3 text-orange-400" />
+                                      <p className="text-[10px] font-semibold text-orange-400">Discrepancies</p>
+                                    </div>
+                                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-gray-300">
+                                      {brickOwlTarget.discrepancies.missingLots > 0 && <span><span className="text-orange-400 font-bold">{brickOwlTarget.discrepancies.missingLots}</span> missing lots</span>}
+                                      {brickOwlTarget.discrepancies.priceDifferences > 0 && <span><span className="text-orange-400 font-bold">{brickOwlTarget.discrepancies.priceDifferences}</span> price diffs</span>}
+                                      {brickOwlTarget.discrepancies.quantityDifferences > 0 && <span><span className="text-orange-400 font-bold">{brickOwlTarget.discrepancies.quantityDifferences}</span> qty diffs</span>}
+                                      {brickOwlTarget.discrepancies.remarksDifferences > 0 && <span><span className="text-orange-400 font-bold">{brickOwlTarget.discrepancies.remarksDifferences}</span> remarks diffs</span>}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3 mt-4">
+                      <p className="text-xs text-purple-300">
+                        <strong>Note:</strong> All automation respects BrickLink's 5,000 API calls/day limit. Syncs will automatically pause when approaching the limit.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+
+            {activeSection === 'enrichment' && (
+              <div className="space-y-4 min-h-[400px]">
+
+                {/* Enrichment Overview */}
+                <EnrichmentSummary />
+
+                <Separator className="bg-gray-700" />
+
                 {/* Price-o-Matic */}
                 <div>
                   <h3 className="text-sm font-medium text-gray-300 mb-3">Price-o-Matic</h3>
@@ -3223,363 +4190,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     </p>
                   </div>
 
-                </div>
-              </div>
-              </div>
-            )}
-
-            {/* Automation & Scheduling */}
-            {activeSection === 'automation' && (
-              <div className="space-y-4 min-h-[400px]">
-                <div className="space-y-4">
-                  <div>
-                    <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
-                      <h3 className="text-sm font-medium text-gray-300">Automation & Scheduling</h3>
-                      {rateLimit && (
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <button className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-xs font-medium transition-colors hover:opacity-80 ${
-                              rateLimit.blocked
-                                ? 'bg-red-500/10 border-red-500/30 text-red-400'
-                                : rateLimit.warning
-                                ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400'
-                                : 'bg-blue-500/10 border-blue-500/30 text-blue-300'
-                            }`}>
-                              <BarChart2 className="w-3 h-3" />
-                              <span>BrickLink API:</span>
-                              <span className="font-mono font-semibold">{rateLimit.callsLast24h.toLocaleString()}</span>
-                              <span className="text-gray-400">/ 5,000</span>
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent side="bottom" align="end" className="w-96 p-3 max-h-[80vh] overflow-y-auto bg-gray-900 border-gray-700">
-                            <ApiCallSchedule
-                              buckets={rateLimit.hourlyBuckets ?? []}
-                              callsLast24h={rateLimit.callsLast24h}
-                              ceiling={5000}
-                              timezone={timezone}
-                            />
-                          </PopoverContent>
-                        </Popover>
-                      )}
-                    </div>
-                    <p className="text-xs text-gray-400 mb-4">Configure automated syncing and updates</p>
-
-                    {/* Inventory Sync */}
-                    <div className="space-y-3 mb-4">
-                      <div className="flex items-center justify-between gap-2">
-                        <div>
-                          <div className="flex items-center gap-1.5">
-                            <Label className="text-xs font-medium text-gray-300">Inventory Sync (Daily)</Label>
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
-                                  <Info className="w-3 h-3" />
-                                </button>
-                              </PopoverTrigger>
-                              <PopoverContent side="bottom" className="w-72 text-xs bg-gray-900 border-gray-700 p-3 space-y-1.5">
-                                <p className="font-semibold text-gray-200">Inventory Sync</p>
-                                <p className="text-gray-400">Pulls your full BrickLink inventory into the local database. Also syncs BrickLink categories, colors, and Rebrickable part images. Triggers re-embedding of any changed inventory items for AI search.</p>
-                                <p className="text-gray-500">Runs once daily. Safe to trigger manually at any time.</p>
-                              </PopoverContent>
-                            </Popover>
-                          </div>
-                          <p className="text-[10px] md:text-sm text-gray-500 mt-0.5">Sync inventory, colors, categories + embeddings</p>
-                          <SyncStatusLine entry={syncStatuses?.inventory ?? null} />
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            disabled={syncingInventory}
-                            onClick={() => runManualSync('/api/sync/bricklink/inventory', setSyncingInventory, 'Inventory Sync')}
-                            title="Run inventory sync now"
-                            data-testid="button-run-inventory-sync"
-                          >
-                            {syncingInventory ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-                          </Button>
-                          <Switch
-                            checked={inventorySyncEnabled}
-                            onCheckedChange={(checked) => {
-                              setInventorySyncEnabled(checked);
-                              updateSettingsMutation.mutate({ inventorySyncEnabled: checked });
-                            }}
-                            data-testid="switch-inventory-sync"
-                          />
-                        </div>
-                      </div>
-                      
-                      {inventorySyncEnabled && (
-                        <div className="ml-4 space-y-2">
-                          <Label htmlFor="inventory-time" className="text-xs text-gray-400">Sync Time</Label>
-                          <Input
-                            id="inventory-time"
-                            type="time"
-                            value={inventorySyncTime}
-                            onChange={(e) => setInventorySyncTime(e.target.value)}
-                            onBlur={() => updateSettingsMutation.mutate({ inventorySyncTime })}
-                            className="text-xs w-32"
-                            data-testid="input-inventory-time"
-                          />
-                          <p className="text-[10px] md:text-sm text-gray-500">Time in your local timezone</p>
-                        </div>
-                      )}
-
-                      {/* BrickLink Store Info */}
-                      <div className="mt-3 bg-gray-800/60 border border-purple-500/20 rounded-lg p-3 space-y-2">
-                        <p className="text-xs font-semibold text-purple-300">BrickLink Store</p>
-                        {platformSyncLoading ? (
-                          <div className="flex gap-4">
-                            <span className="inline-block bg-gray-700 h-3 w-20 rounded animate-pulse" />
-                            <span className="inline-block bg-gray-700 h-3 w-20 rounded animate-pulse" />
-                          </div>
-                        ) : (
-                          <div className="grid grid-cols-3 gap-2">
-                            <div>
-                              <p className="text-[10px] text-gray-500">Lots</p>
-                              <p className="text-xs font-bold text-white font-mono">{platformSyncData?.source.stats.totalLots?.toLocaleString() ?? '—'}</p>
-                            </div>
-                            <div>
-                              <p className="text-[10px] text-gray-500">Parts</p>
-                              <p className="text-xs font-bold text-white font-mono">{platformSyncData?.source.stats.totalParts?.toLocaleString() ?? '—'}</p>
-                            </div>
-                            <div>
-                              <p className="text-[10px] text-gray-500">Last Synced</p>
-                              <p className="text-[10px] text-gray-400">{platformSyncData?.source.stats.lastSyncedAt ? new Date(platformSyncData.source.stats.lastSyncedAt).toLocaleString() : 'Never'}</p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <Separator className="bg-gray-700" />
-
-                    {/* Orders Sync */}
-                    <div className="space-y-3 mt-4">
-                      <div className="flex items-center justify-between gap-2">
-                        <div>
-                          <div className="flex items-center gap-1.5">
-                            <Label className="text-xs font-medium text-gray-300">Orders Sync</Label>
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
-                                  <Info className="w-3 h-3" />
-                                </button>
-                              </PopoverTrigger>
-                              <PopoverContent side="bottom" className="w-72 text-xs bg-gray-900 border-gray-700 p-3 space-y-1.5">
-                                <p className="font-semibold text-gray-200">Orders Sync</p>
-                                <p className="text-gray-400">Pulls new and updated orders from BrickLink and BrickOwl into the local database. Also syncs order line items, generates AI embeddings for semantic search, and matches Stripe and PayPal refunds and merchant fees to orders.</p>
-                                <p className="text-gray-400">After each order is processed, sold quantities are deducted from local inventory — keeping all channel inventory counts in sync automatically.</p>
-                                <p className="text-gray-500">Runs on a short interval (e.g. every 15–30 min) to keep order data fresh throughout the day.</p>
-                              </PopoverContent>
-                            </Popover>
-                          </div>
-                          <p className="text-[10px] md:text-sm text-gray-500 mt-0.5">Sync orders, details, embeddings + refunds/fees periodically</p>
-                          <SyncStatusLine entry={syncStatuses?.orders ?? null} />
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            disabled={syncingOrders}
-                            onClick={() => runManualSync('/api/sync/all-platforms/orders', setSyncingOrders, 'Orders Sync', { limit: 50, fullSync: false })}
-                            title="Run orders sync now"
-                            data-testid="button-run-orders-sync"
-                          >
-                            {syncingOrders ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-                          </Button>
-                          <Switch
-                            checked={ordersSyncEnabled}
-                            onCheckedChange={(checked) => {
-                              setOrdersSyncEnabled(checked);
-                              updateSettingsMutation.mutate({ ordersSyncEnabled: checked });
-                            }}
-                            data-testid="switch-orders-sync"
-                          />
-                        </div>
-                      </div>
-
-                      {ordersSyncEnabled && (
-                        <div className="ml-4 space-y-2">
-                          <Label htmlFor="orders-frequency" className="text-xs text-gray-400">Sync Frequency (minutes)</Label>
-                          <Input
-                            id="orders-frequency"
-                            type="number"
-                            min="5"
-                            max="120"
-                            value={ordersSyncFrequencyStr}
-                            onChange={(e) => setOrdersSyncFrequencyStr(e.target.value)}
-                            onBlur={() => {
-                              const parsed = parseInt(ordersSyncFrequencyStr);
-                              const clamped = isNaN(parsed) ? 15 : Math.max(5, Math.min(120, parsed));
-                              setOrdersSyncFrequency(clamped);
-                              setOrdersSyncFrequencyStr(String(clamped));
-                              updateSettingsMutation.mutate({ ordersSyncFrequency: clamped });
-                            }}
-                            className="text-xs w-24"
-                            data-testid="input-orders-frequency"
-                          />
-                          <p className="text-[10px] md:text-sm text-gray-500">Recommended: 15 minutes</p>
-                        </div>
-                      )}
-                    </div>
-
-                    <Separator className="bg-gray-700" />
-
-                    {/* Channel Sync (Local DB → BrickOwl / other platforms) */}
-                    <div className="space-y-3 my-4">
-                      <div className="flex items-center justify-between gap-2">
-                        <div>
-                          <div className="flex items-center gap-1.5">
-                            <Label className="text-xs font-medium text-gray-300">Channel Sync (Daily)</Label>
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
-                                  <Info className="w-3 h-3" />
-                                </button>
-                              </PopoverTrigger>
-                              <PopoverContent side="bottom" className="w-72 text-xs bg-gray-900 border-gray-700 p-3 space-y-1.5">
-                                <p className="font-semibold text-gray-200">Channel Sync</p>
-                                <p className="text-gray-400">Pushes your local database inventory outward to BrickOwl and any other sales channels. Compares local quantities and prices against each platform and updates only what has changed.</p>
-                                <p className="text-gray-500">Should run after Inventory Sync has completed. Schedule it at least 1 hour later to ensure inbound data has settled.</p>
-                              </PopoverContent>
-                            </Popover>
-                          </div>
-                          <p className="text-[10px] md:text-sm text-gray-500 mt-0.5">Push Local DB → BrickOwl after inbound + order syncs settle</p>
-                          <SyncStatusLine entry={syncStatuses?.channel ?? null} />
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            disabled={syncingChannel}
-                            onClick={() => runManualSync('/api/sync/channel', setSyncingChannel, 'Channel Sync')}
-                            title="Run channel sync now"
-                            data-testid="button-run-channel-sync"
-                          >
-                            {syncingChannel ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-                          </Button>
-                          <Switch
-                            checked={channelSyncEnabled}
-                            onCheckedChange={(checked) => {
-                              setChannelSyncEnabled(checked);
-                              updateSettingsMutation.mutate({ channelSyncEnabled: checked });
-                            }}
-                            data-testid="switch-channel-sync"
-                          />
-                        </div>
-                      </div>
-
-                      {channelSyncEnabled && (
-                        <div className="ml-4 space-y-2">
-                          <Label htmlFor="channel-sync-time" className="text-xs text-gray-400">Sync Time</Label>
-                          <Input
-                            id="channel-sync-time"
-                            type="time"
-                            value={channelSyncTime}
-                            onChange={(e) => setChannelSyncTime(e.target.value)}
-                            onBlur={() => updateSettingsMutation.mutate({ channelSyncTime })}
-                            className="text-xs w-32"
-                            data-testid="input-channel-sync-time"
-                          />
-                          <p className="text-[10px] md:text-sm text-gray-500">Run at least 1 hour after Inventory Sync</p>
-                        </div>
-                      )}
-
-                      {/* Channel Names — collapsible */}
-                      <div className="mt-3">
-                        <button
-                          onClick={() => setChannelDetailsExpanded(!channelDetailsExpanded)}
-                          className="w-full flex items-center justify-between gap-2 py-1.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider hover:text-gray-300 transition-colors"
-                          data-testid="button-channel-details-toggle"
-                        >
-                          <span>Channels</span>
-                          {channelDetailsExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-                        </button>
-                        {channelDetailsExpanded && (
-                          <div className="bg-gray-800/60 border border-blue-500/20 rounded-lg p-3 space-y-2">
-                            <div className="flex items-center justify-between">
-                              <p className="text-xs font-semibold text-blue-300">BrickOwl Store</p>
-                              {brickOwlTarget?.enabled && (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  disabled={channelSyncMutation.isPending}
-                                  onClick={() => channelSyncMutation.mutate()}
-                                  className="text-xs h-6 px-2 text-blue-400"
-                                  data-testid="button-channel-sync-bo"
-                                >
-                                  {channelSyncMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3 mr-1" />}
-                                  Sync
-                                </Button>
-                              )}
-                            </div>
-                            {platformSyncLoading ? (
-                              <div className="flex gap-4">
-                                <span className="inline-block bg-gray-700 h-3 w-20 rounded animate-pulse" />
-                                <span className="inline-block bg-gray-700 h-3 w-20 rounded animate-pulse" />
-                              </div>
-                            ) : !brickOwlTarget?.enabled ? (
-                              <p className="text-[10px] text-gray-500">Not configured — add BrickOwl API key in Platform Connections</p>
-                            ) : (
-                              <div className="space-y-2">
-                                <div className="grid grid-cols-3 gap-2">
-                                  <div>
-                                    <p className="text-[10px] text-gray-500">Lots</p>
-                                    <p className="text-xs font-bold text-white font-mono">{brickOwlTarget.stats.totalLots?.toLocaleString() ?? '—'}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-[10px] text-gray-500">Parts</p>
-                                    <p className="text-xs font-bold text-white font-mono">{brickOwlTarget.stats.totalParts?.toLocaleString() ?? '—'}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-[10px] text-gray-500">Last Synced</p>
-                                    <p className="text-[10px] text-gray-400">{brickOwlTarget.stats.lastSyncedAt ? new Date(brickOwlTarget.stats.lastSyncedAt).toLocaleString() : 'Never'}</p>
-                                  </div>
-                                </div>
-                                {(brickOwlTarget.discrepancies.missingLots > 0 || brickOwlTarget.discrepancies.priceDifferences > 0 || brickOwlTarget.discrepancies.quantityDifferences > 0) && (
-                                  <div className="bg-orange-500/10 border border-orange-500/20 rounded p-2">
-                                    <div className="flex items-center gap-1 mb-1">
-                                      <AlertTriangle className="w-3 h-3 text-orange-400" />
-                                      <p className="text-[10px] font-semibold text-orange-400">Discrepancies</p>
-                                    </div>
-                                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-gray-300">
-                                      {brickOwlTarget.discrepancies.missingLots > 0 && <span><span className="text-orange-400 font-bold">{brickOwlTarget.discrepancies.missingLots}</span> missing lots</span>}
-                                      {brickOwlTarget.discrepancies.priceDifferences > 0 && <span><span className="text-orange-400 font-bold">{brickOwlTarget.discrepancies.priceDifferences}</span> price diffs</span>}
-                                      {brickOwlTarget.discrepancies.quantityDifferences > 0 && <span><span className="text-orange-400 font-bold">{brickOwlTarget.discrepancies.quantityDifferences}</span> qty diffs</span>}
-                                      {brickOwlTarget.discrepancies.remarksDifferences > 0 && <span><span className="text-orange-400 font-bold">{brickOwlTarget.discrepancies.remarksDifferences}</span> remarks diffs</span>}
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3 mt-4">
-                      <p className="text-xs text-purple-300">
-                        <strong>Note:</strong> All automation respects BrickLink's 5,000 API calls/day limit. Syncs will automatically pause when approaching the limit.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-
-            {activeSection === 'enrichment' && (
-              <div className="space-y-4 min-h-[400px]">
-
-                {/* Enrichment Overview */}
-                <EnrichmentSummary />
-
-                <Separator className="bg-gray-700" />
-
-                {/* Semantic Search & Embeddings */}
-                <div>
-                  <h3 className="text-sm font-medium text-gray-300 mb-3">Semantic Search & Embeddings</h3>
-                  <EmbeddingsManager />
                 </div>
 
               </div>
