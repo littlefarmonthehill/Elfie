@@ -2244,7 +2244,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                     </button>
                                   </PopoverTrigger>
                                   <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
-                                    Items with an opportunity score at or above this value are flagged as underpriced in the POM dashboard filter. Score = market peak ÷ your price, so 1.5× means you're 50% below the market peak.
+                                    Items with an opportunity score at or above this value are flagged as underpriced in the POM dashboard filter. Score = market peak ÷ your price, so 1.5× means you're 50% below the market peak. Only items with stock on hand are counted.
                                   </PopoverContent>
                                 </Popover>
                               </div>
@@ -2264,7 +2264,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                     </button>
                                   </PopoverTrigger>
                                   <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
-                                    Items with an opportunity score at or below this value are flagged as overpriced in the POM dashboard filter. Score = market peak ÷ your price, so 0.8× means you're 25% above the market peak.
+                                    Items with an opportunity score at or below this value are flagged as overpriced in the POM dashboard filter. Score = market peak ÷ your price, so 0.8× means you're 25% above the market peak. Only items with stock on hand are counted.
                                   </PopoverContent>
                                 </Popover>
                               </div>
@@ -4173,7 +4173,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                     </button>
                                   </PopoverTrigger>
                                   <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
-                                    Items with an opportunity score at or above this value are flagged as underpriced in the POM dashboard filter. Score = market peak ÷ your price, so 1.5× means you're 50% below the market peak.
+                                    Items with an opportunity score at or above this value are flagged as underpriced in the POM dashboard filter. Score = market peak ÷ your price, so 1.5× means you're 50% below the market peak. Only items with stock on hand are counted.
                                   </PopoverContent>
                                 </Popover>
                               </div>
@@ -4193,7 +4193,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                     </button>
                                   </PopoverTrigger>
                                   <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
-                                    Items with an opportunity score at or below this value are flagged as overpriced in the POM dashboard filter. Score = market peak ÷ your price, so 0.8× means you're 25% above the market peak.
+                                    Items with an opportunity score at or below this value are flagged as overpriced in the POM dashboard filter. Score = market peak ÷ your price, so 0.8× means you're 25% above the market peak. Only items with stock on hand are counted.
                                   </PopoverContent>
                                 </Popover>
                               </div>
