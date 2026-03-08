@@ -1417,7 +1417,10 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = 'o
             imageUrl: item.imageUrl,
             thumbnailUrl: item.thumbnailUrl,
             categoryId: item.categoryId,
-          }
+          },
+          undefined,
+          orgId,
+          true, // forceRefresh — POM already filtered stale items; always fetch live data
         );
 
         itemsUpdated++;
