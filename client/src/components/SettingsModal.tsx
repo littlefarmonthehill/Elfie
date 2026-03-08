@@ -1311,7 +1311,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     { id: 'billing' as const, label: 'Billing & Plan', icon: CreditCard },
     { id: 'platforms' as const, label: 'Platforms', icon: Layers },
     ...(isAdmin ? [{ id: 'users' as const, label: 'Team & Roles', icon: Users }] : []),
-    { id: 'automation' as const, label: 'Automation', icon: Play },
+    { id: 'automation' as const, label: 'Scheduler', icon: Play },
     { id: 'enrichment' as const, label: 'Data Enrichment', icon: Database },
     { id: 'data' as const, label: 'Data Maintenance', icon: HardDrive },
     { id: 'ai' as const, label: 'E.L.F.I.E.', icon: Brain },
