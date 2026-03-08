@@ -1422,7 +1422,6 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = 'o
 
         itemsUpdated++;
         pomSyncProgress.itemsProcessed = itemsUpdated;
-        apiCallsUsed += 1; // 1 API call per item: sold guide only (item details from local DB)
         
         // Log progress every 100 items
         if (itemsUpdated % 100 === 0) {
@@ -1442,7 +1441,9 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = 'o
       }
     }
 
-    console.log(`[Price-o-Matic Sync] Completed: ${itemsUpdated} updated, ${itemsSkipped} skipped, ${apiCallsUsed} API calls used`);
+    const finalRateLimit = await checkRateLimit(orgId);
+    apiCallsUsed = Math.max(0, finalRateLimit.callsLast24h - pomSyncProgress.apiCallsAtStart);
+    console.log(`[Price-o-Matic Sync] Completed: ${itemsUpdated} updated, ${itemsSkipped} skipped, ${apiCallsUsed} actual API calls used (${itemsUpdated - apiCallsUsed} served from cache)`);
     pomSyncProgress = { active: false, itemsProcessed: itemsUpdated, itemsTotal: itemsToProcess.length, apiCallsAtStart: pomSyncProgress.apiCallsAtStart };
 
     return {
