@@ -26,6 +26,7 @@ interface OrderStats {
   shippedOrders: number;
   pendingRevenue: number;
   monthRevenue: number;
+  avgLotsPerOrder: number;
 }
 
 interface OrdersDashboardProps {
@@ -113,8 +114,9 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
             <MetricCard label="Pending" value={stats ? formatNumber(stats.pendingOrders) : '—'} color="orange" data-testid="metric-pending-orders" />
             <MetricCard label="Shipped" value={stats ? formatNumber(stats.shippedOrders) : '—'} color="green" data-testid="metric-shipped-orders" />
           </div>
-          <div className="grid grid-cols-3 gap-1.5" data-testid="section-orders-kpis">
+          <div className="grid grid-cols-2 gap-1.5" data-testid="section-orders-kpis">
             <MetricCard label="Avg Order" value={stats ? formatCurrency(aov) : '—'} color="orange" data-testid="metric-aov" />
+            <MetricCard label="Avg Lots" value={stats ? stats.avgLotsPerOrder.toFixed(1) : '—'} color="orange" data-testid="metric-avg-lots" />
             <MetricCard label="Fulfill Rate" value={stats ? formatPct(fulfillmentRate) : '—'} color="green" data-testid="metric-fulfillment-rate" />
             <MetricCard label="Return Rate" value={adjustments ? formatPct(returnRate) : '—'} color={returnRate > 5 ? 'red' : 'yellow'} data-testid="metric-return-rate" />
           </div>

@@ -1094,7 +1094,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ? and(eq(orders.orgId, orgId), sql`${orders.isTest} = false`, sql`${orders.orderStatus} NOT IN ('cancelled', 'Cancelled')`, dateRangeClause)
         : and(eq(orders.orgId, orgId), sql`${orders.isTest} = false`, sql`${orders.orderStatus} NOT IN ('cancelled', 'Cancelled')`);
 
-      const [totalResult, pendingResult, shippedResult, pendingRevenueResult, rangeRevenueResult] = await Promise.all([
+      const avgLotsClause = dateStart
+        ? dateEnd
+          ? sql`AND o.order_date >= ${dateStart.toISOString()} AND o.order_date < ${dateEnd.toISOString()}`
+          : sql`AND o.order_date >= ${dateStart.toISOString()}`
+        : sql``;
+
+      const [totalResult, pendingResult, shippedResult, pendingRevenueResult, rangeRevenueResult, avgLotsResult] = await Promise.all([
         db.select({ count: sql<number>`COUNT(*)` })
           .from(orders)
           .where(totalWhere)
@@ -1115,6 +1121,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .from(orders)
           .where(revenueWhere)
           .then(r => r[0]),
+        db.execute(sql`
+          SELECT COALESCE(AVG(lot_count), 0)::numeric AS avg_lots
+          FROM (
+            SELECT od.order_id, COUNT(*) AS lot_count
+            FROM order_details od
+            JOIN orders o ON od.order_id = o.id
+            WHERE o.org_id = ${orgId}
+              AND o.is_test = false
+              AND o.order_status NOT IN ('cancelled', 'Cancelled')
+              ${avgLotsClause}
+            GROUP BY od.order_id
+          ) sub
+        `).then(r => r.rows[0]),
       ]);
 
       res.json({
@@ -1123,6 +1142,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         shippedOrders: Number(shippedResult?.count ?? 0),
         pendingRevenue: Number(pendingRevenueResult?.total ?? 0),
         monthRevenue: Number(rangeRevenueResult?.total ?? 0),
+        avgLotsPerOrder: Number((avgLotsResult as any)?.avg_lots ?? 0),
       });
     } catch (error) {
       console.error("Error fetching order stats:", error);
