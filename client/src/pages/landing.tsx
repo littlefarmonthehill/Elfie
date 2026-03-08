@@ -53,7 +53,7 @@ const tiers = [
     period: "",
     description: "Kick the tires. No card required.",
     highlight: false,
-    features: ["Up to 500 inventory lots", "BrickSpotter (25 scans/mo)", "Basic pricing tools", "Single marketplace"],
+    features: ["Full inventory access", "BrickSpotter (25 scans/mo)", "Basic pricing tools", "Single marketplace"],
   },
   {
     name: "Foundation",
@@ -70,14 +70,6 @@ const tiers = [
     description: "For growing stores managing real volume.",
     highlight: true,
     features: ["Up to 25,000 lots", "BrickSpotter (unlimited)", "Full POM automation", "2 marketplace channels", "Team access (3 seats)", "Priority support"],
-  },
-  {
-    name: "Flagship",
-    price: "$199",
-    period: "/mo",
-    description: "For serious operations that don't slow down.",
-    highlight: false,
-    features: ["Unlimited lots", "BrickSpotter (unlimited)", "Full POM + scheduler", "All marketplace channels", "Unlimited team seats", "Dedicated onboarding"],
   },
 ];
 
