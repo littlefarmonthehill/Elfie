@@ -1271,11 +1271,13 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     setLoading: (v: boolean) => void,
     label: string,
     body?: object,
+    successTitle?: string,
+    successDescription?: string,
   ) {
     setLoading(true);
     try {
       const result = await apiRequest('POST', endpoint, body);
-      toast({ title: `${label} complete`, description: 'Sync finished successfully.' });
+      toast({ title: successTitle ?? `${label} complete`, description: successDescription ?? 'Sync finished successfully.' });
     } catch (err: any) {
       const msg: string = err?.message || String(err);
       const isBlocked = msg.toLowerCase().includes('already running') || msg.toLowerCase().includes('blocked');
@@ -1737,7 +1739,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           size="icon"
                           variant="ghost"
                           disabled={syncingPom}
-                          onClick={() => runManualSync('/api/sync/priceomatic', setSyncingPom, 'Price-o-Matic')}
+                          onClick={() => runManualSync('/api/sync/priceomatic', setSyncingPom, 'Price-o-Matic', undefined, 'Price-o-Matic started', 'Sync is running in the background.')}
                           title="Run Price-o-Matic sync now"
                           data-testid="button-run-pom-sync"
                         >
@@ -3650,7 +3652,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           size="icon"
                           variant="ghost"
                           disabled={syncingPom}
-                          onClick={() => runManualSync('/api/sync/priceomatic', setSyncingPom, 'Price-o-Matic')}
+                          onClick={() => runManualSync('/api/sync/priceomatic', setSyncingPom, 'Price-o-Matic', undefined, 'Price-o-Matic started', 'Sync is running in the background.')}
                           title="Run Price-o-Matic sync now"
                           data-testid="button-run-pom-sync"
                         >
