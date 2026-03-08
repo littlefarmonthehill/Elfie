@@ -2254,12 +2254,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     </button>
                     {pomScoringOpen && (
                       <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <Layers className="h-4 w-4 text-gray-400" />
-                          <p className="text-xs text-gray-400">Assign categories to refresh tiers. T1 = daily, T2 = 3 days, T3 = weekly, T4 = monthly.</p>
-                        </div>
-                        <PomCategoryTiers />
-                        <div className="divide-y divide-gray-700/30 mt-2">
+                        <div className="divide-y divide-gray-700/30 mb-2">
                           <div className="flex items-center justify-between py-3">
                             <div className="flex items-center gap-1.5">
                               <Label className="text-sm text-emerald-300">Underpriced Score</Label>
@@ -2301,6 +2296,11 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             </div>
                           </div>
                         </div>
+                        <div className="flex items-center gap-2">
+                          <Layers className="h-4 w-4 text-gray-400" />
+                          <p className="text-xs text-gray-400">Assign categories to refresh tiers. T1 = daily, T2 = 3 days, T3 = weekly, T4 = monthly.</p>
+                        </div>
+                        <PomCategoryTiers />
                       </div>
                     )}
                   </div>
@@ -4186,12 +4186,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     </button>
                     {pomScoringOpen && (
                       <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <Layers className="h-4 w-4 text-gray-400" />
-                          <p className="text-xs text-gray-400">Assign categories to refresh tiers. T1 = daily, T2 = 3 days, T3 = weekly, T4 = monthly.</p>
-                        </div>
-                        <PomCategoryTiers />
-                        <div className="divide-y divide-gray-700/30 mt-2">
+                        <div className="divide-y divide-gray-700/30 mb-2">
                           <div className="flex items-center justify-between py-3">
                             <div className="flex items-center gap-1.5">
                               <Label className="text-sm text-emerald-300">Underpriced Score</Label>
@@ -4233,6 +4228,11 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             </div>
                           </div>
                         </div>
+                        <div className="flex items-center gap-2">
+                          <Layers className="h-4 w-4 text-gray-400" />
+                          <p className="text-xs text-gray-400">Assign categories to refresh tiers. T1 = daily, T2 = 3 days, T3 = weekly, T4 = monthly.</p>
+                        </div>
+                        <PomCategoryTiers />
                       </div>
                     )}
                   </div>
