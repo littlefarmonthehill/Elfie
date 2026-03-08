@@ -5755,26 +5755,34 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
     try {
       const orgId = reqOrgId(req);
 
-      const [warehouseResult] = await db
-        .select({ count: sql<number>`COUNT(*)` })
-        .from(blInventory)
-        .leftJoin(inventoryLocations, eq(blInventory.id, inventoryLocations.inventoryId))
-        .where(and(
-          eq(blInventory.orgId, orgId),
-          sql`${inventoryLocations.id} IS NULL`,
-          sql`${blInventory.quantity} > 0`
-        ));
-
-      const [scansResult] = await db
-        .select({ count: sql<number>`COUNT(*)` })
-        .from(brickanalyzerScans)
-        .where(and(
-          eq(brickanalyzerScans.orgId, orgId),
-          eq(brickanalyzerScans.status, 'complete')
-        ));
+      const [warehouseResult, binsResult, shelvesResult, scansResult] = await Promise.all([
+        db.select({ count: sql<number>`COUNT(*)` })
+          .from(blInventory)
+          .leftJoin(inventoryLocations, eq(blInventory.id, inventoryLocations.inventoryId))
+          .where(and(
+            eq(blInventory.orgId, orgId),
+            sql`${inventoryLocations.id} IS NULL`,
+            sql`${blInventory.quantity} > 0`
+          ))
+          .then(r => r[0]),
+        db.select({ count: sql<number>`COUNT(*)` })
+          .from(whBins)
+          .where(and(eq(whBins.orgId, orgId), sql`${whBins.shelfId} IS NULL`))
+          .then(r => r[0]),
+        db.select({ count: sql<number>`COUNT(*)` })
+          .from(whShelves)
+          .where(and(eq(whShelves.orgId, orgId), sql`${whShelves.aisleId} IS NULL`))
+          .then(r => r[0]),
+        db.select({ count: sql<number>`COUNT(*)` })
+          .from(brickanalyzerScans)
+          .where(and(eq(brickanalyzerScans.orgId, orgId), eq(brickanalyzerScans.status, 'complete')))
+          .then(r => r[0]),
+      ]);
 
       res.json({
         warehouseUnassigned: Number(warehouseResult?.count ?? 0),
+        binsNotOnShelves: Number(binsResult?.count ?? 0),
+        shelvesNotInAisles: Number(shelvesResult?.count ?? 0),
         pendingScans: Number(scansResult?.count ?? 0),
       });
     } catch (error) {

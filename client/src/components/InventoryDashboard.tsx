@@ -87,7 +87,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
     queryKey: ['/api/inventory/stats'],
   });
 
-  const { data: toolStats } = useQuery<{ warehouseUnassigned: number; pendingScans: number }>({
+  const { data: toolStats } = useQuery<{ warehouseUnassigned: number; binsNotOnShelves: number; shelvesNotInAisles: number; pendingScans: number }>({
     queryKey: ['/api/inventory/tool-stats'],
     staleTime: 2 * 60 * 1000,
   });
@@ -322,13 +322,24 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 </Popover>
               </div>
               <div className="flex flex-wrap gap-1 min-h-[1.25rem]" data-testid="warehouse-stats">
-                {(toolStats?.warehouseUnassigned ?? 0) > 0 ? (
+                {(toolStats?.warehouseUnassigned ?? 0) > 0 && (
                   <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-teal-500/20 text-teal-300 border border-teal-600/30" data-testid="warehouse-unassigned">
                     {toolStats!.warehouseUnassigned} not in bins
                   </span>
-                ) : toolStats ? (
-                  <span className="text-[9px] text-green-400/70">All assigned to bins</span>
-                ) : null}
+                )}
+                {(toolStats?.binsNotOnShelves ?? 0) > 0 && (
+                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-teal-500/20 text-teal-300 border border-teal-600/30" data-testid="warehouse-bins">
+                    {toolStats!.binsNotOnShelves} bins not on shelves
+                  </span>
+                )}
+                {(toolStats?.shelvesNotInAisles ?? 0) > 0 && (
+                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-teal-500/20 text-teal-300 border border-teal-600/30" data-testid="warehouse-shelves">
+                    {toolStats!.shelvesNotInAisles} shelves not in aisles
+                  </span>
+                )}
+                {toolStats && (toolStats.warehouseUnassigned === 0) && (toolStats.binsNotOnShelves === 0) && (toolStats.shelvesNotInAisles === 0) && (
+                  <span className="text-[9px] text-green-400/70">All organized</span>
+                )}
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-[10px] md:text-xs text-teal-400 font-medium">Open tool</span>
