@@ -279,7 +279,7 @@ function InventoryLane({
     refetchInterval: 8000,
   });
 
-  const hasRunningJobs = isInvSyncing || isPomRunning;
+  const hasRunningJobs = isInvSyncing || isPomRunning || !!activeInvEmbed;
 
   const threshold = underpricedThreshold ?? 1.5;
   const tooHighCount = pricingInsights?.data?.tooHigh?.length ?? 0;
