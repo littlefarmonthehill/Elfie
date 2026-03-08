@@ -3227,10 +3227,10 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                 <Separator className="bg-gray-700" />
 
-                {/* Semantic Search & Embeddings */}
+                {/* Semantic Search Test */}
                 <div>
-                  <h3 className="text-sm font-medium text-gray-300 mb-3">Semantic Search & Embeddings</h3>
-                  <EmbeddingsManager />
+                  <h3 className="text-sm font-medium text-gray-300 mb-3">Semantic Search</h3>
+                  <EmbeddingsManager searchOnly />
                 </div>
               </div>
               </div>
@@ -3581,6 +3581,11 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                 {/* Enrichment Overview */}
                 <EnrichmentSummary />
+
+                <Separator className="bg-gray-700" />
+
+                {/* Semantic Search & Embeddings */}
+                <EmbeddingsManager />
 
                 <Separator className="bg-gray-700" />
 

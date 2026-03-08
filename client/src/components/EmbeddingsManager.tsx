@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 
-export function EmbeddingsManager() {
+export function EmbeddingsManager({ searchOnly = false }: { searchOnly?: boolean } = {}) {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -220,6 +220,7 @@ export function EmbeddingsManager() {
 
   return (
     <div className="space-y-4">
+      {!searchOnly && <>
       {/* Header */}
       <div className="flex items-center gap-2">
         <Sparkles className="w-5 h-5 text-violet-400" />
@@ -505,9 +506,10 @@ export function EmbeddingsManager() {
 
       {/* Universal CLIP Catalog */}
       <UniversalCatalogCard />
+      </>}
 
       {/* Semantic Search Test */}
-      <Card>
+      {searchOnly && <Card>
         <CardHeader className="pb-2 p-3">
           <CardTitle className="text-sm flex items-center gap-2">
             <Search className="w-4 h-4" />
@@ -567,16 +569,15 @@ export function EmbeddingsManager() {
             </div>
           )}
         </CardContent>
-      </Card>
+      </Card>}
 
-      {/* Info Card */}
-      <Alert>
+      {!searchOnly && <Alert>
         <Database className="h-4 w-4" />
         <AlertDescription className="text-xs">
           <strong>Background jobs run on the server.</strong> Start a job and close this screen - even lock your phone! 
           The job continues running. Come back anytime to check progress.
         </AlertDescription>
-      </Alert>
+      </Alert>}
     </div>
   );
 }
