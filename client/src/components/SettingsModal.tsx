@@ -4580,6 +4580,133 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
             {activeSection === 'users' && (
               <UserManagementSection userCount={users?.length} />
             )}
+
+            {/* About & Credits */}
+            {activeSection === 'about' && (
+              <div className="p-4 space-y-5">
+
+                {/* Built with Replit */}
+                <div className="rounded-lg bg-gray-800/60 border border-gray-700 overflow-hidden">
+                  <div className="px-4 py-3 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-violet-400" />
+                    <span className="text-sm font-semibold text-white">Built with Replit</span>
+                  </div>
+                  <div className="px-4 py-3">
+                    <p className="text-xs text-gray-300 leading-relaxed">
+                      PlanetBrick was designed and built entirely on <span className="text-violet-300 font-medium">Replit</span> using its AI-powered development environment. Every feature — from BrickSpotter's vision pipeline to the multi-channel sync engine — was conceived, coded, tested, and deployed without leaving the browser.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Architecture */}
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold mb-2 px-1">Architecture</p>
+                  <div className="rounded-lg bg-gray-800/60 border border-gray-700 divide-y divide-gray-700/60">
+                    {[
+                      { name: 'TypeScript', desc: 'End-to-end type safety across client and server' },
+                      { name: 'React', desc: 'Component-driven UI framework' },
+                      { name: 'Vite', desc: 'Lightning-fast frontend build tooling' },
+                      { name: 'Node.js + Express', desc: 'Backend API server' },
+                      { name: 'PostgreSQL', desc: 'Primary relational database' },
+                      { name: 'Drizzle ORM', desc: 'Type-safe database queries and schema management' },
+                      { name: 'Python + Flask', desc: 'ML inference service for CLIP and image segmentation' },
+                    ].map(({ name, desc }) => (
+                      <div key={name} className="flex items-start gap-3 px-4 py-2.5">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-gray-200">{name}</p>
+                          <p className="text-[10px] text-gray-500">{desc}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* UI & Design */}
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold mb-2 px-1">UI & Design</p>
+                  <div className="rounded-lg bg-gray-800/60 border border-gray-700 divide-y divide-gray-700/60">
+                    {[
+                      { name: 'shadcn/ui', desc: 'Accessible component library built on Radix UI primitives' },
+                      { name: 'Radix UI', desc: 'Unstyled headless UI primitives' },
+                      { name: 'Tailwind CSS', desc: 'Utility-first CSS framework' },
+                      { name: 'Lucide', desc: 'Icon library' },
+                      { name: 'TanStack Query', desc: 'Async data fetching, caching, and synchronization' },
+                      { name: 'Zod', desc: 'Schema validation and type inference' },
+                    ].map(({ name, desc }) => (
+                      <div key={name} className="flex items-start gap-3 px-4 py-2.5">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-gray-200">{name}</p>
+                          <p className="text-[10px] text-gray-500">{desc}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* AI & Intelligence */}
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold mb-2 px-1">AI & Intelligence</p>
+                  <div className="rounded-lg bg-gray-800/60 border border-gray-700 divide-y divide-gray-700/60">
+                    {[
+                      { name: 'Anthropic Claude', desc: 'AI analysis, summaries, and natural language features' },
+                      { name: 'OpenAI', desc: 'Embeddings powering semantic inventory and order search' },
+                      { name: 'CLIP (ViT-B/32)', desc: 'Vision-language model for universal catalog image matching' },
+                      { name: 'Brickognize', desc: 'AI-powered LEGO piece identification from photos' },
+                    ].map(({ name, desc }) => (
+                      <div key={name} className="flex items-start gap-3 px-4 py-2.5">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-gray-200">{name}</p>
+                          <p className="text-[10px] text-gray-500">{desc}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* LEGO Data */}
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold mb-2 px-1">LEGO Data & Marketplaces</p>
+                  <div className="rounded-lg bg-gray-800/60 border border-gray-700 divide-y divide-gray-700/60">
+                    {[
+                      { name: 'Rebrickable', desc: 'Parts catalog, set inventories, and part images' },
+                      { name: 'BrickLink', desc: 'Primary marketplace — inventory, orders, and pricing data' },
+                      { name: 'BrickOwl', desc: 'Secondary marketplace channel' },
+                    ].map(({ name, desc }) => (
+                      <div key={name} className="flex items-start gap-3 px-4 py-2.5">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-gray-200">{name}</p>
+                          <p className="text-[10px] text-gray-500">{desc}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Payments & Services */}
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold mb-2 px-1">Payments & Services</p>
+                  <div className="rounded-lg bg-gray-800/60 border border-gray-700 divide-y divide-gray-700/60">
+                    {[
+                      { name: 'Stripe', desc: 'Subscription billing and payment processing' },
+                      { name: 'PayPal', desc: 'Payment reconciliation for marketplace orders' },
+                      { name: 'EasyPost', desc: 'Shipping label generation and scan forms' },
+                      { name: 'remove.bg', desc: 'Automatic background removal for part images' },
+                    ].map(({ name, desc }) => (
+                      <div key={name} className="flex items-start gap-3 px-4 py-2.5">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-gray-200">{name}</p>
+                          <p className="text-[10px] text-gray-500">{desc}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <p className="text-center text-[10px] text-gray-600 pb-2">{APP_NAME} {APP_VERSION}</p>
+
+              </div>
+            )}
+
                 </div>
               )}
             </div>
@@ -5097,130 +5224,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                 >
                   Close & Return to Settings
                 </Button>
-              </div>
-            )}
-            {activeSection === 'about' && (
-              <div className="p-4 space-y-5">
-
-                {/* Built with Replit */}
-                <div className="rounded-lg bg-gray-800/60 border border-gray-700 overflow-hidden">
-                  <div className="px-4 py-3 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-violet-400" />
-                    <span className="text-sm font-semibold text-white">Built with Replit</span>
-                  </div>
-                  <div className="px-4 py-3">
-                    <p className="text-xs text-gray-300 leading-relaxed">
-                      PlanetBrick was designed and built entirely on <span className="text-violet-300 font-medium">Replit</span> using its AI-powered development environment. Every feature — from BrickSpotter's vision pipeline to the multi-channel sync engine — was conceived, coded, tested, and deployed without leaving the browser.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Architecture */}
-                <div>
-                  <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold mb-2 px-1">Architecture</p>
-                  <div className="rounded-lg bg-gray-800/60 border border-gray-700 divide-y divide-gray-700/60">
-                    {[
-                      { name: 'TypeScript', desc: 'End-to-end type safety across client and server' },
-                      { name: 'React', desc: 'Component-driven UI framework' },
-                      { name: 'Vite', desc: 'Lightning-fast frontend build tooling' },
-                      { name: 'Node.js + Express', desc: 'Backend API server' },
-                      { name: 'PostgreSQL', desc: 'Primary relational database' },
-                      { name: 'Drizzle ORM', desc: 'Type-safe database queries and schema management' },
-                      { name: 'Python + Flask', desc: 'ML inference service for CLIP and image segmentation' },
-                    ].map(({ name, desc }) => (
-                      <div key={name} className="flex items-start gap-3 px-4 py-2.5">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-gray-200">{name}</p>
-                          <p className="text-[10px] text-gray-500">{desc}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* UI & Design */}
-                <div>
-                  <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold mb-2 px-1">UI & Design</p>
-                  <div className="rounded-lg bg-gray-800/60 border border-gray-700 divide-y divide-gray-700/60">
-                    {[
-                      { name: 'shadcn/ui', desc: 'Accessible component library built on Radix UI primitives' },
-                      { name: 'Radix UI', desc: 'Unstyled headless UI primitives' },
-                      { name: 'Tailwind CSS', desc: 'Utility-first CSS framework' },
-                      { name: 'Lucide', desc: 'Icon library' },
-                      { name: 'TanStack Query', desc: 'Async data fetching, caching, and synchronization' },
-                      { name: 'Zod', desc: 'Schema validation and type inference' },
-                    ].map(({ name, desc }) => (
-                      <div key={name} className="flex items-start gap-3 px-4 py-2.5">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-gray-200">{name}</p>
-                          <p className="text-[10px] text-gray-500">{desc}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* AI & Intelligence */}
-                <div>
-                  <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold mb-2 px-1">AI & Intelligence</p>
-                  <div className="rounded-lg bg-gray-800/60 border border-gray-700 divide-y divide-gray-700/60">
-                    {[
-                      { name: 'Anthropic Claude', desc: 'AI analysis, summaries, and natural language features' },
-                      { name: 'OpenAI', desc: 'Embeddings powering semantic inventory and order search' },
-                      { name: 'CLIP (ViT-B/32)', desc: 'Vision-language model for universal catalog image matching' },
-                      { name: 'Brickognize', desc: 'AI-powered LEGO piece identification from photos' },
-                    ].map(({ name, desc }) => (
-                      <div key={name} className="flex items-start gap-3 px-4 py-2.5">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-gray-200">{name}</p>
-                          <p className="text-[10px] text-gray-500">{desc}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* LEGO Data */}
-                <div>
-                  <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold mb-2 px-1">LEGO Data & Marketplaces</p>
-                  <div className="rounded-lg bg-gray-800/60 border border-gray-700 divide-y divide-gray-700/60">
-                    {[
-                      { name: 'Rebrickable', desc: 'Parts catalog, set inventories, and part images' },
-                      { name: 'BrickLink', desc: 'Primary marketplace — inventory, orders, and pricing data' },
-                      { name: 'BrickOwl', desc: 'Secondary marketplace channel' },
-                    ].map(({ name, desc }) => (
-                      <div key={name} className="flex items-start gap-3 px-4 py-2.5">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-gray-200">{name}</p>
-                          <p className="text-[10px] text-gray-500">{desc}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Payments & Services */}
-                <div>
-                  <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold mb-2 px-1">Payments & Services</p>
-                  <div className="rounded-lg bg-gray-800/60 border border-gray-700 divide-y divide-gray-700/60">
-                    {[
-                      { name: 'Stripe', desc: 'Subscription billing and payment processing' },
-                      { name: 'PayPal', desc: 'Payment reconciliation for marketplace orders' },
-                      { name: 'EasyPost', desc: 'Shipping label generation and scan forms' },
-                      { name: 'remove.bg', desc: 'Automatic background removal for part images' },
-                    ].map(({ name, desc }) => (
-                      <div key={name} className="flex items-start gap-3 px-4 py-2.5">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-gray-200">{name}</p>
-                          <p className="text-[10px] text-gray-500">{desc}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <p className="text-center text-[10px] text-gray-600 pb-2">{APP_NAME} {APP_VERSION}</p>
-
               </div>
             )}
 
