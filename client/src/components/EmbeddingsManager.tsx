@@ -231,7 +231,7 @@ export function EmbeddingsManager({ searchOnly = false }: { searchOnly?: boolean
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Card className="bg-card/50">
           <CardHeader className="pb-2 p-3">
-            <CardTitle className="text-xs text-muted-foreground">Inventory Embeddings</CardTitle>
+            <CardTitle className="text-xs text-muted-foreground">Your Inventory — Text Search</CardTitle>
           </CardHeader>
           <CardContent className="p-3 pt-0">
             <div className="flex items-baseline gap-2">
@@ -250,7 +250,7 @@ export function EmbeddingsManager({ searchOnly = false }: { searchOnly?: boolean
 
         <Card className="bg-card/50">
           <CardHeader className="pb-2 p-3">
-            <CardTitle className="text-xs text-muted-foreground">Order Embeddings</CardTitle>
+            <CardTitle className="text-xs text-muted-foreground">Your Orders — Text Search</CardTitle>
           </CardHeader>
           <CardContent className="p-3 pt-0">
             <div className="flex items-baseline gap-2">
@@ -271,9 +271,9 @@ export function EmbeddingsManager({ searchOnly = false }: { searchOnly?: boolean
       {/* Inventory Background Job */}
       <Card>
         <CardHeader className="pb-2 p-3">
-          <CardTitle className="text-sm">🚀 Inventory Background Job</CardTitle>
+          <CardTitle className="text-sm">Your Inventory — Text Search</CardTitle>
           <CardDescription className="text-xs">
-            Runs on server - close your phone and it keeps going!
+            AI text embeddings on your store's parts — powers semantic search and recommendations
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 p-3 pt-0">
@@ -348,9 +348,9 @@ export function EmbeddingsManager({ searchOnly = false }: { searchOnly?: boolean
       {/* Orders Background Job */}
       <Card>
         <CardHeader className="pb-2 p-3">
-          <CardTitle className="text-sm">🚀 Orders Background Job</CardTitle>
+          <CardTitle className="text-sm">Your Orders — Text Search</CardTitle>
           <CardDescription className="text-xs">
-            Runs on server - close your phone and it keeps going!
+            AI text embeddings on your store's order history — powers semantic search and analysis
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 p-3 pt-0">
@@ -427,10 +427,10 @@ export function EmbeddingsManager({ searchOnly = false }: { searchOnly?: boolean
         <CardHeader className="pb-2 p-3">
           <CardTitle className="text-sm flex items-center gap-2">
             <Eye className="w-4 h-4 text-blue-400" />
-            Visual Catalog (Brick Spotter)
+            Your Inventory — Visual (CLIP)
           </CardTitle>
           <CardDescription className="text-xs">
-            One-time build: embeds your inventory using CLIP vision AI so Brick Spotter can visually recognize parts
+            CLIP vision embeddings of parts you stock — BrickSpotter can identify parts from your catalog only
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 p-3 pt-0">
@@ -472,7 +472,7 @@ export function EmbeddingsManager({ searchOnly = false }: { searchOnly?: boolean
           {!clipBuildRunning && (clipStats as any)?.catalog > 0 && (
             <div className="flex items-center gap-1 text-xs text-green-400">
               <CheckCircle2 className="w-3 h-3" />
-              <span>{(clipStats as any).catalog.toLocaleString()} parts embedded — Brick Spotter visual search active</span>
+              <span>{(clipStats as any).catalog.toLocaleString()} parts embedded — your inventory visual search active</span>
             </div>
           )}
 
@@ -705,10 +705,10 @@ function UniversalCatalogCard() {
       <CardHeader className="pb-2 p-3">
         <CardTitle className="text-sm flex items-center gap-2">
           <Globe className="w-4 h-4 text-emerald-400" />
-          Universal Part Catalog
+          All BrickLink Parts — Visual (CLIP)
         </CardTitle>
         <CardDescription className="text-xs">
-          Embeds all ~130k BrickLink parts so BrickSpotter recognizes anything — not just your inventory
+          CLIP vision embeddings of all ~130k BrickLink parts — BrickSpotter can identify any part, even ones you don't stock
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3 p-3 pt-0">
@@ -760,7 +760,7 @@ function UniversalCatalogCard() {
         {!workerRunning && !importing && universalInDb > 0 && pending === 0 && (
           <div className="flex items-center gap-1 text-xs text-emerald-400">
             <CheckCircle2 className="w-3 h-3" />
-            <span>{universalInDb.toLocaleString()} parts embedded — Universal recognition active</span>
+            <span>{universalInDb.toLocaleString()} parts embedded — full BrickLink visual search active</span>
           </div>
         )}
 
