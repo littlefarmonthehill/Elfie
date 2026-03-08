@@ -1262,27 +1262,19 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = 'o
       };
     }
 
-    // Load tier refresh settings
+    // Load qty threshold settings for tier ordering
     const [tierSettings] = await db.select({
-      pomTier1RefreshDays: appSettings.pomTier1RefreshDays,
-      pomTier2RefreshDays: appSettings.pomTier2RefreshDays,
-      pomTier3RefreshDays: appSettings.pomTier3RefreshDays,
-      pomTier4RefreshDays: appSettings.pomTier4RefreshDays,
       pomQtyPromoteThreshold: appSettings.pomQtyPromoteThreshold,
       pomQtyDemoteThreshold: appSettings.pomQtyDemoteThreshold,
     }).from(appSettings).limit(1);
 
-    const tier1Days = tierSettings?.pomTier1RefreshDays ?? 1;
-    const tier2Days = tierSettings?.pomTier2RefreshDays ?? 3;
-    const tier3Days = tierSettings?.pomTier3RefreshDays ?? 7;
-    const tier4Days = tierSettings?.pomTier4RefreshDays ?? 30;
     const qtyPromote = tierSettings?.pomQtyPromoteThreshold ?? 5;
     const qtyDemote = tierSettings?.pomQtyDemoteThreshold ?? 500;
 
-    // Build tier-priority-ordered queue with quantity overrides
-    // Tier ordering: 1 (daily) → 2 (every few days) → 3 (weekly) → 4 (monthly)
-    // Quantity overrides: stock ≤ qtyPromote → promote 1 tier; stock ≥ qtyDemote → demote 1 tier
-    // Only include items whose cache is stale relative to their effective tier's refresh period
+    // Build tier-priority-ordered queue with quantity overrides.
+    // Staleness: any item whose price guide cache is older than 6 months (or never fetched) is a candidate.
+    // Tier ordering: tier1 first, then tier2, tier3, tier4 — oldest-fetched first within each tier.
+    // Quantity overrides: stock ≤ qtyPromote → promote 1 tier; stock ≥ qtyDemote → demote 1 tier.
     const inventoryItems = await db
       .select({
         id: blInventory.id,
@@ -1334,13 +1326,6 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = 'o
       )
       .limit(100000); // Fetch all candidates — JS filter + slice enforces the real batch limit below
 
-    // Filter out items that don't need refresh yet based on their effective tier
-    const tierRefreshMs: Record<string, number> = {
-      tier1: tier1Days * 86400000,
-      tier2: tier2Days * 86400000,
-      tier3: tier3Days * 86400000,
-      tier4: tier4Days * 86400000,
-    };
     // Helper: compute effective tier for an item after quantity promote/demote overrides
     const getEffectiveTier = (item: { categoryTier: string | null; quantity: number | null }) => {
       const baseTier = item.categoryTier || 'tier2';
@@ -1355,12 +1340,12 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = 'o
       return baseTier;
     };
 
+    // 6-month staleness window — items not fetched within 6 months (or never fetched) are candidates
+    const SIX_MONTHS_MS = 180 * 24 * 60 * 60 * 1000;
     const now = Date.now();
     const filteredItems = inventoryItems.filter((item) => {
       if (!item.lastFetched) return true; // Never fetched — always include
-      const effectiveTier = getEffectiveTier(item);
-      const refreshMs = tierRefreshMs[effectiveTier] ?? tierRefreshMs.tier2;
-      return now - new Date(item.lastFetched).getTime() >= refreshMs;
+      return now - new Date(item.lastFetched).getTime() >= SIX_MONTHS_MS;
     });
 
     // Strict tier sequencing: exhaust all stale tier1 items first (oldest→newest),
