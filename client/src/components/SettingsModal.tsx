@@ -4655,6 +4655,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       { name: 'OpenAI', desc: 'Embeddings powering semantic inventory and order search' },
                       { name: 'CLIP (ViT-B/32)', desc: 'Vision-language model for universal catalog image matching' },
                       { name: 'Brickognize', desc: 'AI-powered LEGO piece identification from photos' },
+                      { name: 'remove.bg', desc: 'ML-based background removal for clean part images' },
                     ].map(({ name, desc }) => (
                       <div key={name} className="flex items-start gap-3 px-4 py-2.5">
                         <div className="flex-1 min-w-0">
@@ -4693,7 +4694,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       { name: 'Stripe', desc: 'Subscription billing and payment processing' },
                       { name: 'PayPal', desc: 'Payment reconciliation for marketplace orders' },
                       { name: 'EasyPost', desc: 'Shipping label generation and scan forms' },
-                      { name: 'remove.bg', desc: 'Automatic background removal for part images' },
                     ].map(({ name, desc }) => (
                       <div key={name} className="flex items-start gap-3 px-4 py-2.5">
                         <div className="flex-1 min-w-0">
