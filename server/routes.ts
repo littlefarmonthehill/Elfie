@@ -61,7 +61,7 @@ async function getOrgSettings(orgId: string) {
   const [existing] = await db
     .select()
     .from(appSettings)
-    .where(eq(appSettings.orgId, orgId))
+    .where(eq(appSettings.id, orgId))
     .limit(1);
   if (existing) return existing;
   // Lazy-init: create default settings row for this org
@@ -5566,7 +5566,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         universalCatalogScheduleEnabled: appSettings.universalCatalogScheduleEnabled,
         universalCatalogRefreshMonths:   appSettings.universalCatalogRefreshMonths,
         universalCatalogRetryDays:       appSettings.universalCatalogRetryDays,
-      }).from(appSettings).where(eq(appSettings.orgId, orgId)).limit(1);
+      }).from(appSettings).where(eq(appSettings.id, orgId)).limit(1);
 
       const [meta] = await db.select({
         lastSyncTime:   syncMetadata.lastSyncTime,
@@ -8072,7 +8072,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         lomFinalsortScore:   Number(finalsort)   || 75,
         lomListingScore:     Number(listing)     || 100,
         updatedAt: sql`CURRENT_TIMESTAMP`,
-      }).where(eq(appSettings.orgId, orgId));
+      }).where(eq(appSettings.id, orgId));
       res.json({ success: true });
     } catch (error) {
       console.error("Error saving phase scores:", error);
@@ -8195,7 +8195,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       const [pomCfg] = await db.select({
         pomTooHighThreshold: appSettingsTable.pomTooHighThreshold,
         pomTooLowThreshold: appSettingsTable.pomTooLowThreshold,
-      }).from(appSettingsTable).where(eq(appSettingsTable.orgId, orgId)).limit(1);
+      }).from(appSettingsTable).where(eq(appSettingsTable.id, orgId)).limit(1);
       const tooHighPct = pomCfg?.pomTooHighThreshold ?? 20;
       const tooLowPct = pomCfg?.pomTooLowThreshold ?? 20;
 
