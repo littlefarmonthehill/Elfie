@@ -1049,44 +1049,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const orgId = reqOrgId(req);
       const now = new Date();
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
       const range = req.query.range as string | undefined;
 
-      // Build optional date filter for shipped orders based on range
-      let shippedDateFilter: Date | null = null;
-      let shippedDateEnd: Date | null = null;
+      // Build date range window applied to totalOrders, shippedOrders, and rangeRevenue
+      let dateStart: Date | null = null;
+      let dateEnd: Date | null = null;
       if (range && range !== 'all') {
         switch (range) {
           case 'mtd':
-            shippedDateFilter = new Date(now.getFullYear(), now.getMonth(), 1);
+            dateStart = new Date(now.getFullYear(), now.getMonth(), 1);
             break;
           case 'lastmonth':
-            shippedDateFilter = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-            shippedDateEnd = new Date(now.getFullYear(), now.getMonth(), 1);
+            dateStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            dateEnd = new Date(now.getFullYear(), now.getMonth(), 1);
             break;
           case '3months':
-            shippedDateFilter = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+            dateStart = new Date(now.getFullYear(), now.getMonth() - 3, 1);
             break;
           case '1year':
-            shippedDateFilter = new Date(now.getFullYear() - 1, now.getMonth(), 1);
+            dateStart = new Date(now.getFullYear() - 1, now.getMonth(), 1);
             break;
           case 'prevyear':
-            shippedDateFilter = new Date(now.getFullYear() - 1, 0, 1);
-            shippedDateEnd = new Date(now.getFullYear(), 0, 1);
+            dateStart = new Date(now.getFullYear() - 1, 0, 1);
+            dateEnd = new Date(now.getFullYear(), 0, 1);
             break;
         }
       }
 
-      const shippedWhere = shippedDateFilter
-        ? shippedDateEnd
-          ? and(eq(orders.orgId, orgId), sql`${orders.isTest} = false`, eq(orders.orderStatus, 'shipped'), sql`${orders.orderDate} >= ${shippedDateFilter.toISOString()} AND ${orders.orderDate} < ${shippedDateEnd.toISOString()}`)
-          : and(eq(orders.orgId, orgId), sql`${orders.isTest} = false`, eq(orders.orderStatus, 'shipped'), sql`${orders.orderDate} >= ${shippedDateFilter.toISOString()}`)
+      const dateRangeClause = dateStart
+        ? dateEnd
+          ? sql`${orders.orderDate} >= ${dateStart.toISOString()} AND ${orders.orderDate} < ${dateEnd.toISOString()}`
+          : sql`${orders.orderDate} >= ${dateStart.toISOString()}`
+        : sql`1=1`;
+
+      const totalWhere = dateStart
+        ? and(eq(orders.orgId, orgId), sql`${orders.isTest} = false`, sql`${orders.orderStatus} NOT IN ('cancelled', 'Cancelled')`, dateRangeClause)
+        : and(eq(orders.orgId, orgId), sql`${orders.isTest} = false`, sql`${orders.orderStatus} NOT IN ('cancelled', 'Cancelled')`);
+
+      const shippedWhere = dateStart
+        ? and(eq(orders.orgId, orgId), sql`${orders.isTest} = false`, eq(orders.orderStatus, 'shipped'), dateRangeClause)
         : and(eq(orders.orgId, orgId), sql`${orders.isTest} = false`, eq(orders.orderStatus, 'shipped'));
 
-      const [totalResult, pendingResult, shippedResult, revenueResult, monthResult] = await Promise.all([
+      const revenueWhere = dateStart
+        ? and(eq(orders.orgId, orgId), sql`${orders.isTest} = false`, sql`${orders.orderStatus} NOT IN ('cancelled', 'Cancelled')`, dateRangeClause)
+        : and(eq(orders.orgId, orgId), sql`${orders.isTest} = false`, sql`${orders.orderStatus} NOT IN ('cancelled', 'Cancelled')`);
+
+      const [totalResult, pendingResult, shippedResult, pendingRevenueResult, rangeRevenueResult] = await Promise.all([
         db.select({ count: sql<number>`COUNT(*)` })
           .from(orders)
-          .where(and(eq(orders.orgId, orgId), sql`${orders.isTest} = false`, sql`${orders.orderStatus} NOT IN ('cancelled', 'Cancelled')`))
+          .where(totalWhere)
           .then(r => r[0]),
         db.select({ count: sql<number>`COUNT(*)` })
           .from(orders)
@@ -1102,7 +1113,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .then(r => r[0]),
         db.select({ total: sql<string>`COALESCE(SUM(order_total::numeric), 0)` })
           .from(orders)
-          .where(and(eq(orders.orgId, orgId), sql`${orders.isTest} = false`, sql`${orders.orderStatus} NOT IN ('cancelled', 'Cancelled')`, sql`${orders.orderDate} >= ${monthStart}`))
+          .where(revenueWhere)
           .then(r => r[0]),
       ]);
 
@@ -1110,8 +1121,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalOrders: Number(totalResult?.count ?? 0),
         pendingOrders: Number(pendingResult?.count ?? 0),
         shippedOrders: Number(shippedResult?.count ?? 0),
-        pendingRevenue: Number(revenueResult?.total ?? 0),
-        monthRevenue: Number(monthResult?.total ?? 0),
+        pendingRevenue: Number(pendingRevenueResult?.total ?? 0),
+        monthRevenue: Number(rangeRevenueResult?.total ?? 0),
       });
     } catch (error) {
       console.error("Error fetching order stats:", error);

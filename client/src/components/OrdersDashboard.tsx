@@ -35,6 +35,30 @@ interface OrdersDashboardProps {
   dateRange?: DateRangeValue;
 }
 
+function revenueLabel(range: DateRangeValue): string {
+  switch (range) {
+    case 'mtd': return 'MTD Revenue';
+    case 'lastmonth': return 'Last Mo. Rev';
+    case '3months': return '3Mo. Revenue';
+    case '1year': return '12Mo. Revenue';
+    case 'prevyear': return 'Prev Yr Rev';
+    case 'all': return 'Total Revenue';
+    default: return 'Revenue';
+  }
+}
+
+function totalLabel(range: DateRangeValue): string {
+  switch (range) {
+    case 'mtd': return 'MTD Orders';
+    case 'lastmonth': return 'Last Mo.';
+    case '3months': return '3Mo. Orders';
+    case '1year': return '12Mo. Orders';
+    case 'prevyear': return 'Prev Yr';
+    case 'all': return 'Total';
+    default: return 'Orders';
+  }
+}
+
 export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerChange, dateRange = 'mtd' }: OrdersDashboardProps) {
   const { data: stats, isLoading: statsLoading } = useQuery<OrderStats>({
     queryKey: ['/api/orders/stats', dateRange],
@@ -85,13 +109,13 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
             <h3 className="text-xs md:text-base lg:text-lg font-semibold text-orange-200 uppercase tracking-wide">Orders</h3>
           </div>
           <div className="grid grid-cols-3 gap-1.5 mb-2" data-testid="section-orders-counts">
-            <MetricCard label="Total" value={stats ? formatNumber(stats.totalOrders) : '—'} color="orange" data-testid="metric-total-orders" />
+            <MetricCard label={totalLabel(dateRange)} value={stats ? formatNumber(stats.totalOrders) : '—'} color="orange" data-testid="metric-total-orders" />
             <MetricCard label="Pending" value={stats ? formatNumber(stats.pendingOrders) : '—'} color="orange" data-testid="metric-pending-orders" />
             <MetricCard label="Shipped" value={stats ? formatNumber(stats.shippedOrders) : '—'} color="green" data-testid="metric-shipped-orders" />
           </div>
           <div className="grid grid-cols-2 gap-1.5" data-testid="section-orders-revenue">
-            <MetricCard label="Pending Revenue" value={stats ? formatCurrency(stats.pendingRevenue) : '$0.00'} color="orange" data-testid="metric-pending-revenue" />
-            <MetricCard label="Month Revenue" value={stats ? formatCurrency(stats.monthRevenue) : '$0.00'} color="green" data-testid="metric-month-revenue" />
+            <MetricCard label="Pending Rev" value={stats ? formatCurrency(stats.pendingRevenue) : '$0.00'} color="orange" data-testid="metric-pending-revenue" />
+            <MetricCard label={revenueLabel(dateRange)} value={stats ? formatCurrency(stats.monthRevenue) : '$0.00'} color="green" data-testid="metric-month-revenue" />
           </div>
         </div>
 
