@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import MetricCard from "./MetricCard";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import { InfoIcon, AlertCircle, Package, TrendingUp, Clock, Sparkles, Warehouse, RefreshCw, Info, ListChecks, ScanSearch, AlertTriangle, ArrowRight, Globe, Boxes } from "lucide-react";
+import { InfoIcon, Package, Sparkles, Warehouse, RefreshCw, Info, ListChecks, ScanSearch, AlertTriangle, ArrowRight, Globe, Boxes } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -21,7 +21,6 @@ import {
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { formatDistanceToNow } from "date-fns";
 import PriceOMaticDashboard from "./PriceOMaticDashboard";
 import WarehouseManagement from "./WarehouseManagement";
 import PlatformSyncTool from "./PlatformSyncTool";
@@ -36,34 +35,6 @@ interface InventoryStats {
   totalColors: number;
   totalCategories: number;
 }
-
-interface InventoryItem {
-  id: number;
-  inventoryId: number;
-  quantity: number;
-  unitPrice: string;
-  colorName: string;
-  item: {
-    no: string;
-    name: string;
-  };
-}
-
-interface RecentInventoryItem {
-  id: number;
-  inventoryId: number;
-  itemNo: string;
-  itemName: string | null;
-  colorId: number | null;
-  colorName: string | null;
-  colorRgb: string | null;
-  quantity: number;
-  unitPrice: string | null;
-  newOrUsed: string;
-  syncedAt: string;
-  updatedAt: string;
-}
-
 
 interface InventoryDashboardProps {
   onItemClick?: (type: 'order' | 'inventory', id: number | string, initialTab?: string) => void;
@@ -102,36 +73,6 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
     staleTime: 10 * 60 * 1000,
   });
 
-  // Fetch top value items
-  const { data: topValueItems = [] } = useQuery<InventoryItem[]>({
-    queryKey: ['/api/inventory', 'top-value'],
-    select: (data: InventoryItem[]) => 
-      data
-        .filter(item => item.unitPrice && !isNaN(Number(item.unitPrice)))
-        .sort((a, b) => Number(b.unitPrice) - Number(a.unitPrice))
-        .slice(0, 6)
-  });
-
-  // Fetch newly added items
-  const { data: newItems = [] } = useQuery<RecentInventoryItem[]>({
-    queryKey: ['/api/inventory/recent-updates', 'new'],
-    queryFn: async () => {
-      const response = await fetch('/api/inventory/recent-updates?type=new&limit=4');
-      if (!response.ok) throw new Error('Failed to fetch new items');
-      return response.json();
-    }
-  });
-
-  // Fetch recently updated items
-  const { data: updatedItems = [] } = useQuery<RecentInventoryItem[]>({
-    queryKey: ['/api/inventory/recent-updates', 'updated'],
-    queryFn: async () => {
-      const response = await fetch('/api/inventory/recent-updates?type=updated&limit=4');
-      if (!response.ok) throw new Error('Failed to fetch updated items');
-      return response.json();
-    }
-  });
-
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -141,13 +82,6 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
 
   const formatNumber = (value: number) => {
     return new Intl.NumberFormat('en-US').format(value);
-  };
-
-  const safeFormatDate = (dateString: string | null | undefined): string => {
-    if (!dateString) return 'N/A';
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return 'N/A';
-    return formatDistanceToNow(date, { addSuffix: true });
   };
 
   const profitPotential = stats ? stats.totalValue - stats.totalCost : 0;
@@ -398,122 +332,6 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
           </div>
         </div>
 
-        {/* Highlights - Top Value Items */}
-        <div className="bg-gray-900/50 border border-green-500/20 rounded-lg p-3 md:p-4" data-testid="section-top-value">
-          <div className="flex items-center gap-2 mb-2">
-            <TrendingUp className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-green-400" />
-            <h3 className="text-xs md:text-base lg:text-lg font-semibold text-green-400 uppercase tracking-wide">Highlights - Highest Value Items</h3>
-          </div>
-          <div className="space-y-1.5">
-            {topValueItems.length > 0 ? (
-              topValueItems.map((item) => (
-                <div 
-                  key={item.id} 
-                  onClick={() => onItemClick?.('inventory', item.inventoryId)}
-                  className="flex justify-between items-start hover-elevate rounded px-2 py-1 cursor-pointer"
-                  data-testid={`top-value-${item.id}`}
-                >
-                  <div className="flex gap-2 flex-1 min-w-0">
-                    <TrendingUp className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-green-400 flex-shrink-0 mt-0.5" />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-gray-200 font-mono text-xs md:text-base lg:text-lg font-medium">
-                        {item.item.no}
-                      </div>
-                      <div className="flex gap-1.5 text-[11px] md:text-sm lg:text-base text-gray-400 mt-0.5">
-                        <span>{item.colorName}</span>
-                        <span>•</span>
-                        <span>Qty: {item.quantity}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <span className="text-lego-green font-mono font-medium text-xs md:text-base lg:text-lg ml-2 flex-shrink-0">@${Number(item.unitPrice).toFixed(2)}</span>
-                </div>
-              ))
-            ) : (
-              <div className="text-[11px] text-gray-500 italic">No items to display</div>
-            )}
-          </div>
-        </div>
-
-        {/* Recent Activity */}
-        <div className="bg-gray-900/50 border border-blue-500/20 rounded-lg p-3 md:p-4" data-testid="section-recent-updates">
-          <div className="flex items-center gap-2 mb-3">
-            <Clock className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-blue-400" />
-            <h3 className="text-xs md:text-base lg:text-lg font-semibold text-blue-400 uppercase tracking-wide">Recent Activity</h3>
-          </div>
-          
-          {newItems.length > 0 || updatedItems.length > 0 ? (
-            <div className="space-y-3">
-              {/* Newly Added Items */}
-              {newItems.length > 0 && (
-                <div>
-                  <h4 className="text-[9px] md:text-xs font-bold text-gray-500 uppercase mb-1.5 tracking-wide">New Items</h4>
-                  <div className="space-y-1">
-                    {newItems.map((item) => (
-                      <div 
-                        key={item.id} 
-                        onClick={() => onItemClick?.('inventory', item.inventoryId)}
-                        className="flex justify-between items-start hover-elevate rounded px-2 py-1 cursor-pointer"
-                        data-testid={`new-item-${item.id}`}
-                      >
-                        <div className="flex gap-2 flex-1 min-w-0">
-                          <Package className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-green-400 flex-shrink-0 mt-0.5" />
-                          <div className="flex-1 min-w-0">
-                            <div className="text-gray-200 truncate text-xs md:text-base lg:text-lg font-medium">
-                              {item.itemNo} {item.itemName && `- ${item.itemName}`}
-                            </div>
-                            <div className="flex gap-1.5 text-[11px] md:text-sm lg:text-base text-gray-400 mt-0.5">
-                              <span>{item.colorName || 'N/A'}</span>
-                              <span>•</span>
-                              <span>{item.newOrUsed === 'N' ? 'New' : 'Used'}</span>
-                              <span>•</span>
-                              <span>{safeFormatDate(item.syncedAt)}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Updated Items */}
-              {updatedItems.length > 0 && (
-                <div>
-                  <h4 className="text-[9px] md:text-xs font-bold text-gray-500 uppercase mb-1.5 tracking-wide">Updated Items</h4>
-                  <div className="space-y-1">
-                    {updatedItems.map((item) => (
-                      <div 
-                        key={item.id} 
-                        onClick={() => onItemClick?.('inventory', item.inventoryId)}
-                        className="flex justify-between items-start hover-elevate rounded px-2 py-1 cursor-pointer"
-                        data-testid={`recent-update-${item.id}`}
-                      >
-                        <div className="flex gap-2 flex-1 min-w-0">
-                          <div className="w-2.5 h-2.5 md:w-3 md:h-3 lg:w-3.5 lg:h-3.5 rounded-full bg-blue-400 flex-shrink-0 mt-1" />
-                          <div className="flex-1 min-w-0">
-                            <div className="text-gray-200 truncate text-xs md:text-base lg:text-lg font-medium">
-                              {item.itemNo} {item.itemName && `- ${item.itemName}`}
-                            </div>
-                            <div className="flex gap-1.5 text-[11px] md:text-sm lg:text-base text-gray-400 mt-0.5">
-                              <span>{item.colorName || 'N/A'}</span>
-                              <span>•</span>
-                              <span>{item.newOrUsed === 'N' ? 'New' : 'Used'}</span>
-                              <span>•</span>
-                              <span>{safeFormatDate(item.updatedAt)}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="text-[9px] md:text-xs text-gray-500 italic">No recent activity</div>
-          )}
-        </div>
       </div>
 
       {/* Price-O-Matic Drawer */}

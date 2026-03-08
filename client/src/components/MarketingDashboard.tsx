@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import {
-  Users, TrendingUp, Star, Target, Sparkles, Info, ArrowRight,
+  Users, Sparkles, Info, ArrowRight,
   Megaphone, Heart, Trophy, X,
 } from "lucide-react";
 import {
@@ -79,22 +79,7 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
 
   const customerData = getCustomerData();
 
-  const getCustomerOrderId = (username: string): string | null => {
-    const sorted = orders
-      .filter(o => o.customerUsername === username && !['cancelled', 'Cancelled'].includes(o.orderStatus))
-      .sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime());
-    return sorted[0]?.id ?? null;
-  };
-
   const topCustomers = [...customerData].sort((a, b) => b.totalRevenue - a.totalRevenue).slice(0, 6);
-  const repeatCustomers = customerData.filter(c => c.orderCount > 1).sort((a, b) => b.orderCount - a.orderCount).slice(0, 6);
-  const recentNewCustomers = customerData
-    .filter(c => {
-      const days = (Date.now() - new Date(c.lastOrderDate).getTime()) / 86400000;
-      return c.orderCount === 1 && days <= 30;
-    })
-    .sort((a, b) => new Date(b.lastOrderDate).getTime() - new Date(a.lastOrderDate).getTime())
-    .slice(0, 6);
 
   const totalCustomers = customerData.length;
   const repeatCustomerCount = customerData.filter(c => c.orderCount > 1).length;
@@ -279,93 +264,6 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
               </div>
             </button>
 
-          </div>
-        </div>
-
-        {/* ── Highlights — Top Customers ── */}
-        <div className="bg-gray-900/50 border border-green-500/20 rounded-lg p-3 md:p-4" data-testid="section-top-customers">
-          <div className="flex items-center gap-2 mb-2">
-            <Star className="w-3.5 h-3.5 md:w-5 md:h-5 text-green-400" />
-            <h3 className="text-xs md:text-base font-semibold text-green-400 uppercase tracking-wide">Highlights — Top by Revenue</h3>
-          </div>
-          <div className="space-y-1.5">
-            {topCustomers.length > 0 ? (
-              topCustomers.map((customer, idx) => (
-                <div
-                  key={customer.customerUsername + idx}
-                  onClick={() => { const id = getCustomerOrderId(customer.customerUsername); if (id) onItemClick?.('order', id); }}
-                  className="flex justify-between items-center hover-elevate rounded px-2 py-1 cursor-pointer"
-                  data-testid={`top-customer-${idx}`}
-                >
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <Star className="w-3.5 h-3.5 text-green-400 flex-shrink-0" />
-                    <span className="text-gray-200 text-xs md:text-base font-medium">{customer.customerUsername}</span>
-                    <span className="text-gray-400 text-[11px] md:text-sm">{customer.orderCount} {customer.orderCount === 1 ? 'order' : 'orders'}</span>
-                  </div>
-                  <span className="text-lego-green font-mono font-medium text-xs md:text-base ml-2 flex-shrink-0">${customer.totalRevenue.toFixed(2)}</span>
-                </div>
-              ))
-            ) : (
-              <div className="text-[11px] text-gray-500 italic">No customer data available</div>
-            )}
-          </div>
-        </div>
-
-        {/* ── Action Items — Repeat Customers ── */}
-        <div className="bg-gray-900/50 border border-blue-500/20 rounded-lg p-3 md:p-4" data-testid="section-repeat-customers">
-          <div className="flex items-center gap-2 mb-2">
-            <TrendingUp className="w-3.5 h-3.5 md:w-5 md:h-5 text-blue-400" />
-            <h3 className="text-xs md:text-base font-semibold text-blue-400 uppercase tracking-wide">Action Items — Engage Repeat Buyers</h3>
-          </div>
-          <div className="space-y-1.5">
-            {repeatCustomers.length > 0 ? (
-              repeatCustomers.map((customer, idx) => (
-                <div
-                  key={customer.customerUsername + idx}
-                  onClick={() => { const id = getCustomerOrderId(customer.customerUsername); if (id) onItemClick?.('order', id); }}
-                  className="flex justify-between items-center hover-elevate rounded px-2 py-1 cursor-pointer"
-                  data-testid={`repeat-customer-${idx}`}
-                >
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <Users className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
-                    <span className="text-gray-200 text-xs md:text-base font-medium">{customer.customerUsername}</span>
-                    <span className="text-gray-400 text-[11px] md:text-sm">{customer.orderCount}x buyer</span>
-                  </div>
-                  <span className="text-lego-green font-mono font-medium text-xs md:text-base ml-2 flex-shrink-0">${customer.totalRevenue.toFixed(2)}</span>
-                </div>
-              ))
-            ) : (
-              <div className="text-[11px] text-gray-500 italic">No repeat customers yet</div>
-            )}
-          </div>
-        </div>
-
-        {/* ── Recent Activity — New Customers ── */}
-        <div className="bg-gray-900/50 border border-purple-500/20 rounded-lg p-3 md:p-4" data-testid="section-new-customers">
-          <div className="flex items-center gap-2 mb-2">
-            <Target className="w-3.5 h-3.5 md:w-5 md:h-5 text-purple-400" />
-            <h3 className="text-xs md:text-base font-semibold text-purple-400 uppercase tracking-wide">Recent Activity — New (Last 30 Days)</h3>
-          </div>
-          <div className="space-y-1.5">
-            {recentNewCustomers.length > 0 ? (
-              recentNewCustomers.map((customer, idx) => (
-                <div
-                  key={customer.customerUsername + idx}
-                  onClick={() => { const id = getCustomerOrderId(customer.customerUsername); if (id) onItemClick?.('order', id); }}
-                  className="flex justify-between items-center hover-elevate rounded px-2 py-1 cursor-pointer"
-                  data-testid={`new-customer-${idx}`}
-                >
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <div className="w-2.5 h-2.5 rounded-full bg-purple-400 flex-shrink-0" />
-                    <span className="text-gray-200 text-xs md:text-base font-medium">{customer.customerUsername}</span>
-                    <span className="text-gray-400 text-[11px] md:text-sm">{new Date(customer.lastOrderDate).toLocaleDateString()}</span>
-                  </div>
-                  <span className="text-lego-green font-mono font-medium text-xs md:text-base ml-2 flex-shrink-0">${customer.totalRevenue.toFixed(2)}</span>
-                </div>
-              ))
-            ) : (
-              <div className="text-[11px] text-gray-500 italic">No new customers in last 30 days</div>
-            )}
           </div>
         </div>
 
