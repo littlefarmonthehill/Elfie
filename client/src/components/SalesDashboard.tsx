@@ -823,188 +823,6 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
         )}
       </div>
 
-      {/* ── Compare / Analysis Section ── */}
-      <div className="relative bg-gradient-to-b from-green-950/25 to-gray-900/85 border border-green-500/40 rounded-lg shadow-[0_0_22px_rgba(34,197,94,0.15)] overflow-hidden">
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-green-400/60 to-transparent" />
-        <div className="p-2 space-y-2">
-          {/* Section header */}
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-md bg-green-900/60 ring-1 ring-green-500/50 shadow-[0_0_8px_rgba(34,197,94,0.35)]">
-              <TrendingUp className="w-3.5 h-3.5 text-green-300" />
-            </div>
-            <h3 className="text-xs md:text-base font-semibold text-gray-200 uppercase tracking-wide">Compare</h3>
-          </div>
-
-          {/* Comparison Controls */}
-          <div className="flex flex-wrap items-center gap-2 border border-green-500/15 rounded-lg bg-black/15 px-2 py-1.5">
-            <button
-              onClick={() => setCompareMode(!compareMode)}
-            className={`flex items-center gap-1.5 text-[10px] md:text-sm font-bold py-1 px-2 rounded transition-all ${
-              compareMode
-                ? 'bg-lego-orange text-white border border-lego-orange'
-                : 'bg-gray-900 text-gray-400 border border-gray-700 hover-elevate'
-            }`}
-            data-testid="button-compare-toggle"
-          >
-            <GitCompare className="w-3 h-3" />
-            <span>Compare</span>
-          </button>
-          
-          {/* Mode Toggle - Year vs Platform */}
-          {compareMode && (
-            <div className="flex gap-1">
-              <button
-                onClick={() => setComparisonType('year')}
-                className={`text-[10px] md:text-sm px-2 py-1 rounded transition-all ${
-                  comparisonType === 'year'
-                    ? 'bg-purple-600 text-white border border-purple-500'
-                    : 'bg-gray-800 text-gray-400 border border-gray-700 hover-elevate'
-                }`}
-                data-testid="button-compare-year"
-              >
-                Years
-              </button>
-              <button
-                onClick={() => setComparisonType('platform')}
-                className={`text-[10px] md:text-sm px-2 py-1 rounded transition-all ${
-                  comparisonType === 'platform'
-                    ? 'bg-purple-600 text-white border border-purple-500'
-                    : 'bg-gray-800 text-gray-400 border border-gray-700 hover-elevate'
-                }`}
-                data-testid="button-compare-platform"
-              >
-                Platforms
-              </button>
-            </div>
-          )}
-
-          {/* Year selector row */}
-          {compareMode && comparisonType === 'year' && availableYears.length > 0 && (
-            <div className="flex items-center gap-2 overflow-x-auto w-full">
-              <span className="text-[9px] md:text-xs text-gray-500 flex-shrink-0">vs</span>
-              <div className="flex gap-1.5 flex-nowrap">
-                {(() => {
-                  const nonCurrentYears = availableYears.filter(y => y !== currentYear);
-                  const sorted = [
-                    ...[...validCompareYears].sort((a, b) => b - a),
-                    ...nonCurrentYears.filter(y => !validCompareYears.includes(y)).sort((a, b) => b - a),
-                  ];
-                  return sorted.map(year => {
-                    const isSelected = selectedCompareYears.includes(year);
-                    return (
-                      <button
-                        key={year}
-                        onClick={() => {
-                          if (isSelected) setSelectedCompareYears(selectedCompareYears.filter(y => y !== year));
-                          else setSelectedCompareYears([...selectedCompareYears, year].sort((a, b) => b - a));
-                        }}
-                        aria-pressed={isSelected}
-                        className={`text-[9px] md:text-xs font-bold py-1 px-2 rounded transition-all flex-shrink-0 ${isSelected ? 'bg-blue-600 text-white border border-blue-500' : 'bg-gray-800 text-gray-400 border border-gray-700 hover-elevate'}`}
-                        data-testid={`year-toggle-${year}`}
-                      >
-                        {year}
-                      </button>
-                    );
-                  });
-                })()}
-              </div>
-            </div>
-          )}
-
-          {/* Platform selector row */}
-          {compareMode && comparisonType === 'platform' && availablePlatforms.length > 0 && (
-            <div className="flex items-center gap-2 overflow-x-auto w-full">
-              <span className="text-[9px] md:text-xs text-gray-500 flex-shrink-0">select</span>
-              <div className="flex gap-1.5 flex-nowrap">
-                {(() => {
-                  const sorted = [
-                    ...[...validPlatforms].sort((a, b) => a.localeCompare(b)),
-                    ...availablePlatforms.filter(p => !validPlatforms.includes(p)).sort((a, b) => a.localeCompare(b)),
-                  ];
-                  return sorted.map(platform => {
-                    const isSelected = selectedPlatforms.includes(platform);
-                    return (
-                      <button
-                        key={platform}
-                        onClick={() => {
-                          if (isSelected) setSelectedPlatforms(selectedPlatforms.filter(p => p !== platform));
-                          else setSelectedPlatforms([...selectedPlatforms, platform].sort((a, b) => a.localeCompare(b)));
-                        }}
-                        aria-pressed={isSelected}
-                        className={`text-[9px] md:text-xs font-bold py-1 px-2 rounded transition-all flex-shrink-0 ${isSelected ? 'bg-blue-600 text-white border border-blue-500' : 'bg-gray-800 text-gray-400 border border-gray-700 hover-elevate'}`}
-                        data-testid={`platform-toggle-${platform.toLowerCase().replace(/\s+/g, '-')}`}
-                      >
-                        {platform}
-                      </button>
-                    );
-                  });
-                })()}
-              </div>
-            </div>
-          )}
-          </div>{/* end comparison controls */}
-
-          {/* YoY Growth */}
-          {compareMode && comparisonType === 'year' && validCompareYears.length > 0 && (
-            <div className="bg-black/20 rounded-lg p-3" data-testid="section-yoy-metrics">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="p-1 rounded bg-purple-900/50 ring-1 ring-purple-500/40 shadow-[0_0_6px_rgba(168,85,247,0.25)]">
-                  <TrendingUp className="w-3 h-3 text-purple-300" />
-                </div>
-                <h3 className="text-[10px] md:text-sm font-semibold text-purple-300 uppercase tracking-wide">Year-over-Year Growth</h3>
-              </div>
-              <div className={`grid gap-2 ${validCompareYears.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
-                {(() => {
-                  const yearTotals = comparisonYears.reduce((acc, year) => {
-                    acc[year] = comparisonData.reduce((sum, m) => sum + ((m[`${year}`] as number) || 0), 0);
-                    return acc;
-                  }, {} as Record<number, number>);
-                  return validCompareYears.map(compareYear => {
-                    const growth = yearTotals[compareYear] > 0 ? ((yearTotals[currentYear] - yearTotals[compareYear]) / yearTotals[compareYear]) * 100 : 0;
-                    return (
-                      <div key={compareYear} className="bg-gray-800/50 rounded p-2">
-                        <div className="text-[9px] md:text-xs text-gray-500 mb-1">{currentYear} vs {compareYear}</div>
-                        <div className={`text-sm font-mono font-bold ${growth >= 0 ? 'text-green-400' : 'text-red-400'}`}>{growth >= 0 ? '+' : ''}{growth.toFixed(1)}%</div>
-                        <div className="text-[9px] md:text-xs text-gray-400 mt-1">${Math.round(yearTotals[currentYear]).toLocaleString()} vs ${Math.round(yearTotals[compareYear]).toLocaleString()}</div>
-                      </div>
-                    );
-                  });
-                })()}
-              </div>
-            </div>
-          )}
-
-          {/* Platform Comparison Metrics */}
-          {compareMode && comparisonType === 'platform' && validPlatforms.length > 0 && (
-            <div className="bg-black/20 rounded-lg p-3" data-testid="section-platform-metrics">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="p-1 rounded bg-purple-900/50 ring-1 ring-purple-500/40 shadow-[0_0_6px_rgba(168,85,247,0.25)]">
-                  <TrendingUp className="w-3 h-3 text-purple-300" />
-                </div>
-                <h3 className="text-[10px] md:text-sm font-semibold text-purple-300 uppercase tracking-wide">Platform Comparison</h3>
-              </div>
-              <div className={`grid gap-2 ${validPlatforms.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
-                {(() => {
-                  const totals = validPlatforms.reduce((acc, p) => { acc[p] = comparisonData.reduce((s, m) => s + ((m[p] as number) || 0), 0); return acc; }, {} as Record<string, number>);
-                  const totalRev = Object.values(totals).reduce((s, v) => s + v, 0);
-                  return validPlatforms.map(platform => (
-                    <div key={platform} className="bg-gray-800/50 rounded p-2">
-                      <div className="flex items-center gap-1 mb-1">
-                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: PLATFORM_COLORS[platform] || PLATFORM_COLORS['Other'] }} />
-                        <div className="text-[9px] md:text-xs text-gray-500">{platform}</div>
-                      </div>
-                      <div className="text-sm font-mono font-bold text-white">${Math.round(totals[platform]).toLocaleString()}</div>
-                      <div className="text-[9px] md:text-xs text-gray-400 mt-1">{(totalRev > 0 ? (totals[platform] / totalRev) * 100 : 0).toFixed(1)}% of total</div>
-                    </div>
-                  ));
-                })()}
-              </div>
-            </div>
-          )}
-
-        </div>{/* end p-2 space-y-2 */}
-      </div>{/* end Jetsons green section */}
-
       {/* ── Tools Section ── */}
       <div className="relative bg-gradient-to-b from-gray-800/20 to-gray-900/85 border border-gray-600/35 rounded-lg shadow-[0_0_18px_rgba(156,163,175,0.08)] overflow-hidden">
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-400/50 to-transparent" />
@@ -1165,6 +983,173 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
                 </>
               )}
             </div>
+
+            {/* Compare Controls */}
+            <div className="flex flex-wrap items-center gap-2 border border-green-500/15 rounded-lg bg-black/15 px-2 py-1.5">
+              <button
+                onClick={() => setCompareMode(!compareMode)}
+                className={`flex items-center gap-1.5 text-[10px] md:text-sm font-bold py-1 px-2 rounded transition-all ${
+                  compareMode
+                    ? 'bg-lego-orange text-white border border-lego-orange'
+                    : 'bg-gray-900 text-gray-400 border border-gray-700 hover-elevate'
+                }`}
+                data-testid="button-compare-toggle"
+              >
+                <GitCompare className="w-3 h-3" />
+                <span>Compare</span>
+              </button>
+
+              {/* Mode Toggle - Year vs Platform */}
+              {compareMode && (
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => setComparisonType('year')}
+                    className={`text-[10px] md:text-sm px-2 py-1 rounded transition-all ${
+                      comparisonType === 'year'
+                        ? 'bg-purple-600 text-white border border-purple-500'
+                        : 'bg-gray-800 text-gray-400 border border-gray-700 hover-elevate'
+                    }`}
+                    data-testid="button-compare-year"
+                  >
+                    Years
+                  </button>
+                  <button
+                    onClick={() => setComparisonType('platform')}
+                    className={`text-[10px] md:text-sm px-2 py-1 rounded transition-all ${
+                      comparisonType === 'platform'
+                        ? 'bg-purple-600 text-white border border-purple-500'
+                        : 'bg-gray-800 text-gray-400 border border-gray-700 hover-elevate'
+                    }`}
+                    data-testid="button-compare-platform"
+                  >
+                    Platforms
+                  </button>
+                </div>
+              )}
+
+              {/* Year selector row */}
+              {compareMode && comparisonType === 'year' && availableYears.length > 0 && (
+                <div className="flex items-center gap-2 overflow-x-auto w-full">
+                  <span className="text-[9px] md:text-xs text-gray-500 flex-shrink-0">vs</span>
+                  <div className="flex gap-1.5 flex-nowrap">
+                    {(() => {
+                      const nonCurrentYears = availableYears.filter(y => y !== currentYear);
+                      const sorted = [
+                        ...[...validCompareYears].sort((a, b) => b - a),
+                        ...nonCurrentYears.filter(y => !validCompareYears.includes(y)).sort((a, b) => b - a),
+                      ];
+                      return sorted.map(year => {
+                        const isSelected = selectedCompareYears.includes(year);
+                        return (
+                          <button
+                            key={year}
+                            onClick={() => {
+                              if (isSelected) setSelectedCompareYears(selectedCompareYears.filter(y => y !== year));
+                              else setSelectedCompareYears([...selectedCompareYears, year].sort((a, b) => b - a));
+                            }}
+                            aria-pressed={isSelected}
+                            className={`text-[9px] md:text-xs font-bold py-1 px-2 rounded transition-all flex-shrink-0 ${isSelected ? 'bg-blue-600 text-white border border-blue-500' : 'bg-gray-800 text-gray-400 border border-gray-700 hover-elevate'}`}
+                            data-testid={`year-toggle-${year}`}
+                          >
+                            {year}
+                          </button>
+                        );
+                      });
+                    })()}
+                  </div>
+                </div>
+              )}
+
+              {/* Platform selector row */}
+              {compareMode && comparisonType === 'platform' && availablePlatforms.length > 0 && (
+                <div className="flex items-center gap-2 overflow-x-auto w-full">
+                  <span className="text-[9px] md:text-xs text-gray-500 flex-shrink-0">select</span>
+                  <div className="flex gap-1.5 flex-nowrap">
+                    {(() => {
+                      const sorted = [
+                        ...[...validPlatforms].sort((a, b) => a.localeCompare(b)),
+                        ...availablePlatforms.filter(p => !validPlatforms.includes(p)).sort((a, b) => a.localeCompare(b)),
+                      ];
+                      return sorted.map(platform => {
+                        const isSelected = selectedPlatforms.includes(platform);
+                        return (
+                          <button
+                            key={platform}
+                            onClick={() => {
+                              if (isSelected) setSelectedPlatforms(selectedPlatforms.filter(p => p !== platform));
+                              else setSelectedPlatforms([...selectedPlatforms, platform].sort((a, b) => a.localeCompare(b)));
+                            }}
+                            aria-pressed={isSelected}
+                            className={`text-[9px] md:text-xs font-bold py-1 px-2 rounded transition-all flex-shrink-0 ${isSelected ? 'bg-blue-600 text-white border border-blue-500' : 'bg-gray-800 text-gray-400 border border-gray-700 hover-elevate'}`}
+                            data-testid={`platform-toggle-${platform.toLowerCase().replace(/\s+/g, '-')}`}
+                          >
+                            {platform}
+                          </button>
+                        );
+                      });
+                    })()}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* YoY Growth */}
+            {compareMode && comparisonType === 'year' && validCompareYears.length > 0 && (
+              <div className="bg-black/20 rounded-lg p-3" data-testid="section-yoy-metrics">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="p-1 rounded bg-purple-900/50 ring-1 ring-purple-500/40 shadow-[0_0_6px_rgba(168,85,247,0.25)]">
+                    <TrendingUp className="w-3 h-3 text-purple-300" />
+                  </div>
+                  <h3 className="text-[10px] md:text-sm font-semibold text-purple-300 uppercase tracking-wide">Year-over-Year Growth</h3>
+                </div>
+                <div className={`grid gap-2 ${validCompareYears.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                  {(() => {
+                    const yearTotals = comparisonYears.reduce((acc, year) => {
+                      acc[year] = comparisonData.reduce((sum, m) => sum + ((m[`${year}`] as number) || 0), 0);
+                      return acc;
+                    }, {} as Record<number, number>);
+                    return validCompareYears.map(compareYear => {
+                      const growth = yearTotals[compareYear] > 0 ? ((yearTotals[currentYear] - yearTotals[compareYear]) / yearTotals[compareYear]) * 100 : 0;
+                      return (
+                        <div key={compareYear} className="bg-gray-800/50 rounded p-2">
+                          <div className="text-[9px] md:text-xs text-gray-500 mb-1">{currentYear} vs {compareYear}</div>
+                          <div className={`text-sm font-mono font-bold ${growth >= 0 ? 'text-green-400' : 'text-red-400'}`}>{growth >= 0 ? '+' : ''}{growth.toFixed(1)}%</div>
+                          <div className="text-[9px] md:text-xs text-gray-400 mt-1">${Math.round(yearTotals[currentYear]).toLocaleString()} vs ${Math.round(yearTotals[compareYear]).toLocaleString()}</div>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+              </div>
+            )}
+
+            {/* Platform Comparison Metrics */}
+            {compareMode && comparisonType === 'platform' && validPlatforms.length > 0 && (
+              <div className="bg-black/20 rounded-lg p-3" data-testid="section-platform-metrics">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="p-1 rounded bg-purple-900/50 ring-1 ring-purple-500/40 shadow-[0_0_6px_rgba(168,85,247,0.25)]">
+                    <TrendingUp className="w-3 h-3 text-purple-300" />
+                  </div>
+                  <h3 className="text-[10px] md:text-sm font-semibold text-purple-300 uppercase tracking-wide">Platform Comparison</h3>
+                </div>
+                <div className={`grid gap-2 ${validPlatforms.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                  {(() => {
+                    const totals = validPlatforms.reduce((acc, p) => { acc[p] = comparisonData.reduce((s, m) => s + ((m[p] as number) || 0), 0); return acc; }, {} as Record<string, number>);
+                    const totalRev = Object.values(totals).reduce((s, v) => s + v, 0);
+                    return validPlatforms.map(platform => (
+                      <div key={platform} className="bg-gray-800/50 rounded p-2">
+                        <div className="flex items-center gap-1 mb-1">
+                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: PLATFORM_COLORS[platform] || PLATFORM_COLORS['Other'] }} />
+                          <div className="text-[9px] md:text-xs text-gray-500">{platform}</div>
+                        </div>
+                        <div className="text-sm font-mono font-bold text-white">${Math.round(totals[platform]).toLocaleString()}</div>
+                        <div className="text-[9px] md:text-xs text-gray-400 mt-1">{(totalRev > 0 ? (totals[platform] / totalRev) * 100 : 0).toFixed(1)}% of total</div>
+                      </div>
+                    ));
+                  })()}
+                </div>
+              </div>
+            )}
           </div>
         </DrawerContent>
       </Drawer>
