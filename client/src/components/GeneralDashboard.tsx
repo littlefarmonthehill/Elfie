@@ -172,9 +172,6 @@ function InventoryLane({
     (i: any) => (i.opportunityScore ?? 0) >= 2.3
   );
   const highOpportunityCount = highOpportunityItems.length;
-  const topOpportunityScore = highOpportunityItems.length > 0
-    ? Math.max(...highOpportunityItems.map((i: any) => i.opportunityScore ?? 0))
-    : 0;
 
   const invSyncFailed = lastInvSync?.lastSyncStatus === 'failed' || lastInvSync?.lastSyncStatus === 'error';
   const pomFailed = lastPom?.lastSyncStatus === 'failed' || lastPom?.lastSyncStatus === 'error';
@@ -196,7 +193,7 @@ function InventoryLane({
             <AlertItem icon={XCircle} iconColor="text-red-400" label="Price-o-Matic failed" sub={lastPom?.errorMessage ?? 'Run manually from Settings'} onClick={() => onOpenSettings?.('automation')} severity="error" />
           )}
           {highOpportunityCount > 0 && (
-            <AlertItem icon={TrendingDown} iconColor="text-orange-400" label={`${highOpportunityCount} underpriced (top ${topOpportunityScore.toFixed(1)}x)`} sub="Open Price-o-Matic to review" onClick={onOpenPriceomatic} severity="warn" />
+            <AlertItem icon={TrendingDown} iconColor="text-orange-400" label={`${highOpportunityCount} items underpriced (score > 2.3x)`} sub="Open Price-o-Matic to review" onClick={onOpenPriceomatic} severity="warn" />
           )}
         </LaneSection>
       ) : (
