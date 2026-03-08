@@ -308,7 +308,7 @@ function InventoryLane({
             <AlertItem icon={XCircle} iconColor="text-red-400" label="Price-o-Matic failed" sub={lastPom?.errorMessage ?? 'Run manually from Settings'} onClick={() => onOpenSettings?.('automation')} severity="error" />
           )}
           {highOpportunityCount > 0 && (
-            <AlertItem icon={TrendingDown} iconColor="text-orange-400" label={`${highOpportunityCount} items underpriced (score > 2.3x)`} sub="Open Price-o-Matic to review" onClick={onOpenPriceomatic} severity="warn" />
+            <AlertItem icon={TrendingDown} iconColor="text-orange-400" label={`${highOpportunityCount} items underpriced (score > ${threshold}x)`} sub="Open Price-o-Matic to review" onClick={onOpenPriceomatic} severity="warn" />
           )}
         </LaneSection>
       ) : (
