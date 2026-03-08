@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   Users, Sparkles, Info, ArrowRight,
-  Megaphone, Heart, Trophy, X,
+  Megaphone, UserPlus, RefreshCcw, Trophy, X,
 } from "lucide-react";
+
 import {
   Drawer,
   DrawerClose,
@@ -34,7 +35,7 @@ interface CustomerData {
   lastOrderDate: string;
 }
 
-export type MarketingDrawer = 'attract' | 'delight' | 'reward' | null;
+export type MarketingDrawer = 'attract' | 'engage-new' | 'engage-repeat' | 'engage-top' | null;
 
 interface MarketingDashboardProps {
   dateRange?: DateRangeValue;
@@ -176,37 +177,37 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
               </div>
             </button>
 
-            {/* Delight */}
+            {/* Engage New */}
             <button
-              onClick={() => onDrawerChange('delight')}
-              data-testid="tool-delight"
+              onClick={() => onDrawerChange('engage-new')}
+              data-testid="tool-engage-new"
               className="group flex flex-col gap-1.5 rounded-lg border border-cyan-500/50 bg-gradient-to-br from-cyan-950/65 to-gray-950/80 p-3 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(6,182,212,0.09)]"
             >
               <div className="flex items-center gap-2">
                 <div className="rounded-lg bg-cyan-900/70 p-1.5 ring-1 ring-cyan-500/45 shadow-[0_0_10px_rgba(6,182,212,0.22)]">
-                  <Heart className="w-3.5 h-3.5 md:w-5 md:h-5 text-cyan-200" />
+                  <UserPlus className="w-3.5 h-3.5 md:w-5 md:h-5 text-cyan-200" />
                 </div>
-                <span className="text-xs md:text-sm font-bold text-cyan-100 leading-tight flex-1">Delight Current Customers</span>
+                <span className="text-xs md:text-sm font-bold text-cyan-100 leading-tight flex-1">Engage New Customers</span>
                 <Popover>
                   <PopoverTrigger asChild>
                     <span
                       role="button"
                       onClick={(e) => e.stopPropagation()}
                       className="text-cyan-600/60 hover:text-cyan-400 transition-colors"
-                      data-testid="info-delight"
+                      data-testid="info-engage-new"
                     >
                       <Info className="w-3 h-3" />
                     </span>
                   </PopoverTrigger>
                   <PopoverContent side="top" className="w-64 text-xs text-gray-300 bg-gray-900 border-gray-700 p-2.5">
-                    Keep buyers coming back — post-purchase follow-ups, personalized offers, and satisfaction tracking.
+                    Reach out to first-time buyers — onboarding messages, welcome offers, and early engagement prompts.
                   </PopoverContent>
                 </Popover>
               </div>
               <div className="flex flex-wrap gap-1 min-h-[1.25rem]">
-                {repeatCustomerCount > 0 ? (
+                {newLast30 > 0 ? (
                   <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-600/30">
-                    {repeatCustomerCount} repeat buyers
+                    {newLast30} new (30d)
                   </span>
                 ) : (
                   <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-cyan-500/15 text-cyan-400 border border-cyan-600/25">
@@ -220,24 +221,68 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
               </div>
             </button>
 
-            {/* Reward */}
+            {/* Engage Repeat */}
             <button
-              onClick={() => onDrawerChange('reward')}
-              data-testid="tool-reward"
-              className="group col-span-2 flex flex-col gap-1.5 rounded-lg border border-amber-500/50 bg-gradient-to-br from-amber-950/65 to-gray-950/80 p-3 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(245,158,11,0.09)]"
+              onClick={() => onDrawerChange('engage-repeat')}
+              data-testid="tool-engage-repeat"
+              className="group flex flex-col gap-1.5 rounded-lg border border-blue-500/50 bg-gradient-to-br from-blue-950/65 to-gray-950/80 p-3 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(59,130,246,0.09)]"
+            >
+              <div className="flex items-center gap-2">
+                <div className="rounded-lg bg-blue-900/70 p-1.5 ring-1 ring-blue-500/45 shadow-[0_0_10px_rgba(59,130,246,0.22)]">
+                  <RefreshCcw className="w-3.5 h-3.5 md:w-5 md:h-5 text-blue-200" />
+                </div>
+                <span className="text-xs md:text-sm font-bold text-blue-100 leading-tight flex-1">Engage Repeating Customers</span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <span
+                      role="button"
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-blue-600/60 hover:text-blue-400 transition-colors"
+                      data-testid="info-engage-repeat"
+                    >
+                      <Info className="w-3 h-3" />
+                    </span>
+                  </PopoverTrigger>
+                  <PopoverContent side="top" className="w-64 text-xs text-gray-300 bg-gray-900 border-gray-700 p-2.5">
+                    Keep loyal buyers engaged — personalized follow-ups, exclusive offers, and re-order reminders.
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div className="flex flex-wrap gap-1 min-h-[1.25rem]">
+                {repeatCustomerCount > 0 ? (
+                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-600/30">
+                    {repeatCustomerCount} repeat buyers
+                  </span>
+                ) : (
+                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-500/15 text-blue-400 border border-blue-600/25">
+                    Coming soon
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] md:text-xs text-blue-300 font-medium">Open tool</span>
+                <ArrowRight className="w-3 h-3 md:w-4 md:h-4 text-blue-400/70 group-hover:text-blue-200 transition-colors" />
+              </div>
+            </button>
+
+            {/* Engage Top */}
+            <button
+              onClick={() => onDrawerChange('engage-top')}
+              data-testid="tool-engage-top"
+              className="group flex flex-col gap-1.5 rounded-lg border border-amber-500/50 bg-gradient-to-br from-amber-950/65 to-gray-950/80 p-3 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(245,158,11,0.09)]"
             >
               <div className="flex items-center gap-2">
                 <div className="rounded-lg bg-amber-900/70 p-1.5 ring-1 ring-amber-500/45 shadow-[0_0_10px_rgba(245,158,11,0.22)]">
                   <Trophy className="w-3.5 h-3.5 md:w-5 md:h-5 text-amber-200" />
                 </div>
-                <span className="text-xs md:text-sm font-bold text-amber-100 leading-tight flex-1">Reward Loyal &amp; High Spenders</span>
+                <span className="text-xs md:text-sm font-bold text-amber-100 leading-tight flex-1">Engage Top Spenders</span>
                 <Popover>
                   <PopoverTrigger asChild>
                     <span
                       role="button"
                       onClick={(e) => e.stopPropagation()}
                       className="text-amber-600/60 hover:text-amber-400 transition-colors"
-                      data-testid="info-reward"
+                      data-testid="info-engage-top"
                     >
                       <Info className="w-3 h-3" />
                     </span>
@@ -294,40 +339,65 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
         </DrawerContent>
       </Drawer>
 
-      {/* ── Delight Drawer ── */}
-      <Drawer open={activeDrawer === 'delight'} onOpenChange={(open) => !open && onDrawerChange(null)}>
+      {/* ── Engage New Drawer ── */}
+      <Drawer open={activeDrawer === 'engage-new'} onOpenChange={(open) => !open && onDrawerChange(null)}>
         <DrawerContent className="h-[90vh]">
           <DrawerHeader className="relative">
             <DrawerTitle className="flex items-center gap-2 text-base md:text-lg">
-              <Heart className="w-5 h-5 text-cyan-400" />
-              Delight Current Customers
+              <UserPlus className="w-5 h-5 text-cyan-400" />
+              Engage New Customers
             </DrawerTitle>
-            <DrawerClose className="absolute right-4 top-4" data-testid="button-close-delight">
+            <DrawerClose className="absolute right-4 top-4" data-testid="button-close-engage-new">
               <X className="h-4 w-4" />
               <span className="sr-only">Close</span>
             </DrawerClose>
           </DrawerHeader>
           <div className="flex flex-col items-center justify-center flex-1 px-4 pb-8 gap-4 text-center">
             <div className="w-16 h-16 rounded-full bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center">
-              <Heart className="w-7 h-7 text-cyan-400" />
+              <UserPlus className="w-7 h-7 text-cyan-400" />
             </div>
             <h3 className="text-lg font-semibold text-gray-200">Coming Soon</h3>
             <p className="text-sm text-gray-400 max-w-sm">
-              Post-purchase follow-ups, personalized recommendations, and satisfaction tracking are in development.
+              Onboarding messages, welcome offers, and early engagement tools for first-time buyers are in development.
             </p>
           </div>
         </DrawerContent>
       </Drawer>
 
-      {/* ── Reward Drawer ── */}
-      <Drawer open={activeDrawer === 'reward'} onOpenChange={(open) => !open && onDrawerChange(null)}>
+      {/* ── Engage Repeat Drawer ── */}
+      <Drawer open={activeDrawer === 'engage-repeat'} onOpenChange={(open) => !open && onDrawerChange(null)}>
+        <DrawerContent className="h-[90vh]">
+          <DrawerHeader className="relative">
+            <DrawerTitle className="flex items-center gap-2 text-base md:text-lg">
+              <RefreshCcw className="w-5 h-5 text-blue-400" />
+              Engage Repeating Customers
+            </DrawerTitle>
+            <DrawerClose className="absolute right-4 top-4" data-testid="button-close-engage-repeat">
+              <X className="h-4 w-4" />
+              <span className="sr-only">Close</span>
+            </DrawerClose>
+          </DrawerHeader>
+          <div className="flex flex-col items-center justify-center flex-1 px-4 pb-8 gap-4 text-center">
+            <div className="w-16 h-16 rounded-full bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
+              <RefreshCcw className="w-7 h-7 text-blue-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-200">Coming Soon</h3>
+            <p className="text-sm text-gray-400 max-w-sm">
+              Personalized follow-ups, exclusive offers, and re-order reminders for your repeat buyers are coming.
+            </p>
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* ── Engage Top Drawer ── */}
+      <Drawer open={activeDrawer === 'engage-top'} onOpenChange={(open) => !open && onDrawerChange(null)}>
         <DrawerContent className="h-[90vh]">
           <DrawerHeader className="relative">
             <DrawerTitle className="flex items-center gap-2 text-base md:text-lg">
               <Trophy className="w-5 h-5 text-amber-400" />
-              Reward Loyal &amp; High Spenders
+              Engage Top Spenders
             </DrawerTitle>
-            <DrawerClose className="absolute right-4 top-4" data-testid="button-close-reward">
+            <DrawerClose className="absolute right-4 top-4" data-testid="button-close-engage-top">
               <X className="h-4 w-4" />
               <span className="sr-only">Close</span>
             </DrawerClose>
