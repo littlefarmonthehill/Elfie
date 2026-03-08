@@ -137,6 +137,28 @@ export async function runMigrations() {
     `);
 
     console.log('[Migration] Phase-4 (credentials) complete.');
+
+    // ── Phase-5: Merge legacy 'default' row credentials into per-org row ───────
+    // When the org row was created (id=org_id), BrickLink credentials and other
+    // settings may have only been stored in the old id='default' row.
+    // Copy any missing credential fields from 'default' → org row, then delete
+    // the 'default' row so all future reads hit the correct row by primary key.
+    await client.query(`
+      UPDATE app_settings AS target
+      SET
+        bricklink_consumer_key    = COALESCE(NULLIF(target.bricklink_consumer_key, ''),    source.bricklink_consumer_key),
+        bricklink_consumer_secret = COALESCE(NULLIF(target.bricklink_consumer_secret, ''), source.bricklink_consumer_secret),
+        bricklink_token_value     = COALESCE(NULLIF(target.bricklink_token_value, ''),     source.bricklink_token_value),
+        bricklink_token_secret    = COALESCE(NULLIF(target.bricklink_token_secret, ''),    source.bricklink_token_secret),
+        paypal_client_id          = COALESCE(NULLIF(target.paypal_client_id, ''),          source.paypal_client_id),
+        paypal_client_secret      = COALESCE(NULLIF(target.paypal_client_secret, ''),      source.paypal_client_secret)
+      FROM app_settings AS source
+      WHERE source.id     = 'default'
+        AND target.id     = source.org_id
+        AND target.id    != 'default'
+    `);
+    await client.query(`DELETE FROM app_settings WHERE id = 'default'`);
+    console.log('[Migration] Phase-5 (merge default credentials) complete.');
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {
