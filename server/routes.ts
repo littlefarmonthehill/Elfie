@@ -7297,7 +7297,8 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           and(
             eq(syncMetadata.orgId, orgId),
             inArray(syncMetadata.lastSyncStatus, ['error', 'failed', 'partial']),
-            sql`${syncMetadata.lastSyncTime} >= ${since}`
+            sql`${syncMetadata.lastSyncTime} >= ${since}`,
+            sql`${syncMetadata.id} != 'priceomatic_cache'`
           )
         );
 
