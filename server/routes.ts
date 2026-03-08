@@ -7787,6 +7787,42 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
     }
   });
 
+  // Future Missions: fetch queue
+  app.get("/api/priceomatic/future-missions", isApproved, async (req: any, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    try {
+      const orgId = reqOrgId(req);
+      const settings = await getOrgSettings(orgId);
+      const raw = settings?.pomFutureMissionsKeys || '[]';
+      const parsed: unknown[] = JSON.parse(raw);
+      type StoredGroupInfo = { key: string; itemNo: string; itemName: string | null; colorId: number | null; colorName: string | null };
+      const items: StoredGroupInfo[] = parsed.map((el: unknown) =>
+        typeof el === 'string'
+          ? { key: el, itemNo: el.split('_')[0], itemName: null, colorId: null, colorName: null }
+          : el as StoredGroupInfo
+      );
+      res.json({ success: true, keys: items.map(i => i.key), items });
+    } catch (error) {
+      res.status(500).json({ success: false, error: "Failed to fetch future missions keys" });
+    }
+  });
+
+  // Future Missions: save queue
+  app.put("/api/priceomatic/future-missions", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const { items } = req.body as { items?: { key: string; itemNo: string; itemName: string | null; colorId: number | null; colorName: string | null }[] };
+      const toStore = items ?? [];
+      if (!Array.isArray(toStore)) return res.status(400).json({ success: false, error: "items must be an array" });
+      const json = JSON.stringify(toStore);
+      await db.insert(appSettings).values({ id: orgId, orgId, pomFutureMissionsKeys: json })
+        .onConflictDoUpdate({ target: appSettings.id, set: { pomFutureMissionsKeys: json, updatedAt: new Date() } });
+      res.json({ success: true, keys: toStore.map((i: { key: string }) => i.key), items: toStore });
+    } catch (error) {
+      res.status(500).json({ success: false, error: "Failed to save future missions keys" });
+    }
+  });
+
   // Get categories with their priority tiers — only categories that exist in our inventory
   app.get("/api/priceomatic/category-tiers", isApproved, async (req, res) => {
     try {

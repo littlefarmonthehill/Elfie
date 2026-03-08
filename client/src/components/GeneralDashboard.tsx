@@ -265,7 +265,7 @@ function BrickLinkApiSection({ rateLimit, blApiCallLimit }: { rateLimit: any; bl
 // ── INVENTORY LANE ────────────────────────────────────────────────────────────
 
 function InventoryLane({
-  stats, globalSyncStatuses, invSyncProgress, pomStatus, pricingInsights, underpricedThreshold, deepSpaceKeys, onItemClick, onOpenBrickanalyzer, onOpenPriceomatic, onOpenSettings,
+  stats, globalSyncStatuses, invSyncProgress, pomStatus, pricingInsights, underpricedThreshold, deepSpaceKeys, futureMissionsKeys, onItemClick, onOpenBrickanalyzer, onOpenPriceomatic, onOpenSettings,
 }: any) {
   const lastInvSync = globalSyncStatuses?.inventory;
   const lastPom = pomStatus?.data ?? globalSyncStatuses?.priceomatic;
@@ -304,7 +304,7 @@ function InventoryLane({
     }
   }
   const highOpportunityCount = Array.from(groupScores.entries()).filter(
-    ([key, g]) => g.totalQty > 0 && g.maxScore >= threshold && !(deepSpaceKeys as Set<string>)?.has(key)
+    ([key, g]) => g.totalQty > 0 && g.maxScore >= threshold && !(deepSpaceKeys as Set<string>)?.has(key) && !(futureMissionsKeys as Set<string>)?.has(key)
   ).length;
 
   const invSyncFailed = lastInvSync?.lastSyncStatus === 'failed' || lastInvSync?.lastSyncStatus === 'error';
@@ -924,7 +924,12 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
     queryKey: ['/api/priceomatic/deep-space'],
     staleTime: 0,
   });
+  const { data: futureMissionsData } = useQuery<{ success: boolean; keys: string[] }>({
+    queryKey: ['/api/priceomatic/future-missions'],
+    staleTime: 0,
+  });
   const deepSpaceKeySet = new Set<string>(deepSpaceData?.keys ?? []);
+  const futureMissionsKeySet = new Set<string>(futureMissionsData?.keys ?? []);
 
   const { data: pomStatus } = useQuery<{ success: boolean; data: any }>({
     queryKey: ['/api/sync/priceomatic/status'],
@@ -1031,6 +1036,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
           pricingInsights={pricingInsights}
           underpricedThreshold={underpricedThreshold}
           deepSpaceKeys={deepSpaceKeySet}
+          futureMissionsKeys={futureMissionsKeySet}
           onItemClick={onItemClick}
           onOpenBrickanalyzer={onOpenBrickanalyzer}
           onOpenPriceomatic={onOpenPriceomatic}

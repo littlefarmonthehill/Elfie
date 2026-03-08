@@ -508,6 +508,7 @@ export const appSettings = pgTable("app_settings", {
   channelSyncTime: text("channel_sync_time").default('03:00'),                  // Time of day (HH:MM) — run AFTER inbound + order syncs settle
   timezone: text("timezone").default('America/Chicago'),                        // User's local timezone for all schedulers
   pomDeepSpaceKeys: text("pom_deep_space_keys").default('[]'),                  // JSON array of item keys excluded from POM orbit view
+  pomFutureMissionsKeys: text("pom_future_missions_keys").default('[]'),        // JSON array of item keys queued in Future Missions
   // List-o-Matic Priority Scores — editable weight per sorting phase (0-100 scale)
   lomCategoryScore: integer("lom_category_score").default(25).notNull(),       // Phase 1 — Category
   lomSubcategoryScore: integer("lom_subcategory_score").default(50).notNull(), // Phase 2 — Subcategory

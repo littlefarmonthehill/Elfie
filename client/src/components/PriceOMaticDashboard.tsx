@@ -13,13 +13,20 @@ import {
   DollarSign,
   Orbit,
   Rocket,
+  Satellite,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { PomSpotLookup } from "@/components/PomSpotLookup";
 
 const DEEP_SPACE_LS_KEY = 'pom_deep_space_keys';
 const DEEP_SPACE_ITEMS_LS_KEY = 'pom_deep_space_items';
-const SWIPE_THRESHOLD = 72;
+const FUTURE_MISSIONS_LS_KEY = 'pom_future_missions_keys';
+const FUTURE_MISSIONS_ITEMS_LS_KEY = 'pom_future_missions_items';
+
+// Short swipe = move one zone. Long swipe = jump two zones (skip Future Missions).
+const SHORT_SWIPE = 80;
+const LONG_SWIPE = 160;
+const MAX_OFFSET = 220;
 
 interface StoredGroupInfo {
   key: string;
@@ -36,24 +43,38 @@ function lsLoadDeepSpace(): Set<string> {
   } catch {}
   return new Set();
 }
-
 function lsSaveDeepSpace(keys: Set<string>) {
   localStorage.setItem(DEEP_SPACE_LS_KEY, JSON.stringify(Array.from(keys)));
 }
-
 function lsLoadDeepSpaceItems(): Map<string, StoredGroupInfo> {
   try {
     const raw = localStorage.getItem(DEEP_SPACE_ITEMS_LS_KEY);
-    if (raw) {
-      const arr: StoredGroupInfo[] = JSON.parse(raw);
-      return new Map(arr.map(i => [i.key, i]));
-    }
+    if (raw) { const arr: StoredGroupInfo[] = JSON.parse(raw); return new Map(arr.map(i => [i.key, i])); }
   } catch {}
   return new Map();
 }
-
 function lsSaveDeepSpaceItems(items: Map<string, StoredGroupInfo>) {
   localStorage.setItem(DEEP_SPACE_ITEMS_LS_KEY, JSON.stringify(Array.from(items.values())));
+}
+function lsLoadFutureMissions(): Set<string> {
+  try {
+    const raw = localStorage.getItem(FUTURE_MISSIONS_LS_KEY);
+    if (raw) return new Set(JSON.parse(raw));
+  } catch {}
+  return new Set();
+}
+function lsSaveFutureMissions(keys: Set<string>) {
+  localStorage.setItem(FUTURE_MISSIONS_LS_KEY, JSON.stringify(Array.from(keys)));
+}
+function lsLoadFutureMissionsItems(): Map<string, StoredGroupInfo> {
+  try {
+    const raw = localStorage.getItem(FUTURE_MISSIONS_ITEMS_LS_KEY);
+    if (raw) { const arr: StoredGroupInfo[] = JSON.parse(raw); return new Map(arr.map(i => [i.key, i])); }
+  } catch {}
+  return new Map();
+}
+function lsSaveFutureMissionsItems(items: Map<string, StoredGroupInfo>) {
+  localStorage.setItem(FUTURE_MISSIONS_ITEMS_LS_KEY, JSON.stringify(Array.from(items.values())));
 }
 
 interface SyncStatus {
@@ -117,17 +138,94 @@ interface PriceOMaticDashboardProps {
   onItemClick?: (type: 'inventory' | 'order', id: number) => void;
 }
 
+type ZoneFilter = 'in_orbit' | 'future_missions' | 'deep_space';
+
+// Describes what action a swipe will trigger and how to render the reveal area
+interface SwipeIntent {
+  zone: ZoneFilter;
+  label: string;
+  color: string;       // text color
+  bg: string;          // gradient background
+  icon: React.ReactNode;
+}
+
+function getSwipeIntent(orbitFilter: ZoneFilter, swipeDelta: number): SwipeIntent | null {
+  const abs = Math.abs(swipeDelta);
+  if (abs < SHORT_SWIPE) return null;
+
+  if (orbitFilter === 'in_orbit' && swipeDelta > 0) {
+    // Right swipe from In Orbit
+    if (abs >= LONG_SWIPE) {
+      return {
+        zone: 'deep_space',
+        label: 'Deep Space',
+        color: 'text-indigo-300',
+        bg: 'linear-gradient(to right, rgba(99,40,220,0.45), rgba(79,70,229,0.25))',
+        icon: <Rocket className="w-4 h-4 text-indigo-300 flex-shrink-0" />,
+      };
+    }
+    return {
+      zone: 'future_missions',
+      label: 'Future Missions',
+      color: 'text-amber-300',
+      bg: 'linear-gradient(to right, rgba(180,100,0,0.45), rgba(217,119,6,0.20))',
+      icon: <Satellite className="w-4 h-4 text-amber-300 flex-shrink-0" />,
+    };
+  }
+
+  if (orbitFilter === 'future_missions') {
+    if (swipeDelta < 0) {
+      // Left → In Orbit
+      return {
+        zone: 'in_orbit',
+        label: 'In Orbit',
+        color: 'text-emerald-300',
+        bg: 'linear-gradient(to left, rgba(16,100,50,0.45), rgba(16,185,129,0.20))',
+        icon: <Orbit className="w-4 h-4 text-emerald-300 flex-shrink-0" />,
+      };
+    }
+    // Right → Deep Space
+    return {
+      zone: 'deep_space',
+      label: 'Deep Space',
+      color: 'text-indigo-300',
+      bg: 'linear-gradient(to right, rgba(99,40,220,0.45), rgba(79,70,229,0.25))',
+      icon: <Rocket className="w-4 h-4 text-indigo-300 flex-shrink-0" />,
+    };
+  }
+
+  if (orbitFilter === 'deep_space' && swipeDelta < 0) {
+    // Left swipe from Deep Space
+    if (abs >= LONG_SWIPE) {
+      return {
+        zone: 'in_orbit',
+        label: 'In Orbit',
+        color: 'text-emerald-300',
+        bg: 'linear-gradient(to left, rgba(16,100,50,0.45), rgba(16,185,129,0.20))',
+        icon: <Orbit className="w-4 h-4 text-emerald-300 flex-shrink-0" />,
+      };
+    }
+    return {
+      zone: 'future_missions',
+      label: 'Future Missions',
+      color: 'text-amber-300',
+      bg: 'linear-gradient(to left, rgba(180,100,0,0.45), rgba(217,119,6,0.20))',
+      icon: <Satellite className="w-4 h-4 text-amber-300 flex-shrink-0" />,
+    };
+  }
+
+  return null;
+}
+
 function SwipeableTile({
   group,
   orbitFilter,
-  onSendToDeepSpace,
-  onBringToOrbit,
+  onMoveToZone,
   children,
 }: {
   group: GroupedInsight;
-  orbitFilter: 'in_orbit' | 'deep_space';
-  onSendToDeepSpace: (group: GroupedInsight) => void;
-  onBringToOrbit: (key: string) => void;
+  orbitFilter: ZoneFilter;
+  onMoveToZone: (group: GroupedInsight, targetZone: ZoneFilter) => void;
   children: React.ReactNode;
 }) {
   const touchStartX = useRef<number | null>(null);
@@ -136,6 +234,7 @@ function SwipeableTile({
   const [swipeDelta, setSwipeDelta] = useState(0);
   const [swiping, setSwiping] = useState(false);
   const [launched, setLaunched] = useState(false);
+  const [launchDir, setLaunchDir] = useState<1 | -1>(1);
 
   const onTouchStart = useCallback((e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
@@ -149,64 +248,84 @@ function SwipeableTile({
     const dx = e.touches[0].clientX - touchStartX.current;
     const dy = e.touches[0].clientY - touchStartY.current;
     if (!swiping && Math.abs(dy) > Math.abs(dx)) return;
-    if (orbitFilter === 'in_orbit' && dx > 0) {
+
+    const allowRight = orbitFilter === 'in_orbit' || orbitFilter === 'future_missions';
+    const allowLeft  = orbitFilter === 'deep_space' || orbitFilter === 'future_missions';
+
+    if (dx > 0 && allowRight) {
       setSwiping(true);
-      setSwipeDelta(Math.min(dx, 160));
+      setSwipeDelta(Math.min(dx, MAX_OFFSET));
       e.preventDefault();
-    } else if (orbitFilter === 'deep_space' && dx < 0) {
+    } else if (dx < 0 && allowLeft) {
       setSwiping(true);
-      setSwipeDelta(Math.max(dx, -160));
+      setSwipeDelta(Math.max(dx, -MAX_OFFSET));
       e.preventDefault();
     }
   }, [swiping, orbitFilter]);
 
   const onTouchEnd = useCallback(() => {
-    const absSwipe = Math.abs(swipeDelta);
-    if (absSwipe >= SWIPE_THRESHOLD) {
+    const intent = getSwipeIntent(orbitFilter, swipeDelta);
+    if (intent) {
+      const dir = swipeDelta > 0 ? 1 : -1;
+      setLaunchDir(dir);
       setLaunched(true);
       setTimeout(() => {
-        if (orbitFilter === 'in_orbit' && swipeDelta > 0) {
-          onSendToDeepSpace(group);
-        } else if (orbitFilter === 'deep_space' && swipeDelta < 0) {
-          onBringToOrbit(group.key);
-        }
+        onMoveToZone(group, intent.zone);
         setLaunched(false);
         setSwipeDelta(0);
         setSwiping(false);
-      }, 280);
+      }, 260);
     } else {
       setSwipeDelta(0);
       setSwiping(false);
     }
     touchStartX.current = null;
     touchStartY.current = null;
-  }, [swipeDelta, group.key, orbitFilter, onSendToDeepSpace, onBringToOrbit]);
+  }, [swipeDelta, orbitFilter, group, onMoveToZone]);
 
   const absSwipeDelta = Math.abs(swipeDelta);
-  const translateX = launched ? (orbitFilter === 'in_orbit' ? 320 : -320) : swipeDelta;
-  const opacity = launched ? 0 : 1 - (absSwipeDelta / 260);
-  const showLabel = absSwipeDelta >= SWIPE_THRESHOLD * 0.6;
+  const translateX = launched ? launchDir * 340 : swipeDelta;
+  const opacity = launched ? 0 : 1 - (absSwipeDelta / 280);
+  const intent = getSwipeIntent(orbitFilter, swipeDelta);
+  const showLabel = absSwipeDelta >= SHORT_SWIPE * 0.65;
+
+  // Detect threshold crossing for flash effect
+  const isLong = absSwipeDelta >= LONG_SWIPE;
+  const isMidZone = absSwipeDelta >= SHORT_SWIPE && !isLong;
 
   return (
     <div className="relative overflow-hidden rounded-lg">
-      {/* Swipe reveal background */}
+      {/* Reveal background — color changes dynamically based on intent */}
       <div
-        className={`absolute inset-0 rounded-lg flex items-center px-4 gap-2 ${orbitFilter === 'deep_space' ? 'justify-end' : ''}`}
-        style={{
-          background: orbitFilter === 'in_orbit'
-            ? 'linear-gradient(to right, rgba(99,102,241,0.25), rgba(59,130,246,0.1))'
-            : 'linear-gradient(to left, rgba(16,185,129,0.25), rgba(59,130,246,0.1))',
-        }}
+        className={`absolute inset-0 rounded-lg flex items-center px-4 gap-2 transition-all duration-150 ${
+          swipeDelta < 0 ? 'justify-end' : ''
+        }`}
+        style={{ background: intent?.bg ?? 'transparent' }}
       >
-        {orbitFilter === 'in_orbit' ? (
+        {intent && showLabel && (
           <>
-            <Rocket className="w-4 h-4 text-indigo-400 flex-shrink-0" />
-            {showLabel && <span className="text-[10px] font-bold text-indigo-300 uppercase tracking-wider">Deep Space</span>}
-          </>
-        ) : (
-          <>
-            <Orbit className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-            {showLabel && <span className="text-[10px] font-bold text-emerald-300 uppercase tracking-wider">In Orbit</span>}
+            {intent.icon}
+            <div className="flex flex-col">
+              <span className={`text-[10px] font-bold uppercase tracking-wider ${intent.color}`}>
+                {intent.label}
+              </span>
+              {/* Threshold hint: tell the user what a longer swipe would do */}
+              {isMidZone && orbitFilter === 'in_orbit' && (
+                <span className="text-[8px] text-amber-500/70 tracking-wide">keep swiping for Deep Space</span>
+              )}
+              {isMidZone && orbitFilter === 'deep_space' && (
+                <span className="text-[8px] text-amber-500/70 tracking-wide">keep swiping for In Orbit</span>
+              )}
+            </div>
+            {/* Long-swipe zone indicator — a faint bar at the LONG threshold */}
+            {(orbitFilter === 'in_orbit' || orbitFilter === 'deep_space') && (
+              <div
+                className="absolute top-1 bottom-1 w-[2px] bg-white/10 rounded"
+                style={{
+                  [swipeDelta > 0 ? 'left' : 'right']: `${LONG_SWIPE}px`,
+                }}
+              />
+            )}
           </>
         )}
       </div>
@@ -217,7 +336,7 @@ function SwipeableTile({
         style={{
           transform: `translateX(${translateX}px)`,
           opacity,
-          transition: swiping ? 'none' : 'transform 0.28s ease, opacity 0.28s ease',
+          transition: swiping ? 'none' : 'transform 0.26s ease, opacity 0.26s ease',
         }}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
@@ -236,13 +355,19 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc');
   const [pricingData, setPricingData] = useState<Map<string, { n: string | null; u: string | null }>>(new Map());
   const [pricingLoading, setPricingLoading] = useState<Set<string>>(new Set());
-  // Initialize from localStorage for instant render; API query overwrites on mount
+
+  // --- Deep Space state ---
   const [deepSpaceKeys, setDeepSpaceKeys] = useState<Set<string>>(lsLoadDeepSpace);
   const [deepSpaceItems, setDeepSpaceItems] = useState<Map<string, StoredGroupInfo>>(lsLoadDeepSpaceItems);
-  const [orbitFilter, setOrbitFilter] = useState<'in_orbit' | 'deep_space'>('in_orbit');
+
+  // --- Future Missions state ---
+  const [futureMissionsKeys, setFutureMissionsKeys] = useState<Set<string>>(lsLoadFutureMissions);
+  const [futureMissionsItems, setFutureMissionsItems] = useState<Map<string, StoredGroupInfo>>(lsLoadFutureMissionsItems);
+
+  const [orbitFilter, setOrbitFilter] = useState<ZoneFilter>('in_orbit');
   const [scoreFilter, setScoreFilter] = useState<'all' | 'underpriced' | 'priced_right' | 'overpriced'>('all');
 
-  // Fetch deep space keys + item metadata from the server (cross-device source of truth)
+  // --- Server sync: Deep Space ---
   const { data: deepSpaceData } = useQuery<{ success: boolean; keys: string[]; items?: StoredGroupInfo[] }>({
     queryKey: ['/api/priceomatic/deep-space'],
     staleTime: 0,
@@ -250,14 +375,10 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
     refetchOnWindowFocus: true,
   });
 
-  // Direct save to server — bypasses mutation to avoid stale closure issues
   const saveDeepSpaceToServer = useCallback((items: StoredGroupInfo[]) => {
     apiRequest('PUT', '/api/priceomatic/deep-space', { items }).catch(() => {});
   }, []);
 
-  // When server data arrives, merge with local state:
-  // - If server has data, server wins (cross-device sync)
-  // - If server is empty but local has data, push local data up to server (migration)
   useEffect(() => {
     if (!deepSpaceData) return;
     const serverKeys = deepSpaceData.keys ?? [];
@@ -265,7 +386,6 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
     const localKeys = Array.from(lsLoadDeepSpace());
     const localItems = lsLoadDeepSpaceItems();
     if (serverKeys.length > 0) {
-      // Server has data — use it as authoritative
       const serverSet = new Set(serverKeys);
       const serverItemsMap = new Map(serverItems.map(i => [i.key, i]));
       setDeepSpaceKeys(serverSet);
@@ -273,35 +393,74 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
       lsSaveDeepSpace(serverSet);
       lsSaveDeepSpaceItems(serverItemsMap);
     } else if (localKeys.length > 0) {
-      // DB is empty but local has keys — migrate local → server via direct fetch
       const migratedItems = localKeys.map(k => localItems.get(k) ?? { key: k, itemNo: k.split('_')[0], itemName: null, colorId: null, colorName: null });
       apiRequest('PUT', '/api/priceomatic/deep-space', { items: migratedItems }).catch(() => {});
     }
-    // If both empty, leave state as-is
   }, [deepSpaceData]);
 
-  const sendToDeepSpace = useCallback((group: GroupedInsight) => {
-    const stored: StoredGroupInfo = { key: group.key, itemNo: group.itemNo, itemName: group.itemName, colorId: group.colorId, colorName: group.colorName };
-    setDeepSpaceKeys(prev => { const next = new Set(prev); next.add(group.key); return next; });
-    setDeepSpaceItems(prev => { const next = new Map(prev); next.set(group.key, stored); return next; });
-    // Persist to localStorage and server
-    const updatedKeys = new Set(lsLoadDeepSpace()); updatedKeys.add(group.key);
-    const updatedItems = lsLoadDeepSpaceItems(); updatedItems.set(group.key, stored);
-    lsSaveDeepSpace(updatedKeys);
-    lsSaveDeepSpaceItems(updatedItems);
-    saveDeepSpaceToServer(Array.from(updatedItems.values()));
-  }, [saveDeepSpaceToServer]);
+  // --- Server sync: Future Missions ---
+  const { data: futureMissionsData } = useQuery<{ success: boolean; keys: string[]; items?: StoredGroupInfo[] }>({
+    queryKey: ['/api/priceomatic/future-missions'],
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+  });
 
-  const bringToOrbit = useCallback((key: string) => {
-    setDeepSpaceKeys(prev => { const next = new Set(prev); next.delete(key); return next; });
-    setDeepSpaceItems(prev => { const next = new Map(prev); next.delete(key); return next; });
-    // Persist to localStorage and server
-    const updatedKeys = new Set(lsLoadDeepSpace()); updatedKeys.delete(key);
-    const updatedItems = lsLoadDeepSpaceItems(); updatedItems.delete(key);
-    lsSaveDeepSpace(updatedKeys);
-    lsSaveDeepSpaceItems(updatedItems);
-    saveDeepSpaceToServer(Array.from(updatedItems.values()));
-  }, [saveDeepSpaceToServer]);
+  const saveFutureMissionsToServer = useCallback((items: StoredGroupInfo[]) => {
+    apiRequest('PUT', '/api/priceomatic/future-missions', { items }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!futureMissionsData) return;
+    const serverKeys = futureMissionsData.keys ?? [];
+    const serverItems = futureMissionsData.items ?? [];
+    if (serverKeys.length > 0) {
+      const serverSet = new Set(serverKeys);
+      const serverItemsMap = new Map(serverItems.map(i => [i.key, i]));
+      setFutureMissionsKeys(serverSet);
+      setFutureMissionsItems(serverItemsMap);
+      lsSaveFutureMissions(serverSet);
+      lsSaveFutureMissionsItems(serverItemsMap);
+    }
+  }, [futureMissionsData]);
+
+  // --- Zone movement callbacks ---
+  const onMoveToZone = useCallback((group: GroupedInsight, targetZone: ZoneFilter) => {
+    const stored: StoredGroupInfo = { key: group.key, itemNo: group.itemNo, itemName: group.itemName, colorId: group.colorId, colorName: group.colorName };
+
+    // Remove from all zones first
+    const newDeepKeys = new Set(lsLoadDeepSpace());
+    const newDeepItems = lsLoadDeepSpaceItems();
+    const newFutureKeys = new Set(lsLoadFutureMissions());
+    const newFutureItems = lsLoadFutureMissionsItems();
+
+    newDeepKeys.delete(group.key);
+    newDeepItems.delete(group.key);
+    newFutureKeys.delete(group.key);
+    newFutureItems.delete(group.key);
+
+    if (targetZone === 'deep_space') {
+      newDeepKeys.add(group.key);
+      newDeepItems.set(group.key, stored);
+    } else if (targetZone === 'future_missions') {
+      newFutureKeys.add(group.key);
+      newFutureItems.set(group.key, stored);
+    }
+    // in_orbit: already removed from both, nothing to add
+
+    setDeepSpaceKeys(new Set(newDeepKeys));
+    setDeepSpaceItems(new Map(newDeepItems));
+    setFutureMissionsKeys(new Set(newFutureKeys));
+    setFutureMissionsItems(new Map(newFutureItems));
+
+    lsSaveDeepSpace(newDeepKeys);
+    lsSaveDeepSpaceItems(newDeepItems);
+    lsSaveFutureMissions(newFutureKeys);
+    lsSaveFutureMissionsItems(newFutureItems);
+
+    saveDeepSpaceToServer(Array.from(newDeepItems.values()));
+    saveFutureMissionsToServer(Array.from(newFutureItems.values()));
+  }, [saveDeepSpaceToServer, saveFutureMissionsToServer]);
 
   const fetchPricingMutation = useMutation({
     mutationFn: async (group: GroupedInsight) => {
@@ -399,36 +558,21 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
 
   const getAllGroups = (): GroupedInsight[] => {
     if (!insightsData) return [];
-
     const allItems = [...insightsData.tooHigh, ...insightsData.tooLow, ...insightsData.wellPriced];
-
     const map = new Map<string, GroupedInsight>();
     for (const item of allItems) {
       const key = `${item.itemNo}_${item.colorId ?? 'null'}`;
       if (!map.has(key)) {
         map.set(key, {
-          key,
-          itemNo: item.itemNo,
-          itemName: item.itemName,
-          colorId: item.colorId,
-          colorName: item.colorName,
+          key, itemNo: item.itemNo, itemName: item.itemName, colorId: item.colorId, colorName: item.colorName,
           marketPeakSoldPrice: item.marketPeakSoldPrice != null ? parseFloat(String(item.marketPeakSoldPrice)) : null,
-          newLot: null,
-          usedLot: null,
-          newScore: 0,
-          usedScore: 0,
+          newLot: null, usedLot: null, newScore: 0, usedScore: 0,
         });
       }
       const g = map.get(key)!;
-      if (item.newOrUsed === 'N') {
-        g.newLot = item;
-        g.newScore = item.opportunityScore ?? 0;
-      } else {
-        g.usedLot = item;
-        g.usedScore = item.opportunityScore ?? 0;
-      }
+      if (item.newOrUsed === 'N') { g.newLot = item; g.newScore = item.opportunityScore ?? 0; }
+      else { g.usedLot = item; g.usedScore = item.opportunityScore ?? 0; }
     }
-
     return Array.from(map.values()).sort((a, b) => {
       const aScore = Math.max(a.newScore, a.usedScore);
       const bScore = Math.max(b.newScore, b.usedScore);
@@ -436,28 +580,26 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
     });
   };
 
-  const allGroups = getAllGroups().filter(g => {
-    const totalQty = (g.newLot?.quantity ?? 0) + (g.usedLot?.quantity ?? 0);
-    return totalQty > 0;
+  const makeFallbackGroup = (item: StoredGroupInfo): GroupedInsight => ({
+    key: item.key, itemNo: item.itemNo, itemName: item.itemName, colorId: item.colorId, colorName: item.colorName,
+    marketPeakSoldPrice: null, newLot: null, usedLot: null, newScore: 0, usedScore: 0,
   });
+
+  const allGroups = getAllGroups().filter(g => (g.newLot?.quantity ?? 0) + (g.usedLot?.quantity ?? 0) > 0);
   const allGroupKeySet = new Set(allGroups.map(g => g.key));
-  const inOrbitGroups = allGroups.filter(g => !deepSpaceKeys.has(g.key));
-  // Deep space: items from current POM analysis PLUS stored fallbacks for items not in current analysis
+
+  const inOrbitGroups = allGroups.filter(g => !deepSpaceKeys.has(g.key) && !futureMissionsKeys.has(g.key));
+
+  const futureMissionsFromAnalysis = allGroups.filter(g => futureMissionsKeys.has(g.key));
+  const futureMissionsFallbacks: GroupedInsight[] = Array.from(futureMissionsItems.values())
+    .filter(item => futureMissionsKeys.has(item.key) && !allGroupKeySet.has(item.key))
+    .map(makeFallbackGroup);
+  const futureMissionsGroups = [...futureMissionsFromAnalysis, ...futureMissionsFallbacks];
+
   const deepSpaceFromAnalysis = allGroups.filter(g => deepSpaceKeys.has(g.key));
   const deepSpaceFallbacks: GroupedInsight[] = Array.from(deepSpaceItems.values())
     .filter(item => deepSpaceKeys.has(item.key) && !allGroupKeySet.has(item.key))
-    .map(item => ({
-      key: item.key,
-      itemNo: item.itemNo,
-      itemName: item.itemName,
-      colorId: item.colorId,
-      colorName: item.colorName,
-      marketPeakSoldPrice: null,
-      newLot: null,
-      usedLot: null,
-      newScore: 0,
-      usedScore: 0,
-    }));
+    .map(makeFallbackGroup);
   const deepSpaceGroups = [...deepSpaceFromAnalysis, ...deepSpaceFallbacks];
 
   const classifyGroup = (g: GroupedInsight): 'underpriced' | 'overpriced' | 'priced_right' => {
@@ -476,11 +618,13 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
   const overPricedCount = inOrbitGroups.filter(g => classifyGroup(g) === 'overpriced').length;
   const pricedRightCount = inOrbitGroups.filter(g => classifyGroup(g) === 'priced_right').length;
 
-  const selectedGroups = orbitFilter === 'in_orbit' ? scoreFilteredOrbitGroups : deepSpaceGroups;
+  const selectedGroups = orbitFilter === 'in_orbit'
+    ? scoreFilteredOrbitGroups
+    : orbitFilter === 'future_missions'
+    ? futureMissionsGroups
+    : deepSpaceGroups;
 
-  useEffect(() => {
-    setItemsToShow(25);
-  }, [sortDir, orbitFilter, scoreFilter]);
+  useEffect(() => { setItemsToShow(25); }, [sortDir, orbitFilter, scoreFilter]);
 
   const ScoreSortButton = () => (
     <button
@@ -489,10 +633,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
       data-testid="button-sort-score"
     >
       Score
-      {sortDir === 'desc'
-        ? <ArrowDown className="w-2.5 h-2.5 ml-0.5" />
-        : <ArrowUp className="w-2.5 h-2.5 ml-0.5" />
-      }
+      {sortDir === 'desc' ? <ArrowDown className="w-2.5 h-2.5 ml-0.5" /> : <ArrowUp className="w-2.5 h-2.5 ml-0.5" />}
     </button>
   );
 
@@ -505,7 +646,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
       {/* Item list */}
       <div className="space-y-1.5">
 
-        {/* Orbit filter tabs — always visible so Deep Space is reachable even while insights load */}
+        {/* Zone filter tabs */}
         <div className="flex items-center gap-2 px-1 pb-1">
           <button
             onClick={() => setOrbitFilter('in_orbit')}
@@ -519,6 +660,19 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
             <Orbit className="w-3 h-3" />
             In Orbit
             <span className="text-[9px] opacity-70">({inOrbitGroups.length})</span>
+          </button>
+          <button
+            onClick={() => setOrbitFilter('future_missions')}
+            className={`flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded transition-colors ${
+              orbitFilter === 'future_missions'
+                ? 'bg-amber-500/25 text-amber-300 border border-amber-500/40'
+                : 'text-gray-500 hover:text-gray-300'
+            }`}
+            data-testid="filter-future-missions"
+          >
+            <Satellite className="w-3 h-3" />
+            Future Missions
+            <span className="text-[9px] opacity-70">({futureMissionsGroups.length})</span>
           </button>
           <button
             onClick={() => setOrbitFilter('deep_space')}
@@ -535,7 +689,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
           </button>
         </div>
 
-        {/* Score filter tabs — only shown when In Orbit is selected */}
+        {/* Score filter tabs — only shown for In Orbit */}
         {orbitFilter === 'in_orbit' && (
           <div className="flex items-center gap-1.5 px-1 pb-1 flex-wrap">
             {([
@@ -557,16 +711,45 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
           </div>
         )}
 
-        {/* Deep Space: renders independently of insightsData so cross-device items always show */}
-        {/* In Orbit: gated on insightsData; shows "No Data Yet" when not loaded */}
-        {(orbitFilter === 'deep_space' || insightsData) ? (
+        {/* Swipe hint banner — contextual to current zone */}
+        {(orbitFilter === 'in_orbit' || orbitFilter === 'future_missions' || orbitFilter === 'deep_space') && selectedGroups.length > 0 && (
+          <div className="px-2 py-1 rounded-md bg-slate-800/40 border border-slate-700/30">
+            {orbitFilter === 'in_orbit' && (
+              <p className="text-[9px] text-slate-500">
+                <span className="text-amber-500/80">Short swipe right</span> → Future Missions &nbsp;·&nbsp;
+                <span className="text-indigo-400/80">Long swipe right</span> → Deep Space
+              </p>
+            )}
+            {orbitFilter === 'future_missions' && (
+              <p className="text-[9px] text-slate-500">
+                <span className="text-emerald-500/80">Swipe left</span> → In Orbit &nbsp;·&nbsp;
+                <span className="text-indigo-400/80">Swipe right</span> → Deep Space
+              </p>
+            )}
+            {orbitFilter === 'deep_space' && (
+              <p className="text-[9px] text-slate-500">
+                <span className="text-amber-500/80">Short swipe left</span> → Future Missions &nbsp;·&nbsp;
+                <span className="text-emerald-500/80">Long swipe left</span> → In Orbit
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Main list */}
+        {(orbitFilter === 'deep_space' || orbitFilter === 'future_missions' || insightsData) ? (
           selectedGroups.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
               {orbitFilter === 'deep_space' ? (
                 <div className="space-y-1">
                   <Rocket className="w-8 h-8 text-indigo-700 mx-auto" />
                   <p className="text-xs text-gray-600">Nothing in deep space yet</p>
-                  <p className="text-[10px] text-gray-700">Swipe right on a tile to archive it here</p>
+                  <p className="text-[10px] text-gray-700">Long swipe right on a tile to archive it here</p>
+                </div>
+              ) : orbitFilter === 'future_missions' ? (
+                <div className="space-y-1">
+                  <Satellite className="w-8 h-8 text-amber-700 mx-auto" />
+                  <p className="text-xs text-gray-600">No items queued for future review</p>
+                  <p className="text-[10px] text-gray-700">Short swipe right on an In Orbit tile to queue it here</p>
                 </div>
               ) : (
                 <p className="text-xs">No items found</p>
@@ -592,8 +775,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
                     key={group.key}
                     group={group}
                     orbitFilter={orbitFilter}
-                    onSendToDeepSpace={sendToDeepSpace}
-                    onBringToOrbit={bringToOrbit}
+                    onMoveToZone={onMoveToZone}
                   >
                     <div
                       className="group relative bg-gradient-to-br from-blue-950/50 via-slate-800/70 to-blue-900/30 border border-blue-700/25 rounded-lg px-2 py-1.5 cursor-pointer shadow-[0_2px_8px_rgba(15,40,100,0.35),inset_0_1px_0_rgba(147,197,253,0.07)] hover:shadow-[0_4px_14px_rgba(15,40,100,0.5),inset_0_1px_0_rgba(147,197,253,0.12)] hover:border-blue-600/40 transition-shadow duration-150"
@@ -655,7 +837,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
                         )}
                       </div>
 
-                      {/* Row 2: Qty · Color · Peak — left-aligned group */}
+                      {/* Row 2: Qty · Color · Peak */}
                       <div className="flex items-center gap-1.5 mt-0.5 min-w-0 overflow-hidden">
                         <span className="text-[10px] font-mono text-slate-400 flex-shrink-0">
                           ×{(group.newLot?.quantity ?? 0) + (group.usedLot?.quantity ?? 0)}
@@ -668,7 +850,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
                         )}
                       </div>
 
-                      {/* Row 3: Score (left) | N Cur | N Score | U Cur | U Score */}
+                      {/* Row 3: Score | N Cur | N Score | U Cur | U Score */}
                       <div className="flex items-center gap-1 mt-0.5 min-w-0">
                         {(() => {
                           const maxScore = Math.max(group.newScore ?? 0, group.usedScore ?? 0);
@@ -746,9 +928,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
           <div className="text-center py-12">
             <Sparkles className="w-10 h-10 text-purple-400 mx-auto mb-3" />
             <h3 className="text-sm font-bold text-white mb-1">No Data Yet</h3>
-            <p className="text-xs text-gray-400 mb-3">
-              Run your first sync to analyze pricing
-            </p>
+            <p className="text-xs text-gray-400 mb-3">Run your first sync to analyze pricing</p>
             <p className="text-xs text-gray-500">Use the refresh button in the header to run your first sync.</p>
           </div>
         ) : null}
