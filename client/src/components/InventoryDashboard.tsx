@@ -87,6 +87,19 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
     queryKey: ['/api/inventory/stats'],
   });
 
+  const { data: toolStats } = useQuery<{ warehouseUnassigned: number; pendingScans: number }>({
+    queryKey: ['/api/inventory/tool-stats'],
+    staleTime: 2 * 60 * 1000,
+  });
+
+  const { data: pomInsights } = useQuery<{
+    data: { tooHigh: any[]; tooLow: any[]; wellPriced: any[] };
+    summary: { tooHigh: number; tooLow: number; wellPriced: number };
+  }>({
+    queryKey: ['/api/priceomatic/insights'],
+    staleTime: 10 * 60 * 1000,
+  });
+
   // Fetch top value items
   const { data: topValueItems = [] } = useQuery<InventoryItem[]>({
     queryKey: ['/api/inventory', 'top-value'],
@@ -224,6 +237,21 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                   </PopoverContent>
                 </Popover>
               </div>
+              <div className="flex flex-wrap gap-1 min-h-[1.25rem]" data-testid="pom-stats">
+                {(pomInsights?.summary?.tooLow ?? 0) > 0 && (
+                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-orange-500/20 text-orange-300 border border-orange-600/30" data-testid="pom-underpriced">
+                    {pomInsights!.summary.tooLow} underpriced
+                  </span>
+                )}
+                {(pomInsights?.summary?.tooHigh ?? 0) > 0 && (
+                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-300 border border-red-600/30" data-testid="pom-overpriced">
+                    {pomInsights!.summary.tooHigh} overpriced
+                  </span>
+                )}
+                {pomInsights && (pomInsights.summary.tooLow ?? 0) === 0 && (pomInsights.summary.tooHigh ?? 0) === 0 && (
+                  <span className="text-[9px] text-green-400/70">All priced well</span>
+                )}
+              </div>
               <div className="flex items-center justify-between">
                 <span className="text-[10px] md:text-xs text-purple-400 font-medium">Open tool</span>
                 <ArrowRight className="w-3 h-3 md:w-4 md:h-4 text-purple-500/60 group-hover:text-purple-300 transition-colors" />
@@ -257,6 +285,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                   </PopoverContent>
                 </Popover>
               </div>
+              <div className="flex flex-wrap gap-1 min-h-[1.25rem]" />
               <div className="flex items-center justify-between">
                 <span className="text-[10px] md:text-xs text-green-400 font-medium">Open tool</span>
                 <ArrowRight className="w-3 h-3 md:w-4 md:h-4 text-green-500/60 group-hover:text-green-300 transition-colors" />
@@ -290,6 +319,15 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                   </PopoverContent>
                 </Popover>
               </div>
+              <div className="flex flex-wrap gap-1 min-h-[1.25rem]" data-testid="warehouse-stats">
+                {(toolStats?.warehouseUnassigned ?? 0) > 0 ? (
+                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-teal-500/20 text-teal-300 border border-teal-600/30" data-testid="warehouse-unassigned">
+                    {toolStats!.warehouseUnassigned} not in bins
+                  </span>
+                ) : toolStats ? (
+                  <span className="text-[9px] text-green-400/70">All assigned to bins</span>
+                ) : null}
+              </div>
               <div className="flex items-center justify-between">
                 <span className="text-[10px] md:text-xs text-teal-400 font-medium">Open tool</span>
                 <ArrowRight className="w-3 h-3 md:w-4 md:h-4 text-teal-500/60 group-hover:text-teal-300 transition-colors" />
@@ -322,6 +360,15 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                     Photograph a pile of parts and let AI identify and value each piece.
                   </PopoverContent>
                 </Popover>
+              </div>
+              <div className="flex flex-wrap gap-1 min-h-[1.25rem]" data-testid="brickspotter-stats">
+                {(toolStats?.pendingScans ?? 0) > 0 ? (
+                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-600/30" data-testid="brickspotter-pending">
+                    {toolStats!.pendingScans} {toolStats!.pendingScans === 1 ? 'scan' : 'scans'} ready
+                  </span>
+                ) : toolStats ? (
+                  <span className="text-[9px] text-green-400/70">No pending scans</span>
+                ) : null}
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-[10px] md:text-xs text-amber-400 font-medium">Open tool</span>

@@ -5750,6 +5750,39 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
     }
   });
 
+  // Lightweight counts for inventory tool cards
+  app.get("/api/inventory/tool-stats", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+
+      const [warehouseResult] = await db
+        .select({ count: sql<number>`COUNT(*)` })
+        .from(blInventory)
+        .leftJoin(inventoryLocations, eq(blInventory.id, inventoryLocations.inventoryId))
+        .where(and(
+          eq(blInventory.orgId, orgId),
+          sql`${inventoryLocations.id} IS NULL`,
+          sql`${blInventory.quantity} > 0`
+        ));
+
+      const [scansResult] = await db
+        .select({ count: sql<number>`COUNT(*)` })
+        .from(brickanalyzerScans)
+        .where(and(
+          eq(brickanalyzerScans.orgId, orgId),
+          eq(brickanalyzerScans.status, 'complete')
+        ));
+
+      res.json({
+        warehouseUnassigned: Number(warehouseResult?.count ?? 0),
+        pendingScans: Number(scansResult?.count ?? 0),
+      });
+    } catch (error) {
+      console.error("Error fetching tool stats:", error);
+      res.status(500).json({ error: "Failed to fetch tool stats" });
+    }
+  });
+
   // Image proxy route - serves part images with white backgrounds removed
   // Accepts URL parameter for direct image processing
   app.get("/api/images/proxy", async (req, res) => {
