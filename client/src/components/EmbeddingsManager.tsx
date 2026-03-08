@@ -427,7 +427,7 @@ export function EmbeddingsManager({ searchOnly = false }: { searchOnly?: boolean
         <CardHeader className="pb-2 p-3">
           <CardTitle className="text-sm flex items-center gap-2">
             <Eye className="w-4 h-4 text-blue-400" />
-            Your Inventory — Visual (CLIP)
+            Your Inventory — Visual Recognition
           </CardTitle>
           <CardDescription className="text-xs">
             CLIP vision embeddings of parts you stock — BrickSpotter can identify parts from your catalog only
@@ -705,7 +705,7 @@ function UniversalCatalogCard() {
       <CardHeader className="pb-2 p-3">
         <CardTitle className="text-sm flex items-center gap-2">
           <Globe className="w-4 h-4 text-emerald-400" />
-          All BrickLink Parts — Visual (CLIP)
+          All BrickLink Parts — Visual Recognition
         </CardTitle>
         <CardDescription className="text-xs">
           CLIP vision embeddings of all ~130k BrickLink parts — BrickSpotter can identify any part, even ones you don't stock

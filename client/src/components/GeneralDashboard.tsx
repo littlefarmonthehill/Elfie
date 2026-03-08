@@ -661,7 +661,7 @@ function AIIntelligenceLane({ latestScan, appSettings, onOpenBrickanalyzer, dism
           )}
           {universalCatalog?.workerRunning && (
             <JobBar
-              label="Universal CLIP Catalog"
+              label="All BrickLink parts — Visual Recognition"
               pct={ucPct}
               sublabel={`${universalCatalog.embedded.toLocaleString()} / ${universalCatalog.queueSize.toLocaleString()} parts`}
               color="purple"
@@ -703,7 +703,7 @@ function AIIntelligenceLane({ latestScan, appSettings, onOpenBrickanalyzer, dism
             <ActivityItem
               icon={universalCatalog.workerRunning ? RefreshCw : CheckCircle}
               iconColor={universalCatalog.workerRunning ? 'text-purple-400' : 'text-green-400'}
-              label={`All BrickLink parts — Visual (CLIP) — ${ucPct}%`}
+              label={`All BrickLink parts — Visual Recognition — ${ucPct}%`}
               sub={universalCatalog.pending > 0 ? `${universalCatalog.pending.toLocaleString()} pending` : universalCatalog.noImage > 0 ? `${universalCatalog.noImage.toLocaleString()} no image` : `${universalCatalog.embedded.toLocaleString()} parts embedded`}
             />
           )}
@@ -711,7 +711,7 @@ function AIIntelligenceLane({ latestScan, appSettings, onOpenBrickanalyzer, dism
             <ActivityItem
               icon={ScanSearch}
               iconColor="text-purple-400"
-              label={`Your inventory — Visual (CLIP) — ${catalogPct}% built`}
+              label={`Your inventory — Visual Recognition — ${catalogPct}% built`}
               sub={`${catalogStatus.catalog} / ${catalogStatus.total} parts embedded`}
             />
           )}
