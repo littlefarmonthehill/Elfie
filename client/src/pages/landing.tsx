@@ -1,375 +1,564 @@
+import { useState } from "react";
 import { Link } from "wouter";
-import { Button } from "@/components/ui/button";
-import {
-  Zap, Package, Warehouse, RefreshCw, Check, ArrowRight,
-  Star, TrendingUp, Scan, BarChart3, ShieldCheck, Globe,
-} from "lucide-react";
+import { Zap, ScanLine, Globe } from "lucide-react";
 import logoUrl from "@assets/PlanetBrick_dotcom_with_planet_and_robot_400_1760672362080.png";
-import elfieUrl from "@assets/PlanetBrick_good_robot_1760672362080.png";
 
-const features = [
-  {
-    icon: Zap,
-    color: "purple",
-    badge: "Price-o-Matic",
-    title: "Stop leaving money on the table",
-    description:
-      "Our AI pricing engine monitors market conditions around the clock and automatically adjusts your prices. Underpriced items get flagged. Overpriced items get fixed. You collect the profit.",
-    bullets: ["Real-time market comparison", "Floor price protection", "One-click bulk repricing"],
-  },
-  {
-    icon: Scan,
-    color: "amber",
-    badge: "BrickSpotter AI",
-    title: "Scan parts. Build inventory. In minutes.",
-    description:
-      "Point your phone at any pile of LEGO and E.L.F.I.E. identifies every piece — part number, color, condition, and current market value. No more manual lookup. No more guessing.",
-    bullets: ["Identify 130k+ BrickLink parts", "Instant condition grading", "Auto-adds to inventory"],
-  },
-  {
-    icon: Warehouse,
-    color: "teal",
-    badge: "Warehouse Manager",
-    title: "Know where every piece lives",
-    description:
-      "Organize your stockroom into aisles, shelves, and bins. Assign inventory to exact locations so any team member can pull, pack, and ship without confusion — even at 10,000+ lots.",
-    bullets: ["Aisle → Shelf → Bin hierarchy", "Unassigned item alerts", "Print bin labels"],
-  },
-  {
-    icon: RefreshCw,
-    color: "green",
-    badge: "List-O-Matic",
-    title: "One listing. Every marketplace.",
-    description:
-      "Push your inventory to BrickLink and other platforms simultaneously. When a piece sells on one channel, stock levels update everywhere else in real time. Overselling becomes a thing of the past.",
-    bullets: ["Multi-channel sync", "Real-time stock updates", "Unified order management"],
-  },
+type ChId = "home" | "features" | "pricing" | "live";
+
+const CHANNELS: { id: ChId; num: string; label: string }[] = [
+  { id: "home",     num: "01", label: "INTRO"    },
+  { id: "features", num: "02", label: "FEATURES" },
+  { id: "pricing",  num: "03", label: "PRICING"  },
+  { id: "live",     num: "04", label: "ON AIR"   },
 ];
 
-const tiers = [
+const TIERS = [
   {
-    name: "Trial",
-    price: "Free",
-    period: "",
+    name: "Trial", price: "Free", period: "", highlight: false,
     description: "Kick the tires. No card required.",
-    highlight: false,
     features: ["Full inventory access", "BrickSpotter (25 scans/mo)", "Basic pricing tools", "Single marketplace"],
   },
   {
-    name: "Foundation",
-    price: "$29",
-    period: "/mo",
+    name: "Foundation", price: "$29", period: "/mo", highlight: false,
     description: "For solo sellers ready to get serious.",
-    highlight: false,
     features: ["Up to 5,000 lots", "BrickSpotter (250 scans/mo)", "Price-o-Matic automation", "BrickLink sync", "Warehouse manager"],
   },
   {
-    name: "Core",
-    price: "$79",
-    period: "/mo",
+    name: "Core", price: "$79", period: "/mo", highlight: true,
     description: "For growing stores managing real volume.",
-    highlight: true,
     features: ["Up to 25,000 lots", "BrickSpotter (unlimited)", "Full POM automation", "2 marketplace channels", "Team access (3 seats)", "Priority support"],
   },
 ];
 
-const stats = [
-  { value: "130k+", label: "LEGO Parts Recognized" },
-  { value: "10×", label: "Faster Inventory Builds" },
-  { value: "100%", label: "Multichannel Sync Accuracy" },
-  { value: "24/7", label: "Automated Pricing" },
+const FEATURES = [
+  {
+    Icon: Zap, color: "#FFB300", rgb: "255,179,0",
+    title: "Price-o-Matic",
+    desc: "AI monitors the market 24/7 and reprices your entire catalog automatically. Underpriced? Fixed. Overpriced? Corrected.",
+  },
+  {
+    Icon: ScanLine, color: "#00CED1", rgb: "0,206,209",
+    title: "BrickSpotter",
+    desc: "Point your camera at any LEGO piece. Our AI identifies it instantly across 130k+ parts — condition, color, current value.",
+  },
+  {
+    Icon: Globe, color: "#A78BFA", rgb: "167,139,250",
+    title: "Multichannel Sync",
+    desc: "BrickLink, BrickOwl and beyond — inventory and orders unified in one command center. No double-selling, ever.",
+  },
 ];
 
-export default function Landing() {
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-950 via-indigo-950 to-gray-950 text-white">
+const tv = {
+  body: "linear-gradient(150deg, #4A2B0E 0%, #2C1605 45%, #3D2208 100%)",
+  bodyClip: "polygon(8% 0%, 96% 1%, 100% 8%, 99% 92%, 92% 100%, 6% 100%, 0% 92%, 1% 7%)",
+  chrome: "linear-gradient(145deg, #999 0%, #ddd 30%, #aaa 55%, #ccc 80%, #888 100%)",
+  knobFace: "radial-gradient(circle at 35% 30%, #6A4400, #2A1A00)",
+  legColor: "linear-gradient(to bottom, #3A2208, #1A0A02)",
+};
 
-      {/* Ambient background */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1200px] h-[1200px] border border-purple-500/10 rounded-full" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] border border-cyan-500/10 rounded-full" />
-        <div className="absolute -top-60 -right-60 w-[600px] h-[600px] bg-purple-600/10 rounded-full blur-3xl" />
-        <div className="absolute -bottom-60 -left-60 w-[600px] h-[600px] bg-cyan-600/10 rounded-full blur-3xl" />
-        <div className="absolute top-1/3 left-1/4 w-2 h-2 bg-yellow-300 rounded-full animate-pulse opacity-60" />
-        <div className="absolute top-2/3 right-1/4 w-1.5 h-1.5 bg-pink-300 rounded-full animate-pulse opacity-60 delay-300" />
-        <div className="absolute top-1/2 right-1/3 w-1 h-1 bg-cyan-300 rounded-full animate-pulse opacity-60 delay-700" />
+function Scanlines() {
+  return (
+    <div style={{
+      position: "absolute", inset: 0, zIndex: 15, pointerEvents: "none",
+      backgroundImage: "repeating-linear-gradient(0deg, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 2px, rgba(0,0,0,0.28) 2px, rgba(0,0,0,0.28) 4px)",
+    }} />
+  );
+}
+
+function ScreenGlow() {
+  return (
+    <div style={{
+      position: "absolute", inset: 0, zIndex: 14, pointerEvents: "none",
+      background: "radial-gradient(ellipse 80% 65% at 50% 40%, rgba(20,80,200,0.13) 0%, transparent 70%)",
+    }} />
+  );
+}
+
+function Reflection() {
+  return (
+    <div style={{
+      position: "absolute", top: 0, left: 0, right: 0, height: "28%", zIndex: 16, pointerEvents: "none",
+      background: "linear-gradient(to bottom, rgba(255,255,255,0.04), transparent)",
+      borderRadius: "8px 8px 0 0",
+    }} />
+  );
+}
+
+function HomeScreen({ tune }: { tune: (id: ChId) => void }) {
+  return (
+    <div style={{ height: "100%", display: "flex", flexDirection: "column", padding: "clamp(20px,3vw,40px) clamp(24px,4vw,48px)", color: "#E8DCC8" }}>
+      <img src={logoUrl} alt="PlanetBrick" style={{ height: "clamp(24px,3vw,36px)", width: "auto", objectFit: "contain", objectPosition: "left", marginBottom: "clamp(12px,2vw,20px)", opacity: 0.92 }} />
+
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+        <div style={{ fontSize: "clamp(8px,0.8vw,11px)", fontFamily: "monospace", color: "#FF8C00", letterSpacing: "0.3em", marginBottom: "10px" }}>
+          ◆ BROADCASTING LIVE FROM THE FUTURE ◆
+        </div>
+        <h1 style={{ fontSize: "clamp(22px,2.8vw,42px)", fontWeight: 900, lineHeight: 1.1, color: "#F5E8D0", marginBottom: "clamp(10px,1.5vw,18px)", margin: "0 0 clamp(10px,1.5vw,18px) 0" }}>
+          Your LEGO business,<br />
+          <span style={{ color: "#00CED1" }}>on the air.</span>
+        </h1>
+        <p style={{ fontSize: "clamp(12px,1.2vw,15px)", color: "rgba(232,220,200,0.68)", maxWidth: "480px", lineHeight: 1.65, marginBottom: "clamp(16px,2.5vw,28px)" }}>
+          From AI-powered repricing to instant part identification and multichannel sync —
+          PlanetBrick runs your back office while you build.
+        </p>
+        <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+          <button
+            onClick={() => tune("features")}
+            style={{
+              background: "linear-gradient(135deg, #C85000, #FF6A00)",
+              border: "none", borderRadius: "6px",
+              padding: "clamp(8px,1vw,12px) clamp(16px,2vw,24px)",
+              cursor: "pointer", color: "#fff", fontWeight: 700,
+              fontSize: "clamp(11px,1.1vw,14px)", letterSpacing: "0.05em",
+              boxShadow: "0 0 20px rgba(255,100,0,0.3)",
+            }}
+          >
+            See Features →
+          </button>
+          <Link href="/login">
+            <button style={{
+              background: "transparent",
+              border: "1px solid rgba(232,220,200,0.28)",
+              borderRadius: "6px",
+              padding: "clamp(8px,1vw,12px) clamp(16px,2vw,24px)",
+              cursor: "pointer", color: "rgba(232,220,200,0.65)",
+              fontSize: "clamp(11px,1.1vw,14px)",
+            }}>
+              Sign In
+            </button>
+          </Link>
+        </div>
       </div>
 
-      {/* ── NAVBAR ── */}
-      <header className="sticky top-0 z-50 border-b border-white/5 bg-gray-950/80 backdrop-blur-xl">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-14">
-          <img src={logoUrl} alt="PlanetBrick.com" className="h-7 w-auto" />
-          <nav className="hidden md:flex items-center gap-6 text-sm text-gray-400">
-            <a href="#features" className="hover:text-white transition-colors">Features</a>
-            <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
-          </nav>
-          <div className="flex items-center gap-2">
-            <Link href="/signup">
-              <Button variant="ghost" size="sm" className="text-gray-300 text-xs md:text-sm" data-testid="link-nav-signup">
-                Get Started
-              </Button>
-            </Link>
-            <Link href="/login">
-              <Button size="sm" className="bg-gradient-to-r from-purple-600 to-cyan-600 border-0 text-xs md:text-sm" data-testid="link-nav-signin">
-                Sign In
-              </Button>
-            </Link>
+      <div style={{ display: "flex", gap: "clamp(16px,3vw,36px)", borderTop: "1px solid rgba(232,220,200,0.1)", paddingTop: "clamp(10px,1.5vw,16px)", flexWrap: "wrap" }}>
+        {[["130k+", "Parts"], ["10×", "Faster"], ["24/7", "Pricing"], ["100%", "Synced"]].map(([v, l]) => (
+          <div key={l}>
+            <div style={{ fontSize: "clamp(14px,1.6vw,22px)", fontWeight: 900, color: "#00CED1", fontFamily: "monospace" }}>{v}</div>
+            <div style={{ fontSize: "clamp(7px,0.7vw,10px)", color: "rgba(232,220,200,0.38)", letterSpacing: "0.2em", textTransform: "uppercase" }}>{l}</div>
           </div>
-        </div>
-      </header>
+        ))}
+      </div>
+    </div>
+  );
+}
 
-      {/* ── HERO ── */}
-      <section className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-16 text-center">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300 text-xs font-medium mb-6" data-testid="hero-badge">
-          <div className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
-          The complete back-office for LEGO resellers
-        </div>
-
-        <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight mb-6 leading-[1.1]" data-testid="hero-headline">
-          Your LEGO business,{" "}
-          <span className="bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent">
-            on autopilot.
-          </span>
-        </h1>
-
-        <p className="text-lg sm:text-xl md:text-2xl text-gray-300 max-w-3xl mx-auto mb-10 leading-relaxed" data-testid="hero-subheadline">
-          From AI part scanning to automated repricing and multichannel selling — PlanetBrick handles the
-          operations so you can focus on sourcing more bricks.
-        </p>
-
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-16">
-          <Link href="/signup">
-            <Button size="lg" className="bg-gradient-to-r from-purple-600 via-pink-600 to-cyan-600 border-0 text-base px-8 shadow-lg shadow-purple-500/30" data-testid="button-hero-cta">
-              Start for free
-              <ArrowRight className="ml-2 w-4 h-4" />
-            </Button>
-          </Link>
-          <Link href="/login">
-            <Button size="lg" variant="outline" className="text-base px-8 border-white/20 text-gray-200 bg-white/5 backdrop-blur-sm" data-testid="button-hero-signin">
-              Sign in to your account
-            </Button>
-          </Link>
-        </div>
-
-        {/* E.L.F.I.E. mascot hero block */}
-        <div className="relative inline-flex flex-col items-center">
-          <div className="relative">
-            <div className="absolute inset-0 bg-gradient-to-r from-purple-500 via-pink-500 to-cyan-500 opacity-30 blur-3xl rounded-full" />
-            <img src={elfieUrl} alt="E.L.F.I.E. — PlanetBrick AI" className="relative w-36 h-36 md:w-48 md:h-48 object-contain drop-shadow-2xl" data-testid="img-elfie" />
-            <div className="absolute top-2 left-1/2 -translate-x-1/2 w-28 h-28 md:w-36 md:h-36 border-2 border-cyan-400/30 rounded-full animate-ping" />
-          </div>
-          <div className="mt-4 px-4 py-2 rounded-full bg-gray-900/60 border border-white/10 backdrop-blur-sm text-sm text-cyan-300 font-medium">
-            Meet E.L.F.I.E. — your AI inventory assistant
-          </div>
-        </div>
-      </section>
-
-      {/* ── STATS BAR ── */}
-      <section className="relative z-10 border-y border-white/5 bg-white/[0.02] backdrop-blur-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
-          {stats.map((s) => (
-            <div key={s.label} data-testid={`stat-${s.label.toLowerCase().replace(/\s+/g, '-')}`}>
-              <div className="text-3xl md:text-4xl font-extrabold bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">
-                {s.value}
-              </div>
-              <div className="text-xs md:text-sm text-gray-400 mt-1">{s.label}</div>
+function FeaturesScreen() {
+  return (
+    <div style={{ height: "100%", display: "flex", flexDirection: "column", padding: "clamp(16px,2.5vw,28px) clamp(20px,3vw,34px)", color: "#E8DCC8", gap: "clamp(10px,1.5vw,16px)" }}>
+      <div>
+        <div style={{ fontSize: "clamp(8px,0.7vw,10px)", fontFamily: "monospace", color: "#FF8C00", letterSpacing: "0.3em", marginBottom: "6px" }}>CH 02 — FEATURES</div>
+        <h2 style={{ fontSize: "clamp(16px,1.8vw,22px)", fontWeight: 900, color: "#F5E8D0", margin: 0 }}>What PlanetBrick does for you</h2>
+      </div>
+      <div style={{ display: "flex", gap: "clamp(8px,1.2vw,14px)", flex: 1 }}>
+        {FEATURES.map(f => (
+          <div key={f.title} style={{
+            flex: 1,
+            background: "rgba(255,255,255,0.04)",
+            border: `1px solid rgba(${f.rgb},0.22)`,
+            borderRadius: "10px",
+            padding: "clamp(12px,1.5vw,18px) clamp(10px,1.3vw,16px)",
+            display: "flex", flexDirection: "column", gap: "clamp(6px,0.8vw,10px)",
+          }}>
+            <div style={{
+              width: "clamp(28px,2.8vw,36px)", height: "clamp(28px,2.8vw,36px)", borderRadius: "8px",
+              background: `rgba(${f.rgb},0.14)`, border: `1px solid rgba(${f.rgb},0.28)`,
+              display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+            }}>
+              <f.Icon size={16} color={f.color} />
             </div>
+            <div style={{ fontSize: "clamp(12px,1.2vw,15px)", fontWeight: 700, color: "#F5E8D0" }}>{f.title}</div>
+            <div style={{ fontSize: "clamp(10px,1vw,13px)", color: "rgba(232,220,200,0.62)", lineHeight: 1.55 }}>{f.desc}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PricingScreen({ tune }: { tune: (id: ChId) => void }) {
+  return (
+    <div style={{ height: "100%", display: "flex", flexDirection: "column", padding: "clamp(14px,2vw,24px) clamp(16px,2.5vw,28px)", color: "#E8DCC8", gap: "clamp(8px,1.2vw,14px)", overflow: "hidden" }}>
+      <div>
+        <div style={{ fontSize: "clamp(8px,0.7vw,10px)", fontFamily: "monospace", color: "#FF8C00", letterSpacing: "0.3em", marginBottom: "6px" }}>CH 03 — PRICING</div>
+        <h2 style={{ fontSize: "clamp(16px,1.8vw,22px)", fontWeight: 900, color: "#F5E8D0", margin: 0 }}>Simple, honest pricing</h2>
+      </div>
+      <div style={{ display: "flex", gap: "clamp(8px,1.2vw,12px)", flex: 1, overflow: "hidden" }}>
+        {TIERS.map(t => (
+          <div key={t.name} style={{
+            flex: 1,
+            background: t.highlight ? "rgba(0,206,209,0.08)" : "rgba(255,255,255,0.03)",
+            border: `1px solid ${t.highlight ? "rgba(0,206,209,0.35)" : "rgba(232,220,200,0.1)"}`,
+            borderRadius: "10px",
+            padding: "clamp(10px,1.4vw,16px) clamp(10px,1.2vw,14px)",
+            display: "flex", flexDirection: "column", gap: "clamp(5px,0.7vw,8px)",
+            position: "relative",
+          }}>
+            {t.highlight && (
+              <div style={{
+                position: "absolute", top: "-1px", left: "50%", transform: "translateX(-50%)",
+                background: "#00CED1", color: "#050A14", fontSize: "clamp(7px,0.6vw,9px)",
+                fontWeight: 800, padding: "2px 10px", borderRadius: "0 0 6px 6px",
+                letterSpacing: "0.2em", textTransform: "uppercase",
+              }}>POPULAR</div>
+            )}
+            <div style={{ fontSize: "clamp(12px,1.1vw,14px)", fontWeight: 700, color: "#F5E8D0" }}>{t.name}</div>
+            <div style={{ display: "flex", alignItems: "baseline", gap: "2px" }}>
+              <span style={{ fontSize: "clamp(20px,2.2vw,28px)", fontWeight: 900, color: t.highlight ? "#00CED1" : "#F5E8D0", fontFamily: "monospace" }}>{t.price}</span>
+              <span style={{ fontSize: "clamp(10px,0.9vw,12px)", color: "rgba(232,220,200,0.38)" }}>{t.period}</span>
+            </div>
+            <div style={{ fontSize: "clamp(9px,0.85vw,11px)", color: "rgba(232,220,200,0.48)" }}>{t.description}</div>
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "clamp(3px,0.5vw,5px)", marginTop: "2px" }}>
+              {t.features.map(f => (
+                <div key={f} style={{ display: "flex", alignItems: "flex-start", gap: "5px", fontSize: "clamp(9px,0.9vw,11px)", color: "rgba(232,220,200,0.68)" }}>
+                  <span style={{ color: "#00CED1", fontSize: "9px", marginTop: "2px", flexShrink: 0 }}>✓</span>
+                  {f}
+                </div>
+              ))}
+            </div>
+            <Link href="/signup">
+              <button style={{
+                width: "100%", marginTop: "6px",
+                background: t.highlight ? "#00CED1" : "transparent",
+                border: `1px solid ${t.highlight ? "#00CED1" : "rgba(232,220,200,0.22)"}`,
+                borderRadius: "6px", padding: "clamp(6px,0.8vw,9px)",
+                color: t.highlight ? "#050A14" : "rgba(232,220,200,0.65)",
+                fontSize: "clamp(10px,0.95vw,12px)", fontWeight: 700, cursor: "pointer",
+              }}>
+                {t.name === "Trial" ? "Start Free" : "Get Started"}
+              </button>
+            </Link>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function LiveScreen() {
+  return (
+    <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "clamp(24px,4vw,48px)", color: "#E8DCC8", textAlign: "center", gap: "clamp(12px,1.8vw,20px)" }}>
+      <style>{`@keyframes pb-pulse { 0%,100%{opacity:1;box-shadow:0 0 12px #FF3030} 50%{opacity:0.5;box-shadow:0 0 4px #FF3030} }`}</style>
+      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+        <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#FF3030", animation: "pb-pulse 1.2s ease-in-out infinite" }} />
+        <span style={{ fontSize: "clamp(9px,0.9vw,12px)", fontFamily: "monospace", color: "#FF8C00", letterSpacing: "0.3em" }}>ON AIR</span>
+      </div>
+      <h2 style={{ fontSize: "clamp(20px,2.5vw,36px)", fontWeight: 900, color: "#F5E8D0", lineHeight: 1.2, margin: 0 }}>
+        Ready to broadcast<br />your LEGO store?
+      </h2>
+      <p style={{ fontSize: "clamp(12px,1.1vw,15px)", color: "rgba(232,220,200,0.62)", maxWidth: "420px", lineHeight: 1.65, margin: 0 }}>
+        Join PlanetBrick and get access to every tool — free during your trial.
+        No credit card. No commitment.
+      </p>
+      <div style={{ display: "flex", flexDirection: "column", gap: "10px", width: "100%", maxWidth: "280px" }}>
+        <Link href="/signup">
+          <button style={{
+            width: "100%",
+            background: "linear-gradient(135deg, #C85000, #FF6A00)",
+            border: "none", borderRadius: "8px",
+            padding: "clamp(10px,1.2vw,14px) 24px", cursor: "pointer",
+            color: "#fff", fontWeight: 800, fontSize: "clamp(13px,1.3vw,16px)",
+            boxShadow: "0 0 24px rgba(255,100,0,0.35)", letterSpacing: "0.03em",
+          }}>
+            Start Free Trial
+          </button>
+        </Link>
+        <Link href="/login">
+          <button style={{
+            width: "100%", background: "transparent",
+            border: "1px solid rgba(232,220,200,0.2)", borderRadius: "8px",
+            padding: "clamp(8px,1vw,12px)", cursor: "pointer",
+            color: "rgba(232,220,200,0.58)", fontSize: "clamp(11px,1vw,14px)",
+          }}>
+            Sign In to Existing Account
+          </button>
+        </Link>
+      </div>
+      <div style={{ fontSize: "clamp(9px,0.8vw,11px)", color: "rgba(232,220,200,0.28)", marginTop: "4px" }}>
+        Full inventory access · No credit card required
+      </div>
+    </div>
+  );
+}
+
+export default function Landing() {
+  const [ch, setCh] = useState<ChId>("home");
+  const [flash, setFlash] = useState(false);
+
+  const tune = (next: ChId) => {
+    if (next === ch || flash) return;
+    setFlash(true);
+    setTimeout(() => { setCh(next); setFlash(false); }, 220);
+  };
+
+  const active = CHANNELS.find(c => c.id === ch)!;
+
+  return (
+    <div style={{
+      minHeight: "100vh", maxHeight: "100vh", overflow: "hidden",
+      background: "#C4A87A",
+      backgroundImage: `
+        radial-gradient(ellipse 900px 700px at 12% 50%, rgba(210,155,0,0.18) 0%, transparent 55%),
+        radial-gradient(ellipse 700px 500px at 88% 50%, rgba(0,150,170,0.14) 0%, transparent 55%)
+      `,
+      display: "flex", alignItems: "center", justifyContent: "center",
+      fontFamily: "system-ui, sans-serif",
+      position: "relative",
+    }}>
+
+      {/* Atomic age decorations */}
+      <div style={{ position: "fixed", inset: 0, pointerEvents: "none", overflow: "hidden" }}>
+        {/* Left atomic circles */}
+        {[200, 140, 80].map((r, i) => (
+          <div key={`lc${i}`} style={{
+            position: "absolute", left: "7%", top: "22%",
+            width: r * 2, height: r * 2, borderRadius: "50%",
+            border: "1px solid rgba(90,50,0,0.13)",
+            transform: "translate(-50%,-50%)",
+          }} />
+        ))}
+        {/* Left starburst */}
+        {Array.from({ length: 10 }, (_, i) => (
+          <div key={`ls${i}`} style={{
+            position: "absolute", left: "7%", top: "22%",
+            width: "180px", height: "1px",
+            background: "rgba(90,50,0,0.07)",
+            transformOrigin: "0 50%",
+            transform: `rotate(${i * 18}deg)`,
+          }} />
+        ))}
+        {/* Right atomic circles */}
+        {[240, 170, 100].map((r, i) => (
+          <div key={`rc${i}`} style={{
+            position: "absolute", right: "7%", bottom: "22%",
+            width: r * 2, height: r * 2, borderRadius: "50%",
+            border: "1px solid rgba(0,100,120,0.1)",
+            transform: "translate(50%,50%)",
+          }} />
+        ))}
+        {/* Right starburst */}
+        {Array.from({ length: 10 }, (_, i) => (
+          <div key={`rs${i}`} style={{
+            position: "absolute", right: "7%", bottom: "22%",
+            width: "200px", height: "1px",
+            background: "rgba(0,100,120,0.06)",
+            transformOrigin: "100% 50%",
+            transform: `rotate(${i * 18}deg)`,
+          }} />
+        ))}
+      </div>
+
+      {/* ── TV SET ── */}
+      <div style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center" }}>
+
+        {/* Antennas */}
+        <div style={{ display: "flex", width: "60%", justifyContent: "space-between", paddingLeft: "25%", paddingRight: "25%", position: "relative", zIndex: 2, marginBottom: "-3px" }}>
+          {([-18, 18] as const).map((deg, i) => (
+            <div key={i} style={{
+              width: "clamp(3px,0.4vw,5px)", height: "clamp(40px,6vh,70px)",
+              background: "linear-gradient(to bottom, #AAA 0%, #666 100%)",
+              transform: `rotate(${deg}deg)`, transformOrigin: "bottom center",
+              borderRadius: "3px 3px 0 0",
+              boxShadow: "0 0 6px rgba(0,0,0,0.25)",
+            }} />
           ))}
         </div>
-      </section>
 
-      {/* ── FEATURES ── */}
-      <section id="features" className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4" data-testid="section-features-title">
-            Everything your reseller store needs
-          </h2>
-          <p className="text-gray-400 text-lg max-w-2xl mx-auto">
-            Four tightly integrated tools built specifically for the LEGO aftermarket — not duct-taped together from generic software.
-          </p>
-        </div>
+        {/* TV Body */}
+        <div style={{
+          position: "relative",
+          width: "min(940px, 96vw)",
+          background: tv.body,
+          clipPath: tv.bodyClip,
+          padding: "clamp(16px,2.5vw,30px)",
+          display: "flex",
+          flexDirection: "row",
+          gap: "clamp(10px,1.5vw,20px)",
+          alignItems: "stretch",
+          filter: "drop-shadow(0 28px 56px rgba(0,0,0,0.55)) drop-shadow(0 6px 12px rgba(0,0,0,0.38))",
+        }}>
 
-        <div className="space-y-12">
-          {features.map((f, i) => {
-            const Icon = f.icon;
-            const colorMap: Record<string, { badge: string; glow: string; dot: string; border: string }> = {
-              purple: { badge: "bg-purple-500/15 text-purple-300 border-purple-500/25", glow: "from-purple-600/20", dot: "bg-purple-400", border: "border-purple-500/20" },
-              amber:  { badge: "bg-amber-500/15 text-amber-300 border-amber-500/25",   glow: "from-amber-600/20",  dot: "bg-amber-400",  border: "border-amber-500/20" },
-              teal:   { badge: "bg-teal-500/15 text-teal-300 border-teal-500/25",       glow: "from-teal-600/20",   dot: "bg-teal-400",   border: "border-teal-500/20" },
-              green:  { badge: "bg-green-500/15 text-green-300 border-green-500/25",    glow: "from-green-600/20",  dot: "bg-green-400",  border: "border-green-500/20" },
-            };
-            const c = colorMap[f.color];
-            return (
-              <div
-                key={f.badge}
-                className={`flex flex-col ${i % 2 === 1 ? "md:flex-row-reverse" : "md:flex-row"} gap-8 md:gap-12 items-center`}
-                data-testid={`feature-${f.badge.toLowerCase().replace(/\s+/g, '-')}`}
-              >
-                {/* Visual panel */}
-                <div className={`flex-1 rounded-2xl border ${c.border} bg-white/[0.03] p-8 md:p-10 flex flex-col items-start gap-6 backdrop-blur-sm`}>
-                  <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-semibold ${c.badge}`}>
-                    <Icon className="w-3.5 h-3.5" />
-                    {f.badge}
-                  </div>
-                  <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${c.glow} to-transparent border ${c.border} flex items-center justify-center`}>
-                    <Icon className="w-8 h-8 text-white/70" />
-                  </div>
-                  <div className="space-y-2">
-                    {f.bullets.map((b) => (
-                      <div key={b} className="flex items-center gap-2.5 text-sm text-gray-300">
-                        <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${c.dot}`} />
-                        {b}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                {/* Text */}
-                <div className="flex-1 space-y-4">
-                  <h3 className="text-2xl md:text-3xl font-bold">{f.title}</h3>
-                  <p className="text-gray-400 text-base md:text-lg leading-relaxed">{f.description}</p>
+          {/* Wood grain */}
+          <div style={{
+            position: "absolute", inset: 0, pointerEvents: "none",
+            clipPath: tv.bodyClip,
+            backgroundImage: "repeating-linear-gradient(82deg, transparent, transparent 4px, rgba(0,0,0,0.035) 4px, rgba(0,0,0,0.035) 5px)",
+          }} />
+
+          {/* Top highlight edge */}
+          <div style={{
+            position: "absolute", top: 0, left: "8%", right: "8%", height: "1px",
+            background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent)",
+            pointerEvents: "none",
+          }} />
+
+          {/* ── Screen section ── */}
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "clamp(6px,1vw,10px)", minWidth: 0 }}>
+
+            {/* Chrome bezel */}
+            <div style={{
+              background: tv.chrome,
+              borderRadius: "clamp(8px,1.2vw,14px)",
+              padding: "clamp(4px,0.7vw,8px)",
+              boxShadow: "inset 0 3px 8px rgba(0,0,0,0.55), 0 2px 6px rgba(0,0,0,0.35)",
+              flex: 1,
+              display: "flex",
+              flexDirection: "column",
+            }}>
+              {/* CRT screen */}
+              <div style={{
+                background: "#04090F",
+                borderRadius: "clamp(5px,0.8vw,9px)",
+                overflow: "hidden",
+                position: "relative",
+                flex: 1,
+                minHeight: "clamp(300px,42vh,480px)",
+              }}>
+                <Scanlines />
+                <ScreenGlow />
+                <Reflection />
+
+                {/* Channel-change static */}
+                {flash && (
+                  <div style={{
+                    position: "absolute", inset: 0, zIndex: 20,
+                    background: "repeating-linear-gradient(0deg, rgba(255,255,255,0.6) 0px, rgba(255,255,255,0) 1px, rgba(0,0,0,0.4) 3px, rgba(255,255,255,0.3) 5px)",
+                    opacity: 0.85,
+                  }} />
+                )}
+
+                {/* Content */}
+                <div style={{
+                  position: "relative", zIndex: 5, height: "100%",
+                  opacity: flash ? 0 : 1, transition: "opacity 0.1s ease",
+                  overflow: "hidden",
+                }}>
+                  {ch === "home"     && <HomeScreen tune={tune} />}
+                  {ch === "features" && <FeaturesScreen />}
+                  {ch === "pricing"  && <PricingScreen tune={tune} />}
+                  {ch === "live"     && <LiveScreen />}
                 </div>
               </div>
-            );
-          })}
-        </div>
-      </section>
+            </div>
 
-      {/* ── HOW IT WORKS ── */}
-      <section className="relative z-10 border-y border-white/5 bg-white/[0.02]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 text-center">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">Up and running in minutes</h2>
-          <p className="text-gray-400 text-lg mb-16 max-w-xl mx-auto">No training required. No 90-day implementation project.</p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {[
-              { step: "01", icon: Globe, title: "Connect your store", desc: "Link your BrickLink credentials and we sync your existing inventory automatically." },
-              { step: "02", icon: Scan, title: "Scan or import parts", desc: "Use BrickSpotter to scan new lots, or bulk-import from BrickLink. Everything lands in your dashboard." },
-              { step: "03", icon: TrendingUp, title: "Let automation run", desc: "Price-o-Matic watches the market and adjusts prices while you source more inventory." },
-            ].map((s) => {
-              const Icon = s.icon;
-              return (
-                <div key={s.step} className="flex flex-col items-center gap-4 p-6 rounded-2xl bg-white/[0.03] border border-white/5" data-testid={`step-${s.step}`}>
-                  <div className="relative">
-                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-purple-600/30 to-cyan-600/30 border border-white/10 flex items-center justify-center">
-                      <Icon className="w-6 h-6 text-white/70" />
-                    </div>
-                    <span className="absolute -top-1 -right-1 text-[10px] font-bold text-purple-400 bg-purple-500/20 rounded-full w-5 h-5 flex items-center justify-center border border-purple-500/30">
-                      {s.step.slice(1)}
-                    </span>
+            {/* Brandplate under screen */}
+            <div style={{
+              textAlign: "center", color: "rgba(255,175,55,0.42)",
+              fontSize: "clamp(8px,0.65vw,10px)", letterSpacing: "0.38em",
+              textTransform: "uppercase", fontFamily: "monospace",
+            }}>
+              PlanetBrick ◆ Professional LEGO Commerce
+            </div>
+          </div>
+
+          {/* ── Controls panel (right) ── */}
+          <div style={{ width: "clamp(80px,9vw,112px)", display: "flex", flexDirection: "column", gap: "clamp(8px,1vw,12px)", paddingTop: "4px", flexShrink: 0 }}>
+
+            {/* Channel number LED display */}
+            <div style={{
+              background: "#000",
+              border: "2px solid #2A1400",
+              borderRadius: "6px",
+              padding: "clamp(6px,0.9vw,10px) 6px",
+              textAlign: "center",
+              fontFamily: "monospace",
+              color: "#FF8C00",
+              fontSize: "clamp(18px,2.2vw,26px)",
+              fontWeight: 900,
+              lineHeight: 1,
+              boxShadow: "0 0 14px rgba(255,140,0,0.22), inset 0 0 14px rgba(0,0,0,0.9)",
+              textShadow: "0 0 10px rgba(255,140,0,0.85)",
+            }}>
+              {active.num}
+              <div style={{ fontSize: "clamp(6px,0.6vw,8px)", letterSpacing: "0.2em", color: "rgba(255,140,0,0.55)", marginTop: "3px" }}>CH</div>
+            </div>
+
+            {/* Channel selector buttons */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "clamp(3px,0.5vw,5px)" }}>
+              {CHANNELS.map(c => {
+                const isActive = ch === c.id;
+                return (
+                  <button key={c.id} onClick={() => tune(c.id)} style={{
+                    background: isActive
+                      ? "linear-gradient(135deg, #B84800, #FF6000)"
+                      : "linear-gradient(135deg, #1C0900, #2E1200)",
+                    border: `1px solid ${isActive ? "rgba(255,110,0,0.7)" : "rgba(80,30,0,0.55)"}`,
+                    borderRadius: "4px",
+                    padding: "clamp(5px,0.7vw,8px) clamp(4px,0.5vw,6px)",
+                    cursor: "pointer",
+                    color: isActive ? "#FFF" : "rgba(255,110,0,0.4)",
+                    fontSize: "clamp(7px,0.7vw,9px)", fontFamily: "monospace",
+                    letterSpacing: "0.1em", fontWeight: 700,
+                    transition: "all 0.12s",
+                    boxShadow: isActive ? "0 0 14px rgba(255,90,0,0.45), inset 0 1px 0 rgba(255,255,255,0.08)" : "none",
+                    textAlign: "center", lineHeight: 1.4,
+                  }}>
+                    <div style={{ fontSize: "clamp(9px,0.9vw,12px)" }}>{c.num}</div>
+                    <div style={{ fontSize: "clamp(6px,0.6vw,7px)", opacity: 0.75, marginTop: "1px" }}>{c.label}</div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Separator */}
+            <div style={{ borderTop: "1px solid rgba(255,170,50,0.1)" }} />
+
+            {/* Decorative knobs */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "clamp(8px,1.1vw,14px)", alignItems: "center" }}>
+              {([
+                { label: "BRIGHT", rot: -35 },
+                { label: "VOLUME", rot:  50 },
+                { label: "UHF",    rot:  15, sm: true },
+              ] as const).map((k) => (
+                <div key={k.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "3px" }}>
+                  <div style={{
+                    width: k.sm ? "clamp(20px,2.2vw,28px)" : "clamp(26px,2.8vw,36px)",
+                    height: k.sm ? "clamp(20px,2.2vw,28px)" : "clamp(26px,2.8vw,36px)",
+                    borderRadius: "50%", background: tv.knobFace,
+                    border: "2px solid #3A2400",
+                    boxShadow: "0 4px 8px rgba(0,0,0,0.7), inset 0 1px 2px rgba(255,255,255,0.07)",
+                    position: "relative", cursor: "default",
+                  }}>
+                    <div style={{
+                      position: "absolute", width: "2px", height: "38%",
+                      background: "#C8A030", top: "14%", left: "50%",
+                      transform: `translateX(-50%) rotate(${k.rot}deg)`,
+                      transformOrigin: "bottom center", borderRadius: "1px",
+                    }} />
                   </div>
-                  <h3 className="text-lg font-semibold">{s.title}</h3>
-                  <p className="text-gray-400 text-sm leading-relaxed">{s.desc}</p>
+                  <div style={{ fontSize: "clamp(5px,0.55vw,7px)", fontFamily: "monospace", color: "rgba(255,175,55,0.32)", letterSpacing: "0.1em" }}>
+                    {k.label}
+                  </div>
                 </div>
-              );
-            })}
+              ))}
+            </div>
           </div>
         </div>
-      </section>
 
-      {/* ── PRICING ── */}
-      <section id="pricing" className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4" data-testid="section-pricing-title">
-            Simple, honest pricing
-          </h2>
-          <p className="text-gray-400 text-lg max-w-xl mx-auto">
-            Start free. Upgrade when your volume demands it. No surprises.
-          </p>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          {tiers.map((t) => (
-            <div
-              key={t.name}
-              className={`relative rounded-2xl p-6 flex flex-col gap-5 border transition-colors ${
-                t.highlight
-                  ? "bg-gradient-to-b from-purple-600/20 to-cyan-600/10 border-purple-500/40"
-                  : "bg-white/[0.03] border-white/8"
-              }`}
-              data-testid={`pricing-tier-${t.name.toLowerCase()}`}
-            >
-              {t.highlight && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-gradient-to-r from-purple-600 to-cyan-600 text-[10px] font-bold uppercase tracking-widest">
-                  Most Popular
-                </div>
-              )}
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  {t.highlight && <Star className="w-3.5 h-3.5 text-yellow-400" />}
-                  <span className="text-sm font-semibold text-gray-200">{t.name}</span>
-                </div>
-                <div className="flex items-end gap-1">
-                  <span className="text-3xl font-extrabold">{t.price}</span>
-                  {t.period && <span className="text-gray-400 text-sm mb-1">{t.period}</span>}
-                </div>
-                <p className="text-xs text-gray-400 mt-1">{t.description}</p>
-              </div>
-              <ul className="flex-1 space-y-2.5">
-                {t.features.map((feat) => (
-                  <li key={feat} className="flex items-start gap-2 text-sm text-gray-300">
-                    <Check className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-cyan-400" />
-                    {feat}
-                  </li>
-                ))}
-              </ul>
-              <Link href="/signup">
-                <Button
-                  className={`w-full ${t.highlight ? "bg-gradient-to-r from-purple-600 to-cyan-600 border-0" : ""}`}
-                  variant={t.highlight ? "default" : "outline"}
-                  size="sm"
-                  data-testid={`button-select-${t.name.toLowerCase()}`}
-                >
-                  {t.name === "Trial" ? "Start free" : "Get started"}
-                </Button>
-              </Link>
-            </div>
+        {/* Legs */}
+        <div style={{
+          display: "flex", justifyContent: "space-between",
+          width: "min(700px,74vw)", marginTop: "-2px",
+          paddingLeft: "clamp(20px,3vw,40px)", paddingRight: "clamp(20px,3vw,40px)",
+        }}>
+          {([true, false] as const).map((left) => (
+            <div key={String(left)} style={{
+              width: "clamp(28px,4vw,48px)", height: "clamp(40px,7vh,72px)",
+              background: tv.legColor,
+              clipPath: left
+                ? "polygon(12% 0%, 88% 0%, 100% 100%, 0% 100%)"
+                : "polygon(12% 0%, 88% 0%, 100% 100%, 0% 100%)",
+              transform: `skewX(${left ? "6deg" : "-6deg"})`,
+            }} />
           ))}
         </div>
-      </section>
 
-      {/* ── FINAL CTA ── */}
-      <section className="relative z-10 border-t border-white/5">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-24 text-center">
-          <div className="inline-flex items-center gap-2 mb-6">
-            <ShieldCheck className="w-5 h-5 text-green-400" />
-            <span className="text-sm text-gray-400">No credit card required to start</span>
-          </div>
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-5">
-            Ready to run your LEGO store{" "}
-            <span className="bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">
-              like a pro?
-            </span>
-          </h2>
-          <p className="text-gray-400 text-lg mb-10 max-w-xl mx-auto">
-            Join the waitlist or sign up today and get access to every tool in PlanetBrick — free, during your trial.
-          </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Link href="/signup">
-              <Button size="lg" className="bg-gradient-to-r from-purple-600 via-pink-600 to-cyan-600 border-0 text-base px-10 shadow-lg shadow-purple-500/30" data-testid="button-cta-signup">
-                Create your free account
-                <ArrowRight className="ml-2 w-4 h-4" />
-              </Button>
-            </Link>
-            <Link href="/login">
-              <Button size="lg" variant="ghost" className="text-gray-300 text-base px-8" data-testid="button-cta-signin">
-                Already have an account? Sign in
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* ── FOOTER ── */}
-      <footer className="relative z-10 border-t border-white/5 bg-black/20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col md:flex-row items-center justify-between gap-4">
-          <img src={logoUrl} alt="PlanetBrick.com" className="h-6 w-auto opacity-70" />
-          <p className="text-xs text-gray-600 text-center">
-            &copy; {new Date().getFullYear()} PlanetBrick.com — LEGO Reseller Operations Platform. LEGO is a trademark of the LEGO Group, which does not sponsor or endorse this product.
-          </p>
-          <div className="flex items-center gap-4 text-xs text-gray-600">
-            <Link href="/login" className="hover:text-gray-400 transition-colors">Sign In</Link>
-            <Link href="/signup" className="hover:text-gray-400 transition-colors">Sign Up</Link>
-          </div>
-        </div>
-      </footer>
+        {/* Foot rail */}
+        <div style={{
+          width: "min(740px,78vw)", height: "clamp(6px,0.8vh,10px)",
+          background: "linear-gradient(to bottom, #1E0E03, #120902)",
+          borderRadius: "0 0 6px 6px", marginTop: "-2px",
+        }} />
+      </div>
     </div>
   );
 }
