@@ -2098,6 +2098,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // the DB field is null. Kept separate so the settings form inputs don't get polluted.
         paypalConnectedViaEnv: !settings?.paypalClientId && !!process.env.PAYPAL_CLIENT_ID,
         stripeConnectedViaEnv: !settings?.stripeSecretKey && !!process.env.STRIPE_SECRET_KEY,
+        brickowlConnectedViaEnv: !settings?.brickowlApiKey && !!process.env.BRICKOWL_API_KEY,
       });
     } catch (error) {
       console.error("Error fetching settings:", error);
@@ -5835,7 +5836,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
 
       // Check if BrickOwl API key is configured
       const settings = await getOrgSettings(orgId);
-      const brickowlEnabled = !!settings?.brickowlApiKey;
+      const brickowlEnabled = !!(settings?.brickowlApiKey || process.env.BRICKOWL_API_KEY);
 
       // Get actual BrickOwl inventory stats if enabled
       let brickowlStats = {
@@ -6060,7 +6061,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       }
 
       const settings = await getOrgSettings(orgId);
-      const brickowlEnabled = !!settings?.brickowlApiKey;
+      const brickowlEnabled = !!(settings?.brickowlApiKey || process.env.BRICKOWL_API_KEY);
 
       if (!brickowlEnabled) {
         return res.status(400).json({ error: 'BrickOwl API key not configured' });
@@ -7342,7 +7343,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       const settings = await getOrgSettings(orgId);
       const bricklinkEnabled = !!(settings?.bricklinkConsumerKey && settings?.bricklinkConsumerSecret && 
         settings?.bricklinkTokenValue && settings?.bricklinkTokenSecret);
-      const brickowlEnabled = !!settings?.brickowlApiKey;
+      const brickowlEnabled = !!(settings?.brickowlApiKey || process.env.BRICKOWL_API_KEY);
 
       // Get last sync times from sync_metadata
       const [blSyncMeta] = await db
@@ -9902,7 +9903,8 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
 
       // Test BrickOwl orders
       if (platform === 'brickowl' || platform === 'both') {
-        if (!settings.brickowlApiKey) {
+        const boApiKey = settings.brickowlApiKey || process.env.BRICKOWL_API_KEY;
+        if (!boApiKey) {
           return res.status(400).json({ error: "BrickOwl API key not configured" });
         }
 
@@ -9944,7 +9946,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             let platformOrder = null;
             let platformItems: any[] = [];
             try {
-              const boOrder = await getBrickOwlOrderDetails(settings.brickowlApiKey, orderId);
+              const boOrder = await getBrickOwlOrderDetails(boApiKey, orderId);
               platformOrder = {
                 orderNumber: orderId,
                 marketplace: 'BrickOwl',

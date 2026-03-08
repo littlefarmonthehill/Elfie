@@ -1,6 +1,6 @@
 import { db } from "../db";
 import { appSettings, blInventory, blColors } from "@shared/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq, isNotNull, sql } from "drizzle-orm";
 
 // Decode HTML entities from BrickLink notes (&#39; → ', &#40; → (, &#41; → ), etc.)
 function decodeHtmlEntities(text: string | null | undefined): string {
@@ -54,10 +54,10 @@ export interface BrickOwlInventoryLot {
 
 // Make a BrickOwl API GET request
 async function brickowlGet(endpoint: string, params?: Record<string, string>): Promise<any> {
-  // Get API key from database settings
-  const [settings] = await db.select().from(appSettings).limit(1);
+  // Get API key from database settings — filter for a row that has the key configured
+  const [settings] = await db.select().from(appSettings).where(isNotNull(appSettings.brickowlApiKey)).limit(1);
   
-  const apiKey = settings?.brickowlApiKey;
+  const apiKey = settings?.brickowlApiKey || process.env.BRICKOWL_API_KEY;
   
   if (!apiKey) {
     throw new Error('BrickOwl API key not configured. Please add it in Settings > API Credentials.');
@@ -83,10 +83,10 @@ async function brickowlGet(endpoint: string, params?: Record<string, string>): P
 
 // Make a BrickOwl API POST request
 async function brickowlPost(endpoint: string, data: Record<string, any>): Promise<any> {
-  // Get API key from database settings
-  const [settings] = await db.select().from(appSettings).limit(1);
+  // Get API key from database settings — filter for a row that has the key configured
+  const [settings] = await db.select().from(appSettings).where(isNotNull(appSettings.brickowlApiKey)).limit(1);
   
-  const apiKey = settings?.brickowlApiKey;
+  const apiKey = settings?.brickowlApiKey || process.env.BRICKOWL_API_KEY;
   
   if (!apiKey) {
     throw new Error('BrickOwl API key not configured. Please add it in Settings > API Credentials.');

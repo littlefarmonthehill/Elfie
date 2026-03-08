@@ -12,6 +12,7 @@ interface GeneralDashboardProps {
   onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
   onOpenFulfillment?: () => void;
   onOpenBrickanalyzer?: () => void;
+  onOpenPriceomatic?: () => void;
   onOpenSettings?: (section: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'users') => void;
 }
 
@@ -137,7 +138,7 @@ function AllGood({ label = 'All clear' }: { label?: string }) {
 // ── INVENTORY LANE ────────────────────────────────────────────────────────────
 
 function InventoryLane({
-  stats, globalSyncStatuses, invSyncProgress, pomStatus, pricingInsights, onItemClick, onOpenBrickanalyzer, onOpenSettings,
+  stats, globalSyncStatuses, invSyncProgress, pomStatus, pricingInsights, onItemClick, onOpenBrickanalyzer, onOpenPriceomatic, onOpenSettings,
 }: any) {
   const lastInvSync = globalSyncStatuses?.inventory;
   const lastPom = globalSyncStatuses?.priceomatic;
@@ -183,7 +184,7 @@ function InventoryLane({
             <AlertItem icon={XCircle} iconColor="text-red-400" label="Price-o-Matic failed" sub={lastPom?.errorMessage ?? 'Run manually from Settings'} onClick={() => onOpenSettings?.('automation')} severity="error" />
           )}
           {tooLowCount > 0 && (
-            <AlertItem icon={TrendingDown} iconColor="text-orange-400" label={`${tooLowCount} items priced too low`} sub="Click a pricing item to view" onClick={() => onItemClick?.('inventory', 0)} severity="warn" />
+            <AlertItem icon={TrendingDown} iconColor="text-orange-400" label={`${tooLowCount} items priced too low`} sub="Open Price-o-Matic to review" onClick={onOpenPriceomatic} severity="warn" />
           )}
         </LaneSection>
       ) : (
@@ -450,6 +451,14 @@ function AIIntelligenceLane({ latestScan, appSettings, onOpenBrickanalyzer, dism
     refetchInterval: 8000,
   });
 
+  const { data: embedStats } = useQuery<{
+    inventory: { embedded: number; total: number; percentage: string };
+    orders: { embedded: number; total: number; percentage: string };
+  }>({
+    queryKey: ['/api/embeddings/stats'],
+    refetchInterval: 30000,
+  });
+
   const ucPct = universalCatalog && universalCatalog.queueSize > 0
     ? Math.round(((universalCatalog.embedded + universalCatalog.noImage) / universalCatalog.queueSize) * 100)
     : 0;
@@ -519,6 +528,24 @@ function AIIntelligenceLane({ latestScan, appSettings, onOpenBrickanalyzer, dism
         </LaneSection>
       )}
 
+      {/* Inventory & Order Embeddings */}
+      {embedStats && (
+        <LaneSection label="Data Embeddings">
+          <ActivityItem
+            icon={embedStats.inventory.embedded >= embedStats.inventory.total && embedStats.inventory.total > 0 ? CheckCircle : RefreshCw}
+            iconColor={embedStats.inventory.embedded >= embedStats.inventory.total && embedStats.inventory.total > 0 ? 'text-green-400' : 'text-purple-400'}
+            label={`${embedStats.inventory.embedded.toLocaleString()} / ${embedStats.inventory.total.toLocaleString()} inventory items`}
+            sub={`${embedStats.inventory.percentage}% embedded`}
+          />
+          <ActivityItem
+            icon={embedStats.orders.embedded >= embedStats.orders.total && embedStats.orders.total > 0 ? CheckCircle : RefreshCw}
+            iconColor={embedStats.orders.embedded >= embedStats.orders.total && embedStats.orders.total > 0 ? 'text-green-400' : 'text-purple-400'}
+            label={`${embedStats.orders.embedded.toLocaleString()} / ${embedStats.orders.total.toLocaleString()} orders`}
+            sub={`${embedStats.orders.percentage}% embedded`}
+          />
+        </LaneSection>
+      )}
+
       {/* Last Scan */}
       <LaneSection label="Last Scan">
         {isScanComplete && latestScan && (
@@ -579,7 +606,7 @@ function SystemPulse({ syncErrors, setupItems, onOpenSettings }: {
 
 // ── MAIN COMPONENT ────────────────────────────────────────────────────────────
 
-export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpenBrickanalyzer, onOpenSettings }: GeneralDashboardProps) {
+export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpenBrickanalyzer, onOpenPriceomatic, onOpenSettings }: GeneralDashboardProps) {
 
   const { data: stats } = useQuery<{ totalOrders: number; totalInventoryItems: number; totalInventoryQuantity: number; totalSales: number }>({
     queryKey: ['/api/dashboard/stats'],
@@ -697,6 +724,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
           pricingInsights={pricingInsights}
           onItemClick={onItemClick}
           onOpenBrickanalyzer={onOpenBrickanalyzer}
+          onOpenPriceomatic={onOpenPriceomatic}
           onOpenSettings={onOpenSettings}
         />
 

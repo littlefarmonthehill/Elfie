@@ -2132,7 +2132,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                 Orders and inventory are pulled from BrickOwl. Inventory updates are also pushed back to keep BrickOwl in sync.
                               </TooltipContent>
                             </Tooltip>
-                            <div className={`w-1.5 h-1.5 rounded-full ${brickowlApiKey ? 'bg-green-400' : 'bg-gray-600'}`} />
+                            <div className={`w-1.5 h-1.5 rounded-full ${brickowlApiKey || (settings as any)?.brickowlConnectedViaEnv ? 'bg-green-400' : 'bg-gray-600'}`} />
                           </div>
                         </AccordionTrigger>
                         <AccordionContent>
