@@ -576,12 +576,22 @@ function AIIntelligenceLane({ latestScan, appSettings, onOpenBrickanalyzer, dism
     orders: { embedded: number; total: number; percentage: string };
   }>({
     queryKey: ['/api/embeddings/stats'],
-    refetchInterval: 30000,
+    refetchInterval: 10000,
   });
 
   const { data: catalogStatus } = useQuery<{ catalog: number; confirmed: number; total: number }>({
     queryKey: ['/api/brickspotter/catalog-status'],
     refetchInterval: 10000,
+  });
+
+  const { data: activeInvEmbed } = useQuery({
+    queryKey: ['/api/embeddings/jobs/active/inventory'],
+    refetchInterval: 8000,
+  });
+
+  const { data: activeOrdEmbed } = useQuery({
+    queryKey: ['/api/embeddings/jobs/active/orders'],
+    refetchInterval: 8000,
   });
 
   const ucPct = universalCatalog && universalCatalog.queueSize > 0
@@ -591,9 +601,16 @@ function AIIntelligenceLane({ latestScan, appSettings, onOpenBrickanalyzer, dism
   const catalogPct = catalogStatus && catalogStatus.total > 0
     ? Math.round((catalogStatus.catalog / catalogStatus.total) * 100) : 0;
 
+  const invEmbedPct = embedStats && embedStats.inventory.total > 0
+    ? Math.round((embedStats.inventory.embedded / embedStats.inventory.total) * 100) : 0;
+  const ordEmbedPct = embedStats && embedStats.orders.total > 0
+    ? Math.round((embedStats.orders.embedded / embedStats.orders.total) * 100) : 0;
+
   const isScanProcessing = latestScan?.status === 'processing';
   const isScanComplete = latestScan?.status === 'complete';
   const isScanFailed = latestScan?.status === 'failed';
+
+  const hasAiRunning = isScanProcessing || !!universalCatalog?.workerRunning || !!activeInvEmbed || !!activeOrdEmbed;
 
   const summary = `E.L.F.I.E. ${elfieMode === 'ai' ? 'AI' : 'Search'} mode`;
 
@@ -615,7 +632,7 @@ function AIIntelligenceLane({ latestScan, appSettings, onOpenBrickanalyzer, dism
       )}
 
       {/* Running */}
-      {(isScanProcessing || universalCatalog?.workerRunning) && (
+      {hasAiRunning && (
         <LaneSection label="Running">
           {isScanProcessing && (
             <div className="flex items-center gap-1.5">
@@ -628,6 +645,22 @@ function AIIntelligenceLane({ latestScan, appSettings, onOpenBrickanalyzer, dism
               label="Universal CLIP Catalog"
               pct={ucPct}
               sublabel={`${universalCatalog.embedded.toLocaleString()} / ${universalCatalog.queueSize.toLocaleString()} parts`}
+              color="purple"
+            />
+          )}
+          {activeInvEmbed && embedStats && (
+            <JobBar
+              label="Inventory embedding"
+              pct={invEmbedPct}
+              sublabel={`${embedStats.inventory.embedded.toLocaleString()} / ${embedStats.inventory.total.toLocaleString()} items`}
+              color="purple"
+            />
+          )}
+          {activeOrdEmbed && embedStats && (
+            <JobBar
+              label="Order embedding"
+              pct={ordEmbedPct}
+              sublabel={`${embedStats.orders.embedded.toLocaleString()} / ${embedStats.orders.total.toLocaleString()} orders`}
               color="purple"
             />
           )}
