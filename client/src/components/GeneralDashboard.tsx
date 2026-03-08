@@ -703,15 +703,15 @@ function AIIntelligenceLane({ latestScan, appSettings, onOpenBrickanalyzer, dism
             <ActivityItem
               icon={universalCatalog.workerRunning ? RefreshCw : CheckCircle}
               iconColor={universalCatalog.workerRunning ? 'text-purple-400' : 'text-green-400'}
-              label={`Universal catalog — ${universalCatalog.embedded.toLocaleString()} parts (${ucPct}%)`}
-              sub={universalCatalog.pending > 0 ? `${universalCatalog.pending.toLocaleString()} pending` : universalCatalog.noImage > 0 ? `${universalCatalog.noImage.toLocaleString()} no image` : 'Catalog complete'}
+              label={`All BrickLink parts — Visual (CLIP) — ${ucPct}%`}
+              sub={universalCatalog.pending > 0 ? `${universalCatalog.pending.toLocaleString()} pending` : universalCatalog.noImage > 0 ? `${universalCatalog.noImage.toLocaleString()} no image` : `${universalCatalog.embedded.toLocaleString()} parts embedded`}
             />
           )}
           {catalogStatus && (
             <ActivityItem
               icon={ScanSearch}
               iconColor="text-purple-400"
-              label={`CLIP parts catalog — ${catalogPct}% built`}
+              label={`Your inventory — Visual (CLIP) — ${catalogPct}% built`}
               sub={`${catalogStatus.catalog} / ${catalogStatus.total} parts embedded`}
             />
           )}
@@ -720,14 +720,14 @@ function AIIntelligenceLane({ latestScan, appSettings, onOpenBrickanalyzer, dism
               <ActivityItem
                 icon={embedStats.inventory.embedded >= embedStats.inventory.total && embedStats.inventory.total > 0 ? CheckCircle : RefreshCw}
                 iconColor={embedStats.inventory.embedded >= embedStats.inventory.total && embedStats.inventory.total > 0 ? 'text-green-400' : 'text-purple-400'}
-                label={`${embedStats.inventory.embedded.toLocaleString()} / ${embedStats.inventory.total.toLocaleString()} inventory items`}
-                sub={`${embedStats.inventory.percentage}% embedded`}
+                label={`Your inventory — Text Search`}
+                sub={`${embedStats.inventory.embedded.toLocaleString()} / ${embedStats.inventory.total.toLocaleString()} — ${embedStats.inventory.percentage}% embedded`}
               />
               <ActivityItem
                 icon={embedStats.orders.embedded >= embedStats.orders.total && embedStats.orders.total > 0 ? CheckCircle : RefreshCw}
                 iconColor={embedStats.orders.embedded >= embedStats.orders.total && embedStats.orders.total > 0 ? 'text-green-400' : 'text-purple-400'}
-                label={`${embedStats.orders.embedded.toLocaleString()} / ${embedStats.orders.total.toLocaleString()} orders`}
-                sub={`${embedStats.orders.percentage}% embedded`}
+                label={`Your orders — Text Search`}
+                sub={`${embedStats.orders.embedded.toLocaleString()} / ${embedStats.orders.total.toLocaleString()} — ${embedStats.orders.percentage}% embedded`}
               />
             </>
           )}
