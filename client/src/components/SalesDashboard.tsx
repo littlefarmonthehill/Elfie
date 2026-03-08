@@ -1,13 +1,23 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { format, subMonths, startOfMonth, parseISO, startOfDay, getYear, subYears, addYears, startOfWeek } from "date-fns";
-import { TrendingUp, DollarSign, Target, GitCompare } from "lucide-react";
+import { format, subMonths, startOfMonth, parseISO, startOfDay, getYear, startOfWeek } from "date-fns";
+import { TrendingUp, Target, GitCompare, BarChart2, Info, ArrowRight, X } from "lucide-react";
 import { DateRangeValue } from "./DateRangeSelector";
 import PlatformPerformance from "./PlatformPerformance";
 import PlatformOrdersDrawer from "./PlatformOrdersDrawer";
-import CategoryItemsDrawer from "./CategoryItemsDrawer";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 type TimePeriod = 'mtd' | 'ytd' | '1y' | '5y';
 
@@ -33,19 +43,13 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
     platform: '',
     productLine: undefined,
   });
-  const [categoryDrawer, setCategoryDrawer] = useState<{ open: boolean; categoryId: number | null; categoryName: string }>({
-    open: false,
-    categoryId: null,
-    categoryName: '',
-  });
-  
+  const [platformPerfOpen, setPlatformPerfOpen] = useState(false);
+
   const currentYear = new Date().getFullYear();
-  const [compareMode, setCompareMode] = useState(false); // Start with comparison disabled
-  const [comparisonType, setComparisonType] = useState<'year' | 'platform'>('year'); // Toggle between year/platform
+  const [compareMode, setCompareMode] = useState(false);
+  const [comparisonType, setComparisonType] = useState<'year' | 'platform'>('year');
   const [selectedCompareYears, setSelectedCompareYears] = useState<number[]>([currentYear - 1, currentYear - 2]);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
-  const [categoryFilter, setCategoryFilter] = useState<'all' | 'moving' | 'stagnant'>('moving');
-  const [selectedProductLine, setSelectedProductLine] = useState<string | null>(null);
   
   // Helper function to safely parse dates with fallback
   const safeParseDate = (dateString: string): Date => {
@@ -129,102 +133,6 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
     staleTime: 60000,
   });
 
-  // Fetch orders filtered by product line and platform for the drawer
-  const { data: productLineOrders = [] } = useQuery<Order[]>({
-    queryKey: ['/api/orders/summary', dateRange, platformDrawer.productLine, platformDrawer.platform],
-    queryFn: async () => {
-      if (!platformDrawer.open || !platformDrawer.productLine) {
-        return [];
-      }
-      
-      const params = new URLSearchParams({
-        range: dateRange,
-        productLine: platformDrawer.productLine,
-        platform: platformDrawer.platform,
-      });
-      
-      const url = `/api/orders/summary?${params.toString()}`;
-      console.log(`[SalesDashboard] Fetching product line orders: ${url}`);
-      const response = await fetch(url);
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch product line orders');
-      }
-      
-      const data = await response.json();
-      console.log(`[SalesDashboard] Received ${data.length} orders for ${platformDrawer.productLine} - ${platformDrawer.platform}`);
-      return data;
-    },
-    enabled: platformDrawer.open && !!platformDrawer.productLine,
-    staleTime: 30000,
-  });
-
-  // Fetch category analysis data
-  interface CategoryAnalysis {
-    category_id: number;
-    category_name: string;
-    total_sold: number;
-    current_inventory: number;
-    sell_through_pct: number;
-  }
-
-  const { data: categoryAnalysis = [], isLoading: isCategoryLoading } = useQuery<CategoryAnalysis[]>({
-    queryKey: ['/api/analytics/categories', dateRange],
-    queryFn: async () => {
-      const url = buildQueryUrl('/api/analytics/categories');
-      const response = await fetch(url);
-      if (!response.ok) throw new Error('Failed to fetch category analysis');
-      return response.json();
-    },
-    staleTime: 30000,
-  });
-
-  // Fetch items for selected category
-  interface CategoryItem {
-    item_no: string;
-    name: string;
-    color_count: number;
-    new_qty: number;
-    used_qty: number;
-    quantity_sold: number;
-  }
-
-  const { data: categoryItems = [] } = useQuery<CategoryItem[]>({
-    queryKey: ['/api/analytics/categories', categoryDrawer.categoryId, 'items', dateRange],
-    queryFn: async () => {
-      if (!categoryDrawer.categoryId) return [];
-      const url = `/api/analytics/categories/${categoryDrawer.categoryId}/items?range=${dateRange}`;
-      const response = await fetch(url);
-      if (!response.ok) throw new Error('Failed to fetch category items');
-      return response.json();
-    },
-    enabled: categoryDrawer.open && categoryDrawer.categoryId !== null,
-    staleTime: 30000,
-  });
-
-  // Fetch product line analysis data
-  interface ProductLineAnalysis {
-    product_line: string;
-    order_count: number;
-    total_units: number;
-    total_revenue: string;
-    platforms: Array<{
-      marketplace: string;
-      order_count: number;
-      revenue: string;
-    }>;
-  }
-
-  const { data: productLineAnalysis = [], isLoading: isProductLineLoading } = useQuery<ProductLineAnalysis[]>({
-    queryKey: ['/api/analytics/product-lines', dateRange],
-    queryFn: async () => {
-      const url = buildQueryUrl('/api/analytics/product-lines');
-      const response = await fetch(url);
-      if (!response.ok) throw new Error('Failed to fetch product line analysis');
-      return response.json();
-    },
-    staleTime: 30000,
-  });
 
   // Get available years from orders
   const availableYears = useMemo(() => {
@@ -242,15 +150,6 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
     const nonCurrentYears = availableYears.filter(y => y !== currentYear);
     return selectedCompareYears.filter(y => nonCurrentYears.includes(y));
   }, [selectedCompareYears, availableYears, currentYear]);
-
-  const handlePlatformClick = (platform: string) => {
-    setPlatformDrawer({ open: true, platform, productLine: undefined });
-  };
-
-  const handlePlatformOrderClick = (orderId: string) => {
-    // Keep platform drawer open, just open order detail as nested drawer
-    onItemClick?.('order', orderId);
-  };
 
   // Filter orders based on date range
   const getFilteredOrders = () => {
@@ -320,16 +219,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
     return selectedPlatforms.filter(p => availablePlatforms.includes(p));
   }, [selectedPlatforms, availablePlatforms]);
 
-  // Filter orders for selected platform and product line
-  // If productLine is specified, use the filtered query result, otherwise filter from all orders
-  const platformOrders = platformDrawer.productLine 
-    ? productLineOrders
-    : filteredOrders.filter(order => (order.marketplace || 'Unknown') === platformDrawer.platform);
-  
-  // Handler for clicking on a platform within a product line breakdown
-  const handleProductLinePlatformClick = (productLine: string, platform: string) => {
-    setPlatformDrawer({ open: true, platform, productLine });
-  };
+  const platformOrders = filteredOrders.filter(order => (order.marketplace || 'Unknown') === platformDrawer.platform);
 
   // Calculate sales data with intelligent granularity based on date range
   const getSalesData = () => {
@@ -801,21 +691,6 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
     });
   };
 
-  // Get top revenue orders — sorted and filtered by net (after refunds/fees)
-  const getNetTotal = (order: { id: string; orderTotal: string | null }) =>
-    Math.max(0, parseOrderTotal(order.orderTotal) - (refundsByOrder[order.id] || 0));
-
-  const topRevenueOrders = filteredOrders
-    .filter(order => getNetTotal(order) > 0)
-    .sort((a, b) => getNetTotal(b) - getNetTotal(a))
-    .slice(0, 5);
-
-  // Get recent high-value sales — net >= $100
-  const recentHighValueSales = filteredOrders
-    .filter(order => getNetTotal(order) >= 100)
-    .sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime())
-    .slice(0, 5);
-
   // Calculate total revenue and average
   const totalRevenue = filteredOrders.reduce((sum, order) => {
     const orderTotal = parseOrderTotal(order.orderTotal);
@@ -863,8 +738,9 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
 
   if (isLoading) {
     return (
-      <div className="p-2 space-y-1.5 bg-gradient-to-br from-lego-green/5 to-transparent rounded-lg border border-lego-green/10 shadow-[0_0_15px_rgba(34,197,94,0.1)]">
-        <div className="bg-gray-900/50 border border-lego-green/20 rounded-lg p-2">
+      <div className="p-2 space-y-1.5">
+        <div className="relative bg-gradient-to-b from-green-950/25 to-gray-900/85 border border-green-500/40 rounded-lg shadow-[0_0_22px_rgba(34,197,94,0.15)] overflow-hidden p-3">
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-green-400/60 to-transparent" />
           <div className="text-xs text-gray-400 animate-pulse">Loading sales data...</div>
         </div>
       </div>
@@ -907,15 +783,13 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
   });
 
   return (
-    <div className="p-2 space-y-1.5 bg-gradient-to-br from-lego-green/5 to-transparent rounded-lg border border-lego-green/10 shadow-[0_0_15px_rgba(34,197,94,0.1)]">
-      {/* Diagnostic Warnings - Visible Error Messages */}
+    <div className="p-2 space-y-1.5">
+      {/* Diagnostic Warnings */}
       {warnings.length > 0 && (
         <div className="bg-red-900/30 border-2 border-red-500 rounded-lg p-3" data-testid="diagnostic-warnings">
-          <div className="text-red-400 font-bold text-sm mb-2">⚠️ DIAGNOSTIC WARNINGS:</div>
+          <div className="text-red-400 font-bold text-sm mb-2">DIAGNOSTIC WARNINGS:</div>
           {warnings.map((warning, idx) => (
-            <div key={idx} className="text-red-300 text-xs font-mono mb-1">
-              {warning}
-            </div>
+            <div key={idx} className="text-red-300 text-xs font-mono mb-1">{warning}</div>
           ))}
           <div className="text-red-400 text-xs mt-2">
             Debug Info: dateRange={dateRange}, orders={orders.length}, filtered={filteredOrders.length}, revenue=${totalRevenue.toFixed(2)}
@@ -923,12 +797,22 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
         </div>
       )}
       
-      {/* Comparison Controls */}
-      <div className="bg-gray-900/50 border border-lego-green/20 rounded-lg p-2 space-y-2">
-        {/* Row 1: Compare toggle and Year/Platform mode buttons */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setCompareMode(!compareMode)}
+      {/* ── Chart & Metrics Section ── */}
+      <div className="relative bg-gradient-to-b from-green-950/25 to-gray-900/85 border border-green-500/40 rounded-lg shadow-[0_0_22px_rgba(34,197,94,0.15)] overflow-hidden">
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-green-400/60 to-transparent" />
+        <div className="p-2 space-y-2">
+          {/* Section header */}
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-md bg-green-900/60 ring-1 ring-green-500/50 shadow-[0_0_8px_rgba(34,197,94,0.35)]">
+              <TrendingUp className="w-3.5 h-3.5 text-green-300" />
+            </div>
+            <h3 className="text-xs md:text-base font-semibold text-gray-200 uppercase tracking-wide">Sales</h3>
+          </div>
+
+          {/* Comparison Controls */}
+          <div className="flex flex-wrap items-center gap-2 border border-green-500/15 rounded-lg bg-black/15 px-2 py-1.5">
+            <button
+              onClick={() => setCompareMode(!compareMode)}
             className={`flex items-center gap-1.5 text-[10px] md:text-sm font-bold py-1 px-2 rounded transition-all ${
               compareMode
                 ? 'bg-lego-orange text-white border border-lego-orange'
@@ -967,96 +851,75 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
               </button>
             </div>
           )}
-        </div>
-        
-        {/* Row 2: Year Selection (full width for easier mobile tapping) */}
-        {compareMode && comparisonType === 'year' && availableYears.length > 0 && (
-          <div className="flex items-center gap-2 overflow-x-auto">
-            <span className="text-[9px] md:text-xs text-gray-500 flex-shrink-0">vs</span>
-            <div className="flex gap-2 flex-nowrap">
-              {(() => {
-                const nonCurrentYears = availableYears.filter(y => y !== currentYear);
-                // Sort years: selected first (descending), then unselected (descending)
-                const selectedYears = [...validCompareYears].sort((a, b) => b - a);
-                const unselectedYears = nonCurrentYears
-                  .filter(y => !validCompareYears.includes(y))
-                  .sort((a, b) => b - a);
-                const sortedYears = [...selectedYears, ...unselectedYears];
-                
-                return sortedYears.map(year => {
-                  const isSelected = selectedCompareYears.includes(year);
-                  return (
-                    <button
-                      key={year}
-                      onClick={() => {
-                        if (isSelected) {
-                          setSelectedCompareYears(selectedCompareYears.filter(y => y !== year));
-                        } else {
-                          setSelectedCompareYears([...selectedCompareYears, year].sort((a, b) => b - a));
-                        }
-                      }}
-                      aria-pressed={isSelected}
-                      className={`text-[9px] md:text-xs font-bold py-1 px-2 rounded transition-all flex-shrink-0 ${
-                        isSelected
-                          ? 'bg-blue-600 text-white border border-blue-500'
-                          : 'bg-gray-800 text-gray-400 border border-gray-700 hover-elevate'
-                      }`}
-                      data-testid={`year-toggle-${year}`}
-                    >
-                      {year}
-                    </button>
-                  );
-                });
-              })()}
-            </div>
-          </div>
-        )}
-        
-        {/* Row 2: Platform Selection (full width for easier mobile tapping) */}
-        {compareMode && comparisonType === 'platform' && availablePlatforms.length > 0 && (
-          <div className="flex items-center gap-2 overflow-x-auto">
-            <span className="text-[9px] md:text-xs text-gray-500 flex-shrink-0">select</span>
-            <div className="flex gap-2 flex-nowrap">
-              {(() => {
-                // Sort platforms: selected first (alphabetical), then unselected (alphabetical)
-                const selectedItems = [...validPlatforms].sort((a, b) => a.localeCompare(b));
-                const unselectedItems = availablePlatforms
-                  .filter(p => !validPlatforms.includes(p))
-                  .sort((a, b) => a.localeCompare(b));
-                const sortedPlatforms = [...selectedItems, ...unselectedItems];
-                
-                return sortedPlatforms.map(platform => {
-                  const isSelected = selectedPlatforms.includes(platform);
-                  return (
-                    <button
-                      key={platform}
-                      onClick={() => {
-                        if (isSelected) {
-                          setSelectedPlatforms(selectedPlatforms.filter(p => p !== platform));
-                        } else {
-                          setSelectedPlatforms([...selectedPlatforms, platform].sort((a, b) => a.localeCompare(b)));
-                        }
-                      }}
-                      aria-pressed={isSelected}
-                      className={`text-[9px] md:text-xs font-bold py-1 px-2 rounded transition-all flex-shrink-0 ${
-                        isSelected
-                          ? 'bg-blue-600 text-white border border-blue-500'
-                          : 'bg-gray-800 text-gray-400 border border-gray-700 hover-elevate'
-                      }`}
-                      data-testid={`platform-toggle-${platform.toLowerCase().replace(/\s+/g, '-')}`}
-                    >
-                      {platform}
-                    </button>
-                  );
-                });
-              })()}
-            </div>
-          </div>
-        )}
-      </div>
 
-      {/* Chart */}
-      <div className="bg-gray-900/50 border border-lego-green/20 rounded-lg p-2">
+          {/* Year selector row */}
+          {compareMode && comparisonType === 'year' && availableYears.length > 0 && (
+            <div className="flex items-center gap-2 overflow-x-auto w-full">
+              <span className="text-[9px] md:text-xs text-gray-500 flex-shrink-0">vs</span>
+              <div className="flex gap-1.5 flex-nowrap">
+                {(() => {
+                  const nonCurrentYears = availableYears.filter(y => y !== currentYear);
+                  const sorted = [
+                    ...[...validCompareYears].sort((a, b) => b - a),
+                    ...nonCurrentYears.filter(y => !validCompareYears.includes(y)).sort((a, b) => b - a),
+                  ];
+                  return sorted.map(year => {
+                    const isSelected = selectedCompareYears.includes(year);
+                    return (
+                      <button
+                        key={year}
+                        onClick={() => {
+                          if (isSelected) setSelectedCompareYears(selectedCompareYears.filter(y => y !== year));
+                          else setSelectedCompareYears([...selectedCompareYears, year].sort((a, b) => b - a));
+                        }}
+                        aria-pressed={isSelected}
+                        className={`text-[9px] md:text-xs font-bold py-1 px-2 rounded transition-all flex-shrink-0 ${isSelected ? 'bg-blue-600 text-white border border-blue-500' : 'bg-gray-800 text-gray-400 border border-gray-700 hover-elevate'}`}
+                        data-testid={`year-toggle-${year}`}
+                      >
+                        {year}
+                      </button>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
+          )}
+
+          {/* Platform selector row */}
+          {compareMode && comparisonType === 'platform' && availablePlatforms.length > 0 && (
+            <div className="flex items-center gap-2 overflow-x-auto w-full">
+              <span className="text-[9px] md:text-xs text-gray-500 flex-shrink-0">select</span>
+              <div className="flex gap-1.5 flex-nowrap">
+                {(() => {
+                  const sorted = [
+                    ...[...validPlatforms].sort((a, b) => a.localeCompare(b)),
+                    ...availablePlatforms.filter(p => !validPlatforms.includes(p)).sort((a, b) => a.localeCompare(b)),
+                  ];
+                  return sorted.map(platform => {
+                    const isSelected = selectedPlatforms.includes(platform);
+                    return (
+                      <button
+                        key={platform}
+                        onClick={() => {
+                          if (isSelected) setSelectedPlatforms(selectedPlatforms.filter(p => p !== platform));
+                          else setSelectedPlatforms([...selectedPlatforms, platform].sort((a, b) => a.localeCompare(b)));
+                        }}
+                        aria-pressed={isSelected}
+                        className={`text-[9px] md:text-xs font-bold py-1 px-2 rounded transition-all flex-shrink-0 ${isSelected ? 'bg-blue-600 text-white border border-blue-500' : 'bg-gray-800 text-gray-400 border border-gray-700 hover-elevate'}`}
+                        data-testid={`platform-toggle-${platform.toLowerCase().replace(/\s+/g, '-')}`}
+                      >
+                        {platform}
+                      </button>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
+          )}
+          </div>{/* end comparison controls */}
+
+          {/* Chart */}
+          <div className="bg-black/20 rounded-lg p-2">
         {!compareMode ? (
           <>
             <div className="mb-1 text-xs text-gray-400">
@@ -1136,410 +999,199 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
             </ResponsiveContainer>
           </>
         )}
-      </div>
+          </div>{/* end chart */}
 
-      {/* Two-column layout in landscape, single column in portrait */}
-      <div className="grid grid-cols-1 landscape:grid-cols-2 gap-1.5 items-start">
-
-        {/* LEFT COLUMN: headline stats + top revenue */}
-        <div className="space-y-1.5">
-
-        {/* Key Metrics */}
-        <div className="bg-gray-900/50 border border-yellow-500/20 rounded-lg p-3" data-testid="section-sales-metrics">
-          <div className="flex items-center gap-2 mb-2">
-            <Target className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-yellow-400" />
-            <h3 className="text-xs md:text-base lg:text-lg font-semibold text-yellow-400 uppercase tracking-wide">Key Metrics</h3>
+          {/* Key Metrics */}
+          <div className="bg-black/20 rounded-lg p-3" data-testid="section-sales-metrics">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="p-1 rounded bg-yellow-900/50 ring-1 ring-yellow-500/40 shadow-[0_0_6px_rgba(234,179,8,0.25)]">
+                <Target className="w-3 h-3 text-yellow-300" />
+              </div>
+              <h3 className="text-[10px] md:text-sm font-semibold text-yellow-300 uppercase tracking-wide">Key Metrics</h3>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="text-center">
+                <div className="text-[9px] md:text-xs text-gray-500">Total Orders</div>
+                <div className="text-xs md:text-sm text-gray-300 font-mono">{filteredOrders.length}</div>
+              </div>
+              <div className="text-center">
+                <div className="text-[9px] md:text-xs text-gray-500">Avg Order</div>
+                <div className="text-xs md:text-sm text-green-400 font-mono">${averageOrderValue.toFixed(2)}</div>
+              </div>
+              <div className="text-center">
+                <div className="text-[9px] md:text-xs text-gray-500">Gross Revenue</div>
+                <div className="text-xs md:text-sm text-green-400 font-mono">${Math.round(totalRevenue).toLocaleString()}</div>
+              </div>
+            </div>
+            {adjustmentSummary && (
+              <div className="mt-2 pt-2 border-t border-green-500/10 grid grid-cols-4 gap-2">
+                <div className="text-center">
+                  <div className="text-[9px] md:text-xs text-gray-600">Refunds</div>
+                  <div className="text-[10px] md:text-xs text-red-400 font-mono">{adjustmentSummary.totalRefunds > 0 ? `-$${adjustmentSummary.totalRefunds.toFixed(2)}` : '$0.00'}</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-[9px] md:text-xs text-gray-600">Fees</div>
+                  <div className="text-[10px] md:text-xs text-amber-500/70 font-mono">{adjustmentSummary.totalFees > 0 ? `-$${adjustmentSummary.totalFees.toFixed(2)}` : '$0.00'}</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-[9px] md:text-xs text-gray-600">Shipping</div>
+                  <div className="text-[10px] md:text-xs text-amber-500/70 font-mono">{adjustmentSummary.totalShipping > 0 ? `-$${adjustmentSummary.totalShipping.toFixed(2)}` : '$0.00'}</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-[9px] md:text-xs text-gray-600">Net Revenue</div>
+                  <div className="text-[10px] md:text-xs text-green-400 font-mono">${Math.max(0, totalRevenue - adjustmentSummary.totalRefunds).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                </div>
+              </div>
+            )}
           </div>
-          <div className="grid grid-cols-3 gap-2">
-            <div className="text-center">
-              <div className="text-[9px] md:text-sm lg:text-base text-gray-500">Total Orders</div>
-              <div className="text-xs md:text-base lg:text-lg text-gray-300 font-mono">{filteredOrders.length}</div>
-            </div>
-            <div className="text-center">
-              <div className="text-[9px] md:text-sm lg:text-base text-gray-500">Avg Order Value</div>
-              <div className="text-xs md:text-base lg:text-lg text-lego-green font-mono">${averageOrderValue.toFixed(2)}</div>
-            </div>
-            <div className="text-center">
-              <div className="text-[9px] md:text-sm lg:text-base text-gray-500">Gross Revenue</div>
-              <div className="text-xs md:text-base lg:text-lg text-lego-green font-mono">${Math.round(totalRevenue).toLocaleString()}</div>
-            </div>
-          </div>
-          {adjustmentSummary && (
-            <div className="mt-2 pt-2 border-t border-yellow-500/10 grid grid-cols-4 gap-2">
-              <div className="text-center">
-                <div className="text-[9px] md:text-xs text-gray-600">Refunds</div>
-                <div className="text-[10px] md:text-sm text-lego-red font-mono">
-                  {adjustmentSummary.totalRefunds > 0 ? `-$${adjustmentSummary.totalRefunds.toFixed(2)}` : '$0.00'}
+
+          {/* YoY Growth */}
+          {compareMode && comparisonType === 'year' && validCompareYears.length > 0 && (
+            <div className="bg-black/20 rounded-lg p-3" data-testid="section-yoy-metrics">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="p-1 rounded bg-purple-900/50 ring-1 ring-purple-500/40 shadow-[0_0_6px_rgba(168,85,247,0.25)]">
+                  <TrendingUp className="w-3 h-3 text-purple-300" />
                 </div>
+                <h3 className="text-[10px] md:text-sm font-semibold text-purple-300 uppercase tracking-wide">Year-over-Year Growth</h3>
               </div>
-              <div className="text-center">
-                <div className="text-[9px] md:text-xs text-gray-600">Merchant Fees</div>
-                <div className="text-[10px] md:text-sm text-amber-500/70 font-mono">
-                  {adjustmentSummary.totalFees > 0 ? `-$${adjustmentSummary.totalFees.toFixed(2)}` : '$0.00'}
-                </div>
-              </div>
-              <div className="text-center">
-                <div className="text-[9px] md:text-xs text-gray-600">Shipping</div>
-                <div className="text-[10px] md:text-sm text-amber-500/70 font-mono">
-                  {adjustmentSummary.totalShipping > 0 ? `-$${adjustmentSummary.totalShipping.toFixed(2)}` : '$0.00'}
-                </div>
-              </div>
-              <div className="text-center">
-                <div className="text-[9px] md:text-xs text-gray-600">Net Revenue</div>
-                <div className="text-[10px] md:text-sm text-lego-green font-mono">
-                  ${Math.max(0, totalRevenue - adjustmentSummary.totalRefunds).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </div>
+              <div className={`grid gap-2 ${validCompareYears.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                {(() => {
+                  const yearTotals = comparisonYears.reduce((acc, year) => {
+                    acc[year] = comparisonData.reduce((sum, m) => sum + ((m[`${year}`] as number) || 0), 0);
+                    return acc;
+                  }, {} as Record<number, number>);
+                  return validCompareYears.map(compareYear => {
+                    const growth = yearTotals[compareYear] > 0 ? ((yearTotals[currentYear] - yearTotals[compareYear]) / yearTotals[compareYear]) * 100 : 0;
+                    return (
+                      <div key={compareYear} className="bg-gray-800/50 rounded p-2">
+                        <div className="text-[9px] md:text-xs text-gray-500 mb-1">{currentYear} vs {compareYear}</div>
+                        <div className={`text-sm font-mono font-bold ${growth >= 0 ? 'text-green-400' : 'text-red-400'}`}>{growth >= 0 ? '+' : ''}{growth.toFixed(1)}%</div>
+                        <div className="text-[9px] md:text-xs text-gray-400 mt-1">${Math.round(yearTotals[currentYear]).toLocaleString()} vs ${Math.round(yearTotals[compareYear]).toLocaleString()}</div>
+                      </div>
+                    );
+                  });
+                })()}
               </div>
             </div>
           )}
-        </div>
 
-        {/* Comparison Metrics */}
-        {compareMode && comparisonType === 'year' && validCompareYears.length > 0 && (
-          <div className="bg-gray-900/50 border border-purple-500/20 rounded-lg p-3" data-testid="section-yoy-metrics">
-            <div className="flex items-center gap-2 mb-2">
-              <TrendingUp className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-purple-400" />
-              <h3 className="text-xs md:text-base lg:text-lg font-semibold text-purple-400 uppercase tracking-wide">Year-over-Year Growth</h3>
-            </div>
-            <div className={`grid gap-2 ${validCompareYears.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
-              {(() => {
-                const yearTotals = comparisonYears.reduce((acc, year) => {
-                  const total = comparisonData.reduce((sum, monthData) => {
-                    const value = monthData[`${year}`] as number || 0;
-                    return sum + value;
-                  }, 0);
-                  acc[year] = total;
-                  return acc;
-                }, {} as Record<number, number>);
-
-                return validCompareYears.map(compareYear => {
-                  const growth = yearTotals[compareYear] > 0
-                    ? ((yearTotals[currentYear] - yearTotals[compareYear]) / yearTotals[compareYear]) * 100
-                    : 0;
-
-                  return (
-                    <div key={compareYear} className="bg-gray-800/50 rounded p-2">
-                      <div className="text-[9px] md:text-xs text-gray-500 mb-1">
-                        {currentYear} vs {compareYear}
-                      </div>
-                      <div className={`text-sm font-mono font-bold ${growth >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                        {growth >= 0 ? '+' : ''}{growth.toFixed(1)}%
-                      </div>
-                      <div className="text-[9px] md:text-xs text-gray-400 mt-1">
-                        ${Math.round(yearTotals[currentYear]).toLocaleString()} vs ${Math.round(yearTotals[compareYear]).toLocaleString()}
-                      </div>
-                    </div>
-                  );
-                });
-              })()}
-            </div>
-          </div>
-        )}
-
-        {/* Platform Comparison Metrics */}
-        {compareMode && comparisonType === 'platform' && validPlatforms.length > 0 && (
-          <div className="bg-gray-900/50 border border-purple-500/20 rounded-lg p-3" data-testid="section-platform-metrics">
-            <div className="flex items-center gap-2 mb-2">
-              <TrendingUp className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-purple-400" />
-              <h3 className="text-xs md:text-base lg:text-lg font-semibold text-purple-400 uppercase tracking-wide">Platform Performance</h3>
-            </div>
-            <div className={`grid gap-2 ${validPlatforms.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
-              {(() => {
-                const platformTotals = validPlatforms.reduce((acc, platform) => {
-                  const total = comparisonData.reduce((sum, monthData) => {
-                    const value = monthData[platform] as number || 0;
-                    return sum + value;
-                  }, 0);
-                  acc[platform] = total;
-                  return acc;
-                }, {} as Record<string, number>);
-
-                const totalRevenue = Object.values(platformTotals).reduce((sum, val) => sum + val, 0);
-
-                return validPlatforms.map(platform => {
-                  const revenue = platformTotals[platform];
-                  const percentage = totalRevenue > 0 ? (revenue / totalRevenue) * 100 : 0;
-
-                  return (
+          {/* Platform Comparison Metrics */}
+          {compareMode && comparisonType === 'platform' && validPlatforms.length > 0 && (
+            <div className="bg-black/20 rounded-lg p-3" data-testid="section-platform-metrics">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="p-1 rounded bg-purple-900/50 ring-1 ring-purple-500/40 shadow-[0_0_6px_rgba(168,85,247,0.25)]">
+                  <TrendingUp className="w-3 h-3 text-purple-300" />
+                </div>
+                <h3 className="text-[10px] md:text-sm font-semibold text-purple-300 uppercase tracking-wide">Platform Comparison</h3>
+              </div>
+              <div className={`grid gap-2 ${validPlatforms.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                {(() => {
+                  const totals = validPlatforms.reduce((acc, p) => { acc[p] = comparisonData.reduce((s, m) => s + ((m[p] as number) || 0), 0); return acc; }, {} as Record<string, number>);
+                  const totalRev = Object.values(totals).reduce((s, v) => s + v, 0);
+                  return validPlatforms.map(platform => (
                     <div key={platform} className="bg-gray-800/50 rounded p-2">
                       <div className="flex items-center gap-1 mb-1">
-                        <div 
-                          className="w-2 h-2 rounded-full" 
-                          style={{ backgroundColor: PLATFORM_COLORS[platform] || PLATFORM_COLORS['Other'] }}
-                        />
-                        <div className="text-[9px] md:text-xs text-gray-500">
-                          {platform}
+                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: PLATFORM_COLORS[platform] || PLATFORM_COLORS['Other'] }} />
+                        <div className="text-[9px] md:text-xs text-gray-500">{platform}</div>
                       </div>
+                      <div className="text-sm font-mono font-bold text-white">${Math.round(totals[platform]).toLocaleString()}</div>
+                      <div className="text-[9px] md:text-xs text-gray-400 mt-1">{(totalRev > 0 ? (totals[platform] / totalRev) * 100 : 0).toFixed(1)}% of total</div>
                     </div>
-                    <div className="text-sm font-mono font-bold text-white">
-                      ${Math.round(revenue).toLocaleString()}
-                    </div>
-                    <div className="text-[9px] md:text-xs text-gray-400 mt-1">
-                      {percentage.toFixed(1)}% of total
-                    </div>
-                  </div>
-                );
-              });
-            })()}
-          </div>
-        </div>
-      )}
-
-      {/* Highlights - Top Revenue Orders */}
-      <div className="bg-gray-900/50 border border-green-500/20 rounded-lg p-3" data-testid="section-top-revenue">
-        <div className="flex items-center gap-2 mb-2">
-          <TrendingUp className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-green-400" />
-          <h3 className="text-xs md:text-base lg:text-lg font-semibold text-green-400 uppercase tracking-wide">Highlights - Top Revenue Orders</h3>
-        </div>
-        <div className="space-y-1.5">
-          {topRevenueOrders.length > 0 ? (
-            topRevenueOrders.map((order) => (
-              <div 
-                key={order.id} 
-                onClick={() => onItemClick?.('order', order.id)}
-                className="flex justify-between items-center hover-elevate rounded px-2 py-1 cursor-pointer"
-                data-testid={`top-revenue-${order.id}`}
-              >
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <DollarSign className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-green-400 flex-shrink-0" />
-                  <span className="text-gray-200 font-mono text-xs md:text-base lg:text-lg font-medium">#{order.orderNumber}</span>
-                  <span className="text-gray-400 text-[11px] md:text-sm lg:text-base">{order.customerUsername}</span>
-                </div>
-                <span className="flex items-center gap-1.5 ml-2 flex-shrink-0">
-                  {refundsByOrder[order.id] ? (
-                    <span className="text-gray-500 line-through font-mono text-[10px] md:text-sm">${parseOrderTotal(order.orderTotal).toFixed(2)}</span>
-                  ) : null}
-                  <span className="text-lego-green font-mono font-medium text-xs md:text-base lg:text-lg">${getNetTotal(order).toFixed(2)}</span>
-                </span>
+                  ));
+                })()}
               </div>
-            ))
-          ) : (
-            <div className="text-[11px] text-gray-500 italic">No revenue data available</div>
-          )}
-        </div>
-      </div>
-
-        </div>{/* end left column */}
-
-        {/* RIGHT COLUMN: activity lists + analysis */}
-        <div className="space-y-1.5">
-
-      {/* Recent Activity - High Value Sales */}
-      <div className="bg-gray-900/50 border border-blue-500/20 rounded-lg p-3" data-testid="section-recent-high-value">
-        <div className="flex items-center gap-2 mb-2">
-          <Target className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-blue-400" />
-          <h3 className="text-xs md:text-base lg:text-lg font-semibold text-blue-400 uppercase tracking-wide">Recent Activity - High Value Sales ($100+)</h3>
-        </div>
-        <div className="space-y-1.5">
-          {recentHighValueSales.length > 0 ? (
-            recentHighValueSales.map((order) => (
-              <div 
-                key={order.id} 
-                onClick={() => onItemClick?.('order', order.id)}
-                className="flex justify-between items-center hover-elevate rounded px-2 py-1 cursor-pointer"
-                data-testid={`high-value-sale-${order.id}`}
-              >
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <div className="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0" />
-                  <span className="text-gray-200 font-mono text-xs md:text-base lg:text-lg font-medium">#{order.orderNumber}</span>
-                  <span className="text-gray-400 text-[11px] md:text-sm lg:text-base">{order.customerUsername}</span>
-                  <span className="text-gray-400 text-[11px] md:text-sm lg:text-base">{new Date(order.orderDate).toLocaleDateString()}</span>
-                </div>
-                <span className="flex items-center gap-1.5 ml-2 flex-shrink-0">
-                  {refundsByOrder[order.id] ? (
-                    <span className="text-gray-500 line-through font-mono text-[10px] md:text-sm">${parseOrderTotal(order.orderTotal).toFixed(2)}</span>
-                  ) : null}
-                  <span className="text-lego-green font-mono font-medium text-xs md:text-base lg:text-lg">${getNetTotal(order).toFixed(2)}</span>
-                </span>
-              </div>
-            ))
-          ) : (
-            <div className="text-[11px] text-gray-500 italic">No high value sales</div>
-          )}
-        </div>
-      </div>
-
-      {/* Platform Performance */}
-      <div className="bg-gray-900/50 border border-blue-500/20 rounded-lg p-3" data-testid="section-platform-performance">
-        <PlatformPerformance orders={filteredOrders} onPlatformClick={handlePlatformClick} />
-      </div>
-
-      {/* Category Analysis */}
-      <div className="bg-gray-900/50 border border-purple-500/20 rounded-lg p-3" data-testid="section-category-analysis">
-        <div className="flex items-center justify-between gap-2 mb-2">
-          <div className="flex items-center gap-2">
-            <Target className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-purple-400" />
-            <h3 className="text-xs md:text-base lg:text-lg font-semibold text-purple-400 uppercase tracking-wide">Category Analysis</h3>
-          </div>
-          <Select value={categoryFilter} onValueChange={(value: 'all' | 'moving' | 'stagnant') => setCategoryFilter(value)}>
-            <SelectTrigger className="w-auto h-7 text-xs" data-testid="select-category-filter">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Categories</SelectItem>
-              <SelectItem value="moving">Moving Items</SelectItem>
-              <SelectItem value="stagnant">Stagnant Stock</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        {isCategoryLoading ? (
-          <div className="text-[11px] text-gray-500 italic">Loading category data...</div>
-        ) : (() => {
-          // Filter categories based on selection
-          const filteredCategories = categoryFilter === 'all' 
-            ? categoryAnalysis
-            : categoryFilter === 'moving'
-            ? categoryAnalysis.filter(cat => cat.total_sold > 0)
-            : categoryAnalysis.filter(cat => cat.total_sold === 0);
-          
-          // Sort based on filter
-          const sortedCategories = categoryFilter === 'stagnant'
-            ? [...filteredCategories].sort((a, b) => b.current_inventory - a.current_inventory)
-            : [...filteredCategories].sort((a, b) => b.sell_through_pct - a.sell_through_pct);
-          
-          return sortedCategories.length > 0 ? (
-            <div className="space-y-1 max-h-64 overflow-y-auto">
-              {sortedCategories.map((category) => (
-              <div 
-                key={category.category_id}
-                onClick={() => setCategoryDrawer({ open: true, categoryId: category.category_id, categoryName: category.category_name })}
-                className="flex justify-between items-center hover-elevate active-elevate-2 rounded px-2 py-1.5 cursor-pointer"
-                data-testid={`category-${category.category_id}`}
-              >
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <div className="w-2 h-2 rounded-full bg-purple-400 flex-shrink-0" />
-                  <span className="text-gray-200 text-xs md:text-base lg:text-lg font-medium">{category.category_name}</span>
-                </div>
-                <div className="flex items-center gap-3 ml-2 flex-shrink-0">
-                  <span className="text-gray-400 text-[11px] md:text-sm lg:text-base">
-                    {category.total_sold.toLocaleString()} / {category.current_inventory.toLocaleString()}
-                  </span>
-                  <span className={`font-mono font-bold text-xs md:text-base lg:text-lg min-w-[60px] text-right ${
-                    Number(category.sell_through_pct || 0) > 50 ? 'text-red-400' :
-                    Number(category.sell_through_pct || 0) > 25 ? 'text-yellow-400' :
-                    Number(category.sell_through_pct || 0) > 10 ? 'text-green-400' :
-                    'text-gray-500'
-                  }`}>
-                    {Number(category.sell_through_pct || 0).toFixed(1)}%
-                  </span>
-                </div>
-              </div>
-            ))}
             </div>
-          ) : (
-            <div className="text-[11px] text-gray-500 italic">No category data available</div>
-          );
-        })()}
-      </div>
+          )}
 
-      {/* Product Line Analysis */}
-      <div className="bg-gray-900/50 border border-cyan-500/20 rounded-lg p-3" data-testid="section-product-lines">
-        <div className="flex items-center gap-2 mb-2">
-          <GitCompare className="w-3.5 h-3.5 md:w-5 md:h-5 lg:w-6 lg:h-6 text-cyan-400" />
-          <h3 className="text-xs md:text-base lg:text-lg font-semibold text-cyan-400 uppercase tracking-wide">Product Lines</h3>
-        </div>
-        {isProductLineLoading ? (
-          <div className="text-[11px] text-gray-500 italic">Loading product line data...</div>
-        ) : productLineAnalysis.length > 0 ? (
-          <div className="space-y-1">
-            {productLineAnalysis.map((line) => {
-              const revenue = parseFloat(line.total_revenue || "0");
-              const isSelected = selectedProductLine === line.product_line;
-              
-              return (
-                <div key={line.product_line}>
-                  <div 
-                    className="flex justify-between items-center hover-elevate rounded px-2 py-1.5 cursor-pointer"
-                    data-testid={`product-line-${line.product_line}`}
-                    onClick={() => setSelectedProductLine(isSelected ? null : line.product_line)}
-                  >
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <div className={`w-2 h-2 rounded-full ${isSelected ? 'bg-cyan-400' : 'bg-cyan-600'} flex-shrink-0`} />
-                      <span className={`text-xs md:text-base lg:text-lg font-medium ${isSelected ? 'text-cyan-300' : 'text-gray-200'}`}>
-                        {line.product_line}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-3 ml-2 flex-shrink-0">
-                      <span className="text-gray-400 text-[11px] md:text-sm lg:text-base">
-                        {line.order_count} orders • {line.total_units.toLocaleString()} units
-                      </span>
-                      <span className="font-mono font-bold text-xs md:text-base lg:text-lg text-cyan-300 min-w-[80px] text-right">
-                        ${revenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  {/* Platform Breakdown - shown when product line is selected */}
-                  {isSelected && line.platforms && (
-                    <div className="ml-6 mt-1 space-y-1 bg-gray-800/30 rounded p-2">
-                      <div className="text-[10px] text-gray-500 mb-1 uppercase tracking-wide">Platform Breakdown</div>
-                      {(() => {
-                        // Deduplicate and aggregate platforms
-                        const platformMap = new Map<string, { order_count: number; revenue: number }>();
-                        line.platforms.forEach(p => {
-                          const existing = platformMap.get(p.marketplace) || { order_count: 0, revenue: 0 };
-                          platformMap.set(p.marketplace, {
-                            order_count: existing.order_count + p.order_count,
-                            revenue: existing.revenue + parseFloat(p.revenue || "0")
-                          });
-                        });
-                        
-                        return Array.from(platformMap.entries())
-                          .sort((a, b) => b[1].revenue - a[1].revenue)
-                          .map(([marketplace, data]) => (
-                            <div 
-                              key={marketplace}
-                              className="flex justify-between items-center px-2 py-1 hover-elevate rounded cursor-pointer"
-                              data-testid={`platform-breakdown-${marketplace}`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleProductLinePlatformClick(line.product_line, marketplace);
-                              }}
-                            >
-                              <span className="text-[11px] md:text-sm text-gray-300">{marketplace}</span>
-                              <div className="flex items-center gap-2">
-                                <span className="text-[11px] md:text-sm text-gray-400">
-                                  {data.order_count} orders
-                                </span>
-                                <span className="font-mono text-[11px] md:text-sm text-cyan-400">
-                                  ${data.revenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                </span>
-                              </div>
-                            </div>
-                          ));
-                      })()}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+        </div>{/* end p-2 space-y-2 */}
+      </div>{/* end Jetsons green section */}
+
+      {/* ── Tools Section ── */}
+      <div className="relative bg-gradient-to-b from-gray-800/20 to-gray-900/85 border border-gray-600/35 rounded-lg shadow-[0_0_18px_rgba(156,163,175,0.08)] overflow-hidden">
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-400/50 to-transparent" />
+        <div className="p-2">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="p-1.5 rounded-md bg-gray-800/70 ring-1 ring-gray-500/40 shadow-[0_0_8px_rgba(156,163,175,0.2)]">
+              <BarChart2 className="w-3.5 h-3.5 text-gray-300" />
+            </div>
+            <h3 className="text-xs md:text-base font-semibold text-gray-200 uppercase tracking-wide">Tools</h3>
           </div>
-        ) : (
-          <div className="text-[11px] text-gray-500 italic">No product line data available</div>
-        )}
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => setPlatformPerfOpen(true)}
+              data-testid="tool-platform-performance"
+              className="group flex flex-col gap-1.5 rounded-lg border border-orange-500/50 bg-gradient-to-br from-orange-950/65 to-gray-950/80 p-3 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(249,115,22,0.09)]"
+            >
+              <div className="flex items-center gap-2">
+                <div className="rounded-lg bg-orange-900/70 p-1.5 ring-1 ring-orange-500/45 shadow-[0_0_10px_rgba(249,115,22,0.22)]">
+                  <BarChart2 className="w-3.5 h-3.5 md:w-5 md:h-5 text-orange-200" />
+                </div>
+                <span className="text-xs md:text-sm font-bold text-orange-100 leading-tight flex-1">Platform Performance</span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <span role="button" onClick={(e) => e.stopPropagation()} className="text-orange-600/60 hover:text-orange-400 transition-colors" data-testid="info-platform-performance">
+                      <Info className="w-3 h-3" />
+                    </span>
+                  </PopoverTrigger>
+                  <PopoverContent side="top" className="w-64 text-xs text-gray-300 bg-gray-900 border-gray-700 p-2.5">
+                    Breakdown of sales by marketplace — order counts, revenue, and channel share for the selected date range.
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div className="flex flex-wrap gap-1 min-h-[1.25rem]">
+                {availablePlatforms.length > 0 ? (
+                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-orange-500/20 text-orange-300 border border-orange-600/30">
+                    {availablePlatforms.length} active {availablePlatforms.length === 1 ? 'platform' : 'platforms'}
+                  </span>
+                ) : (
+                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-orange-500/15 text-orange-400 border border-orange-600/25">
+                    No data
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] md:text-xs text-orange-300 font-medium">Open tool</span>
+                <ArrowRight className="w-3 h-3 md:w-4 md:h-4 text-orange-400/70 group-hover:text-orange-200 transition-colors" />
+              </div>
+            </button>
+          </div>
+        </div>
       </div>
 
-        </div>{/* end right column */}
-      </div>{/* end 2-col grid */}
+      {/* ── Platform Performance Drawer ── */}
+      <Drawer open={platformPerfOpen} onOpenChange={(open) => !open && setPlatformPerfOpen(false)}>
+        <DrawerContent className="h-[90vh]">
+          <DrawerHeader className="relative">
+            <DrawerTitle className="flex items-center gap-2 text-base md:text-lg">
+              <BarChart2 className="w-5 h-5 text-orange-400" />
+              Platform Performance
+            </DrawerTitle>
+            <DrawerClose className="absolute right-4 top-4" data-testid="button-close-platform-performance">
+              <X className="h-4 w-4" />
+              <span className="sr-only">Close</span>
+            </DrawerClose>
+          </DrawerHeader>
+          <div className="overflow-y-auto flex-1 px-4 pb-8">
+            <PlatformPerformance
+              orders={filteredOrders}
+              onPlatformClick={(platform) => {
+                setPlatformPerfOpen(false);
+                setPlatformDrawer({ open: true, platform, productLine: undefined });
+              }}
+            />
+          </div>
+        </DrawerContent>
+      </Drawer>
 
-      {/* Platform Orders Drawer */}
+      {/* ── Platform Orders Drawer ── */}
       <PlatformOrdersDrawer
         open={platformDrawer.open}
         onClose={() => setPlatformDrawer({ open: false, platform: '', productLine: undefined })}
         platform={platformDrawer.platform}
         orders={platformOrders}
-        onOrderClick={handlePlatformOrderClick}
-        productLine={platformDrawer.productLine}
-      />
-
-      {/* Category Items Drawer */}
-      <CategoryItemsDrawer
-        open={categoryDrawer.open}
-        onClose={() => setCategoryDrawer({ open: false, categoryId: null, categoryName: '' })}
-        categoryName={categoryDrawer.categoryName}
-        items={categoryItems}
-        onItemClick={onItemClick}
+        onOrderClick={(orderId) => onItemClick?.('order', orderId)}
       />
     </div>
   );
 }
+
