@@ -2367,6 +2367,9 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                                 <div
                                   onMouseDown={e => e.stopPropagation()}
                                   onClick={e => e.stopPropagation()}
+                                  onTouchStart={e => e.stopPropagation()}
+                                  onTouchMove={e => e.stopPropagation()}
+                                  onTouchEnd={e => e.stopPropagation()}
                                   data-testid={`heatmap-popup-${r.cropIndex ?? i}`}
                                   style={{
                                     position: 'absolute',
@@ -2419,7 +2422,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                                         : (heatmapMetric === 'max' ? 'List Max' : 'List Avg');
                                     const activeCol = heatmapCondition; // 'new' | 'used'
                                     return (
-                                      <div className="px-2.5 py-2 space-y-0" style={{ maxHeight: 200, overflowY: 'auto', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
+                                      <div className="px-2.5 py-2 space-y-0" style={{ maxHeight: 200, overflowY: 'auto', WebkitOverflowScrolling: 'touch', touchAction: 'pan-y', overscrollBehavior: 'contain' } as React.CSSProperties}>
                                         {/* Column headers — sticky, active column underlined */}
                                         <div className="grid grid-cols-[1fr_70px_70px] text-[10px] font-bold uppercase tracking-widest pb-1.5 border-b border-white/[0.07] bg-gray-950" style={{ position: 'sticky', top: 0, zIndex: 1 }}>
                                           <span className="text-gray-600 px-1"></span>
