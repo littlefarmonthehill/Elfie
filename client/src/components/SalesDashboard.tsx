@@ -2,7 +2,8 @@ import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { format, subMonths, startOfMonth, parseISO, startOfDay, getYear, startOfWeek } from "date-fns";
-import { TrendingUp, Target, GitCompare, BarChart2, Info, ArrowRight, X } from "lucide-react";
+import { TrendingUp, Target, GitCompare, BarChart2, Info, ArrowRight, X, Activity } from "lucide-react";
+import MetricCard from "./MetricCard";
 import { DateRangeValue } from "./DateRangeSelector";
 import PlatformPerformance from "./PlatformPerformance";
 import PlatformOrdersDrawer from "./PlatformOrdersDrawer";
@@ -44,6 +45,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
     productLine: undefined,
   });
   const [platformPerfOpen, setPlatformPerfOpen] = useState(false);
+  const [chartOpen, setChartOpen] = useState(false);
 
   const currentYear = new Date().getFullYear();
   const [compareMode, setCompareMode] = useState(false);
@@ -797,7 +799,31 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
         </div>
       )}
       
-      {/* ── Chart & Metrics Section ── */}
+      {/* ── Top Metrics ── */}
+      <div className="relative bg-gradient-to-b from-green-950/25 to-gray-900/85 border border-green-500/40 rounded-lg p-3 shadow-[0_0_22px_rgba(34,197,94,0.12)] overflow-hidden" data-testid="section-sales-overview">
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-green-400/50 to-transparent" />
+        <div className="flex items-center gap-2 mb-2.5">
+          <div className="p-1.5 rounded-md bg-green-900/60 ring-1 ring-green-500/50 shadow-[0_0_10px_rgba(34,197,94,0.25)]">
+            <TrendingUp className="w-3 h-3 md:w-4 md:h-4 text-green-200" />
+          </div>
+          <h3 className="text-xs md:text-base lg:text-lg font-semibold text-green-200 uppercase tracking-wide">Sales</h3>
+        </div>
+        <div className="grid grid-cols-3 gap-1.5 mb-2" data-testid="section-sales-metrics">
+          <MetricCard label="Orders" value={filteredOrders.length} color="green" data-testid="metric-sales-orders" />
+          <MetricCard label="Gross Revenue" value={`$${Math.round(totalRevenue).toLocaleString()}`} color="green" data-testid="metric-sales-gross" />
+          <MetricCard label="Avg Order" value={`$${averageOrderValue.toFixed(2)}`} color="green" data-testid="metric-sales-avg" />
+        </div>
+        {adjustmentSummary && (
+          <div className="grid grid-cols-4 gap-1.5">
+            <MetricCard label="Net Revenue" value={`$${Math.max(0, totalRevenue - adjustmentSummary.totalRefunds).toLocaleString(undefined, { maximumFractionDigits: 0 })}`} color="green" data-testid="metric-sales-net" />
+            <MetricCard label="Refunds" value={adjustmentSummary.totalRefunds > 0 ? `-$${adjustmentSummary.totalRefunds.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '$0'} color="red" data-testid="metric-sales-refunds" />
+            <MetricCard label="Fees" value={adjustmentSummary.totalFees > 0 ? `-$${adjustmentSummary.totalFees.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '$0'} color="yellow" data-testid="metric-sales-fees" />
+            <MetricCard label="Shipping" value={adjustmentSummary.totalShipping > 0 ? `-$${adjustmentSummary.totalShipping.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '$0'} color="yellow" data-testid="metric-sales-shipping" />
+          </div>
+        )}
+      </div>
+
+      {/* ── Compare / Analysis Section ── */}
       <div className="relative bg-gradient-to-b from-green-950/25 to-gray-900/85 border border-green-500/40 rounded-lg shadow-[0_0_22px_rgba(34,197,94,0.15)] overflow-hidden">
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-green-400/60 to-transparent" />
         <div className="p-2 space-y-2">
@@ -806,7 +832,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
             <div className="p-1.5 rounded-md bg-green-900/60 ring-1 ring-green-500/50 shadow-[0_0_8px_rgba(34,197,94,0.35)]">
               <TrendingUp className="w-3.5 h-3.5 text-green-300" />
             </div>
-            <h3 className="text-xs md:text-base font-semibold text-gray-200 uppercase tracking-wide">Sales</h3>
+            <h3 className="text-xs md:text-base font-semibold text-gray-200 uppercase tracking-wide">Compare</h3>
           </div>
 
           {/* Comparison Controls */}
@@ -918,133 +944,6 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
           )}
           </div>{/* end comparison controls */}
 
-          {/* Chart */}
-          <div className="bg-black/20 rounded-lg p-2">
-        {!compareMode ? (
-          <>
-            <div className="mb-1 text-xs text-gray-400">
-              Average: <span className="text-lego-green font-mono font-semibold">${average.toLocaleString()}</span>
-              <span className="ml-2 text-gray-500">Total Revenue: ${Math.round(totalRevenue).toLocaleString()}</span>
-            </div>
-            <ResponsiveContainer width="100%" height={120}>
-              <LineChart data={data}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                <XAxis dataKey="date" stroke="#9CA3AF" style={{ fontSize: '10px' }} />
-                <YAxis stroke="#9CA3AF" style={{ fontSize: '10px' }} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151', borderRadius: '6px', fontSize: '12px' }}
-                  labelStyle={{ color: '#D1D5DB' }}
-                  formatter={(value: number) => [`$${value.toLocaleString()}`, 'Net Revenue']}
-                />
-                <Line type="monotone" dataKey="sales" name="Net Revenue" stroke="hsl(140 70% 50%)" strokeWidth={2} dot={{ fill: 'hsl(140 70% 50%)', r: 1 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </>
-        ) : comparisonType === 'year' ? (
-          <>
-            <div className="mb-1 text-xs text-gray-400">
-              <span className="text-lego-green font-semibold">Year-over-Year Comparison</span>
-            </div>
-            <ResponsiveContainer width="100%" height={140}>
-              <LineChart data={comparisonData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                <XAxis dataKey="month" stroke="#9CA3AF" style={{ fontSize: '10px' }} />
-                <YAxis stroke="#9CA3AF" style={{ fontSize: '10px' }} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151', borderRadius: '6px', fontSize: '12px' }}
-                  labelStyle={{ color: '#D1D5DB' }}
-                />
-                <Legend wrapperStyle={{ fontSize: '10px' }} />
-                {comparisonYears.map(year => (
-                  <Line 
-                    key={year}
-                    type="monotone" 
-                    dataKey={`${year}`} 
-                    stroke={yearColors[year]} 
-                    strokeWidth={2} 
-                    dot={{ fill: yearColors[year], r: 1 }}
-                    name={year.toString()}
-                  />
-                ))}
-              </LineChart>
-            </ResponsiveContainer>
-          </>
-        ) : (
-          <>
-            <div className="mb-1 text-xs text-gray-400">
-              <span className="text-lego-green font-semibold">Platform Comparison</span>
-            </div>
-            <ResponsiveContainer width="100%" height={140}>
-              <LineChart data={comparisonData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                <XAxis dataKey="month" stroke="#9CA3AF" style={{ fontSize: '10px' }} />
-                <YAxis stroke="#9CA3AF" style={{ fontSize: '10px' }} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151', borderRadius: '6px', fontSize: '12px' }}
-                  labelStyle={{ color: '#D1D5DB' }}
-                />
-                <Legend wrapperStyle={{ fontSize: '10px' }} />
-                {validPlatforms.map(platform => (
-                  <Line 
-                    key={platform}
-                    type="monotone" 
-                    dataKey={platform} 
-                    stroke={PLATFORM_COLORS[platform] || PLATFORM_COLORS['Other']} 
-                    strokeWidth={2} 
-                    dot={{ fill: PLATFORM_COLORS[platform] || PLATFORM_COLORS['Other'], r: 1 }}
-                    name={platform}
-                  />
-                ))}
-              </LineChart>
-            </ResponsiveContainer>
-          </>
-        )}
-          </div>{/* end chart */}
-
-          {/* Key Metrics */}
-          <div className="bg-black/20 rounded-lg p-3" data-testid="section-sales-metrics">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="p-1 rounded bg-yellow-900/50 ring-1 ring-yellow-500/40 shadow-[0_0_6px_rgba(234,179,8,0.25)]">
-                <Target className="w-3 h-3 text-yellow-300" />
-              </div>
-              <h3 className="text-[10px] md:text-sm font-semibold text-yellow-300 uppercase tracking-wide">Key Metrics</h3>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              <div className="text-center">
-                <div className="text-[9px] md:text-xs text-gray-500">Total Orders</div>
-                <div className="text-xs md:text-sm text-gray-300 font-mono">{filteredOrders.length}</div>
-              </div>
-              <div className="text-center">
-                <div className="text-[9px] md:text-xs text-gray-500">Avg Order</div>
-                <div className="text-xs md:text-sm text-green-400 font-mono">${averageOrderValue.toFixed(2)}</div>
-              </div>
-              <div className="text-center">
-                <div className="text-[9px] md:text-xs text-gray-500">Gross Revenue</div>
-                <div className="text-xs md:text-sm text-green-400 font-mono">${Math.round(totalRevenue).toLocaleString()}</div>
-              </div>
-            </div>
-            {adjustmentSummary && (
-              <div className="mt-2 pt-2 border-t border-green-500/10 grid grid-cols-4 gap-2">
-                <div className="text-center">
-                  <div className="text-[9px] md:text-xs text-gray-600">Refunds</div>
-                  <div className="text-[10px] md:text-xs text-red-400 font-mono">{adjustmentSummary.totalRefunds > 0 ? `-$${adjustmentSummary.totalRefunds.toFixed(2)}` : '$0.00'}</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-[9px] md:text-xs text-gray-600">Fees</div>
-                  <div className="text-[10px] md:text-xs text-amber-500/70 font-mono">{adjustmentSummary.totalFees > 0 ? `-$${adjustmentSummary.totalFees.toFixed(2)}` : '$0.00'}</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-[9px] md:text-xs text-gray-600">Shipping</div>
-                  <div className="text-[10px] md:text-xs text-amber-500/70 font-mono">{adjustmentSummary.totalShipping > 0 ? `-$${adjustmentSummary.totalShipping.toFixed(2)}` : '$0.00'}</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-[9px] md:text-xs text-gray-600">Net Revenue</div>
-                  <div className="text-[10px] md:text-xs text-green-400 font-mono">${Math.max(0, totalRevenue - adjustmentSummary.totalRefunds).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                </div>
-              </div>
-            )}
-          </div>
-
           {/* YoY Growth */}
           {compareMode && comparisonType === 'year' && validCompareYears.length > 0 && (
             <div className="bg-black/20 rounded-lg p-3" data-testid="section-yoy-metrics">
@@ -1118,6 +1017,20 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
           </div>
           <div className="grid grid-cols-2 gap-2">
             <button
+              onClick={() => setChartOpen(true)}
+              data-testid="tool-sales-chart"
+              className="group flex flex-col gap-1.5 rounded-lg border border-green-500/50 bg-gradient-to-br from-green-950/65 to-gray-950/80 p-3 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(34,197,94,0.09)]"
+            >
+              <div className="flex items-center gap-2">
+                <div className="rounded-lg bg-green-900/70 p-1.5 ring-1 ring-green-500/45 shadow-[0_0_10px_rgba(34,197,94,0.22)]">
+                  <Activity className="w-3.5 h-3.5 md:w-5 md:h-5 text-green-200" />
+                </div>
+                <span className="text-xs md:text-sm font-bold text-green-100 leading-tight flex-1">Sales Chart</span>
+                <ArrowRight className="w-3 h-3 text-green-500/60 group-hover:text-green-400 transition-colors" />
+              </div>
+              <p className="text-[10px] md:text-xs text-green-300/60 leading-snug">Revenue trend &amp; year-over-year comparison</p>
+            </button>
+            <button
               onClick={() => setPlatformPerfOpen(true)}
               data-testid="tool-platform-performance"
               className="group flex flex-col gap-1.5 rounded-lg border border-orange-500/50 bg-gradient-to-br from-orange-950/65 to-gray-950/80 p-3 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(249,115,22,0.09)]"
@@ -1157,6 +1070,104 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
           </div>
         </div>
       </div>
+
+      {/* ── Sales Chart Drawer ── */}
+      <Drawer open={chartOpen} onOpenChange={(open) => !open && setChartOpen(false)}>
+        <DrawerContent className="h-[80vh]">
+          <DrawerHeader className="relative">
+            <DrawerTitle className="flex items-center gap-2 text-base md:text-lg">
+              <Activity className="w-4 h-4 text-green-400" />
+              Sales Chart
+            </DrawerTitle>
+            <DrawerClose className="absolute right-4 top-4" data-testid="button-close-sales-chart">
+              <X className="w-4 h-4" />
+            </DrawerClose>
+          </DrawerHeader>
+          <div className="overflow-y-auto px-4 pb-4 flex-1 space-y-3">
+            <div className="bg-black/20 rounded-lg p-3">
+              {!compareMode ? (
+                <>
+                  <div className="mb-1 text-xs text-gray-400">
+                    Average: <span className="text-lego-green font-mono font-semibold">${average.toLocaleString()}</span>
+                    <span className="ml-2 text-gray-500">Total Revenue: ${Math.round(totalRevenue).toLocaleString()}</span>
+                  </div>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <LineChart data={data}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                      <XAxis dataKey="date" stroke="#9CA3AF" style={{ fontSize: '10px' }} />
+                      <YAxis stroke="#9CA3AF" style={{ fontSize: '10px' }} />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151', borderRadius: '6px', fontSize: '12px' }}
+                        labelStyle={{ color: '#D1D5DB' }}
+                        formatter={(value: number) => [`$${value.toLocaleString()}`, 'Net Revenue']}
+                      />
+                      <Line type="monotone" dataKey="sales" name="Net Revenue" stroke="hsl(140 70% 50%)" strokeWidth={2} dot={{ fill: 'hsl(140 70% 50%)', r: 1 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </>
+              ) : comparisonType === 'year' ? (
+                <>
+                  <div className="mb-1 text-xs text-gray-400">
+                    <span className="text-lego-green font-semibold">Year-over-Year Comparison</span>
+                  </div>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <LineChart data={comparisonData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                      <XAxis dataKey="month" stroke="#9CA3AF" style={{ fontSize: '10px' }} />
+                      <YAxis stroke="#9CA3AF" style={{ fontSize: '10px' }} />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151', borderRadius: '6px', fontSize: '12px' }}
+                        labelStyle={{ color: '#D1D5DB' }}
+                      />
+                      <Legend wrapperStyle={{ fontSize: '10px' }} />
+                      {comparisonYears.map(year => (
+                        <Line
+                          key={year}
+                          type="monotone"
+                          dataKey={`${year}`}
+                          stroke={yearColors[year]}
+                          strokeWidth={2}
+                          dot={{ fill: yearColors[year], r: 1 }}
+                          name={year.toString()}
+                        />
+                      ))}
+                    </LineChart>
+                  </ResponsiveContainer>
+                </>
+              ) : (
+                <>
+                  <div className="mb-1 text-xs text-gray-400">
+                    <span className="text-lego-green font-semibold">Platform Comparison</span>
+                  </div>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <LineChart data={comparisonData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                      <XAxis dataKey="month" stroke="#9CA3AF" style={{ fontSize: '10px' }} />
+                      <YAxis stroke="#9CA3AF" style={{ fontSize: '10px' }} />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151', borderRadius: '6px', fontSize: '12px' }}
+                        labelStyle={{ color: '#D1D5DB' }}
+                      />
+                      <Legend wrapperStyle={{ fontSize: '10px' }} />
+                      {validPlatforms.map(platform => (
+                        <Line
+                          key={platform}
+                          type="monotone"
+                          dataKey={platform}
+                          stroke={PLATFORM_COLORS[platform] || PLATFORM_COLORS['Other']}
+                          strokeWidth={2}
+                          dot={{ fill: PLATFORM_COLORS[platform] || PLATFORM_COLORS['Other'], r: 1 }}
+                          name={platform}
+                        />
+                      ))}
+                    </LineChart>
+                  </ResponsiveContainer>
+                </>
+              )}
+            </div>
+          </div>
+        </DrawerContent>
+      </Drawer>
 
       {/* ── Platform Performance Drawer ── */}
       <Drawer open={platformPerfOpen} onOpenChange={(open) => !open && setPlatformPerfOpen(false)}>

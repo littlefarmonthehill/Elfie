@@ -34,7 +34,11 @@ type ShippedOrder = {
   labelUrl: string | null;
 };
 
-export default function ShippedOrdersTool() {
+interface ShippedOrdersToolProps {
+  dateRange?: string;
+}
+
+export default function ShippedOrdersTool({ dateRange }: ShippedOrdersToolProps) {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [eodPending, setEodPending] = useState<string | null>(null); // orderId being fetched
@@ -83,11 +87,14 @@ export default function ShippedOrdersTool() {
   });
 
   const { data: shippedOrders, isLoading } = useQuery<ShippedOrder[]>({
-    queryKey: ['/api/orders/shipped', searchQuery],
+    queryKey: ['/api/orders/shipped', searchQuery, dateRange],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (searchQuery.trim()) {
         params.set('search', searchQuery.trim());
+      }
+      if (dateRange && dateRange !== 'all') {
+        params.set('range', dateRange);
       }
       const response = await fetch(`/api/orders/shipped?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch shipped orders');

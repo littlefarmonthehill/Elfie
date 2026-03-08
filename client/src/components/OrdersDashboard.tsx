@@ -18,6 +18,7 @@ import {
 import MetricCard from "./MetricCard";
 import FulfillmentTool from "./FulfillmentTool";
 import ShippedOrdersTool from "./ShippedOrdersTool";
+import { DateRangeValue } from "./DateRangeSelector";
 
 interface OrderStats {
   totalOrders: number;
@@ -31,11 +32,18 @@ interface OrdersDashboardProps {
   onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
   activeDrawer: 'fulfillment' | 'shipped' | null;
   onDrawerChange: (drawer: 'fulfillment' | 'shipped' | null) => void;
+  dateRange?: DateRangeValue;
 }
 
-export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerChange }: OrdersDashboardProps) {
+export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerChange, dateRange = 'mtd' }: OrdersDashboardProps) {
   const { data: stats, isLoading: statsLoading } = useQuery<OrderStats>({
-    queryKey: ['/api/orders/stats'],
+    queryKey: ['/api/orders/stats', dateRange],
+    queryFn: async () => {
+      const url = dateRange === 'all' ? '/api/orders/stats' : `/api/orders/stats?range=${dateRange}`;
+      const res = await fetch(url, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch order stats');
+      return res.json();
+    },
     staleTime: 2 * 60 * 1000,
   });
 
@@ -220,7 +228,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
             </DrawerClose>
           </DrawerHeader>
           <div className="overflow-y-auto px-4 pb-4 flex-1">
-            <ShippedOrdersTool />
+            <ShippedOrdersTool dateRange={dateRange} />
           </div>
         </DrawerContent>
       </Drawer>

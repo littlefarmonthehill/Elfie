@@ -317,7 +317,7 @@ export default function Home() {
       case 'inventory':
         return <InventoryDashboard onItemClick={handleDashboardItemClick} activeDrawer={activeInventoryDrawer} onDrawerChange={setActiveInventoryDrawer} onOpenSettings={(section) => { setSettingsInitialSection(section ?? null); setSettingsOpen(true); }} />;
       case 'orders':
-        return <OrdersDashboard onItemClick={handleDashboardItemClick} activeDrawer={activeOrdersDrawer} onDrawerChange={setActiveOrdersDrawer} />;
+        return <OrdersDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeOrdersDrawer} onDrawerChange={setActiveOrdersDrawer} />;
       case 'sales':
         return <SalesDashboard period={salesPeriod} dateRange={dateRange} onItemClick={handleDashboardItemClick} />;
       case 'marketing':
@@ -754,8 +754,8 @@ export default function Home() {
       
 
 
-      {/* Date Range Selector - Only show for sales and marketing */}
-      {(activeDashboard === 'sales' || activeDashboard === 'marketing') && (
+      {/* Date Range Selector - Show for sales, marketing, and orders */}
+      {(activeDashboard === 'sales' || activeDashboard === 'marketing' || activeDashboard === 'orders') && (
         <div className="sticky top-24 md:top-[8.5rem] lg:top-40 z-30 px-3 md:px-8 lg:px-10 py-2 md:py-4 lg:py-5 bg-gradient-to-r from-pink-950/30 via-fuchsia-950/20 to-pink-950/30 border-b border-pink-800/30 backdrop-blur-sm">
           <DateRangeSelector value={dateRange} onChange={setDateRange} />
         </div>

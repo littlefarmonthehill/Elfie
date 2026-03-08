@@ -1050,6 +1050,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const orgId = reqOrgId(req);
       const now = new Date();
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const range = req.query.range as string | undefined;
+
+      // Build optional date filter for shipped orders based on range
+      let shippedDateFilter: Date | null = null;
+      let shippedDateEnd: Date | null = null;
+      if (range && range !== 'all') {
+        switch (range) {
+          case 'mtd':
+            shippedDateFilter = new Date(now.getFullYear(), now.getMonth(), 1);
+            break;
+          case 'lastmonth':
+            shippedDateFilter = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            shippedDateEnd = new Date(now.getFullYear(), now.getMonth(), 1);
+            break;
+          case '3months':
+            shippedDateFilter = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+            break;
+          case '1year':
+            shippedDateFilter = new Date(now.getFullYear() - 1, now.getMonth(), 1);
+            break;
+          case 'prevyear':
+            shippedDateFilter = new Date(now.getFullYear() - 1, 0, 1);
+            shippedDateEnd = new Date(now.getFullYear(), 0, 1);
+            break;
+        }
+      }
+
+      const shippedWhere = shippedDateFilter
+        ? shippedDateEnd
+          ? and(eq(orders.orgId, orgId), sql`${orders.isTest} = false`, eq(orders.orderStatus, 'shipped'), sql`${orders.orderDate} >= ${shippedDateFilter.toISOString()} AND ${orders.orderDate} < ${shippedDateEnd.toISOString()}`)
+          : and(eq(orders.orgId, orgId), sql`${orders.isTest} = false`, eq(orders.orderStatus, 'shipped'), sql`${orders.orderDate} >= ${shippedDateFilter.toISOString()}`)
+        : and(eq(orders.orgId, orgId), sql`${orders.isTest} = false`, eq(orders.orderStatus, 'shipped'));
 
       const [totalResult, pendingResult, shippedResult, revenueResult, monthResult] = await Promise.all([
         db.select({ count: sql<number>`COUNT(*)` })
@@ -1062,7 +1094,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .then(r => r[0]),
         db.select({ count: sql<number>`COUNT(*)` })
           .from(orders)
-          .where(and(eq(orders.orgId, orgId), sql`${orders.isTest} = false`, eq(orders.orderStatus, 'shipped')))
+          .where(shippedWhere)
           .then(r => r[0]),
         db.select({ total: sql<string>`COALESCE(SUM(order_total::numeric), 0)` })
           .from(orders)
@@ -1172,9 +1204,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const orgId = reqOrgId(req);
       const searchQuery = req.query.search as string;
+      const range = req.query.range as string | undefined;
+
+      // Build date filter from range
+      let dateFilter: Date | null = null;
+      let dateEnd: Date | null = null;
+      if (range && range !== 'all') {
+        const now = new Date();
+        switch (range) {
+          case 'mtd':
+            dateFilter = new Date(now.getFullYear(), now.getMonth(), 1);
+            break;
+          case 'lastmonth':
+            dateFilter = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            dateEnd = new Date(now.getFullYear(), now.getMonth(), 1);
+            break;
+          case '3months':
+            dateFilter = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+            break;
+          case '1year':
+            dateFilter = new Date(now.getFullYear() - 1, now.getMonth(), 1);
+            break;
+          case 'prevyear':
+            dateFilter = new Date(now.getFullYear() - 1, 0, 1);
+            dateEnd = new Date(now.getFullYear(), 0, 1);
+            break;
+        }
+      }
       
       // Build base query conditions
       let whereConditions: any = and(eq(orders.orgId, orgId), eq(orders.orderStatus, 'shipped'));
+      if (dateFilter && dateEnd) {
+        whereConditions = and(whereConditions, sql`${orders.orderDate} >= ${dateFilter.toISOString()} AND ${orders.orderDate} < ${dateEnd.toISOString()}`);
+      } else if (dateFilter) {
+        whereConditions = and(whereConditions, sql`${orders.orderDate} >= ${dateFilter.toISOString()}`);
+      }
       
       // Add search filter if provided
       if (searchQuery && searchQuery.trim()) {
