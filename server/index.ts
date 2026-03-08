@@ -7,6 +7,7 @@ import { startChannelSyncScheduler } from "./services/channel-sync-scheduler";
 import { startOrderSyncScheduler } from "./services/order-sync-scheduler";
 import { startEmbeddingWorker } from "./services/embedding-worker";
 import { startForumSyncScheduler } from "./services/bl-forum-scheduler";
+import { startUniversalCatalogScheduler } from "./services/universal-catalog-scheduler";
 import { startService as startSegmentService, warmupClip } from "./services/segmentClient";
 import { pool, db, runMigrations } from "./db";
 import { blInventory, scanEmbeddings } from "@shared/schema";
@@ -219,6 +220,9 @@ app.use((req, res, next) => {
         console.error('Failed to start order sync scheduler:', error);
       });
       
+      // Start Universal CLIP Catalog auto-refresh scheduler
+      startUniversalCatalogScheduler();
+
       // Start BrickLink forum sync scheduler
       startForumSyncScheduler().catch(error => {
         console.error('Failed to start forum sync scheduler:', error);

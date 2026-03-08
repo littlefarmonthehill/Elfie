@@ -5547,10 +5547,40 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   // ── Universal CLIP Catalog routes ─────────────────────────────────────────
 
   // GET /api/brickspotter/universal-catalog/status
-  app.get("/api/brickspotter/universal-catalog/status", isApproved, async (_req, res) => {
+  app.get("/api/brickspotter/universal-catalog/status", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const { getUniversalCatalogStatus } = await import('./services/universal-clip-catalog.js');
-      res.json(await getUniversalCatalogStatus());
+      const base = await getUniversalCatalogStatus();
+
+      // Enrich with scheduler settings + last-run metadata
+      const [settings] = await db.select({
+        universalCatalogScheduleEnabled: appSettings.universalCatalogScheduleEnabled,
+        universalCatalogRefreshMonths:   appSettings.universalCatalogRefreshMonths,
+        universalCatalogRetryDays:       appSettings.universalCatalogRetryDays,
+      }).from(appSettings).where(eq(appSettings.orgId, orgId)).limit(1);
+
+      const [meta] = await db.select({
+        lastSyncTime:   syncMetadata.lastSyncTime,
+        lastSyncStatus: syncMetadata.lastSyncStatus,
+        errorMessage:   syncMetadata.errorMessage,
+      }).from(syncMetadata)
+        .where(and(eq(syncMetadata.orgId, orgId), eq(syncMetadata.id, 'universal_catalog_refresh')))
+        .limit(1);
+
+      const lastRunMs  = meta?.lastSyncTime ? new Date(meta.lastSyncTime).getTime() : null;
+      const months     = settings?.universalCatalogRefreshMonths ?? 1;
+      const nextRunMs  = lastRunMs ? lastRunMs + months * 30 * 24 * 60 * 60 * 1000 : null;
+
+      res.json({
+        ...base,
+        scheduleEnabled:  settings?.universalCatalogScheduleEnabled ?? false,
+        refreshMonths:    months,
+        retryDays:        settings?.universalCatalogRetryDays ?? 30,
+        lastScheduledRun: lastRunMs,
+        nextScheduledRun: nextRunMs,
+        lastScheduleStatus: meta?.lastSyncStatus ?? null,
+      });
     } catch (err: any) { res.status(500).json({ error: err.message }); }
   });
 

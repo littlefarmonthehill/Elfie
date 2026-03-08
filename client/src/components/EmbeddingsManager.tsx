@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,6 +8,9 @@ import { Sparkles, Database, Search, Loader2, CheckCircle2, AlertCircle, Play, S
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 
 export function EmbeddingsManager() {
@@ -588,18 +591,47 @@ function UniversalCatalogCard() {
   });
 
   const s = status as any;
-  const queueSize      = s?.queueSize      ?? 0;
-  const embedded       = s?.embedded       ?? 0;
-  const noImage        = s?.noImage        ?? 0;
-  const failed         = s?.failed         ?? 0;
-  const pending        = s?.pending        ?? 0;
-  const universalInDb  = s?.universalInDb  ?? 0;
-  const workerRunning  = s?.workerRunning  ?? false;
-  const importing      = s?.importing      ?? false;
-  const workerCurrent  = s?.workerCurrent  ?? '';
-  const lastImportedAt = s?.lastImportedAt ?? null;
+  const queueSize         = s?.queueSize         ?? 0;
+  const embedded          = s?.embedded          ?? 0;
+  const noImage           = s?.noImage           ?? 0;
+  const failed            = s?.failed            ?? 0;
+  const pending           = s?.pending           ?? 0;
+  const universalInDb     = s?.universalInDb     ?? 0;
+  const workerRunning     = s?.workerRunning     ?? false;
+  const importing         = s?.importing         ?? false;
+  const workerCurrent     = s?.workerCurrent     ?? '';
+  const lastImportedAt    = s?.lastImportedAt    ?? null;
+  const lastScheduledRun  = s?.lastScheduledRun  ?? null;
+  const nextScheduledRun  = s?.nextScheduledRun  ?? null;
+  const lastScheduleStatus = s?.lastScheduleStatus ?? null;
 
   const retryable = noImage + failed;
+
+  // Scheduler settings — local state, synced from status
+  const [scheduleEnabled, setScheduleEnabled] = useState<boolean>(false);
+  const [refreshMonths, setRefreshMonths]     = useState<number>(1);
+  const [retryDays, setRetryDays]             = useState<number>(30);
+  const seeded = useRef(false);
+  useEffect(() => {
+    if (s && !seeded.current) {
+      setScheduleEnabled(s.scheduleEnabled ?? false);
+      setRefreshMonths(s.refreshMonths  ?? 1);
+      setRetryDays(s.retryDays          ?? 30);
+      seeded.current = true;
+    }
+  }, [s]);
+
+  const { mutate: saveSchedule, isPending: savingSchedule } = useMutation({
+    mutationFn: (patch: Record<string, unknown>) => fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    }).then(r => r.json()),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/brickspotter/universal-catalog/status'] });
+    },
+    onError: () => toast({ title: 'Failed to save scheduler settings', variant: 'destructive' }),
+  });
 
   // Progress based on embedded + noImage (processed) vs queue total
   const processed = embedded + noImage + failed;
@@ -797,6 +829,76 @@ function UniversalCatalogCard() {
               <Square className="w-3 h-3" />
               Stop Worker
             </Button>
+          )}
+        </div>
+
+        {/* ── Auto-Scheduler ──────────────────────────────────────────────── */}
+        <Separator className="my-1" />
+        <div className="space-y-2.5">
+          {/* Header row with enable toggle */}
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-medium">Auto-Scheduler</p>
+              <p className="text-[10px] text-muted-foreground">Runs import + retry automatically on a schedule</p>
+            </div>
+            <Switch
+              checked={scheduleEnabled}
+              onCheckedChange={(val) => {
+                setScheduleEnabled(val);
+                saveSchedule({ universalCatalogScheduleEnabled: val });
+              }}
+              disabled={savingSchedule}
+              data-testid="switch-universal-catalog-schedule"
+            />
+          </div>
+
+          {scheduleEnabled && (
+            <div className="ml-1 space-y-2.5 pl-2 border-l border-border">
+              {/* Frequency */}
+              <div className="flex items-center gap-4">
+                <div className="space-y-1">
+                  <Label className="text-[10px] text-muted-foreground">Every (months)</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={12}
+                    value={refreshMonths}
+                    onChange={(e) => setRefreshMonths(Math.max(1, Math.min(12, parseInt(e.target.value) || 1)))}
+                    onBlur={() => saveSchedule({ universalCatalogRefreshMonths: refreshMonths })}
+                    className="text-xs w-20 text-right"
+                    data-testid="input-universal-refresh-months"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px] text-muted-foreground">Retry if older than (days)</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={365}
+                    value={retryDays}
+                    onChange={(e) => setRetryDays(Math.max(0, Math.min(365, parseInt(e.target.value) || 0)))}
+                    onBlur={() => saveSchedule({ universalCatalogRetryDays: retryDays })}
+                    className="text-xs w-20 text-right"
+                    data-testid="input-universal-retry-days"
+                  />
+                </div>
+              </div>
+
+              {/* Last run / next run */}
+              <div className="text-[10px] text-muted-foreground space-y-0.5">
+                {lastScheduledRun ? (
+                  <p>Last auto-run: {new Date(lastScheduledRun).toLocaleDateString()} {new Date(lastScheduledRun).toLocaleTimeString()}
+                    {lastScheduleStatus === 'error' && <span className="text-red-400 ml-1">(failed)</span>}
+                    {lastScheduleStatus === 'success' && <span className="text-emerald-400 ml-1">(success)</span>}
+                  </p>
+                ) : (
+                  <p>No auto-run yet</p>
+                )}
+                {nextScheduledRun && (
+                  <p>Next run: {new Date(nextScheduledRun).toLocaleDateString()} {new Date(nextScheduledRun).toLocaleTimeString()}</p>
+                )}
+              </div>
+            </div>
           )}
         </div>
 
