@@ -2373,6 +2373,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Get API key from settings
       const orgId = reqOrgId(req);
+      const isSuperAdminUser = (req.user as any)?.superAdmin === true;
       const settings = await getOrgSettings(orgId);
 
       if (!settings?.aiEnabled) {
@@ -2409,10 +2410,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Provide summary data for inventory
       if (isSummaryRequest && (lastUserMessage.includes('inventory') || context === 'Inventory')) {
-        const totalItems = await db.select({ count: sql<number>`COUNT(*)` }).from(blInventory).where(eq(blInventory.orgId, orgId));
-        const totalQuantity = await db.select({ sum: sql<number>`SUM(${blInventory.quantity})` }).from(blInventory).where(eq(blInventory.orgId, orgId));
-        const totalValue = await db.select({ sum: sql<number>`SUM(${blInventory.quantity} * CAST(${blInventory.unitPrice} AS DECIMAL))` }).from(blInventory).where(eq(blInventory.orgId, orgId));
-        const uniqueColors = await db.select({ count: sql<number>`COUNT(DISTINCT ${blInventory.colorId})` }).from(blInventory).where(eq(blInventory.orgId, orgId));
+        const invOrgFilter = isSuperAdminUser ? undefined : eq(blInventory.orgId, orgId);
+        const totalItems = await db.select({ count: sql<number>`COUNT(*)` }).from(blInventory).where(invOrgFilter);
+        const totalQuantity = await db.select({ sum: sql<number>`SUM(${blInventory.quantity})` }).from(blInventory).where(invOrgFilter);
+        const totalValue = await db.select({ sum: sql<number>`SUM(${blInventory.quantity} * CAST(${blInventory.unitPrice} AS DECIMAL))` }).from(blInventory).where(invOrgFilter);
+        const uniqueColors = await db.select({ count: sql<number>`COUNT(DISTINCT ${blInventory.colorId})` }).from(blInventory).where(invOrgFilter);
         
         databaseContext += `\n\nINVENTORY SUMMARY:\n`;
         databaseContext += `- Total Lots: ${totalItems[0]?.count || 0}\n`;
@@ -2423,12 +2425,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Provide summary data for orders
       if (isSummaryRequest && (lastUserMessage.includes('order') || context === 'Orders')) {
-        const totalOrders = await db.select({ count: sql<number>`COUNT(*)` }).from(orders).where(eq(orders.orgId, orgId));
+        const ordOrgFilter = isSuperAdminUser ? undefined : eq(orders.orgId, orgId);
+        const totalOrders = await db.select({ count: sql<number>`COUNT(*)` }).from(orders).where(ordOrgFilter);
         const totalRevenue = await db.select({ 
           sum: sql<number>`SUM(CASE WHEN ${orders.orderTotal} != '' AND ${orders.orderTotal} IS NOT NULL THEN CAST(${orders.orderTotal} AS DECIMAL) ELSE 0 END)` 
-        }).from(orders).where(eq(orders.orgId, orgId));
-        const pendingOrders = await db.select({ count: sql<number>`COUNT(*)` }).from(orders).where(and(eq(orders.orgId, orgId), eq(orders.orderStatus, 'Pending')));
-        const shippedOrders = await db.select({ count: sql<number>`COUNT(*)` }).from(orders).where(and(eq(orders.orgId, orgId), eq(orders.orderStatus, 'Shipped')));
+        }).from(orders).where(ordOrgFilter);
+        const pendingOrders = await db.select({ count: sql<number>`COUNT(*)` }).from(orders).where(and(ordOrgFilter, eq(orders.orderStatus, 'Pending')));
+        const shippedOrders = await db.select({ count: sql<number>`COUNT(*)` }).from(orders).where(and(ordOrgFilter, eq(orders.orderStatus, 'Shipped')));
         
         databaseContext += `\n\nORDERS SUMMARY:\n`;
         databaseContext += `- Total Orders: ${totalOrders[0]?.count || 0}\n`;
@@ -2441,8 +2444,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (isSummaryRequest && (lastUserMessage.includes('sales') || context === 'Sales')) {
         const totalRevenue = await db.select({ 
           sum: sql<number>`SUM(CASE WHEN ${orders.orderTotal} != '' AND ${orders.orderTotal} IS NOT NULL THEN CAST(${orders.orderTotal} AS DECIMAL) ELSE 0 END)` 
-        }).from(orders).where(eq(orders.orgId, orgId));
-        const totalOrders = await db.select({ count: sql<number>`COUNT(*)` }).from(orders).where(eq(orders.orgId, orgId));
+        }).from(orders).where(isSuperAdminUser ? undefined : eq(orders.orgId, orgId));
+        const totalOrders = await db.select({ count: sql<number>`COUNT(*)` }).from(orders).where(isSuperAdminUser ? undefined : eq(orders.orgId, orgId));
         const avgOrderValue = Number(totalRevenue[0]?.sum || 0) / (Number(totalOrders[0]?.count) || 1);
         
         // Get top revenue orders (filter out empty/null totals and use safe CAST)
@@ -2455,7 +2458,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           })
           .from(orders)
           .where(and(
-            eq(orders.orgId, orgId),
+            isSuperAdminUser ? undefined : eq(orders.orgId, orgId),
             sql`${orders.orderTotal} IS NOT NULL`,
             sql`${orders.orderTotal} != ''`
           ))
@@ -2478,9 +2481,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Provide marketing-focused data for marketing dashboard
       if (isSummaryRequest && (lastUserMessage.includes('marketing') || lastUserMessage.includes('customer') || context === 'Marketing')) {
         // Get unique customers count
+        const mktOrgFilter = isSuperAdminUser ? undefined : eq(orders.orgId, orgId);
         const uniqueCustomers = await db.select({ 
           count: sql<number>`COUNT(DISTINCT ${orders.customerUsername})` 
-        }).from(orders).where(eq(orders.orgId, orgId));
+        }).from(orders).where(mktOrgFilter);
         
         // Get top customers by total revenue (guard against empty/null totals)
         const topCustomers = await db
@@ -2490,7 +2494,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             orderCount: sql<number>`COUNT(*)`,
           })
           .from(orders)
-          .where(eq(orders.orgId, orgId))
+          .where(mktOrgFilter)
           .groupBy(orders.customerUsername)
           .orderBy(desc(sql`SUM(CASE WHEN ${orders.orderTotal} != '' AND ${orders.orderTotal} IS NOT NULL THEN CAST(${orders.orderTotal} AS DECIMAL) ELSE 0 END)`))
           .limit(5);
@@ -2506,7 +2510,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               orderCount: sql<number>`COUNT(*)`.as('order_count'),
             })
             .from(orders)
-            .where(eq(orders.orgId, orgId))
+            .where(mktOrgFilter)
             .groupBy(orders.customerUsername)
             .having(sql`COUNT(*) > 1`)
             .as('repeat_customers')
@@ -2574,7 +2578,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .from(blInventory)
             .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
             .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
-            .where(and(eq(blInventory.orgId, orgId), like(blInventory.itemNo, `%${partNumber}%`)))
+            .where(and(isSuperAdminUser ? undefined : eq(blInventory.orgId, orgId), like(blInventory.itemNo, `%${partNumber}%`)))
             .limit(50);
         } else if (searchKeywords.length > 0) {
           // First try category/theme search - check if keywords match category names
@@ -2614,7 +2618,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               .from(blInventory)
               .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
               .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
-              .where(and(eq(blInventory.orgId, orgId), inArray(blInventory.categoryId, categoryIds)))
+              .where(and(isSuperAdminUser ? undefined : eq(blInventory.orgId, orgId), inArray(blInventory.categoryId, categoryIds)))
               .limit(50);
             
             console.log(`🔍 Category search: Found ${categoryMatches.length} matching categories:`, categoryMatches.map(c => c.name).join(', '));
@@ -2622,7 +2626,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // No category match - try semantic search first if embeddings available
             try {
               const { searchInventorySemantic } = await import('./services/embeddings');
-              const semanticResults = await searchInventorySemantic(lastUserMessage, 10, orgId);
+              const semanticResults = await searchInventorySemantic(lastUserMessage, 10, isSuperAdminUser ? undefined : orgId);
               
               if (semanticResults && semanticResults.length > 0) {
                 console.log(`🧠 Semantic search: Found ${semanticResults.length} items`);
@@ -2675,7 +2679,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 .from(blInventory)
                 .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
                 .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
-                .where(and(eq(blInventory.orgId, orgId), or(...conditions)))
+                .where(and(isSuperAdminUser ? undefined : eq(blInventory.orgId, orgId), or(...conditions)))
                 .limit(50);
             }
           }
@@ -2699,7 +2703,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .from(blInventory)
             .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
             .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
-            .where(eq(blInventory.orgId, orgId))
+            .where(isSuperAdminUser ? undefined : eq(blInventory.orgId, orgId))
             .limit(50);
         }
         
@@ -2736,14 +2740,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Always include inventory stats for analytical questions (run in parallel)
+      const statsOrgFilter = isSuperAdminUser ? undefined : eq(blInventory.orgId, orgId);
       const [statsQuery, colorCount, categoryCount] = await Promise.all([
         db.select({
           totalLots: sql<number>`COUNT(*)`,
           totalParts: sql<number>`SUM(${blInventory.quantity})`,
           totalValue: sql<number>`SUM(${blInventory.quantity} * CAST(${blInventory.unitPrice} AS DECIMAL))`,
-        }).from(blInventory).where(eq(blInventory.orgId, orgId)),
-        db.select({ count: sql<number>`COUNT(DISTINCT ${blInventory.colorId})` }).from(blInventory).where(eq(blInventory.orgId, orgId)),
-        db.select({ count: sql<number>`COUNT(DISTINCT ${blInventory.categoryId})` }).from(blInventory).where(eq(blInventory.orgId, orgId)),
+        }).from(blInventory).where(statsOrgFilter),
+        db.select({ count: sql<number>`COUNT(DISTINCT ${blInventory.colorId})` }).from(blInventory).where(statsOrgFilter),
+        db.select({ count: sql<number>`COUNT(DISTINCT ${blInventory.categoryId})` }).from(blInventory).where(statsOrgFilter),
       ]);
 
       const statsData = {
