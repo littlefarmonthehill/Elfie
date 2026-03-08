@@ -93,8 +93,10 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
   });
 
   const { data: pomInsights } = useQuery<{
-    data: { tooHigh: any[]; tooLow: any[]; wellPriced: any[] };
-    summary: { tooHigh: number; tooLow: number; wellPriced: number };
+    data: {
+      tooHigh: any[]; tooLow: any[]; wellPriced: any[];
+      summary: { total: number; tooHigh: number; tooLow: number; wellPriced: number };
+    };
   }>({
     queryKey: ['/api/priceomatic/insights'],
     staleTime: 10 * 60 * 1000,
@@ -238,17 +240,17 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 </Popover>
               </div>
               <div className="flex flex-wrap gap-1 min-h-[1.25rem]" data-testid="pom-stats">
-                {(pomInsights?.summary?.tooLow ?? 0) > 0 && (
+                {(pomInsights?.data?.summary?.tooLow ?? 0) > 0 && (
                   <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-orange-500/20 text-orange-300 border border-orange-600/30" data-testid="pom-underpriced">
-                    {pomInsights!.summary.tooLow} underpriced
+                    {pomInsights!.data.summary.tooLow} underpriced
                   </span>
                 )}
-                {(pomInsights?.summary?.tooHigh ?? 0) > 0 && (
+                {(pomInsights?.data?.summary?.tooHigh ?? 0) > 0 && (
                   <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-300 border border-red-600/30" data-testid="pom-overpriced">
-                    {pomInsights!.summary.tooHigh} overpriced
+                    {pomInsights!.data.summary.tooHigh} overpriced
                   </span>
                 )}
-                {pomInsights && (pomInsights.summary.tooLow ?? 0) === 0 && (pomInsights.summary.tooHigh ?? 0) === 0 && (
+                {pomInsights?.data?.summary && (pomInsights.data.summary.tooLow ?? 0) === 0 && (pomInsights.data.summary.tooHigh ?? 0) === 0 && (
                   <span className="text-[9px] text-green-400/70">All priced well</span>
                 )}
               </div>
