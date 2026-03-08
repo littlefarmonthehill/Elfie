@@ -144,9 +144,9 @@ function AllGood({ label = 'All clear' }: { label?: string }) {
 }
 
 // ── BRICKLINK API USAGE ───────────────────────────────────────────────────────
-function BrickLinkApiSection({ rateLimit }: { rateLimit: any }) {
+function BrickLinkApiSection({ rateLimit, blApiCallLimit }: { rateLimit: any; blApiCallLimit?: number }) {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
-  const BL_CEILING = 5000;
+  const BL_CEILING = blApiCallLimit ?? 4900;
   const callsLast24h: number = rateLimit?.callsLast24h ?? 0;
   const buckets: { hourStart: string; rollsOffAt: string; calls: number }[] = rateLimit?.hourlyBuckets ?? [];
   const availableNow = Math.max(0, BL_CEILING - callsLast24h);
@@ -740,10 +740,11 @@ function AIIntelligenceLane({ latestScan, appSettings, onOpenBrickanalyzer, dism
 
 // ── SYSTEM PULSE STRIP ────────────────────────────────────────────────────────
 
-function SystemPulse({ setupItems, billingStatus, rateLimit, onOpenSettings }: {
+function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLimit, onOpenSettings }: {
   setupItems: Array<{ id: string; label: string; section: 'general' | 'platforms' }>;
   billingStatus?: { plan: string; status: string; trialEndsAt?: string | null; brickspotter?: { scansUsed: number; scansLimit: number } } | null;
   rateLimit?: { allowed: boolean; callsLast24h: number; blocked?: boolean } | null;
+  blApiCallLimit?: number;
   onOpenSettings?: (section: any) => void;
 }) {
   const planLabels: Record<string, string> = { trial: 'Trial', foundation: 'Foundation', core: 'Core', flagship: 'Flagship' };
@@ -764,7 +765,7 @@ function SystemPulse({ setupItems, billingStatus, rateLimit, onOpenSettings }: {
     ...setupItems.map((s) => ({ id: s.id, label: s.label, severity: 'info' as any, section: s.section, onClick: null })),
   ];
 
-  const BL_CEILING = 5000;
+  const BL_CEILING = blApiCallLimit ?? 4900;
   const blCalls = rateLimit?.callsLast24h ?? 0;
 
   const hasAlerts = all.length > 0;
@@ -865,7 +866,7 @@ function SystemPulse({ setupItems, billingStatus, rateLimit, onOpenSettings }: {
             </PopoverTrigger>
             <PopoverContent className="w-72 p-3" align="start">
               <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-2">BrickLink API Usage</div>
-              <BrickLinkApiSection rateLimit={rateLimit} />
+              <BrickLinkApiSection rateLimit={rateLimit} blApiCallLimit={blApiCallLimit} />
             </PopoverContent>
           </Popover>
         )}
@@ -945,7 +946,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
     staleTime: 0,
   });
 
-  const { data: appSettings } = useQuery<{ elfieMode?: string; bricklinkConsumerKey?: string | null; paypalClientId?: string | null; stripeSecretKey?: string | null; paypalConnectedViaEnv?: boolean; stripeConnectedViaEnv?: boolean; pomUnderpricedScore?: number }>({
+  const { data: appSettings } = useQuery<{ elfieMode?: string; bricklinkConsumerKey?: string | null; paypalClientId?: string | null; stripeSecretKey?: string | null; paypalConnectedViaEnv?: boolean; stripeConnectedViaEnv?: boolean; pomUnderpricedScore?: number; blApiCallLimit?: number }>({
     queryKey: ['/api/settings'],
   });
 
@@ -989,7 +990,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
     <div className="p-2 md:p-4 lg:p-5 space-y-3 md:space-y-4">
 
       {/* System Pulse — only shows when there are errors or setup gaps */}
-      <SystemPulse setupItems={setupItems} billingStatus={billingStatus} rateLimit={rateLimit} onOpenSettings={onOpenSettings} />
+      <SystemPulse setupItems={setupItems} billingStatus={billingStatus} rateLimit={rateLimit} blApiCallLimit={appSettings?.blApiCallLimit} onOpenSettings={onOpenSettings} />
 
       {/* Sync issue notifications (per-item detail feed) */}
       <DashboardNotifications />

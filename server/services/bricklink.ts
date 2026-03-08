@@ -1351,13 +1351,19 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = 'o
     // All stale items are already sorted tier1→tier2→tier3→tier4 (oldest-first within each tier).
     // Take as many as the API call limit allows — no single-tier restriction.
     const TIER_ORDER = ['tier1', 'tier2', 'tier3', 'tier4'];
-    const itemsToProcess = filteredItems.slice(0, effectiveMaxItems);
 
-    // Total = min(all stale lots, API call limit) — this is what the progress bar denominator shows.
+    // Cap by both the configured batch size AND the actual API calls available right now.
+    // This makes the progress bar denominator honest: it shows how many lots can realistically
+    // be processed in this run given the current 24-h usage window.
+    const availableApiCalls = Math.max(0, apiCallCeiling - initialRateLimit.callsLast24h);
+    const cappedMaxItems = Math.min(effectiveMaxItems, availableApiCalls);
+    const itemsToProcess = filteredItems.slice(0, cappedMaxItems);
+
+    // Denominator = min(stale lots, min(batchSizeLimit, availableApiCalls))
     pomSyncProgress.itemsTotal = itemsToProcess.length;
 
     const tierCounts = TIER_ORDER.map(t => ({ tier: t, count: filteredItems.filter(i => getEffectiveTier(i) === t).length }));
-    console.log(`[Price-o-Matic Sync] Found ${inventoryItems.length} candidates, ${filteredItems.length} stale across all tiers (${tierCounts.map(t => `${t.tier}:${t.count}`).join(', ')}), processing ${itemsToProcess.length}`);
+    console.log(`[Price-o-Matic Sync] Found ${inventoryItems.length} candidates, ${filteredItems.length} stale across all tiers (${tierCounts.map(t => `${t.tier}:${t.count}`).join(', ')}), processing ${itemsToProcess.length} (batch cap: ${effectiveMaxItems}, available API calls: ${availableApiCalls})`);
 
     // Process each item in tier-priority order
     // Market dynamics (demand + supply) are computed inside fetchPriceOMagicData from BL API data.
