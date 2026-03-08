@@ -1348,17 +1348,16 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = 'o
       return now - new Date(item.lastFetched).getTime() >= SIX_MONTHS_MS;
     });
 
-    // Strict tier sequencing: exhaust all stale tier1 items first (oldest→newest),
-    // then tier2, then tier3, then tier4. This ensures high-value items always reprice first.
+    // All stale items are already sorted tier1→tier2→tier3→tier4 (oldest-first within each tier).
+    // Take as many as the API call limit allows — no single-tier restriction.
     const TIER_ORDER = ['tier1', 'tier2', 'tier3', 'tier4'];
-    const activeTier = TIER_ORDER.find(t => filteredItems.some(item => getEffectiveTier(item) === t)) ?? 'tier4';
-    const tierBatch = filteredItems.filter(item => getEffectiveTier(item) === activeTier);
+    const itemsToProcess = filteredItems.slice(0, effectiveMaxItems);
 
-    // Apply batch size limit after stale + tier filtering
-    const itemsToProcess = tierBatch.slice(0, effectiveMaxItems);
+    // Total = min(all stale lots, API call limit) — this is what the progress bar denominator shows.
     pomSyncProgress.itemsTotal = itemsToProcess.length;
 
-    console.log(`[Price-o-Matic Sync] Found ${inventoryItems.length} candidates, ${filteredItems.length} stale | active tier: ${activeTier} (${tierBatch.length} items, ${tierBatch.length - itemsToProcess.length} deferred), processing ${itemsToProcess.length}`);
+    const tierCounts = TIER_ORDER.map(t => ({ tier: t, count: filteredItems.filter(i => getEffectiveTier(i) === t).length }));
+    console.log(`[Price-o-Matic Sync] Found ${inventoryItems.length} candidates, ${filteredItems.length} stale across all tiers (${tierCounts.map(t => `${t.tier}:${t.count}`).join(', ')}), processing ${itemsToProcess.length}`);
 
     // Process each item in tier-priority order
     // Market dynamics (demand + supply) are computed inside fetchPriceOMagicData from BL API data.
@@ -1409,16 +1408,18 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = 'o
         );
 
         itemsUpdated++;
-        pomSyncProgress.itemsProcessed = itemsUpdated;
+        // Progress counts every attempted item (updated + skipped) so the bar always moves
+        pomSyncProgress.itemsProcessed = itemsUpdated + itemsSkipped;
         
         // Log progress every 100 items
-        if (itemsUpdated % 100 === 0) {
-          console.log(`[Price-o-Matic Sync] Progress: ${itemsUpdated}/${itemsToProcess.length} items updated`);
+        if ((itemsUpdated + itemsSkipped) % 100 === 0) {
+          console.log(`[Price-o-Matic Sync] Progress: ${itemsUpdated + itemsSkipped}/${itemsToProcess.length} items attempted (${itemsUpdated} updated, ${itemsSkipped} skipped)`);
         }
 
       } catch (error) {
         console.error(`[Price-o-Matic Sync] Error processing item ${item.itemNo}:`, error);
         itemsSkipped++;
+        pomSyncProgress.itemsProcessed = itemsUpdated + itemsSkipped;
         
         // If it's a rate limit error, stop immediately
         if (error instanceof Error && error.message.includes('rate limit')) {
