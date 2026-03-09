@@ -880,6 +880,28 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     };
   };
 
+  const { data: orgLimitsUsage, isLoading: orgLimitsLoading } = useQuery<{
+    plan: string;
+    limits: Record<string, number>;
+    usage: {
+      seats: { count: number; limit: number; canAdd: boolean };
+      automationRules: { count: number; limit: number };
+      brickspotterScans: { scansUsed: number; scansLimit: number };
+    };
+  }>({
+    queryKey: ['/api/admin/organizations', activeOrg?.id, 'limits'],
+    enabled: open && activeSection === 'orgs' && !!activeOrg,
+    staleTime: 15000,
+    retry: 0,
+  });
+
+  const { data: orgBlApiUsage } = useQuery<{ count: number }>({
+    queryKey: ['/api/admin/organizations', activeOrg?.id, 'bl-api-usage'],
+    enabled: open && activeSection === 'orgs' && !!activeOrg,
+    staleTime: 15000,
+    retry: 0,
+  });
+
   const { data: systemHealth, isLoading: systemHealthLoading, isError: systemHealthError, refetch: refetchSystemHealth } = useQuery<SystemHealthData>({
     queryKey: ['/api/platform-admin/system-health'],
     enabled: open && activeSection === 'systemHealth',
@@ -4895,14 +4917,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
               if (activeOrg) {
                 const org = platformOrgs?.find(o => o.id === activeOrg.id) ?? activeOrg;
                 const fo = (org.featureOverrides ?? {}) as Record<string, boolean>;
-                const features = [
-                  { key: 'elfieAiMode', label: 'E.L.F.I.E. AI Mode', icon: Brain },
-                  { key: 'brickSpotter', label: 'BrickSpotter', icon: Zap },
-                  { key: 'pom', label: 'Price-o-Matic', icon: TrendingUp },
-                  { key: 'warehouseModule', label: 'Warehouse', icon: Package },
-                  { key: 'universalCatalog', label: 'Universal Catalog', icon: Globe },
-                  { key: 'dataEnrichment', label: 'Data Enrichment', icon: Database },
-                ];
                 return (
                   <div className="p-4 space-y-4">
                     {/* Org identity */}
@@ -4953,10 +4967,16 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       <div className="px-4 py-2.5 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
                         <Wrench className="h-3.5 w-3.5 text-yellow-500/70" />
                         <span className="text-xs font-semibold text-gray-200">Limit Overrides</span>
-                        <span className="text-[10px] text-gray-500 ml-1">null = use tier default</span>
+                        {orgLimitsLoading && <Loader2 className="h-3 w-3 animate-spin text-gray-500 ml-1" />}
+                      </div>
+                      {/* Column headers */}
+                      <div className="grid grid-cols-[1fr_80px_80px_90px] gap-2 px-4 py-1.5 border-b border-gray-700/60">
+                        <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold">Limit</span>
+                        <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold text-center">Plan Max</span>
+                        <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold text-center">In Use</span>
+                        <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold text-center">Override</span>
                       </div>
                       <form
-                        className="px-4 py-3 space-y-3"
                         onSubmit={(e) => {
                           e.preventDefault();
                           const fd = new FormData(e.currentTarget);
@@ -4972,76 +4992,186 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           });
                         }}
                       >
-                        {[
-                          { name: 'seats', label: 'Seat Limit', current: org.seatLimitOverride },
-                          { name: 'brickspotter', label: 'BrickSpotter Scans/mo', current: org.brickspotterLimitOverride },
-                          { name: 'automation', label: 'Automation Rules', current: org.automationLimitOverride },
-                          { name: 'blApi', label: 'BL API Calls/24h', current: org.blApiCallLimitOverride },
-                        ].map(({ name, label, current }) => (
-                          <div key={name} className="flex items-center gap-2">
-                            <label className="text-[11px] text-gray-400 w-36 shrink-0">{label}</label>
-                            <Input
-                              name={name}
-                              type="number"
-                              defaultValue={current ?? ''}
-                              placeholder="null"
-                              className="h-7 text-xs bg-gray-700 border-gray-600 text-gray-200 placeholder:text-gray-600"
-                              data-testid={`input-override-${name}-${org.id}`}
-                            />
-                          </div>
-                        ))}
-                        <Button type="submit" size="sm" variant="secondary" disabled={updateOverridesMutation.isPending} className="w-full mt-1 text-xs" data-testid={`button-save-overrides-${org.id}`}>
-                          {updateOverridesMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Save Overrides'}
-                        </Button>
+                        {(() => {
+                          const tier = getTierConfig(org.plan);
+                          const fmtLimit = (n: number) => n === -1 ? '∞' : String(n);
+                          const rows = [
+                            {
+                              name: 'seats',
+                              label: 'Seats',
+                              planMax: fmtLimit(tier.limits.seats),
+                              usage: orgLimitsUsage ? String(orgLimitsUsage.usage.seats.count) : '—',
+                              override: org.seatLimitOverride,
+                              isOverridden: org.seatLimitOverride != null,
+                            },
+                            {
+                              name: 'brickspotter',
+                              label: 'BrickSpotter Scans/mo',
+                              planMax: fmtLimit(tier.limits.brickspotterScansPerMonth),
+                              usage: orgLimitsUsage ? String(orgLimitsUsage.usage.brickspotterScans.scansUsed) : '—',
+                              override: org.brickspotterLimitOverride,
+                              isOverridden: org.brickspotterLimitOverride != null,
+                            },
+                            {
+                              name: 'automation',
+                              label: 'Automation Rules',
+                              planMax: fmtLimit(tier.limits.automationRules),
+                              usage: orgLimitsUsage ? String(orgLimitsUsage.usage.automationRules.count) : '—',
+                              override: org.automationLimitOverride,
+                              isOverridden: org.automationLimitOverride != null,
+                            },
+                            {
+                              name: 'blApi',
+                              label: 'BL API Calls/24h',
+                              planMax: '—',
+                              usage: orgBlApiUsage != null ? String(orgBlApiUsage.count) : '—',
+                              override: org.blApiCallLimitOverride,
+                              isOverridden: org.blApiCallLimitOverride != null,
+                            },
+                          ];
+                          return (
+                            <div className="divide-y divide-gray-700/40">
+                              {rows.map(({ name, label, planMax, usage, override, isOverridden }) => (
+                                <div key={name} className={`grid grid-cols-[1fr_80px_80px_90px] gap-2 items-center px-4 py-2 ${isOverridden ? 'bg-amber-500/5' : ''}`}>
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    {isOverridden && <span className="shrink-0 text-[8px] font-bold uppercase tracking-wide text-amber-400 border border-amber-500/40 rounded px-1 py-0.5">OVR</span>}
+                                    <span className="text-[11px] text-gray-300 truncate">{label}</span>
+                                  </div>
+                                  <span className="text-xs text-gray-500 text-center font-mono">{planMax}</span>
+                                  <span className="text-xs text-gray-300 text-center font-mono">{usage}</span>
+                                  <Input
+                                    name={name}
+                                    type="number"
+                                    defaultValue={override ?? ''}
+                                    placeholder="default"
+                                    className={`h-7 text-xs text-center font-mono bg-gray-700 border-gray-600 text-gray-200 placeholder:text-gray-600 ${isOverridden ? 'border-amber-500/40' : ''}`}
+                                    data-testid={`input-override-${name}-${org.id}`}
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })()}
+                        <div className="px-4 py-2.5 border-t border-gray-700/60">
+                          <Button type="submit" size="sm" variant="secondary" disabled={updateOverridesMutation.isPending} className="w-full text-xs" data-testid={`button-save-overrides-${org.id}`}>
+                            {updateOverridesMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Save Limit Overrides'}
+                          </Button>
+                        </div>
                       </form>
                     </div>
 
                     {/* Feature overrides */}
-                    <div className="rounded-lg bg-gray-800/60 border border-gray-700 overflow-hidden">
-                      <div className="px-4 py-2.5 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
-                        <Flag className="h-3.5 w-3.5 text-yellow-500/70" />
-                        <span className="text-xs font-semibold text-gray-200">Feature Overrides</span>
-                        <span className="text-[10px] text-gray-500 ml-1">overrides plan defaults</span>
-                      </div>
-                      <div className="divide-y divide-gray-700/60">
-                        {features.map(({ key, label, icon: Icon }) => {
-                          const current = fo[key];
-                          return (
-                            <div key={key} className="flex items-center gap-3 px-4 py-2.5">
-                              <Icon className="h-3.5 w-3.5 text-gray-500 flex-shrink-0" />
-                              <span className="flex-1 text-xs text-gray-300">{label}</span>
-                              <div className="flex items-center gap-1.5">
-                                {current === undefined ? (
-                                  <span className="text-[10px] text-gray-600 italic mr-1">plan default</span>
-                                ) : (
-                                  <span className={`text-[10px] font-medium ${current ? 'text-green-400' : 'text-red-400'}`}>
-                                    {current ? 'forced on' : 'forced off'}
-                                  </span>
-                                )}
-                                <Select
-                                  value={current === undefined ? '__default' : current ? '__on' : '__off'}
-                                  onValueChange={(v) => {
-                                    const newFo = { ...fo };
-                                    if (v === '__default') { delete newFo[key]; } else { newFo[key] = v === '__on'; }
-                                    updateFeaturesMutation.mutate({ orgId: org.id, featureOverrides: newFo });
-                                  }}
-                                  disabled={updateFeaturesMutation.isPending}
-                                >
-                                  <SelectTrigger className="h-6 w-28 text-[10px] bg-gray-700 border-gray-600 text-gray-300" data-testid={`select-feature-${key}-${org.id}`}>
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="__default">Plan Default</SelectItem>
-                                    <SelectItem value="__on">Force On</SelectItem>
-                                    <SelectItem value="__off">Force Off</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
+                    {(() => {
+                      const tier = getTierConfig(org.plan);
+                      const FEATURE_ROWS: Array<{
+                        overrideKey: string | null;
+                        tierFeatureKey: keyof typeof tier.features | null;
+                        label: string;
+                        icon: React.ElementType;
+                      }> = [
+                        { overrideKey: 'elfieAiMode',      tierFeatureKey: 'elfieAiMode',        label: 'E.L.F.I.E. AI Mode',    icon: Brain },
+                        { overrideKey: 'pom',              tierFeatureKey: 'priceOMatic',         label: 'Price-o-Matic',          icon: TrendingUp },
+                        { overrideKey: 'dataEnrichment',   tierFeatureKey: 'fullDataEnrichment',  label: 'Data Enrichment',        icon: Database },
+                        { overrideKey: 'brickSpotter',     tierFeatureKey: null,                  label: 'BrickSpotter Scanning',  icon: Zap },
+                        { overrideKey: 'warehouseModule',  tierFeatureKey: null,                  label: 'Warehouse Module',       icon: Package },
+                        { overrideKey: 'universalCatalog', tierFeatureKey: null,                  label: 'Universal Catalog',      icon: Globe },
+                        { overrideKey: null,               tierFeatureKey: 'brickOwl',            label: 'BrickOwl Integration',   icon: Globe },
+                        { overrideKey: null,               tierFeatureKey: 'easypostAutomation',  label: 'EasyPost Automation',    icon: Zap },
+                        { overrideKey: null,               tierFeatureKey: 'paymentSync',         label: 'Payment Sync',           icon: CreditCard },
+                      ];
+                      return (
+                        <div className="rounded-lg bg-gray-800/60 border border-gray-700 overflow-hidden">
+                          <div className="px-4 py-2.5 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
+                            <Flag className="h-3.5 w-3.5 text-yellow-500/70" />
+                            <span className="text-xs font-semibold text-gray-200">Feature Overrides</span>
+                            <span className="text-[10px] text-gray-500 ml-1">— {org.plan} plan defaults shown</span>
+                          </div>
+                          {/* Header */}
+                          <div className="grid grid-cols-[1fr_64px_48px_56px] gap-2 px-4 py-1.5 border-b border-gray-700/60">
+                            <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold">Feature</span>
+                            <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold text-center">Plan</span>
+                            <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold text-center">OVR</span>
+                            <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold text-center">State</span>
+                          </div>
+                          <div className="divide-y divide-gray-700/40">
+                            {FEATURE_ROWS.map(({ overrideKey, tierFeatureKey, label, icon: Icon }) => {
+                              const planDefault = tierFeatureKey != null ? tier.features[tierFeatureKey] : null;
+                              const overrideVal = overrideKey != null ? fo[overrideKey] : undefined;
+                              const isOverridden = overrideKey != null && overrideVal !== undefined;
+                              const effective = overrideVal !== undefined ? overrideVal : (planDefault ?? false);
+                              const canOverride = overrideKey != null;
+                              return (
+                                <div key={overrideKey ?? tierFeatureKey} className={`grid grid-cols-[1fr_64px_48px_56px] gap-2 items-center px-4 py-2.5 ${isOverridden ? 'bg-amber-500/5' : ''}`}>
+                                  {/* Label */}
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <Icon className="h-3.5 w-3.5 text-gray-500 shrink-0" />
+                                    <span className="text-[11px] text-gray-300 truncate">{label}</span>
+                                  </div>
+                                  {/* Plan default */}
+                                  <div className="flex justify-center">
+                                    {planDefault != null ? (
+                                      <span className={`text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded ${planDefault ? 'text-green-400 bg-green-500/10' : 'text-gray-600 bg-gray-700/50'}`}>
+                                        {planDefault ? 'ON' : 'OFF'}
+                                      </span>
+                                    ) : (
+                                      <span className="text-[9px] text-gray-700">—</span>
+                                    )}
+                                  </div>
+                                  {/* Override badge */}
+                                  <div className="flex justify-center">
+                                    {isOverridden ? (
+                                      <button
+                                        title="Click to reset to plan default"
+                                        onClick={() => {
+                                          const newFo = { ...fo };
+                                          delete newFo[overrideKey!];
+                                          updateFeaturesMutation.mutate({ orgId: org.id, featureOverrides: newFo });
+                                        }}
+                                        disabled={updateFeaturesMutation.isPending}
+                                        className="text-[8px] font-bold uppercase tracking-wide text-amber-400 border border-amber-500/40 rounded px-1 py-0.5 hover:bg-amber-500/10 transition-colors"
+                                        data-testid={`badge-override-${overrideKey}-${org.id}`}
+                                      >OVR</button>
+                                    ) : (
+                                      <span className="text-[9px] text-gray-700">—</span>
+                                    )}
+                                  </div>
+                                  {/* Toggle */}
+                                  <div className="flex justify-center">
+                                    {canOverride ? (
+                                      <button
+                                        onClick={() => {
+                                          const newFo = { ...fo };
+                                          const newVal = !effective;
+                                          // If new value matches plan default, clear the override
+                                          if (planDefault != null && newVal === planDefault) {
+                                            delete newFo[overrideKey!];
+                                          } else {
+                                            newFo[overrideKey!] = newVal;
+                                          }
+                                          updateFeaturesMutation.mutate({ orgId: org.id, featureOverrides: newFo });
+                                        }}
+                                        disabled={updateFeaturesMutation.isPending}
+                                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${effective ? 'bg-green-500' : 'bg-gray-600'} ${isOverridden ? 'ring-1 ring-amber-400/50' : ''}`}
+                                        data-testid={`toggle-feature-${overrideKey}-${org.id}`}
+                                      >
+                                        <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${effective ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                                      </button>
+                                    ) : (
+                                      <div className={`relative inline-flex h-5 w-9 items-center rounded-full ${effective ? 'bg-green-500/40' : 'bg-gray-700'} cursor-not-allowed opacity-50`}>
+                                        <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white/70 transition-transform ${effective ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <div className="px-4 py-2 border-t border-gray-700/60">
+                            <p className="text-[9px] text-gray-600">OVR = overridden from plan · Click OVR badge to reset · Read-only rows use plan defaults only</p>
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                     {/* Suspend / activate */}
                     <div className="rounded-lg bg-gray-800/60 border border-gray-700 overflow-hidden">
