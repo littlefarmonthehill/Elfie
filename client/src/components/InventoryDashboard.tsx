@@ -77,6 +77,18 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
     setBrowsePage(0);
   }, [browseSearch, browseDrawer]);
 
+  // Lock body scroll while browse drawer is open.
+  // iOS Safari shifts the entire page when the keyboard opens unless the body is fixed.
+  useEffect(() => {
+    if (!browseDrawer) return;
+    const scrollY = window.scrollY;
+    document.body.style.cssText = `position:fixed;top:-${scrollY}px;left:0;right:0;overflow:hidden;`;
+    return () => {
+      document.body.style.cssText = '';
+      window.scrollTo(0, scrollY);
+    };
+  }, [browseDrawer]);
+
   const { data: appSettings } = useQuery<{ timezone?: string }>({
     queryKey: ['/api/settings'],
     staleTime: 60000,
@@ -392,7 +404,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
 
       {/* Browse Drawer — Lots / Parts / Categories */}
       <Drawer open={!!browseDrawer} onOpenChange={(open) => { if (!open) setBrowseDrawer(null); }}>
-        <DrawerContent className="flex flex-col" style={{ height: drawerH }}>
+        <DrawerContent className="flex flex-col overflow-hidden" style={{ height: drawerH }}>
           <DrawerHeader className="flex-shrink-0 pb-0">
             <DrawerTitle className="flex items-center gap-2 text-base capitalize">
               <Package className="w-4 h-4 text-blue-400" />
@@ -415,6 +427,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 placeholder={browseDrawer === 'categories' ? 'Search categories…' : 'Search by part #, name, or color…'}
                 className="pl-8 pr-8 text-xs h-9 bg-gray-900 border-gray-700"
                 data-testid="input-browse-search"
+                onFocus={() => requestAnimationFrame(() => window.scrollTo(0, 0))}
               />
               {browseSearchInput && (
                 <button
