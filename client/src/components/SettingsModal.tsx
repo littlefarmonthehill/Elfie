@@ -1190,6 +1190,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   };
 
   const { isAdmin, superAdmin, user } = useAuth();
+  const [platformAdminOpen, setPlatformAdminOpen] = useState(false);
 
   const logoutMutation = useMutation({
     mutationFn: () => apiRequest('POST', '/api/logout'),
@@ -1331,11 +1332,16 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     { id: 'platforms' as const, label: 'Platforms', icon: Layers },
     ...(isAdmin ? [{ id: 'users' as const, label: 'Team & Roles', icon: Users }] : []),
     { id: 'automation' as const, label: 'Scheduler', icon: Play },
-    { id: 'enrichment' as const, label: 'Data Enrichment', icon: Database },
     { id: 'data' as const, label: 'Data Maintenance', icon: HardDrive },
-    { id: 'ai' as const, label: 'E.L.F.I.E.', icon: Brain },
     { id: 'about' as const, label: 'About & Credits', icon: Info },
   ];
+
+  const platformAdminItems = [
+    { id: 'enrichment' as const, label: 'Data Enrichment', icon: Database },
+    { id: 'ai' as const, label: 'E.L.F.I.E.', icon: Brain },
+  ];
+
+  const allNavItems = [...navigationItems, ...platformAdminItems];
 
   return (
     <>
@@ -1362,7 +1368,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
               </div>
               <DialogHeader className="flex-1 p-0 text-center">
                 <DialogTitle className="text-sm font-semibold text-gray-100 tracking-wide">
-                  {activeSection === null ? 'Settings' : navigationItems.find(i => i.id === activeSection)?.label ?? 'Settings'}
+                  {activeSection === null ? 'Settings' : allNavItems.find(i => i.id === activeSection)?.label ?? 'Settings'}
                 </DialogTitle>
               </DialogHeader>
               <div className="w-8 flex-shrink-0" />
@@ -1372,6 +1378,10 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
             <div className="flex-1 min-h-0 overflow-y-auto">
               {activeSection === null ? (
                 <nav className="p-2">
+                  {/* Company Settings group label */}
+                  <div className="px-4 pt-2 pb-1">
+                    <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-500">Company Settings</span>
+                  </div>
                   {navigationItems.map((item) => (
                     <button
                       key={item.id}
@@ -1384,21 +1394,39 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       <ChevronRight className="h-4 w-4 text-gray-600 flex-shrink-0" />
                     </button>
                   ))}
+
+                  {/* Platform Admin expandable section */}
                   {superAdmin && (
                     <>
                       <div className="my-2 mx-4 border-t border-yellow-500/20" />
-                      <Link href="/platform-admin">
+                      {/* Expanded platform admin items appear above the toggle */}
+                      {platformAdminOpen && platformAdminItems.map((item) => (
                         <button
-                          className="w-full flex items-center gap-3 px-4 py-3 rounded-md text-sm text-yellow-400 hover:text-yellow-300 hover:bg-yellow-500/10 transition-colors group"
-                          data-testid="link-platform-admin-settings"
+                          key={item.id}
+                          onClick={() => setActiveSection(item.id)}
+                          className="w-full flex items-center gap-3 px-4 py-3 rounded-md text-sm text-yellow-300/80 hover:text-yellow-200 hover:bg-yellow-500/10 transition-colors group"
+                          data-testid={`nav-${item.id}`}
                         >
-                          <ShieldCheck className="h-4 w-4 flex-shrink-0" />
-                          <span className="flex-1 text-left">Platform Admin</span>
-                          <ChevronRight className="h-4 w-4 text-yellow-600 flex-shrink-0" />
+                          <item.icon className="h-4 w-4 text-yellow-500/70 flex-shrink-0 group-hover:text-yellow-400 transition-colors" />
+                          <span className="flex-1 text-left">{item.label}</span>
+                          <ChevronRight className="h-4 w-4 text-yellow-700 flex-shrink-0" />
                         </button>
-                      </Link>
+                      ))}
+                      <button
+                        onClick={() => setPlatformAdminOpen(o => !o)}
+                        className="w-full flex items-center gap-3 px-4 py-3 rounded-md text-sm text-yellow-400 hover:text-yellow-300 hover:bg-yellow-500/10 transition-colors group"
+                        data-testid="button-platform-admin-toggle"
+                      >
+                        <ShieldCheck className="h-4 w-4 flex-shrink-0" />
+                        <span className="flex-1 text-left">Platform Admin</span>
+                        {platformAdminOpen
+                          ? <ChevronDown className="h-4 w-4 text-yellow-600 flex-shrink-0" />
+                          : <ChevronRight className="h-4 w-4 text-yellow-600 flex-shrink-0" />
+                        }
+                      </button>
                     </>
                   )}
+
                   <div className="my-2 mx-4 border-t border-gray-700/60" />
                   <button
                     onClick={() => logoutMutation.mutate()}
