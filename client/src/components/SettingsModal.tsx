@@ -738,6 +738,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const [activeOrg, setActiveOrg] = useState<OrgWithUsage | null>(null);
   const [activeOrgTab, setActiveOrgTab] = useState<'features' | 'limits' | 'billing'>('features');
   const [activeGeneralTab, setActiveGeneralTab] = useState<'info' | 'features' | 'limits' | 'billing'>('info');
+  const [activePlatformServicesTab, setActivePlatformServicesTab] = useState<'stripe' | 'openai' | 'replit'>('stripe');
   const [impersonationSearch, setImpersonationSearch] = useState('');
   const [orgSearch, setOrgSearch] = useState('');
 
@@ -943,6 +944,22 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   });
 
   useEffect(() => { setActiveOrgTab('features'); }, [activeOrg?.id]);
+
+  type StripeBalanceData = { available: { amount: number; currency: string }[]; pending: { amount: number; currency: string }[]; livemode: boolean };
+  const { data: stripeBalanceData, isLoading: stripeBalanceLoading, error: stripeBalanceError } = useQuery<StripeBalanceData>({
+    queryKey: ['/api/platform-admin/platform-services/stripe-balance'],
+    enabled: open && activeSection === 'apiKeys' && activePlatformServicesTab === 'stripe' && superAdmin,
+    staleTime: 60000,
+    retry: 0,
+  });
+
+  type OpenAIStatusData = { connected: boolean; models?: string[]; keyPrefix?: string; error?: string };
+  const { data: openAIStatusData, isLoading: openAIStatusLoading } = useQuery<OpenAIStatusData>({
+    queryKey: ['/api/platform-admin/platform-services/openai-status'],
+    enabled: open && activeSection === 'apiKeys' && activePlatformServicesTab === 'openai' && superAdmin,
+    staleTime: 60000,
+    retry: 0,
+  });
 
   const { data: systemHealth, isLoading: systemHealthLoading, isError: systemHealthError, refetch: refetchSystemHealth } = useQuery<SystemHealthData>({
     queryKey: ['/api/platform-admin/system-health'],
@@ -3926,20 +3943,16 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   Run once to build your search index. New inventory and orders are embedded automatically as they sync.
                 </p>
 
-                {/* OpenAI API Key — required for local embeddings */}
+                {/* OpenAI API Key — pointer to Platform Services */}
                 <div className="flex items-center gap-3 bg-gray-800/60 border border-gray-700/60 rounded-md px-3 py-2.5">
+                  <Brain className="h-4 w-4 text-gray-600 shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <label className="block text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-1">OpenAI API Key</label>
-                    <input
-                      type="password"
-                      value={openaiApiKey}
-                      onChange={e => setOpenaiApiKey(e.target.value)}
-                      placeholder="sk-..."
-                      data-testid="input-openai-api-key"
-                      className="w-full bg-transparent text-sm text-gray-200 placeholder-gray-600 outline-none border-none"
-                    />
+                    <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500">OpenAI API Key</p>
+                    <p className="text-[11px] text-gray-500 mt-0.5">
+                      {openaiApiKey ? <span className="text-green-400/80">Key configured</span> : <span className="text-gray-600">Not configured</span>}
+                      {' — '}configured in <button onClick={() => { setActiveSection('apiKeys'); setActivePlatformServicesTab('openai'); }} className="text-yellow-400/80 hover:text-yellow-300 underline-offset-2 hover:underline" data-testid="link-goto-platform-services-openai">Platform Services → OpenAI</button>
+                    </p>
                   </div>
-                  <span className="text-[10px] text-gray-600 whitespace-nowrap shrink-0">embeddings only</span>
                 </div>
 
                 {/* Semantic Search & Embeddings */}
@@ -5933,14 +5946,234 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
             {/* Platform Services */}
             {activeSection === 'apiKeys' && (
               <div className="p-4 space-y-4">
-                <div className="rounded-lg bg-gray-800/60 border border-gray-700 p-6 flex flex-col items-center justify-center gap-3 text-center">
-                  <Key className="h-8 w-8 text-gray-600" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-300">Platform Services</p>
-                    <p className="text-xs text-gray-500 mt-1">Manage platform-level API keys, service accounts, and backend credentials for OpenAI, Stripe, and other core integrations.</p>
+                {/* Tab strip */}
+                {(() => {
+                  const psTabs: Array<{ id: 'stripe' | 'openai' | 'replit'; label: string; Icon: React.ElementType }> = [
+                    { id: 'stripe', label: 'Stripe', Icon: CreditCard },
+                    { id: 'openai', label: 'OpenAI', Icon: Brain },
+                    { id: 'replit', label: 'Replit', Icon: Zap },
+                  ];
+                  return (
+                    <div className="flex gap-1 bg-gray-800/40 border border-gray-700/60 rounded-md p-1">
+                      {psTabs.map(({ id, label, Icon }) => (
+                        <button
+                          key={id}
+                          onClick={() => setActivePlatformServicesTab(id)}
+                          data-testid={`tab-platform-services-${id}`}
+                          className={`flex items-center gap-1.5 flex-1 justify-center px-3 py-1.5 rounded text-xs font-medium transition-colors ${activePlatformServicesTab === id ? 'bg-gray-700 text-gray-100' : 'text-gray-500 hover:text-gray-300'}`}
+                        >
+                          <Icon className="h-3 w-3" />
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  );
+                })()}
+
+                {/* ── Stripe tab ─────────────────────────────────── */}
+                {activePlatformServicesTab === 'stripe' && (
+                  <div className="space-y-4">
+                    {/* Config */}
+                    <div className="rounded-lg bg-gray-800/60 border border-gray-700 overflow-hidden">
+                      <div className="px-4 py-2.5 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
+                        <Key className="h-3.5 w-3.5 text-yellow-500/70" />
+                        <span className="text-xs font-semibold text-gray-200">Configuration</span>
+                        <Badge variant="outline" className={`ml-auto text-[9px] ${stripeEnvironment === 'live' ? 'text-green-400 border-green-500/30 bg-green-500/5' : 'text-yellow-400 border-yellow-500/30 bg-yellow-500/5'}`}>
+                          {stripeEnvironment === 'live' ? 'Live' : 'Test'}
+                        </Badge>
+                      </div>
+                      <div className="px-4 py-3 space-y-3">
+                        <div className="flex gap-4">
+                          <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="ps-stripe-env" value="live" checked={stripeEnvironment === 'live'} onChange={() => { setStripeEnvironment('live'); updateSettingsMutation.mutate({ stripeEnvironment: 'live' }); }} className="text-purple-500" data-testid="radio-ps-stripe-live" /><span className="text-xs text-gray-300">Live</span></label>
+                          <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="ps-stripe-env" value="test" checked={stripeEnvironment === 'test'} onChange={() => { setStripeEnvironment('test'); updateSettingsMutation.mutate({ stripeEnvironment: 'test' }); }} className="text-purple-500" data-testid="radio-ps-stripe-test" /><span className="text-xs text-gray-300">Test</span></label>
+                        </div>
+                        {stripeEnvironment === 'test' && <p className="text-[10px] text-yellow-500/80">Test mode — use a <code className="font-mono">sk_test_</code> key</p>}
+                        {stripeEnvironment === 'live' && <p className="text-[10px] text-green-500/80">Live mode — use a <code className="font-mono">sk_live_</code> or restricted key</p>}
+                        <div>
+                          <label className="block text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-1">Secret Key</label>
+                          <input
+                            type="password"
+                            placeholder={stripeEnvironment === 'test' ? 'sk_test_…' : 'sk_live_… or rk_live_…'}
+                            value={stripeSecretKey}
+                            onChange={e => setStripeSecretKey(e.target.value)}
+                            onBlur={() => updateSettingsMutation.mutate({ stripeSecretKey: stripeSecretKey || null })}
+                            data-testid="input-ps-stripe-secret-key"
+                            className="w-full bg-gray-900/60 border border-gray-700 rounded px-3 py-2 text-xs text-gray-200 placeholder-gray-600 outline-none focus:border-gray-500 font-mono"
+                          />
+                        </div>
+                        <p className="text-[10px] text-gray-600">Used for tenant subscription billing, checkout sessions, and billing portal access.</p>
+                      </div>
+                    </div>
+
+                    {/* Balance */}
+                    <div className="rounded-lg bg-gray-800/60 border border-gray-700 overflow-hidden">
+                      <div className="px-4 py-2.5 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
+                        <TrendingUp className="h-3.5 w-3.5 text-yellow-500/70" />
+                        <span className="text-xs font-semibold text-gray-200">Platform Balance</span>
+                        {stripeBalanceLoading && <Loader2 className="h-3 w-3 animate-spin text-gray-500 ml-1" />}
+                        {stripeBalanceData && (
+                          <Badge variant="outline" className={`ml-auto text-[9px] ${stripeBalanceData.livemode ? 'text-green-400 border-green-500/30' : 'text-yellow-400 border-yellow-500/30'}`}>
+                            {stripeBalanceData.livemode ? 'Live' : 'Test'}
+                          </Badge>
+                        )}
+                      </div>
+                      {(stripeBalanceError as any) ? (
+                        <div className="px-4 py-4 text-center">
+                          <p className="text-xs text-red-400">Could not fetch balance — check that the Stripe key is configured.</p>
+                        </div>
+                      ) : stripeBalanceData ? (
+                        <div className="divide-y divide-gray-700/40">
+                          {[
+                            { label: 'Available', items: stripeBalanceData.available },
+                            { label: 'Pending', items: stripeBalanceData.pending },
+                          ].map(({ label, items }) => (
+                            <div key={label} className="px-4 py-3 flex items-center justify-between gap-4">
+                              <span className="text-[11px] text-gray-500">{label}</span>
+                              <div className="flex flex-wrap gap-3 justify-end">
+                                {items.length === 0
+                                  ? <span className="text-xs text-gray-600 font-mono">—</span>
+                                  : items.map(b => (
+                                    <span key={b.currency} className="text-sm font-semibold text-gray-200 font-mono">
+                                      {new Intl.NumberFormat('en-US', { style: 'currency', currency: b.currency.toUpperCase() }).format(b.amount / 100)}
+                                    </span>
+                                  ))
+                                }
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : !stripeBalanceLoading ? (
+                        <div className="px-4 py-4 text-center">
+                          <p className="text-xs text-gray-600">Enter a Stripe key above to view balance.</p>
+                        </div>
+                      ) : null}
+                    </div>
+
+                    {/* Fees note */}
+                    <div className="rounded-lg bg-gray-800/60 border border-gray-700 px-4 py-3">
+                      <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-2">About Stripe Fees</p>
+                      <p className="text-[11px] text-gray-400 leading-relaxed">Stripe charges <strong className="text-gray-300">2.9% + 30¢</strong> per successful card transaction (US). International cards and additional features may carry additional fees. Detailed fee breakdowns are available in your <a href="https://dashboard.stripe.com" target="_blank" rel="noopener noreferrer" className="text-yellow-400 hover:underline">Stripe Dashboard</a>.</p>
+                    </div>
                   </div>
-                  <Badge variant="outline" className="text-[10px] text-gray-500 border-gray-600">Coming Soon</Badge>
-                </div>
+                )}
+
+                {/* ── OpenAI tab ─────────────────────────────────── */}
+                {activePlatformServicesTab === 'openai' && (
+                  <div className="space-y-4">
+                    {/* Config */}
+                    <div className="rounded-lg bg-gray-800/60 border border-gray-700 overflow-hidden">
+                      <div className="px-4 py-2.5 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
+                        <Key className="h-3.5 w-3.5 text-yellow-500/70" />
+                        <span className="text-xs font-semibold text-gray-200">Configuration</span>
+                        {openAIStatusData && (
+                          <Badge variant="outline" className={`ml-auto text-[9px] ${openAIStatusData.connected ? 'text-green-400 border-green-500/30 bg-green-500/5' : 'text-red-400 border-red-500/30 bg-red-500/5'}`}>
+                            {openAIStatusData.connected ? 'Connected' : 'Not Connected'}
+                          </Badge>
+                        )}
+                        {openAIStatusLoading && <Loader2 className="h-3 w-3 animate-spin text-gray-500 ml-auto" />}
+                      </div>
+                      <div className="px-4 py-3 space-y-3">
+                        <div>
+                          <label className="block text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-1">API Key</label>
+                          <input
+                            type="password"
+                            placeholder="sk-…"
+                            value={openaiApiKey}
+                            onChange={e => setOpenaiApiKey(e.target.value)}
+                            onBlur={() => updateSettingsMutation.mutate({ openaiApiKey: openaiApiKey || null })}
+                            data-testid="input-ps-openai-api-key"
+                            className="w-full bg-gray-900/60 border border-gray-700 rounded px-3 py-2 text-xs text-gray-200 placeholder-gray-600 outline-none focus:border-gray-500 font-mono"
+                          />
+                        </div>
+                        {openAIStatusData?.connected && openAIStatusData.models && openAIStatusData.models.length > 0 && (
+                          <div>
+                            <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-1">Available Models</p>
+                            <div className="flex flex-wrap gap-1">
+                              {openAIStatusData.models.map(m => (
+                                <Badge key={m} variant="outline" className="text-[9px] text-gray-400 border-gray-600">{m}</Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {openAIStatusData?.error && <p className="text-[10px] text-red-400">{openAIStatusData.error}</p>}
+                        <p className="text-[10px] text-gray-600">Used for semantic search embeddings and Data Enrichment features. The same key is referenced in Data Enrichment.</p>
+                      </div>
+                    </div>
+
+                    {/* Credits / Usage */}
+                    <div className="rounded-lg bg-gray-800/60 border border-gray-700 overflow-hidden">
+                      <div className="px-4 py-2.5 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
+                        <TrendingUp className="h-3.5 w-3.5 text-yellow-500/70" />
+                        <span className="text-xs font-semibold text-gray-200">Usage &amp; Credits</span>
+                      </div>
+                      <div className="px-4 py-4 space-y-2">
+                        <p className="text-[11px] text-gray-400 leading-relaxed">OpenAI operates on a <strong className="text-gray-300">prepaid credit</strong> model. You add credits to your account and usage is deducted automatically. There are no monthly subscription charges — you pay only for what you use.</p>
+                        <div className="flex flex-wrap gap-2 pt-1">
+                          <a href="https://platform.openai.com/usage" target="_blank" rel="noopener noreferrer" data-testid="link-openai-usage-dashboard" className="inline-flex items-center gap-1.5 text-[10px] text-yellow-400 hover:text-yellow-300 border border-yellow-500/30 rounded px-2.5 py-1 transition-colors">
+                            <ExternalLink className="h-3 w-3" />
+                            View Usage Dashboard
+                          </a>
+                          <a href="https://platform.openai.com/settings/organization/billing/overview" target="_blank" rel="noopener noreferrer" data-testid="link-openai-billing" className="inline-flex items-center gap-1.5 text-[10px] text-gray-400 hover:text-gray-300 border border-gray-600 rounded px-2.5 py-1 transition-colors">
+                            <ExternalLink className="h-3 w-3" />
+                            Manage Credits
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Replit tab ─────────────────────────────────── */}
+                {activePlatformServicesTab === 'replit' && (
+                  <div className="space-y-4">
+                    {/* Platform info */}
+                    <div className="rounded-lg bg-gray-800/60 border border-gray-700 overflow-hidden">
+                      <div className="px-4 py-2.5 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
+                        <Zap className="h-3.5 w-3.5 text-violet-400/80" />
+                        <span className="text-xs font-semibold text-gray-200">Platform Environment</span>
+                        <Badge variant="outline" className="ml-auto text-[9px] text-violet-400 border-violet-500/30 bg-violet-500/5">Replit</Badge>
+                      </div>
+                      <div className="px-4 py-3 space-y-3">
+                        <p className="text-[11px] text-gray-400 leading-relaxed">PlanetBrick is built and hosted on <strong className="text-gray-300">Replit</strong>. The compute, database, and deployment infrastructure are all managed through your Replit account. No separate server setup is required.</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          {[
+                            { label: 'Runtime', value: 'Node.js + Express' },
+                            { label: 'Database', value: 'PostgreSQL (Replit)' },
+                            { label: 'Frontend', value: 'React + Vite' },
+                            { label: 'Deployment', value: 'Replit Autoscale' },
+                          ].map(({ label, value }) => (
+                            <div key={label} className="bg-gray-900/40 border border-gray-700/60 rounded px-3 py-2">
+                              <p className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold mb-0.5">{label}</p>
+                              <p className="text-[11px] text-gray-300">{value}</p>
+                            </div>
+                          ))}
+                        </div>
+                        <p className="text-[10px] text-gray-600">No API key or credential is needed here — Replit manages your environment automatically.</p>
+                      </div>
+                    </div>
+
+                    {/* Billing */}
+                    <div className="rounded-lg bg-gray-800/60 border border-gray-700 overflow-hidden">
+                      <div className="px-4 py-2.5 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
+                        <TrendingUp className="h-3.5 w-3.5 text-yellow-500/70" />
+                        <span className="text-xs font-semibold text-gray-200">Usage &amp; Billing</span>
+                      </div>
+                      <div className="px-4 py-4 space-y-2">
+                        <p className="text-[11px] text-gray-400 leading-relaxed">Replit charges are based on <strong className="text-gray-300">compute cycles, storage, and egress</strong> consumed by your Repl. Usage is tracked in your Replit account and billed to your Replit subscription or credits balance.</p>
+                        <div className="flex flex-wrap gap-2 pt-1">
+                          <a href="https://replit.com/account" target="_blank" rel="noopener noreferrer" data-testid="link-replit-account" className="inline-flex items-center gap-1.5 text-[10px] text-violet-400 hover:text-violet-300 border border-violet-500/30 rounded px-2.5 py-1 transition-colors">
+                            <ExternalLink className="h-3 w-3" />
+                            Replit Account
+                          </a>
+                          <a href="https://replit.com/billing" target="_blank" rel="noopener noreferrer" data-testid="link-replit-billing" className="inline-flex items-center gap-1.5 text-[10px] text-gray-400 hover:text-gray-300 border border-gray-600 rounded px-2.5 py-1 transition-colors">
+                            <ExternalLink className="h-3 w-3" />
+                            View Billing
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

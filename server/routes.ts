@@ -522,6 +522,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // GET /api/platform-admin/platform-services/stripe-balance
+  app.get('/api/platform-admin/platform-services/stripe-balance', isSuperAdmin, async (_req, res) => {
+    try {
+      const stripe = stripeClient.getClient();
+      const balance = await stripe.balance.retrieve();
+      res.json({
+        available: balance.available.map(b => ({ amount: b.amount, currency: b.currency })),
+        pending: balance.pending.map(b => ({ amount: b.amount, currency: b.currency })),
+        livemode: balance.livemode,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || 'Failed to fetch Stripe balance' });
+    }
+  });
+
+  // GET /api/platform-admin/platform-services/openai-status
+  app.get('/api/platform-admin/platform-services/openai-status', isSuperAdmin, async (_req, res) => {
+    try {
+      const [settings] = await db.select().from(organizations).where(eq(organizations.id, 'org_planetbrick')).limit(1);
+      const apiKey = settings?.openaiApiKey || process.env.OPENAI_API_KEY;
+      if (!apiKey) return res.json({ connected: false, models: [] });
+      const OpenAI = (await import('openai')).default;
+      const client = new OpenAI({ apiKey });
+      const models = await client.models.list();
+      const chatModels = models.data.filter(m => m.id.startsWith('gpt')).slice(0, 5).map(m => m.id);
+      res.json({ connected: true, models: chatModels, keyPrefix: apiKey.substring(0, 7) + '…' });
+    } catch (err: any) {
+      res.json({ connected: false, error: err?.message });
+    }
+  });
+
   // GET /api/platform-admin/system-health — embedding jobs, sync status, platform vitals
   app.get('/api/platform-admin/system-health', isSuperAdmin, async (_req, res) => {
     try {
