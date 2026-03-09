@@ -5,7 +5,7 @@ import {
   Package, ShoppingCart, Globe, Brain,
   RefreshCw, CheckCircle, XCircle, AlertCircle, Loader2,
   ScanSearch, ArrowRight, Settings, AlertTriangle, Zap,
-  TrendingDown, Clock, Activity, CreditCard,
+  TrendingDown, Clock, Activity, CreditCard, ChevronDown,
 } from "lucide-react";
 import DashboardNotifications from "./DashboardNotifications";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -60,7 +60,25 @@ function LaneCard({
   );
 }
 
-function LaneSection({ label, children }: { label?: string; children: React.ReactNode }) {
+function LaneSection({ label, children, collapsible = false }: { label?: string; children: React.ReactNode; collapsible?: boolean }) {
+  const [expanded, setExpanded] = useState(false);
+
+  if (collapsible && label) {
+    return (
+      <div className="px-3 py-2 space-y-1.5">
+        <button
+          onClick={() => setExpanded(v => !v)}
+          className="flex items-center gap-1.5 w-full text-left"
+          data-testid={`collapse-${label.toLowerCase().replace(/\s+/g, '-')}`}
+        >
+          <p className="text-[9px] uppercase tracking-widest text-muted-foreground font-semibold flex-1">{label}</p>
+          <ChevronDown className={`w-3 h-3 text-muted-foreground/60 transition-transform duration-150 ${expanded ? '' : '-rotate-90'}`} />
+        </button>
+        {expanded && <div className="space-y-1.5">{children}</div>}
+      </div>
+    );
+  }
+
   return (
     <div className="px-3 py-2 space-y-1.5">
       {label && <p className="text-[9px] uppercase tracking-widest text-muted-foreground font-semibold">{label}</p>}
@@ -367,7 +385,7 @@ function InventoryLane({
       )}
 
       {/* Last Actions */}
-      <LaneSection label="Last Actions">
+      <LaneSection label="Last Actions" collapsible>
         {lastInvSync?.lastSyncTime ? (
           <ActivityItem
             icon={lastInvSync.lastSyncStatus === 'success' ? CheckCircle : lastInvSync.lastSyncStatus === 'partial' ? AlertCircle : XCircle}
@@ -468,7 +486,7 @@ function OrdersLane({ stats, dashboardOrders, fulfillmentStats, orderSyncRunning
       )}
 
       {/* Last Actions */}
-      <LaneSection label="Last Actions">
+      <LaneSection label="Last Actions" collapsible>
         {lastOrderSync?.lastSyncTime ? (
           <ActivityItem
             icon={lastOrderSync.lastSyncStatus === 'success' ? CheckCircle : lastOrderSync.lastSyncStatus === 'partial' ? AlertCircle : XCircle}
@@ -545,7 +563,7 @@ function MultichannelLane({ channelSyncRunning, globalSyncStatuses, syncStatus, 
       )}
 
       {/* Channel Status */}
-      <LaneSection label="Channels">
+      <LaneSection label="Channels" collapsible>
         {connectedChannels.length > 0 ? connectedChannels.map((t: any) => {
           const disc = (t.discrepancies?.missingLots || 0) + (t.discrepancies?.priceDifferences || 0) + (t.discrepancies?.quantityDifferences || 0);
           const channelName = t.name ?? t.platform ?? 'Unknown channel';
@@ -570,7 +588,7 @@ function MultichannelLane({ channelSyncRunning, globalSyncStatuses, syncStatus, 
       </LaneSection>
 
       {/* Last Actions */}
-      <LaneSection label="Last Actions">
+      <LaneSection label="Last Actions" collapsible>
         {lastChannelSync?.lastSyncTime ? (
           <ActivityItem
             icon={lastChannelSync.lastSyncStatus === 'success' ? CheckCircle : lastChannelSync.lastSyncStatus === 'partial' ? AlertCircle : XCircle}
@@ -699,19 +717,9 @@ function AIIntelligenceLane({ latestScan, appSettings, onOpenBrickanalyzer, dism
         </LaneSection>
       )}
 
-      {/* E.L.F.I.E. Status */}
-      <LaneSection label="AI Assistant">
-        <div className="flex items-center gap-2">
-          <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium border ${elfieMode === 'ai' ? 'bg-purple-500/20 border-purple-500/30 text-purple-300' : 'bg-gray-800/60 border-border text-muted-foreground'}`}>
-            <Brain className="w-2.5 h-2.5" />
-            <span>{elfieMode === 'ai' ? 'AI Mode' : 'Search Mode'}</span>
-          </div>
-        </div>
-      </LaneSection>
-
       {/* Data Embeddings — catalogs + inventory/orders */}
       {(universalCatalog || catalogStatus || embedStats) && (
-        <LaneSection label="Data Embeddings">
+        <LaneSection label="Data Embeddings" collapsible>
           {universalCatalog && (
             <ActivityItem
               icon={universalCatalog.workerRunning ? RefreshCw : CheckCircle}
@@ -748,7 +756,7 @@ function AIIntelligenceLane({ latestScan, appSettings, onOpenBrickanalyzer, dism
       )}
 
       {/* Last Scan */}
-      <LaneSection label="Last Scan">
+      <LaneSection label="Last Scan" collapsible>
         {isScanComplete && latestScan && (
           <ActivityItem
             icon={(latestScan.totalPieces ?? 0) > 0 ? CheckCircle : AlertCircle}
