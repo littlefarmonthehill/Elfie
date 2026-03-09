@@ -298,9 +298,11 @@ export const isAuthenticated: RequestHandler = (req, res, next) => {
 // superAdmin middleware - checks if user is a platform superAdmin
 export const isSuperAdmin: RequestHandler = async (req, res, next) => {
   if (!req.isAuthenticated()) {
+    console.log('[isSuperAdmin] DENIED - not authenticated, path:', (req as any).path);
     return res.status(403).json({ message: "Super admin access required" });
   }
   const sessionUser = req.user as any;
+  console.log('[isSuperAdmin] user:', sessionUser?.id, 'superAdmin:', sessionUser?.superAdmin, 'path:', (req as any).path);
   // Fast path: session already has superAdmin flag
   if (sessionUser?.superAdmin === true) {
     return next();
@@ -310,11 +312,15 @@ export const isSuperAdmin: RequestHandler = async (req, res, next) => {
     const userId = sessionUser?.id;
     if (userId) {
       const dbUser = await storage.getUser(userId);
+      console.log('[isSuperAdmin] DB fallback - dbUser.superAdmin:', dbUser?.superAdmin, 'userId:', userId);
       if (dbUser?.superAdmin) {
         return next();
       }
     }
-  } catch (_) {}
+  } catch (err) {
+    console.error('[isSuperAdmin] DB lookup error:', err);
+  }
+  console.log('[isSuperAdmin] DENIED - superAdmin not set for user:', sessionUser?.id);
   return res.status(403).json({ message: "Super admin access required" });
 };
 

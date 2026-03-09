@@ -595,6 +595,7 @@ function SyncStatusLine({ entry }: { entry: SyncStatusEntry }) {
 export default function SettingsModal({ open, onClose, initialSection }: SettingsModalProps) {
   const { toast } = useToast();
   const { status: installStatus, promptInstall } = useInstallPrompt();
+  const { isAdmin, superAdmin, user } = useAuth();
   const [clearDataDialog, setClearDataDialog] = useState<'inventory' | 'orders' | null>(null);
   const [cleanupRunning, setCleanupRunning] = useState(false);
   const [restoreWizardOpen, setRestoreWizardOpen] = useState(false);
@@ -863,9 +864,10 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     enabled: open && activeSection === 'billing',
   });
 
-  const { data: platformOrgs, isLoading: platformOrgsLoading } = useQuery<OrgWithUsage[]>({
+  const { data: platformOrgs, isLoading: platformOrgsLoading, isError: platformOrgsError } = useQuery<OrgWithUsage[]>({
     queryKey: ['/api/platform-admin/orgs'],
-    enabled: open && (activeSection === 'orgs' || activeSection === 'impersonation' || activeSection === 'featureFlags'),
+    enabled: open && superAdmin && (activeSection === 'orgs' || activeSection === 'impersonation' || activeSection === 'featureFlags'),
+    retry: 1,
   });
 
   type SystemHealthData = {
@@ -879,7 +881,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
   const { data: systemHealth, isLoading: systemHealthLoading, isError: systemHealthError, refetch: refetchSystemHealth } = useQuery<SystemHealthData>({
     queryKey: ['/api/platform-admin/system-health'],
-    enabled: open && activeSection === 'systemHealth',
+    enabled: open && superAdmin && activeSection === 'systemHealth',
     refetchInterval: activeSection === 'systemHealth' ? 15000 : false,
     retry: 1,
     staleTime: 0,
@@ -1265,7 +1267,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     }
   };
 
-  const { isAdmin, superAdmin, user } = useAuth();
   const [openGroup, setOpenGroup] = useState<'company' | 'platform'>('company');
 
   const logoutMutation = useMutation({
@@ -5056,6 +5057,11 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     <div className="flex items-center justify-center py-8">
                       <Loader2 className="h-5 w-5 animate-spin text-yellow-500/50" />
                     </div>
+                  ) : platformOrgsError ? (
+                    <div className="flex flex-col items-center justify-center gap-2 py-8">
+                      <AlertTriangle className="h-4 w-4 text-red-400/70" />
+                      <p className="text-xs text-red-400">Access denied or failed to load organizations</p>
+                    </div>
                   ) : (
                     <div className="rounded-lg border border-gray-700 overflow-hidden divide-y divide-gray-700/60">
                       {filtered.length === 0 ? (
@@ -5122,6 +5128,11 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="h-5 w-5 animate-spin text-yellow-500/50" />
                   </div>
+                ) : platformOrgsError ? (
+                  <div className="flex flex-col items-center justify-center gap-2 py-8">
+                    <AlertTriangle className="h-4 w-4 text-red-400/70" />
+                    <p className="text-xs text-red-400">Access denied or failed to load organizations</p>
+                  </div>
                 ) : (
                   <div className="rounded-lg border border-gray-700 overflow-hidden divide-y divide-gray-700/60">
                     {(platformOrgs ?? [])
@@ -5186,6 +5197,16 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   {platformOrgsLoading ? (
                     <div className="flex items-center justify-center py-8">
                       <Loader2 className="h-5 w-5 animate-spin text-yellow-500/50" />
+                    </div>
+                  ) : platformOrgsError ? (
+                    <div className="flex flex-col items-center justify-center gap-2 py-8">
+                      <AlertTriangle className="h-4 w-4 text-red-400/70" />
+                      <p className="text-xs text-red-400">Access denied or failed to load organizations</p>
+                    </div>
+                  ) : filteredOrgs.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center gap-2 py-8">
+                      <Building2 className="h-4 w-4 text-gray-600" />
+                      <p className="text-xs text-gray-500">No organizations found</p>
                     </div>
                   ) : (
                     <div className="rounded-lg border border-gray-700 overflow-hidden">
@@ -5269,7 +5290,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               <Icon className="h-3 w-3 text-yellow-500/60" />
                               <span className="text-[10px] text-gray-500">{label}</span>
                             </div>
-                            <p className="text-lg font-bold text-white">{value}</p>
+                            <p className="text-lg font-bold text-white">{Number(value).toLocaleString()}</p>
                           </div>
                         ))}
                       </div>
@@ -5285,7 +5306,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         ].map(({ label, value }) => (
                           <div key={label} className="rounded-lg bg-gray-800/60 border border-gray-700 px-3 py-2.5">
                             <p className="text-[10px] text-gray-500 mb-1">{label}</p>
-                            <p className="text-base font-bold text-white">{value.toLocaleString()}</p>
+                            <p className="text-base font-bold text-white">{Number(value).toLocaleString()}</p>
                           </div>
                         ))}
                       </div>
