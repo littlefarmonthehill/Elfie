@@ -1446,10 +1446,13 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
   const platformAdminGroups = [
     {
-      label: 'Tenants',
+      label: 'Plans & Customers',
       items: [
         { id: 'orgs' as const, label: 'Organizations', icon: Building2 },
         { id: 'impersonation' as const, label: 'View as Company', icon: EyeOff },
+        { id: 'billingOverview' as const, label: 'Billing Overview', icon: CreditCard },
+        { id: 'plansAndPricing' as const, label: 'Plans & Pricing', icon: Tag },
+        { id: 'announcements' as const, label: 'Announcements', icon: Megaphone },
       ],
     },
     {
@@ -1457,19 +1460,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
       items: [
         { id: 'systemHealth' as const, label: 'System Health', icon: Activity },
         { id: 'auditLog' as const, label: 'Audit Log', icon: ClipboardList },
-        { id: 'announcements' as const, label: 'Announcements', icon: Megaphone },
-      ],
-    },
-    {
-      label: 'Revenue',
-      items: [
-        { id: 'billingOverview' as const, label: 'Billing Overview', icon: CreditCard },
-        { id: 'plansAndPricing' as const, label: 'Plans & Pricing', icon: Tag },
-      ],
-    },
-    {
-      label: 'AI & Data',
-      items: [
         { id: 'apiKeys' as const, label: 'API Keys', icon: Key },
         { id: 'enrichment' as const, label: 'Data Enrichment', icon: Database },
         { id: 'ai' as const, label: 'E.L.F.I.E.', icon: Brain },
