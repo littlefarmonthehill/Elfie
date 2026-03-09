@@ -1526,27 +1526,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           return dyn ? (dyn.displayName || dyn.channel) : 'Channel';
                         })()
                       : activeSection === 'orgs' && activeOrg !== null
-                        ? (() => {
-                            const titleOrg = platformOrgs?.find(o => o.id === activeOrg.id) ?? activeOrg;
-                            return (
-                              <span className="flex flex-col items-center gap-0.5">
-                                <span className="flex items-center justify-center gap-2 flex-wrap">
-                                  <span>{titleOrg.name}</span>
-                                  <span className={`inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded border ${titleOrg.isActive ? 'border-green-500/30 bg-green-500/10 text-green-400' : 'border-red-500/30 bg-red-500/10 text-red-400'}`}>
-                                    <span className={`h-1.5 w-1.5 rounded-full ${titleOrg.isActive ? 'bg-green-400' : 'bg-red-400'}`} />
-                                    {titleOrg.isActive ? 'Active' : 'Suspended'}
-                                  </span>
-                                </span>
-                                {titleOrg.subscriptionEndsAt ? (
-                                  <span className="text-[9px] font-normal text-gray-500 tracking-normal">
-                                    Renews {new Date(titleOrg.subscriptionEndsAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                                  </span>
-                                ) : titleOrg.subscriptionStatus === 'trial' ? (
-                                  <span className="text-[9px] font-normal text-gray-500 tracking-normal">Free trial</span>
-                                ) : null}
-                              </span>
-                            );
-                          })()
+                        ? activeOrg.name
                         : allNavItems.find(i => i.id === activeSection)?.label ?? 'Settings'}
                 </DialogTitle>
               </DialogHeader>
@@ -4980,6 +4960,22 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           <span>{org.userCount} users</span>
                         </div>
                       </div>
+                      <div className="px-4 pt-3 pb-3 flex items-center justify-between gap-3 border-t border-gray-700/50">
+                        <div className="flex items-center gap-2">
+                          <span className={`h-2 w-2 rounded-full shrink-0 ${org.isActive ? 'bg-green-400' : 'bg-red-400'}`} />
+                          <span className="text-xs text-gray-300">{org.isActive ? 'Active' : 'Suspended'}</span>
+                          <span className="text-[10px] text-gray-500">{org.isActive ? '— organization can log in' : '— all access blocked'}</span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-[10px] text-gray-600">{org.isActive ? 'Deactivate' : 'Reactivate'}</span>
+                          <Switch
+                            checked={!!org.isActive}
+                            onCheckedChange={(checked) => suspendOrgMutation.mutate({ orgId: org.id, isActive: checked })}
+                            disabled={suspendOrgMutation.isPending}
+                            data-testid={`switch-active-${org.id}`}
+                          />
+                        </div>
+                      </div>
                     </div>
 
                     {/* Limit overrides */}
@@ -5197,24 +5193,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       );
                     })()}
 
-                    {/* Suspend / activate */}
-                    <div className="rounded-lg bg-gray-800/60 border border-gray-700 overflow-hidden">
-                      <div className="px-4 py-2.5 bg-gray-800 border-b border-gray-700 flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <Power className="h-3.5 w-3.5 text-yellow-500/70" />
-                          <span className="text-xs font-semibold text-gray-200">Account Status</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-gray-500">{org.isActive ? 'Deactivate' : 'Reactivate'}</span>
-                          <Switch
-                            checked={!!org.isActive}
-                            onCheckedChange={(checked) => suspendOrgMutation.mutate({ orgId: org.id, isActive: checked })}
-                            disabled={suspendOrgMutation.isPending}
-                            data-testid={`switch-active-${org.id}`}
-                          />
-                        </div>
-                      </div>
-                    </div>
                   </div>
                 );
               }
