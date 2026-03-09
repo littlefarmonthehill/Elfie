@@ -543,12 +543,11 @@ function MultichannelLane({ channelSyncRunning, globalSyncStatuses, syncStatus, 
         const channelIssues = targets.map((t: any) => {
           const name = t.name ?? t.platform ?? 'Unknown channel';
           const connected = t.enabled ?? t.connected;
-          const disc = (t.discrepancies?.missingLots || 0) + (t.discrepancies?.priceDifferences || 0) + (t.discrepancies?.quantityDifferences || 0);
-          const discParts: string[] = [];
-          if (t.discrepancies?.missingLots) discParts.push(`${t.discrepancies.missingLots} missing lot${t.discrepancies.missingLots !== 1 ? 's' : ''}`);
-          if (t.discrepancies?.priceDifferences) discParts.push(`${t.discrepancies.priceDifferences} price diff${t.discrepancies.priceDifferences !== 1 ? 's' : ''}`);
-          if (t.discrepancies?.quantityDifferences) discParts.push(`${t.discrepancies.quantityDifferences} qty diff${t.discrepancies.quantityDifferences !== 1 ? 's' : ''}`);
-          return { name, connected, disc, discParts };
+          const missingLots: number = t.discrepancies?.missingLots || 0;
+          const priceDiffs: number = t.discrepancies?.priceDifferences || 0;
+          const qtyDiffs: number = t.discrepancies?.quantityDifferences || 0;
+          const disc = missingLots + priceDiffs + qtyDiffs;
+          return { name, connected, disc, missingLots, priceDiffs, qtyDiffs };
         }).filter(c => !c.connected || c.disc > 0);
 
         const hasIssues = channelIssues.length > 0 || channelSyncFailed;
@@ -562,10 +561,20 @@ function MultichannelLane({ channelSyncRunning, globalSyncStatuses, syncStatus, 
           <LaneSection label="Attention">
             {channelIssues.map(c => (
               <div key={c.name}>
-                {!c.connected ? (
-                  <AlertItem icon={XCircle} iconColor="text-red-400" label={`${c.name} disconnected`} sub="Tap to reconnect" onClick={() => onOpenSettings?.('platforms')} severity="error" />
-                ) : (
-                  <AlertItem icon={AlertTriangle} iconColor="text-yellow-400" label={c.name} sub={c.discParts.join(' · ')} severity="warn" />
+                <div className="px-3 pt-1.5 pb-0.5">
+                  <span className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground/60">{c.name}</span>
+                </div>
+                {!c.connected && (
+                  <AlertItem icon={XCircle} iconColor="text-red-400" label="Disconnected" sub="Tap to reconnect" onClick={() => onOpenSettings?.('platforms')} severity="error" />
+                )}
+                {c.missingLots > 0 && (
+                  <AlertItem icon={AlertTriangle} iconColor="text-yellow-400" label={`${c.missingLots} missing lot${c.missingLots !== 1 ? 's' : ''}`} severity="warn" />
+                )}
+                {c.priceDiffs > 0 && (
+                  <AlertItem icon={AlertTriangle} iconColor="text-yellow-400" label={`${c.priceDiffs} price difference${c.priceDiffs !== 1 ? 's' : ''}`} severity="warn" />
+                )}
+                {c.qtyDiffs > 0 && (
+                  <AlertItem icon={AlertTriangle} iconColor="text-yellow-400" label={`${c.qtyDiffs} quantity difference${c.qtyDiffs !== 1 ? 's' : ''}`} severity="warn" />
                 )}
               </div>
             ))}
