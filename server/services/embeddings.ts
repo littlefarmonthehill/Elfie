@@ -4,20 +4,35 @@ import { inventoryEmbeddings, orderEmbeddings, orderDetailEmbeddings, setPartEmb
 import { eq, sql, inArray, and } from 'drizzle-orm';
 
 /**
- * Get OpenAI client with API key from settings or environment
+ * Get OpenAI client with API key from settings or environment.
+ * For embeddings we need a native OpenAI key, so the env-var secret
+ * (OPENAI_API_KEY) takes priority over the in-app settings key which
+ * may be an OpenRouter key.  If the resolved key is an OpenRouter key
+ * (sk-or- prefix), we route through the OpenRouter base URL which
+ * also supports the OpenAI embeddings API.
  */
 async function getOpenAIClient(): Promise<OpenAI> {
-  // Try to get API key from settings first
   const settings = await db.query.appSettings.findFirst({
     where: eq(appSettings.id, 'default'),
   });
-  
-  const apiKey = settings?.openaiApiKey || process.env.OPENAI_API_KEY;
-  
+
+  // Env var takes priority so that a proper OpenAI key stored as a
+  // Replit secret is not overshadowed by an OpenRouter key in the DB.
+  const apiKey = process.env.OPENAI_API_KEY || settings?.openaiApiKey;
+
   if (!apiKey) {
     throw new Error('OpenAI API key not configured. Please add it in Settings.');
   }
-  
+
+  // OpenRouter keys (sk-or-…) require a different base URL.
+  // OpenRouter exposes an OpenAI-compatible embeddings endpoint.
+  if (apiKey.startsWith('sk-or-')) {
+    return new OpenAI({
+      apiKey,
+      baseURL: 'https://openrouter.ai/api/v1',
+    });
+  }
+
   return new OpenAI({ apiKey });
 }
 
