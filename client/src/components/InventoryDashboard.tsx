@@ -57,6 +57,17 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
   const [browseSearch, setBrowseSearch] = useState('');
   const [browseSearchInput, setBrowseSearchInput] = useState('');
 
+  // Lock drawer height to a pixel value captured before any keyboard appears.
+  // Viewport-unit heights (dvh/svh) recompute when iOS repositions for the keyboard,
+  // causing the drawer to jump. A fixed pixel height never changes.
+  const [drawerH, setDrawerH] = useState('92svh');
+  useEffect(() => {
+    const capture = () => setDrawerH(`${Math.floor(window.innerHeight * 0.92)}px`);
+    capture();
+    window.addEventListener('resize', capture);
+    return () => window.removeEventListener('resize', capture);
+  }, []);
+
   useEffect(() => {
     const t = setTimeout(() => setBrowseSearch(browseSearchInput), 350);
     return () => clearTimeout(t);
@@ -381,7 +392,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
 
       {/* Browse Drawer — Lots / Parts / Categories */}
       <Drawer open={!!browseDrawer} onOpenChange={(open) => { if (!open) setBrowseDrawer(null); }}>
-        <DrawerContent className="h-[92svh] flex flex-col">
+        <DrawerContent className="flex flex-col" style={{ height: drawerH }}>
           <DrawerHeader className="flex-shrink-0 pb-0">
             <DrawerTitle className="flex items-center gap-2 text-base capitalize">
               <Package className="w-4 h-4 text-blue-400" />
@@ -496,7 +507,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
 
       {/* Price-O-Matic Drawer */}
       <Drawer open={activeDrawer === 'priceomatic'} onOpenChange={(open) => !open && onDrawerChange(null)}>
-        <DrawerContent className="h-[92svh] flex flex-col">
+        <DrawerContent className="flex flex-col" style={{ height: drawerH }}>
           <DrawerHeader>
             <DrawerTitle className="flex items-center justify-between gap-2 text-base md:text-lg">
               {/* Left: title + info inline */}
@@ -543,7 +554,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
 
       {/* Warehouse Management Drawer */}
       <Drawer open={activeDrawer === 'warehouse'} onOpenChange={(open) => !open && onDrawerChange(null)}>
-        <DrawerContent className="h-[90vh]">
+        <DrawerContent style={{ height: drawerH }}>
           <DrawerHeader>
             <DrawerTitle className="flex items-center gap-2 text-base md:text-lg">
               <Warehouse className="w-5 h-5 text-blue-400" />
@@ -558,7 +569,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
 
       {/* List O Matic Drawer */}
       <Drawer open={activeDrawer === 'platformsync'} onOpenChange={(open) => !open && onDrawerChange(null)}>
-        <DrawerContent className="h-[92svh] flex flex-col">
+        <DrawerContent className="flex flex-col" style={{ height: drawerH }}>
           <DrawerHeader>
             <DrawerTitle className="flex items-center justify-between gap-2 text-base md:text-lg">
               <div className="flex items-center gap-2">
@@ -585,7 +596,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
 
       {/* Brickanalyzer Drawer */}
       <Drawer open={activeDrawer === 'brickanalyzer'} onOpenChange={(open) => !open && onDrawerChange(null)}>
-        <DrawerContent className="h-[92svh] flex flex-col">
+        <DrawerContent className="flex flex-col" style={{ height: drawerH }}>
           <DrawerHeader className="flex items-center justify-between gap-2 pr-10">
             <DrawerTitle className="flex items-center gap-2 text-base md:text-lg">
               <ScanSearch className="w-5 h-5 text-lego-yellow" />
