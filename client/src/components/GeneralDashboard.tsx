@@ -440,7 +440,7 @@ function OrdersLane({ stats, dashboardOrders, fulfillmentStats, orderSyncRunning
   const orderSyncFailed = lastOrderSync?.lastSyncStatus === 'failed' || lastOrderSync?.lastSyncStatus === 'error';
 
   const summary = stats
-    ? `${(stats.totalOrders || 0).toLocaleString()} total · ${pendingCount} to fulfill`
+    ? `${pendingCount} to fulfill`
     : undefined;
 
   return (
