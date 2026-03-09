@@ -6059,65 +6059,48 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                 {/* ── OpenAI tab ─────────────────────────────────── */}
                 {activePlatformServicesTab === 'openai' && (
-                  <div className="space-y-4">
-                    {/* Config */}
-                    <div className="rounded-lg bg-gray-800/60 border border-gray-700 overflow-hidden">
-                      <div className="px-4 py-2.5 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
-                        <Key className="h-3.5 w-3.5 text-yellow-500/70" />
-                        <span className="text-xs font-semibold text-gray-200">Configuration</span>
-                        {openAIStatusData && (
-                          <Badge variant="outline" className={`ml-auto text-[9px] ${openAIStatusData.connected ? 'text-green-400 border-green-500/30 bg-green-500/5' : 'text-red-400 border-red-500/30 bg-red-500/5'}`}>
-                            {openAIStatusData.connected ? 'Connected' : 'Not Connected'}
-                          </Badge>
-                        )}
-                        {openAIStatusLoading && <Loader2 className="h-3 w-3 animate-spin text-gray-500 ml-auto" />}
-                      </div>
-                      <div className="px-4 py-3 space-y-3">
-                        <div>
-                          <label className="block text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-1">API Key</label>
-                          <input
-                            type="password"
-                            placeholder="sk-…"
-                            value={openaiApiKey}
-                            onChange={e => setOpenaiApiKey(e.target.value)}
-                            onBlur={() => updateSettingsMutation.mutate({ openaiApiKey: openaiApiKey || null })}
-                            data-testid="input-ps-openai-api-key"
-                            className="w-full bg-gray-900/60 border border-gray-700 rounded px-3 py-2 text-xs text-gray-200 placeholder-gray-600 outline-none focus:border-gray-500 font-mono"
-                          />
-                        </div>
-                        {openAIStatusData?.connected && openAIStatusData.models && openAIStatusData.models.length > 0 && (
-                          <div>
-                            <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-1">Available Models</p>
-                            <div className="flex flex-wrap gap-1">
-                              {openAIStatusData.models.map(m => (
-                                <Badge key={m} variant="outline" className="text-[9px] text-gray-400 border-gray-600">{m}</Badge>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        {openAIStatusData?.error && <p className="text-[10px] text-red-400">{openAIStatusData.error}</p>}
-                        <p className="text-[10px] text-gray-600">Used for semantic search embeddings and Data Enrichment features. The same key is referenced in Data Enrichment.</p>
-                      </div>
+                  <div className="rounded-lg bg-gray-800/60 border border-gray-700 overflow-hidden">
+                    <div className="px-4 py-2.5 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
+                      <Key className="h-3.5 w-3.5 text-yellow-500/70" />
+                      <span className="text-xs font-semibold text-gray-200">OpenAI</span>
+                      {openAIStatusLoading && <Loader2 className="h-3 w-3 animate-spin text-gray-500 ml-auto" />}
+                      {openAIStatusData && !openAIStatusLoading && (
+                        <Badge variant="outline" className={`ml-auto text-[9px] ${openAIStatusData.connected ? 'text-green-400 border-green-500/30 bg-green-500/5' : 'text-red-400 border-red-500/30 bg-red-500/5'}`}>
+                          {openAIStatusData.connected ? 'Connected' : 'Not Connected'}
+                        </Badge>
+                      )}
                     </div>
-
-                    {/* Credits / Usage */}
-                    <div className="rounded-lg bg-gray-800/60 border border-gray-700 overflow-hidden">
-                      <div className="px-4 py-2.5 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
-                        <TrendingUp className="h-3.5 w-3.5 text-yellow-500/70" />
-                        <span className="text-xs font-semibold text-gray-200">Usage &amp; Credits</span>
+                    <div className="px-4 py-3 space-y-3">
+                      <div>
+                        <label className="block text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-1">API Key</label>
+                        <input
+                          type="password"
+                          placeholder="sk-…"
+                          value={openaiApiKey}
+                          onChange={e => setOpenaiApiKey(e.target.value)}
+                          onBlur={() => updateSettingsMutation.mutate({ openaiApiKey: openaiApiKey || null })}
+                          data-testid="input-ps-openai-api-key"
+                          className="w-full min-w-0 bg-gray-900/60 border border-gray-700 rounded px-3 py-2 text-xs text-gray-200 placeholder-gray-600 outline-none focus:border-gray-500 font-mono"
+                        />
                       </div>
-                      <div className="px-4 py-4 space-y-2">
-                        <p className="text-[11px] text-gray-400 leading-relaxed">OpenAI operates on a <strong className="text-gray-300">prepaid credit</strong> model. You add credits to your account and usage is deducted automatically. There are no monthly subscription charges — you pay only for what you use.</p>
-                        <div className="flex flex-wrap gap-2 pt-1">
-                          <a href="https://platform.openai.com/usage" target="_blank" rel="noopener noreferrer" data-testid="link-openai-usage-dashboard" className="inline-flex items-center gap-1.5 text-[10px] text-yellow-400 hover:text-yellow-300 border border-yellow-500/30 rounded px-2.5 py-1 transition-colors">
-                            <ExternalLink className="h-3 w-3" />
-                            View Usage Dashboard
-                          </a>
-                          <a href="https://platform.openai.com/settings/organization/billing/overview" target="_blank" rel="noopener noreferrer" data-testid="link-openai-billing" className="inline-flex items-center gap-1.5 text-[10px] text-gray-400 hover:text-gray-300 border border-gray-600 rounded px-2.5 py-1 transition-colors">
-                            <ExternalLink className="h-3 w-3" />
-                            Manage Credits
-                          </a>
+                      {openAIStatusData?.connected && openAIStatusData.models && openAIStatusData.models.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {openAIStatusData.models.map(m => (
+                            <Badge key={m} variant="outline" className="text-[9px] text-gray-400 border-gray-600">{m}</Badge>
+                          ))}
                         </div>
+                      )}
+                      {openAIStatusData?.error && <p className="text-[10px] text-red-400 break-all">{openAIStatusData.error}</p>}
+                    </div>
+                    <div className="px-4 py-3 border-t border-gray-700/60 space-y-2">
+                      <p className="text-[10px] text-gray-500 leading-relaxed">Credit-based billing — no subscription. Usage tracked at <a href="https://platform.openai.com/usage" target="_blank" rel="noopener noreferrer" className="text-yellow-400/80 hover:text-yellow-300">platform.openai.com</a></p>
+                      <div className="flex gap-2">
+                        <a href="https://platform.openai.com/usage" target="_blank" rel="noopener noreferrer" data-testid="link-openai-usage-dashboard" className="inline-flex items-center gap-1 text-[10px] text-yellow-400 hover:text-yellow-300 border border-yellow-500/30 rounded px-2 py-1 transition-colors">
+                          <ExternalLink className="h-3 w-3 shrink-0" />Usage
+                        </a>
+                        <a href="https://platform.openai.com/settings/organization/billing/overview" target="_blank" rel="noopener noreferrer" data-testid="link-openai-billing" className="inline-flex items-center gap-1 text-[10px] text-gray-400 hover:text-gray-300 border border-gray-600 rounded px-2 py-1 transition-colors">
+                          <ExternalLink className="h-3 w-3 shrink-0" />Credits
+                        </a>
                       </div>
                     </div>
                   </div>
