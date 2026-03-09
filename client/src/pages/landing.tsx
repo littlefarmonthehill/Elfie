@@ -3,13 +3,14 @@ import { Link } from "wouter";
 import { Zap, ScanLine, Globe } from "lucide-react";
 import logoUrl from "@assets/PlanetBrick_dotcom_with_planet_and_robot_400_1760672362080.png";
 
-type ChId = "home" | "features" | "pricing" | "live";
+type ChId = "home" | "features" | "pricing" | "ops" | "live";
 
 const CHANNELS: { id: ChId; num: string; label: string }[] = [
   { id: "home",     num: "01", label: "INTRO"    },
   { id: "features", num: "02", label: "FEATURES" },
   { id: "pricing",  num: "03", label: "PRICING"  },
-  { id: "live",     num: "04", label: "ON AIR"   },
+  { id: "ops",      num: "04", label: "OPS"      },
+  { id: "live",     num: "05", label: "ON AIR"   },
 ];
 
 const TIERS = [
@@ -210,6 +211,89 @@ function PricingScreen({ tune }: { tune: (id: ChId) => void }) {
                 {t.name === "Trial" ? "Start Free" : "Get Started"}
               </button>
             </Link>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const OPS_LANES = [
+  {
+    label: "Product",
+    color: "#00FFEE", rgb: "0,255,238",
+    status: "Synced",
+    detail: "47,312 lots · 128 categories",
+    dot: "#00FFEE",
+    bar: 94,
+  },
+  {
+    label: "Orders",
+    color: "#A855F7", rgb: "168,85,247",
+    status: "12 to fulfill",
+    detail: "3 shipped today · 1 on hold",
+    dot: "#A855F7",
+    bar: 78,
+  },
+  {
+    label: "Marketing",
+    color: "#FF00CC", rgb: "255,0,204",
+    status: "2 channels live",
+    detail: "BrickLink · BrickOwl",
+    dot: "#FF00CC",
+    bar: 100,
+  },
+  {
+    label: "Sales",
+    color: "#FFD600", rgb: "255,214,0",
+    status: "$1,247 this week",
+    detail: "+18% vs last week",
+    dot: "#FFD600",
+    bar: 62,
+  },
+];
+
+function OpsScreen() {
+  return (
+    <div style={{ height: "100%", display: "flex", flexDirection: "column", padding: "clamp(12px,1.8vw,22px) clamp(14px,2vw,26px)", color: "#E8F4FF", gap: "clamp(8px,1.2vw,14px)", animation: "pb-slidein 0.3s ease-out" }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+        <div>
+          <div style={{ fontSize: "clamp(8px,0.7vw,10px)", fontFamily: "monospace", color: TEAL, letterSpacing: "0.3em", marginBottom: "4px" }}>CH 04 — OPS CENTER</div>
+          <h2 style={{ fontSize: "clamp(14px,1.6vw,20px)", fontWeight: 900, color: "#FFF", margin: 0 }}>Operations at a Glance</h2>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "rgba(0,255,238,0.07)", border: `1px solid ${TEAL}33`, borderRadius: "100px", padding: "4px 10px 4px 6px" }}>
+          <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: TEAL, boxShadow: `0 0 6px ${TEAL}`, animation: "pb-pulse 1.5s ease-in-out infinite" }} />
+          <span style={{ fontSize: "clamp(7px,0.65vw,9px)", fontFamily: "monospace", color: TEAL, fontWeight: 700, letterSpacing: "0.15em" }}>LIVE</span>
+        </div>
+      </div>
+
+      {/* Lane grid */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "clamp(6px,0.9vw,10px)", flex: 1 }}>
+        {OPS_LANES.map(lane => (
+          <div key={lane.label} style={{
+            background: `rgba(${lane.rgb},0.05)`,
+            border: `1px solid rgba(${lane.rgb},0.28)`,
+            borderRadius: "12px",
+            padding: "clamp(8px,1.1vw,14px) clamp(10px,1.3vw,16px)",
+            display: "flex", flexDirection: "column", gap: "clamp(4px,0.6vw,7px)",
+            position: "relative", overflow: "hidden",
+          }}>
+            {/* Subtle background glow */}
+            <div style={{ position: "absolute", inset: 0, background: `radial-gradient(ellipse 80% 60% at 20% 20%, rgba(${lane.rgb},0.07), transparent)`, pointerEvents: "none" }} />
+            {/* Label row */}
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: lane.dot, boxShadow: `0 0 8px ${lane.dot}` }} />
+              <span style={{ fontSize: "clamp(9px,0.85vw,11px)", fontFamily: "monospace", color: lane.color, letterSpacing: "0.2em", fontWeight: 700 }}>{lane.label.toUpperCase()}</span>
+            </div>
+            {/* Status */}
+            <div style={{ fontSize: "clamp(12px,1.3vw,17px)", fontWeight: 900, color: "#FFF", lineHeight: 1.1 }}>{lane.status}</div>
+            {/* Detail */}
+            <div style={{ fontSize: "clamp(9px,0.82vw,11px)", color: "rgba(200,220,255,0.65)", lineHeight: 1.4 }}>{lane.detail}</div>
+            {/* Progress bar */}
+            <div style={{ height: "2px", background: "rgba(255,255,255,0.08)", borderRadius: "2px", overflow: "hidden", marginTop: "2px" }}>
+              <div style={{ height: "100%", width: `${lane.bar}%`, background: `linear-gradient(90deg, rgba(${lane.rgb},0.5), rgba(${lane.rgb},0.9))`, borderRadius: "2px", boxShadow: `0 0 6px rgba(${lane.rgb},0.6)` }} />
+            </div>
           </div>
         ))}
       </div>
@@ -485,6 +569,7 @@ export default function Landing() {
                   {ch === "home"     && <HomeScreen tune={tune} />}
                   {ch === "features" && <FeaturesScreen />}
                   {ch === "pricing"  && <PricingScreen tune={tune} />}
+                  {ch === "ops"      && <OpsScreen />}
                   {ch === "live"     && <LiveScreen />}
                 </div>
               </div>
