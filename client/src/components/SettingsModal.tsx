@@ -739,6 +739,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const [activeOrgTab, setActiveOrgTab] = useState<'features' | 'limits' | 'billing'>('features');
   const [activeGeneralTab, setActiveGeneralTab] = useState<'info' | 'features' | 'limits' | 'billing'>('info');
   const [activePlatformServicesTab, setActivePlatformServicesTab] = useState<'stripe' | 'openai' | 'replit'>('stripe');
+  const [activePlanTab, setActivePlanTab] = useState<PlanType>('trial');
   const [impersonationSearch, setImpersonationSearch] = useState('');
   const [orgSearch, setOrgSearch] = useState('');
 
@@ -5871,6 +5872,9 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                 { key: 'easypostAutomation', label: 'EasyPost Automation' },
               ];
               const fmtLimit = (n: number) => n === -1 ? '∞' : n.toLocaleString();
+              const plan = TIER_CONFIG[activePlanTab];
+              const isPaid = plan.pricing.monthly > 0;
+              const isFlagship = activePlanTab === 'flagship';
               return (
                 <div className="p-4 space-y-4">
                   <div className="flex items-center gap-2 px-1">
@@ -5879,97 +5883,99 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     <Badge variant="outline" className="ml-auto text-[9px] border-gray-600 text-gray-500">Read-only reference</Badge>
                   </div>
 
-                  {/* Plan cards */}
-                  <div className="space-y-3">
-                    {PLAN_ORDER.map((planId) => {
-                      const plan = TIER_CONFIG[planId];
-                      const isPaid = plan.pricing.monthly > 0;
-                      const isFlagship = planId === 'flagship';
-                      return (
-                        <div key={planId} className="rounded-lg border border-gray-700 bg-gray-800/40 overflow-hidden" data-testid={`card-plan-${planId}`}>
-                          {/* Plan header */}
-                          <div className="flex items-start justify-between gap-3 px-4 py-3 border-b border-gray-700/60">
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <p className="text-sm font-semibold text-gray-200">{plan.name}</p>
-                                {isFlagship && (
-                                  <Badge variant="outline" className="text-[9px] border-yellow-500/40 text-yellow-500/80 px-1.5">House Account</Badge>
-                                )}
-                                {planId === 'trial' && (
-                                  <Badge variant="outline" className="text-[9px] border-gray-600 text-gray-500 px-1.5">Free</Badge>
-                                )}
-                              </div>
-                              <p className="text-[11px] text-gray-500 mt-0.5">{plan.tagline}</p>
-                            </div>
-                            {isPaid && (
-                              <div className="text-right shrink-0">
-                                <p className="text-sm font-bold text-gray-200">{formatPrice(plan.pricing.monthly)}<span className="text-[11px] font-normal text-gray-500">/mo</span></p>
-                                <p className="text-[10px] text-gray-500">{formatPrice(plan.pricing.annualMonthly)}/mo billed annually</p>
-                              </div>
-                            )}
-                            {!isPaid && !isFlagship && (
-                              <div className="text-right shrink-0">
-                                <p className="text-sm font-bold text-gray-400">Free</p>
-                                <p className="text-[10px] text-gray-600">15-day limit</p>
-                              </div>
-                            )}
-                            {isFlagship && (
-                              <div className="text-right shrink-0">
-                                <p className="text-sm font-bold text-gray-400">Internal</p>
-                                <p className="text-[10px] text-gray-600">No charge</p>
-                              </div>
-                            )}
-                          </div>
+                  {/* Plan tab strip */}
+                  <div className="flex gap-1 bg-gray-800/40 border border-gray-700/60 rounded-md p-1">
+                    {PLAN_ORDER.map(planId => (
+                      <button
+                        key={planId}
+                        onClick={() => setActivePlanTab(planId)}
+                        data-testid={`tab-plan-${planId}`}
+                        className={`flex-1 px-3 py-1.5 rounded text-xs font-medium transition-colors ${activePlanTab === planId ? 'bg-gray-700 text-gray-100' : 'text-gray-500 hover:text-gray-300'}`}
+                      >
+                        {TIER_CONFIG[planId].name}
+                      </button>
+                    ))}
+                  </div>
 
-                          {/* Limits row */}
-                          <div className="px-4 py-2.5 border-b border-gray-700/60">
-                            <p className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold mb-2">Limits</p>
-                            <div className="grid grid-cols-5 gap-2">
-                              {[
-                                { label: 'Seats', value: fmtLimit(plan.limits.seats) },
-                                { label: 'Scans/mo', value: fmtLimit(plan.limits.brickspotterScansPerMonth) },
-                                { label: 'Auto Rules', value: fmtLimit(plan.limits.automationRules) },
-                                { label: 'Order History', value: plan.limits.orderHistoryDays === -1 ? '∞' : `${plan.limits.orderHistoryDays}d` },
-                                { label: 'Inventory', value: fmtLimit(plan.limits.inventoryItems) },
-                              ].map(({ label, value }) => (
-                                <div key={label} className="text-center">
-                                  <p className="text-sm font-semibold text-gray-300">{value}</p>
-                                  <p className="text-[9px] text-gray-600 mt-0.5">{label}</p>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-
-                          {/* Features */}
-                          <div className="px-4 py-2.5">
-                            <p className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold mb-2">Features</p>
-                            <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                              {FEATURE_LABELS.map(({ key, label }) => {
-                                const enabled = plan.features[key];
-                                return (
-                                  <div key={key} className="flex items-center gap-1.5">
-                                    {enabled
-                                      ? <CheckCircle2 className="h-3 w-3 text-green-500/70 shrink-0" />
-                                      : <X className="h-3 w-3 text-gray-700 shrink-0" />
-                                    }
-                                    <span className={`text-[11px] ${enabled ? 'text-gray-400' : 'text-gray-600'}`}>{label}</span>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
+                  {/* Active plan detail */}
+                  <div className="rounded-lg border border-gray-700 bg-gray-800/40 overflow-hidden" data-testid={`card-plan-${activePlanTab}`}>
+                    {/* Header */}
+                    <div className="flex items-start justify-between gap-3 px-4 py-3 border-b border-gray-700/60">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-semibold text-gray-200">{plan.name}</p>
+                          {isFlagship && <Badge variant="outline" className="text-[9px] border-yellow-500/40 text-yellow-500/80 px-1.5">House Account</Badge>}
+                          {activePlanTab === 'trial' && <Badge variant="outline" className="text-[9px] border-gray-600 text-gray-500 px-1.5">Free</Badge>}
                         </div>
-                      );
-                    })}
+                        <p className="text-[11px] text-gray-500 mt-0.5">{plan.tagline}</p>
+                      </div>
+                      {isPaid && (
+                        <div className="text-right shrink-0">
+                          <p className="text-sm font-bold text-gray-200">{formatPrice(plan.pricing.monthly)}<span className="text-[11px] font-normal text-gray-500">/mo</span></p>
+                          <p className="text-[10px] text-gray-500">{formatPrice(plan.pricing.annualMonthly)}/mo billed annually</p>
+                        </div>
+                      )}
+                      {!isPaid && !isFlagship && (
+                        <div className="text-right shrink-0">
+                          <p className="text-sm font-bold text-gray-400">Free</p>
+                          <p className="text-[10px] text-gray-600">15-day limit</p>
+                        </div>
+                      )}
+                      {isFlagship && (
+                        <div className="text-right shrink-0">
+                          <p className="text-sm font-bold text-gray-400">Internal</p>
+                          <p className="text-[10px] text-gray-600">No charge</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Limits */}
+                    <div className="px-4 py-2.5 border-b border-gray-700/60">
+                      <p className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold mb-2">Limits</p>
+                      <div className="grid grid-cols-5 gap-2">
+                        {[
+                          { label: 'Seats', value: fmtLimit(plan.limits.seats) },
+                          { label: 'Scans/mo', value: fmtLimit(plan.limits.brickspotterScansPerMonth) },
+                          { label: 'Auto Rules', value: fmtLimit(plan.limits.automationRules) },
+                          { label: 'Order History', value: plan.limits.orderHistoryDays === -1 ? '∞' : `${plan.limits.orderHistoryDays}d` },
+                          { label: 'Inventory', value: fmtLimit(plan.limits.inventoryItems) },
+                        ].map(({ label, value }) => (
+                          <div key={label} className="text-center">
+                            <p className="text-sm font-semibold text-gray-300">{value}</p>
+                            <p className="text-[9px] text-gray-600 mt-0.5">{label}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Features */}
+                    <div className="px-4 py-2.5">
+                      <p className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold mb-2">Features</p>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+                        {FEATURE_LABELS.map(({ key, label }) => {
+                          const enabled = plan.features[key];
+                          return (
+                            <div key={key} className="flex items-center gap-1.5">
+                              {enabled
+                                ? <CheckCircle2 className="h-3 w-3 text-green-500/70 shrink-0" />
+                                : <X className="h-3 w-3 text-gray-700 shrink-0" />
+                              }
+                              <span className={`text-[11px] ${enabled ? 'text-gray-400' : 'text-gray-600'}`}>{label}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
 
-                  {/* Annual savings note */}
-                  <div className="rounded-lg bg-gray-800/30 border border-gray-700/50 px-4 py-3">
-                    <p className="text-[10px] text-gray-500 leading-relaxed">
-                      Annual billing saves <span className="text-yellow-500/80">~17%</span> vs monthly.
-                      Foundation: <span className="text-gray-400">{formatPrice(TIER_CONFIG.foundation.pricing.monthly * 12 - TIER_CONFIG.foundation.pricing.annual)}/yr saved</span> &middot; Core: <span className="text-gray-400">{formatPrice(TIER_CONFIG.core.pricing.monthly * 12 - TIER_CONFIG.core.pricing.annual)}/yr saved</span>
-                    </p>
-                  </div>
+                  {/* Annual savings note — only for paid plans */}
+                  {isPaid && !isFlagship && (
+                    <div className="rounded-lg bg-gray-800/30 border border-gray-700/50 px-4 py-3">
+                      <p className="text-[10px] text-gray-500 leading-relaxed">
+                        Annual billing saves <span className="text-yellow-500/80">~17%</span> — you pay {formatPrice(plan.pricing.annualMonthly)}/mo instead of {formatPrice(plan.pricing.monthly)}/mo, saving <span className="text-gray-400">{formatPrice(plan.pricing.monthly * 12 - plan.pricing.annual)}/yr</span>.
+                      </p>
+                    </div>
+                  )}
                 </div>
               );
             })()}
