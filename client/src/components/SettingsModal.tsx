@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { AppSettings, User, Organization, OrgIntegration } from "@shared/schema";
 import { APP_VERSION, APP_NAME } from "@shared/version";
-import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Info, Layers, Play, Loader2, ChevronDown, ChevronRight, ChevronLeft, BarChart2, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock, LogOut, CreditCard, Share2, PlusSquare, ShieldCheck, ExternalLink, Building2, Search, Activity, Flag, Power, Zap, Globe, ToggleLeft, EyeOff } from "lucide-react";
+import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Info, Layers, Play, Loader2, ChevronDown, ChevronRight, ChevronLeft, BarChart2, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock, LogOut, CreditCard, Share2, PlusSquare, ShieldCheck, ExternalLink, Building2, Search, Activity, Flag, Power, Zap, Globe, ToggleLeft, EyeOff, ClipboardList, Megaphone, Tag, Key } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useInstallPrompt } from "@/hooks/use-install-prompt";
 import { PomCategoryTiers } from "@/components/PomCategoryTiers";
@@ -32,7 +32,7 @@ interface SettingsModalProps {
   initialSection?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'users' | 'billing' | 'about';
 }
 
-type ActiveSection = 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'users' | 'billing' | 'about' | 'orgs' | 'impersonation' | 'featureFlags' | 'systemHealth' | null;
+type ActiveSection = 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'users' | 'billing' | 'about' | 'orgs' | 'impersonation' | 'featureFlags' | 'systemHealth' | 'auditLog' | 'announcements' | 'billingOverview' | 'plansAndPricing' | 'apiKeys' | null;
 
 interface OrgWithUsage extends Organization {
   userCount: number;
@@ -1415,6 +1415,11 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     { id: 'impersonation' as const, label: 'View as Company', icon: EyeOff },
     { id: 'featureFlags' as const, label: 'Feature Flags', icon: Flag },
     { id: 'systemHealth' as const, label: 'System Health', icon: Activity },
+    { id: 'auditLog' as const, label: 'Audit Log', icon: ClipboardList },
+    { id: 'announcements' as const, label: 'Announcements', icon: Megaphone },
+    { id: 'billingOverview' as const, label: 'Billing Overview', icon: CreditCard },
+    { id: 'plansAndPricing' as const, label: 'Plans & Pricing', icon: Tag },
+    { id: 'apiKeys' as const, label: 'API Keys', icon: Key },
     { id: 'enrichment' as const, label: 'Data Enrichment', icon: Database },
     { id: 'ai' as const, label: 'E.L.F.I.E.', icon: Brain },
   ];
@@ -5331,6 +5336,76 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     <p className="text-xs text-gray-500">Failed to load system health data</p>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Audit Log */}
+            {activeSection === 'auditLog' && (
+              <div className="p-4 space-y-4">
+                <div className="rounded-lg bg-gray-800/60 border border-gray-700 p-6 flex flex-col items-center justify-center gap-3 text-center">
+                  <ClipboardList className="h-8 w-8 text-gray-600" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-300">Audit Log</p>
+                    <p className="text-xs text-gray-500 mt-1">Platform-wide activity log tracking all admin and tenant actions across every organization.</p>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] text-gray-500 border-gray-600">Coming Soon</Badge>
+                </div>
+              </div>
+            )}
+
+            {/* Announcements */}
+            {activeSection === 'announcements' && (
+              <div className="p-4 space-y-4">
+                <div className="rounded-lg bg-gray-800/60 border border-gray-700 p-6 flex flex-col items-center justify-center gap-3 text-center">
+                  <Megaphone className="h-8 w-8 text-gray-600" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-300">Announcements</p>
+                    <p className="text-xs text-gray-500 mt-1">Broadcast system-wide messages, maintenance notices, and release updates to all tenant organizations.</p>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] text-gray-500 border-gray-600">Coming Soon</Badge>
+                </div>
+              </div>
+            )}
+
+            {/* Billing Overview */}
+            {activeSection === 'billingOverview' && (
+              <div className="p-4 space-y-4">
+                <div className="rounded-lg bg-gray-800/60 border border-gray-700 p-6 flex flex-col items-center justify-center gap-3 text-center">
+                  <CreditCard className="h-8 w-8 text-gray-600" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-300">Billing Overview</p>
+                    <p className="text-xs text-gray-500 mt-1">Platform-level revenue dashboard — MRR, churn, trial conversions, and per-organization subscription status.</p>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] text-gray-500 border-gray-600">Coming Soon</Badge>
+                </div>
+              </div>
+            )}
+
+            {/* Plans & Pricing */}
+            {activeSection === 'plansAndPricing' && (
+              <div className="p-4 space-y-4">
+                <div className="rounded-lg bg-gray-800/60 border border-gray-700 p-6 flex flex-col items-center justify-center gap-3 text-center">
+                  <Tag className="h-8 w-8 text-gray-600" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-300">Plans & Pricing</p>
+                    <p className="text-xs text-gray-500 mt-1">Configure subscription plans, set pricing, adjust feature entitlements, and manage promotional pricing.</p>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] text-gray-500 border-gray-600">Coming Soon</Badge>
+                </div>
+              </div>
+            )}
+
+            {/* API Keys */}
+            {activeSection === 'apiKeys' && (
+              <div className="p-4 space-y-4">
+                <div className="rounded-lg bg-gray-800/60 border border-gray-700 p-6 flex flex-col items-center justify-center gap-3 text-center">
+                  <Key className="h-8 w-8 text-gray-600" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-300">API Keys</p>
+                    <p className="text-xs text-gray-500 mt-1">Manage platform-level API keys for third-party integrations, webhooks, and service-to-service authentication.</p>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] text-gray-500 border-gray-600">Coming Soon</Badge>
+                </div>
               </div>
             )}
 
