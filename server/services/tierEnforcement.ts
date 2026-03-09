@@ -1,7 +1,8 @@
 import { db } from "../db";
 import { organizations, users, picklistItems } from "@shared/schema";
 import { eq, sql, count } from "drizzle-orm";
-import { TIER_CONFIG, getEffectiveLimits, checkLimit, type TierFeatures } from "@shared/tierConfig";
+import { checkLimit, type TierFeatures } from "@shared/tierConfig";
+import { getPlanConfigByKey, dbPlanToLimits, dbPlanToFeatures } from "./planConfigService";
 
 export async function getOrgWithLimits(orgId: string) {
   const [org] = await db
@@ -12,7 +13,20 @@ export async function getOrgWithLimits(orgId: string) {
 
   if (!org) return null;
 
-  const limits = getEffectiveLimits(org);
+  const planCfg = await getPlanConfigByKey(org.plan);
+  const baseLimits = planCfg ? dbPlanToLimits(planCfg) : {
+    seats: 1, brickspotterScansPerMonth: 0, automationRules: 0,
+    orderHistoryDays: 30, inventoryItems: 100,
+  };
+
+  const limits = {
+    seats: org.seatLimitOverride ?? baseLimits.seats,
+    brickspotterScansPerMonth: org.brickspotterLimitOverride ?? baseLimits.brickspotterScansPerMonth,
+    automationRules: org.automationLimitOverride ?? baseLimits.automationRules,
+    orderHistoryDays: baseLimits.orderHistoryDays,
+    inventoryItems: baseLimits.inventoryItems,
+  };
+
   return { ...org, limits };
 }
 
@@ -22,7 +36,6 @@ export async function checkBrickspotterLimit(orgId: string) {
 
   const { brickspotterScansThisMonth, brickspotterScansResetDate, limits } = orgWithLimits;
 
-  // Reset monthly counter if reset date is > 30 days ago
   const now = new Date();
   const resetDate = new Date(brickspotterScansResetDate);
   const diffDays = Math.floor((now.getTime() - resetDate.getTime()) / (1000 * 60 * 60 * 24));
@@ -32,27 +45,18 @@ export async function checkBrickspotterLimit(orgId: string) {
     currentScans = 0;
     await db
       .update(organizations)
-      .set({
-        brickspotterScansThisMonth: 0,
-        brickspotterScansResetDate: now,
-      })
+      .set({ brickspotterScansThisMonth: 0, brickspotterScansResetDate: now })
       .where(eq(organizations.id, orgId));
   }
 
   const result = checkLimit(currentScans, limits.brickspotterScansPerMonth, "BrickSpotter scans");
-  return {
-    ...result,
-    scansUsed: currentScans,
-    scansLimit: limits.brickspotterScansPerMonth,
-  };
+  return { ...result, scansUsed: currentScans, scansLimit: limits.brickspotterScansPerMonth };
 }
 
 export async function incrementBrickspotterScan(orgId: string) {
   await db
     .update(organizations)
-    .set({
-      brickspotterScansThisMonth: sql`brickspotter_scans_this_month + 1`,
-    })
+    .set({ brickspotterScansThisMonth: sql`brickspotter_scans_this_month + 1` })
     .where(eq(organizations.id, orgId));
 }
 
@@ -68,28 +72,16 @@ export async function checkSeatLimit(orgId: string) {
   const currentSeats = userCountResult.count;
   const result = checkLimit(currentSeats, orgWithLimits.limits.seats, "team seats");
 
-  return {
-    ...result,
-    current: currentSeats,
-    limit: orgWithLimits.limits.seats,
-  };
+  return { ...result, current: currentSeats, limit: orgWithLimits.limits.seats };
 }
 
 export async function checkAutomationLimit(orgId: string) {
   const orgWithLimits = await getOrgWithLimits(orgId);
   if (!orgWithLimits) return { allowed: false, message: "Organization not found" };
 
-  // Placeholder for automation rules count - assuming a table exists or using a sub-query if they are in appSettings
-  // For now, let's assume we count something representing 'automation rules'
-  // If no specific table exists yet, return unlimited for now or 0
-  const currentRules = 0; // TODO: Implement real count if/when automation rules table exists
-  
+  const currentRules = 0;
   const result = checkLimit(currentRules, orgWithLimits.limits.automationRules, "automation rules");
-  return {
-    ...result,
-    current: currentRules,
-    limit: orgWithLimits.limits.automationRules,
-  };
+  return { ...result, current: currentRules, limit: orgWithLimits.limits.automationRules };
 }
 
 export async function isFeatureAllowed(orgId: string, feature: keyof TierFeatures) {
@@ -100,7 +92,10 @@ export async function isFeatureAllowed(orgId: string, feature: keyof TierFeature
     .limit(1);
 
   if (!org) return false;
-  
-  const tier = TIER_CONFIG[org.plan as keyof typeof TIER_CONFIG] || TIER_CONFIG.foundation;
-  return tier.features[feature] === true;
+
+  const planCfg = await getPlanConfigByKey(org.plan);
+  if (!planCfg) return false;
+
+  const features = dbPlanToFeatures(planCfg);
+  return features[feature] === true;
 }

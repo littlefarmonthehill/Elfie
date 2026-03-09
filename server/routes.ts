@@ -3,6 +3,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { getEffectiveLimits } from "@shared/tierConfig";
+import { seedPlanConfigsIfEmpty, getAllPlanConfigsWithCounts, updatePlanConfig, setPlanSunset, dbPlanToLimits } from "./services/planConfigService";
 import { setupAuth, isAuthenticated, isApproved, isOrgOwner, getOrgId, isSuperAdmin } from "./auth";
 import { syncBricklinkData, fetchPriceOMagicData, searchBricklinkCatalogItem, syncPriceOMagicCache, requestPomSyncStop, getPomFormulaConfig, calculateSuggestedPriceWithSupply, applyPomFloors, bricklinkCatalogRequest } from "./services/bricklink";
 import { getPomIsRunning, setPomIsRunning } from "./services/pom-scheduler";
@@ -75,6 +76,9 @@ async function getOrgSettings(orgId: string) {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Seed plan configs from static tierConfig.ts on first run (idempotent)
+  await seedPlanConfigsIfEmpty();
+
   // Auth middleware setup - Email/Password Authentication
   await setupAuth(app);
 
@@ -590,6 +594,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(updated);
     } catch (err) {
       res.status(500).json({ message: 'Failed to update super admin status' });
+    }
+  });
+
+  // GET /api/platform-admin/plans — all plan configs with org counts (superAdmin only)
+  app.get('/api/platform-admin/plans', isSuperAdmin, async (_req, res) => {
+    try {
+      const plans = await getAllPlanConfigsWithCounts();
+      res.json(plans);
+    } catch (err: any) {
+      console.error("Error fetching plan configs:", err);
+      res.status(500).json({ message: err.message || "Failed to fetch plans" });
+    }
+  });
+
+  // PATCH /api/platform-admin/plans/:planKey — update plan config (locked if orgs are on it)
+  app.patch('/api/platform-admin/plans/:planKey', isSuperAdmin, async (req, res) => {
+    try {
+      const { planKey } = req.params;
+      const fields = req.body;
+      const result = await updatePlanConfig(planKey, fields);
+      if (!result.success) return res.status(403).json({ message: result.error });
+      res.json(result.plan);
+    } catch (err: any) {
+      console.error("Error updating plan config:", err);
+      res.status(500).json({ message: err.message || "Failed to update plan" });
+    }
+  });
+
+  // PATCH /api/platform-admin/plans/:planKey/sunset — toggle sunset flag (always allowed)
+  app.patch('/api/platform-admin/plans/:planKey/sunset', isSuperAdmin, async (req, res) => {
+    try {
+      const { planKey } = req.params;
+      const schema = z.object({ isSunset: z.boolean() });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "isSunset must be a boolean" });
+      const updated = await setPlanSunset(planKey, parsed.data.isSunset);
+      if (!updated) return res.status(404).json({ message: "Plan not found" });
+      res.json(updated);
+    } catch (err: any) {
+      console.error("Error toggling sunset:", err);
+      res.status(500).json({ message: err.message || "Failed to update plan" });
     }
   });
 

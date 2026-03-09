@@ -1327,3 +1327,40 @@ export const insertOrgIntegrationSchema = createInsertSchema(orgIntegrations).om
 
 export type InsertOrgIntegration = z.infer<typeof insertOrgIntegrationSchema>;
 export type OrgIntegration = typeof orgIntegrations.$inferSelect;
+
+// ── Platform Plan Configurations ──────────────────────────────────────────────
+// DB-backed plan definitions. Seeded from tierConfig.ts values on first run.
+// Super admins can edit unlocked plans, sunset any plan, and see org counts.
+export const planConfigs = pgTable("plan_configs", {
+  id: serial("id").primaryKey(),
+  planKey: varchar("plan_key", { length: 50 }).notNull().unique(), // 'trial' | 'foundation' | 'core' | 'flagship'
+  name: varchar("name", { length: 100 }).notNull(),
+  tagline: text("tagline"),
+  // Pricing (in cents; 0 = free)
+  priceMonthly: integer("price_monthly").notNull().default(0),
+  priceAnnual: integer("price_annual").notNull().default(0),
+  priceAnnualMonthly: integer("price_annual_monthly").notNull().default(0),
+  // Limits (-1 = unlimited)
+  limitSeats: integer("limit_seats").notNull().default(1),
+  limitScans: integer("limit_scans").notNull().default(0),
+  limitAutomationRules: integer("limit_automation_rules").notNull().default(0),
+  limitOrderHistoryDays: integer("limit_order_history_days").notNull().default(30),
+  limitInventoryItems: integer("limit_inventory_items").notNull().default(100),
+  // Features
+  featureBrickOwl: boolean("feature_brick_owl").notNull().default(false),
+  featureElfieAi: boolean("feature_elfie_ai").notNull().default(false),
+  featurePriceOMatic: boolean("feature_price_o_matic").notNull().default(false),
+  featureEasypost: boolean("feature_easypost").notNull().default(false),
+  featureDataImages: boolean("feature_data_images").notNull().default(false),
+  featureDataSemantic: boolean("feature_data_semantic").notNull().default(false),
+  featureFullEnrichment: boolean("feature_full_enrichment").notNull().default(false),
+  featurePaymentSync: boolean("feature_payment_sync").notNull().default(false),
+  // Status
+  isSunset: boolean("is_sunset").notNull().default(false),
+  sortOrder: integer("sort_order").notNull().default(0), // 0=trial, 1=foundation, 2=core, 3=flagship
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertPlanConfigSchema = createInsertSchema(planConfigs).omit({ id: true, updatedAt: true });
+export type InsertPlanConfig = z.infer<typeof insertPlanConfigSchema>;
+export type PlanConfig = typeof planConfigs.$inferSelect;

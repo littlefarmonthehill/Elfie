@@ -28,3 +28,13 @@ PlanetBrick's core functionality revolves around BrickLink as the primary produc
 -   **OpenAI API:** Powers E.L.F.I.E. for completions (GPT-4o-mini) and embeddings (`text-embedding-3-small`).
 -   **Brickognize API:** For LEGO part image recognition within the Brickanalyzer tool.
 -   **Neon:** Serverless PostgreSQL database with the `pgvector` extension for vector embeddings.
+
+## Platform Admin — Plans & Pricing
+
+Plan configurations are stored in the `planConfigs` DB table (seeded once from `shared/tierConfig.ts` on first startup). Super admins can edit plan configs via the Platform Admin → Plans & Pricing section in the SettingsModal.
+
+- **Enforcement**: `server/services/tierEnforcement.ts` reads limits/features from DB via `getPlanConfigByKey()` (5-min cache) instead of static config
+- **Lock rule**: Once any org is on a plan, its config is read-only except for the `isSunset` toggle
+- **Sunset**: Marks a plan so it cannot be offered to new signups; existing customers are unaffected
+- **Plan service**: `server/services/planConfigService.ts` — `seedPlanConfigsIfEmpty()`, `getAllPlanConfigsWithCounts()`, `updatePlanConfig()`, `setPlanSunset()`
+- **API routes**: `GET /api/platform-admin/plans`, `PATCH /api/platform-admin/plans/:planKey`, `PATCH /api/platform-admin/plans/:planKey/sunset`
