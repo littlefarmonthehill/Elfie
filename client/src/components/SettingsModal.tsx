@@ -896,6 +896,12 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     retry: 0,
   });
 
+  // Must be declared before any useEffect that references `org` in its dependency array
+  const { data: org } = useQuery<Organization>({
+    queryKey: ['/api/org'],
+    enabled: open,
+  });
+
   useEffect(() => { setActiveGeneralTab('info'); }, [activeSection]);
 
   useEffect(() => {
@@ -1494,10 +1500,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   });
 
   // Org profile state
-  const { data: org } = useQuery<Organization>({
-    queryKey: ['/api/org'],
-    enabled: open,
-  });
   const [orgName, setOrgName] = useState('');
   const [orgAddress, setOrgAddress] = useState('');
   const [orgPhone, setOrgPhone] = useState('');
