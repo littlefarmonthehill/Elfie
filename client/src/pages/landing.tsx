@@ -1,16 +1,16 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Link } from "wouter";
 import { Zap, ScanLine, Globe } from "lucide-react";
 import logoUrl from "@assets/PlanetBrick_dotcom_with_planet_and_robot_400_1760672362080.png";
 
-type ChId = "home" | "features" | "pricing" | "ops" | "live";
+type ChId = "home" | "ops" | "tools" | "pricing" | "live";
 
-const CHANNELS: { id: ChId; num: string; label: string }[] = [
-  { id: "home",     num: "01", label: "INTRO"    },
-  { id: "features", num: "02", label: "FEATURES" },
-  { id: "pricing",  num: "03", label: "PRICING"  },
-  { id: "ops",      num: "04", label: "OPS"      },
-  { id: "live",     num: "05", label: "ON AIR"   },
+const CHANNELS: { id: ChId; num: string; label: string; slides: number }[] = [
+  { id: "home",    num: "01", label: "INTRO",   slides: 1 },
+  { id: "ops",     num: "02", label: "OPS",     slides: 4 },
+  { id: "tools",   num: "03", label: "TOOLS",   slides: 3 },
+  { id: "pricing", num: "04", label: "PRICING", slides: 1 },
+  { id: "live",    num: "05", label: "ON AIR",  slides: 1 },
 ];
 
 const TIERS = [
@@ -31,21 +31,70 @@ const TIERS = [
   },
 ];
 
-const FEATURES = [
+const TOOLS_SLIDES = [
   {
     Icon: Zap, color: "#FFD600", rgb: "255,214,0",
     title: "Price-o-Matic",
-    desc: "AI monitors the market 24/7 and reprices your catalog automatically. Underpriced? Fixed. Overpriced? Corrected.",
+    tagline: "AI-powered repricing",
+    desc: "Monitors the market 24/7 and reprices your catalog automatically. Underpriced? Fixed. Overpriced? Corrected.",
+    bullets: ["Market price tracking", "Auto-adjust rules", "Floor/ceiling guards"],
   },
   {
     Icon: ScanLine, color: "#00FFEE", rgb: "0,255,238",
     title: "BrickSpotter",
-    desc: "Point your camera at any LEGO piece. Our AI identifies it instantly across 130k+ parts — color, condition, value.",
+    tagline: "AI part identification",
+    desc: "Point your camera at any LEGO piece. AI identifies it instantly across 130k+ parts — color, condition, value.",
+    bullets: ["130k+ parts catalog", "Color recognition", "Instant valuation"],
   },
   {
     Icon: Globe, color: "#CC88FF", rgb: "204,136,255",
     title: "Multichannel Sync",
+    tagline: "Unified inventory control",
     desc: "BrickLink, BrickOwl and beyond — inventory and orders unified in one command center. No double-selling.",
+    bullets: ["Real-time sync", "Multi-platform orders", "No overselling"],
+  },
+];
+
+const OPS_SLIDES = [
+  {
+    label: "Product", color: "#00FFEE", rgb: "0,255,238",
+    metrics: [
+      { label: "Lots",       value: "47,312" },
+      { label: "Parts",      value: "1.2M"   },
+      { label: "Categories", value: "128"    },
+      { label: "Sync",       value: "Live"   },
+    ],
+    tools: ["BrickSpotter", "Inventory Sync", "Warehouse"],
+  },
+  {
+    label: "Orders", color: "#A855F7", rgb: "168,85,247",
+    metrics: [
+      { label: "To Fulfill", value: "12"     },
+      { label: "Shipped",    value: "3 today" },
+      { label: "On Hold",    value: "1"      },
+      { label: "Revenue",    value: "$4,891" },
+    ],
+    tools: ["Fulfillment", "Picklist", "Order Sync"],
+  },
+  {
+    label: "Marketing", color: "#FF00CC", rgb: "255,0,204",
+    metrics: [
+      { label: "Channels",      value: "2 live"  },
+      { label: "Discrepancies", value: "0"       },
+      { label: "Last Sync",     value: "2h ago"  },
+      { label: "Listings",      value: "12,847"  },
+    ],
+    tools: ["Channel Sync", "Price-o-Matic", "Platforms"],
+  },
+  {
+    label: "Sales", color: "#FFD600", rgb: "255,214,0",
+    metrics: [
+      { label: "This Week", value: "$1,247" },
+      { label: "Growth",    value: "+18%"  },
+      { label: "Avg Order", value: "$22"   },
+      { label: "Orders",    value: "847"   },
+    ],
+    tools: ["Analytics", "POM Pricing", "Reports"],
   },
 ];
 
@@ -79,6 +128,7 @@ const GLOBAL_CSS = `
   @keyframes pb-bgring-r { from{transform:translate(-50%,-50%) rotate(0deg)} to{transform:translate(-50%,-50%) rotate(-360deg)} }
   @keyframes pb-slidein    { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
   @keyframes pb-radiowave  { 0%{opacity:0} 8%{opacity:0.85} 100%{opacity:0} }
+  @keyframes pb-swipehint  { 0%,100%{opacity:0;transform:translateX(0)} 20%{opacity:0.7} 50%{opacity:0.9;transform:translateX(6px)} 80%{opacity:0.7} }
 `;
 
 function HomeScreen({ tune }: { tune: (id: ChId) => void }) {
@@ -98,7 +148,7 @@ function HomeScreen({ tune }: { tune: (id: ChId) => void }) {
           PlanetBrick runs your back office while you build.
         </p>
         <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-          <button onClick={() => tune("features")} style={{
+          <button onClick={() => tune("ops")} style={{
             background: `linear-gradient(135deg, ${TEAL}CC, #00BBDD)`,
             border: "none", borderRadius: "100px",
             padding: "clamp(8px,1vw,12px) clamp(18px,2vw,28px)",
@@ -106,7 +156,7 @@ function HomeScreen({ tune }: { tune: (id: ChId) => void }) {
             fontSize: "clamp(11px,1.1vw,14px)", letterSpacing: "0.05em",
             boxShadow: `0 0 24px ${TEAL}55`,
           }}>
-            See Features →
+            See Dashboards →
           </button>
         </div>
       </div>
@@ -122,36 +172,110 @@ function HomeScreen({ tune }: { tune: (id: ChId) => void }) {
   );
 }
 
-function FeaturesScreen() {
+function ToolsScreen({ slideIndex }: { slideIndex: number }) {
+  const t = TOOLS_SLIDES[slideIndex] ?? TOOLS_SLIDES[0];
   return (
-    <div style={{ height: "100%", display: "flex", flexDirection: "column", padding: "clamp(14px,2vw,26px) clamp(18px,2.5vw,32px)", color: "#E8F4FF", gap: "clamp(10px,1.4vw,16px)", animation: "pb-slidein 0.3s ease-out" }}>
+    <div key={slideIndex} style={{ height: "100%", display: "flex", flexDirection: "column", padding: "clamp(14px,2vw,26px) clamp(18px,2.5vw,32px)", color: "#E8F4FF", gap: "clamp(10px,1.4vw,16px)", animation: "pb-slidein 0.25s ease-out" }}>
       <div>
-        <div style={{ fontSize: "clamp(8px,0.7vw,10px)", fontFamily: "monospace", color: TEAL, letterSpacing: "0.3em", marginBottom: "5px" }}>CH 02 — FEATURES</div>
-        <h2 style={{ fontSize: "clamp(16px,1.8vw,22px)", fontWeight: 900, color: "#FFF", margin: 0 }}>What PlanetBrick does for you</h2>
+        <div style={{ fontSize: "clamp(8px,0.7vw,10px)", fontFamily: "monospace", color: TEAL, letterSpacing: "0.3em", marginBottom: "5px" }}>CH 03 — TOOLS · {slideIndex + 1}/{TOOLS_SLIDES.length}</div>
+        <h2 style={{ fontSize: "clamp(16px,1.8vw,22px)", fontWeight: 900, color: "#FFF", margin: 0 }}>Your toolkit, always on.</h2>
       </div>
-      <div style={{ display: "flex", gap: "clamp(8px,1.2vw,14px)", flex: 1 }}>
-        {FEATURES.map(f => (
-          <div key={f.title} style={{
-            flex: 1,
-            background: `rgba(${f.rgb},0.07)`,
-            border: `1px solid rgba(${f.rgb},0.3)`,
-            borderRadius: "14px",
-            padding: "clamp(12px,1.5vw,18px) clamp(10px,1.2vw,16px)",
-            display: "flex", flexDirection: "column", gap: "clamp(7px,0.9vw,10px)",
-            boxShadow: `0 0 24px rgba(${f.rgb},0.1) inset`,
+      <div style={{
+        flex: 1,
+        background: `rgba(${t.rgb},0.06)`,
+        border: `1px solid rgba(${t.rgb},0.3)`,
+        borderRadius: "14px",
+        padding: "clamp(14px,1.8vw,22px) clamp(12px,1.5vw,18px)",
+        display: "flex", flexDirection: "column", gap: "clamp(8px,1vw,12px)",
+        boxShadow: `0 0 28px rgba(${t.rgb},0.08) inset`,
+        position: "relative", overflow: "hidden",
+      }}>
+        <div style={{ position: "absolute", inset: 0, background: `radial-gradient(ellipse 60% 50% at 15% 20%, rgba(${t.rgb},0.09), transparent)`, pointerEvents: "none" }} />
+        <div style={{ display: "flex", alignItems: "center", gap: "clamp(10px,1.2vw,14px)" }}>
+          <div style={{
+            width: "clamp(32px,3.5vw,46px)", height: "clamp(32px,3.5vw,46px)", borderRadius: "50%",
+            background: `rgba(${t.rgb},0.15)`, border: `1px solid rgba(${t.rgb},0.4)`,
+            display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+            boxShadow: `0 0 20px rgba(${t.rgb},0.3)`,
           }}>
-            <div style={{
-              width: "clamp(28px,2.8vw,38px)", height: "clamp(28px,2.8vw,38px)", borderRadius: "50%",
-              background: `rgba(${f.rgb},0.15)`, border: `1px solid rgba(${f.rgb},0.35)`,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              boxShadow: `0 0 16px rgba(${f.rgb},0.25)`,
-            }}>
-              <f.Icon size={15} color={f.color} />
-            </div>
-            <div style={{ fontSize: "clamp(12px,1.2vw,16px)", fontWeight: 800, color: "#FFF" }}>{f.title}</div>
-            <div style={{ fontSize: "clamp(10px,0.95vw,13px)", color: "rgba(210,230,255,0.85)", lineHeight: 1.6 }}>{f.desc}</div>
+            <t.Icon size={18} color={t.color} />
           </div>
-        ))}
+          <div>
+            <div style={{ fontSize: "clamp(9px,0.8vw,11px)", fontFamily: "monospace", color: t.color, letterSpacing: "0.2em", opacity: 0.8 }}>{t.tagline.toUpperCase()}</div>
+            <div style={{ fontSize: "clamp(18px,2vw,26px)", fontWeight: 900, color: "#FFF", lineHeight: 1.1 }}>{t.title}</div>
+          </div>
+        </div>
+        <p style={{ fontSize: "clamp(11px,1vw,14px)", color: "rgba(210,230,255,0.85)", lineHeight: 1.65, margin: 0 }}>{t.desc}</p>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "clamp(5px,0.7vw,8px)", marginTop: "auto" }}>
+          {t.bullets.map(b => (
+            <div key={b} style={{
+              padding: "3px 10px", borderRadius: "100px",
+              background: `rgba(${t.rgb},0.12)`, border: `1px solid rgba(${t.rgb},0.3)`,
+              fontSize: "clamp(9px,0.82vw,11px)", color: t.color, fontWeight: 600,
+            }}>{b}</div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function OpsScreen({ slideIndex }: { slideIndex: number }) {
+  const s = OPS_SLIDES[slideIndex] ?? OPS_SLIDES[0];
+  return (
+    <div key={slideIndex} style={{ height: "100%", display: "flex", flexDirection: "column", padding: "clamp(12px,1.8vw,22px) clamp(14px,2vw,26px)", color: "#E8F4FF", gap: "clamp(8px,1.2vw,12px)", animation: "pb-slidein 0.25s ease-out" }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+        <div>
+          <div style={{ fontSize: "clamp(8px,0.7vw,10px)", fontFamily: "monospace", color: TEAL, letterSpacing: "0.3em", marginBottom: "3px" }}>CH 02 — OPS · {slideIndex + 1}/{OPS_SLIDES.length}</div>
+          <h2 style={{ fontSize: "clamp(14px,1.6vw,20px)", fontWeight: 900, margin: 0 }}>
+            <span style={{ color: s.color, textShadow: `0 0 14px rgba(${s.rgb},0.5)` }}>{s.label}</span>
+            <span style={{ color: "#fff" }}> Dashboard</span>
+          </h2>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "5px", background: `rgba(${s.rgb},0.08)`, border: `1px solid rgba(${s.rgb},0.3)`, borderRadius: "100px", padding: "3px 8px 3px 5px" }}>
+          <div style={{ width: "5px", height: "5px", borderRadius: "50%", background: s.color, boxShadow: `0 0 5px ${s.color}`, animation: "pb-pulse 1.5s ease-in-out infinite" }} />
+          <span style={{ fontSize: "clamp(7px,0.6vw,9px)", fontFamily: "monospace", color: s.color, fontWeight: 700, letterSpacing: "0.12em" }}>LIVE</span>
+        </div>
+      </div>
+
+      {/* Metrics section */}
+      <div style={{ flexShrink: 0 }}>
+        <div style={{ fontSize: "clamp(7px,0.62vw,9px)", fontFamily: "monospace", color: `rgba(${s.rgb},0.7)`, letterSpacing: "0.25em", marginBottom: "clamp(4px,0.6vw,6px)" }}>METRICS</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "clamp(4px,0.6vw,7px)" }}>
+          {s.metrics.map(m => (
+            <div key={m.label} style={{
+              background: `rgba(${s.rgb},0.05)`,
+              border: `1px solid rgba(${s.rgb},0.2)`,
+              borderRadius: "10px",
+              padding: "clamp(6px,0.8vw,10px) clamp(6px,0.7vw,8px)",
+              textAlign: "center",
+            }}>
+              <div style={{ fontSize: "clamp(13px,1.4vw,18px)", fontWeight: 900, color: s.color, fontFamily: "monospace", textShadow: `0 0 10px rgba(${s.rgb},0.5)` }}>{m.value}</div>
+              <div style={{ fontSize: "clamp(7px,0.62vw,9px)", color: "rgba(200,220,255,0.55)", letterSpacing: "0.12em", marginTop: "2px" }}>{m.label.toUpperCase()}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Tools section */}
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: "clamp(7px,0.62vw,9px)", fontFamily: "monospace", color: `rgba(${s.rgb},0.7)`, letterSpacing: "0.25em", marginBottom: "clamp(4px,0.6vw,6px)" }}>TOOLS</div>
+        <div style={{ display: "flex", gap: "clamp(6px,0.8vw,10px)", flexWrap: "wrap" }}>
+          {s.tools.map((tool, i) => (
+            <div key={tool} style={{
+              flex: 1, minWidth: "28%",
+              background: i === 0 ? `rgba(${s.rgb},0.13)` : "rgba(255,255,255,0.04)",
+              border: `1px solid ${i === 0 ? `rgba(${s.rgb},0.45)` : "rgba(200,220,255,0.14)"}`,
+              borderRadius: "10px",
+              padding: "clamp(8px,1vw,12px) clamp(8px,0.9vw,10px)",
+              display: "flex", alignItems: "center", gap: "6px",
+            }}>
+              <div style={{ width: "5px", height: "5px", borderRadius: "50%", background: i === 0 ? s.color : "rgba(200,220,255,0.3)", flexShrink: 0 }} />
+              <span style={{ fontSize: "clamp(9px,0.88vw,12px)", color: i === 0 ? s.color : "rgba(210,230,255,0.75)", fontWeight: i === 0 ? 700 : 500 }}>{tool}</span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -161,7 +285,7 @@ function PricingScreen({ tune }: { tune: (id: ChId) => void }) {
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column", padding: "clamp(12px,1.8vw,22px) clamp(14px,2vw,26px)", color: "#E8F4FF", gap: "clamp(8px,1.2vw,13px)", overflow: "hidden", animation: "pb-slidein 0.3s ease-out" }}>
       <div>
-        <div style={{ fontSize: "clamp(8px,0.7vw,10px)", fontFamily: "monospace", color: TEAL, letterSpacing: "0.3em", marginBottom: "5px" }}>CH 03 — PRICING</div>
+        <div style={{ fontSize: "clamp(8px,0.7vw,10px)", fontFamily: "monospace", color: TEAL, letterSpacing: "0.3em", marginBottom: "5px" }}>CH 04 — PRICING</div>
         <h2 style={{ fontSize: "clamp(16px,1.8vw,22px)", fontWeight: 900, color: "#FFF", margin: 0 }}>Simple, honest pricing</h2>
       </div>
       <div style={{ display: "flex", gap: "clamp(8px,1.2vw,12px)", flex: 1, overflow: "hidden" }}>
@@ -219,89 +343,6 @@ function PricingScreen({ tune }: { tune: (id: ChId) => void }) {
   );
 }
 
-const OPS_LANES = [
-  {
-    label: "Product",
-    color: "#00FFEE", rgb: "0,255,238",
-    status: "Synced",
-    detail: "47,312 lots · 128 categories",
-    dot: "#00FFEE",
-    bar: 94,
-  },
-  {
-    label: "Orders",
-    color: "#A855F7", rgb: "168,85,247",
-    status: "12 to fulfill",
-    detail: "3 shipped today · 1 on hold",
-    dot: "#A855F7",
-    bar: 78,
-  },
-  {
-    label: "Marketing",
-    color: "#FF00CC", rgb: "255,0,204",
-    status: "2 channels live",
-    detail: "BrickLink · BrickOwl",
-    dot: "#FF00CC",
-    bar: 100,
-  },
-  {
-    label: "Sales",
-    color: "#FFD600", rgb: "255,214,0",
-    status: "$1,247 this week",
-    detail: "+18% vs last week",
-    dot: "#FFD600",
-    bar: 62,
-  },
-];
-
-function OpsScreen() {
-  return (
-    <div style={{ height: "100%", display: "flex", flexDirection: "column", padding: "clamp(12px,1.8vw,22px) clamp(14px,2vw,26px)", color: "#E8F4FF", gap: "clamp(8px,1.2vw,14px)", animation: "pb-slidein 0.3s ease-out" }}>
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-        <div>
-          <div style={{ fontSize: "clamp(8px,0.7vw,10px)", fontFamily: "monospace", color: TEAL, letterSpacing: "0.3em", marginBottom: "4px" }}>CH 04 — OPS CENTER</div>
-          <h2 style={{ fontSize: "clamp(14px,1.6vw,20px)", fontWeight: 900, color: "#FFF", margin: 0 }}>Operations at a Glance</h2>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "rgba(0,255,238,0.07)", border: `1px solid ${TEAL}33`, borderRadius: "100px", padding: "4px 10px 4px 6px" }}>
-          <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: TEAL, boxShadow: `0 0 6px ${TEAL}`, animation: "pb-pulse 1.5s ease-in-out infinite" }} />
-          <span style={{ fontSize: "clamp(7px,0.65vw,9px)", fontFamily: "monospace", color: TEAL, fontWeight: 700, letterSpacing: "0.15em" }}>LIVE</span>
-        </div>
-      </div>
-
-      {/* Lane grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "clamp(6px,0.9vw,10px)", flex: 1 }}>
-        {OPS_LANES.map(lane => (
-          <div key={lane.label} style={{
-            background: `rgba(${lane.rgb},0.05)`,
-            border: `1px solid rgba(${lane.rgb},0.28)`,
-            borderRadius: "12px",
-            padding: "clamp(8px,1.1vw,14px) clamp(10px,1.3vw,16px)",
-            display: "flex", flexDirection: "column", gap: "clamp(4px,0.6vw,7px)",
-            position: "relative", overflow: "hidden",
-          }}>
-            {/* Subtle background glow */}
-            <div style={{ position: "absolute", inset: 0, background: `radial-gradient(ellipse 80% 60% at 20% 20%, rgba(${lane.rgb},0.07), transparent)`, pointerEvents: "none" }} />
-            {/* Label row */}
-            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-              <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: lane.dot, boxShadow: `0 0 8px ${lane.dot}` }} />
-              <span style={{ fontSize: "clamp(9px,0.85vw,11px)", fontFamily: "monospace", color: lane.color, letterSpacing: "0.2em", fontWeight: 700 }}>{lane.label.toUpperCase()}</span>
-            </div>
-            {/* Status */}
-            <div style={{ fontSize: "clamp(12px,1.3vw,17px)", fontWeight: 900, color: "#FFF", lineHeight: 1.1 }}>{lane.status}</div>
-            {/* Detail */}
-            <div style={{ fontSize: "clamp(9px,0.82vw,11px)", color: "rgba(200,220,255,0.65)", lineHeight: 1.4 }}>{lane.detail}</div>
-            {/* Progress bar */}
-            <div style={{ height: "2px", background: "rgba(255,255,255,0.08)", borderRadius: "2px", overflow: "hidden", marginTop: "2px" }}>
-              <div style={{ height: "100%", width: `${lane.bar}%`, background: `linear-gradient(90deg, rgba(${lane.rgb},0.5), rgba(${lane.rgb},0.9))`, borderRadius: "2px", boxShadow: `0 0 6px rgba(${lane.rgb},0.6)` }} />
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function LiveScreen() {
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "clamp(24px,4vw,48px)", color: "#E8F4FF", textAlign: "center", gap: "clamp(12px,1.8vw,20px)", animation: "pb-slidein 0.3s ease-out" }}>
@@ -352,14 +393,44 @@ function LiveScreen() {
 export default function Landing() {
   const [ch, setCh] = useState<ChId>("home");
   const [flash, setFlash] = useState(false);
+  const [slideIndex, setSlideIndex] = useState(0);
+  const touchStartX = useRef(0);
+  const isDragging = useRef(false);
+
+  const activeCh = CHANNELS.find(c => c.id === ch)!;
+  const totalSlides = activeCh.slides;
 
   const tune = (next: ChId) => {
     if (next === ch || flash) return;
     setFlash(true);
+    setSlideIndex(0);
     setTimeout(() => { setCh(next); setFlash(false); }, 200);
   };
 
-  const activeCh = CHANNELS.find(c => c.id === ch)!;
+  const goSlide = (dir: 1 | -1) => {
+    setSlideIndex(i => Math.min(Math.max(i + dir, 0), totalSlides - 1));
+  };
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+  const onTouchEnd = (e: React.TouchEvent) => {
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    if (Math.abs(dx) > 36) goSlide(dx < 0 ? 1 : -1);
+  };
+  const onMouseDown = (e: React.MouseEvent) => {
+    touchStartX.current = e.clientX;
+    isDragging.current = true;
+  };
+  const onMouseUp = (e: React.MouseEvent) => {
+    if (!isDragging.current) return;
+    isDragging.current = false;
+    const dx = e.clientX - touchStartX.current;
+    if (Math.abs(dx) > 36) goSlide(dx < 0 ? 1 : -1);
+  };
+
+  // Reset slide when channel changes via tune
+  useEffect(() => { setSlideIndex(0); }, [ch]);
 
   return (
     <div style={{
@@ -374,7 +445,6 @@ export default function Landing() {
       fontFamily: "system-ui, sans-serif", position: "relative",
     }}>
       <style>{GLOBAL_CSS}</style>
-
 
       {/* Star field */}
       <div style={{ position: "fixed", inset: 0, pointerEvents: "none" }}>
@@ -459,7 +529,7 @@ export default function Landing() {
             display: "flex", flexDirection: "column", alignItems: "center",
             gap: "clamp(3px,0.4vh,5px)", pointerEvents: "auto",
           }}>
-            {/* Radio wave arcs — 3 nested upward arcs, propagating outward */}
+            {/* Radio wave arcs */}
             <div style={{ position: "relative", width: "clamp(44px,6vw,72px)", height: "clamp(22px,3vh,36px)", flexShrink: 0 }}>
               {([
                 { w: "30%",  h: "30%",  delay: "0s"    },
@@ -499,7 +569,7 @@ export default function Landing() {
           </div>
         </div>
 
-        {/* TV Body — dark charcoal/navy */}
+        {/* TV Body */}
         <div style={{
           position: "relative",
           width: "min(920px, 96vw)",
@@ -541,7 +611,7 @@ export default function Landing() {
             }} />
           ))}
 
-          {/* Screen — full width */}
+          {/* Screen */}
           <div>
             {/* Chrome bezel */}
             <div style={{
@@ -556,7 +626,15 @@ export default function Landing() {
                 overflow: "hidden",
                 position: "relative",
                 height: "clamp(300px,42vh,520px)",
-              }}>
+                cursor: totalSlides > 1 ? "grab" : "default",
+                userSelect: "none",
+              }}
+                onTouchStart={onTouchStart}
+                onTouchEnd={onTouchEnd}
+                onMouseDown={onMouseDown}
+                onMouseUp={onMouseUp}
+                onMouseLeave={() => { isDragging.current = false; }}
+              >
                 {/* Scanlines */}
                 <div style={{
                   position: "absolute", inset: 0, zIndex: 15, pointerEvents: "none",
@@ -591,23 +669,58 @@ export default function Landing() {
                     opacity: 0.9,
                   }} />
                 )}
+
                 {/* Content */}
                 <div style={{
                   position: "relative", zIndex: 5, height: "100%",
                   opacity: flash ? 0 : 1, transition: "opacity 0.1s ease",
                   overflow: "hidden",
                 }}>
-                  {ch === "home"     && <HomeScreen tune={tune} />}
-                  {ch === "features" && <FeaturesScreen />}
-                  {ch === "pricing"  && <PricingScreen tune={tune} />}
-                  {ch === "ops"      && <OpsScreen />}
-                  {ch === "live"     && <LiveScreen />}
+                  {ch === "home"    && <HomeScreen tune={tune} />}
+                  {ch === "ops"     && <OpsScreen slideIndex={slideIndex} />}
+                  {ch === "tools"   && <ToolsScreen slideIndex={slideIndex} />}
+                  {ch === "pricing" && <PricingScreen tune={tune} />}
+                  {ch === "live"    && <LiveScreen />}
+
+                  {/* Slide dots + swipe hint — overlay at bottom */}
+                  {totalSlides > 1 && !flash && (
+                    <div style={{
+                      position: "absolute", bottom: "clamp(8px,1.2vw,14px)", left: 0, right: 0, zIndex: 18,
+                      display: "flex", flexDirection: "column", alignItems: "center", gap: "5px",
+                      pointerEvents: "none",
+                    }}>
+                      {/* Swipe hint — fades in/out */}
+                      <div style={{
+                        display: "flex", alignItems: "center", gap: "5px",
+                        fontSize: "clamp(7px,0.62vw,9px)", fontFamily: "monospace",
+                        color: `${TEAL}88`, letterSpacing: "0.15em",
+                        animation: "pb-swipehint 3s ease-in-out 1s 2",
+                      }}>
+                        <span style={{ fontSize: "8px" }}>‹</span>
+                        SWIPE
+                        <span style={{ fontSize: "8px" }}>›</span>
+                      </div>
+                      {/* Dots */}
+                      <div style={{ display: "flex", gap: "5px" }}>
+                        {Array.from({ length: totalSlides }).map((_, i) => (
+                          <div key={i} style={{
+                            width: i === slideIndex ? "18px" : "5px",
+                            height: "5px",
+                            borderRadius: "3px",
+                            background: i === slideIndex ? TEAL : `${TEAL}44`,
+                            boxShadow: i === slideIndex ? `0 0 6px ${TEAL}` : "none",
+                            transition: "width 0.25s ease, background 0.25s ease",
+                          }} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Bottom controls strip: LED | channels | dials | signal */}
+          {/* Bottom controls strip */}
           <div style={{
             display: "flex", alignItems: "center",
             gap: "clamp(8px,1.2vw,16px)",
@@ -632,7 +745,7 @@ export default function Landing() {
               <div style={{ fontSize: "clamp(5px,0.5vw,7px)", letterSpacing: "0.2em", color: `${TEAL}BB` }}>CH</div>
             </div>
 
-            {/* Channel buttons — horizontal row */}
+            {/* Channel buttons */}
             <div style={{ display: "flex", gap: "clamp(5px,0.8vw,10px)", flex: 1, justifyContent: "center" }}>
               {CHANNELS.map(c => {
                 const isActive = ch === c.id;
@@ -677,83 +790,27 @@ export default function Landing() {
                     <div style={{
                       position: "absolute", width: "2px", height: "36%",
                       background: k.color, top: "14%", left: "50%",
-                      transform: "translateX(-50%)",
-                      transformOrigin: "bottom center",
-                      borderRadius: "1px",
-                      boxShadow: `0 0 6px ${k.color}`,
+                      transform: "translateX(-50%)", borderRadius: "2px",
+                      boxShadow: `0 0 4px ${k.color}`,
                     }} />
                   </div>
-                  <div style={{ fontSize: "clamp(5px,0.48vw,7px)", fontFamily: "monospace", color: `${k.color}66`, letterSpacing: "0.12em", marginTop: "2px" }}>{k.label}</div>
+                  <div style={{ fontSize: "clamp(5px,0.48vw,7px)", color: `${k.color}88`, letterSpacing: "0.15em", marginTop: "3px" }}>{k.label}</div>
                 </div>
               ))}
             </div>
 
             {/* Signal bars */}
-            <div style={{ display: "flex", gap: "3px", alignItems: "flex-end", flexShrink: 0 }}>
-              {[4, 6, 8, 10, 12].map((h, i) => (
+            <div style={{ display: "flex", alignItems: "flex-end", gap: "2px", flexShrink: 0 }}>
+              {[3, 5, 7, 9, 11].map((h, i) => (
                 <div key={i} style={{
-                  width: "clamp(3px,0.4vw,5px)", height: `${h}px`,
-                  background: i < 4 ? `${TEAL}CC` : `rgba(150,170,220,0.2)`,
-                  borderRadius: "1px",
-                  boxShadow: i < 4 ? `0 0 4px ${TEAL}66` : "none",
+                  width: "clamp(2px,0.28vw,4px)", height: `${h}px`, borderRadius: "1px",
+                  background: i < 3 ? TEAL : `${TEAL}30`,
+                  boxShadow: i < 3 ? `0 0 4px ${TEAL}` : "none",
                 }} />
               ))}
             </div>
           </div>
-
-          {/* Brand strip */}
-          <div style={{ textAlign: "center", paddingBottom: "2px" }}>
-            <div style={{ fontSize: "clamp(7px,0.6vw,9px)", fontFamily: "monospace", color: "rgba(160,185,240,0.6)", letterSpacing: "0.3em", textTransform: "uppercase" }}>
-              PlanetBrick ◆ LEGO Commerce System
-            </div>
-          </div>
         </div>
-
-        {/* Neck */}
-        <div style={{
-          width: "clamp(28px,3.5vw,48px)", height: "clamp(32px,5vh,60px)",
-          background: "linear-gradient(to bottom, #3A3A5A, #1C1C30, #14142A)",
-          margin: "0 auto", marginTop: "-1px",
-          clipPath: "polygon(25% 0%, 75% 0%, 85% 100%, 15% 100%)",
-          boxShadow: `0 4px 12px rgba(0,0,0,0.6)`,
-          position: "relative", zIndex: 2,
-        }} />
-
-        {/* Saucer base */}
-        <div style={{
-          width: "min(620px, 66vw)",
-          height: "clamp(28px,4.5vh,52px)",
-          background: "linear-gradient(170deg, #2A2A4A 0%, #1A1A32 40%, #10101E 100%)",
-          borderRadius: "50%",
-          marginTop: "-4px",
-          boxShadow: `
-            0 0 0 1px rgba(100,120,200,0.25) inset,
-            0 8px 24px rgba(0,0,0,0.7),
-            0 0 40px ${TEAL}15
-          `,
-          position: "relative",
-        }}>
-          {/* Saucer highlight ring */}
-          <div style={{
-            position: "absolute", top: "18%", left: "10%", right: "10%", height: "1px",
-            background: `linear-gradient(90deg, transparent, ${TEAL}44, transparent)`,
-          }} />
-          {/* Saucer teal underline glow — animated */}
-          <div style={{
-            position: "absolute", bottom: "-6px", left: "20%", right: "20%", height: "6px",
-            background: `${TEAL}44`,
-            borderRadius: "50%",
-            animation: "pb-saucer 3s ease-in-out infinite",
-          }} />
-        </div>
-
-        {/* Floor glow */}
-        <div style={{
-          width: "min(400px, 44vw)", height: "clamp(8px,1.5vh,16px)",
-          background: `radial-gradient(ellipse, ${TEAL}18 0%, transparent 70%)`,
-          marginTop: "4px", filter: "blur(6px)",
-          animation: "pb-saucer 3s ease-in-out 1.5s infinite",
-        }} />
       </div>
     </div>
   );
