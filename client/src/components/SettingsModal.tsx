@@ -1502,7 +1502,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
       items: [
         { id: 'systemHealth' as const, label: 'System Health', icon: Activity },
         { id: 'auditLog' as const, label: 'Audit Log', icon: ClipboardList },
-        { id: 'apiKeys' as const, label: 'API Keys', icon: Key },
+        { id: 'apiKeys' as const, label: 'Platform Services', icon: Key },
         { id: 'enrichment' as const, label: 'Data Enrichment', icon: Database },
         { id: 'ai' as const, label: 'E.L.F.I.E.', icon: Brain },
       ],
@@ -5930,14 +5930,14 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
               );
             })()}
 
-            {/* API Keys */}
+            {/* Platform Services */}
             {activeSection === 'apiKeys' && (
               <div className="p-4 space-y-4">
                 <div className="rounded-lg bg-gray-800/60 border border-gray-700 p-6 flex flex-col items-center justify-center gap-3 text-center">
                   <Key className="h-8 w-8 text-gray-600" />
                   <div>
-                    <p className="text-sm font-medium text-gray-300">API Keys</p>
-                    <p className="text-xs text-gray-500 mt-1">Manage platform-level API keys for third-party integrations, webhooks, and service-to-service authentication.</p>
+                    <p className="text-sm font-medium text-gray-300">Platform Services</p>
+                    <p className="text-xs text-gray-500 mt-1">Manage platform-level API keys, service accounts, and backend credentials for OpenAI, Stripe, and other core integrations.</p>
                   </div>
                   <Badge variant="outline" className="text-[10px] text-gray-500 border-gray-600">Coming Soon</Badge>
                 </div>
