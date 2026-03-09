@@ -877,10 +877,12 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     };
   };
 
-  const { data: systemHealth, isLoading: systemHealthLoading } = useQuery<SystemHealthData>({
+  const { data: systemHealth, isLoading: systemHealthLoading, isError: systemHealthError, refetch: refetchSystemHealth } = useQuery<SystemHealthData>({
     queryKey: ['/api/platform-admin/system-health'],
     enabled: open && activeSection === 'systemHealth',
     refetchInterval: activeSection === 'systemHealth' ? 15000 : false,
+    retry: 1,
+    staleTime: 0,
   });
 
   const updateFeaturesMutation = useMutation({
@@ -5358,8 +5360,16 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     </div>
                   </>
                 ) : (
-                  <div className="flex items-center justify-center py-10">
+                  <div className="flex flex-col items-center justify-center gap-3 py-10">
+                    <AlertTriangle className="h-5 w-5 text-red-400/70" />
                     <p className="text-xs text-gray-500">Failed to load system health data</p>
+                    <button
+                      onClick={() => refetchSystemHealth()}
+                      className="text-[11px] text-yellow-500/70 hover:text-yellow-400 underline"
+                      data-testid="button-retry-system-health"
+                    >
+                      Retry
+                    </button>
                   </div>
                 )}
               </div>
@@ -5408,18 +5418,120 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
             )}
 
             {/* Plans & Pricing */}
-            {activeSection === 'plansAndPricing' && (
-              <div className="p-4 space-y-4">
-                <div className="rounded-lg bg-gray-800/60 border border-gray-700 p-6 flex flex-col items-center justify-center gap-3 text-center">
-                  <Tag className="h-8 w-8 text-gray-600" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-300">Plans & Pricing</p>
-                    <p className="text-xs text-gray-500 mt-1">Configure subscription plans, set pricing, adjust feature entitlements, and manage promotional pricing.</p>
+            {activeSection === 'plansAndPricing' && (() => {
+              const PLAN_ORDER: PlanType[] = ['trial', 'foundation', 'core', 'flagship'];
+              const FEATURE_LABELS: { key: keyof typeof TIER_CONFIG.trial.features; label: string }[] = [
+                { key: 'paymentSync', label: 'Payment Sync' },
+                { key: 'priceOMatic', label: 'Price-o-Matic' },
+                { key: 'brickOwl', label: 'BrickOwl' },
+                { key: 'elfieAiMode', label: 'E.L.F.I.E.' },
+                { key: 'dataEnrichmentImages', label: 'Image Enrichment' },
+                { key: 'dataEnrichmentSemantic', label: 'Semantic Enrichment' },
+                { key: 'fullDataEnrichment', label: 'Full Enrichment' },
+                { key: 'easypostAutomation', label: 'EasyPost Automation' },
+              ];
+              const fmtLimit = (n: number) => n === -1 ? '∞' : n.toLocaleString();
+              return (
+                <div className="p-4 space-y-4">
+                  <div className="flex items-center gap-2 px-1">
+                    <Tag className="h-4 w-4 text-yellow-500/70" />
+                    <p className="text-xs font-semibold text-gray-300 uppercase tracking-widest">Plans & Pricing</p>
                   </div>
-                  <Badge variant="outline" className="text-[10px] text-gray-500 border-gray-600">Coming Soon</Badge>
+
+                  {/* Plan cards */}
+                  <div className="space-y-3">
+                    {PLAN_ORDER.map((planId) => {
+                      const plan = TIER_CONFIG[planId];
+                      const isPaid = plan.pricing.monthly > 0;
+                      const isFlagship = planId === 'flagship';
+                      return (
+                        <div key={planId} className="rounded-lg border border-gray-700 bg-gray-800/40 overflow-hidden" data-testid={`card-plan-${planId}`}>
+                          {/* Plan header */}
+                          <div className="flex items-start justify-between gap-3 px-4 py-3 border-b border-gray-700/60">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="text-sm font-semibold text-gray-200">{plan.name}</p>
+                                {isFlagship && (
+                                  <Badge variant="outline" className="text-[9px] border-yellow-500/40 text-yellow-500/80 px-1.5">House Account</Badge>
+                                )}
+                                {planId === 'trial' && (
+                                  <Badge variant="outline" className="text-[9px] border-gray-600 text-gray-500 px-1.5">Free</Badge>
+                                )}
+                              </div>
+                              <p className="text-[11px] text-gray-500 mt-0.5">{plan.tagline}</p>
+                            </div>
+                            {isPaid && (
+                              <div className="text-right shrink-0">
+                                <p className="text-sm font-bold text-gray-200">{formatPrice(plan.pricing.monthly)}<span className="text-[11px] font-normal text-gray-500">/mo</span></p>
+                                <p className="text-[10px] text-gray-500">{formatPrice(plan.pricing.annualMonthly)}/mo billed annually</p>
+                              </div>
+                            )}
+                            {!isPaid && !isFlagship && (
+                              <div className="text-right shrink-0">
+                                <p className="text-sm font-bold text-gray-400">Free</p>
+                                <p className="text-[10px] text-gray-600">15-day limit</p>
+                              </div>
+                            )}
+                            {isFlagship && (
+                              <div className="text-right shrink-0">
+                                <p className="text-sm font-bold text-gray-400">Internal</p>
+                                <p className="text-[10px] text-gray-600">No charge</p>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Limits row */}
+                          <div className="px-4 py-2.5 border-b border-gray-700/60">
+                            <p className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold mb-2">Limits</p>
+                            <div className="grid grid-cols-5 gap-2">
+                              {[
+                                { label: 'Seats', value: fmtLimit(plan.limits.seats) },
+                                { label: 'Scans/mo', value: fmtLimit(plan.limits.brickspotterScansPerMonth) },
+                                { label: 'Auto Rules', value: fmtLimit(plan.limits.automationRules) },
+                                { label: 'Order History', value: plan.limits.orderHistoryDays === -1 ? '∞' : `${plan.limits.orderHistoryDays}d` },
+                                { label: 'Inventory', value: fmtLimit(plan.limits.inventoryItems) },
+                              ].map(({ label, value }) => (
+                                <div key={label} className="text-center">
+                                  <p className="text-sm font-semibold text-gray-300">{value}</p>
+                                  <p className="text-[9px] text-gray-600 mt-0.5">{label}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Features */}
+                          <div className="px-4 py-2.5">
+                            <p className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold mb-2">Features</p>
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                              {FEATURE_LABELS.map(({ key, label }) => {
+                                const enabled = plan.features[key];
+                                return (
+                                  <div key={key} className="flex items-center gap-1.5">
+                                    {enabled
+                                      ? <CheckCircle2 className="h-3 w-3 text-green-500/70 shrink-0" />
+                                      : <X className="h-3 w-3 text-gray-700 shrink-0" />
+                                    }
+                                    <span className={`text-[11px] ${enabled ? 'text-gray-400' : 'text-gray-600'}`}>{label}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Annual savings note */}
+                  <div className="rounded-lg bg-gray-800/30 border border-gray-700/50 px-4 py-3">
+                    <p className="text-[10px] text-gray-500 leading-relaxed">
+                      Annual billing saves <span className="text-yellow-500/80">~17%</span> vs monthly.
+                      Foundation: <span className="text-gray-400">{formatPrice(TIER_CONFIG.foundation.pricing.monthly * 12 - TIER_CONFIG.foundation.pricing.annual)}/yr saved</span> &middot; Core: <span className="text-gray-400">{formatPrice(TIER_CONFIG.core.pricing.monthly * 12 - TIER_CONFIG.core.pricing.annual)}/yr saved</span>
+                    </p>
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* API Keys */}
             {activeSection === 'apiKeys' && (
