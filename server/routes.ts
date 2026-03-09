@@ -270,8 +270,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // GET /api/auth/user — authenticated but may not be approved
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
-      const user = req.user;
-      res.json(user);
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+      // Always fetch fresh from DB so superAdmin and other flags are never stale
+      const freshUser = await storage.getUser(userId);
+      if (!freshUser) return res.status(401).json({ message: "User not found" });
+      const { password: _pw, ...safeUser } = freshUser as any;
+      res.json(safeUser);
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
@@ -508,7 +513,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           totalItems: embeddingJobs.totalItems,
           errorMessage: embeddingJobs.errorMessage,
           createdAt: embeddingJobs.createdAt,
-          updatedAt: embeddingJobs.updatedAt,
+          completedAt: embeddingJobs.completedAt,
         })
         .from(embeddingJobs)
         .where(sql`${embeddingJobs.status} IN ('pending', 'processing')`)
@@ -526,11 +531,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           totalItems: embeddingJobs.totalItems,
           errorMessage: embeddingJobs.errorMessage,
           createdAt: embeddingJobs.createdAt,
-          updatedAt: embeddingJobs.updatedAt,
+          completedAt: embeddingJobs.completedAt,
         })
         .from(embeddingJobs)
         .where(sql`${embeddingJobs.status} IN ('completed', 'failed')`)
-        .orderBy(desc(embeddingJobs.updatedAt))
+        .orderBy(desc(embeddingJobs.completedAt))
         .limit(10);
 
       // Embedding counts per type

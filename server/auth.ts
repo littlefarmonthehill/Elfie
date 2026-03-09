@@ -296,11 +296,26 @@ export const isAuthenticated: RequestHandler = (req, res, next) => {
 };
 
 // superAdmin middleware - checks if user is a platform superAdmin
-export const isSuperAdmin: RequestHandler = (req, res, next) => {
-  if (req.isAuthenticated() && (req.user as any)?.superAdmin) {
+export const isSuperAdmin: RequestHandler = async (req, res, next) => {
+  if (!req.isAuthenticated()) {
+    return res.status(403).json({ message: "Super admin access required" });
+  }
+  const sessionUser = req.user as any;
+  // Fast path: session already has superAdmin flag
+  if (sessionUser?.superAdmin === true) {
     return next();
   }
-  res.status(403).json({ message: "Super admin access required" });
+  // Fallback: re-fetch from DB in case session is stale
+  try {
+    const userId = sessionUser?.id;
+    if (userId) {
+      const dbUser = await storage.getUser(userId);
+      if (dbUser?.superAdmin) {
+        return next();
+      }
+    }
+  } catch (_) {}
+  return res.status(403).json({ message: "Super admin access required" });
 };
 
 // Approval middleware - user must be authenticated and approved

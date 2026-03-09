@@ -872,8 +872,8 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     platform: { totalOrganizations: number; totalUsers: number; activeSubscriptions: number };
     embeddings: { inventoryEmbeddings: number; orderEmbeddings: number };
     jobs: {
-      active: Array<{ id: string; orgId: string; jobType: string; status: string; processedItems: number; totalItems: number; errorMessage: string | null; createdAt: string; updatedAt: string }>;
-      recent: Array<{ id: string; orgId: string; jobType: string; status: string; processedItems: number; totalItems: number; errorMessage: string | null; createdAt: string; updatedAt: string }>;
+      active: Array<{ id: string; orgId: string; jobType: string; status: string; processedItems: number; totalItems: number; errorMessage: string | null; createdAt: string; completedAt: string | null }>;
+      recent: Array<{ id: string; orgId: string; jobType: string; status: string; processedItems: number; totalItems: number; errorMessage: string | null; createdAt: string; completedAt: string | null }>;
     };
   };
 
@@ -5352,7 +5352,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             </div>
                             <div className="text-right shrink-0">
                               <p className="text-[10px] text-gray-500">{job.processedItems}/{job.totalItems}</p>
-                              <p className="text-[9px] text-gray-600 font-mono">{new Date(job.updatedAt).toLocaleDateString()}</p>
+                              <p className="text-[9px] text-gray-600 font-mono">{job.completedAt ? new Date(job.completedAt).toLocaleDateString() : '—'}</p>
                             </div>
                           </div>
                         ))}
