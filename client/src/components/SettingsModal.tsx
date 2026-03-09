@@ -32,7 +32,7 @@ interface SettingsModalProps {
   initialSection?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'users' | 'billing' | 'about';
 }
 
-type ActiveSection = 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'users' | 'billing' | 'about' | 'orgs' | 'impersonation' | 'featureFlags' | 'systemHealth' | 'auditLog' | 'announcements' | 'billingOverview' | 'plansAndPricing' | 'apiKeys' | null;
+type ActiveSection = 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'users' | 'billing' | 'about' | 'orgs' | 'impersonation' | 'systemHealth' | 'auditLog' | 'announcements' | 'billingOverview' | 'plansAndPricing' | 'apiKeys' | null;
 
 interface OrgWithUsage extends Organization {
   userCount: number;
@@ -738,7 +738,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const [activeOrg, setActiveOrg] = useState<OrgWithUsage | null>(null);
   const [impersonationSearch, setImpersonationSearch] = useState('');
   const [orgSearch, setOrgSearch] = useState('');
-  const [featureFlagSearch, setFeatureFlagSearch] = useState('');
 
   // Sync activeSection whenever the modal opens with a specific initialSection.
   // useState only uses its initial value on first mount, so without this effect
@@ -867,7 +866,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
   const { data: platformOrgs, isLoading: platformOrgsLoading, isError: platformOrgsError, error: platformOrgsQueryError, refetch: refetchPlatformOrgs } = useQuery<OrgWithUsage[]>({
     queryKey: ['/api/platform-admin/orgs'],
-    enabled: open && (activeSection === 'orgs' || activeSection === 'impersonation' || activeSection === 'featureFlags'),
+    enabled: open && (activeSection === 'orgs' || activeSection === 'impersonation'),
     retry: 0,
     staleTime: 0,
   });
@@ -1429,7 +1428,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
       items: [
         { id: 'orgs' as const, label: 'Organizations', icon: Building2 },
         { id: 'impersonation' as const, label: 'View as Company', icon: EyeOff },
-        { id: 'featureFlags' as const, label: 'Feature Flags', icon: Flag },
       ],
     },
     {
@@ -5202,109 +5200,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                 )}
               </div>
             )}
-
-            {/* ── Platform Admin: Feature Flags ────────────────────────────── */}
-            {activeSection === 'featureFlags' && (() => {
-              const FEATURES = [
-                { key: 'elfieAiMode', label: 'AI', short: 'AI' },
-                { key: 'brickSpotter', label: 'Spotter', short: 'BS' },
-                { key: 'pom', label: 'POM', short: 'POM' },
-                { key: 'warehouseModule', label: 'WH', short: 'WH' },
-                { key: 'universalCatalog', label: 'Catalog', short: 'CAT' },
-                { key: 'dataEnrichment', label: 'Enrich', short: 'ENR' },
-              ];
-
-              const filteredOrgs = (platformOrgs ?? []).filter(o =>
-                featureFlagSearch === '' ||
-                o.name.toLowerCase().includes(featureFlagSearch.toLowerCase())
-              );
-
-              return (
-                <div className="p-4 space-y-3">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500 pointer-events-none" />
-                    <Input
-                      value={featureFlagSearch}
-                      onChange={e => setFeatureFlagSearch(e.target.value)}
-                      placeholder="Filter organizations…"
-                      className="pl-8 h-8 text-xs bg-gray-800 border-gray-700 text-gray-200 placeholder:text-gray-600"
-                      data-testid="input-feature-flag-search"
-                    />
-                  </div>
-
-                  {platformOrgsLoading ? (
-                    <div className="flex items-center justify-center py-8">
-                      <Loader2 className="h-5 w-5 animate-spin text-yellow-500/50" />
-                    </div>
-                  ) : platformOrgsError ? (
-                    <div className="flex flex-col items-center justify-center gap-2 py-8">
-                      <AlertTriangle className="h-4 w-4 text-red-400/70" />
-                      <p className="text-xs text-red-400">{(platformOrgsQueryError as any)?.message || 'Failed to load organizations'}</p>
-                      <button onClick={() => refetchPlatformOrgs()} className="text-[10px] text-yellow-400/70 underline hover:text-yellow-400">Retry</button>
-                    </div>
-                  ) : filteredOrgs.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center gap-2 py-8">
-                      <Building2 className="h-4 w-4 text-gray-600" />
-                      <p className="text-xs text-gray-500">No organizations found</p>
-                    </div>
-                  ) : (
-                    <div className="rounded-lg border border-gray-700 overflow-hidden">
-                      {/* Header row */}
-                      <div className="flex items-center gap-2 px-4 py-2 bg-gray-800 border-b border-gray-700">
-                        <span className="flex-1 text-[10px] uppercase tracking-widest text-gray-500 font-semibold">Organization</span>
-                        {FEATURES.map(f => (
-                          <span key={f.key} className="w-12 text-center text-[9px] uppercase tracking-widest text-gray-600 font-semibold shrink-0">{f.label}</span>
-                        ))}
-                      </div>
-                      {/* Org rows */}
-                      <div className="divide-y divide-gray-700/60">
-                        {filteredOrgs.map(org => {
-                          const fo = (org.featureOverrides ?? {}) as Record<string, boolean>;
-                          return (
-                            <div key={org.id} className="flex items-center gap-2 px-4 py-2.5" data-testid={`row-flags-${org.id}`}>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-xs text-gray-300 truncate">{org.name}</p>
-                                <p className="text-[10px] text-gray-600 font-mono truncate">{org.plan}</p>
-                              </div>
-                              {FEATURES.map(({ key }) => {
-                                const current = fo[key];
-                                return (
-                                  <div key={key} className="w-12 flex justify-center shrink-0">
-                                    <button
-                                      title={current === undefined ? 'Plan default — click to force on' : current ? 'Forced ON — click to force off' : 'Forced OFF — click to reset to default'}
-                                      onClick={() => {
-                                        const newFo = { ...fo };
-                                        if (current === undefined) { newFo[key] = true; }
-                                        else if (current === true) { newFo[key] = false; }
-                                        else { delete newFo[key]; }
-                                        updateFeaturesMutation.mutate({ orgId: org.id, featureOverrides: newFo });
-                                      }}
-                                      disabled={updateFeaturesMutation.isPending}
-                                      className="h-6 w-6 rounded flex items-center justify-center transition-colors"
-                                      data-testid={`toggle-flag-${key}-${org.id}`}
-                                    >
-                                      {current === undefined ? (
-                                        <span className="h-3.5 w-3.5 rounded-full bg-gray-700 border border-gray-600" />
-                                      ) : current ? (
-                                        <CheckCircle2 className="h-3.5 w-3.5 text-green-400" />
-                                      ) : (
-                                        <X className="h-3.5 w-3.5 text-red-400" />
-                                      )}
-                                    </button>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  <p className="text-[10px] text-gray-600 text-center">Circle = plan default · Green check = forced on · Red X = forced off</p>
-                </div>
-              );
-            })()}
 
             {/* ── Platform Admin: System Health ────────────────────────────── */}
             {activeSection === 'systemHealth' && (
