@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import MetricCard from "./MetricCard";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import { InfoIcon, Package, Sparkles, Warehouse, RefreshCw, Info, ListChecks, ScanSearch, AlertTriangle, ArrowRight, Globe, Boxes, SlidersHorizontal } from "lucide-react";
+import { InfoIcon, Package, Sparkles, Warehouse, RefreshCw, Info, ListChecks, ScanSearch, AlertTriangle, Globe, Boxes, SlidersHorizontal } from "lucide-react";
 import ChannelSyncPanel from "./ChannelSyncPanel";
 import {
   Tooltip,
@@ -195,10 +195,6 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                   <span className="text-[9px] text-green-400/70">All priced well</span>
                 )}
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] md:text-xs text-purple-300 font-medium">Open tool</span>
-                <ArrowRight className="w-3 h-3 md:w-4 md:h-4 text-purple-400/70 group-hover:text-purple-200 transition-colors" />
-              </div>
             </button>
 
             {/* List-O-Matic */}
@@ -229,10 +225,6 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 </Popover>
               </div>
               <div className="flex flex-wrap gap-1 min-h-[1.25rem]" />
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] md:text-xs text-green-300 font-medium">Open tool</span>
-                <ArrowRight className="w-3 h-3 md:w-4 md:h-4 text-green-400/70 group-hover:text-green-200 transition-colors" />
-              </div>
             </button>
 
             {/* Warehouse */}
@@ -282,10 +274,6 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                   <span className="text-[9px] text-green-400/70">All organized</span>
                 )}
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] md:text-xs text-teal-300 font-medium">Open tool</span>
-                <ArrowRight className="w-3 h-3 md:w-4 md:h-4 text-teal-400/70 group-hover:text-teal-200 transition-colors" />
-              </div>
             </button>
 
             {/* Brick Spotter 3000 */}
@@ -324,17 +312,13 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                   <span className="text-[9px] text-green-400/70">No pending scans</span>
                 ) : null}
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] md:text-xs text-amber-300 font-medium">Open tool</span>
-                <ArrowRight className="w-3 h-3 md:w-4 md:h-4 text-amber-400/70 group-hover:text-amber-200 transition-colors" />
-              </div>
             </button>
 
           </div>
 
           {/* Channel Sync Status */}
           <div className="mt-3">
-            <ChannelSyncPanel onOpenDetails={() => onDrawerChange('platformsync')} onOpenSettings={onOpenSettings} />
+            <ChannelSyncPanel onOpenSettings={onOpenSettings} />
           </div>
 
         </div>

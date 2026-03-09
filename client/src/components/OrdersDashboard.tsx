@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   ShoppingCart, Truck, PackageCheck, X,
-  Sparkles, Info, ArrowRight, SlidersHorizontal,
+  Sparkles, Info, SlidersHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -171,10 +171,6 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                   <span className="text-[9px] text-green-400/70">All caught up</span>
                 ) : null}
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] md:text-xs text-orange-300 font-medium">Open tool</span>
-                <ArrowRight className="w-3 h-3 md:w-4 md:h-4 text-orange-400/70 group-hover:text-orange-200 transition-colors" />
-              </div>
             </button>
 
             {/* Shipped Orders */}
@@ -212,10 +208,6 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                 ) : stats ? (
                   <span className="text-[9px] text-gray-500/70">No shipments yet</span>
                 ) : null}
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] md:text-xs text-green-300 font-medium">Open tool</span>
-                <ArrowRight className="w-3 h-3 md:w-4 md:h-4 text-green-400/70 group-hover:text-green-200 transition-colors" />
               </div>
             </button>
 

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import {
-  Users, Sparkles, Info, ArrowRight,
+  Users, Sparkles, Info,
   Megaphone, UserPlus, RefreshCcw, Trophy, X,
 } from "lucide-react";
 
@@ -171,10 +171,6 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
                   Coming soon
                 </span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] md:text-xs text-indigo-300 font-medium">Open tool</span>
-                <ArrowRight className="w-3 h-3 md:w-4 md:h-4 text-indigo-400/70 group-hover:text-indigo-200 transition-colors" />
-              </div>
             </button>
 
             {/* Engage New */}
@@ -214,10 +210,6 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
                     Coming soon
                   </span>
                 )}
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] md:text-xs text-cyan-300 font-medium">Open tool</span>
-                <ArrowRight className="w-3 h-3 md:w-4 md:h-4 text-cyan-400/70 group-hover:text-cyan-200 transition-colors" />
               </div>
             </button>
 
@@ -259,10 +251,6 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
                   </span>
                 )}
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] md:text-xs text-blue-300 font-medium">Open tool</span>
-                <ArrowRight className="w-3 h-3 md:w-4 md:h-4 text-blue-400/70 group-hover:text-blue-200 transition-colors" />
-              </div>
             </button>
 
             {/* Engage Top */}
@@ -302,10 +290,6 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
                     Coming soon
                   </span>
                 )}
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] md:text-xs text-amber-300 font-medium">Open tool</span>
-                <ArrowRight className="w-3 h-3 md:w-4 md:h-4 text-amber-400/70 group-hover:text-amber-200 transition-colors" />
               </div>
             </button>
 
