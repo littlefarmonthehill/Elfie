@@ -115,8 +115,8 @@ export function EmbeddingsManager({ searchOnly = false }: { searchOnly?: boolean
 
   const inventoryProgress = (inventoryJob as any)?.progress?.percentage || 0;
   const ordersProgress    = (ordersJob as any)?.progress?.percentage || 0;
-  const isInventoryRunning = (inventoryJob as any)?.status === 'running';
-  const isOrdersRunning    = (ordersJob as any)?.status === 'running';
+  const isInventoryRunning = ['pending', 'processing'].includes((inventoryJob as any)?.status);
+  const isOrdersRunning    = ['pending', 'processing'].includes((ordersJob as any)?.status);
   const inventoryComplete  = (stats as any)?.inventory?.percentage === 100;
   const ordersComplete     = (stats as any)?.orders?.percentage === 100;
 

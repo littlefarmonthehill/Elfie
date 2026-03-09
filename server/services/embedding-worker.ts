@@ -90,107 +90,114 @@ async function processNextJob() {
       .where(eq(embeddingJobs.id, job.id));
 
     try {
+      // Track whether there are more items left after this batch
+      let hasMore = false;
+
       // Process based on job type
       switch (job.jobType) {
         case 'inventory': {
-          // First, get items that don't have embeddings yet
+          const BATCH = 100;
           const unembeddedItems = await db.execute(sql`
             SELECT bi.id
             FROM bl_inventory bi
             LEFT JOIN inventory_embeddings ie ON bi.id = ie.inventory_id
             WHERE ie.inventory_id IS NULL
             ORDER BY bi.id
-            LIMIT 100
+            LIMIT ${BATCH}
           `);
           
           if (unembeddedItems.rows.length > 0) {
-            // Process items without embeddings first
             const inventoryIds = unembeddedItems.rows.map((r: any) => r.id);
             await batchEmbedInventory(inventoryIds);
             console.log(`  ✓ Embedded ${inventoryIds.length} inventory items (new)`);
+            // If we got a full batch there are likely more remaining
+            hasMore = unembeddedItems.rows.length >= BATCH;
           } else {
-            // All items have embeddings, update recently changed ones
+            // All items have embeddings — do a maintenance re-embed of recent changes
             const recentInventory = await db
               .select({ id: blInventory.id })
               .from(blInventory)
               .orderBy(sql`${blInventory.updatedAt} DESC`)
-              .limit(100);
+              .limit(BATCH);
             
             if (recentInventory.length > 0) {
               const inventoryIds = recentInventory.map(i => i.id);
               await batchEmbedInventory(inventoryIds);
               console.log(`  ✓ Re-embedded ${inventoryIds.length} inventory items (updated)`);
             }
+            // Maintenance pass — no more "new" items, let job complete
+            hasMore = false;
           }
           break;
         }
         case 'sets': {
-          // Get unique set numbers that don't have embeddings yet
+          const BATCH = 50;
           const newSets = await db.execute(sql`
             SELECT DISTINCT spr.set_num 
             FROM set_part_relationships spr
             LEFT JOIN set_part_embeddings spe ON spr.set_num = spe.set_num
             WHERE spe.set_num IS NULL
-            LIMIT 50
+            LIMIT ${BATCH}
           `);
           
           if (newSets.rows.length > 0) {
             const setNumbers = newSets.rows.map((r: any) => r.set_num);
             await batchEmbedSets(setNumbers);
             console.log(`  ✓ Embedded ${setNumbers.length} LEGO sets`);
+            hasMore = newSets.rows.length >= BATCH;
           }
           break;
         }
         case 'orders': {
-          // First, get orders that don't have embeddings yet
+          const BATCH = 50;
           const unembeddedOrders = await db.execute(sql`
             SELECT o.id
             FROM orders o
             LEFT JOIN order_embeddings oe ON o.id = oe.order_id
             WHERE oe.order_id IS NULL
             ORDER BY o.order_date DESC
-            LIMIT 50
+            LIMIT ${BATCH}
           `);
           
           if (unembeddedOrders.rows.length > 0) {
-            // Process orders without embeddings first
             const orderIds = unembeddedOrders.rows.map((r: any) => r.id);
             await batchEmbedOrders(orderIds);
             console.log(`  ✓ Embedded ${orderIds.length} orders (new)`);
+            hasMore = unembeddedOrders.rows.length >= BATCH;
           } else {
-            // All orders have embeddings, update recently changed ones
+            // All orders have embeddings — maintenance re-embed of recent changes
             const recentOrders = await db
               .select({ id: orders.id })
               .from(orders)
               .orderBy(sql`${orders.updatedAt} DESC`)
-              .limit(50);
+              .limit(BATCH);
             
             if (recentOrders.length > 0) {
               const orderIds = recentOrders.map(o => o.id);
               await batchEmbedOrders(orderIds);
               console.log(`  ✓ Re-embedded ${orderIds.length} orders (updated)`);
             }
+            hasMore = false;
           }
           break;
         }
         case 'order_details': {
-          // Get order details that don't have embeddings yet (limit to small batch for faster job completion)
+          const BATCH = 25;
           const unembeddedDetails = await db.execute(sql`
             SELECT od.id, od.order_id
             FROM order_details od
             LEFT JOIN order_detail_embeddings ode ON od.id = ode.order_detail_id
             WHERE ode.order_detail_id IS NULL
             ORDER BY od.id
-            LIMIT 25
+            LIMIT ${BATCH}
           `);
           
           if (unembeddedDetails.rows.length > 0) {
-            // Group by order ID - limit to max 10 orders per job run for reasonable completion time
             const uniqueOrderIds = Array.from(new Set(unembeddedDetails.rows.map((r: any) => r.order_id))).slice(0, 10);
             await batchEmbedOrderDetails(uniqueOrderIds);
             console.log(`  ✓ Embedded order details for ${uniqueOrderIds.length} orders`);
+            hasMore = unembeddedDetails.rows.length >= BATCH;
           } else {
-            // All order details have embeddings, re-embed for recently updated orders
             const recentDetails = await db.execute(sql`
               SELECT DISTINCT od.order_id
               FROM order_details od
@@ -204,6 +211,7 @@ async function processNextJob() {
               await batchEmbedOrderDetails(orderIds);
               console.log(`  ✓ Re-embedded order details for ${orderIds.length} orders (updated)`);
             }
+            hasMore = false;
           }
           break;
         }
@@ -211,16 +219,24 @@ async function processNextJob() {
           throw new Error(`Unknown job type: ${job.jobType}`);
       }
 
-      // Mark as completed
-      await db
-        .update(embeddingJobs)
-        .set({
-          status: 'completed',
-          completedAt: new Date(),
-        })
-        .where(eq(embeddingJobs.id, job.id));
-
-      console.log(`✅ Embedding job ${job.id} completed successfully`);
+      if (hasMore) {
+        // Reset to pending so the worker picks up the next batch automatically
+        await db
+          .update(embeddingJobs)
+          .set({ status: 'pending' })
+          .where(eq(embeddingJobs.id, job.id));
+        console.log(`🔁 Job ${job.id} (${job.jobType}) has more items — rescheduled`);
+      } else {
+        // All done (or maintenance pass finished)
+        await db
+          .update(embeddingJobs)
+          .set({
+            status: 'completed',
+            completedAt: new Date(),
+          })
+          .where(eq(embeddingJobs.id, job.id));
+        console.log(`✅ Embedding job ${job.id} completed successfully`);
+      }
     } catch (error) {
       console.error(`❌ Embedding job ${job.id} failed:`, error);
 
