@@ -176,7 +176,9 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               >
                 <span className="text-[9px] md:text-sm lg:text-lg text-gray-400 mb-0.5 md:mb-2 lg:mb-3 leading-tight">{label}</span>
                 <span className="text-xs md:text-lg lg:text-2xl font-semibold font-mono text-lego-blue">{value}</span>
-                <ChevronRight className="absolute top-1.5 right-1.5 w-3 h-3 text-gray-500 group-hover:text-gray-300 transition-colors" />
+                <span className="absolute top-1.5 right-1.5 flex items-center justify-center w-4 h-4 md:w-5 md:h-5 rounded-full bg-lego-blue/20 group-hover:bg-lego-blue/50 transition-colors">
+                  <ChevronRight className="w-2.5 h-2.5 md:w-3 md:h-3 text-white" />
+                </span>
               </button>
             ))}
           </div>
@@ -379,7 +381,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
 
       {/* Browse Drawer — Lots / Parts / Categories */}
       <Drawer open={!!browseDrawer} onOpenChange={(open) => { if (!open) setBrowseDrawer(null); }}>
-        <DrawerContent className="h-[92dvh] flex flex-col">
+        <DrawerContent className="h-[92svh] flex flex-col">
           <DrawerHeader className="flex-shrink-0 pb-0">
             <DrawerTitle className="flex items-center gap-2 text-base capitalize">
               <Package className="w-4 h-4 text-blue-400" />
@@ -494,7 +496,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
 
       {/* Price-O-Matic Drawer */}
       <Drawer open={activeDrawer === 'priceomatic'} onOpenChange={(open) => !open && onDrawerChange(null)}>
-        <DrawerContent className="h-[92dvh] flex flex-col">
+        <DrawerContent className="h-[92svh] flex flex-col">
           <DrawerHeader>
             <DrawerTitle className="flex items-center justify-between gap-2 text-base md:text-lg">
               {/* Left: title + info inline */}
@@ -556,7 +558,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
 
       {/* List O Matic Drawer */}
       <Drawer open={activeDrawer === 'platformsync'} onOpenChange={(open) => !open && onDrawerChange(null)}>
-        <DrawerContent className="h-[92dvh] flex flex-col">
+        <DrawerContent className="h-[92svh] flex flex-col">
           <DrawerHeader>
             <DrawerTitle className="flex items-center justify-between gap-2 text-base md:text-lg">
               <div className="flex items-center gap-2">
@@ -583,7 +585,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
 
       {/* Brickanalyzer Drawer */}
       <Drawer open={activeDrawer === 'brickanalyzer'} onOpenChange={(open) => !open && onDrawerChange(null)}>
-        <DrawerContent className="h-[92dvh] flex flex-col">
+        <DrawerContent className="h-[92svh] flex flex-col">
           <DrawerHeader className="flex items-center justify-between gap-2 pr-10">
             <DrawerTitle className="flex items-center gap-2 text-base md:text-lg">
               <ScanSearch className="w-5 h-5 text-lego-yellow" />
