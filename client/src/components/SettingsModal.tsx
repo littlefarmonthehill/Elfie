@@ -18,7 +18,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { EmbeddingsManager } from "@/components/EmbeddingsManager";
+import { EmbeddingsManager, UniversalCatalogSection } from "@/components/EmbeddingsManager";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -689,6 +689,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const [schedulerOrdersOpen, setSchedulerOrdersOpen] = useState(false);
   const [schedulerChannelOpen, setSchedulerChannelOpen] = useState(false);
   const [enrichmentEmbeddingsOpen, setEnrichmentEmbeddingsOpen] = useState(false);
+  const [enrichmentUniversalOpen, setEnrichmentUniversalOpen] = useState(false);
   const [enrichmentPomOpen, setEnrichmentPomOpen] = useState(false);
   const [enrichmentRebrickableOpen, setEnrichmentRebrickableOpen] = useState(false);
   const [rebrickableSetSyncEnabled, setRebrickableSetSyncEnabled] = useState(false);
@@ -3666,6 +3667,15 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                 <Separator className="bg-gray-700" />
 
+                {/* ── LOCAL INDEX — group header ── */}
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 whitespace-nowrap">Local Index</span>
+                  <div className="flex-1 h-px bg-gray-700/60" />
+                </div>
+                <p className="text-[11px] text-gray-500 -mt-2">
+                  Run once to build your search index. New inventory and orders are embedded automatically as they sync.
+                </p>
+
                 {/* Semantic Search & Embeddings */}
                 <div>
                   <button
@@ -3679,6 +3689,34 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   {enrichmentEmbeddingsOpen && (
                     <div className="mt-2">
                       <EmbeddingsManager />
+                    </div>
+                  )}
+                </div>
+
+                <Separator className="bg-gray-700" />
+
+                {/* ── ONGOING ENRICHMENT — group header ── */}
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 whitespace-nowrap">Ongoing Enrichment</span>
+                  <div className="flex-1 h-px bg-gray-700/60" />
+                </div>
+                <p className="text-[11px] text-gray-500 -mt-2">
+                  Independent recurring processes — not tied to inventory or orders. Enable a schedule or run manually.
+                </p>
+
+                {/* Universal CLIP Catalog */}
+                <div>
+                  <button
+                    onClick={() => setEnrichmentUniversalOpen(!enrichmentUniversalOpen)}
+                    className="w-full flex items-center justify-between gap-2 py-2 mb-3 border-b border-gray-600/60 hover:border-gray-500/60 transition-colors group"
+                    data-testid="button-enrichment-universal-toggle"
+                  >
+                    <span className="text-sm font-semibold text-gray-200">Universal CLIP Catalog</span>
+                    {enrichmentUniversalOpen ? <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" /> : <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" />}
+                  </button>
+                  {enrichmentUniversalOpen && (
+                    <div className="mt-2">
+                      <UniversalCatalogSection />
                     </div>
                   )}
                 </div>
