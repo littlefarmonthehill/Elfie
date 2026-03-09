@@ -908,28 +908,35 @@ function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLimit, onO
 
         {/* ── Informational items last ── */}
 
-        {/* BrickLink API usage — opens detail popover */}
-        {rateLimit != null && (
-          <Popover>
-            <PopoverTrigger asChild>
-              <div
-                className="flex items-start gap-2 rounded px-3 py-1.5 cursor-pointer hover-elevate"
-                data-testid="system-pulse-bl-api"
-              >
-                <Activity className="w-3 h-3 shrink-0 mt-0.5 text-muted-foreground" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-foreground leading-tight truncate">BrickLink API</p>
-                  <p className="text-[10px] text-muted-foreground truncate">{blCalls.toLocaleString()} / {BL_CEILING.toLocaleString()} calls (24h)</p>
+        {/* Sync capacity — friendly label for BrickLink API quota */}
+        {rateLimit != null && (() => {
+          const used = blCalls / BL_CEILING;
+          const statusLabel = used >= 0.9 ? 'Near daily limit — syncs may slow' : used >= 0.6 ? 'Capacity getting low' : 'Full capacity';
+          const statusColor = used >= 0.9 ? 'text-red-400' : used >= 0.6 ? 'text-orange-400' : 'text-emerald-400';
+          const iconColor = used >= 0.9 ? 'text-red-400' : used >= 0.6 ? 'text-orange-400' : 'text-muted-foreground';
+          return (
+            <Popover>
+              <PopoverTrigger asChild>
+                <div
+                  className="flex items-start gap-2 rounded px-3 py-1.5 cursor-pointer hover-elevate"
+                  data-testid="system-pulse-bl-api"
+                >
+                  <Activity className={`w-3 h-3 shrink-0 mt-0.5 ${iconColor}`} />
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-xs leading-tight truncate ${statusColor}`}>{statusLabel}</p>
+                    <p className="text-[10px] text-muted-foreground truncate">Powers POM · Syncs · BrickSpotter</p>
+                  </div>
+                  <ArrowRight className="w-3 h-3 shrink-0 mt-0.5 text-muted-foreground" />
                 </div>
-                <ArrowRight className="w-3 h-3 shrink-0 mt-0.5 text-muted-foreground" />
-              </div>
-            </PopoverTrigger>
-            <PopoverContent className="w-72 p-3" align="start">
-              <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-2">BrickLink API Usage</div>
-              <BrickLinkApiSection rateLimit={rateLimit} blApiCallLimit={blApiCallLimit} />
-            </PopoverContent>
-          </Popover>
-        )}
+              </PopoverTrigger>
+              <PopoverContent className="w-72 p-3" align="start">
+                <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-0.5">Sync Capacity</div>
+                <p className="text-[10px] text-muted-foreground mb-2">Daily request budget shared across Price-o-Matic, inventory &amp; order syncs, and BrickSpotter.</p>
+                <BrickLinkApiSection rateLimit={rateLimit} blApiCallLimit={blApiCallLimit} />
+              </PopoverContent>
+            </Popover>
+          );
+        })()}
 
         {/* Placeholder only when nothing at all is shown */}
         {!hasAlerts && !(bsLimited && (bsNearLimit || bsAtLimit)) && !(isTrial && trialDaysLeft !== null) && !hasBlData && (
