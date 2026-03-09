@@ -47,13 +47,13 @@ function LaneCard({
   summary?: React.ReactNode;
 }) {
   return (
-    <div className={`flex flex-col h-full rounded-lg border ${accent} bg-gray-900/60 overflow-hidden`}>
+    <div className={`relative flex flex-col h-full rounded-lg border ${accent} bg-gray-900/60 overflow-hidden`}>
       <div className={`flex items-center gap-2 px-3 py-2 border-b ${accent} bg-gray-900/80`}>
         <Icon className="w-4 h-4 shrink-0 opacity-80" />
         <span className="text-xs xl:text-[11px] font-semibold uppercase tracking-widest">{title}</span>
         {summary && <span className="ml-auto text-[10px] text-muted-foreground font-normal truncate max-w-[160px] flex items-center gap-1.5">{summary}</span>}
       </div>
-      <div className="flex-1 flex flex-col divide-y divide-border/40 min-h-0">
+      <div className="flex-1 flex flex-col divide-y divide-border/40 min-h-0 pb-8">
         {children}
       </div>
     </div>
@@ -65,16 +65,20 @@ function LaneSection({ label, children, collapsible = false, className = "" }: {
 
   if (collapsible && label) {
     return (
-      <div className={`px-3 py-2 space-y-1.5 ${className}`}>
+      <div className={`px-3 py-2 ${className}`}>
+        {expanded && (
+          <div className="space-y-1.5 max-h-44 overflow-y-auto pb-1.5 mb-1.5 border-b border-border/30">
+            {children}
+          </div>
+        )}
         <button
           onClick={() => setExpanded(v => !v)}
           className="flex items-center gap-1.5 w-full text-left"
           data-testid={`collapse-${label.toLowerCase().replace(/\s+/g, '-')}`}
         >
           <p className="text-[9px] uppercase tracking-widest text-muted-foreground font-semibold flex-1">{label}</p>
-          <ChevronDown className={`w-3 h-3 text-muted-foreground/60 transition-transform duration-150 ${expanded ? '' : '-rotate-90'}`} />
+          <ChevronDown className={`w-3 h-3 text-muted-foreground/60 transition-transform duration-150 ${expanded ? 'rotate-180' : ''}`} />
         </button>
-        {expanded && <div className="space-y-1.5">{children}</div>}
       </div>
     );
   }
@@ -385,7 +389,7 @@ function InventoryLane({
       )}
 
       {/* Last Actions */}
-      <LaneSection label="Last Actions" collapsible className="mt-auto">
+      <LaneSection label="Last Actions" collapsible className="absolute bottom-0 inset-x-0 z-10 bg-gray-900/95 border-t border-border/40 backdrop-blur-sm">
         {lastInvSync?.lastSyncTime ? (
           <ActivityItem
             icon={lastInvSync.lastSyncStatus === 'success' ? CheckCircle : lastInvSync.lastSyncStatus === 'partial' ? AlertCircle : XCircle}
@@ -486,7 +490,7 @@ function OrdersLane({ stats, dashboardOrders, fulfillmentStats, orderSyncRunning
       )}
 
       {/* Last Actions */}
-      <LaneSection label="Last Actions" collapsible className="mt-auto">
+      <LaneSection label="Last Actions" collapsible className="absolute bottom-0 inset-x-0 z-10 bg-gray-900/95 border-t border-border/40 backdrop-blur-sm">
         {lastOrderSync?.lastSyncTime ? (
           <ActivityItem
             icon={lastOrderSync.lastSyncStatus === 'success' ? CheckCircle : lastOrderSync.lastSyncStatus === 'partial' ? AlertCircle : XCircle}
@@ -601,7 +605,7 @@ function MultichannelLane({ channelSyncRunning, globalSyncStatuses, syncStatus, 
       )}
 
       {/* Last Actions */}
-      <LaneSection label="Last Actions" collapsible className="mt-auto">
+      <LaneSection label="Last Actions" collapsible className="absolute bottom-0 inset-x-0 z-10 bg-gray-900/95 border-t border-border/40 backdrop-blur-sm">
         {lastChannelSync?.lastSyncTime ? (
           <ActivityItem
             icon={lastChannelSync.lastSyncStatus === 'success' ? CheckCircle : lastChannelSync.lastSyncStatus === 'partial' ? AlertCircle : XCircle}
@@ -731,7 +735,7 @@ function AIIntelligenceLane({ latestScan, appSettings, onOpenBrickanalyzer, dism
       )}
 
       {/* Last Actions — embeddings + last scan, sub-grouped */}
-      <LaneSection label="Last Actions" collapsible className="mt-auto">
+      <LaneSection label="Last Actions" collapsible className="absolute bottom-0 inset-x-0 z-10 bg-gray-900/95 border-t border-border/40 backdrop-blur-sm">
         {(universalCatalog || catalogStatus) && (
           <>
             <div className="pt-0.5 pb-0.5">
