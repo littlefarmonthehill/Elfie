@@ -171,17 +171,17 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
   }
 
   return (
-    <div className="p-2 space-y-1.5 bg-gradient-to-br from-lego-blue/5 to-transparent rounded-lg border border-lego-blue/10 shadow-[0_0_15px_rgba(59,130,246,0.1)]">
-      <div className="space-y-1.5">
+    <div className="p-2 xl:p-4 space-y-1.5 xl:space-y-3 bg-gradient-to-br from-lego-blue/5 to-transparent rounded-lg border border-lego-blue/10 shadow-[0_0_15px_rgba(59,130,246,0.1)]">
+      <div className="space-y-1.5 xl:space-y-3">
 
         {/* Combined Inventory Info + Values */}
-        <div className="relative bg-gradient-to-b from-blue-950/25 to-gray-900/85 border border-blue-500/40 rounded-lg p-3 shadow-[0_0_22px_rgba(59,130,246,0.12)] overflow-hidden" data-testid="section-inventory-overview">
+        <div className="relative bg-gradient-to-b from-blue-950/25 to-gray-900/85 border border-blue-500/40 rounded-lg p-3 xl:p-5 shadow-[0_0_22px_rgba(59,130,246,0.12)] overflow-hidden" data-testid="section-inventory-overview">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-blue-400/50 to-transparent" />
-          <div className="flex items-center gap-2 mb-2.5">
-            <div className="p-1.5 rounded-md bg-blue-900/60 ring-1 ring-blue-500/50 shadow-[0_0_10px_rgba(59,130,246,0.25)]">
-              <Package className="w-3 h-3 md:w-4 md:h-4 text-blue-200" />
+          <div className="flex items-center gap-2 mb-2.5 xl:mb-4">
+            <div className="p-1.5 xl:p-2 rounded-md bg-blue-900/60 ring-1 ring-blue-500/50 shadow-[0_0_10px_rgba(59,130,246,0.25)]">
+              <Package className="w-3 h-3 md:w-4 md:h-4 xl:w-5 xl:h-5 text-blue-200" />
             </div>
-            <h3 className="text-xs md:text-base lg:text-lg font-semibold text-blue-200 uppercase tracking-wide">Inventory</h3>
+            <h3 className="text-xs md:text-base lg:text-lg xl:text-xl font-semibold text-blue-200 uppercase tracking-wide">Inventory</h3>
             <div className="flex items-center gap-1.5 ml-auto">
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -209,12 +209,12 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 key={key}
                 onClick={() => openBrowse(key)}
                 data-testid={`metric-${key}`}
-                className="relative group flex flex-col text-left hover-elevate active-elevate-2 rounded-md border border-lego-blue/20 bg-gray-900/50 p-1.5 md:p-4 lg:p-6"
+                className="relative group flex flex-col text-left hover-elevate active-elevate-2 rounded-md border border-lego-blue/20 bg-gray-900/50 p-1.5 md:p-4 lg:p-6 xl:p-8"
               >
-                <span className="text-[9px] md:text-sm lg:text-lg text-gray-400 mb-0.5 md:mb-2 lg:mb-3 leading-tight">{label}</span>
-                <span className="text-xs md:text-lg lg:text-2xl font-semibold font-mono text-lego-blue">{value}</span>
-                <span className="absolute top-1.5 right-1.5 flex items-center justify-center w-4 h-4 md:w-5 md:h-5 rounded-full bg-lego-blue/20 group-hover:bg-lego-blue/50 transition-colors">
-                  <ChevronRight className="w-2.5 h-2.5 md:w-3 md:h-3 text-white" />
+                <span className="text-[9px] md:text-sm lg:text-lg xl:text-xl text-gray-400 mb-0.5 md:mb-2 lg:mb-3 xl:mb-4 leading-tight">{label}</span>
+                <span className="text-xs md:text-lg lg:text-2xl xl:text-3xl font-semibold font-mono text-lego-blue">{value}</span>
+                <span className="absolute top-1.5 right-1.5 flex items-center justify-center w-4 h-4 md:w-5 md:h-5 xl:w-6 xl:h-6 rounded-full bg-lego-blue/20 group-hover:bg-lego-blue/50 transition-colors">
+                  <ChevronRight className="w-2.5 h-2.5 md:w-3 md:h-3 xl:w-4 xl:h-4 text-white" />
                 </span>
               </button>
             ))}
@@ -227,27 +227,27 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
         </div>
 
         {/* Tools — Primary Workflows */}
-        <div className="relative bg-gradient-to-b from-gray-800/45 to-gray-900/85 border border-gray-600/50 rounded-lg p-3 shadow-[0_0_16px_rgba(255,255,255,0.03)] overflow-hidden" data-testid="section-tools">
+        <div className="relative bg-gradient-to-b from-gray-800/45 to-gray-900/85 border border-gray-600/50 rounded-lg p-3 xl:p-5 shadow-[0_0_16px_rgba(255,255,255,0.03)] overflow-hidden" data-testid="section-tools">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-400/25 to-transparent" />
-          <div className="flex items-center gap-2 mb-3">
-            <div className="p-1.5 rounded-md bg-gray-700/60 ring-1 ring-gray-500/40">
-              <Sparkles className="w-3 h-3 md:w-4 md:h-4 text-gray-200" />
+          <div className="flex items-center gap-2 mb-3 xl:mb-4">
+            <div className="p-1.5 xl:p-2 rounded-md bg-gray-700/60 ring-1 ring-gray-500/40">
+              <Sparkles className="w-3 h-3 md:w-4 md:h-4 xl:w-5 xl:h-5 text-gray-200" />
             </div>
-            <h3 className="text-xs md:text-base lg:text-lg font-semibold text-gray-200 uppercase tracking-wide">Tools</h3>
+            <h3 className="text-xs md:text-base lg:text-lg xl:text-xl font-semibold text-gray-200 uppercase tracking-wide">Tools</h3>
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-2 xl:gap-3">
 
             {/* Price-O-Matic */}
             <button
               onClick={() => onDrawerChange('priceomatic')}
               data-testid="tool-priceomatic"
-              className="group flex flex-col gap-1.5 rounded-lg border border-purple-500/50 bg-gradient-to-br from-purple-950/65 to-gray-950/80 p-3 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(168,85,247,0.09)]"
+              className="group flex flex-col gap-1.5 xl:gap-2.5 rounded-lg border border-purple-500/50 bg-gradient-to-br from-purple-950/65 to-gray-950/80 p-3 xl:p-5 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(168,85,247,0.09)]"
             >
               <div className="flex items-center gap-2">
-                <div className="rounded-lg bg-purple-900/70 p-1.5 ring-1 ring-purple-500/45 shadow-[0_0_10px_rgba(168,85,247,0.22)]">
-                  <Sparkles className="w-3.5 h-3.5 md:w-5 md:h-5 text-purple-200" />
+                <div className="rounded-lg bg-purple-900/70 p-1.5 xl:p-2.5 ring-1 ring-purple-500/45 shadow-[0_0_10px_rgba(168,85,247,0.22)]">
+                  <Sparkles className="w-3.5 h-3.5 md:w-5 md:h-5 xl:w-6 xl:h-6 text-purple-200" />
                 </div>
-                <span className="text-xs md:text-sm lg:text-base font-bold text-purple-100 leading-tight flex-1">Price-O-Matic</span>
+                <span className="text-xs md:text-sm lg:text-base xl:text-lg font-bold text-purple-100 leading-tight flex-1">Price-O-Matic</span>
                 <Popover>
                   <PopoverTrigger asChild>
                     <span
@@ -285,13 +285,13 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             <button
               onClick={() => onDrawerChange('platformsync')}
               data-testid="tool-listomatic"
-              className="group flex flex-col gap-1.5 rounded-lg border border-green-500/50 bg-gradient-to-br from-green-950/65 to-gray-950/80 p-3 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(34,197,94,0.09)]"
+              className="group flex flex-col gap-1.5 xl:gap-2.5 rounded-lg border border-green-500/50 bg-gradient-to-br from-green-950/65 to-gray-950/80 p-3 xl:p-5 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(34,197,94,0.09)]"
             >
               <div className="flex items-center gap-2">
-                <div className="rounded-lg bg-green-900/70 p-1.5 ring-1 ring-green-500/45 shadow-[0_0_10px_rgba(34,197,94,0.22)]">
-                  <Globe className="w-3.5 h-3.5 md:w-5 md:h-5 text-green-200" />
+                <div className="rounded-lg bg-green-900/70 p-1.5 xl:p-2.5 ring-1 ring-green-500/45 shadow-[0_0_10px_rgba(34,197,94,0.22)]">
+                  <Globe className="w-3.5 h-3.5 md:w-5 md:h-5 xl:w-6 xl:h-6 text-green-200" />
                 </div>
-                <span className="text-xs md:text-sm lg:text-base font-bold text-green-100 leading-tight flex-1">List-O-Matic</span>
+                <span className="text-xs md:text-sm lg:text-base xl:text-lg font-bold text-green-100 leading-tight flex-1">List-O-Matic</span>
                 <Popover>
                   <PopoverTrigger asChild>
                     <span
@@ -315,13 +315,13 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             <button
               onClick={() => onDrawerChange('warehouse')}
               data-testid="tool-warehouse"
-              className="group flex flex-col gap-1.5 rounded-lg border border-teal-500/50 bg-gradient-to-br from-teal-950/65 to-gray-950/80 p-3 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(20,184,166,0.09)]"
+              className="group flex flex-col gap-1.5 xl:gap-2.5 rounded-lg border border-teal-500/50 bg-gradient-to-br from-teal-950/65 to-gray-950/80 p-3 xl:p-5 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(20,184,166,0.09)]"
             >
               <div className="flex items-center gap-2">
-                <div className="rounded-lg bg-teal-900/70 p-1.5 ring-1 ring-teal-500/45 shadow-[0_0_10px_rgba(20,184,166,0.22)]">
-                  <Boxes className="w-3.5 h-3.5 md:w-5 md:h-5 text-teal-200" />
+                <div className="rounded-lg bg-teal-900/70 p-1.5 xl:p-2.5 ring-1 ring-teal-500/45 shadow-[0_0_10px_rgba(20,184,166,0.22)]">
+                  <Boxes className="w-3.5 h-3.5 md:w-5 md:h-5 xl:w-6 xl:h-6 text-teal-200" />
                 </div>
-                <span className="text-xs md:text-sm lg:text-base font-bold text-teal-100 leading-tight flex-1">Warehouse</span>
+                <span className="text-xs md:text-sm lg:text-base xl:text-lg font-bold text-teal-100 leading-tight flex-1">Warehouse</span>
                 <Popover>
                   <PopoverTrigger asChild>
                     <span
@@ -364,13 +364,13 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             <button
               onClick={() => onDrawerChange('brickanalyzer')}
               data-testid="tool-brickspotter"
-              className="group flex flex-col gap-1.5 rounded-lg border border-amber-500/50 bg-gradient-to-br from-amber-950/65 to-gray-950/80 p-3 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(245,158,11,0.09)]"
+              className="group flex flex-col gap-1.5 xl:gap-2.5 rounded-lg border border-amber-500/50 bg-gradient-to-br from-amber-950/65 to-gray-950/80 p-3 xl:p-5 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(245,158,11,0.09)]"
             >
               <div className="flex items-center gap-2">
-                <div className="rounded-lg bg-amber-900/70 p-1.5 ring-1 ring-amber-500/45 shadow-[0_0_10px_rgba(245,158,11,0.22)]">
-                  <ScanSearch className="w-3.5 h-3.5 md:w-5 md:h-5 text-amber-200" />
+                <div className="rounded-lg bg-amber-900/70 p-1.5 xl:p-2.5 ring-1 ring-amber-500/45 shadow-[0_0_10px_rgba(245,158,11,0.22)]">
+                  <ScanSearch className="w-3.5 h-3.5 md:w-5 md:h-5 xl:w-6 xl:h-6 text-amber-200" />
                 </div>
-                <span className="text-xs md:text-sm lg:text-base font-bold text-amber-100 leading-tight flex-1">Brick Spotter</span>
+                <span className="text-xs md:text-sm lg:text-base xl:text-lg font-bold text-amber-100 leading-tight flex-1">Brick Spotter</span>
                 <Popover>
                   <PopoverTrigger asChild>
                     <span
@@ -403,13 +403,13 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
         </div>
 
         {/* Selling Channels */}
-        <div className="relative bg-gradient-to-b from-gray-800/45 to-gray-900/85 border border-gray-600/50 rounded-lg p-3 shadow-[0_0_16px_rgba(255,255,255,0.03)] overflow-hidden" data-testid="section-selling-channels">
+        <div className="relative bg-gradient-to-b from-gray-800/45 to-gray-900/85 border border-gray-600/50 rounded-lg p-3 xl:p-5 shadow-[0_0_16px_rgba(255,255,255,0.03)] overflow-hidden" data-testid="section-selling-channels">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-400/25 to-transparent" />
-          <div className="flex items-center gap-2 mb-3">
-            <div className="p-1.5 rounded-md bg-gray-700/60 ring-1 ring-gray-500/40">
-              <Globe className="w-3 h-3 md:w-4 md:h-4 text-gray-200" />
+          <div className="flex items-center gap-2 mb-3 xl:mb-4">
+            <div className="p-1.5 xl:p-2 rounded-md bg-gray-700/60 ring-1 ring-gray-500/40">
+              <Globe className="w-3 h-3 md:w-4 md:h-4 xl:w-5 xl:h-5 text-gray-200" />
             </div>
-            <h3 className="text-xs md:text-base lg:text-lg font-semibold text-gray-200 uppercase tracking-wide">Selling Channels</h3>
+            <h3 className="text-xs md:text-base lg:text-lg xl:text-xl font-semibold text-gray-200 uppercase tracking-wide">Selling Channels</h3>
           </div>
           <ChannelSyncPanel onOpenSettings={onOpenSettings} />
         </div>
