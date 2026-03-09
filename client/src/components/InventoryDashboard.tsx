@@ -176,9 +176,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               >
                 <span className="text-[9px] md:text-sm lg:text-lg text-gray-400 mb-0.5 md:mb-2 lg:mb-3 leading-tight">{label}</span>
                 <span className="text-xs md:text-lg lg:text-2xl font-semibold font-mono text-lego-blue">{value}</span>
-                <span className="absolute top-1.5 right-1.5 flex items-center justify-center w-4 h-4 md:w-5 md:h-5 rounded-full bg-lego-blue/20 group-hover:bg-lego-blue/50 transition-colors">
-                  <ChevronRight className="w-2.5 h-2.5 md:w-3 md:h-3 text-white" />
-                </span>
+                <ChevronRight className="absolute top-1.5 right-1.5 w-3 h-3 text-gray-500 group-hover:text-gray-300 transition-colors" />
               </button>
             ))}
           </div>
