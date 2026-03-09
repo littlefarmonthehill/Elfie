@@ -13,13 +13,15 @@ import {
   ArrowRight,
   XCircle,
   Clock,
+  SlidersHorizontal,
 } from "lucide-react";
 
 interface ChannelSyncPanelProps {
   onOpenDetails: () => void;
+  onOpenSettings?: (section?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'users' | 'billing') => void;
 }
 
-export default function ChannelSyncPanel({ onOpenDetails }: ChannelSyncPanelProps) {
+export default function ChannelSyncPanel({ onOpenDetails, onOpenSettings }: ChannelSyncPanelProps) {
   const { toast } = useToast();
 
   const { data: platformData, isLoading: platformLoading } = useQuery<any>({
@@ -136,6 +138,16 @@ export default function ChannelSyncPanel({ onOpenDetails }: ChannelSyncPanelProp
           >
             Details
             <ArrowRight className="w-3 h-3 ml-1" />
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-6 w-6 text-gray-500 hover:text-gray-300"
+            onClick={() => onOpenSettings?.('automation')}
+            data-testid="button-channel-sync-settings"
+            title="Channel sync settings"
+          >
+            <SlidersHorizontal className="w-3 h-3" />
           </Button>
         </div>
       </div>

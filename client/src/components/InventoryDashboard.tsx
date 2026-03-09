@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import MetricCard from "./MetricCard";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import { InfoIcon, Package, Sparkles, Warehouse, RefreshCw, Info, ListChecks, ScanSearch, AlertTriangle, ArrowRight, Globe, Boxes } from "lucide-react";
+import { InfoIcon, Package, Sparkles, Warehouse, RefreshCw, Info, ListChecks, ScanSearch, AlertTriangle, ArrowRight, Globe, Boxes, SlidersHorizontal } from "lucide-react";
 import ChannelSyncPanel from "./ChannelSyncPanel";
 import {
   Tooltip,
@@ -334,7 +334,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
 
           {/* Channel Sync Status */}
           <div className="mt-3">
-            <ChannelSyncPanel onOpenDetails={() => onDrawerChange('platformsync')} />
+            <ChannelSyncPanel onOpenDetails={() => onDrawerChange('platformsync')} onOpenSettings={onOpenSettings} />
           </div>
 
         </div>
@@ -369,6 +369,16 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                   </PopoverContent>
                 </Popover>
               </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="shrink-0 text-xs text-gray-400 hover:text-gray-200 gap-1.5"
+                onClick={() => onOpenSettings?.('automation')}
+                data-testid="button-pom-settings"
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5" />
+                Pricing settings
+              </Button>
             </DrawerTitle>
           </DrawerHeader>
 
@@ -397,9 +407,21 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
       <Drawer open={activeDrawer === 'platformsync'} onOpenChange={(open) => !open && onDrawerChange(null)}>
         <DrawerContent className="h-[92dvh] flex flex-col">
           <DrawerHeader>
-            <DrawerTitle className="flex items-center gap-2 text-base md:text-lg">
-              <ListChecks className="w-5 h-5 text-green-400" />
-              List-o-Matic
+            <DrawerTitle className="flex items-center justify-between gap-2 text-base md:text-lg">
+              <div className="flex items-center gap-2">
+                <ListChecks className="w-5 h-5 text-green-400" />
+                List-o-Matic
+              </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="shrink-0 text-xs text-gray-400 hover:text-gray-200 gap-1.5"
+                onClick={() => onOpenSettings?.('automation')}
+                data-testid="button-lom-settings"
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5" />
+                LOM settings
+              </Button>
             </DrawerTitle>
           </DrawerHeader>
           <div className="overflow-y-auto px-4 pb-4 flex-1">
@@ -444,7 +466,16 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 </PopoverContent>
               </Popover>
             </DrawerTitle>
-
+            <Button
+              size="sm"
+              variant="ghost"
+              className="shrink-0 text-xs text-gray-400 hover:text-gray-200 gap-1.5"
+              onClick={() => onOpenSettings?.('ai')}
+              data-testid="button-brickspotter-settings"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+              AI settings
+            </Button>
           </DrawerHeader>
           <div className="overflow-y-auto px-4 pb-4 flex-1">
             <BrickanalyzerTool ref={brickanalyzerRef} />
