@@ -737,6 +737,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const [activeSection, setActiveSection] = useState<ActiveSection>(initialSection ?? null);
   const [activeOrg, setActiveOrg] = useState<OrgWithUsage | null>(null);
   const [activeOrgTab, setActiveOrgTab] = useState<'features' | 'limits' | 'billing'>('features');
+  const [activeGeneralTab, setActiveGeneralTab] = useState<'info' | 'features' | 'limits' | 'billing'>('info');
   const [impersonationSearch, setImpersonationSearch] = useState('');
   const [orgSearch, setOrgSearch] = useState('');
 
@@ -864,6 +865,32 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     queryKey: ['/api/inventory/count'],
     enabled: open && activeSection === 'billing',
   });
+
+  type TenantLimitsData = {
+    plan: string;
+    limits: Record<string, number>;
+    usage: { seats: { count: number; limit: number }; automationRules: { count: number; limit: number }; brickspotterScans: { scansUsed: number; scansLimit: number } };
+  };
+  const { data: tenantLimitsData, isLoading: tenantLimitsLoading } = useQuery<TenantLimitsData>({
+    queryKey: ['/api/admin/organizations', user?.orgId, 'limits'],
+    enabled: open && activeSection === 'general' && activeGeneralTab === 'limits' && !!user?.orgId,
+    staleTime: 30000,
+    retry: 0,
+  });
+
+  type TenantPayment = {
+    id: string; amount: number; currency: string; status: string | null;
+    description: string | null; periodStart: number; periodEnd: number;
+    created: number; hostedUrl: string | null; pdfUrl: string | null;
+  };
+  const { data: tenantPaymentsData, isLoading: tenantPaymentsLoading } = useQuery<{ payments: TenantPayment[] }>({
+    queryKey: ['/api/billing/payments'],
+    enabled: open && activeSection === 'general' && activeGeneralTab === 'billing',
+    staleTime: 60000,
+    retry: 0,
+  });
+
+  useEffect(() => { setActiveGeneralTab('info'); }, [activeSection]);
 
   const { data: platformOrgs, isLoading: platformOrgsLoading, isError: platformOrgsError, error: platformOrgsQueryError, refetch: refetchPlatformOrgs } = useQuery<OrgWithUsage[]>({
     queryKey: ['/api/platform-admin/orgs'],
@@ -1619,7 +1646,24 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
             {/* General Settings */}
             {activeSection === 'general' && (
-              <div className="space-y-4 min-h-[400px]">
+              <div className="min-h-[400px]">
+
+              {/* Tab bar */}
+              <div className="flex border-b border-gray-700 bg-gray-800/40 -mx-6 px-6 mb-4">
+                {(['info', 'features', 'limits', 'billing'] as const).map(tab => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveGeneralTab(tab)}
+                    className={`px-4 py-2.5 text-[11px] font-semibold transition-colors border-b-2 -mb-px ${activeGeneralTab === tab ? 'text-yellow-400 border-yellow-500' : 'text-gray-500 border-transparent hover:text-gray-300'}`}
+                    data-testid={`tab-general-${tab}`}
+                  >
+                    {tab === 'billing' ? 'Billing / Payments' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                  </button>
+                ))}
+              </div>
+
+              {activeGeneralTab === 'info' && (
+              <div className="space-y-4">
 
               {/* Header card: logo + version + org ID */}
               <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3">
@@ -1924,6 +1968,175 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   </div>
                 </DialogContent>
               </Dialog>
+
+              </div>
+              )}
+
+              {/* Features tab — read-only effective state */}
+              {activeGeneralTab === 'features' && (() => {
+                const tier = getTierConfig(org?.plan ?? 'trial');
+                const fo = (org?.featureOverrides ?? {}) as Record<string, boolean>;
+                const FEATURE_ROWS: Array<{ key: string | null; tierKey: keyof typeof tier.features | null; label: string; icon: React.ElementType }> = [
+                  { key: 'elfieAiMode',      tierKey: 'elfieAiMode',        label: 'E.L.F.I.E. AI Mode',    icon: Brain },
+                  { key: 'pom',              tierKey: 'priceOMatic',         label: 'Price-o-Matic',          icon: TrendingUp },
+                  { key: 'dataEnrichment',   tierKey: 'fullDataEnrichment',  label: 'Data Enrichment',        icon: Database },
+                  { key: 'brickSpotter',     tierKey: null,                  label: 'BrickSpotter Scanning',  icon: Zap },
+                  { key: 'warehouseModule',  tierKey: null,                  label: 'Warehouse Module',       icon: Package },
+                  { key: 'universalCatalog', tierKey: null,                  label: 'Universal Catalog',      icon: Globe },
+                  { key: null,               tierKey: 'brickOwl',            label: 'BrickOwl Integration',   icon: Globe },
+                  { key: null,               tierKey: 'easypostAutomation',  label: 'EasyPost Automation',    icon: Zap },
+                  { key: null,               tierKey: 'paymentSync',         label: 'Payment Sync',           icon: CreditCard },
+                ];
+                return (
+                  <div className="rounded-lg bg-gray-800/60 border border-gray-700 overflow-hidden">
+                    <div className="px-4 py-2.5 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
+                      <Flag className="h-3.5 w-3.5 text-yellow-500/70" />
+                      <span className="text-xs font-semibold text-gray-200">Features</span>
+                      <span className="text-[10px] text-gray-500 ml-1">— {org?.plan ?? 'trial'} plan</span>
+                    </div>
+                    <div className="grid grid-cols-[1fr_56px_48px] gap-2 px-4 py-1.5 border-b border-gray-700/60">
+                      <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold">Feature</span>
+                      <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold text-center">Plan</span>
+                      <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold text-center">Active</span>
+                    </div>
+                    <div className="divide-y divide-gray-700/40">
+                      {[...FEATURE_ROWS].sort((a, b) => {
+                        const aOn = a.tierKey != null && tier.features[a.tierKey] ? 1 : 0;
+                        const bOn = b.tierKey != null && tier.features[b.tierKey] ? 1 : 0;
+                        return bOn - aOn;
+                      }).map(({ key, tierKey, label, icon: Icon }) => {
+                        const planDefault = tierKey != null ? tier.features[tierKey] : null;
+                        const overrideVal = key != null ? fo[key] : undefined;
+                        const isOverridden = key != null && overrideVal !== undefined;
+                        const effective = overrideVal !== undefined ? overrideVal : (planDefault ?? false);
+                        return (
+                          <div key={key ?? tierKey} className="grid grid-cols-[1fr_56px_48px] gap-2 items-center px-4 py-2.5">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <Icon className="h-3.5 w-3.5 text-gray-500 shrink-0" />
+                              <span className="text-[11px] text-gray-300 truncate">{label}</span>
+                              {isOverridden && <span className="shrink-0 text-[8px] font-bold uppercase tracking-wide text-amber-400 border border-amber-500/40 rounded px-1 py-0.5">OVR</span>}
+                            </div>
+                            <div className="flex justify-center">
+                              {planDefault != null ? (
+                                <span className={`text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded ${planDefault ? 'text-green-400 bg-green-500/10' : 'text-gray-600 bg-gray-700/50'}`}>
+                                  {planDefault ? 'ON' : 'OFF'}
+                                </span>
+                              ) : <span className="text-[9px] text-gray-700">—</span>}
+                            </div>
+                            <div className="flex justify-center">
+                              <span className={`text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded ${effective ? 'text-green-400 bg-green-500/10' : 'text-gray-600 bg-gray-700/50'}`}>
+                                {effective ? 'ON' : 'OFF'}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="px-4 py-2 border-t border-gray-700/60">
+                      <p className="text-[9px] text-gray-600">OVR = feature has been individually overridden by platform admin</p>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Limits tab — read-only usage */}
+              {activeGeneralTab === 'limits' && (() => {
+                const tier = getTierConfig(org?.plan ?? 'trial');
+                const fmtLimit = (n: number) => n === -1 ? '∞' : String(n);
+                const rows = [
+                  { label: 'Seats',               planMax: fmtLimit(tier.limits.seats),                  usage: tenantLimitsData ? String(tenantLimitsData.usage.seats.count) : '—' },
+                  { label: 'BrickSpotter Scans/mo', planMax: fmtLimit(tier.limits.brickspotterScansPerMonth), usage: tenantLimitsData ? String(tenantLimitsData.usage.brickspotterScans.scansUsed) : '—' },
+                  { label: 'Automation Rules',     planMax: fmtLimit(tier.limits.automationRules),        usage: tenantLimitsData ? String(tenantLimitsData.usage.automationRules.count) : '—' },
+                ];
+                return (
+                  <div className="rounded-lg bg-gray-800/60 border border-gray-700 overflow-hidden">
+                    <div className="px-4 py-2.5 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
+                      <Wrench className="h-3.5 w-3.5 text-yellow-500/70" />
+                      <span className="text-xs font-semibold text-gray-200">Plan Limits</span>
+                      {tenantLimitsLoading && <Loader2 className="h-3 w-3 animate-spin text-gray-500 ml-1" />}
+                    </div>
+                    <div className="grid grid-cols-[1fr_64px_64px] gap-2 px-4 py-1.5 border-b border-gray-700/60">
+                      <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold">Limit</span>
+                      <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold text-center">Plan Max</span>
+                      <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold text-center">In Use</span>
+                    </div>
+                    <div className="divide-y divide-gray-700/40">
+                      {rows.map(({ label, planMax, usage }) => (
+                        <div key={label} className="grid grid-cols-[1fr_64px_64px] gap-2 items-center px-4 py-2.5">
+                          <span className="text-[11px] text-gray-300">{label}</span>
+                          <span className="text-xs text-gray-500 text-center font-mono">{planMax}</span>
+                          <span className="text-xs text-gray-300 text-center font-mono">{usage}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Billing / Payments tab */}
+              {activeGeneralTab === 'billing' && (
+                <div className="rounded-lg bg-gray-800/60 border border-gray-700 overflow-hidden">
+                  <div className="px-4 py-2.5 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
+                    <CreditCard className="h-3.5 w-3.5 text-yellow-500/70" />
+                    <span className="text-xs font-semibold text-gray-200">Payment History</span>
+                  </div>
+                  {tenantPaymentsLoading ? (
+                    <div className="flex items-center justify-center py-8 gap-2 text-gray-500">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="text-xs">Loading payments…</span>
+                    </div>
+                  ) : !org?.stripeCustomerId || !tenantPaymentsData?.payments?.length ? (
+                    <div className="px-4 py-8 text-center">
+                      <CreditCard className="h-6 w-6 text-gray-700 mx-auto mb-2" />
+                      <p className="text-xs text-gray-500">No payment history available.</p>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="grid grid-cols-[1fr_72px_64px_32px] gap-2 px-4 py-1.5 border-b border-gray-700/60">
+                        <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold">Description</span>
+                        <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold text-right">Amount</span>
+                        <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold text-center">Status</span>
+                        <span className="text-[9px]"></span>
+                      </div>
+                      <div className="divide-y divide-gray-700/40 max-h-72 overflow-y-auto">
+                        {[...tenantPaymentsData.payments].sort((a, b) => b.created - a.created).map(pmt => {
+                          const fmtAmt = (amt: number, cur: string) =>
+                            new Intl.NumberFormat('en-US', { style: 'currency', currency: cur.toUpperCase() }).format(amt / 100);
+                          const statusColors: Record<string, string> = {
+                            paid: 'text-green-400 bg-green-500/10',
+                            open: 'text-yellow-400 bg-yellow-500/10',
+                            void: 'text-gray-500 bg-gray-700/50',
+                            uncollectible: 'text-red-400 bg-red-500/10',
+                            draft: 'text-gray-500 bg-gray-700/50',
+                          };
+                          const date = new Date(pmt.created * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                          return (
+                            <div key={pmt.id} className="grid grid-cols-[1fr_72px_64px_32px] gap-2 items-center px-4 py-2.5">
+                              <div className="min-w-0">
+                                <p className="text-[11px] text-gray-300 truncate">{pmt.description ?? 'Invoice'}</p>
+                                <p className="text-[10px] text-gray-600">{date}</p>
+                              </div>
+                              <span className="text-xs text-gray-200 font-mono text-right">{fmtAmt(pmt.amount, pmt.currency)}</span>
+                              <div className="flex justify-center">
+                                <span className={`text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded ${statusColors[pmt.status ?? ''] ?? 'text-gray-500 bg-gray-700/50'}`}>
+                                  {pmt.status ?? '—'}
+                                </span>
+                              </div>
+                              <div className="flex justify-center">
+                                {pmt.hostedUrl && (
+                                  <a href={pmt.hostedUrl} target="_blank" rel="noopener noreferrer" title="View invoice" className="text-gray-600 hover:text-yellow-400 transition-colors" data-testid={`link-tenant-invoice-${pmt.id}`}>
+                                    <ExternalLink className="h-3.5 w-3.5" />
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               </div>
             )}

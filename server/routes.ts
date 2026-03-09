@@ -652,6 +652,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // GET /api/billing/payments — Stripe invoice history for the current org
+  app.get('/api/billing/payments', isAuthenticated, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const [org] = await db.select().from(organizations).where(eq(organizations.id, orgId)).limit(1);
+      if (!org) return res.status(404).json({ error: 'Not found' });
+      if (!org.stripeCustomerId) return res.json({ payments: [] });
+      const stripe = stripeClient.getClient();
+      const invoices = await stripe.invoices.list({ customer: org.stripeCustomerId, limit: 50 });
+      const payments = invoices.data.map(inv => ({
+        id: inv.id,
+        amount: inv.amount_paid,
+        currency: inv.currency,
+        status: inv.status,
+        description: inv.description || inv.lines.data[0]?.description || null,
+        periodStart: inv.period_start,
+        periodEnd: inv.period_end,
+        created: inv.created,
+        hostedUrl: inv.hosted_invoice_url,
+        pdfUrl: inv.invoice_pdf,
+      }));
+      res.json({ payments });
+    } catch {
+      res.status(500).json({ error: 'Failed to fetch payments' });
+    }
+  });
+
   // POST /api/billing/webhook — handle subscription events
   // Use express.raw() for Stripe webhook to verify signature
   app.post('/api/billing/webhook', async (req, res) => {
