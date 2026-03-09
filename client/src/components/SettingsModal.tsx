@@ -862,6 +862,9 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const [showClearPomDialog, setShowClearPomDialog] = useState(false);
 
   const [billingInterval, setBillingInterval] = useState<'monthly' | 'annual'>('monthly');
+  const [subPlan, setSubPlan] = useState<'foundation' | 'core'>('core');
+  const [subInterval, setSubInterval] = useState<'monthly' | 'annual'>('monthly');
+  const [showCancelSubDialog, setShowCancelSubDialog] = useState(false);
 
   const { data: inventoryCountData } = useQuery<{ count: number }>({
     queryKey: ['/api/inventory/count'],
@@ -893,6 +896,13 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   });
 
   useEffect(() => { setActiveGeneralTab('info'); }, [activeSection]);
+
+  useEffect(() => {
+    if (activeGeneralTab === 'billing' && org) {
+      setSubPlan(org.plan === 'core' ? 'core' : 'foundation');
+      setSubInterval(org.subscriptionInterval === 'annual' ? 'annual' : 'monthly');
+    }
+  }, [activeGeneralTab, org?.plan, org?.subscriptionInterval]);
 
   const { data: platformOrgs, isLoading: platformOrgsLoading, isError: platformOrgsError, error: platformOrgsQueryError, refetch: refetchPlatformOrgs } = useQuery<OrgWithUsage[]>({
     queryKey: ['/api/platform-admin/orgs'],
@@ -1073,6 +1083,49 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     },
     onError: (error: any) => {
       toast({ title: "Billing Error", description: error.message || "Could not open billing portal. Make sure Stripe is configured.", variant: "destructive" });
+    },
+  });
+
+  const changePlanMutation = useMutation({
+    mutationFn: async ({ plan, interval }: { plan: string; interval: string }) => {
+      return apiRequest('POST', '/api/billing/change-plan', { plan, interval });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/organizations', user?.orgId] });
+      toast({ title: "Plan Updated", description: "Your subscription has been updated. Changes take effect immediately." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Plan Change Failed", description: error.message || "Could not update your plan. Please try again.", variant: "destructive" });
+    },
+  });
+
+  const autoRenewMutation = useMutation({
+    mutationFn: async ({ autoRenew }: { autoRenew: boolean }) => {
+      return apiRequest('PATCH', '/api/billing/auto-renew', { autoRenew });
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/organizations', user?.orgId] });
+      toast({ title: vars.autoRenew ? "Auto-renew Enabled" : "Auto-renew Disabled", description: vars.autoRenew ? "Your subscription will renew automatically." : "Your subscription will not renew at the end of the current period." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Could not update auto-renew setting.", variant: "destructive" });
+    },
+  });
+
+  const cancelSubMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest('DELETE', '/api/billing/subscription', {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/organizations', user?.orgId] });
+      setShowCancelSubDialog(false);
+      toast({ title: "Subscription Cancelled", description: "Your subscription has been cancelled. You retain access until the end of your billing period." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Cancellation Failed", description: error.message || "Could not cancel your subscription. Please try again.", variant: "destructive" });
     },
   });
 
@@ -1705,7 +1758,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     className={`px-4 py-2.5 text-[11px] font-semibold transition-colors border-b-2 -mb-px ${activeGeneralTab === tab ? 'text-yellow-400 border-yellow-500' : 'text-gray-500 border-transparent hover:text-gray-300'}`}
                     data-testid={`tab-general-${tab}`}
                   >
-                    {tab === 'billing' ? 'Billing / Payments' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                    {tab === 'billing' ? 'Manage Subscription' : tab.charAt(0).toUpperCase() + tab.slice(1)}
                   </button>
                 ))}
               </div>
@@ -2121,70 +2174,270 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                 );
               })()}
 
-              {/* Billing / Payments tab */}
-              {activeGeneralTab === 'billing' && (
-                <div className="rounded-lg bg-gray-800/60 border border-gray-700 overflow-hidden">
-                  <div className="px-4 py-2.5 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
-                    <CreditCard className="h-3.5 w-3.5 text-yellow-500/70" />
-                    <span className="text-xs font-semibold text-gray-200">Payment History</span>
+              {/* Manage Subscription tab */}
+              {activeGeneralTab === 'billing' && (() => {
+                const isActive = org?.subscriptionStatus === 'active';
+                const isTrial = !org?.plan || org?.plan === 'trial';
+                const isFlagship = org?.plan === 'flagship';
+                const hasActiveSub = !!org?.stripeSubscriptionId;
+                const renewalDate = org?.subscriptionEndsAt ? new Date(org.subscriptionEndsAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : null;
+                const planLabel = (p?: string | null) => p === 'core' ? 'Core' : p === 'foundation' ? 'Foundation' : p === 'flagship' ? 'Flagship' : 'Free Trial';
+                const fndMonthly = TIER_CONFIG.foundation.price.monthly;
+                const fndAnnual = Math.round(TIER_CONFIG.foundation.price.annual / 12);
+                const coreMonthly = TIER_CONFIG.core.price.monthly;
+                const coreAnnual = Math.round(TIER_CONFIG.core.price.annual / 12);
+                const displayPrice = (plan: string) => plan === 'core' ? (subInterval === 'annual' ? coreAnnual : coreMonthly) : (subInterval === 'annual' ? fndAnnual : fndMonthly);
+                const noChange = subPlan === org?.plan && subInterval === (org?.subscriptionInterval ?? 'monthly');
+                return (
+                  <div className="space-y-4">
+
+                    {/* ── CURRENT PLAN ──────────────────────────────────────── */}
+                    <div className="rounded-lg bg-gray-800/60 border border-gray-700 p-4 space-y-3">
+                      <div className="flex items-start justify-between gap-2 flex-wrap">
+                        <div>
+                          <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold mb-1">Current Plan</p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-base font-bold text-white">{planLabel(org?.plan)}</span>
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium uppercase tracking-wider border ${
+                              isActive ? 'bg-green-500/10 text-green-400 border-green-500/20' :
+                              isTrial ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                              org?.subscriptionStatus === 'past_due' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+                              org?.subscriptionStatus === 'canceled' ? 'bg-gray-700 text-gray-400 border-gray-600' :
+                              'bg-gray-700 text-gray-400 border-gray-600'
+                            }`}>
+                              {org?.subscriptionStatus ?? 'trial'}
+                            </span>
+                          </div>
+                        </div>
+                        {!isTrial && !isFlagship && (
+                          <div className="text-right">
+                            <p className="text-[10px] text-gray-500 uppercase tracking-wider">Billing Interval</p>
+                            <p className="text-xs font-medium text-gray-300 capitalize mt-0.5">{org?.subscriptionInterval ?? 'monthly'}</p>
+                          </div>
+                        )}
+                      </div>
+
+                      {isTrial && trialDaysRemaining !== null && (
+                        <div className={`rounded-md px-3 py-2 flex items-center gap-2 ${trialDaysRemaining <= 3 ? 'bg-red-500/10 border border-red-500/20' : 'bg-blue-500/10 border border-blue-500/20'}`}>
+                          <AlertTriangle className={`w-3.5 h-3.5 shrink-0 ${trialDaysRemaining <= 3 ? 'text-red-400' : 'text-blue-400'}`} />
+                          <p className={`text-[11px] ${trialDaysRemaining <= 3 ? 'text-red-300' : 'text-blue-300'}`}>
+                            {trialDaysRemaining === 0 ? 'Your trial has ended.' : `${trialDaysRemaining} day${trialDaysRemaining === 1 ? '' : 's'} remaining in your free trial.`}
+                          </p>
+                        </div>
+                      )}
+
+                      {!isTrial && !isFlagship && renewalDate && (
+                        <p className="text-[11px] text-gray-400">
+                          {org?.cancelAtPeriodEnd ? (
+                            <span className="text-amber-400">Subscription ends {renewalDate} — will not renew</span>
+                          ) : (
+                            <span>Renews {renewalDate}</span>
+                          )}
+                        </p>
+                      )}
+
+                      {isFlagship && (
+                        <p className="text-xs text-gray-500">Flagship house account — no billing required.</p>
+                      )}
+
+                      {/* Auto-renew toggle */}
+                      {hasActiveSub && isActive && (
+                        <div className="flex items-center justify-between pt-2 border-t border-gray-700/50 gap-2 flex-wrap">
+                          <div>
+                            <p className="text-xs font-medium text-gray-300">Auto-renew</p>
+                            <p className="text-[10px] text-gray-500 mt-0.5">
+                              {org?.cancelAtPeriodEnd ? 'Off — subscription will expire at period end' : 'On — subscription renews automatically'}
+                            </p>
+                          </div>
+                          <Switch
+                            checked={!org?.cancelAtPeriodEnd}
+                            onCheckedChange={(checked) => autoRenewMutation.mutate({ autoRenew: checked })}
+                            disabled={autoRenewMutation.isPending}
+                            data-testid="switch-auto-renew"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* ── CHANGE PLAN ──────────────────────────────────────── */}
+                    {!isFlagship && (
+                      <div className="rounded-lg bg-gray-800/60 border border-gray-700 overflow-hidden">
+                        <div className="px-4 py-2.5 bg-gray-800 border-b border-gray-700 flex items-center justify-between gap-2 flex-wrap">
+                          <div className="flex items-center gap-2">
+                            <Sparkles className="h-3.5 w-3.5 text-yellow-500/70" />
+                            <span className="text-xs font-semibold text-gray-200">{isTrial ? 'Choose a Plan' : 'Change Plan'}</span>
+                          </div>
+                          <div className="flex items-center gap-0.5 bg-gray-900/60 rounded-md p-0.5">
+                            <button onClick={() => setSubInterval('monthly')} className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors ${subInterval === 'monthly' ? 'bg-gray-600 text-white' : 'text-gray-500 hover:text-gray-300'}`} data-testid="button-sub-monthly">Monthly</button>
+                            <button onClick={() => setSubInterval('annual')} className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors ${subInterval === 'annual' ? 'bg-gray-600 text-white' : 'text-gray-500 hover:text-gray-300'}`} data-testid="button-sub-annual">Annual <span className="text-green-400">−17%</span></button>
+                          </div>
+                        </div>
+
+                        <div className="p-4 grid grid-cols-2 gap-3">
+                          {([
+                            { plan: 'foundation' as const, label: 'Foundation', tagline: 'Core reselling tools', popular: false },
+                            { plan: 'core' as const, label: 'Core', tagline: 'Full platform + unlimited', popular: true },
+                          ]).map(({ plan, label, tagline, popular }) => (
+                            <button
+                              key={plan}
+                              onClick={() => setSubPlan(plan)}
+                              className={`p-3 rounded-lg border transition-all text-left ${subPlan === plan ? 'border-yellow-500/50 bg-yellow-500/5 ring-1 ring-yellow-500/20' : 'border-gray-700 hover:border-gray-600 bg-gray-900/30'}`}
+                              data-testid={`button-select-plan-${plan}`}
+                            >
+                              <div className="flex items-center justify-between mb-1">
+                                <p className="text-xs font-bold text-gray-200">{label}</p>
+                                {popular && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-400 font-semibold uppercase tracking-wide">Popular</span>}
+                                {org?.plan === plan && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-400 border border-green-500/20 font-semibold">Current</span>}
+                              </div>
+                              <p className="text-lg font-bold text-white">
+                                ${displayPrice(plan)}<span className="text-xs font-normal text-gray-400">/mo</span>
+                              </p>
+                              {subInterval === 'annual' && <p className="text-[10px] text-gray-500 mt-0.5">billed annually</p>}
+                              <p className="text-[10px] text-gray-500 mt-1">{tagline}</p>
+                            </button>
+                          ))}
+                        </div>
+
+                        <div className="px-4 pb-4 space-y-2">
+                          {isTrial ? (
+                            <Button
+                              className="w-full bg-purple-600"
+                              onClick={() => checkoutMutation.mutate({ plan: subPlan, interval: subInterval })}
+                              disabled={checkoutMutation.isPending}
+                              data-testid="button-subscribe-now"
+                            >
+                              <Sparkles className="w-3.5 h-3.5 mr-2" />
+                              {checkoutMutation.isPending ? 'Redirecting to checkout…' : `Subscribe to ${subPlan === 'core' ? 'Core' : 'Foundation'} — $${displayPrice(subPlan)}/mo`}
+                            </Button>
+                          ) : (
+                            <Button
+                              className="w-full"
+                              variant={noChange ? 'outline' : 'default'}
+                              onClick={() => changePlanMutation.mutate({ plan: subPlan, interval: subInterval })}
+                              disabled={changePlanMutation.isPending || noChange}
+                              data-testid="button-apply-plan-change"
+                            >
+                              {changePlanMutation.isPending ? 'Applying…' : noChange ? 'No changes' : `Switch to ${subPlan === 'core' ? 'Core' : 'Foundation'} ${subInterval}`}
+                            </Button>
+                          )}
+                          {subInterval === 'annual' && !isTrial && (
+                            <p className="text-[10px] text-gray-500 text-center">Prorations are applied immediately. You'll be charged the difference.</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ── DANGER ZONE ──────────────────────────────────────── */}
+                    {hasActiveSub && isActive && (
+                      <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-4">
+                        <p className="text-[10px] uppercase tracking-widest text-red-500/70 font-semibold mb-3">Danger Zone</p>
+                        <div className="flex items-center justify-between gap-4 flex-wrap">
+                          <div>
+                            <p className="text-xs font-medium text-gray-300">Cancel subscription</p>
+                            <p className="text-[10px] text-gray-500 mt-0.5">Cancels immediately. Access ends now.</p>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="border-red-500/30 text-red-400 shrink-0"
+                            onClick={() => setShowCancelSubDialog(true)}
+                            data-testid="button-cancel-subscription"
+                          >
+                            Cancel Subscription
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ── PAYMENT HISTORY ──────────────────────────────────── */}
+                    <div className="rounded-lg bg-gray-800/60 border border-gray-700 overflow-hidden">
+                      <div className="px-4 py-2.5 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
+                        <CreditCard className="h-3.5 w-3.5 text-yellow-500/70" />
+                        <span className="text-xs font-semibold text-gray-200">Payment History</span>
+                      </div>
+                      {tenantPaymentsLoading ? (
+                        <div className="flex items-center justify-center py-8 gap-2 text-gray-500">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span className="text-xs">Loading payments…</span>
+                        </div>
+                      ) : !org?.stripeCustomerId || !tenantPaymentsData?.payments?.length ? (
+                        <div className="px-4 py-8 text-center">
+                          <CreditCard className="h-6 w-6 text-gray-700 mx-auto mb-2" />
+                          <p className="text-xs text-gray-500">No payment history yet.</p>
+                        </div>
+                      ) : (
+                        <div>
+                          <div className="grid grid-cols-[1fr_72px_64px_32px] gap-2 px-4 py-1.5 border-b border-gray-700/60">
+                            <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold">Description</span>
+                            <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold text-right">Amount</span>
+                            <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold text-center">Status</span>
+                            <span className="text-[9px]"></span>
+                          </div>
+                          <div className="divide-y divide-gray-700/40 max-h-64 overflow-y-auto">
+                            {[...tenantPaymentsData.payments].sort((a, b) => b.created - a.created).map(pmt => {
+                              const fmtAmt = (amt: number, cur: string) =>
+                                new Intl.NumberFormat('en-US', { style: 'currency', currency: cur.toUpperCase() }).format(amt / 100);
+                              const statusColors: Record<string, string> = {
+                                paid: 'text-green-400 bg-green-500/10',
+                                open: 'text-yellow-400 bg-yellow-500/10',
+                                void: 'text-gray-500 bg-gray-700/50',
+                                uncollectible: 'text-red-400 bg-red-500/10',
+                                draft: 'text-gray-500 bg-gray-700/50',
+                              };
+                              const date = new Date(pmt.created * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                              return (
+                                <div key={pmt.id} className="grid grid-cols-[1fr_72px_64px_32px] gap-2 items-center px-4 py-2.5">
+                                  <div className="min-w-0">
+                                    <p className="text-[11px] text-gray-300 truncate">{pmt.description ?? 'Invoice'}</p>
+                                    <p className="text-[10px] text-gray-600">{date}</p>
+                                  </div>
+                                  <span className="text-xs text-gray-200 font-mono text-right">{fmtAmt(pmt.amount, pmt.currency)}</span>
+                                  <div className="flex justify-center">
+                                    <span className={`text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded ${statusColors[pmt.status ?? ''] ?? 'text-gray-500 bg-gray-700/50'}`}>
+                                      {pmt.status ?? '—'}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-center">
+                                    {pmt.hostedUrl && (
+                                      <a href={pmt.hostedUrl} target="_blank" rel="noopener noreferrer" title="View invoice" className="text-gray-600 hover:text-yellow-400 transition-colors" data-testid={`link-tenant-invoice-${pmt.id}`}>
+                                        <ExternalLink className="h-3.5 w-3.5" />
+                                      </a>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* ── CANCEL CONFIRMATION DIALOG ───────────────────────── */}
+                    <AlertDialog open={showCancelSubDialog} onOpenChange={setShowCancelSubDialog}>
+                      <AlertDialogContent className="bg-gray-900 border border-gray-700">
+                        <AlertDialogHeader>
+                          <AlertDialogTitle className="text-white">Cancel Subscription?</AlertDialogTitle>
+                          <AlertDialogDescription className="text-gray-400">
+                            This will cancel your subscription immediately. You will lose access to paid features right away. This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel className="border-gray-600 text-gray-300" data-testid="button-cancel-dialog-dismiss">Keep Subscription</AlertDialogCancel>
+                          <AlertDialogAction
+                            className="bg-red-600 hover:bg-red-700 text-white"
+                            onClick={() => cancelSubMutation.mutate()}
+                            disabled={cancelSubMutation.isPending}
+                            data-testid="button-cancel-dialog-confirm"
+                          >
+                            {cancelSubMutation.isPending ? 'Cancelling…' : 'Yes, Cancel Subscription'}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+
                   </div>
-                  {tenantPaymentsLoading ? (
-                    <div className="flex items-center justify-center py-8 gap-2 text-gray-500">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span className="text-xs">Loading payments…</span>
-                    </div>
-                  ) : !org?.stripeCustomerId || !tenantPaymentsData?.payments?.length ? (
-                    <div className="px-4 py-8 text-center">
-                      <CreditCard className="h-6 w-6 text-gray-700 mx-auto mb-2" />
-                      <p className="text-xs text-gray-500">No payment history available.</p>
-                    </div>
-                  ) : (
-                    <div>
-                      <div className="grid grid-cols-[1fr_72px_64px_32px] gap-2 px-4 py-1.5 border-b border-gray-700/60">
-                        <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold">Description</span>
-                        <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold text-right">Amount</span>
-                        <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold text-center">Status</span>
-                        <span className="text-[9px]"></span>
-                      </div>
-                      <div className="divide-y divide-gray-700/40 max-h-72 overflow-y-auto">
-                        {[...tenantPaymentsData.payments].sort((a, b) => b.created - a.created).map(pmt => {
-                          const fmtAmt = (amt: number, cur: string) =>
-                            new Intl.NumberFormat('en-US', { style: 'currency', currency: cur.toUpperCase() }).format(amt / 100);
-                          const statusColors: Record<string, string> = {
-                            paid: 'text-green-400 bg-green-500/10',
-                            open: 'text-yellow-400 bg-yellow-500/10',
-                            void: 'text-gray-500 bg-gray-700/50',
-                            uncollectible: 'text-red-400 bg-red-500/10',
-                            draft: 'text-gray-500 bg-gray-700/50',
-                          };
-                          const date = new Date(pmt.created * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                          return (
-                            <div key={pmt.id} className="grid grid-cols-[1fr_72px_64px_32px] gap-2 items-center px-4 py-2.5">
-                              <div className="min-w-0">
-                                <p className="text-[11px] text-gray-300 truncate">{pmt.description ?? 'Invoice'}</p>
-                                <p className="text-[10px] text-gray-600">{date}</p>
-                              </div>
-                              <span className="text-xs text-gray-200 font-mono text-right">{fmtAmt(pmt.amount, pmt.currency)}</span>
-                              <div className="flex justify-center">
-                                <span className={`text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded ${statusColors[pmt.status ?? ''] ?? 'text-gray-500 bg-gray-700/50'}`}>
-                                  {pmt.status ?? '—'}
-                                </span>
-                              </div>
-                              <div className="flex justify-center">
-                                {pmt.hostedUrl && (
-                                  <a href={pmt.hostedUrl} target="_blank" rel="noopener noreferrer" title="View invoice" className="text-gray-600 hover:text-yellow-400 transition-colors" data-testid={`link-tenant-invoice-${pmt.id}`}>
-                                    <ExternalLink className="h-3.5 w-3.5" />
-                                  </a>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
+                );
+              })()}
 
               </div>
             )}

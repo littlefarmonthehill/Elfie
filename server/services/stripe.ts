@@ -14,14 +14,23 @@ function getStripeClient(): Stripe {
 
 export const stripeClient = { getClient: getStripeClient };
 
+function getPriceId(plan: string, interval: string): string {
+  if (interval === "monthly") {
+    if (plan === "core") return process.env.STRIPE_CORE_MONTHLY_PRICE_ID!;
+    if (plan === "foundation") return process.env.STRIPE_FOUNDATION_MONTHLY_PRICE_ID!;
+  } else {
+    if (plan === "core") return process.env.STRIPE_CORE_ANNUAL_PRICE_ID!;
+    if (plan === "foundation") return process.env.STRIPE_FOUNDATION_ANNUAL_PRICE_ID!;
+  }
+  throw new Error(`Unknown plan/interval: ${plan}/${interval}`);
+}
+
 export async function createCheckoutSession(orgId: string, plan: string, interval: "monthly" | "annual", successUrl: string, cancelUrl: string) {
   const stripe = getStripeClient();
   const [org] = await db.select().from(organizations).where(eq(organizations.id, orgId)).limit(1);
   if (!org) throw new Error("Organization not found");
 
-  const priceId = interval === "monthly" 
-    ? (plan === "core" ? process.env.STRIPE_CORE_MONTHLY_PRICE_ID : process.env.STRIPE_FOUNDATION_MONTHLY_PRICE_ID)
-    : (plan === "core" ? process.env.STRIPE_CORE_ANNUAL_PRICE_ID : process.env.STRIPE_FOUNDATION_ANNUAL_PRICE_ID);
+  const priceId = getPriceId(plan, interval);
 
   const session = await stripe.checkout.sessions.create({
     customer: org.stripeCustomerId || undefined,
@@ -58,6 +67,54 @@ export async function createPortalSession(orgId: string, returnUrl: string) {
   return session;
 }
 
+export async function changePlan(orgId: string, newPlan: string, newInterval: string) {
+  const stripe = getStripeClient();
+  const [org] = await db.select().from(organizations).where(eq(organizations.id, orgId)).limit(1);
+  if (!org) throw new Error("Organization not found");
+  if (!org.stripeSubscriptionId) throw new Error("No active subscription found. Use checkout to start a subscription.");
+
+  const newPriceId = getPriceId(newPlan, newInterval);
+  const subscription = await stripe.subscriptions.retrieve(org.stripeSubscriptionId);
+  const itemId = subscription.items.data[0]?.id;
+  if (!itemId) throw new Error("Subscription has no items");
+
+  await stripe.subscriptions.update(org.stripeSubscriptionId, {
+    items: [{ id: itemId, price: newPriceId }],
+    metadata: { plan: newPlan, interval: newInterval },
+    proration_behavior: "create_prorations",
+  });
+
+  return { success: true };
+}
+
+export async function setAutoRenew(orgId: string, autoRenew: boolean) {
+  const stripe = getStripeClient();
+  const [org] = await db.select().from(organizations).where(eq(organizations.id, orgId)).limit(1);
+  if (!org) throw new Error("Organization not found");
+  if (!org.stripeSubscriptionId) throw new Error("No active subscription found");
+
+  const cancelAtPeriodEnd = !autoRenew;
+  await stripe.subscriptions.update(org.stripeSubscriptionId, {
+    cancel_at_period_end: cancelAtPeriodEnd,
+  });
+
+  await db.update(organizations)
+    .set({ cancelAtPeriodEnd, updatedAt: new Date() })
+    .where(eq(organizations.id, orgId));
+
+  return { autoRenew, cancelAtPeriodEnd };
+}
+
+export async function cancelSubscriptionNow(orgId: string) {
+  const stripe = getStripeClient();
+  const [org] = await db.select().from(organizations).where(eq(organizations.id, orgId)).limit(1);
+  if (!org) throw new Error("Organization not found");
+  if (!org.stripeSubscriptionId) throw new Error("No active subscription found");
+
+  await stripe.subscriptions.cancel(org.stripeSubscriptionId);
+  return { success: true };
+}
+
 export async function handleStripeWebhook(payload: string, sig: string) {
   const stripe = getStripeClient();
   let event;
@@ -89,6 +146,7 @@ export async function handleStripeWebhook(payload: string, sig: string) {
     case "customer.subscription.updated":
       const plan = subscription.metadata.plan || org.plan;
       const interval = subscription.items.data[0].price.recurring?.interval === "year" ? "annual" : "monthly";
+      const cancelAtPeriodEnd = subscription.cancel_at_period_end ?? false;
       
       const periodEnd = subscription.current_period_end
         ? new Date(subscription.current_period_end * 1000)
@@ -100,6 +158,7 @@ export async function handleStripeWebhook(payload: string, sig: string) {
         plan: plan as any,
         subscriptionInterval: interval,
         subscriptionEndsAt: periodEnd,
+        cancelAtPeriodEnd,
         updatedAt: new Date(),
       }).where(eq(organizations.id, org.id));
       break;
@@ -108,6 +167,7 @@ export async function handleStripeWebhook(payload: string, sig: string) {
       await db.update(organizations).set({
         stripeSubscriptionId: null,
         subscriptionStatus: "canceled",
+        cancelAtPeriodEnd: false,
         updatedAt: new Date(),
       }).where(eq(organizations.id, org.id));
       break;

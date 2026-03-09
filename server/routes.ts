@@ -20,7 +20,7 @@ import FormData from "form-data";
 import axios from "axios";
 import OpenAI from "openai";
 import { checkBrickspotterLimit, incrementBrickspotterScan, getOrgWithLimits, checkSeatLimit, checkAutomationLimit } from "./services/tierEnforcement";
-import { stripeClient, createCheckoutSession, createPortalSession, handleStripeWebhook } from "./services/stripe";
+import { stripeClient, createCheckoutSession, createPortalSession, handleStripeWebhook, changePlan, setAutoRenew, cancelSubscriptionNow } from "./services/stripe";
 
 // Decode HTML entities from BrickLink notes for accurate comparison.
 // Regex compiled once at module level; single-pass replace with a lookup table.
@@ -710,8 +710,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: org.subscriptionStatus,
         interval: org.subscriptionInterval,
         hasStripeCustomer: !!org.stripeCustomerId,
+        hasActiveSubscription: !!org.stripeSubscriptionId,
         trialEndsAt: org.trialEndsAt ?? null,
         subscriptionEndsAt: org.subscriptionEndsAt ?? null,
+        cancelAtPeriodEnd: org.cancelAtPeriodEnd ?? false,
         brickspotter: {
           scansUsed: brickspotterCheck.scansUsed ?? 0,
           scansLimit: brickspotterCheck.scansLimit ?? -1,
@@ -760,6 +762,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (err: any) {
       console.error("Webhook error:", err.message);
       res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+  });
+
+  // POST /api/billing/change-plan — upgrade or downgrade active subscription inline
+  app.post('/api/billing/change-plan', isAuthenticated, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const { plan, interval } = req.body;
+      if (!['foundation', 'core'].includes(plan)) return res.status(400).json({ message: "Invalid plan" });
+      if (!['monthly', 'annual'].includes(interval)) return res.status(400).json({ message: "Invalid interval" });
+      const result = await changePlan(orgId, plan, interval);
+      res.json(result);
+    } catch (error: any) {
+      console.error("Change plan error:", error);
+      res.status(500).json({ message: error.message || "Failed to change plan" });
+    }
+  });
+
+  // PATCH /api/billing/auto-renew — toggle subscription auto-renew (cancel_at_period_end)
+  app.patch('/api/billing/auto-renew', isAuthenticated, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const { autoRenew } = req.body;
+      if (typeof autoRenew !== 'boolean') return res.status(400).json({ message: "autoRenew must be a boolean" });
+      const result = await setAutoRenew(orgId, autoRenew);
+      res.json(result);
+    } catch (error: any) {
+      console.error("Auto-renew error:", error);
+      res.status(500).json({ message: error.message || "Failed to update auto-renew" });
+    }
+  });
+
+  // DELETE /api/billing/subscription — cancel subscription immediately
+  app.delete('/api/billing/subscription', isAuthenticated, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const result = await cancelSubscriptionNow(orgId);
+      res.json(result);
+    } catch (error: any) {
+      console.error("Cancel subscription error:", error);
+      res.status(500).json({ message: error.message || "Failed to cancel subscription" });
     }
   });
 
