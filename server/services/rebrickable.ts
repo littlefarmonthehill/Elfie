@@ -1,11 +1,16 @@
 import { db } from "../db";
-import { setPartRelationships } from "@shared/schema";
-import { sql } from "drizzle-orm";
+import { setPartRelationships, syncMetadata } from "@shared/schema";
+import { sql, eq } from "drizzle-orm";
 import https from "https";
 import { parse } from "csv-parse";
 import { createGunzip } from "zlib";
-import { pipeline } from "stream/promises";
 import { Readable } from "stream";
+
+const ORG_ID = 'org_planetbrick';
+const SYNC_ID = 'rebrickable_set_parts';
+
+let isRunning = false;
+export function getRebrickableSyncIsRunning() { return isRunning; }
 
 export interface RebrickableSyncResult {
   setsAdded: number;
@@ -14,30 +19,61 @@ export interface RebrickableSyncResult {
 }
 
 // Download and parse Rebrickable inventory_parts.csv using streaming
-export async function syncRebrickableSetParts(): Promise<RebrickableSyncResult> {
+export async function syncRebrickableSetParts(forceRefresh = false): Promise<RebrickableSyncResult> {
+  if (isRunning) {
+    throw new Error('Rebrickable set-parts sync is already running');
+  }
+  isRunning = true;
+
+  // Mark in_progress in sync metadata
+  await db.insert(syncMetadata).values({
+    id: SYNC_ID,
+    lastSyncStatus: 'in_progress',
+    lastSyncTime: new Date(),
+    recordsAdded: 0,
+    recordsUpdated: 0,
+    orgId: ORG_ID,
+  }).onConflictDoUpdate({
+    target: syncMetadata.id,
+    set: { lastSyncStatus: 'in_progress', lastSyncTime: new Date(), updatedAt: new Date() },
+  });
+
   try {
     console.log('[Rebrickable] Starting set-part relationships sync...');
     
-    // Check if we already have data - only sync if missing or empty
+    // Check if we already have data
     const existingCount = await db
       .select({ count: sql<number>`count(*)` })
       .from(setPartRelationships);
     
     const recordCount = Number(existingCount[0]?.count || 0);
     
-    if (recordCount > 0) {
-      console.log(`[Rebrickable] ✓ Already have ${recordCount.toLocaleString()} relationships - skipping sync (Rebrickable data rarely changes)`);
+    if (recordCount > 0 && !forceRefresh) {
+      console.log(`[Rebrickable] ✓ Already have ${recordCount.toLocaleString()} relationships - skipping (use forceRefresh to re-sync)`);
       
-      // Get unique set count for response
       const setCount = await db
         .selectDistinct({ setNum: setPartRelationships.setNum })
         .from(setPartRelationships);
-      
-      return {
-        setsAdded: 0,
-        setsUpdated: 0,
-        partsProcessed: recordCount,
-      };
+
+      await db.insert(syncMetadata).values({
+        id: SYNC_ID,
+        lastSyncStatus: 'success',
+        lastSyncTime: new Date(),
+        recordsAdded: 0,
+        recordsUpdated: recordCount,
+        orgId: ORG_ID,
+      }).onConflictDoUpdate({
+        target: syncMetadata.id,
+        set: { lastSyncStatus: 'success', updatedAt: new Date(), recordsUpdated: recordCount, errorMessage: null },
+      });
+
+      isRunning = false;
+      return { setsAdded: 0, setsUpdated: 0, partsProcessed: recordCount };
+    }
+
+    if (forceRefresh && recordCount > 0) {
+      console.log(`[Rebrickable] Force refresh — clearing ${recordCount.toLocaleString()} existing relationships...`);
+      await db.execute(sql`TRUNCATE TABLE set_part_relationships RESTART IDENTITY`);
     }
     
     console.log('[Rebrickable] No existing data found - performing full sync...');
@@ -232,14 +268,46 @@ export async function syncRebrickableSetParts(): Promise<RebrickableSyncResult> 
       .from(setPartRelationships);
     
     console.log(`[Rebrickable] Found ${setCount.length} unique sets`);
-    
+
+    await db.insert(syncMetadata).values({
+      id: SYNC_ID,
+      lastSyncStatus: 'success',
+      lastSyncTime: new Date(),
+      recordsAdded: partsProcessed,
+      recordsUpdated: 0,
+      orgId: ORG_ID,
+    }).onConflictDoUpdate({
+      target: syncMetadata.id,
+      set: {
+        lastSyncStatus: 'success',
+        updatedAt: new Date(),
+        recordsAdded: partsProcessed,
+        recordsUpdated: 0,
+        errorMessage: null,
+      },
+    });
+
+    isRunning = false;
     return {
       setsAdded: setCount.length,
       setsUpdated: 0,
       partsProcessed,
     };
-  } catch (error) {
+  } catch (error: any) {
+    isRunning = false;
     console.error('[Rebrickable] Sync failed:', error);
+    await db.insert(syncMetadata).values({
+      id: SYNC_ID,
+      lastSyncStatus: 'error',
+      lastSyncTime: new Date(),
+      recordsAdded: 0,
+      recordsUpdated: 0,
+      errorMessage: error.message,
+      orgId: ORG_ID,
+    }).onConflictDoUpdate({
+      target: syncMetadata.id,
+      set: { lastSyncStatus: 'error', updatedAt: new Date(), errorMessage: error.message },
+    }).catch(() => {});
     throw error;
   }
 }

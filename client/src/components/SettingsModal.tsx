@@ -690,6 +690,9 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const [schedulerChannelOpen, setSchedulerChannelOpen] = useState(false);
   const [enrichmentEmbeddingsOpen, setEnrichmentEmbeddingsOpen] = useState(false);
   const [enrichmentPomOpen, setEnrichmentPomOpen] = useState(false);
+  const [enrichmentRebrickableOpen, setEnrichmentRebrickableOpen] = useState(false);
+  const [rebrickableSetSyncEnabled, setRebrickableSetSyncEnabled] = useState(false);
+  const [rebrickableSetSyncTime, setRebrickableSetSyncTime] = useState("04:00");
   const [ordersSyncFrequency, setOrdersSyncFrequency] = useState(15);
   const [ordersSyncFrequencyStr, setOrdersSyncFrequencyStr] = useState("15");
 
@@ -754,10 +757,11 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     priceomatic: SyncStatusEntry;
     channel: SyncStatusEntry;
     orders: SyncStatusEntry;
+    rebrickable: SyncStatusEntry;
   }>({
     queryKey: ['/api/sync/statuses'],
     refetchInterval: 30000,
-    enabled: open && activeSection === 'automation',
+    enabled: open && (activeSection === 'automation' || activeSection === 'enrichment'),
   });
 
   type PlatformStats = { totalLots: number; totalParts: number; lastSyncedAt: string | null };
@@ -928,6 +932,8 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
       setOrdersSyncEnabled(settings.ordersSyncEnabled || false);
       setOrdersSyncFrequency(settings.ordersSyncFrequency || 15);
       setOrdersSyncFrequencyStr(String(settings.ordersSyncFrequency || 15));
+      setRebrickableSetSyncEnabled(settings.rebrickableSetSyncEnabled || false);
+      setRebrickableSetSyncTime(settings.rebrickableSetSyncTime || '04:00');
 
       // Price-o-Matic formula settings
       setPomBasePremium(settings.pomBasePremium ?? 10);
@@ -1272,6 +1278,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const [syncingOrders, setSyncingOrders] = useState(false);
   const [syncingPom, setSyncingPom] = useState(false);
   const [syncingChannel, setSyncingChannel] = useState(false);
+  const [syncingRebrickable, setSyncingRebrickable] = useState(false);
 
   async function runManualSync(
     endpoint: string,
@@ -4322,6 +4329,110 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   </div>
 
                   </div>
+                  )}
+                </div>
+
+                <Separator className="bg-gray-700" />
+
+                {/* Rebrickable Set-Parts Sync */}
+                <div>
+                  <button
+                    onClick={() => setEnrichmentRebrickableOpen(!enrichmentRebrickableOpen)}
+                    className="w-full flex items-center justify-between gap-2 py-2 mb-3 border-b border-gray-600/60 hover:border-gray-500/60 transition-colors group"
+                    data-testid="button-enrichment-rebrickable-toggle"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-gray-200">Rebrickable Set-Parts</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${rebrickableSetSyncEnabled ? 'bg-green-500/20 text-green-400' : 'bg-gray-700 text-gray-500'}`}>
+                        {rebrickableSetSyncEnabled ? 'Enabled' : 'Disabled'}
+                      </span>
+                    </div>
+                    {enrichmentRebrickableOpen
+                      ? <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" />
+                      : <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" />}
+                  </button>
+                  {enrichmentRebrickableOpen && (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <Label className="text-xs font-medium text-gray-300">Monthly Set-Parts Sync</Label>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                  <Info className="w-3 h-3" />
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent side="bottom" className="w-72 text-xs bg-gray-900 border-gray-700 p-3 space-y-1.5">
+                                <p className="font-semibold text-gray-200">Rebrickable Set-Parts Sync</p>
+                                <p className="text-gray-400">Downloads the full Rebrickable set-to-parts relationship database (~1.4M rows). This powers the BrickSpotter "find sets that use this part" feature.</p>
+                                <p className="text-gray-500">Runs once per month — Rebrickable data changes rarely. Force-refresh truncates and rebuilds the table from scratch.</p>
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+                          <p className="text-[10px] text-gray-500 mt-0.5">Runs once monthly via scheduled download</p>
+                          <SyncStatusLine entry={syncStatuses?.rebrickable ?? null} />
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            disabled={syncingRebrickable || syncStatuses?.rebrickable?.lastSyncStatus === 'in_progress'}
+                            onClick={() => runManualSync('/api/sync/rebrickable/set-parts', setSyncingRebrickable, 'Rebrickable', undefined, 'Rebrickable sync started', 'Downloading set-parts data in the background.')}
+                            title="Run Rebrickable set-parts sync now"
+                            data-testid="button-run-rebrickable-sync"
+                          >
+                            {(syncingRebrickable || syncStatuses?.rebrickable?.lastSyncStatus === 'in_progress')
+                              ? <Loader2 className="h-4 w-4 animate-spin" />
+                              : <Play className="h-4 w-4" />}
+                          </Button>
+                          <Switch
+                            checked={rebrickableSetSyncEnabled}
+                            onCheckedChange={(checked) => {
+                              setRebrickableSetSyncEnabled(checked);
+                              updateSettingsMutation.mutate({ rebrickableSetSyncEnabled: checked });
+                            }}
+                            data-testid="switch-rebrickable-set-sync"
+                          />
+                        </div>
+                      </div>
+                      {rebrickableSetSyncEnabled && (
+                        <div className="ml-4 space-y-3">
+                          <div className="flex items-center gap-4">
+                            <div className="space-y-1">
+                              <Label htmlFor="rebrickable-sync-time" className="text-xs text-gray-400">Sync Time</Label>
+                              <Input
+                                id="rebrickable-sync-time"
+                                type="time"
+                                value={rebrickableSetSyncTime}
+                                onChange={(e) => setRebrickableSetSyncTime(e.target.value)}
+                                onBlur={() => updateSettingsMutation.mutate({ rebrickableSetSyncTime })}
+                                className="text-xs w-32"
+                                data-testid="input-rebrickable-sync-time"
+                              />
+                              <p className="text-[10px] text-gray-500">Local timezone</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <Label className="text-xs text-gray-400">Force full rebuild</Label>
+                          <p className="text-[10px] text-gray-500 mt-0.5">Truncates the table and re-downloads from scratch</p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={syncingRebrickable || syncStatuses?.rebrickable?.lastSyncStatus === 'in_progress'}
+                          onClick={() => runManualSync('/api/sync/rebrickable/set-parts', setSyncingRebrickable, 'Rebrickable', { force: true }, 'Rebuilding Rebrickable data', 'Full table rebuild started in background.')}
+                          className="border-orange-500/40 text-orange-400 hover:text-orange-300 shrink-0"
+                          data-testid="button-rebrickable-force-rebuild"
+                        >
+                          <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+                          Force Rebuild
+                        </Button>
+                      </div>
+                    </div>
                   )}
                 </div>
 

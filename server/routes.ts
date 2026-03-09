@@ -7274,6 +7274,24 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
     }
   });
 
+  // Rebrickable Set-Parts Sync — manual trigger
+  app.post("/api/sync/rebrickable/set-parts", isApproved, async (req: any, res) => {
+    try {
+      const { force = false } = req.body || {};
+      const { syncRebrickableSetParts, getRebrickableSyncIsRunning } = await import('./services/rebrickable.js');
+      if (getRebrickableSyncIsRunning()) {
+        return res.status(409).json({ success: false, error: 'Rebrickable sync already running' });
+      }
+      // Fire-and-forget — returns immediately
+      syncRebrickableSetParts(force).catch((err: any) => {
+        console.error('[Rebrickable API] Sync error:', err.message);
+      });
+      res.json({ success: true, message: 'Rebrickable set-parts sync started', force });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
   // Get BrickLink sync progress (for real-time UI updates)
   app.get("/api/sync/bricklink/progress", isApproved, async (req, res) => {
     try {
@@ -7411,7 +7429,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   app.get("/api/sync/statuses", isApproved, async (req: any, res) => {
     try {
       const orgId = reqOrgId(req);
-      const ids = ['bricklink_inventory', 'priceomatic_cache', 'channel_sync', 'bricklink_orders', 'brickowl_orders'];
+      const ids = ['bricklink_inventory', 'priceomatic_cache', 'channel_sync', 'bricklink_orders', 'brickowl_orders', 'rebrickable_set_parts'];
       const rows = await db.select().from(syncMetadata).where(and(eq(syncMetadata.orgId, orgId), inArray(syncMetadata.id, ids)));
 
       // Cross-check in_progress records against live in-memory state.
@@ -7419,12 +7437,14 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       const { getPomIsRunning } = await import("./services/pom-scheduler");
       const { getChannelSyncIsRunning } = await import("./services/channel-sync-scheduler");
       const { getOrderSyncIsRunning } = await import("./services/order-sync-core");
+      const { getRebrickableSyncIsRunning } = await import("./services/rebrickable.js");
       const isActuallyRunning: Record<string, boolean> = {
-        bricklink_inventory: syncLock.isInventorySyncRunning(),
-        priceomatic_cache:   getPomIsRunning(),
-        channel_sync:        getChannelSyncIsRunning(),
-        bricklink_orders:    getOrderSyncIsRunning(),
-        brickowl_orders:     getOrderSyncIsRunning(),
+        bricklink_inventory:    syncLock.isInventorySyncRunning(),
+        priceomatic_cache:      getPomIsRunning(),
+        channel_sync:           getChannelSyncIsRunning(),
+        bricklink_orders:       getOrderSyncIsRunning(),
+        brickowl_orders:        getOrderSyncIsRunning(),
+        rebrickable_set_parts:  getRebrickableSyncIsRunning(),
       };
       for (const row of rows) {
         if (row.lastSyncStatus === 'in_progress' && !isActuallyRunning[row.id]) {
@@ -7476,10 +7496,11 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         priceomatic: pick('priceomatic_cache'),
         channel: pick('channel_sync'),
         orders: ordersMeta,
+        rebrickable: pick('rebrickable_set_parts'),
       });
     } catch (error) {
       console.error('Error fetching sync statuses:', error);
-      res.status(500).json({ inventory: null, priceomatic: null, channel: null, orders: null });
+      res.status(500).json({ inventory: null, priceomatic: null, channel: null, orders: null, rebrickable: null });
     }
   });
 

@@ -460,6 +460,8 @@ export const appSettings = pgTable("app_settings", {
   forumSyncFrequency: integer("forum_sync_frequency").default(60).notNull(), // minutes
   // Rebrickable Configuration
   rebrickableImageSyncEnabled: boolean("rebrickable_image_sync_enabled").default(true).notNull(),
+  rebrickableSetSyncEnabled: boolean("rebrickable_set_sync_enabled").default(false).notNull(),
+  rebrickableSetSyncTime: text("rebrickable_set_sync_time").default('04:00'),   // Time of day (HH:MM)
   // Price-o-Matic 4-Tier Refresh Settings
   pomTier1RefreshDays: integer("pom_tier1_refresh_days").default(1).notNull(),   // T1 High Volatility: daily
   pomTier2RefreshDays: integer("pom_tier2_refresh_days").default(3).notNull(),   // T2 Strong Demand: every 2-3 days

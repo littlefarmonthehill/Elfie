@@ -8,6 +8,7 @@ import { startOrderSyncScheduler } from "./services/order-sync-scheduler";
 import { startEmbeddingWorker } from "./services/embedding-worker";
 import { startForumSyncScheduler } from "./services/bl-forum-scheduler";
 import { startUniversalCatalogScheduler } from "./services/universal-catalog-scheduler";
+import { startRebrickableSetsScheduler } from "./services/rebrickable-sets-scheduler";
 import { startService as startSegmentService, warmupClip } from "./services/segmentClient";
 import { pool, db, runMigrations } from "./db";
 import { blInventory, scanEmbeddings, embeddingJobs, orders } from "@shared/schema";
@@ -222,6 +223,11 @@ app.use((req, res, next) => {
       
       // Start Universal CLIP Catalog auto-refresh scheduler
       startUniversalCatalogScheduler();
+
+      // Start Rebrickable set-parts sync scheduler (monthly refresh)
+      startRebrickableSetsScheduler().catch((err: any) => {
+        console.error('Failed to start Rebrickable sets scheduler:', err);
+      });
 
       // Auto-resume Universal Catalog worker after restarts.
       // Delayed 90s so the CLIP model has time to load before the first embed request.
