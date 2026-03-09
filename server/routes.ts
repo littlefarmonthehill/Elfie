@@ -13,7 +13,7 @@ import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBacku
 import { getProcessedPartImage, processImageFromUrl } from "./services/image-proxy";
 import { db } from "./db";
 import { users, organizations, orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, scanEmbeddings, orgIntegrations, blApiCalls } from "@shared/schema";
-import { eq, desc, sql, inArray, like, or, and, isNotNull, isNull, ne, count, gte } from "drizzle-orm";
+import { eq, desc, sql, inArray, like, ilike, or, and, isNotNull, isNull, ne, count, gte, asc } from "drizzle-orm";
 import { z } from "zod";
 import multer from "multer";
 import FormData from "form-data";
@@ -7180,6 +7180,93 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         error: "Failed to search BrickLink catalog", 
         message: error instanceof Error ? error.message : "Unknown error" 
       });
+    }
+  });
+
+  // Browse inventory — paginated list for lots, parts, or categories drawers
+  app.get("/api/inventory/browse", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const type = (req.query.type as string) || 'lots';
+      const page = Math.max(0, parseInt(req.query.page as string) || 0);
+      const limit = 100;
+      const offset = page * limit;
+      const search = (req.query.search as string || '').trim();
+
+      if (type === 'categories') {
+        const searchWhere = search
+          ? and(eq(blInventory.orgId, orgId), ilike(blCategories.name, `%${search}%`))
+          : eq(blInventory.orgId, orgId);
+        const rows = await db
+          .select({
+            categoryId: blInventory.categoryId,
+            categoryName: blCategories.name,
+            lotCount: count(blInventory.id),
+            totalQty: sql<number>`SUM(${blInventory.quantity})`,
+          })
+          .from(blInventory)
+          .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
+          .where(searchWhere)
+          .groupBy(blInventory.categoryId, blCategories.name)
+          .orderBy(asc(blCategories.name))
+          .limit(limit)
+          .offset(offset);
+        const [{ total }] = await db
+          .select({ total: sql<number>`COUNT(DISTINCT ${blInventory.categoryId})` })
+          .from(blInventory)
+          .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
+          .where(searchWhere);
+        return res.json({ rows, total, page, limit });
+      }
+
+      // lots or parts — same data, different sort
+      const searchWhere = search
+        ? and(
+            eq(blInventory.orgId, orgId),
+            or(
+              ilike(blInventory.itemNo, `%${search}%`),
+              ilike(blInventory.itemName, `%${search}%`),
+              ilike(blColors.name, `%${search}%`),
+            )
+          )
+        : eq(blInventory.orgId, orgId);
+
+      const orderBy = type === 'parts'
+        ? desc(blInventory.quantity)
+        : asc(blInventory.itemNo);
+
+      const rows = await db
+        .select({
+          id: blInventory.id,
+          itemNo: blInventory.itemNo,
+          itemName: blInventory.itemName,
+          itemType: blInventory.itemType,
+          colorId: blInventory.colorId,
+          colorName: blColors.name,
+          colorRgb: blColors.rgb,
+          categoryName: blCategories.name,
+          quantity: blInventory.quantity,
+          newOrUsed: blInventory.newOrUsed,
+          unitPrice: blInventory.unitPrice,
+        })
+        .from(blInventory)
+        .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+        .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
+        .where(searchWhere)
+        .orderBy(orderBy)
+        .limit(limit)
+        .offset(offset);
+
+      const [{ total }] = await db
+        .select({ total: sql<number>`COUNT(*)` })
+        .from(blInventory)
+        .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+        .where(searchWhere);
+
+      res.json({ rows, total, page, limit });
+    } catch (error) {
+      console.error("Error browsing inventory:", error);
+      res.status(500).json({ error: "Failed to browse inventory" });
     }
   });
 

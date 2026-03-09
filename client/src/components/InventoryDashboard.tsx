@@ -1,9 +1,10 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import MetricCard from "./MetricCard";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import { InfoIcon, Package, Sparkles, Warehouse, RefreshCw, Info, ListChecks, ScanSearch, AlertTriangle, Globe, Boxes, SlidersHorizontal } from "lucide-react";
+import { InfoIcon, Package, Sparkles, Warehouse, RefreshCw, Info, ListChecks, ScanSearch, AlertTriangle, Globe, Boxes, SlidersHorizontal, ChevronLeft, ChevronRight, Search, X } from "lucide-react";
 import ChannelSyncPanel from "./ChannelSyncPanel";
+import { Input } from "@/components/ui/input";
 import {
   Tooltip,
   TooltipContent,
@@ -44,10 +45,26 @@ interface InventoryDashboardProps {
   onOpenSettings?: (section?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'users') => void;
 }
 
+type BrowseType = 'lots' | 'parts' | 'categories';
+
 export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawerChange, onOpenSettings }: InventoryDashboardProps) {
 
   const { toast } = useToast();
   const brickanalyzerRef = useRef<BrickanalyzerToolRef>(null);
+
+  const [browseDrawer, setBrowseDrawer] = useState<BrowseType | null>(null);
+  const [browsePage, setBrowsePage] = useState(0);
+  const [browseSearch, setBrowseSearch] = useState('');
+  const [browseSearchInput, setBrowseSearchInput] = useState('');
+
+  useEffect(() => {
+    const t = setTimeout(() => setBrowseSearch(browseSearchInput), 350);
+    return () => clearTimeout(t);
+  }, [browseSearchInput]);
+
+  useEffect(() => {
+    setBrowsePage(0);
+  }, [browseSearch, browseDrawer]);
 
   const { data: appSettings } = useQuery<{ timezone?: string }>({
     queryKey: ['/api/settings'],
@@ -72,6 +89,22 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
   }>({
     queryKey: ['/api/priceomatic/insights'],
     staleTime: 10 * 60 * 1000,
+  });
+
+  const { data: browseData, isLoading: browseLoading } = useQuery<{
+    rows: any[];
+    total: number;
+    page: number;
+    limit: number;
+  }>({
+    queryKey: ['/api/inventory/browse', browseDrawer, browsePage, browseSearch],
+    queryFn: () => {
+      if (!browseDrawer) return Promise.resolve({ rows: [], total: 0, page: 0, limit: 100 });
+      const params = new URLSearchParams({ type: browseDrawer, page: String(browsePage), search: browseSearch });
+      return fetch(`/api/inventory/browse?${params}`).then(r => r.json());
+    },
+    enabled: !!browseDrawer,
+    staleTime: 30000,
   });
 
   const formatCurrency = (value: number) => {
@@ -129,11 +162,16 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               </Tooltip>
             </div>
           </div>
-          <div className="grid grid-cols-4 gap-1.5 mb-2" data-testid="section-inventory-info">
-            <MetricCard label="Lots" value={stats ? formatNumber(stats.totalLots) : '0'} color="blue" data-testid="metric-lots" />
-            <MetricCard label="Parts" value={stats ? formatNumber(stats.totalParts) : '0'} color="blue" data-testid="metric-parts" />
-            <MetricCard label="Colors" value={stats ? formatNumber(stats.totalColors) : '0'} color="blue" data-testid="metric-colors" />
-            <MetricCard label="Categories" value={stats ? formatNumber(stats.totalCategories) : '0'} color="blue" data-testid="metric-categories" />
+          <div className="grid grid-cols-3 gap-1.5 mb-2" data-testid="section-inventory-info">
+            <button onClick={() => { setBrowseDrawer('lots'); setBrowseSearchInput(''); }} data-testid="metric-lots" className="text-left hover-elevate active-elevate-2 rounded-md">
+              <MetricCard label="Lots" value={stats ? formatNumber(stats.totalLots) : '0'} color="blue" />
+            </button>
+            <button onClick={() => { setBrowseDrawer('parts'); setBrowseSearchInput(''); }} data-testid="metric-parts" className="text-left hover-elevate active-elevate-2 rounded-md">
+              <MetricCard label="Parts" value={stats ? formatNumber(stats.totalParts) : '0'} color="blue" />
+            </button>
+            <button onClick={() => { setBrowseDrawer('categories'); setBrowseSearchInput(''); }} data-testid="metric-categories" className="text-left hover-elevate active-elevate-2 rounded-md">
+              <MetricCard label="Categories" value={stats ? formatNumber(stats.totalCategories) : '0'} color="blue" />
+            </button>
           </div>
           <div className="grid grid-cols-3 gap-1.5" data-testid="section-values">
             <MetricCard label="My Cost" value={stats ? formatCurrency(stats.totalCost) : '$0.00'} color="red" data-testid="metric-cost" />
@@ -331,6 +369,121 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
         </div>
 
       </div>
+
+      {/* Browse Drawer — Lots / Parts / Categories */}
+      <Drawer open={!!browseDrawer} onOpenChange={(open) => { if (!open) setBrowseDrawer(null); }}>
+        <DrawerContent className="h-[92dvh] flex flex-col">
+          <DrawerHeader className="flex-shrink-0 pb-0">
+            <DrawerTitle className="flex items-center gap-2 text-base capitalize">
+              <Package className="w-4 h-4 text-blue-400" />
+              {browseDrawer === 'lots' ? 'Inventory Lots' : browseDrawer === 'parts' ? 'Parts by Quantity' : 'Categories'}
+              {browseData && (
+                <span className="text-xs font-normal text-gray-400 ml-1">
+                  {browseData.total.toLocaleString()} total
+                </span>
+              )}
+            </DrawerTitle>
+          </DrawerHeader>
+
+          {/* Search bar */}
+          <div className="px-4 pt-3 pb-2 flex-shrink-0">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500 pointer-events-none" />
+              <Input
+                value={browseSearchInput}
+                onChange={(e) => setBrowseSearchInput(e.target.value)}
+                placeholder={browseDrawer === 'categories' ? 'Search categories…' : 'Search by part #, name, or color…'}
+                className="pl-8 pr-8 text-xs h-9 bg-gray-900 border-gray-700"
+                data-testid="input-browse-search"
+              />
+              {browseSearchInput && (
+                <button
+                  onClick={() => setBrowseSearchInput('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* List */}
+          <div className="flex-1 overflow-y-auto px-4 min-h-0">
+            {browseLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+              </div>
+            ) : browseData && browseData.rows.length === 0 ? (
+              <div className="py-12 text-center text-gray-500 text-sm">No results found</div>
+            ) : browseDrawer === 'categories' ? (
+              <div className="divide-y divide-gray-800">
+                {browseData?.rows.map((row: any, i: number) => (
+                  <div key={row.categoryId ?? i} className="flex items-center justify-between py-2.5" data-testid={`row-category-${row.categoryId}`}>
+                    <span className="text-xs text-gray-200">{row.categoryName ?? 'Uncategorized'}</span>
+                    <div className="flex items-center gap-3 text-right">
+                      <span className="text-[10px] text-gray-500">{Number(row.lotCount).toLocaleString()} lots</span>
+                      <span className="text-xs font-mono text-blue-300 min-w-[3rem] text-right">{Number(row.totalQty).toLocaleString()} pcs</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-800">
+                {browseData?.rows.map((row: any) => (
+                  <div key={row.id} className="flex items-center gap-3 py-2.5" data-testid={`row-lot-${row.id}`}>
+                    {row.colorRgb && (
+                      <div
+                        className="w-3 h-3 rounded-full flex-shrink-0 ring-1 ring-gray-600"
+                        style={{ backgroundColor: `#${row.colorRgb}` }}
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-mono text-gray-300">{row.itemNo}</span>
+                        {row.newOrUsed === 'U' && <span className="text-[9px] px-1 py-0 rounded bg-yellow-900/40 text-yellow-400 border border-yellow-700/30">Used</span>}
+                      </div>
+                      <div className="text-[10px] text-gray-500 truncate">{row.itemName ?? row.colorName ?? ''}{row.itemName && row.colorName ? ` · ${row.colorName}` : ''}</div>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <div className="text-xs font-mono text-blue-300">{Number(row.quantity).toLocaleString()}</div>
+                      {row.unitPrice && <div className="text-[10px] text-gray-500">${Number(row.unitPrice).toFixed(3)}</div>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Pagination */}
+          {browseData && browseData.total > browseData.limit && (
+            <div className="flex-shrink-0 border-t border-gray-800 px-4 py-3 flex items-center justify-between">
+              <span className="text-xs text-gray-500">
+                {(browsePage * 100 + 1).toLocaleString()}–{Math.min((browsePage + 1) * 100, browseData.total).toLocaleString()} of {browseData.total.toLocaleString()}
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  disabled={browsePage === 0}
+                  onClick={() => setBrowsePage(p => p - 1)}
+                  data-testid="button-browse-prev"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  disabled={(browsePage + 1) * 100 >= browseData.total}
+                  onClick={() => setBrowsePage(p => p + 1)}
+                  data-testid="button-browse-next"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </DrawerContent>
+      </Drawer>
 
       {/* Price-O-Matic Drawer */}
       <Drawer open={activeDrawer === 'priceomatic'} onOpenChange={(open) => !open && onDrawerChange(null)}>
