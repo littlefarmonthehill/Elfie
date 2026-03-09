@@ -495,6 +495,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // GET /api/platform-admin/orgs/:id/payments — Stripe invoice history for an org
+  app.get('/api/platform-admin/orgs/:id/payments', isSuperAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const [org] = await db.select().from(organizations).where(eq(organizations.id, id)).limit(1);
+      if (!org) return res.status(404).json({ error: 'Not found' });
+      if (!org.stripeCustomerId) return res.json({ payments: [] });
+      const stripe = stripeClient.getClient();
+      const invoices = await stripe.invoices.list({ customer: org.stripeCustomerId, limit: 50 });
+      const payments = invoices.data.map(inv => ({
+        id: inv.id,
+        amount: inv.amount_paid,
+        currency: inv.currency,
+        status: inv.status,
+        description: inv.description || inv.lines.data[0]?.description || null,
+        periodStart: inv.period_start,
+        periodEnd: inv.period_end,
+        created: inv.created,
+        hostedUrl: inv.hosted_invoice_url,
+        pdfUrl: inv.invoice_pdf,
+      }));
+      res.json({ payments });
+    } catch {
+      res.status(500).json({ error: 'Failed to fetch payments' });
+    }
+  });
+
   // GET /api/platform-admin/system-health — embedding jobs, sync status, platform vitals
   app.get('/api/platform-admin/system-health', isSuperAdmin, async (_req, res) => {
     try {
