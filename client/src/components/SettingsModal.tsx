@@ -864,10 +864,11 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     enabled: open && activeSection === 'billing',
   });
 
-  const { data: platformOrgs, isLoading: platformOrgsLoading, isError: platformOrgsError } = useQuery<OrgWithUsage[]>({
+  const { data: platformOrgs, isLoading: platformOrgsLoading, isError: platformOrgsError, error: platformOrgsQueryError, refetch: refetchPlatformOrgs } = useQuery<OrgWithUsage[]>({
     queryKey: ['/api/platform-admin/orgs'],
-    enabled: open && superAdmin && (activeSection === 'orgs' || activeSection === 'impersonation' || activeSection === 'featureFlags'),
-    retry: 1,
+    enabled: open && (activeSection === 'orgs' || activeSection === 'impersonation' || activeSection === 'featureFlags'),
+    retry: 0,
+    staleTime: 0,
   });
 
   type SystemHealthData = {
@@ -881,9 +882,9 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
   const { data: systemHealth, isLoading: systemHealthLoading, isError: systemHealthError, refetch: refetchSystemHealth } = useQuery<SystemHealthData>({
     queryKey: ['/api/platform-admin/system-health'],
-    enabled: open && superAdmin && activeSection === 'systemHealth',
+    enabled: open && activeSection === 'systemHealth',
     refetchInterval: activeSection === 'systemHealth' ? 15000 : false,
-    retry: 1,
+    retry: 0,
     staleTime: 0,
   });
 
@@ -5060,7 +5061,8 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   ) : platformOrgsError ? (
                     <div className="flex flex-col items-center justify-center gap-2 py-8">
                       <AlertTriangle className="h-4 w-4 text-red-400/70" />
-                      <p className="text-xs text-red-400">Access denied or failed to load organizations</p>
+                      <p className="text-xs text-red-400">{(platformOrgsQueryError as any)?.message || 'Failed to load organizations'}</p>
+                      <button onClick={() => refetchPlatformOrgs()} className="text-[10px] text-yellow-400/70 underline hover:text-yellow-400">Retry</button>
                     </div>
                   ) : (
                     <div className="rounded-lg border border-gray-700 overflow-hidden divide-y divide-gray-700/60">
@@ -5131,7 +5133,8 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                 ) : platformOrgsError ? (
                   <div className="flex flex-col items-center justify-center gap-2 py-8">
                     <AlertTriangle className="h-4 w-4 text-red-400/70" />
-                    <p className="text-xs text-red-400">Access denied or failed to load organizations</p>
+                    <p className="text-xs text-red-400">{(platformOrgsQueryError as any)?.message || 'Failed to load organizations'}</p>
+                    <button onClick={() => refetchPlatformOrgs()} className="text-[10px] text-yellow-400/70 underline hover:text-yellow-400">Retry</button>
                   </div>
                 ) : (
                   <div className="rounded-lg border border-gray-700 overflow-hidden divide-y divide-gray-700/60">
@@ -5201,7 +5204,8 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   ) : platformOrgsError ? (
                     <div className="flex flex-col items-center justify-center gap-2 py-8">
                       <AlertTriangle className="h-4 w-4 text-red-400/70" />
-                      <p className="text-xs text-red-400">Access denied or failed to load organizations</p>
+                      <p className="text-xs text-red-400">{(platformOrgsQueryError as any)?.message || 'Failed to load organizations'}</p>
+                      <button onClick={() => refetchPlatformOrgs()} className="text-[10px] text-yellow-400/70 underline hover:text-yellow-400">Retry</button>
                     </div>
                   ) : filteredOrgs.length === 0 ? (
                     <div className="flex flex-col items-center justify-center gap-2 py-8">
