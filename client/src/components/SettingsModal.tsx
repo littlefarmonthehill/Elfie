@@ -1410,20 +1410,41 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     { id: 'about' as const, label: 'About & Credits', icon: Info },
   ];
 
-  const platformAdminItems = [
-    { id: 'orgs' as const, label: 'Organizations', icon: Building2 },
-    { id: 'impersonation' as const, label: 'View as Company', icon: EyeOff },
-    { id: 'featureFlags' as const, label: 'Feature Flags', icon: Flag },
-    { id: 'systemHealth' as const, label: 'System Health', icon: Activity },
-    { id: 'auditLog' as const, label: 'Audit Log', icon: ClipboardList },
-    { id: 'announcements' as const, label: 'Announcements', icon: Megaphone },
-    { id: 'billingOverview' as const, label: 'Billing Overview', icon: CreditCard },
-    { id: 'plansAndPricing' as const, label: 'Plans & Pricing', icon: Tag },
-    { id: 'apiKeys' as const, label: 'API Keys', icon: Key },
-    { id: 'enrichment' as const, label: 'Data Enrichment', icon: Database },
-    { id: 'ai' as const, label: 'E.L.F.I.E.', icon: Brain },
+  const platformAdminGroups = [
+    {
+      label: 'Tenants',
+      items: [
+        { id: 'orgs' as const, label: 'Organizations', icon: Building2 },
+        { id: 'impersonation' as const, label: 'View as Company', icon: EyeOff },
+        { id: 'featureFlags' as const, label: 'Feature Flags', icon: Flag },
+      ],
+    },
+    {
+      label: 'Platform',
+      items: [
+        { id: 'systemHealth' as const, label: 'System Health', icon: Activity },
+        { id: 'auditLog' as const, label: 'Audit Log', icon: ClipboardList },
+        { id: 'announcements' as const, label: 'Announcements', icon: Megaphone },
+      ],
+    },
+    {
+      label: 'Revenue',
+      items: [
+        { id: 'billingOverview' as const, label: 'Billing Overview', icon: CreditCard },
+        { id: 'plansAndPricing' as const, label: 'Plans & Pricing', icon: Tag },
+      ],
+    },
+    {
+      label: 'AI & Data',
+      items: [
+        { id: 'apiKeys' as const, label: 'API Keys', icon: Key },
+        { id: 'enrichment' as const, label: 'Data Enrichment', icon: Database },
+        { id: 'ai' as const, label: 'E.L.F.I.E.', icon: Brain },
+      ],
+    },
   ];
 
+  const platformAdminItems = platformAdminGroups.flatMap(g => g.items);
   const allNavItems = [...navigationItems, ...platformAdminItems];
 
   return (
@@ -1524,17 +1545,22 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           : <ChevronRight className="h-3.5 w-3.5 text-yellow-700 flex-shrink-0" />
                         }
                       </button>
-                      {openGroup === 'platform' && platformAdminItems.map((item) => (
-                        <button
-                          key={item.id}
-                          onClick={() => setActiveSection(item.id)}
-                          className="w-full flex items-center gap-3 px-4 py-3 rounded-md text-sm text-yellow-300/80 hover:text-yellow-200 hover:bg-yellow-500/10 transition-colors group"
-                          data-testid={`nav-${item.id}`}
-                        >
-                          <item.icon className="h-4 w-4 text-yellow-500/70 flex-shrink-0 group-hover:text-yellow-400 transition-colors" />
-                          <span className="flex-1 text-left">{item.label}</span>
-                          <ChevronRight className="h-4 w-4 text-yellow-700 flex-shrink-0" />
-                        </button>
+                      {openGroup === 'platform' && platformAdminGroups.map((group) => (
+                        <div key={group.label}>
+                          <p className="px-4 pt-2 pb-1 text-[9px] uppercase tracking-widest text-yellow-700/60 font-semibold">{group.label}</p>
+                          {group.items.map((item) => (
+                            <button
+                              key={item.id}
+                              onClick={() => setActiveSection(item.id)}
+                              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-md text-sm text-yellow-300/80 hover:text-yellow-200 hover:bg-yellow-500/10 transition-colors group"
+                              data-testid={`nav-${item.id}`}
+                            >
+                              <item.icon className="h-4 w-4 text-yellow-500/70 flex-shrink-0 group-hover:text-yellow-400 transition-colors" />
+                              <span className="flex-1 text-left">{item.label}</span>
+                              <ChevronRight className="h-4 w-4 text-yellow-700 flex-shrink-0" />
+                            </button>
+                          ))}
+                        </div>
                       ))}
                     </>
                   )}
