@@ -185,6 +185,51 @@ export async function retryStaleItems(olderThanDays: number = 30): Promise<numbe
 
 // ── Worker ─────────────────────────────────────────────────────────────────────
 
+// Number of parts to process concurrently per batch.
+// Flask is threaded so parallel URL fetches (the dominant case) run in separate
+// threads.  For no_image items (BrickLink 404, sub-second) this gives ~5x
+// throughput vs sequential processing.  CLIP inference is CPU-bound so it
+// serialises in Python regardless; 5 is a safe concurrency for the URL tier.
+const WORKER_CONCURRENCY = 5;
+
+async function processOnePart(partNo: string): Promise<void> {
+  try {
+    const url = partImageUrl(partNo);
+    const embedding = await embedUrl(url);
+
+    // Store in scan_embeddings with source='universal'
+    const vecLit = `[${embedding.join(',')}]`;
+    await db.execute(sql`
+      INSERT INTO scan_embeddings (item_no, item_type, color_id, embedding, source, clip_model)
+      VALUES (${partNo}, 'PART', NULL, ${vecLit}::vector, 'universal', 'ViT-B/32')
+      ON CONFLICT DO NOTHING
+    `);
+
+    await db.execute(sql`
+      UPDATE universal_catalog_queue
+      SET status = 'embedded', attempted_at = NOW()
+      WHERE part_no = ${partNo}
+    `);
+
+    if (_worker) _worker.embedded++;
+  } catch (err: any) {
+    const msg    = err?.message ?? '';
+    const status = (msg.includes('404') || msg.includes('image not available') || msg.includes('403'))
+      ? 'no_image' : 'failed';
+
+    await db.execute(sql`
+      UPDATE universal_catalog_queue
+      SET status = ${status}, attempted_at = NOW(), error_msg = ${msg.slice(0, 200)}
+      WHERE part_no = ${partNo}
+    `);
+
+    if (_worker) {
+      if (status === 'no_image') _worker.noImage++;
+      else _worker.failed++;
+    }
+  }
+}
+
 export async function startUniversalWorker(): Promise<void> {
   if (_worker?.running) {
     console.log('[Universal Catalog] Worker already running');
@@ -211,10 +256,12 @@ export async function startUniversalWorker(): Promise<void> {
     startedAt: Date.now(),
   };
 
-  console.log(`[Universal Catalog] Worker started — ${totalPending.toLocaleString()} parts to embed`);
+  console.log(`[Universal Catalog] Worker started — ${totalPending.toLocaleString()} parts to embed (batch=${WORKER_CONCURRENCY})`);
 
   // Run entirely in background
   (async () => {
+    let totalProcessed = 0;
+
     while (!_worker!.shouldStop) {
       // Yield to active scans
       while (isScanActive()) {
@@ -223,55 +270,28 @@ export async function startUniversalWorker(): Promise<void> {
       }
       if (_worker!.shouldStop) break;
 
-      // Grab next pending part
-      const rows = await db.execute<{ part_no: string; part_name: string | null }>(
-        sql`SELECT part_no, part_name FROM universal_catalog_queue WHERE status = 'pending' LIMIT 1`
+      // Grab next batch of pending parts
+      const rows = await db.execute<{ part_no: string }>(
+        sql`SELECT part_no FROM universal_catalog_queue WHERE status = 'pending' LIMIT ${WORKER_CONCURRENCY}`
       ).then(r => r.rows ?? []);
 
       if (rows.length === 0) break; // All done
 
-      const { part_no: partNo } = rows[0];
-      _worker!.current = partNo;
+      _worker!.current = rows[0].part_no;
 
-      try {
-        const url = partImageUrl(partNo);
-        const embedding = await embedUrl(url);
+      // Process batch concurrently — Flask is threaded so URL fetches parallelise
+      await Promise.all(rows.map(r => processOnePart(r.part_no)));
 
-        // Store in scan_embeddings with source='universal'
-        const vecLit = `[${embedding.join(',')}]`;
-        await db.execute(sql`
-          INSERT INTO scan_embeddings (item_no, item_type, color_id, embedding, source, clip_model)
-          VALUES (${partNo}, 'PART', NULL, ${vecLit}::vector, 'universal', 'ViT-B/32')
-          ON CONFLICT DO NOTHING
-        `);
+      totalProcessed += rows.length;
 
-        await db.execute(sql`
-          UPDATE universal_catalog_queue
-          SET status = 'embedded', attempted_at = NOW()
-          WHERE part_no = ${partNo}
-        `);
-
-        _worker!.embedded++;
-        if (_worker!.embedded % 500 === 0) {
-          console.log(`[Universal Catalog] ${_worker!.embedded.toLocaleString()} embedded so far…`);
-        }
-      } catch (err: any) {
-        const msg  = err?.message ?? '';
-        const status = (msg.includes('404') || msg.includes('image not available') || msg.includes('403'))
-          ? 'no_image' : 'failed';
-
-        await db.execute(sql`
-          UPDATE universal_catalog_queue
-          SET status = ${status}, attempted_at = NOW(), error_msg = ${msg.slice(0, 200)}
-          WHERE part_no = ${partNo}
-        `);
-
-        if (status === 'no_image') _worker!.noImage++;
-        else _worker!.failed++;
+      if (totalProcessed % 1000 === 0 || totalProcessed <= 100) {
+        const w = _worker!;
+        console.log(`[Universal Catalog] ${totalProcessed.toLocaleString()} processed — ${w.embedded} embedded, ${w.noImage} no-image, ${w.failed} failed`);
       }
 
-      // ~1 part per second — polite crawl rate
-      await sleep(1000);
+      // Short yield between batches — no artificial per-item throttle needed since
+      // the BrickLink URL fetches themselves provide natural rate-limiting
+      await sleep(50);
     }
 
     const w = _worker!;
