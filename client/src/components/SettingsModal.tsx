@@ -1190,7 +1190,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   };
 
   const { isAdmin, superAdmin, user } = useAuth();
-  const [platformAdminOpen, setPlatformAdminOpen] = useState(false);
+  const [openGroup, setOpenGroup] = useState<'company' | 'platform'>('company');
 
   const logoutMutation = useMutation({
     mutationFn: () => apiRequest('POST', '/api/logout'),
@@ -1378,11 +1378,19 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
             <div className="flex-1 min-h-0 overflow-y-auto">
               {activeSection === null ? (
                 <nav className="p-2">
-                  {/* Company Settings group label */}
-                  <div className="px-4 pt-2 pb-1">
-                    <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-500">Company Settings</span>
-                  </div>
-                  {navigationItems.map((item) => (
+                  {/* Company Settings accordion header */}
+                  <button
+                    onClick={() => setOpenGroup('company')}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 rounded-md text-xs font-semibold uppercase tracking-widest text-gray-400 hover:text-gray-200 hover:bg-gray-700/30 transition-colors"
+                    data-testid="button-company-settings-toggle"
+                  >
+                    <span className="flex-1 text-left">Company Settings</span>
+                    {openGroup === 'company'
+                      ? <ChevronDown className="h-3.5 w-3.5 text-gray-500 flex-shrink-0" />
+                      : <ChevronRight className="h-3.5 w-3.5 text-gray-600 flex-shrink-0" />
+                    }
+                  </button>
+                  {openGroup === 'company' && navigationItems.map((item) => (
                     <button
                       key={item.id}
                       onClick={() => setActiveSection(item.id)}
@@ -1395,12 +1403,23 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     </button>
                   ))}
 
-                  {/* Platform Admin expandable section */}
+                  {/* Platform Admin accordion — super admin only */}
                   {superAdmin && (
                     <>
-                      <div className="my-2 mx-4 border-t border-yellow-500/20" />
-                      {/* Expanded platform admin items appear above the toggle */}
-                      {platformAdminOpen && platformAdminItems.map((item) => (
+                      <div className="my-1.5 mx-4 border-t border-yellow-500/20" />
+                      <button
+                        onClick={() => setOpenGroup('platform')}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 rounded-md text-xs font-semibold uppercase tracking-widest text-yellow-500/80 hover:text-yellow-400 hover:bg-yellow-500/10 transition-colors"
+                        data-testid="button-platform-admin-toggle"
+                      >
+                        <ShieldCheck className="h-3.5 w-3.5 flex-shrink-0" />
+                        <span className="flex-1 text-left">Platform Admin</span>
+                        {openGroup === 'platform'
+                          ? <ChevronDown className="h-3.5 w-3.5 text-yellow-600 flex-shrink-0" />
+                          : <ChevronRight className="h-3.5 w-3.5 text-yellow-700 flex-shrink-0" />
+                        }
+                      </button>
+                      {openGroup === 'platform' && platformAdminItems.map((item) => (
                         <button
                           key={item.id}
                           onClick={() => setActiveSection(item.id)}
@@ -1412,18 +1431,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           <ChevronRight className="h-4 w-4 text-yellow-700 flex-shrink-0" />
                         </button>
                       ))}
-                      <button
-                        onClick={() => setPlatformAdminOpen(o => !o)}
-                        className="w-full flex items-center gap-3 px-4 py-3 rounded-md text-sm text-yellow-400 hover:text-yellow-300 hover:bg-yellow-500/10 transition-colors group"
-                        data-testid="button-platform-admin-toggle"
-                      >
-                        <ShieldCheck className="h-4 w-4 flex-shrink-0" />
-                        <span className="flex-1 text-left">Platform Admin</span>
-                        {platformAdminOpen
-                          ? <ChevronDown className="h-4 w-4 text-yellow-600 flex-shrink-0" />
-                          : <ChevronRight className="h-4 w-4 text-yellow-600 flex-shrink-0" />
-                        }
-                      </button>
                     </>
                   )}
 
