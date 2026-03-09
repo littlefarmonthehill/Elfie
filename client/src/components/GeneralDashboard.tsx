@@ -924,7 +924,7 @@ function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLimit, onO
                   <Activity className={`w-3 h-3 shrink-0 mt-0.5 ${iconColor}`} />
                   <div className="flex-1 min-w-0">
                     <p className={`text-xs leading-tight truncate ${statusColor}`}>{statusLabel}</p>
-                    <p className="text-[10px] text-muted-foreground truncate">Powers POM · Syncs · BrickSpotter</p>
+                    <p className="text-[10px] text-muted-foreground truncate">Powers Price-o-Matic, inventory &amp; order syncs, and BrickSpotter</p>
                   </div>
                   <ArrowRight className="w-3 h-3 shrink-0 mt-0.5 text-muted-foreground" />
                 </div>
