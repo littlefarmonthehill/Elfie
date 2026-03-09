@@ -730,54 +730,71 @@ function AIIntelligenceLane({ latestScan, appSettings, onOpenBrickanalyzer, dism
         </LaneSection>
       )}
 
-      {/* Last Actions — embeddings + last scan */}
+      {/* Last Actions — embeddings + last scan, sub-grouped */}
       <LaneSection label="Last Actions" collapsible>
-        {universalCatalog && (
-          <ActivityItem
-            icon={universalCatalog.workerRunning ? RefreshCw : CheckCircle}
-            iconColor={universalCatalog.workerRunning ? 'text-purple-400' : 'text-green-400'}
-            label={`All BrickLink parts — Visual Recognition — ${ucPct}%`}
-            sub={universalCatalog.pending > 0 ? `${universalCatalog.pending.toLocaleString()} pending` : universalCatalog.noImage > 0 ? `${universalCatalog.noImage.toLocaleString()} no image` : `${universalCatalog.embedded.toLocaleString()} parts embedded`}
-          />
-        )}
-        {catalogStatus && (
-          <ActivityItem
-            icon={ScanSearch}
-            iconColor="text-purple-400"
-            label={`Your inventory — Visual Recognition — ${catalogPct}% built`}
-            sub={`${catalogStatus.catalog} / ${catalogStatus.total} parts embedded`}
-          />
+        {(universalCatalog || catalogStatus) && (
+          <>
+            <div className="pt-0.5 pb-0.5">
+              <span className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground/60">Visual Recognition</span>
+            </div>
+            {universalCatalog && (
+              <ActivityItem
+                icon={universalCatalog.workerRunning ? RefreshCw : CheckCircle}
+                iconColor={universalCatalog.workerRunning ? 'text-purple-400' : 'text-green-400'}
+                label={`All BrickLink parts — ${ucPct}%`}
+                sub={universalCatalog.pending > 0 ? `${universalCatalog.pending.toLocaleString()} pending` : universalCatalog.noImage > 0 ? `${universalCatalog.noImage.toLocaleString()} no image` : `${universalCatalog.embedded.toLocaleString()} parts embedded`}
+              />
+            )}
+            {catalogStatus && (
+              <ActivityItem
+                icon={ScanSearch}
+                iconColor="text-purple-400"
+                label={`Your inventory — ${catalogPct}% built`}
+                sub={`${catalogStatus.catalog} / ${catalogStatus.total} parts embedded`}
+              />
+            )}
+          </>
         )}
         {embedStats && (
           <>
+            <div className="pt-1 pb-0.5">
+              <span className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground/60">Text Search</span>
+            </div>
             <ActivityItem
               icon={embedStats.inventory.embedded >= embedStats.inventory.total && embedStats.inventory.total > 0 ? CheckCircle : RefreshCw}
               iconColor={embedStats.inventory.embedded >= embedStats.inventory.total && embedStats.inventory.total > 0 ? 'text-green-400' : 'text-purple-400'}
-              label="Your inventory — Text Search"
+              label="Inventory"
               sub={`${embedStats.inventory.embedded.toLocaleString()} / ${embedStats.inventory.total.toLocaleString()} — ${embedStats.inventory.percentage}% embedded`}
             />
             <ActivityItem
               icon={embedStats.orders.embedded >= embedStats.orders.total && embedStats.orders.total > 0 ? CheckCircle : RefreshCw}
               iconColor={embedStats.orders.embedded >= embedStats.orders.total && embedStats.orders.total > 0 ? 'text-green-400' : 'text-purple-400'}
-              label="Your orders — Text Search"
+              label="Orders"
               sub={`${embedStats.orders.embedded.toLocaleString()} / ${embedStats.orders.total.toLocaleString()} — ${embedStats.orders.percentage}% embedded`}
             />
           </>
         )}
-        {isScanComplete && latestScan && (
-          <ActivityItem
-            icon={(latestScan.totalPieces ?? 0) > 0 ? CheckCircle : AlertCircle}
-            iconColor={(latestScan.totalPieces ?? 0) > 0 ? 'text-green-400' : 'text-yellow-400'}
-            label={`Last scan — ${latestScan.totalPieces ?? 0} pieces found`}
-            sub={latestScan.estimatedValue && Number(latestScan.estimatedValue) > 0 ? `Est. ${formatCurrency(latestScan.estimatedValue)}` : undefined}
-            onClick={(latestScan.totalPieces ?? 0) > 0 ? onOpenBrickanalyzer : undefined}
-          />
-        )}
-        {isScanFailed && latestScan && (
-          <ActivityItem icon={XCircle} iconColor="text-red-400" label="Last scan failed" sub="Try again from Inventory tab" onClick={onOpenBrickanalyzer} />
-        )}
-        {!latestScan && !isScanProcessing && !universalCatalog && !catalogStatus && !embedStats && (
-          <ActivityItem icon={ScanSearch} iconColor="text-muted-foreground" label="No recent activity" />
+        {(isScanComplete || isScanFailed || (!latestScan && !isScanProcessing)) && (
+          <>
+            <div className="pt-1 pb-0.5">
+              <span className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground/60">BrickSpotter</span>
+            </div>
+            {isScanComplete && latestScan && (
+              <ActivityItem
+                icon={(latestScan.totalPieces ?? 0) > 0 ? CheckCircle : AlertCircle}
+                iconColor={(latestScan.totalPieces ?? 0) > 0 ? 'text-green-400' : 'text-yellow-400'}
+                label={`${latestScan.totalPieces ?? 0} pieces found`}
+                sub={latestScan.estimatedValue && Number(latestScan.estimatedValue) > 0 ? `Est. ${formatCurrency(latestScan.estimatedValue)}` : undefined}
+                onClick={(latestScan.totalPieces ?? 0) > 0 ? onOpenBrickanalyzer : undefined}
+              />
+            )}
+            {isScanFailed && latestScan && (
+              <ActivityItem icon={XCircle} iconColor="text-red-400" label="Last scan failed" sub="Try again from Inventory tab" onClick={onOpenBrickanalyzer} />
+            )}
+            {!latestScan && !isScanProcessing && (
+              <ActivityItem icon={ScanSearch} iconColor="text-muted-foreground" label="No recent scan" />
+            )}
+          </>
         )}
       </LaneSection>
 
