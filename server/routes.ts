@@ -2626,6 +2626,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Track if we should suggest BrickLink search (will be returned to frontend)
       let bricklinkSearchSuggestion: { itemNo: string, itemType: string } | null = null;
+      // Captured for search-mode bypass (no AI)
+      let searchModeInventoryResults: any[] = [];
       
       // Search inventory by part number, text query, or general inventory request
       // Match 4-5 digits optionally followed by hyphen and more characters (e.g., 11013, 11013-1, 3021)
@@ -2805,6 +2807,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const searchTerm = partNumber || searchKeywords.join(' ') || 'general';
         console.log('🔍 Inventory query returned', inventoryResults.length, 'results for:', searchTerm);
         if (inventoryResults.length > 0) {
+          searchModeInventoryResults = inventoryResults;
           databaseContext += `\n\nINVENTORY DATA FROM DATABASE:\n`;
           inventoryResults.forEach(item => {
             databaseContext += `- Part ${item.itemNo} (${item.itemType})`;
@@ -3241,7 +3244,163 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           : `${enhancedDefaultPrompt}\n\nCurrent context: ${context}\n${databaseContext}`);
 
       console.log(`⏱️ Pre-query phase took ${Date.now() - chatStartTime}ms`);
-      
+
+      // ── SEARCH MODE BYPASS — no AI credits used ──────────────────────────
+      if (elfieMode === 'search') {
+        const parts: string[] = [];
+        const isCustomerFocus = lastUserMessage.includes('customer') || lastUserMessage.includes('buyer');
+
+        // Inventory results
+        if (searchModeInventoryResults.length > 0) {
+          parts.push(
+            `**Found ${searchModeInventoryResults.length} inventory item${searchModeInventoryResults.length !== 1 ? 's' : ''}:**\n` +
+            searchModeInventoryResults.slice(0, 50).map(item => {
+              let line = `- **Part ${item.itemNo}**`;
+              if (item.itemName) line += ` — ${item.itemName}`;
+              if (item.colorName) line += ` · ${item.colorName}`;
+              line += ` · Qty: ${item.quantity}`;
+              if (item.unitPrice) line += ` · $${item.unitPrice}`;
+              line += ` (${item.newOrUsed === 'N' ? 'New' : 'Used'})`;
+              if (item.categoryName) line += ` · ${item.categoryName}`;
+              return line;
+            }).join('\n')
+          );
+        } else if (partNumberMatch || searchKeywords.length > 0) {
+          const term = partNumberMatch?.[1] || searchKeywords.join(' ');
+          if (bricklinkSearchSuggestion) {
+            parts.push(`Part **${term}** is not in your inventory. Use the BrickLink button below to check the catalog.`);
+          } else {
+            parts.push(`No inventory items found for "${term}".`);
+          }
+        }
+
+        // Orders / customers — query directly (ordersFound not yet populated at this point)
+        let searchResultOrders: any[] = [];
+        const hasOrderSearch = lastUserMessage.includes('order') || lastUserMessage.includes('sale') ||
+          lastUserMessage.includes('customer') || lastUserMessage.includes('buyer') ||
+          lastUserMessage.includes('ebay') || lastUserMessage.includes('amazon') ||
+          lastUserMessage.includes('bricklink') || lastUserMessage.includes('brickowl');
+
+        if (hasOrderSearch) {
+          const orderOrgFilter = isSuperAdminUser ? undefined : eq(orders.orgId, orgId);
+          const orderConditions: any[] = [];
+
+          // Customer name filter
+          const customerMatch = lastUserMessage.match(/\b(?:from|by|customer|buyer|user)\s+([a-zA-Z0-9_-]+)\b/);
+          if (customerMatch) orderConditions.push(like(orders.customerUsername, `%${customerMatch[1]}%`));
+
+          // Order number filter
+          const orderNumMatch = lastUserMessage.match(/\border\s*#?(\d+)\b/i);
+          if (orderNumMatch) orderConditions.push(like(orders.orderNumber, `%${orderNumMatch[1]}%`));
+
+          // Marketplace filter
+          for (const mp of ['ebay', 'amazon', 'brickowl']) {
+            if (lastUserMessage.includes(mp)) orderConditions.push(eq(orders.marketplace, mp));
+          }
+          if (lastUserMessage.includes('bricklink')) orderConditions.push(eq(orders.marketplace, 'www'));
+
+          // Keyword search across customer username
+          if (searchKeywords.length > 0 && orderConditions.length === 0) {
+            orderConditions.push(...searchKeywords.map(kw => like(orders.customerUsername, `%${kw}%`)));
+          }
+
+          const searchOrders = await db.select({
+            id: orders.id,
+            orderNumber: orders.orderNumber,
+            marketplace: orders.marketplace,
+            orderDate: orders.orderDate,
+            orderTotal: orders.orderTotal,
+            customerUsername: orders.customerUsername,
+            orderStatus: orders.orderStatus,
+          })
+          .from(orders)
+          .where(orderConditions.length > 0 ? and(orderOrgFilter, or(...orderConditions)) : orderOrgFilter)
+          .orderBy(desc(orders.orderDate))
+          .limit(25);
+
+          const searchOrdersFormatted = searchOrders.map(o => ({
+            ...o,
+            id: String(o.id),
+            orderDate: o.orderDate instanceof Date ? o.orderDate.toISOString() : String(o.orderDate),
+            customerUsername: o.customerUsername || 'Unknown',
+          }));
+
+          if (searchOrdersFormatted.length > 0) {
+            if (isCustomerFocus) {
+              const customerMap = new Map<string, { count: number; total: number }>();
+              searchOrdersFormatted.forEach(order => {
+                const name = order.customerUsername;
+                const prev = customerMap.get(name) || { count: 0, total: 0 };
+                customerMap.set(name, {
+                  count: prev.count + 1,
+                  total: prev.total + parseFloat(order.orderTotal || '0'),
+                });
+              });
+              const sorted = Array.from(customerMap.entries()).sort((a, b) => b[1].total - a[1].total);
+              parts.push(
+                `**${sorted.length} customer${sorted.length !== 1 ? 's' : ''} found:**\n` +
+                sorted.map(([name, d]) =>
+                  `- **${name}** — ${d.count} order${d.count !== 1 ? 's' : ''} · $${d.total.toFixed(2)} total`
+                ).join('\n')
+              );
+            } else {
+              parts.push(
+                `**${searchOrdersFormatted.length} order${searchOrdersFormatted.length !== 1 ? 's' : ''} found:**\n` +
+                searchOrdersFormatted.map(order =>
+                  `- Order **#${order.orderNumber}** · ${order.customerUsername} · ${order.marketplace || 'Unknown'} · $${order.orderTotal || '0'} · ${order.orderStatus} · ${new Date(order.orderDate).toLocaleDateString()}`
+                ).join('\n')
+              );
+            }
+
+            searchResultOrders = searchOrdersFormatted;
+          } else if (orderConditions.length > 0) {
+            parts.push(`No orders found matching your search.`);
+          }
+        }
+
+        // Summary blocks
+        if (isSummaryRequest) {
+          const invSum = databaseContext.match(/INVENTORY SUMMARY:([\s\S]*?)(?=\n\n[A-Z]|$)/);
+          if (invSum) parts.push(`**Inventory Summary:**\n${invSum[1].trim()}`);
+          const ordSum = databaseContext.match(/ORDERS SUMMARY:([\s\S]*?)(?=\n\n[A-Z]|$)/);
+          if (ordSum) parts.push(`**Orders Summary:**\n${ordSum[1].trim()}`);
+          const stats = databaseContext.match(/INVENTORY STATISTICS:([\s\S]*?)(?=\n\n[A-Z]|$)/);
+          if (stats && !invSum) parts.push(`**Inventory Statistics:**\n${stats[1].trim()}`);
+        }
+
+        const searchMessage = parts.length > 0
+          ? parts.join('\n\n')
+          : 'No results found. Try searching by part number, item name, category, customer name, or order number.';
+
+        try {
+          await db.insert(conversations).values({ sessionId, role: 'user', content: lastUserMessageRaw, context, orgId });
+          await db.insert(conversations).values({ sessionId, role: 'assistant', content: searchMessage, context, orgId });
+        } catch (saveErr) {
+          console.error('Error saving search conversation:', saveErr);
+        }
+
+        return res.json({
+          message: searchMessage,
+          items: searchModeInventoryResults.map(item => ({
+            id: item.id,
+            itemNo: item.itemNo,
+            itemName: item.itemName,
+            colorId: item.colorId,
+            colorName: item.colorName,
+            colorRgb: item.colorRgb,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            newOrUsed: item.newOrUsed,
+          })),
+          orders: searchResultOrders,
+          forumDiscussions: [],
+          sessionId,
+          bricklinkSearchSuggestion,
+          bricklinkItem: null,
+        });
+      }
+      // ── END SEARCH MODE BYPASS ────────────────────────────────────────────
+
       // Use agent loop with function calling (with error recovery)
       const { runAgentLoop } = await import('./services/ai-agent');
       let assistantMessage: string;

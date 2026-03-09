@@ -3192,15 +3192,15 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 space-y-3">
                     <div className="flex gap-2">
                       <button
-                        onClick={() => { setElfieMode('search'); updateSettingsMutation.mutate({ elfieMode: 'search' }); }}
+                        onClick={() => { setElfieMode('search'); setAiEnabled(true); updateSettingsMutation.mutate({ elfieMode: 'search', aiEnabled: true }); }}
                         className={`flex-1 flex flex-col items-center gap-1 px-3 py-2.5 rounded-md border text-xs transition-colors ${elfieMode === 'search' ? 'bg-purple-500/20 border-purple-500/40 text-purple-300' : 'bg-gray-700/40 border-gray-600 text-gray-400 hover:text-gray-300 hover:bg-gray-700/60'}`}
                         data-testid="button-elfie-mode-search"
                       >
                         <span className="font-semibold">Search Mode</span>
-                        <span className="text-[10px] text-center opacity-70">Keyword &amp; tool search only</span>
+                        <span className="text-[10px] text-center opacity-70">Inventory · Orders · Customers — no AI credits</span>
                       </button>
                       <button
-                        onClick={() => { setElfieMode('ai'); updateSettingsMutation.mutate({ elfieMode: 'ai' }); }}
+                        onClick={() => { setElfieMode('ai'); setAiEnabled(true); updateSettingsMutation.mutate({ elfieMode: 'ai', aiEnabled: true }); }}
                         className={`flex-1 flex flex-col items-center gap-1 px-3 py-2.5 rounded-md border text-xs transition-colors ${elfieMode === 'ai' ? 'bg-purple-500/20 border-purple-500/40 text-purple-300' : 'bg-gray-700/40 border-gray-600 text-gray-400 hover:text-gray-300 hover:bg-gray-700/60'}`}
                         data-testid="button-elfie-mode-ai"
                       >
@@ -3210,8 +3210,8 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     </div>
                     <p className="text-[10px] text-gray-500">
                       {elfieMode === 'search'
-                        ? 'E.L.F.I.E. will search your inventory, orders, and catalog data without AI analysis.'
-                        : 'E.L.F.I.E. uses full AI capabilities including price insights, demand analysis, and intelligent recommendations.'}
+                        ? 'Direct database search — no AI involved. Find inventory, orders, and customers by keyword, part number, or name. Zero credits used.'
+                        : 'E.L.F.I.E. uses full AI capabilities including price insights, demand analysis, and intelligent recommendations. Uses Anthropic credits.'}
                     </p>
                   </div>
                 </div>
@@ -3222,28 +3222,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                 <div>
                   <h3 className="text-sm font-medium text-gray-300 mb-3">Chat Assistant (E.L.F.I.E.)</h3>
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label className="text-xs text-gray-300">Enable AI Assistant</Label>
-                        <p className="text-xs text-gray-500">Turn E.L.F.I.E. on or off</p>
-                      </div>
-                      <Switch
-                        checked={aiEnabled}
-                        onCheckedChange={(checked) => {
-                          setAiEnabled(checked);
-                          updateSettingsMutation.mutate({ 
-                            aiEnabled: checked,
-                            openaiApiKey: openaiApiKey || null,
-                            selectedModel: selectedModel || null,
-                            systemPrompt: systemPrompt || null,
-                          });
-                        }}
-                        data-testid="switch-ai-enabled"
-                      />
-                    </div>
-
-                    <Separator className="bg-gray-700" />
-
                     <div className="space-y-2">
                       <Label htmlFor="system-prompt" className="text-xs text-gray-400">System Prompt / Role Instructions</Label>
                       <Textarea
