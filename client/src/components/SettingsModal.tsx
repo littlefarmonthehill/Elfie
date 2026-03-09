@@ -32,7 +32,7 @@ interface SettingsModalProps {
   initialSection?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'users' | 'billing' | 'about';
 }
 
-type ActiveSection = 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'users' | 'billing' | 'about' | 'orgs' | 'impersonation' | 'systemHealth' | 'auditLog' | 'announcements' | 'billingOverview' | 'plansAndPricing' | 'apiKeys' | null;
+type ActiveSection = 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'users' | 'billing' | 'about' | 'orgs' | 'impersonation' | 'systemHealth' | 'auditLog' | 'announcements' | 'billingOverview' | 'plansAndPricing' | 'apiKeys' | 'adminTeam' | null;
 
 interface OrgWithUsage extends Organization {
   userCount: number;
@@ -977,6 +977,35 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     refetchInterval: activeSection === 'systemHealth' ? 10000 : false,
   });
 
+  // Admin Team
+  const { data: adminTeam, isLoading: adminTeamLoading, refetch: refetchAdminTeam } = useQuery<User[]>({
+    queryKey: ['/api/platform-admin/admin-team'],
+    enabled: open && activeSection === 'adminTeam' && superAdmin,
+    retry: 0,
+  });
+
+  const [addAdminQuery, setAddAdminQuery] = useState('');
+  const [addAdminSearch, setAddAdminSearch] = useState('');
+
+  const { data: adminSearchResults, isLoading: adminSearchLoading } = useQuery<User[]>({
+    queryKey: ['/api/platform-admin/admin-team/search', addAdminSearch],
+    queryFn: () => fetch(`/api/platform-admin/admin-team/search?q=${encodeURIComponent(addAdminSearch)}`).then(r => r.json()),
+    enabled: addAdminSearch.length >= 2,
+    staleTime: 10000,
+  });
+
+  const toggleSuperAdminMutation = useMutation({
+    mutationFn: async ({ id, superAdmin }: { id: string; superAdmin: boolean }) =>
+      apiRequest('PATCH', `/api/platform-admin/admin-team/${id}`, { superAdmin }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/admin-team'] });
+      setAddAdminQuery('');
+      setAddAdminSearch('');
+      toast({ title: 'Admin team updated' });
+    },
+    onError: (err: any) => toast({ title: err?.message || 'Failed to update admin', variant: 'destructive' }),
+  });
+
   const updateFeaturesMutation = useMutation({
     mutationFn: async ({ orgId, featureOverrides }: { orgId: string; featureOverrides: Record<string, boolean> }) =>
       apiRequest('PATCH', `/api/platform-admin/orgs/${orgId}/features`, { featureOverrides }),
@@ -1522,6 +1551,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
         { id: 'apiKeys' as const, label: 'Platform Services', icon: Key },
         { id: 'enrichment' as const, label: 'Data Enrichment', icon: Database },
         { id: 'ai' as const, label: 'E.L.F.I.E.', icon: Brain },
+        { id: 'adminTeam' as const, label: 'Admin Team', icon: Shield },
       ],
     },
   ];
@@ -5846,6 +5876,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   <div className="flex items-center gap-2 px-1">
                     <Tag className="h-4 w-4 text-yellow-500/70" />
                     <p className="text-xs font-semibold text-gray-300 uppercase tracking-widest">Plans & Pricing</p>
+                    <Badge variant="outline" className="ml-auto text-[9px] border-gray-600 text-gray-500">Read-only reference</Badge>
                   </div>
 
                   {/* Plan cards */}
@@ -5942,6 +5973,123 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                 </div>
               );
             })()}
+
+            {/* Admin Team */}
+            {activeSection === 'adminTeam' && (
+              <div className="p-4 space-y-4">
+                <div className="flex items-center gap-2 px-1">
+                  <Shield className="h-4 w-4 text-yellow-500/70" />
+                  <p className="text-xs font-semibold text-gray-300 uppercase tracking-widest">Admin Team</p>
+                </div>
+
+                {/* Current admins */}
+                <div className="rounded-lg bg-gray-800/60 border border-gray-700 overflow-hidden">
+                  <div className="px-4 py-2.5 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
+                    <Users className="h-3.5 w-3.5 text-yellow-500/70" />
+                    <span className="text-xs font-semibold text-gray-200">Super Admins</span>
+                    {adminTeamLoading && <Loader2 className="h-3 w-3 animate-spin text-gray-500 ml-auto" />}
+                    {adminTeam && <span className="text-[10px] text-gray-500 ml-auto">{adminTeam.length} member{adminTeam.length !== 1 ? 's' : ''}</span>}
+                  </div>
+                  <div className="divide-y divide-gray-700/50">
+                    {adminTeam && adminTeam.length === 0 && (
+                      <p className="px-4 py-3 text-xs text-gray-500">No super admins found.</p>
+                    )}
+                    {adminTeam?.map(admin => {
+                      const name = [admin.firstName, admin.lastName].filter(Boolean).join(' ') || admin.email || admin.id;
+                      const initials = [admin.firstName?.[0], admin.lastName?.[0]].filter(Boolean).join('').toUpperCase() || (admin.email?.[0] ?? '?').toUpperCase();
+                      const isSelf = user?.id === admin.id;
+                      return (
+                        <div key={admin.id} className="flex items-center gap-3 px-4 py-2.5" data-testid={`row-admin-${admin.id}`}>
+                          <div className="h-7 w-7 rounded-full bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center shrink-0">
+                            <span className="text-[9px] font-bold text-yellow-400">{initials}</span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium text-gray-200 truncate">{name}</p>
+                            <p className="text-[10px] text-gray-500 truncate">{admin.email}</p>
+                          </div>
+                          {isSelf && <Badge variant="outline" className="text-[9px] border-gray-600 text-gray-500 shrink-0">You</Badge>}
+                          {!isSelf && (
+                            <button
+                              onClick={() => toggleSuperAdminMutation.mutate({ id: admin.id, superAdmin: false })}
+                              disabled={toggleSuperAdminMutation.isPending}
+                              data-testid={`button-remove-admin-${admin.id}`}
+                              className="text-[10px] text-red-400 hover:text-red-300 border border-red-500/20 rounded px-2 py-0.5 transition-colors shrink-0 disabled:opacity-40"
+                            >
+                              Remove
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Add admin */}
+                <div className="rounded-lg bg-gray-800/60 border border-gray-700 overflow-hidden">
+                  <div className="px-4 py-2.5 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
+                    <Plus className="h-3.5 w-3.5 text-yellow-500/70" />
+                    <span className="text-xs font-semibold text-gray-200">Add Admin</span>
+                  </div>
+                  <div className="px-4 py-3 space-y-3">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Search by email or name…"
+                        value={addAdminQuery}
+                        onChange={e => setAddAdminQuery(e.target.value)}
+                        data-testid="input-admin-search"
+                        className="flex-1 min-w-0 bg-gray-900/60 border border-gray-700 rounded px-3 py-2 text-xs text-gray-200 placeholder-gray-600 outline-none focus:border-gray-500"
+                      />
+                      <button
+                        onClick={() => setAddAdminSearch(addAdminQuery.trim())}
+                        disabled={addAdminQuery.trim().length < 2 || adminSearchLoading}
+                        data-testid="button-admin-search"
+                        className="px-3 py-2 bg-gray-700 hover:bg-gray-600 disabled:opacity-40 rounded text-xs text-gray-200 transition-colors shrink-0 flex items-center gap-1.5"
+                      >
+                        {adminSearchLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Search className="h-3 w-3" />}
+                        Find
+                      </button>
+                    </div>
+                    {adminSearchResults && adminSearchResults.length === 0 && addAdminSearch && (
+                      <p className="text-[10px] text-gray-500">No users found for "{addAdminSearch}".</p>
+                    )}
+                    {adminSearchResults && adminSearchResults.length > 0 && (
+                      <div className="space-y-1">
+                        {adminSearchResults.map(u => {
+                          const alreadyAdmin = adminTeam?.some(a => a.id === u.id);
+                          const name = [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email || u.id;
+                          const initials = [u.firstName?.[0], u.lastName?.[0]].filter(Boolean).join('').toUpperCase() || (u.email?.[0] ?? '?').toUpperCase();
+                          return (
+                            <div key={u.id} className="flex items-center gap-2.5 rounded bg-gray-900/40 border border-gray-700/50 px-3 py-2">
+                              <div className="h-6 w-6 rounded-full bg-gray-700 flex items-center justify-center shrink-0">
+                                <span className="text-[8px] font-bold text-gray-300">{initials}</span>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs text-gray-200 truncate">{name}</p>
+                                <p className="text-[10px] text-gray-500 truncate">{u.email}</p>
+                              </div>
+                              {alreadyAdmin ? (
+                                <Badge variant="outline" className="text-[9px] border-green-500/30 text-green-400 shrink-0">Admin</Badge>
+                              ) : (
+                                <button
+                                  onClick={() => toggleSuperAdminMutation.mutate({ id: u.id, superAdmin: true })}
+                                  disabled={toggleSuperAdminMutation.isPending}
+                                  data-testid={`button-add-admin-${u.id}`}
+                                  className="text-[10px] text-yellow-400 hover:text-yellow-300 border border-yellow-500/30 rounded px-2 py-0.5 transition-colors shrink-0 disabled:opacity-40"
+                                >
+                                  Make Admin
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    <p className="text-[10px] text-gray-600">Super admins have full platform access including all tenant organizations.</p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Platform Services */}
             {activeSection === 'apiKeys' && (

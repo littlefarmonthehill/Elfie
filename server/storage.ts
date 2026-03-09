@@ -29,7 +29,7 @@ import {
   type InsertOrganization,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, inArray, sql } from "drizzle-orm";
+import { eq, inArray, sql, ilike, or } from "drizzle-orm";
 
 // Interface for storage operations
 export interface IStorage {
@@ -42,6 +42,9 @@ export interface IStorage {
   updateUserApproval(id: string, isApproved: boolean): Promise<User | undefined>;
   updateUserRole(id: string, role: string): Promise<User | undefined>;
   updateUserPassword(id: string, hashedPassword: string): Promise<void>;
+  updateUserSuperAdmin(id: string, superAdmin: boolean): Promise<User | undefined>;
+  getSuperAdmins(): Promise<User[]>;
+  searchUsersByEmail(query: string): Promise<User[]>;
   // Organization operations
   createOrganization(org: InsertOrganization): Promise<Organization>;
   getOrganization(id: string): Promise<Organization | undefined>;
@@ -162,6 +165,27 @@ export class DatabaseStorage implements IStorage {
       .update(users)
       .set({ password: hashedPassword, updatedAt: new Date() })
       .where(eq(users.id, id));
+  }
+
+  async updateUserSuperAdmin(id: string, superAdmin: boolean): Promise<User | undefined> {
+    const [user] = await db
+      .update(users)
+      .set({ superAdmin, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    return user;
+  }
+
+  async getSuperAdmins(): Promise<User[]> {
+    return await db.select().from(users).where(eq(users.superAdmin, true));
+  }
+
+  async searchUsersByEmail(query: string): Promise<User[]> {
+    return await db
+      .select()
+      .from(users)
+      .where(or(ilike(users.email, `%${query}%`), ilike(users.firstName, `%${query}%`), ilike(users.lastName, `%${query}%`)))
+      .limit(10);
   }
 
   // Organization operations

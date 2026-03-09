@@ -553,6 +553,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // GET /api/platform-admin/admin-team — list all super admins
+  app.get('/api/platform-admin/admin-team', isSuperAdmin, async (_req, res) => {
+    try {
+      const admins = await storage.getSuperAdmins();
+      res.json(admins);
+    } catch (err) {
+      res.status(500).json({ message: 'Failed to fetch admin team' });
+    }
+  });
+
+  // GET /api/platform-admin/admin-team/search — find users by email/name
+  app.get('/api/platform-admin/admin-team/search', isSuperAdmin, async (req, res) => {
+    try {
+      const q = String(req.query.q || '').trim();
+      if (q.length < 2) return res.json([]);
+      const results = await storage.searchUsersByEmail(q);
+      res.json(results);
+    } catch (err) {
+      res.status(500).json({ message: 'Search failed' });
+    }
+  });
+
+  // PATCH /api/platform-admin/admin-team/:id — grant or revoke super admin
+  app.patch('/api/platform-admin/admin-team/:id', isSuperAdmin, async (req: any, res) => {
+    try {
+      const schema = z.object({ superAdmin: z.boolean() });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: 'Invalid body' });
+      // Prevent revoking your own super admin
+      if (req.user?.id === req.params.id && !parsed.data.superAdmin) {
+        return res.status(400).json({ message: 'Cannot remove your own super admin access' });
+      }
+      const updated = await storage.updateUserSuperAdmin(req.params.id, parsed.data.superAdmin);
+      if (!updated) return res.status(404).json({ message: 'User not found' });
+      res.json(updated);
+    } catch (err) {
+      res.status(500).json({ message: 'Failed to update super admin status' });
+    }
+  });
+
   // GET /api/platform-admin/system-health — embedding jobs, sync status, platform vitals
   app.get('/api/platform-admin/system-health', isSuperAdmin, async (_req, res) => {
     try {
