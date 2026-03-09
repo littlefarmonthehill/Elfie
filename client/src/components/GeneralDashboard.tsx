@@ -631,13 +631,6 @@ function MultichannelLane({ channelSyncRunning, globalSyncStatuses, syncStatus, 
 function AIIntelligenceLane({ latestScan, appSettings, onOpenBrickanalyzer, dismissScanMutation }: any) {
   const elfieMode = (appSettings?.elfieMode as 'search' | 'ai') ?? 'search';
 
-  const { data: universalCatalog } = useQuery<{
-    queueSize: number; embedded: number; pending: number; noImage: number; failed: number; workerRunning: boolean;
-  }>({
-    queryKey: ['/api/brickspotter/universal-catalog/status'],
-    refetchInterval: 8000,
-  });
-
   const { data: embedStats } = useQuery<{
     inventory: { embedded: number; total: number; percentage: string };
     orders: { embedded: number; total: number; percentage: string };
@@ -661,10 +654,6 @@ function AIIntelligenceLane({ latestScan, appSettings, onOpenBrickanalyzer, dism
     refetchInterval: 8000,
   });
 
-  const ucPct = universalCatalog && universalCatalog.queueSize > 0
-    ? Math.round(((universalCatalog.embedded + universalCatalog.noImage) / universalCatalog.queueSize) * 100)
-    : 0;
-
   const catalogPct = catalogStatus && catalogStatus.total > 0
     ? Math.round((catalogStatus.catalog / catalogStatus.total) * 100) : 0;
 
@@ -677,7 +666,7 @@ function AIIntelligenceLane({ latestScan, appSettings, onOpenBrickanalyzer, dism
   const isScanComplete = latestScan?.status === 'complete';
   const isScanFailed = latestScan?.status === 'failed';
 
-  const hasAiRunning = isScanProcessing || !!universalCatalog?.workerRunning || !!activeInvEmbed || !!activeOrdEmbed;
+  const hasAiRunning = isScanProcessing || !!activeInvEmbed || !!activeOrdEmbed;
 
   const summary = `E.L.F.I.E. ${elfieMode === 'ai' ? 'AI' : 'Search'} mode`;
 
@@ -707,17 +696,6 @@ function AIIntelligenceLane({ latestScan, appSettings, onOpenBrickanalyzer, dism
               <span className="text-xs text-purple-300 font-medium">Brick Spotter scanning…</span>
             </div>
           )}
-          {universalCatalog?.workerRunning && (
-            <JobBar
-              label="All BrickLink parts — Visual Recognition"
-              pct={ucPct}
-              sublabel={[
-                `${universalCatalog.embedded.toLocaleString()} / ${universalCatalog.queueSize.toLocaleString()} embedded`,
-                universalCatalog.failed > 0 ? `${universalCatalog.failed.toLocaleString()} failed` : null,
-              ].filter(Boolean).join(' · ')}
-              color="purple"
-            />
-          )}
           {activeInvEmbed && embedStats && (
             <JobBar
               label="Inventory embedding"
@@ -739,27 +717,17 @@ function AIIntelligenceLane({ latestScan, appSettings, onOpenBrickanalyzer, dism
 
       {/* Last Actions — embeddings + last scan, sub-grouped */}
       <LaneSection label="Last Actions" collapsible className="border-t-2 border-border/50 bg-gray-800/50 mt-auto">
-        {(universalCatalog || catalogStatus) && (
+        {catalogStatus && (
           <>
             <div className="pt-0.5 pb-0.5">
               <span className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground/60">Visual Recognition</span>
             </div>
-            {universalCatalog && (
-              <ActivityItem
-                icon={universalCatalog.workerRunning ? RefreshCw : CheckCircle}
-                iconColor={universalCatalog.workerRunning ? 'text-purple-400' : 'text-green-400'}
-                label={`All BrickLink parts — ${ucPct}%`}
-                sub={universalCatalog.pending > 0 ? `${universalCatalog.pending.toLocaleString()} pending` : universalCatalog.noImage > 0 ? `${universalCatalog.noImage.toLocaleString()} no image` : `${universalCatalog.embedded.toLocaleString()} parts embedded`}
-              />
-            )}
-            {catalogStatus && (
-              <ActivityItem
-                icon={ScanSearch}
-                iconColor="text-purple-400"
-                label={`Your inventory — ${catalogPct}% built`}
-                sub={`${catalogStatus.catalog} / ${catalogStatus.total} parts embedded`}
-              />
-            )}
+            <ActivityItem
+              icon={ScanSearch}
+              iconColor="text-purple-400"
+              label={`Your inventory — ${catalogPct}% built`}
+              sub={`${catalogStatus.catalog} / ${catalogStatus.total} parts embedded`}
+            />
           </>
         )}
         {embedStats && (

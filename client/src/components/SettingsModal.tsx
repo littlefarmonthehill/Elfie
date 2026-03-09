@@ -889,6 +889,14 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     staleTime: 0,
   });
 
+  const { data: universalCatalogStatus } = useQuery<{
+    queueSize: number; embedded: number; pending: number; noImage: number; failed: number; workerRunning: boolean;
+  }>({
+    queryKey: ['/api/brickspotter/universal-catalog/status'],
+    enabled: open && activeSection === 'systemHealth',
+    refetchInterval: activeSection === 'systemHealth' ? 10000 : false,
+  });
+
   const updateFeaturesMutation = useMutation({
     mutationFn: async ({ orgId, featureOverrides }: { orgId: string; featureOverrides: Record<string, boolean> }) =>
       apiRequest('PATCH', `/api/platform-admin/orgs/${orgId}/features`, { featureOverrides }),
@@ -5342,6 +5350,57 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         ))}
                       </div>
                     </div>
+
+                    {/* Universal CLIP Catalog */}
+                    {universalCatalogStatus && (
+                      <div>
+                        <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold mb-2 px-1">Universal CLIP Catalog</p>
+                        <div className="rounded-lg bg-gray-800/60 border border-gray-700 px-3 py-3 space-y-3">
+                          {/* Progress bar */}
+                          <div className="space-y-1.5">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-1.5">
+                                {universalCatalogStatus.workerRunning
+                                  ? <RefreshCw className="h-3 w-3 text-purple-400 animate-spin" />
+                                  : <CheckCircle2 className="h-3 w-3 text-green-400" />}
+                                <span className="text-xs text-gray-300">
+                                  {universalCatalogStatus.workerRunning ? 'Embedding in progress…' : 'All BrickLink parts'}
+                                </span>
+                              </div>
+                              <span className="text-xs font-mono text-gray-400">
+                                {universalCatalogStatus.queueSize > 0
+                                  ? `${Math.round(((universalCatalogStatus.embedded + universalCatalogStatus.noImage) / universalCatalogStatus.queueSize) * 100)}%`
+                                  : '—'}
+                              </span>
+                            </div>
+                            <div className="h-1.5 w-full rounded-full bg-gray-700 overflow-hidden">
+                              <div
+                                className="h-1.5 rounded-full bg-purple-500 transition-all"
+                                style={{
+                                  width: universalCatalogStatus.queueSize > 0
+                                    ? `${Math.round(((universalCatalogStatus.embedded + universalCatalogStatus.noImage) / universalCatalogStatus.queueSize) * 100)}%`
+                                    : '0%'
+                                }}
+                              />
+                            </div>
+                          </div>
+                          {/* Stat grid */}
+                          <div className="grid grid-cols-4 gap-2 text-center">
+                            {[
+                              { label: 'Total', value: universalCatalogStatus.queueSize, color: 'text-white' },
+                              { label: 'Embedded', value: universalCatalogStatus.embedded, color: 'text-emerald-400' },
+                              { label: 'Pending', value: universalCatalogStatus.pending, color: 'text-yellow-400' },
+                              { label: 'Failed', value: universalCatalogStatus.failed, color: 'text-red-400' },
+                            ].map(({ label, value, color }) => (
+                              <div key={label}>
+                                <p className={`text-sm font-bold ${color}`}>{Number(value).toLocaleString()}</p>
+                                <p className="text-[9px] text-gray-600 uppercase tracking-wider">{label}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Active jobs */}
                     <div>
