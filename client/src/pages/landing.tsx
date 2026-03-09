@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Link } from "wouter";
 import { Zap, ScanLine, Globe } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
 import logoUrl from "@assets/PlanetBrick_dotcom_with_planet_and_robot_400_1760672362080.png";
 
 type ChId = "home" | "ops" | "tools" | "pricing" | "live";
@@ -343,7 +344,7 @@ function PricingScreen({ tune }: { tune: (id: ChId) => void }) {
   );
 }
 
-function LiveScreen() {
+function LiveScreen({ onSignIn }: { onSignIn: () => void }) {
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "clamp(24px,4vw,48px)", color: "#E8F4FF", textAlign: "center", gap: "clamp(12px,1.8vw,20px)", animation: "pb-slidein 0.3s ease-out" }}>
       <div style={{ position: "relative", width: "60px", height: "60px", marginBottom: "4px" }}>
@@ -374,14 +375,12 @@ function LiveScreen() {
             boxShadow: `0 0 28px ${TEAL}55`, letterSpacing: "0.03em",
           }}>Start Free Trial</button>
         </Link>
-        <Link href="/login">
-          <button style={{
-            width: "100%", background: "transparent",
-            border: `1px solid ${TEAL}44`, borderRadius: "100px",
-            padding: "clamp(8px,1vw,12px)", cursor: "pointer",
-            color: "rgba(210,230,255,0.85)", fontSize: "clamp(11px,1vw,14px)",
-          }}>Sign In to Existing Account</button>
-        </Link>
+        <button onClick={onSignIn} style={{
+          width: "100%", background: "transparent",
+          border: `1px solid ${TEAL}44`, borderRadius: "100px",
+          padding: "clamp(8px,1vw,12px)", cursor: "pointer",
+          color: "rgba(210,230,255,0.85)", fontSize: "clamp(11px,1vw,14px)",
+        }}>Sign In to Existing Account</button>
       </div>
       <div style={{ fontSize: "clamp(9px,0.8vw,11px)", color: "rgba(200,220,255,0.45)" }}>
         Full inventory access · No credit card required
@@ -390,10 +389,110 @@ function LiveScreen() {
   );
 }
 
+function TVLoginScreen({ onBack }: { onBack: () => void }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError(null);
+    try {
+      await apiRequest("POST", "/api/login", { email, password });
+      window.location.href = "/";
+    } catch (err: any) {
+      setError(err.message || "Invalid email or password");
+      setIsLoading(false);
+    }
+  };
+
+  const inputStyle: React.CSSProperties = {
+    background: `rgba(0,255,238,0.05)`,
+    border: `1px solid ${TEAL}44`,
+    borderRadius: "6px",
+    padding: "clamp(7px,0.9vw,11px) clamp(10px,1.2vw,14px)",
+    color: "#E8F4FF",
+    fontSize: "clamp(11px,1vw,14px)",
+    outline: "none",
+    fontFamily: "monospace",
+    width: "100%",
+    boxSizing: "border-box",
+  };
+
+  return (
+    <div style={{ height: "100%", display: "flex", flexDirection: "column", padding: "clamp(12px,1.8vw,22px) clamp(16px,2.2vw,28px)", color: "#E8F4FF", gap: "clamp(8px,1.1vw,14px)", animation: "pb-slidein 0.3s ease-out" }}>
+
+      {/* Top bar */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ fontSize: "clamp(7px,0.65vw,9px)", fontFamily: "monospace", color: TEAL, letterSpacing: "0.3em" }}>CH 00 — SIGN IN</div>
+        <button onClick={onBack} style={{ background: "transparent", border: `1px solid ${TEAL}33`, borderRadius: "4px", padding: "2px 8px", cursor: "pointer", color: `${TEAL}99`, fontSize: "clamp(7px,0.65vw,9px)", fontFamily: "monospace", letterSpacing: "0.15em" }}>✕ CANCEL</button>
+      </div>
+
+      {/* Title */}
+      <div style={{ textAlign: "center" }}>
+        <div style={{ fontSize: "clamp(18px,2.2vw,30px)", fontWeight: 900, color: "#FFFFFF", letterSpacing: "0.08em", lineHeight: 1.1 }}>OPERATOR<br />ACCESS</div>
+        <div style={{ fontSize: "clamp(7px,0.65vw,9px)", color: `${TEAL}88`, fontFamily: "monospace", letterSpacing: "0.3em", marginTop: "5px" }}>SECURE LOGIN</div>
+      </div>
+
+      {/* Form */}
+      <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "clamp(8px,1vw,12px)", flex: 1, justifyContent: "center" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+          <div style={{ fontSize: "clamp(7px,0.62vw,9px)", fontFamily: "monospace", color: `${TEAL}88`, letterSpacing: "0.25em", textTransform: "uppercase" }}>Email</div>
+          <input
+            type="email" value={email} onChange={e => setEmail(e.target.value)} required
+            placeholder="operator@domain.com" style={{ ...inputStyle, borderColor: error ? "rgba(255,100,100,0.5)" : `${TEAL}44` }}
+          />
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+          <div style={{ fontSize: "clamp(7px,0.62vw,9px)", fontFamily: "monospace", color: `${TEAL}88`, letterSpacing: "0.25em", textTransform: "uppercase" }}>Password</div>
+          <input
+            type="password" value={password} onChange={e => setPassword(e.target.value)} required
+            placeholder="••••••••" style={{ ...inputStyle, borderColor: error ? "rgba(255,100,100,0.5)" : `${TEAL}44` }}
+          />
+        </div>
+
+        {error && (
+          <div style={{ background: "rgba(255,80,80,0.1)", border: "1px solid rgba(255,80,80,0.3)", borderRadius: "6px", padding: "6px 10px", fontSize: "clamp(9px,0.8vw,11px)", color: "#FF8888", textAlign: "center", fontFamily: "monospace" }}>
+            {error}
+          </div>
+        )}
+
+        <button
+          type="submit" disabled={isLoading}
+          style={{
+            background: isLoading ? `rgba(0,255,238,0.12)` : `linear-gradient(135deg, ${TEAL}DD, #00BBDD)`,
+            border: "none", borderRadius: "100px",
+            padding: "clamp(9px,1vw,13px) 24px",
+            cursor: isLoading ? "wait" : "pointer",
+            color: isLoading ? TEAL : "#030A0A",
+            fontWeight: 800, fontSize: "clamp(12px,1.1vw,15px)", letterSpacing: "0.1em",
+            boxShadow: isLoading ? "none" : `0 0 22px ${TEAL}44`,
+            marginTop: "4px",
+          }}
+        >
+          {isLoading ? "CONNECTING..." : "SIGN IN →"}
+        </button>
+      </form>
+
+      {/* Footer */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ fontSize: "clamp(8px,0.72vw,10px)", color: "rgba(200,220,255,0.4)", fontFamily: "monospace" }}>
+          No account?{" "}<a href="/signup" style={{ color: `${TEAL}BB`, textDecoration: "none" }}>Free Trial →</a>
+        </div>
+        <div style={{ fontSize: "clamp(7px,0.62vw,9px)", color: "rgba(200,220,255,0.2)", fontFamily: "monospace" }}>CH 00</div>
+      </div>
+
+    </div>
+  );
+}
+
 export default function Landing() {
   const [ch, setCh] = useState<ChId>("home");
   const [flash, setFlash] = useState(false);
   const [slideIndex, setSlideIndex] = useState(0);
+  const [showLogin, setShowLogin] = useState(false);
   const touchStartX = useRef(0);
   const isDragging = useRef(false);
 
@@ -552,10 +651,11 @@ export default function Landing() {
             </div>
 
             {/* Sign In pill */}
-            <Link href="/login">
-              <button style={{
-                background: "rgba(0,255,238,0.12)",
-                border: `1px solid ${TEAL}88`,
+            <button
+              onClick={() => setShowLogin(v => !v)}
+              style={{
+                background: showLogin ? `rgba(0,255,238,0.22)` : "rgba(0,255,238,0.12)",
+                border: `1px solid ${showLogin ? TEAL : TEAL + "88"}`,
                 borderRadius: "100px",
                 padding: "clamp(6px,0.8vh,9px) clamp(16px,2vw,24px)",
                 cursor: "pointer", color: TEAL,
@@ -564,8 +664,8 @@ export default function Landing() {
                 backdropFilter: "blur(10px)",
                 boxShadow: `0 0 18px ${TEAL}30, 0 0 6px ${TEAL}20 inset`,
                 whiteSpace: "nowrap",
-              }}>Sign In</button>
-            </Link>
+              }}
+            >{showLogin ? "← BACK" : "Sign In"}</button>
           </div>
         </div>
 
@@ -626,13 +726,13 @@ export default function Landing() {
                 overflow: "hidden",
                 position: "relative",
                 height: "clamp(300px,42vh,520px)",
-                cursor: totalSlides > 1 ? "grab" : "default",
+                cursor: showLogin ? "default" : totalSlides > 1 ? "grab" : "default",
                 userSelect: "none",
               }}
-                onTouchStart={onTouchStart}
-                onTouchEnd={onTouchEnd}
-                onMouseDown={onMouseDown}
-                onMouseUp={onMouseUp}
+                onTouchStart={showLogin ? undefined : onTouchStart}
+                onTouchEnd={showLogin ? undefined : onTouchEnd}
+                onMouseDown={showLogin ? undefined : onMouseDown}
+                onMouseUp={showLogin ? undefined : onMouseUp}
                 onMouseLeave={() => { isDragging.current = false; }}
               >
                 {/* Scanlines */}
@@ -676,14 +776,20 @@ export default function Landing() {
                   opacity: flash ? 0 : 1, transition: "opacity 0.1s ease",
                   overflow: "hidden",
                 }}>
-                  {ch === "home"    && <HomeScreen tune={tune} />}
-                  {ch === "ops"     && <OpsScreen slideIndex={slideIndex} />}
-                  {ch === "tools"   && <ToolsScreen slideIndex={slideIndex} />}
-                  {ch === "pricing" && <PricingScreen tune={tune} />}
-                  {ch === "live"    && <LiveScreen />}
+                  {showLogin ? (
+                    <TVLoginScreen onBack={() => setShowLogin(false)} />
+                  ) : (
+                    <>
+                      {ch === "home"    && <HomeScreen tune={tune} />}
+                      {ch === "ops"     && <OpsScreen slideIndex={slideIndex} />}
+                      {ch === "tools"   && <ToolsScreen slideIndex={slideIndex} />}
+                      {ch === "pricing" && <PricingScreen tune={tune} />}
+                      {ch === "live"    && <LiveScreen onSignIn={() => setShowLogin(true)} />}
+                    </>
+                  )}
 
                   {/* Slide dots + swipe hint — overlay at bottom */}
-                  {totalSlides > 1 && !flash && (
+                  {!showLogin && totalSlides > 1 && !flash && (
                     <div style={{
                       position: "absolute", bottom: "clamp(8px,1.2vw,14px)", left: 0, right: 0, zIndex: 18,
                       display: "flex", flexDirection: "column", alignItems: "center", gap: "5px",
@@ -741,7 +847,7 @@ export default function Landing() {
               flexShrink: 0,
               display: "flex", flexDirection: "column", alignItems: "center", gap: "2px",
             }}>
-              {activeCh.num}
+              {showLogin ? "00" : activeCh.num}
               <div style={{ fontSize: "clamp(5px,0.5vw,7px)", letterSpacing: "0.2em", color: `${TEAL}BB` }}>CH</div>
             </div>
 
