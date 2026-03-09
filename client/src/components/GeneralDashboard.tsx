@@ -935,7 +935,7 @@ function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLimit, onO
         {/* Sync capacity — friendly label for BrickLink API quota */}
         {rateLimit != null && (() => {
           const used = blCalls / BL_CEILING;
-          const statusLabel = used >= 0.9 ? 'Near daily limit — syncs may slow' : used >= 0.6 ? 'Capacity getting low' : 'Full capacity';
+          const statusLabel = used >= 0.9 ? 'Near daily limit — features pausing until capacity frees up' : used >= 0.6 ? 'Capacity getting low' : 'Full capacity';
           const statusColor = used >= 0.9 ? 'text-red-400' : used >= 0.6 ? 'text-orange-400' : 'text-emerald-400';
           const iconColor = used >= 0.9 ? 'text-red-400' : used >= 0.6 ? 'text-orange-400' : 'text-muted-foreground';
           return (
