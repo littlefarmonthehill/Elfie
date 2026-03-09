@@ -11,10 +11,10 @@ export default function PendingApproval() {
   const handleLogout = async () => {
     try {
       await apiRequest('POST', '/api/logout');
-      window.location.href = '/login';
+      window.location.href = '/';
     } catch (error) {
       console.error('Logout error:', error);
-      window.location.href = '/login';
+      window.location.href = '/';
     }
   };
 

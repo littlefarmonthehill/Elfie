@@ -225,7 +225,7 @@ export default function Signup() {
                 </div>
                 <p className="text-[9px] md:text-[10px] lg:text-xs text-gray-500">
                   Already have an account?{" "}
-                  <a href="/login" className="text-cyan-400 hover:text-cyan-300 underline" data-testid="link-login">
+                  <a href="/" className="text-cyan-400 hover:text-cyan-300 underline" data-testid="link-login">
                     Log in
                   </a>
                 </p>

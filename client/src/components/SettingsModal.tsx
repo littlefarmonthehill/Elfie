@@ -1275,7 +1275,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     mutationFn: () => apiRequest('POST', '/api/logout'),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
-      window.location.href = '/login';
+      window.location.href = '/';
     },
   });
 
