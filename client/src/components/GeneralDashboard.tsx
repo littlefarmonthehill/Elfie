@@ -539,8 +539,14 @@ function MultichannelLane({ channelSyncRunning, globalSyncStatuses, syncStatus, 
     <LaneCard title="Multichannel" Icon={Globe} accent="border-teal-800/40 text-teal-300" summary={summary}>
 
       {/* Attention */}
-      {(totalDiscrepancies > 0 || channelSyncFailed) ? (
+      {(totalDiscrepancies > 0 || channelSyncFailed || disconnectedChannels.length > 0) ? (
         <LaneSection label="Attention">
+          {disconnectedChannels.map((t: any, i: number) => {
+            const channelName = t.name ?? t.platform ?? 'Unknown channel';
+            return (
+              <AlertItem key={channelName ?? `disconnected-${i}`} icon={XCircle} iconColor="text-red-400" label={`${channelName} disconnected`} sub="Tap to reconnect" onClick={() => onOpenSettings?.('platforms')} severity="error" />
+            );
+          })}
           {totalDiscrepancies > 0 && (
             <AlertItem icon={AlertTriangle} iconColor="text-yellow-400" label={`${totalDiscrepancies} inventory discrepanc${totalDiscrepancies !== 1 ? 'ies' : 'y'}`} sub="Prices or quantities out of sync" severity="warn" />
           )}
@@ -579,12 +585,6 @@ function MultichannelLane({ channelSyncRunning, globalSyncStatuses, syncStatus, 
         }) : (
           <ActivityItem icon={Globe} iconColor="text-muted-foreground" label="No channels connected" sub="Connect BrickOwl, eBay or Amazon" onClick={() => onOpenSettings?.('platforms')} />
         )}
-        {disconnectedChannels.map((t: any, i: number) => {
-          const channelName = t.name ?? t.platform ?? 'Unknown channel';
-          return (
-            <AlertItem key={channelName ?? `disconnected-${i}`} icon={XCircle} iconColor="text-red-400" label={`${channelName} disconnected`} onClick={() => onOpenSettings?.('platforms')} severity="error" />
-          );
-        })}
       </LaneSection>
 
       {/* Last Actions */}
