@@ -600,25 +600,6 @@ function MultichannelLane({ channelSyncRunning, globalSyncStatuses, syncStatus, 
         </LaneSection>
       )}
 
-      {/* Channel Status — only when channels exist */}
-      {connectedChannels.length > 0 && (
-        <LaneSection label="Channels" collapsible>
-          {connectedChannels.map((t: any) => {
-            const disc = (t.discrepancies?.missingLots || 0) + (t.discrepancies?.priceDifferences || 0) + (t.discrepancies?.quantityDifferences || 0);
-            const channelName = t.name ?? t.platform ?? 'Unknown channel';
-            return (
-              <ActivityItem
-                key={channelName}
-                icon={disc > 0 ? AlertTriangle : CheckCircle}
-                iconColor={disc > 0 ? 'text-yellow-400' : 'text-green-400'}
-                label={channelName}
-                sub={disc > 0 ? `${disc} discrepanc${disc !== 1 ? 'ies' : 'y'}` : 'In sync'}
-              />
-            );
-          })}
-        </LaneSection>
-      )}
-
       {/* Last Actions */}
       <LaneSection label="Last Actions" collapsible>
         {lastChannelSync?.lastSyncTime ? (
@@ -749,51 +730,45 @@ function AIIntelligenceLane({ latestScan, appSettings, onOpenBrickanalyzer, dism
         </LaneSection>
       )}
 
-      {/* Data Embeddings — catalogs + inventory/orders */}
-      {(universalCatalog || catalogStatus || embedStats) && (
-        <LaneSection label="Data Embeddings" collapsible>
-          {universalCatalog && (
+      {/* Last Actions — embeddings + last scan */}
+      <LaneSection label="Last Actions" collapsible>
+        {universalCatalog && (
+          <ActivityItem
+            icon={universalCatalog.workerRunning ? RefreshCw : CheckCircle}
+            iconColor={universalCatalog.workerRunning ? 'text-purple-400' : 'text-green-400'}
+            label={`All BrickLink parts — Visual Recognition — ${ucPct}%`}
+            sub={universalCatalog.pending > 0 ? `${universalCatalog.pending.toLocaleString()} pending` : universalCatalog.noImage > 0 ? `${universalCatalog.noImage.toLocaleString()} no image` : `${universalCatalog.embedded.toLocaleString()} parts embedded`}
+          />
+        )}
+        {catalogStatus && (
+          <ActivityItem
+            icon={ScanSearch}
+            iconColor="text-purple-400"
+            label={`Your inventory — Visual Recognition — ${catalogPct}% built`}
+            sub={`${catalogStatus.catalog} / ${catalogStatus.total} parts embedded`}
+          />
+        )}
+        {embedStats && (
+          <>
             <ActivityItem
-              icon={universalCatalog.workerRunning ? RefreshCw : CheckCircle}
-              iconColor={universalCatalog.workerRunning ? 'text-purple-400' : 'text-green-400'}
-              label={`All BrickLink parts — Visual Recognition — ${ucPct}%`}
-              sub={universalCatalog.pending > 0 ? `${universalCatalog.pending.toLocaleString()} pending` : universalCatalog.noImage > 0 ? `${universalCatalog.noImage.toLocaleString()} no image` : `${universalCatalog.embedded.toLocaleString()} parts embedded`}
+              icon={embedStats.inventory.embedded >= embedStats.inventory.total && embedStats.inventory.total > 0 ? CheckCircle : RefreshCw}
+              iconColor={embedStats.inventory.embedded >= embedStats.inventory.total && embedStats.inventory.total > 0 ? 'text-green-400' : 'text-purple-400'}
+              label="Your inventory — Text Search"
+              sub={`${embedStats.inventory.embedded.toLocaleString()} / ${embedStats.inventory.total.toLocaleString()} — ${embedStats.inventory.percentage}% embedded`}
             />
-          )}
-          {catalogStatus && (
             <ActivityItem
-              icon={ScanSearch}
-              iconColor="text-purple-400"
-              label={`Your inventory — Visual Recognition — ${catalogPct}% built`}
-              sub={`${catalogStatus.catalog} / ${catalogStatus.total} parts embedded`}
+              icon={embedStats.orders.embedded >= embedStats.orders.total && embedStats.orders.total > 0 ? CheckCircle : RefreshCw}
+              iconColor={embedStats.orders.embedded >= embedStats.orders.total && embedStats.orders.total > 0 ? 'text-green-400' : 'text-purple-400'}
+              label="Your orders — Text Search"
+              sub={`${embedStats.orders.embedded.toLocaleString()} / ${embedStats.orders.total.toLocaleString()} — ${embedStats.orders.percentage}% embedded`}
             />
-          )}
-          {embedStats && (
-            <>
-              <ActivityItem
-                icon={embedStats.inventory.embedded >= embedStats.inventory.total && embedStats.inventory.total > 0 ? CheckCircle : RefreshCw}
-                iconColor={embedStats.inventory.embedded >= embedStats.inventory.total && embedStats.inventory.total > 0 ? 'text-green-400' : 'text-purple-400'}
-                label={`Your inventory — Text Search`}
-                sub={`${embedStats.inventory.embedded.toLocaleString()} / ${embedStats.inventory.total.toLocaleString()} — ${embedStats.inventory.percentage}% embedded`}
-              />
-              <ActivityItem
-                icon={embedStats.orders.embedded >= embedStats.orders.total && embedStats.orders.total > 0 ? CheckCircle : RefreshCw}
-                iconColor={embedStats.orders.embedded >= embedStats.orders.total && embedStats.orders.total > 0 ? 'text-green-400' : 'text-purple-400'}
-                label={`Your orders — Text Search`}
-                sub={`${embedStats.orders.embedded.toLocaleString()} / ${embedStats.orders.total.toLocaleString()} — ${embedStats.orders.percentage}% embedded`}
-              />
-            </>
-          )}
-        </LaneSection>
-      )}
-
-      {/* Last Scan */}
-      <LaneSection label="Last Scan" collapsible>
+          </>
+        )}
         {isScanComplete && latestScan && (
           <ActivityItem
             icon={(latestScan.totalPieces ?? 0) > 0 ? CheckCircle : AlertCircle}
             iconColor={(latestScan.totalPieces ?? 0) > 0 ? 'text-green-400' : 'text-yellow-400'}
-            label={`${latestScan.totalPieces ?? 0} pieces found`}
+            label={`Last scan — ${latestScan.totalPieces ?? 0} pieces found`}
             sub={latestScan.estimatedValue && Number(latestScan.estimatedValue) > 0 ? `Est. ${formatCurrency(latestScan.estimatedValue)}` : undefined}
             onClick={(latestScan.totalPieces ?? 0) > 0 ? onOpenBrickanalyzer : undefined}
           />
@@ -801,8 +776,8 @@ function AIIntelligenceLane({ latestScan, appSettings, onOpenBrickanalyzer, dism
         {isScanFailed && latestScan && (
           <ActivityItem icon={XCircle} iconColor="text-red-400" label="Last scan failed" sub="Try again from Inventory tab" onClick={onOpenBrickanalyzer} />
         )}
-        {!latestScan && !isScanProcessing && (
-          <ActivityItem icon={ScanSearch} iconColor="text-muted-foreground" label="No recent scan" sub="Use Brick Spotter from Inventory tab" />
+        {!latestScan && !isScanProcessing && !universalCatalog && !catalogStatus && !embedStats && (
+          <ActivityItem icon={ScanSearch} iconColor="text-muted-foreground" label="No recent activity" />
         )}
       </LaneSection>
 
