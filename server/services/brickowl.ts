@@ -310,7 +310,8 @@ export async function mapColorId(bricklinkColorId: number): Promise<number | nul
 // Sync a single inventory item from BrickLink to BrickOwl
 export async function syncInventoryItem(
   blItem: typeof blInventory.$inferSelect,
-  brickowlInventory?: any[]
+  brickowlInventory?: any[],
+  mode: 'full_control' | 'quantity_only' = 'full_control'
 ): Promise<{
   success: boolean;
   action: 'created' | 'updated' | 'skipped';
@@ -408,6 +409,12 @@ export async function syncInventoryItem(
       };
     }
 
+    if (mode === 'quantity_only') {
+      // Quantity-only mode: never create new listings, only update existing ones
+      console.log(`[Sync] Skipping ${blItem.itemNo} (quantity_only mode — no existing BrickOwl lot)`);
+      return { success: true, action: 'skipped' };
+    }
+
     console.log(`[Sync] Creating new lot for ${blItem.itemNo} (BL inv ${blItem.id})`);
     await createBrickOwlLot({
       boid,
@@ -431,7 +438,7 @@ export async function syncInventoryItem(
 }
 
 // Sync all BrickLink inventory to BrickOwl
-export async function syncBrickLinkToBrickOwl(limit?: number): Promise<BrickOwlSyncResult> {
+export async function syncBrickLinkToBrickOwl(limit?: number, mode: 'full_control' | 'quantity_only' = 'full_control'): Promise<BrickOwlSyncResult> {
   const result: BrickOwlSyncResult = {
     lotsCreated: 0,
     lotsUpdated: 0,
@@ -456,7 +463,7 @@ export async function syncBrickLinkToBrickOwl(limit?: number): Promise<BrickOwlS
 
   // Sync each item
   for (const item of blItems) {
-    const syncResult = await syncInventoryItem(item, brickowlInventory);
+    const syncResult = await syncInventoryItem(item, brickowlInventory, mode);
     result.totalApiCalls += 2; // Estimate: lookup + create/update
     
     if (syncResult.success) {

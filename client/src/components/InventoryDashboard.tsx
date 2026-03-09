@@ -3,6 +3,7 @@ import MetricCard from "./MetricCard";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { InfoIcon, Package, Sparkles, Warehouse, RefreshCw, Info, ListChecks, ScanSearch, AlertTriangle, ArrowRight, Globe, Boxes } from "lucide-react";
+import ChannelSyncPanel from "./ChannelSyncPanel";
 import {
   Tooltip,
   TooltipContent,
@@ -330,6 +331,12 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             </button>
 
           </div>
+
+          {/* Channel Sync Status */}
+          <div className="mt-3">
+            <ChannelSyncPanel onOpenDetails={() => onDrawerChange('platformsync')} />
+          </div>
+
         </div>
 
       </div>

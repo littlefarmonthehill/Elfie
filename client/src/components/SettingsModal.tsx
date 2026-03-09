@@ -682,6 +682,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const [rebrickableImageSyncEnabled, setRebrickableImageSyncEnabled] = useState(true);
   const [channelSyncEnabled, setChannelSyncEnabled] = useState(false);
   const [channelSyncTime, setChannelSyncTime] = useState("03:00");
+  const [channelSyncMode, setChannelSyncMode] = useState<'full_control' | 'quantity_only'>('full_control');
   const [channelDetailsExpanded, setChannelDetailsExpanded] = useState(false);
   const [ordersSyncEnabled, setOrdersSyncEnabled] = useState(false);
   const [ordersSyncFrequency, setOrdersSyncFrequency] = useState(15);
@@ -918,6 +919,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
       setRebrickableImageSyncEnabled(settings.rebrickableImageSyncEnabled !== false);
       setChannelSyncEnabled(settings.channelSyncEnabled || false);
       setChannelSyncTime(settings.channelSyncTime || '03:00');
+      setChannelSyncMode((settings.channelSyncMode as 'full_control' | 'quantity_only') || 'full_control');
       setOrdersSyncEnabled(settings.ordersSyncEnabled || false);
       setOrdersSyncFrequency(settings.ordersSyncFrequency || 15);
       setOrdersSyncFrequencyStr(String(settings.ordersSyncFrequency || 15));
@@ -3525,75 +3527,63 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         </div>
                       )}
 
-                      {/* Channel Names — collapsible */}
-                      <div className="mt-3">
-                        <button
-                          onClick={() => setChannelDetailsExpanded(!channelDetailsExpanded)}
-                          className="w-full flex items-center justify-between gap-2 py-1.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider hover:text-gray-300 transition-colors"
-                          data-testid="button-channel-details-toggle"
-                        >
-                          <span>Channels</span>
-                          {channelDetailsExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-                        </button>
-                        {channelDetailsExpanded && (
-                          <div className="bg-gray-800/60 border border-blue-500/20 rounded-lg p-3 space-y-2">
-                            <div className="flex items-center justify-between">
-                              <p className="text-xs font-semibold text-blue-300">BrickOwl Store</p>
-                              {brickOwlTarget?.enabled && (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  disabled={channelSyncMutation.isPending}
-                                  onClick={() => channelSyncMutation.mutate()}
-                                  className="text-xs h-6 px-2 text-blue-400"
-                                  data-testid="button-channel-sync-bo"
-                                >
-                                  {channelSyncMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3 mr-1" />}
-                                  Sync
-                                </Button>
-                              )}
+                      {/* Sync Mode */}
+                      <div className="mt-3 space-y-2">
+                        <div className="flex items-center gap-1.5">
+                          <Label className="text-xs text-gray-400">Sync Mode</Label>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="w-3 h-3 text-gray-500 shrink-0 cursor-default" />
+                            </TooltipTrigger>
+                            <TooltipContent side="right" className="max-w-xs text-xs">
+                              Controls what happens when a BrickLink item has no matching BrickOwl lot.
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+                        <div className="grid grid-cols-1 gap-1.5">
+                          <button
+                            onClick={() => { setChannelSyncMode('full_control'); updateSettingsMutation.mutate({ channelSyncMode: 'full_control' }); }}
+                            className={`flex items-start gap-2 rounded-md border p-2.5 text-left transition-colors ${channelSyncMode === 'full_control' ? 'border-blue-500/60 bg-blue-500/10' : 'border-gray-700 bg-gray-800/40 hover:border-gray-600'}`}
+                            data-testid="button-sync-mode-full"
+                          >
+                            <div className={`mt-0.5 w-3 h-3 rounded-full border-2 shrink-0 ${channelSyncMode === 'full_control' ? 'border-blue-400 bg-blue-400' : 'border-gray-500'}`} />
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs font-medium text-gray-200">Full Control</span>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Info className="w-2.5 h-2.5 text-gray-500 shrink-0 cursor-default" />
+                                  </TooltipTrigger>
+                                  <TooltipContent side="right" className="max-w-xs text-xs">
+                                    Creates new BrickOwl lots for any BrickLink items that don't have a matching listing yet. Keeps both stores fully in sync.
+                                  </TooltipContent>
+                                </Tooltip>
+                              </div>
+                              <p className="text-[10px] text-gray-500 mt-0.5">Push all items — create new lots + update existing</p>
                             </div>
-                            {platformSyncLoading ? (
-                              <div className="flex gap-4">
-                                <span className="inline-block bg-gray-700 h-3 w-20 rounded animate-pulse" />
-                                <span className="inline-block bg-gray-700 h-3 w-20 rounded animate-pulse" />
+                          </button>
+                          <button
+                            onClick={() => { setChannelSyncMode('quantity_only'); updateSettingsMutation.mutate({ channelSyncMode: 'quantity_only' }); }}
+                            className={`flex items-start gap-2 rounded-md border p-2.5 text-left transition-colors ${channelSyncMode === 'quantity_only' ? 'border-blue-500/60 bg-blue-500/10' : 'border-gray-700 bg-gray-800/40 hover:border-gray-600'}`}
+                            data-testid="button-sync-mode-qty"
+                          >
+                            <div className={`mt-0.5 w-3 h-3 rounded-full border-2 shrink-0 ${channelSyncMode === 'quantity_only' ? 'border-blue-400 bg-blue-400' : 'border-gray-500'}`} />
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs font-medium text-gray-200">Quantity Only</span>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Info className="w-2.5 h-2.5 text-gray-500 shrink-0 cursor-default" />
+                                  </TooltipTrigger>
+                                  <TooltipContent side="right" className="max-w-xs text-xs">
+                                    Only updates quantities and prices on lots that already exist in BrickOwl. Items without a matching lot are skipped — nothing is created. Safer for stores where you manage listings manually on BrickOwl.
+                                  </TooltipContent>
+                                </Tooltip>
                               </div>
-                            ) : !brickOwlTarget?.enabled ? (
-                              <p className="text-[10px] text-gray-500">Not configured — add BrickOwl API key in Platform Connections</p>
-                            ) : (
-                              <div className="space-y-2">
-                                <div className="grid grid-cols-3 gap-2">
-                                  <div>
-                                    <p className="text-[10px] text-gray-500">Lots</p>
-                                    <p className="text-xs font-bold text-white font-mono">{brickOwlTarget.stats.totalLots?.toLocaleString() ?? '—'}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-[10px] text-gray-500">Parts</p>
-                                    <p className="text-xs font-bold text-white font-mono">{brickOwlTarget.stats.totalParts?.toLocaleString() ?? '—'}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-[10px] text-gray-500">Last Synced</p>
-                                    <p className="text-[10px] text-gray-400">{brickOwlTarget.stats.lastSyncedAt ? new Date(brickOwlTarget.stats.lastSyncedAt).toLocaleString() : 'Never'}</p>
-                                  </div>
-                                </div>
-                                {(brickOwlTarget.discrepancies.missingLots > 0 || brickOwlTarget.discrepancies.priceDifferences > 0 || brickOwlTarget.discrepancies.quantityDifferences > 0) && (
-                                  <div className="bg-orange-500/10 border border-orange-500/20 rounded p-2">
-                                    <div className="flex items-center gap-1 mb-1">
-                                      <AlertTriangle className="w-3 h-3 text-orange-400" />
-                                      <p className="text-[10px] font-semibold text-orange-400">Discrepancies</p>
-                                    </div>
-                                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-gray-300">
-                                      {brickOwlTarget.discrepancies.missingLots > 0 && <span><span className="text-orange-400 font-bold">{brickOwlTarget.discrepancies.missingLots}</span> missing lots</span>}
-                                      {brickOwlTarget.discrepancies.priceDifferences > 0 && <span><span className="text-orange-400 font-bold">{brickOwlTarget.discrepancies.priceDifferences}</span> price diffs</span>}
-                                      {brickOwlTarget.discrepancies.quantityDifferences > 0 && <span><span className="text-orange-400 font-bold">{brickOwlTarget.discrepancies.quantityDifferences}</span> qty diffs</span>}
-                                      {brickOwlTarget.discrepancies.remarksDifferences > 0 && <span><span className="text-orange-400 font-bold">{brickOwlTarget.discrepancies.remarksDifferences}</span> remarks diffs</span>}
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        )}
+                              <p className="text-[10px] text-gray-500 mt-0.5">Update counts on existing lots only — never create</p>
+                            </div>
+                          </button>
+                        </div>
                       </div>
                     </div>
 

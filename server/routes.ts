@@ -6300,9 +6300,14 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         });
       }
 
-      console.log(`[Platform Sync] Starting BrickLink → BrickOwl sync${limit ? ` (limit: ${limit})` : ''}...`);
+      const orgId = reqOrgId(req);
+      const [settingsRow] = await db.select({ channelSyncMode: appSettings.channelSyncMode })
+        .from(appSettings).where(eq(appSettings.orgId, orgId)).limit(1);
+      const syncMode = (settingsRow?.channelSyncMode === 'quantity_only' ? 'quantity_only' : 'full_control') as 'full_control' | 'quantity_only';
+
+      console.log(`[Platform Sync] Starting BrickLink → BrickOwl sync${limit ? ` (limit: ${limit})` : ''} (mode: ${syncMode})...`);
       
-      const result = await syncBrickLinkToBrickOwl(limit);
+      const result = await syncBrickLinkToBrickOwl(limit, syncMode);
       
       console.log(`[Platform Sync] Complete: ${result.lotsCreated} created, ${result.lotsUpdated} updated, ${result.lotsSkipped} skipped`);
 

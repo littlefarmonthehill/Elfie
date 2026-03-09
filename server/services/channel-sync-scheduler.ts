@@ -116,9 +116,17 @@ async function runScheduledChannelSync() {
   });
 
   try {
-    const result = await syncBrickLinkToBrickOwl();
-    const status = result.errors > 0 ? 'partial' : 'success';
-    console.log(`\n✨ Channel sync complete! ${result.lotsCreated} created, ${result.lotsUpdated} updated, ${result.lotsSkipped} skipped, ${result.errors} errors`);
+    // Read sync mode from settings
+    let syncMode: 'full_control' | 'quantity_only' = 'full_control';
+    try {
+      const [settingsForMode] = await db.select().from(appSettings).where(eq(appSettings.orgId, ORG_ID)).limit(1);
+      if (settingsForMode?.channelSyncMode === 'quantity_only') syncMode = 'quantity_only';
+    } catch { /* default to full_control */ }
+
+    const result = await syncBrickLinkToBrickOwl(undefined, syncMode);
+    const hasErrors = result.errors.length > 0;
+    const status = hasErrors ? 'partial' : 'success';
+    console.log(`\n✨ Channel sync complete! ${result.lotsCreated} created, ${result.lotsUpdated} updated, ${result.lotsSkipped} skipped, ${result.errors.length} errors (mode: ${syncMode})`);
 
     await db.insert(syncMetadata).values({
       id: 'channel_sync',
@@ -126,7 +134,7 @@ async function runScheduledChannelSync() {
       lastSyncTime: new Date(),
       recordsAdded: result.lotsCreated,
       recordsUpdated: result.lotsUpdated,
-      errorMessage: result.errors > 0 ? `${result.errors} lots failed` : null,
+      errorMessage: hasErrors ? `${result.errors.length} lots failed` : null,
       orgId: ORG_ID,
     }).onConflictDoUpdate({
       target: syncMetadata.id,
@@ -135,7 +143,7 @@ async function runScheduledChannelSync() {
         updatedAt: new Date(),
         recordsAdded: result.lotsCreated,
         recordsUpdated: result.lotsUpdated,
-        errorMessage: result.errors > 0 ? `${result.errors} lots failed` : null,
+        errorMessage: hasErrors ? `${result.errors.length} lots failed` : null,
       },
     });
 

@@ -507,6 +507,7 @@ export const appSettings = pgTable("app_settings", {
   // Channel Sync (Local DB → BrickOwl / other platforms)
   channelSyncEnabled: boolean("channel_sync_enabled").default(false).notNull(), // Push local inventory to all sales channels on a schedule
   channelSyncTime: text("channel_sync_time").default('03:00'),                  // Time of day (HH:MM) — run AFTER inbound + order syncs settle
+  channelSyncMode: text("channel_sync_mode").default('full_control').notNull(), // 'full_control' = create + update, 'quantity_only' = update existing only
   timezone: text("timezone").default('America/Chicago'),                        // User's local timezone for all schedulers
   pomDeepSpaceKeys: text("pom_deep_space_keys").default('[]'),                  // JSON array of item keys excluded from POM orbit view
   pomFutureMissionsKeys: text("pom_future_missions_keys").default('[]'),        // JSON array of item keys queued in Future Missions

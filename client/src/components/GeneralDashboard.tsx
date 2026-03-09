@@ -269,6 +269,7 @@ function InventoryLane({
 }: any) {
   const lastInvSync = globalSyncStatuses?.inventory;
   const lastPom = pomStatus?.data ?? globalSyncStatuses?.priceomatic;
+  const lastChannelSync = globalSyncStatuses?.channel;
   const isInvSyncing = invSyncProgress?.status === 'syncing';
   const isInvComplete = invSyncProgress?.status === 'complete';
   const isPomRunning = pomStatus?.data?.liveProgress?.active === true;
@@ -388,6 +389,15 @@ function InventoryLane({
           />
         ) : !isPomRunning ? (
           <ActivityItem icon={Clock} iconColor="text-muted-foreground" label="No Price-o-Matic run yet" />
+        ) : null}
+        {lastChannelSync?.lastSyncTime && lastChannelSync.lastSyncStatus !== 'in_progress' ? (
+          <ActivityItem
+            icon={lastChannelSync.lastSyncStatus === 'success' ? CheckCircle : lastChannelSync.lastSyncStatus === 'partial' ? AlertCircle : XCircle}
+            iconColor={lastChannelSync.lastSyncStatus === 'success' ? 'text-green-400' : lastChannelSync.lastSyncStatus === 'partial' ? 'text-yellow-400' : 'text-red-400'}
+            label={`Channel sync — ${lastChannelSync.lastSyncStatus}`}
+            sub={lastChannelSync.lastSyncStatus === 'success' ? `+${lastChannelSync.recordsAdded ?? 0} created, ${lastChannelSync.recordsUpdated ?? 0} updated` : lastChannelSync.errorMessage ?? undefined}
+            time={relTime(lastChannelSync.lastSyncTime)}
+          />
         ) : null}
       </LaneSection>
 
