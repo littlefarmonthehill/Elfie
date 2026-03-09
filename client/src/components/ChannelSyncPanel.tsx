@@ -17,6 +17,7 @@ import {
   DollarSign,
   Hash,
   X,
+  ChevronRight,
 } from "lucide-react";
 import {
   Drawer,
@@ -25,6 +26,7 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
+import { Separator } from "@/components/ui/separator";
 
 interface ChannelSyncPanelProps {
   onOpenSettings?: (section?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'users' | 'billing') => void;
@@ -32,7 +34,7 @@ interface ChannelSyncPanelProps {
 
 export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelProps) {
   const { toast } = useToast();
-  const [discrepancyOpen, setDiscrepancyOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const { data: platformData, isLoading: platformLoading } = useQuery<any>({
     queryKey: ['/api/platform-sync/status'],
@@ -49,6 +51,7 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/sync/statuses'] });
       toast({ title: 'Channel sync started', description: 'BrickOwl is syncing in the background.' });
+      setDrawerOpen(false);
     },
     onError: () => {
       toast({ title: 'Sync failed', description: 'Could not start channel sync.', variant: 'destructive' });
@@ -108,8 +111,10 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
 
   return (
     <>
-      <div
-        className="rounded-lg border border-green-500/40 bg-gradient-to-br from-green-950/50 to-gray-950/70 p-3 space-y-2"
+      {/* Entire panel is a button that opens the drawer */}
+      <button
+        onClick={() => setDrawerOpen(true)}
+        className="w-full text-left rounded-lg border border-green-500/40 bg-gradient-to-br from-green-950/50 to-gray-950/70 p-3 space-y-2 hover-elevate"
         data-testid="channel-sync-panel"
       >
         {/* Header row */}
@@ -124,43 +129,7 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
               </span>
             )}
           </div>
-          <div className="flex items-center gap-1.5">
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-6 px-2 text-xs text-green-300"
-              disabled={isRunning || syncMutation.isPending}
-              onClick={() => syncMutation.mutate()}
-              data-testid="button-channel-sync-now"
-            >
-              {syncMutation.isPending ? (
-                <Loader2 className="w-3 h-3 animate-spin mr-1" />
-              ) : (
-                <RefreshCw className="w-3 h-3 mr-1" />
-              )}
-              Sync Now
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-6 px-2 text-xs text-green-300"
-              onClick={() => onOpenSettings?.('automation')}
-              data-testid="button-channel-schedule"
-            >
-              <CalendarClock className="w-3 h-3 mr-1" />
-              Schedule
-            </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-6 w-6 text-gray-500 hover:text-gray-300"
-              onClick={() => onOpenSettings?.('automation')}
-              data-testid="button-channel-sync-settings"
-              title="Channel sync settings"
-            >
-              <SlidersHorizontal className="w-3 h-3" />
-            </Button>
-          </div>
+          <ChevronRight className="w-3.5 h-3.5 text-gray-600 shrink-0" />
         </div>
 
         {/* Stats + last sync */}
@@ -205,21 +174,17 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
           </div>
         )}
 
-        {/* Discrepancies — compact clickable row */}
+        {/* Discrepancies — compact indicator row (no separate click action) */}
         {!isLoading && totalDiscrepancies > 0 && (
-          <button
-            onClick={() => setDiscrepancyOpen(true)}
-            className="w-full flex items-center justify-between gap-2 bg-orange-500/10 border border-orange-500/25 rounded px-2 py-1.5 text-left hover-elevate"
-            data-testid="button-channel-discrepancies"
+          <div
+            className="flex items-center gap-1.5 bg-orange-500/10 border border-orange-500/25 rounded px-2 py-1.5"
+            data-testid="channel-discrepancy-indicator"
           >
-            <div className="flex items-center gap-1.5">
-              <AlertTriangle className="w-3 h-3 text-orange-400 shrink-0" />
-              <span className="text-[10px] font-semibold text-orange-300">
-                {totalDiscrepancies} discrepanc{totalDiscrepancies === 1 ? 'y' : 'ies'} detected
-              </span>
-            </div>
-            <span className="text-[10px] text-orange-400/70">View →</span>
-          </button>
+            <AlertTriangle className="w-3 h-3 text-orange-400 shrink-0" />
+            <span className="text-[10px] font-semibold text-orange-300">
+              {totalDiscrepancies} discrepanc{totalDiscrepancies === 1 ? 'y' : 'ies'} detected
+            </span>
+          </div>
         )}
 
         {/* All clear */}
@@ -229,99 +194,121 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
             <span>BrickOwl is in sync</span>
           </div>
         )}
-      </div>
+      </button>
 
-      {/* Discrepancy Drawer */}
-      <Drawer open={discrepancyOpen} onOpenChange={setDiscrepancyOpen}>
-        <DrawerContent className="h-[60vh]">
+      {/* Channel Details Drawer */}
+      <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
+        <DrawerContent className="h-[65vh]">
           <DrawerHeader className="relative">
             <DrawerTitle className="flex items-center gap-2 text-base">
-              <AlertTriangle className="w-5 h-5 text-orange-400" />
-              BrickOwl Sync Discrepancies
+              <Globe className="w-4 h-4 text-green-400" />
+              BrickOwl — Channel Sync
             </DrawerTitle>
-            <DrawerClose className="absolute right-4 top-4" data-testid="button-close-discrepancies">
+            <DrawerClose className="absolute right-4 top-4" data-testid="button-close-channel-drawer">
               <X className="h-4 w-4" />
               <span className="sr-only">Close</span>
             </DrawerClose>
           </DrawerHeader>
+
           <div className="overflow-y-auto px-4 pb-6 space-y-4">
-            <p className="text-xs text-gray-400">
-              These discrepancies were detected between your BrickLink inventory and BrickOwl store. Running a sync will resolve them based on your current sync mode.
-            </p>
 
-            <div className="space-y-3">
-              {/* Missing Lots */}
-              <div className={`rounded-lg border p-3 ${missingLots > 0 ? 'border-orange-500/40 bg-orange-950/30' : 'border-gray-700/40 bg-gray-900/30 opacity-50'}`}>
-                <div className="flex items-center justify-between gap-2 mb-1">
-                  <div className="flex items-center gap-2">
-                    <PackageX className="w-4 h-4 text-orange-400 shrink-0" />
-                    <span className="text-sm font-semibold text-orange-200">Missing Lots</span>
-                  </div>
-                  <span className={`text-lg font-mono font-bold ${missingLots > 0 ? 'text-orange-300' : 'text-gray-500'}`}>
-                    {missingLots}
-                  </span>
-                </div>
-                <p className="text-xs text-gray-400">
-                  Items present on BrickLink but not yet listed on BrickOwl. In <strong className="text-gray-300">Full Control</strong> mode, sync will create these listings automatically.
-                </p>
-              </div>
-
-              {/* Price Differences */}
-              <div className={`rounded-lg border p-3 ${priceDiffs > 0 ? 'border-yellow-500/40 bg-yellow-950/30' : 'border-gray-700/40 bg-gray-900/30 opacity-50'}`}>
-                <div className="flex items-center justify-between gap-2 mb-1">
-                  <div className="flex items-center gap-2">
-                    <DollarSign className="w-4 h-4 text-yellow-400 shrink-0" />
-                    <span className="text-sm font-semibold text-yellow-200">Price Differences</span>
-                  </div>
-                  <span className={`text-lg font-mono font-bold ${priceDiffs > 0 ? 'text-yellow-300' : 'text-gray-500'}`}>
-                    {priceDiffs}
-                  </span>
-                </div>
-                <p className="text-xs text-gray-400">
-                  Items where BrickOwl price differs from BrickLink. Sync will update BrickOwl prices to match.
-                </p>
-              </div>
-
-              {/* Quantity Differences */}
-              <div className={`rounded-lg border p-3 ${qtyDiffs > 0 ? 'border-blue-500/40 bg-blue-950/30' : 'border-gray-700/40 bg-gray-900/30 opacity-50'}`}>
-                <div className="flex items-center justify-between gap-2 mb-1">
-                  <div className="flex items-center gap-2">
-                    <Hash className="w-4 h-4 text-blue-400 shrink-0" />
-                    <span className="text-sm font-semibold text-blue-200">Quantity Differences</span>
-                  </div>
-                  <span className={`text-lg font-mono font-bold ${qtyDiffs > 0 ? 'text-blue-300' : 'text-gray-500'}`}>
-                    {qtyDiffs}
-                  </span>
-                </div>
-                <p className="text-xs text-gray-400">
-                  Items where BrickOwl quantity differs from BrickLink. Sync will align quantities in both sync modes.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex gap-2 pt-1">
+            {/* Actions */}
+            <div className="flex items-center gap-2 flex-wrap">
               <Button
-                className="flex-1"
+                size="sm"
+                variant="secondary"
                 disabled={isRunning || syncMutation.isPending}
-                onClick={() => { syncMutation.mutate(); setDiscrepancyOpen(false); }}
-                data-testid="button-discrepancy-sync-now"
+                onClick={() => syncMutation.mutate()}
+                data-testid="button-channel-sync-now"
               >
                 {syncMutation.isPending ? (
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
                 ) : (
-                  <RefreshCw className="w-4 h-4 mr-2" />
+                  <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
                 )}
-                Sync Now to Resolve
+                {isRunning ? 'Syncing…' : 'Sync Now'}
               </Button>
               <Button
+                size="sm"
                 variant="ghost"
-                onClick={() => { setDiscrepancyOpen(false); onOpenSettings?.('automation'); }}
-                data-testid="button-discrepancy-settings"
+                onClick={() => { setDrawerOpen(false); onOpenSettings?.('automation'); }}
+                data-testid="button-channel-schedule"
               >
-                <SlidersHorizontal className="w-4 h-4 mr-1" />
-                Sync settings
+                <CalendarClock className="w-3.5 h-3.5 mr-1.5" />
+                Schedule
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => { setDrawerOpen(false); onOpenSettings?.('automation'); }}
+                data-testid="button-channel-sync-settings"
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5 mr-1.5" />
+                Settings
               </Button>
             </div>
+
+            <Separator className="bg-gray-700/60" />
+
+            {/* Discrepancy details */}
+            {totalDiscrepancies > 0 ? (
+              <>
+                <p className="text-xs text-gray-400">
+                  These discrepancies were detected between your BrickLink inventory and BrickOwl store. Running a sync will resolve them based on your current sync mode.
+                </p>
+                <div className="space-y-3">
+                  <div className={`rounded-lg border p-3 ${missingLots > 0 ? 'border-orange-500/40 bg-orange-950/30' : 'border-gray-700/40 bg-gray-900/30 opacity-50'}`}>
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <div className="flex items-center gap-2">
+                        <PackageX className="w-4 h-4 text-orange-400 shrink-0" />
+                        <span className="text-sm font-semibold text-orange-200">Missing Lots</span>
+                      </div>
+                      <span className={`text-lg font-mono font-bold ${missingLots > 0 ? 'text-orange-300' : 'text-gray-500'}`}>
+                        {missingLots}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-400">
+                      Items present on BrickLink but not yet listed on BrickOwl. In <strong className="text-gray-300">Full Control</strong> mode, sync will create these listings automatically.
+                    </p>
+                  </div>
+
+                  <div className={`rounded-lg border p-3 ${priceDiffs > 0 ? 'border-yellow-500/40 bg-yellow-950/30' : 'border-gray-700/40 bg-gray-900/30 opacity-50'}`}>
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <div className="flex items-center gap-2">
+                        <DollarSign className="w-4 h-4 text-yellow-400 shrink-0" />
+                        <span className="text-sm font-semibold text-yellow-200">Price Differences</span>
+                      </div>
+                      <span className={`text-lg font-mono font-bold ${priceDiffs > 0 ? 'text-yellow-300' : 'text-gray-500'}`}>
+                        {priceDiffs}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-400">
+                      Items where BrickOwl price differs from BrickLink. Sync will update BrickOwl prices to match.
+                    </p>
+                  </div>
+
+                  <div className={`rounded-lg border p-3 ${qtyDiffs > 0 ? 'border-blue-500/40 bg-blue-950/30' : 'border-gray-700/40 bg-gray-900/30 opacity-50'}`}>
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <div className="flex items-center gap-2">
+                        <Hash className="w-4 h-4 text-blue-400 shrink-0" />
+                        <span className="text-sm font-semibold text-blue-200">Quantity Differences</span>
+                      </div>
+                      <span className={`text-lg font-mono font-bold ${qtyDiffs > 0 ? 'text-blue-300' : 'text-gray-500'}`}>
+                        {qtyDiffs}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-400">
+                      Items where BrickOwl quantity differs from BrickLink. Sync will align quantities in both sync modes.
+                    </p>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="flex items-center gap-2 text-sm text-gray-400">
+                <CheckCircle2 className="w-4 h-4 text-green-400 shrink-0" />
+                <span>No discrepancies — BrickOwl is in sync with BrickLink.</span>
+              </div>
+            )}
           </div>
         </DrawerContent>
       </Drawer>

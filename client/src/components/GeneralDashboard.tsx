@@ -673,7 +673,10 @@ function AIIntelligenceLane({ latestScan, appSettings, onOpenBrickanalyzer, dism
             <JobBar
               label="All BrickLink parts — Visual Recognition"
               pct={ucPct}
-              sublabel={`${universalCatalog.embedded.toLocaleString()} / ${universalCatalog.queueSize.toLocaleString()} parts`}
+              sublabel={[
+                `${universalCatalog.embedded.toLocaleString()} / ${universalCatalog.queueSize.toLocaleString()} embedded`,
+                universalCatalog.failed > 0 ? `${universalCatalog.failed.toLocaleString()} failed` : null,
+              ].filter(Boolean).join(' · ')}
               color="purple"
             />
           )}

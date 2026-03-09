@@ -51,7 +51,7 @@ export function EmbeddingsManager({ searchOnly = false }: { searchOnly?: boolean
 
   const { mutate: startInventoryJob, isPending: startingInventoryJob } = useMutation({
     mutationFn: async () => {
-      const r = await fetch('/api/embeddings/jobs/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'inventory', batchSize: inventoryBatchSize }) });
+      const r = await fetch('/api/embeddings/jobs/start', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'inventory', batchSize: inventoryBatchSize }) });
       const d = await r.json(); if (!r.ok) throw new Error(d.error || 'Failed'); return d;
     },
     onSuccess: () => { toast({ title: "Job Started", description: `Embedding inventory in background` }); refetchInventoryJob(); queryClient.invalidateQueries({ queryKey: ['/api/embeddings/stats'] }); },
@@ -60,7 +60,7 @@ export function EmbeddingsManager({ searchOnly = false }: { searchOnly?: boolean
 
   const { mutate: startOrdersJob, isPending: startingOrdersJob } = useMutation({
     mutationFn: async () => {
-      const r = await fetch('/api/embeddings/jobs/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'orders', batchSize: orderBatchSize }) });
+      const r = await fetch('/api/embeddings/jobs/start', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'orders', batchSize: orderBatchSize }) });
       const d = await r.json(); if (!r.ok) throw new Error(d.error || 'Failed'); return d;
     },
     onSuccess: () => { toast({ title: "Job Started", description: `Embedding orders in background` }); refetchOrdersJob(); queryClient.invalidateQueries({ queryKey: ['/api/embeddings/stats'] }); },
@@ -70,7 +70,7 @@ export function EmbeddingsManager({ searchOnly = false }: { searchOnly?: boolean
   const { mutate: stopInventoryJob } = useMutation({
     mutationFn: async () => {
       if (!(inventoryJob as any)?.id) throw new Error('No active job');
-      const r = await fetch(`/api/embeddings/jobs/${(inventoryJob as any).id}/stop`, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+      const r = await fetch(`/api/embeddings/jobs/${(inventoryJob as any).id}/stop`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' } });
       const d = await r.json(); if (!r.ok) throw new Error(d.error || 'Failed'); return d;
     },
     onSuccess: () => { toast({ title: "Job Stopped" }); refetchInventoryJob(); },
@@ -79,7 +79,7 @@ export function EmbeddingsManager({ searchOnly = false }: { searchOnly?: boolean
   const { mutate: stopOrdersJob } = useMutation({
     mutationFn: async () => {
       if (!(ordersJob as any)?.id) throw new Error('No active job');
-      const r = await fetch(`/api/embeddings/jobs/${(ordersJob as any).id}/stop`, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+      const r = await fetch(`/api/embeddings/jobs/${(ordersJob as any).id}/stop`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' } });
       const d = await r.json(); if (!r.ok) throw new Error(d.error || 'Failed'); return d;
     },
     onSuccess: () => { toast({ title: "Job Stopped" }); refetchOrdersJob(); },
@@ -94,7 +94,7 @@ export function EmbeddingsManager({ searchOnly = false }: { searchOnly?: boolean
 
   const { mutate: buildClipCatalog, isPending: startingClipBuild } = useMutation({
     mutationFn: async () => {
-      const r = await fetch('/api/brickspotter/build-catalog', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+      const r = await fetch('/api/brickspotter/build-catalog', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
       const d = await r.json(); if (!r.ok && r.status !== 409) throw new Error(d.error || 'Failed'); return { ...d, alreadyRunning: r.status === 409 };
     },
     onSuccess: (data: any) => {
