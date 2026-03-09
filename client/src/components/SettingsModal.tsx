@@ -696,6 +696,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const [schedulerInventoryOpen, setSchedulerInventoryOpen] = useState(false);
   const [schedulerOrdersOpen, setSchedulerOrdersOpen] = useState(false);
   const [schedulerChannelOpen, setSchedulerChannelOpen] = useState(false);
+  const [schedulerChannelBrickOwlOpen, setSchedulerChannelBrickOwlOpen] = useState(true);
   const [enrichmentEmbeddingsOpen, setEnrichmentEmbeddingsOpen] = useState(false);
   const [enrichmentUniversalOpen, setEnrichmentUniversalOpen] = useState(false);
   const [enrichmentPomOpen, setEnrichmentPomOpen] = useState(false);
@@ -3504,11 +3505,34 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         {schedulerChannelOpen ? <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" /> : <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" />}
                       </button>
                       {schedulerChannelOpen && (
-                      <div className="space-y-3 my-4">
-                      <div className="flex items-center justify-between gap-2">
+                      <div className="space-y-2 my-2">
+
+                        {/* BrickOwl channel group */}
+                        <div className="rounded-md border border-gray-700/60 bg-gray-800/30 overflow-hidden">
+                          {/* Channel sub-header */}
+                          <button
+                            onClick={() => setSchedulerChannelBrickOwlOpen(!schedulerChannelBrickOwlOpen)}
+                            className="w-full flex items-center justify-between gap-2 px-3 py-2.5 hover:bg-gray-700/30 transition-colors group"
+                            data-testid="button-scheduler-channel-brickowl-toggle"
+                          >
+                            <div className="flex items-center gap-2">
+                              <Globe className="w-3.5 h-3.5 text-green-400 shrink-0" />
+                              <span className="text-xs font-semibold text-gray-200">BrickOwl</span>
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${channelSyncEnabled ? 'bg-green-500/20 text-green-400' : 'bg-gray-700 text-gray-500'}`}>
+                                {channelSyncEnabled ? 'Enabled' : 'Disabled'}
+                              </span>
+                            </div>
+                            {schedulerChannelBrickOwlOpen
+                              ? <ChevronDown className="w-3.5 h-3.5 text-gray-500 group-hover:text-gray-300 transition-colors" />
+                              : <ChevronRight className="w-3.5 h-3.5 text-gray-500 group-hover:text-gray-300 transition-colors" />}
+                          </button>
+
+                          {schedulerChannelBrickOwlOpen && (
+                          <div className="px-3 pb-3 pt-1 space-y-3 border-t border-gray-700/40">
+                      <div className="flex items-center justify-between gap-2 pt-2">
                         <div>
                           <div className="flex items-center gap-1.5">
-                            <Label className="text-xs font-medium text-gray-300">Channel Sync (Daily)</Label>
+                            <Label className="text-xs font-medium text-gray-300">Daily Schedule</Label>
                             <Popover>
                               <PopoverTrigger asChild>
                                 <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
@@ -3516,8 +3540,8 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                 </button>
                               </PopoverTrigger>
                               <PopoverContent side="bottom" className="w-72 text-xs bg-gray-900 border-gray-700 p-3 space-y-1.5">
-                                <p className="font-semibold text-gray-200">Channel Sync</p>
-                                <p className="text-gray-400">Pushes your local database inventory outward to BrickOwl and any other sales channels. Compares local quantities and prices against each platform and updates only what has changed.</p>
+                                <p className="font-semibold text-gray-200">Channel Sync — BrickOwl</p>
+                                <p className="text-gray-400">Pushes your local database inventory outward to BrickOwl. Compares local quantities and prices against the platform and updates only what has changed.</p>
                                 <p className="text-gray-500">Should run after Inventory Sync has completed. Schedule it at least 1 hour later to ensure inbound data has settled.</p>
                               </PopoverContent>
                             </Popover>
@@ -3621,6 +3645,9 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           </button>
                         </div>
                       </div>
+                          </div>
+                          )}
+                        </div>
                       </div>
                       )}
                     </div>
