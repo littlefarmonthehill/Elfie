@@ -77,17 +77,6 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
     setBrowsePage(0);
   }, [browseSearch, browseDrawer]);
 
-  // Lock body scroll while browse drawer is open.
-  // iOS Safari shifts the entire page when the keyboard opens unless the body is fixed.
-  useEffect(() => {
-    if (!browseDrawer) return;
-    const scrollY = window.scrollY;
-    document.body.style.cssText = `position:fixed;top:-${scrollY}px;left:0;right:0;overflow:hidden;`;
-    return () => {
-      document.body.style.cssText = '';
-      window.scrollTo(0, scrollY);
-    };
-  }, [browseDrawer]);
 
   const { data: appSettings } = useQuery<{ timezone?: string }>({
     queryKey: ['/api/settings'],
@@ -402,23 +391,34 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
 
       </div>
 
-      {/* Browse Drawer — Lots / Parts / Categories */}
-      <Drawer open={!!browseDrawer} onOpenChange={(open) => { if (!open) setBrowseDrawer(null); }}>
-        <DrawerContent className="flex flex-col overflow-hidden" style={{ height: drawerH }}>
-          <DrawerHeader className="flex-shrink-0 pb-0">
-            <DrawerTitle className="flex items-center gap-2 text-base capitalize">
-              <Package className="w-4 h-4 text-blue-400" />
+      {/* Browse Overlay — Lots / Parts / Categories
+          Uses position:fixed inset-0 instead of a bottom-sheet drawer so iOS keyboard
+          repositioning (which shifts bottom:0 elements) cannot affect the layout. */}
+      {browseDrawer && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col bg-gray-950"
+          data-testid="overlay-browse"
+        >
+          {/* Header */}
+          <div className="flex-shrink-0 flex items-center gap-2 px-4 pt-4 pb-2 border-b border-gray-800">
+            <Package className="w-4 h-4 text-blue-400 flex-shrink-0" />
+            <span className="text-sm font-semibold text-gray-100 flex-1">
               {browseDrawer === 'lots' ? 'Inventory Lots' : browseDrawer === 'parts' ? 'Parts by Quantity' : 'Categories'}
-              {browseData && (
-                <span className="text-xs font-normal text-gray-400 ml-1">
-                  {browseData.total.toLocaleString()} total
-                </span>
-              )}
-            </DrawerTitle>
-          </DrawerHeader>
+            </span>
+            {browseData && (
+              <span className="text-xs text-gray-500">{browseData.total.toLocaleString()} total</span>
+            )}
+            <button
+              onClick={() => setBrowseDrawer(null)}
+              className="ml-2 text-gray-500 hover:text-gray-200 transition-colors"
+              data-testid="button-browse-close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
 
           {/* Search bar */}
-          <div className="px-4 pt-3 pb-2 flex-shrink-0">
+          <div className="flex-shrink-0 px-4 pt-3 pb-2">
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500 pointer-events-none" />
               <Input
@@ -427,7 +427,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 placeholder={browseDrawer === 'categories' ? 'Search categories…' : 'Search by part #, name, or color…'}
                 className="pl-8 pr-8 text-xs h-9 bg-gray-900 border-gray-700"
                 data-testid="input-browse-search"
-                onFocus={() => requestAnimationFrame(() => window.scrollTo(0, 0))}
+                autoFocus={false}
               />
               {browseSearchInput && (
                 <button
@@ -494,29 +494,17 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 {(browsePage * 100 + 1).toLocaleString()}–{Math.min((browsePage + 1) * 100, browseData.total).toLocaleString()} of {browseData.total.toLocaleString()}
               </span>
               <div className="flex items-center gap-2">
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  disabled={browsePage === 0}
-                  onClick={() => setBrowsePage(p => p - 1)}
-                  data-testid="button-browse-prev"
-                >
+                <Button size="icon" variant="ghost" disabled={browsePage === 0} onClick={() => setBrowsePage(p => p - 1)} data-testid="button-browse-prev">
                   <ChevronLeft className="w-4 h-4" />
                 </Button>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  disabled={(browsePage + 1) * 100 >= browseData.total}
-                  onClick={() => setBrowsePage(p => p + 1)}
-                  data-testid="button-browse-next"
-                >
+                <Button size="icon" variant="ghost" disabled={(browsePage + 1) * 100 >= browseData.total} onClick={() => setBrowsePage(p => p + 1)} data-testid="button-browse-next">
                   <ChevronRight className="w-4 h-4" />
                 </Button>
               </div>
             </div>
           )}
-        </DrawerContent>
-      </Drawer>
+        </div>
+      )}
 
       {/* Price-O-Matic Drawer */}
       <Drawer open={activeDrawer === 'priceomatic'} onOpenChange={(open) => !open && onDrawerChange(null)}>
